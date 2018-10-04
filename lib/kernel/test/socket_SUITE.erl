@@ -40,6 +40,7 @@
 
          %% API Options
          api_opt_simple_otp_options/1,
+         api_opt_simple_otp_controlling_process/1,
 
          %% API Operation Timeout
          api_to_connect_tcp4/1,
@@ -117,7 +118,8 @@ api_basic_cases() ->
 
 api_options_cases() ->
     [
-     api_opt_simple_otp_options
+     api_opt_simple_otp_options,
+     api_opt_simple_otp_controlling_process
     ].
 
 api_op_with_timeout_cases() ->
@@ -338,6 +340,7 @@ api_b_send_and_recv_tcp(Domain, Send, Recv) ->
     LSA       = #{family => Domain, addr => LAddr}, 
     Starter   = self(),
     ServerFun = fun() ->
+                        put(sname, "server"),
                         %% Create the listen socket
                         ServerLSock = 
                             case socket:open(Domain, stream, tcp) of
@@ -454,7 +457,7 @@ api_opt_simple_otp_options(_Config) when is_list(_Config) ->
     p("Create sockets"),
     S1 = sock_open(inet, stream, tcp),
     S2 = sock_open(inet, dgram,  udp),
-    
+
     Get = fun(S, Key) ->
                   socket:getopt(S, otp, Key)
           end,
@@ -464,6 +467,7 @@ api_opt_simple_otp_options(_Config) when is_list(_Config) ->
 
     p("Create dummy process"),
     Pid = spawn_link(fun() -> 
+                             put(sname, "dummy"),
                              receive
                                  die -> 
                                      exit(normal) 
@@ -529,6 +533,135 @@ api_opt_simple_otp_options(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Perform some simple getopt and setopt with the level = otp options
+api_opt_simple_otp_controlling_process(suite) ->
+    [];
+api_opt_simple_otp_controlling_process(doc) ->
+    [];
+api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
+    tc_begin(api_opt_simple_otp_controlling_process),
+
+    p("Create sockets"),
+    S1 = sock_open(inet, stream, tcp),
+    S2 = sock_open(inet, dgram,  udp),
+
+    Get = fun(S, Key) ->
+                  socket:getopt(S, otp, Key)
+          end,
+    Set = fun(S, Key, Val) ->
+                  socket:setopt(S, otp, Key, Val)
+          end,
+
+    AwaitStart =
+        fun() ->
+                p("await start command"),
+                receive
+                    {start, P, S} ->
+                        {P, S}
+                end
+        end,
+    AwaitContinue =
+        fun(Pid) ->
+                p("await continue command"),
+                receive
+                    {continue, Pid} -> 
+                        ok
+                end
+        end,
+    AwaitReady =
+        fun(Pid) ->
+                p("await ready confirmation from ~p", [Pid]),
+                receive
+                    {ready, Pid} -> 
+                        ok
+                end
+        end,
+    AwaitDie =
+        fun(Pid) ->
+                p("await die command"),
+                receive
+                    {die, Pid} -> 
+                        ok
+                end
+        end,
+    ClientStarter = 
+        fun() ->
+                put(sname, "client"),
+                Self = self(),
+                {Parent, Sock} = AwaitStart(),
+                p("verify parent ~p controlling", [Parent]),
+                {ok, Parent} = Get(Sock, controlling_process),
+                p("attempt invalid control transfer (to self)"),
+                {error, not_owner} = Set(Sock, controlling_process, self()),
+                p("verify parent ~p (still) controlling", [Parent]),
+                {ok, Parent} = Get(Sock, controlling_process),
+                p("announce ready"),
+                Parent ! {ready, self()},
+
+                AwaitContinue(Parent),
+                p("verify self controlling"),
+                {ok, Self} = Get(Sock, controlling_process),
+                p("transfer control to parent ~p", [Parent]),
+                ok = Set(Sock, controlling_process, Parent),
+                p("attempt invalid control transfer (to self)"),
+                {error, not_owner} = Set(Sock, controlling_process, self()),
+                p("verify parent ~p controlling", [Parent]),
+                {ok, Parent} = Get(Sock, controlling_process),
+                p("announce ready"),
+                Parent ! {ready, self()},
+
+                AwaitDie(Parent),
+                p("done"),
+                exit(normal)
+        end,
+
+    Tester = 
+        fun(Sock, Client) ->
+                p("start"),
+                Self = self(),
+                p("verify self controlling"),
+                {ok, Self} = Get(Sock, controlling_process),
+                p("announce start"),
+                Client ! {start, Self, Sock},
+                AwaitReady(Client),
+
+                p("transfer control to client ~p", [Client]),
+                ok = Set(Sock, controlling_process, Client),
+                p("verify client ~p controlling", [Client]),
+                {ok, Client} = Get(Sock, controlling_process),
+                p("attempt invalid control transfer (to self)"),
+                {error, not_owner} = Set(Sock, controlling_process, self()),
+                p("announce continue"),
+                Client ! {continue, Self},
+                AwaitReady(Client),
+
+                p("verify self controlling"),
+                {ok, Self} = Get(Sock, controlling_process),
+                p("announce die"),
+                Client ! {die, Self},
+                p("done"),
+                ok
+        end,
+
+    p("Create Worker Process(s)"),
+    Pid1 = spawn_link(ClientStarter),
+    Pid2 = spawn_link(ClientStarter),
+
+    p("Test stream/tcp "),
+    Tester(S1, Pid1),
+
+    p("Test dgram/udp "),
+    Tester(S2, Pid2),
+
+    p("close sockets"),
+    sock_close(S1),
+    sock_close(S2),
+
+    tc_end().
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% This test case is intended to test the connect timeout option
 %% on an IPv4 TCP (stream) socket.
 api_to_connect_tcp4(suite) ->
@@ -567,7 +700,7 @@ api_to_connect_tcp(Domain) ->
     LocalSA    = #{family => Domain, addr => LocalAddr}, 
     ServerName = f("~s:server", [get_tc_name()]),
     Server = spawn_link(fun() ->
-                                set_tc_name(ServerName),
+                                put(sname, ServerName),
                                 p("open"),
                                 LSock = sock_open(Domain, stream, tcp),
                                 p("bind"),
@@ -826,7 +959,7 @@ api_to_recv_tcp(Domain) ->
     sock_listen(LSock),
     ClientName = f("~s:client", [get_tc_name()]),
     Client = spawn_link(fun() ->
-                                set_tc_name(ClientName),
+                                put(sname, ClientName),
                                 p("open"),
                                 CSock      = sock_open(Domain, stream, tcp),
                                 p("bind"),
@@ -1013,7 +1146,7 @@ api_to_recvmsg_tcp(Domain) ->
     sock_listen(LSock),
     ClientName = f("~s:client", [get_tc_name()]),
     Client = spawn_link(fun() ->
-                                set_tc_name(ClientName),
+                                put(sname, ClientName),
                                 p("open"),
                                 CSock      = sock_open(Domain, stream, tcp),
                                 p("bind"),
@@ -1215,7 +1348,12 @@ p(F, A) ->
     TcName = 
         case get(tc_name) of
             undefined ->
-                "";
+                case get(sname) of
+                    undefined ->
+                        "";
+                    SName when is_list(SName) ->
+                        SName
+                end;
             Name when is_list(Name) ->
                 Name
         end,
