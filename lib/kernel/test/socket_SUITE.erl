@@ -71,6 +71,17 @@
 %% -export([]).
 
 
+-type evaluator_state() :: term().
+-type command_fun() :: 
+        fun((State :: evaluator_state()) -> ok) |
+        fun((State :: evaluator_state()) -> {ok, evaluator_state()}) |
+        fun((State :: evaluator_state()) -> {error, term()}).
+
+-type command() :: #{desc  := string(),
+                     cmd   := command_fun()
+                    }.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -define(BASIC_REQ, <<"hejsan">>).
@@ -178,7 +189,10 @@ api_b_open_and_close_udp4(doc) ->
     [];
 api_b_open_and_close_udp4(_Config) when is_list(_Config) ->
     tc_begin(api_b_open_and_close_udp4),
-    ok = api_b_open_and_close(inet, dgram, udp),
+    State = #{domain   => inet,
+              type     => dgram,
+              protocol => udp},
+    ok = api_b_open_and_close(State),
     tc_end().
 
 
@@ -192,34 +206,103 @@ api_b_open_and_close_tcp4(doc) ->
     [];
 api_b_open_and_close_tcp4(_Config) when is_list(_Config) ->
     tc_begin(api_b_open_and_close_tcp4),
-    ok = api_b_open_and_close(inet, stream, tcp),
+    State = #{domain   => inet,
+              type     => stream,
+              protocol => tcp},
+    ok = api_b_open_and_close(State),
     tc_end().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_b_open_and_close(Domain, Type, Proto) ->
-    Socket = case socket:open(Domain, Type, Proto) of
-                 {ok, S} ->
-                     S;
-                 {error, Reason} ->
-                     ?FAIL({open, Reason})
-             end,
-    %% Domain is not available on all platforms: 
-    case socket:getopt(Socket, socket, domain) of
-	{ok, Domain} ->
-	    ok;
-	{error, einval} ->
-	    ok;
-	Else ->
-	    ?FAIL({getopt, domain, Else})
-    end,
-    {ok, Type}   = socket:getopt(Socket, socket, type),
-    {ok, Proto}  = socket:getopt(Socket, socket, protocol),
-    Self = self(),
-    {ok, Self}   = socket:getopt(Socket, otp, controlling_process),
-    ok = socket:close(Socket),
-    ok.
+api_b_open_and_close(InitState) ->
+    Seq = 
+        [
+         #{desc => "open",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol} = S) -> 
+                           Res = socket:open(Domain, Type, Protocol), 
+                           {ok, {S, Res}} 
+                   end},
+         #{desc => "validate open",
+           cmd  => fun({S, {ok, Sock}}) -> 
+                           NewS = S#{socket => Sock},
+                           {ok, NewS};
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end},
+         #{desc => "get domain (maybe)",
+           cmd  => fun(#{socket := Sock} = S) ->
+                           Res = socket:getopt(Sock, socket, domain),
+                           {ok, {S, Res}}
+                   end},
+         #{desc => "validate domain (maybe)",
+           cmd  => fun({#{domain := Domain} = S, {ok, Domain}}) -> 
+                           {ok, S};
+                      ({#{domain := ExpDomain}, {ok, Domain}}) ->
+                           {error, {unexpected_domain, ExpDomain, Domain}};
+                      %% Some platforms do not support this option
+                      ({S, {error, einval}}) ->
+                           {ok, S};
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end},
+         #{desc => "get type",
+           cmd  => fun(#{socket := Sock} = State) ->
+                           Res = socket:getopt(Sock, socket, type), 
+                           {ok, {State, Res}}
+                   end},
+         #{desc => "validate type",
+           cmd  => fun({#{type := Type} = State, {ok, Type}}) ->
+                           {ok, State};
+                      ({#{type := ExpType}, {ok, Type}}) ->
+                           {error, {unexpected_type, ExpType, Type}};
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end},
+         #{desc => "get protocol",
+           cmd  => fun(#{socket := Sock} = State) ->
+                           Res = socket:getopt(Sock, socket, protocol),
+                           {ok, {State, Res}}
+                   end},
+         #{desc => "validate protocol",
+           cmd  => fun({#{protocol := Protocol} = State, {ok, Protocol}}) ->
+                           {ok, State};
+                      ({#{protocol := ExpProtocol}, {ok, Protocol}}) ->
+                           {error, {unexpected_type, ExpProtocol, Protocol}};
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end},
+         #{desc => "get controlling-process",
+           cmd  => fun(#{socket := Sock} = State) ->
+                           Res = socket:getopt(Sock, otp, controlling_process),
+                           {ok, {State, Res}}
+                   end},
+         #{desc => "validate controlling-process",
+           cmd  => fun({State, {ok, Pid}}) ->
+                           case self() of
+                               Pid ->
+                                   {ok, State};
+                               _ ->
+                                   {error, {unexpected_owner, Pid}}
+                           end;
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{socket := Sock} = State) ->
+                           Res = socket:close(Sock),
+                           {ok, {State, Res}}
+                   end},
+         #{desc => "validate socket close",
+           cmd  => fun({_, ok}) ->
+                           {ok, normal};
+                      ({_, {error, _} = ERROR}) ->
+                           ERROR
+                   end}],
+    Evaluator = evaluator_start("tester", Seq, InitState),
+    ok = await_evaluator_finish([Evaluator]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1228,6 +1311,97 @@ which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
 which_addr2(Domain, [_|IFO]) ->
     which_addr2(Domain, IFO).
    
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% An evaluator is a process that executes a command sequence.
+%% A test case will consist of atleast one evaluator (one for
+%% each actor).
+%% The evaluator process *always* run locally. Which means that
+%% it will act as a "proxy" for remote nodes in necessary.
+%% When the command sequence has been processed, the final state
+%% will be used as exit reason.
+%% A successful command shall evaluate to ok | {ok, NewState} 
+
+-spec evaluator_start(Name, Seq, Init) -> {Pid, MRef} when
+      Name :: string(),
+      Seq  :: [command()],
+      Init :: evaluator_state(),
+      Pid  :: pid(),
+      MRef :: reference().
+                             
+evaluator_start(Name, Seq, Init) 
+  when is_list(Name) andalso is_list(Seq) andalso (Seq =/= []) ->
+    erlang:spawn_monitor(fun() -> evaluator_init(Name, Seq, Init) end).
+
+evaluator_init(Name, Seq, Init) ->
+    put(sname, Name),
+    evaluator_loop(1, Seq, Init).
+
+evaluator_loop(_ID, [], FinalState) ->
+    exit(FinalState);
+evaluator_loop(ID, [#{desc := Desc,
+                      cmd  := Cmd}|Cmds], State) when is_function(Cmd, 1) ->
+    ei("evaluate command ~2w: ~s", [ID, Desc]),
+    try Cmd(State) of
+        ok ->
+            evaluator_loop(ID + 1, Cmds, State);
+        {ok, NewState} ->
+            evaluator_loop(ID + 1, Cmds, NewState);
+        {error, Reason} ->
+            ee("command ~w failed: "
+               "~n   Reason: ~p", [ID, Reason]),
+            exit({command_failed, ID, Reason, State})
+    catch
+        C:E:S ->
+            ee("command ~w crashed: "
+               "~n   Class:      ~p"
+               "~n   Error:      ~p"
+               "~n   Call Stack: ~p", [ID, C, E, S]),
+            exit({command_crashed, ID, {C,E,S}, State})
+    end.
+
+await_evaluator_finish(Evs) ->
+    await_evaluator_finish(Evs, []).
+
+await_evaluator_finish([], []) ->
+    ok;
+await_evaluator_finish([], Fails) ->
+    Fails;
+await_evaluator_finish(Evs, Fails) ->
+    receive
+        {'DOWN', _MRef, process, Pid, normal} ->
+            case lists:keydelete(Pid, 1, Evs) of
+                Evs ->
+                    p("unknown process ~p died (normal)", [Pid]),
+                    await_evaluator_finish(Evs, Fails);
+                NewEvs ->
+                    p("evaluator ~p success", [Pid]),
+                    await_evaluator_finish(NewEvs, Fails)
+            end;
+        {'DOWN', _MRef, process, Pid, Reason} ->
+            case lists:keydelete(Pid, 1, Evs) of
+                Evs ->
+                    p("unknown process ~p died: "
+                        "~n   ~p", [Pid, Reason]),
+                    await_evaluator_finish(Evs, Fails);
+                NewEvs ->
+                    p("Evaluator ~p failed", [Pid]),
+                    await_evaluator_finish(NewEvs, [{Pid, Reason}|Fails])
+            end
+    end.
+
+
+ei(F, A) ->
+    eprint("", F, A).
+
+ee(F, A) ->
+    eprint("<ERROR> ", F, A).
+
+eprint(Prefix, F, A) ->
+    io:format(user, "[~s][~p] ~s" ++ F ++ "~n", [get(sname), self(), Prefix | A]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
