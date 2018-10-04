@@ -354,6 +354,11 @@ amb_get_alias(#b_var{}=Arg, Lbl, State) ->
         error ->
             {Arg, State}
     end;
+amb_get_alias(#b_remote{mod=Mod0,name=Name0}=Arg0, Lbl, State0) ->
+    {Mod, State1} = amb_get_alias(Mod0, Lbl, State0),
+    {Name, State} = amb_get_alias(Name0, Lbl, State1),
+    Arg = Arg0#b_remote{mod=Mod,name=Name},
+    {Arg, State};
 amb_get_alias(Arg, _Lbl, State) ->
     {Arg, State}.
 
@@ -391,14 +396,21 @@ amb_insert_promotions(Blocks0, State) ->
                 Block = maps:get(Lbl, Blocks),
 
                 Alias = Promotion#b_set.dst,
-                {Before, After} = splitwith(fun(#b_set{args=Args}) ->
-                                                    not member(Alias, Args)
-                                            end, Block#b_blk.is),
+                {Before, After} = splitwith(
+                                    fun(#b_set{args=Args}) ->
+                                            not is_var_in_args(Alias, Args)
+                                    end, Block#b_blk.is),
                 Is = Before ++ [Promotion | After],
 
                 maps:put(Lbl, Block#b_blk{is=Is}, Blocks)
         end,
     maps:fold(F, Blocks0, State#amb.promotions).
+
+is_var_in_args(Var, [Var | _]) -> true;
+is_var_in_args(Var, [#b_remote{name=Var} | _]) -> true;
+is_var_in_args(Var, [#b_remote{mod=Var} | _]) -> true;
+is_var_in_args(Var, [_ | Args]) -> is_var_in_args(Var, Args);
+is_var_in_args(_Var, []) -> false.
 
 %%%
 %%% Subpasses
@@ -732,6 +744,10 @@ aca_cs_args([Arg | Args], VRs) ->
 aca_cs_args([], _VRs) ->
     [].
 
+aca_cs_arg(#b_remote{mod=Mod0,name=Name0}=Rem, VRs) ->
+    Mod = aca_cs_arg(Mod0, VRs),
+    Name = aca_cs_arg(Name0, VRs),
+    Rem#b_remote{mod=Mod,name=Name};
 aca_cs_arg(Arg, VRs) ->
     case VRs of
         #{ Arg := New } -> New;
