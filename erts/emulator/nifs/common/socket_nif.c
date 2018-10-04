@@ -2391,6 +2391,7 @@ ERL_NIF_TERM esock_atom_loopback;
 ERL_NIF_TERM esock_atom_lowdelay;
 ERL_NIF_TERM esock_atom_mincost;
 ERL_NIF_TERM esock_atom_not_found;
+ERL_NIF_TERM esock_atom_not_owner;
 ERL_NIF_TERM esock_atom_ok;
 ERL_NIF_TERM esock_atom_oob;
 ERL_NIF_TERM esock_atom_origdstaddr;
@@ -5074,7 +5075,7 @@ ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
                                    SocketDescriptor* descP,
                                    ERL_NIF_TERM      eVal)
 {
-    ErlNifPid     newCtrlPid;
+    ErlNifPid     caller, newCtrlPid;
     ErlNifMonitor newCtrlMon;
     int           xres;
 
@@ -5083,6 +5084,16 @@ ERL_NIF_TERM nsetopt_otp_ctrl_proc(ErlNifEnv*        env,
             "\r\n   eVal: %T"
             "\r\n", eVal) );
 
+    /* Before we begin, ensure that caller is (current) controlling-process */
+    if (enif_self(env, &caller) == NULL)
+        return esock_make_error(env, atom_exself);
+
+    if (!compare_pids(env, &descP->ctrlPid, &caller)) {
+        SSDBG( descP, ("SOCKET", "nsetopt_otp_ctrl_proc -> not owner (%T)\r\n",
+                       descP->ctrlPid) );
+        return esock_make_error(env, esock_atom_not_owner);
+    }
+    
     if (!GET_LPID(env, eVal, &newCtrlPid)) {
         esock_warning_msg("Failed get pid of new controlling process\r\n");
         return esock_make_error(env, esock_atom_einval);
@@ -15413,6 +15424,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     esock_atom_lowdelay    = MKA(env, "lowdelay");
     esock_atom_mincost     = MKA(env, "mincost");
     esock_atom_not_found   = MKA(env, "not_found");
+    esock_atom_not_owner   = MKA(env, "not_owner");
     esock_atom_ok          = MKA(env, "ok");
     esock_atom_oob         = MKA(env, "oob");
     esock_atom_origdstaddr = MKA(env, "origdstaddr");

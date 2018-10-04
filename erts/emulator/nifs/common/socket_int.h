@@ -103,8 +103,10 @@ typedef unsigned int BOOLEAN_T;
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms
  */
+extern ERL_NIF_TERM esock_atom_accept;
 extern ERL_NIF_TERM esock_atom_addr;
 extern ERL_NIF_TERM esock_atom_any;
+extern ERL_NIF_TERM esock_atom_connect;
 extern ERL_NIF_TERM esock_atom_credentials;
 extern ERL_NIF_TERM esock_atom_ctrl;
 extern ERL_NIF_TERM esock_atom_ctrunc;
@@ -129,6 +131,8 @@ extern ERL_NIF_TERM esock_atom_local;
 extern ERL_NIF_TERM esock_atom_loopback;
 extern ERL_NIF_TERM esock_atom_lowdelay;
 extern ERL_NIF_TERM esock_atom_mincost;
+extern ERL_NIF_TERM esock_atom_not_found;
+extern ERL_NIF_TERM esock_atom_not_owner;
 extern ERL_NIF_TERM esock_atom_ok;
 extern ERL_NIF_TERM esock_atom_oob;
 extern ERL_NIF_TERM esock_atom_origdstaddr;
@@ -138,11 +142,18 @@ extern ERL_NIF_TERM esock_atom_port;
 extern ERL_NIF_TERM esock_atom_protocol;
 extern ERL_NIF_TERM esock_atom_raw;
 extern ERL_NIF_TERM esock_atom_rdm;
+extern ERL_NIF_TERM esock_atom_recv;
+extern ERL_NIF_TERM esock_atom_recvfrom;
+extern ERL_NIF_TERM esock_atom_recvmsg;
 extern ERL_NIF_TERM esock_atom_reliability;
 extern ERL_NIF_TERM esock_atom_rights;
 extern ERL_NIF_TERM esock_atom_scope_id;
 extern ERL_NIF_TERM esock_atom_sctp;
 extern ERL_NIF_TERM esock_atom_sec;
+extern ERL_NIF_TERM esock_atom_select_sent;
+extern ERL_NIF_TERM esock_atom_send;
+extern ERL_NIF_TERM esock_atom_sendmsg;
+extern ERL_NIF_TERM esock_atom_sendto;
 extern ERL_NIF_TERM esock_atom_seqpacket;
 extern ERL_NIF_TERM esock_atom_socket;
 extern ERL_NIF_TERM esock_atom_spec_dst;
