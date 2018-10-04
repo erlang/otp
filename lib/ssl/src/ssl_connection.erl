@@ -334,17 +334,12 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 %%====================================================================
 %% Alert and close handling
 %%====================================================================
-handle_own_alert(Alert, Version, StateName, 
+handle_own_alert(Alert, _, StateName,
 		 #state{role = Role,
-                        transport_cb = Transport,
-                        socket = Socket,
                         protocol_cb = Connection,
-                        connection_states = ConnectionStates,
                         ssl_options = SslOpts} = State) ->
     try %% Try to tell the other side
-	{BinMsg, _} =
-            Connection:encode_alert(Alert, Version, ConnectionStates),
-	Connection:send(Transport, Socket, BinMsg)
+        send_alert(Alert, StateName, State)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
@@ -1160,24 +1155,20 @@ handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when i
     %% we must recive the close alert from the peer before releasing the 
     %% transport socket.
     {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
-handle_call({close, _} = Close, From, StateName, State, Connection) ->
+handle_call({close, _} = Close, From, StateName, State, _Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
-    Result = Connection:terminate(Close, StateName, State#state{terminated = true}),
+    Result = terminate(Close, StateName, State),
     stop_and_reply(
       {shutdown, normal},
-      {reply, From, Result}, State);
-handle_call({shutdown, How0}, From, _,
+      {reply, From, Result}, State#state{terminated = true});
+handle_call({shutdown, How0}, From, StateName,
 	    #state{transport_cb = Transport,
-		   negotiated_version = Version,
-		   connection_states = ConnectionStates,
-		   socket = Socket} = State, Connection) ->
+		   socket = Socket} = State, _) ->
     case How0 of
 	How when How == write; How == both ->	    
-	    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-	    {BinMsg, _} =
-		Connection:encode_alert(Alert, Version, ConnectionStates),
-	    Connection:send(Transport, Socket, BinMsg);
+            send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+                       StateName, State);
 	_ ->
 	    ok
     end,
@@ -1343,14 +1334,20 @@ terminate({shutdown, own_alert}, _StateName, #state{
 	_ ->
 	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
     end;
+terminate(downgrade = Reason, connection, #state{protocol_cb = Connection,
+                                        transport_cb = Transport, socket = Socket
+                                       } = State) ->
+    handle_trusted_certs_db(State),
+    Connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, connection, #state{protocol_cb = Connection,
-				     connection_states = ConnectionStates, 
-				     ssl_options = #ssl_options{padding_check = Check},
-				     transport_cb = Transport, socket = Socket
-				    } = State) ->
+                                                connection_states = ConnectionStates,
+                                                ssl_options = #ssl_options{padding_check = Check},
+                                                transport_cb = Transport, socket = Socket
+                                               } = State) ->
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
-    ok = Connection:send_alert_in_connection(Alert, State),
+    %% Send the termination ALERT if possible
+    catch (ok = Connection:send_alert_in_connection(Alert, State)),
     Connection:close(Reason, Socket, Transport, ConnectionStates, Check);
 terminate(Reason, _StateName, #state{transport_cb = Transport, protocol_cb = Connection,
 				     socket = Socket 
@@ -1387,6 +1384,11 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+send_alert(Alert, connection, #state{protocol_cb = Connection} = State) ->
+     Connection:send_alert_in_connection(Alert, State);
+send_alert(Alert, _, #state{protocol_cb = Connection} = State) ->
+    Connection:send_alert(Alert, State).
+
 connection_info(#state{sni_hostname = SNIHostname, 
 		       session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite, ecc = ECCCurve},

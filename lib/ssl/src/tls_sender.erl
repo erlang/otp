@@ -28,7 +28,8 @@
 -include("ssl_api.hrl").
 
 %% API
--export([start/0, start/1, initialize/2, send_data/2, send_alert/2, renegotiate/1,
+-export([start/0, start/1, initialize/2, send_data/2, send_alert/2,
+         send_and_ack_alert/2, renegotiate/1,
          update_connection_state/3, dist_tls_socket/1, dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -89,11 +90,19 @@ send_data(Pid, AppData) ->
 
 %%--------------------------------------------------------------------
 -spec send_alert(pid(), #alert{}) -> _. 
-%% Description: TLS connection process wants to end an Alert
+%% Description: TLS connection process wants to send an Alert
 %% in the connection state.
 %%--------------------------------------------------------------------
 send_alert(Pid, Alert) ->
     gen_statem:cast(Pid, Alert).
+
+%%--------------------------------------------------------------------
+-spec send_and_ack_alert(pid(), #alert{}) -> ok.
+%% Description: TLS connection process wants to send an Alert
+%% in the connection state and recive an ack.
+%%--------------------------------------------------------------------
+send_and_ack_alert(Pid, Alert) ->
+    gen_statem:cast(Pid, {ack_alert, Alert}).
 
 %%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.
@@ -207,6 +216,10 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle}, #data{connec
     process_flag(priority, normal),
     Events = dist_data_events(DHandle, []),
     {next_state, ?FUNCTION_NAME, StateData#data{dist_handle = DHandle}, [{reply, From, ok} | Events]};
+connection(cast, {ack_alert, #alert{} = Alert}, #data{connection_pid = Pid} =StateData0) ->
+    StateData = send_tls_alert(Alert, StateData0),
+    Pid ! {self(), ack_alert},
+    {next_state, ?FUNCTION_NAME, StateData};
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData};
