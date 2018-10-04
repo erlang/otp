@@ -552,6 +552,7 @@ stop(Reason,State) ->
 do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
     %% Make sure we don't have any outstanding messages before doing the restart.
     flush(),
+    erts_internal:erase_persistent_terms(),
     boot(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();

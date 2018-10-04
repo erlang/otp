@@ -92,6 +92,7 @@ MODULES= \
 	port_SUITE \
 	port_bif_SUITE \
 	prim_eval_SUITE \
+	persistent_term_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
 	receive_SUITE \

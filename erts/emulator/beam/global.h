@@ -1242,6 +1242,13 @@ Sint erts_re_set_loop_limit(Sint limit);
 void erts_init_bif_binary(void);
 Sint erts_binary_set_loop_limit(Sint limit);
 
+/* erl_bif_persistent.c */
+void erts_init_bif_persistent_term(void);
+Uint erts_persistent_term_count(void);
+void erts_init_persistent_dumping(void);
+extern ErtsLiteralArea** erts_persistent_areas;
+extern Uint erts_num_persistent_areas;
+
 /* external.c */
 void erts_init_external(void);
 

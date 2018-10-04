@@ -97,6 +97,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
+    {   "update_persistent_term_permission",    NULL                    },
+    {   "persistent_term_delete_permission",    NULL                    },
     {   "code_write_permission",                NULL                    },
     {	"purge_state",		      		NULL			},
     {	"proc_status",				"pid"			},

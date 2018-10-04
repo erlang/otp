@@ -277,6 +277,9 @@ type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
+
 #
 # Types used for special emulators
 #

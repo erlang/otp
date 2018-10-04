@@ -52,6 +52,7 @@ XML_REF3_EFILES = \
 	erlang.xml \
 	erl_tracer.xml \
 	init.xml \
+	persistent_term.xml \
 	zlib.xml
 
 XML_REF3_FILES = \
@@ -63,6 +64,7 @@ XML_REF3_FILES = \
 	erlang.xml \
 	erts_alloc.xml  \
 	init.xml \
+	persistent_term.xml \
 	zlib.xml
 
 XML_PART_FILES = \
