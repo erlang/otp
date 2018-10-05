@@ -305,6 +305,7 @@ api_b_open_and_close(InitState) ->
     ok = await_evaluator_finish([Evaluator]).
 
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Basically send and receive on an IPv4 UDP (dgram) socket using
@@ -321,7 +322,10 @@ api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
     Recv = fun(Sock) ->
                    socket:recvfrom(Sock)
            end,
-    ok = api_b_send_and_recv_udp(inet, Send, Recv),
+    InitState = #{domain => inet,
+                  send   => Send,
+                  recv   => Recv},
+    ok = api_b_send_and_recv_udp(InitState),
     tc_end().
 
 
@@ -352,27 +356,100 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
                            ERROR
                    end
            end,
-    ok = api_b_send_and_recv_udp(inet, Send, Recv),
+    InitState = #{domain => inet,
+                  send   => Send,
+                  recv   => Recv},
+    ok = api_b_send_and_recv_udp(InitState),
     tc_end().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_b_send_and_recv_udp(Domain, Send, Recv) ->
-    SockSrc = sock_open(Domain, dgram, udp),
-    LAddr   = which_local_addr(Domain),
-    LSA     = #{family => Domain, addr => LAddr}, 
-    sock_bind(SockSrc, LSA),
-    SockDst = sock_open(Domain, dgram, udp),
-    sock_bind(SockDst, LSA),
-    Dst     = sock_sockname(SockDst),
-    ok      = Send(SockSrc, ?BASIC_REQ, Dst),
-    {ok, {Src, ?BASIC_REQ}} = Recv(SockDst),
-    ok      = Send(SockDst, ?BASIC_REP, Src),
-    {ok, {Dst, ?BASIC_REP}} = Recv(SockSrc),
-    socket:close(SockSrc),
-    socket:close(SockDst),
-    ok.
+api_b_send_and_recv_udp(InitState) ->
+    %% SockSrc = sock_open(Domain, dgram, udp),
+    %% LAddr   = which_local_addr(Domain),
+    %% LSA     = #{family => Domain, addr => LAddr}, 
+    %% sock_bind(SockSrc, LSA),
+    %% SockDst = sock_open(Domain, dgram, udp),
+    %% sock_bind(SockDst, LSA),
+    %% Dst     = sock_sockname(SockDst),
+    %% ok      = Send(SockSrc, ?BASIC_REQ, Dst),
+    %% {ok, {Src, ?BASIC_REQ}} = Recv(SockDst),
+    %% ok      = Send(SockDst, ?BASIC_REP, Src),
+    %% {ok, {Dst, ?BASIC_REP}} = Recv(SockSrc),
+    %% socket:close(SockSrc),
+    %% socket:close(SockDst),
+    Seq = 
+        [
+         #{desc => "local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "open src socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           Sock = sock_open(Domain, dgram, udp),
+                           SASrc = sock_sockname(Sock),
+                           {ok, State#{sock_src => Sock, sa_src => SASrc}}
+                   end},
+         #{desc => "bind src",
+           cmd  => fun(#{sock_src := Sock, lsa := LSA}) ->
+                           sock_bind(Sock, LSA),
+                           ok
+                   end},
+         #{desc => "sockname src socket",
+           cmd  => fun(#{sock_src := Sock} = State) ->
+                           SASrc = sock_sockname(Sock),
+                           %% ei("src sockaddr: ~p", [SASrc]),
+                           {ok, State#{sa_src => SASrc}}
+                   end},
+         #{desc => "open dst socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           Sock = sock_open(Domain, dgram, udp),
+                           {ok, State#{sock_dst => Sock}}
+                   end},
+         #{desc => "bind dst",
+           cmd  => fun(#{sock_dst := Sock, lsa := LSA}) ->
+                           sock_bind(Sock, LSA),
+                           ok
+                   end},
+         #{desc => "sockname dst socket",
+           cmd  => fun(#{sock_dst := Sock} = State) ->
+                           SADst = sock_sockname(Sock),
+                           %% ei("dst sockaddr: ~p", [SADst]),
+                           {ok, State#{sa_dst => SADst}}
+                   end},
+         #{desc => "send req (to dst)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, send := Send}) ->
+                           ok = Send(Sock, ?BASIC_REQ, Dst)
+                   end},
+         #{desc => "recv req (from src)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv} = State) ->
+                           {ok, {Src, ?BASIC_REQ}} = Recv(Sock),
+                           ok
+                   end},
+         #{desc => "send rep (to src)",
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, send := Send}) ->
+                           ok = Send(Sock, ?BASIC_REP, Src)
+                   end},
+         #{desc => "recv rep (from dst)",
+           cmd  => fun(#{sock_src := Sock, sa_dst := Dst, recv := Recv}) ->
+                           {ok, {Dst, ?BASIC_REP}} = Recv(Sock),
+                           ok
+                   end},
+         #{desc => "close src socket",
+           cmd  => fun(#{sock_src := Sock}) ->
+                           ok = socket:close(Sock)
+                   end},
+         #{desc => "close dst socket",
+           cmd  => fun(#{sock_dst := Sock}) ->
+                           ok = socket:close(Sock),
+                           {ok, normal}
+                   end}
+        ],
+    Evaluator = evaluator_start("tester", Seq, InitState),
+    ok = await_evaluator_finish([Evaluator]).
 
 
 
