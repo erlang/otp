@@ -104,8 +104,11 @@ typedef unsigned int BOOLEAN_T;
  * "Global" atoms
  */
 extern ERL_NIF_TERM esock_atom_accept;
+extern ERL_NIF_TERM esock_atom_acceptconn;
 extern ERL_NIF_TERM esock_atom_addr;
 extern ERL_NIF_TERM esock_atom_any;
+extern ERL_NIF_TERM esock_atom_bindtodevice;
+extern ERL_NIF_TERM esock_atom_broadcast;
 extern ERL_NIF_TERM esock_atom_connect;
 extern ERL_NIF_TERM esock_atom_credentials;
 extern ERL_NIF_TERM esock_atom_ctrl;

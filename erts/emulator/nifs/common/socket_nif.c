@@ -603,6 +603,9 @@ typedef union {
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
 
+#define SOCKET_SUPPORTS_OPTIONS 0x0001
+
+
 
 /* =================================================================== *
  *                                                                     *
@@ -931,6 +934,14 @@ static ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM nsupports(ErlNifEnv* env, int key);
+static ERL_NIF_TERM nsupports_options(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_ipv6(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env);
+static ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env);
 
 static ERL_NIF_TERM nopen(ErlNifEnv* env,
                           int        domain,
@@ -2375,8 +2386,11 @@ static char str_exsend[]         = "exsend";     // failed send
 
 /* *** "Global" Atoms *** */
 ERL_NIF_TERM esock_atom_accept;
+ERL_NIF_TERM esock_atom_acceptconn;
 ERL_NIF_TERM esock_atom_addr;
 ERL_NIF_TERM esock_atom_any;
+ERL_NIF_TERM esock_atom_bindtodevice;
+ERL_NIF_TERM esock_atom_broadcast;
 ERL_NIF_TERM esock_atom_connect;
 ERL_NIF_TERM esock_atom_credentials;
 ERL_NIF_TERM esock_atom_ctrl;
@@ -2632,18 +2646,190 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  * Currently only one key is "supported": options
  * That results in a list of all *known options* (known by us) and if
  * the platform supports (OS) it or not.
+ *
+ * Key
+ * ---
+ * options         [{socket, [{Opt, boolean()}]},
+ *                  {ip,     [{Opt, boolean()}]},
+ *                  {ipv6,   [{Opt, boolean()}]},
+ *                  {tcp,    [{Opt, boolean()}]},
+ *                  {udp,    [{Opt, boolean()}]},
+ *                  {sctp,   [{Opt, boolean()}]}]
  */
 
 static
-ERL_NIF_TERM nif_support(ErlNifEnv*         env,
-                         int                argc,
-                         const ERL_NIF_TERM argv[])
+ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
+                          int                argc,
+                          const ERL_NIF_TERM argv[])
 {
-    if (argc != 1) {
+    int key;
+    
+    SGDBG( ("SOCKET", "nif_supports -> entry with %d args\r\n", argc) );
+    
+    /* Extract arguments and perform preliminary validation */
+
+    if ((argc != 1) ||
+        !GET_INT(env, argv[0], &key)) {
         return enif_make_badarg(env);
-    } else {
-        return MKEL(env); // PLACEHOLDER
     }
+
+    return nsupports(env, key);
+}
+
+
+
+/* nopen - create an endpoint for communication
+ *
+ * Assumes the input has been validated.
+ *
+ * Normally we want debugging on (individual) sockets to be controlled
+ * by the sockets own debug flag. But since we don't even have a socket
+ * yet, we must use the global debug flag.
+ */
+static
+ERL_NIF_TERM nsupports(ErlNifEnv* env, int key)
+{
+    ERL_NIF_TERM result;
+
+    SGDBG( ("SOCKET", "nsupports -> entry with 0x%lX\r\n", key) );
+
+    switch (key) {
+    case SOCKET_SUPPORTS_OPTIONS:
+        result = nsupports_options(env);
+        break;
+
+    default:
+        result = esock_atom_false;
+        break;
+    }
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM nsupports_options(ErlNifEnv* env)
+{
+    ERL_NIF_TERM sockOpts  = nsupports_options_socket(env);
+    ERL_NIF_TERM sockOptsT = MKT2(env, esock_atom_socket, sockOpts);
+    ERL_NIF_TERM ipOpts    = nsupports_options_ip(env);
+    ERL_NIF_TERM ipOptsT   = MKT2(env, esock_atom_ip, ipOpts);
+    ERL_NIF_TERM ipv6Opts  = nsupports_options_ipv6(env);
+    ERL_NIF_TERM ipv6OptsT = MKT2(env, esock_atom_ipv6, ipv6Opts);
+    ERL_NIF_TERM tcpOpts   = nsupports_options_tcp(env);
+    ERL_NIF_TERM tcpOptsT  = MKT2(env, esock_atom_tcp, tcpOpts);
+    ERL_NIF_TERM udpOpts   = nsupports_options_udp(env);
+    ERL_NIF_TERM udpOptsT  = MKT2(env, esock_atom_udp, udpOpts);
+    ERL_NIF_TERM sctpOpts  = nsupports_options_sctp(env);
+    ERL_NIF_TERM sctpOptsT = MKT2(env, esock_atom_sctp, sctpOpts);
+    ERL_NIF_TERM optsA[]   = {sockOptsT,
+                              ipOptsT, ipv6OptsT,
+                              tcpOptsT, udpOptsT, sctpOptsT};
+    unsigned int lenOptsA  = sizeof(optsA) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM optsL     = MKLA(env, optsA, lenOptsA);
+
+    return optsL;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
+{
+    SocketTArray opts = TARRAY_CREATE(128);
+    ERL_NIF_TERM tmp, optsL;
+
+
+    /* *** SOCKET_OPT_SOCK_ACCEPTCONN => SO_ACCEPTCONN *** */
+#if defined(SO_ACCEPTCONN)
+    tmp = MKT2(env, esock_atom_acceptconn, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_acceptconn, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_BINDTODEVICE => SO_BINDTODEVICE *** */
+#if defined(SO_BINDTODEVICE)
+    tmp = MKT2(env, esock_atom_bindtodevice, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_bindtodevice, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_BROADCAST => SO_BROADCAST *** */
+#if defined(SO_BROADCAST)
+    tmp = MKT2(env, esock_atom_broadcast, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_broadcast, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    TARRAY_TOLIST(opts, env, &optsL);
+    
+    return optsL;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+
+    result = MKEL(env);
+
+    return result;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_ipv6(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+
+    result = MKEL(env);
+
+    return result;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+
+    result = MKEL(env);
+
+    return result;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+
+    result = MKEL(env);
+
+    return result;
+}
+
+
+
+static
+ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env)
+{
+    ERL_NIF_TERM result;
+
+    result = MKEL(env);
+
+    return result;
 }
 
 
@@ -15595,73 +15781,76 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_want                = MKA(env, str_want);
 
     /* Global atom(s) */
-    esock_atom_accept      = MKA(env, "accept");
-    esock_atom_addr        = MKA(env, "addr");
-    esock_atom_any         = MKA(env, "any");
-    esock_atom_connect     = MKA(env, "connect");
-    esock_atom_credentials = MKA(env, "credentials");
-    esock_atom_ctrl        = MKA(env, "ctrl");
-    esock_atom_ctrunc      = MKA(env, "ctrunc");
-    esock_atom_data        = MKA(env, "data");
-    esock_atom_debug       = MKA(env, "debug");
-    esock_atom_dgram       = MKA(env, "dgram");
-    esock_atom_eor         = MKA(env, "eor");
-    esock_atom_error       = MKA(env, "error");
-    esock_atom_errqueue    = MKA(env, "errqueue");
-    esock_atom_false       = MKA(env, "false");
-    esock_atom_family      = MKA(env, "family");
-    esock_atom_flags       = MKA(env, "flags");
-    esock_atom_flowinfo    = MKA(env, "flowinfo");
-    esock_atom_ifindex     = MKA(env, "ifindex");
-    esock_atom_inet        = MKA(env, "inet");
-    esock_atom_inet6       = MKA(env, "inet6");
-    esock_atom_iov         = MKA(env, "iov");
-    esock_atom_ip          = MKA(env, "ip");
-    esock_atom_ipv6        = MKA(env, "ipv6");
-    esock_atom_level       = MKA(env, "level");
-    esock_atom_local       = MKA(env, "local");
-    esock_atom_loopback    = MKA(env, "loopback");
-    esock_atom_lowdelay    = MKA(env, "lowdelay");
-    esock_atom_mincost     = MKA(env, "mincost");
-    esock_atom_not_found   = MKA(env, "not_found");
-    esock_atom_not_owner   = MKA(env, "not_owner");
-    esock_atom_ok          = MKA(env, "ok");
-    esock_atom_oob         = MKA(env, "oob");
-    esock_atom_origdstaddr = MKA(env, "origdstaddr");
-    esock_atom_path        = MKA(env, "path");
-    esock_atom_pktinfo     = MKA(env, "pktinfo");
-    esock_atom_port        = MKA(env, "port");
-    esock_atom_protocol    = MKA(env, "protocol");
-    esock_atom_raw         = MKA(env, "raw");
-    esock_atom_rdm         = MKA(env, "rdm");
-    esock_atom_recv        = MKA(env, "recv");
-    esock_atom_recvfrom    = MKA(env, "recvfrom");
-    esock_atom_recvmsg     = MKA(env, "recvmsg");
-    esock_atom_reliability = MKA(env, "reliability");
-    esock_atom_rights      = MKA(env, "rights");
-    esock_atom_scope_id    = MKA(env, "scope_id");
-    esock_atom_sctp        = MKA(env, "sctp");
-    esock_atom_sec         = MKA(env, "sec");
-    esock_atom_select_sent = MKA(env, "select_sent");
-    esock_atom_send        = MKA(env, "send");
-    esock_atom_sendmsg     = MKA(env, "sendmsg");
-    esock_atom_sendto      = MKA(env, "sendto");
-    esock_atom_seqpacket   = MKA(env, "seqpacket");
-    esock_atom_socket      = MKA(env, "socket");
-    esock_atom_spec_dst    = MKA(env, "spec_dst");
-    esock_atom_stream      = MKA(env, "stream");
-    esock_atom_tcp         = MKA(env, "tcp");
-    esock_atom_throughput  = MKA(env, "throughput");
-    esock_atom_timestamp   = MKA(env, "timestamp");
-    esock_atom_tos         = MKA(env, "tos");
-    esock_atom_true        = MKA(env, "true");
-    esock_atom_trunc       = MKA(env, "trunc");
-    esock_atom_ttl         = MKA(env, "ttl");
-    esock_atom_type        = MKA(env, "type");
-    esock_atom_udp         = MKA(env, "udp");
-    esock_atom_undefined   = MKA(env, "undefined");
-    esock_atom_unknown     = MKA(env, "unknown");
-    esock_atom_usec        = MKA(env, "usec");
+    esock_atom_accept       = MKA(env, "accept");
+    esock_atom_acceptconn   = MKA(env, "acceptconn");
+    esock_atom_addr         = MKA(env, "addr");
+    esock_atom_any          = MKA(env, "any");
+    esock_atom_bindtodevice = MKA(env, "bindtodevice");
+    esock_atom_broadcast    = MKA(env, "broadcast");
+    esock_atom_connect      = MKA(env, "connect");
+    esock_atom_credentials  = MKA(env, "credentials");
+    esock_atom_ctrl         = MKA(env, "ctrl");
+    esock_atom_ctrunc       = MKA(env, "ctrunc");
+    esock_atom_data         = MKA(env, "data");
+    esock_atom_debug        = MKA(env, "debug");
+    esock_atom_dgram        = MKA(env, "dgram");
+    esock_atom_eor          = MKA(env, "eor");
+    esock_atom_error        = MKA(env, "error");
+    esock_atom_errqueue     = MKA(env, "errqueue");
+    esock_atom_false        = MKA(env, "false");
+    esock_atom_family       = MKA(env, "family");
+    esock_atom_flags        = MKA(env, "flags");
+    esock_atom_flowinfo     = MKA(env, "flowinfo");
+    esock_atom_ifindex      = MKA(env, "ifindex");
+    esock_atom_inet         = MKA(env, "inet");
+    esock_atom_inet6        = MKA(env, "inet6");
+    esock_atom_iov          = MKA(env, "iov");
+    esock_atom_ip           = MKA(env, "ip");
+    esock_atom_ipv6         = MKA(env, "ipv6");
+    esock_atom_level        = MKA(env, "level");
+    esock_atom_local        = MKA(env, "local");
+    esock_atom_loopback     = MKA(env, "loopback");
+    esock_atom_lowdelay     = MKA(env, "lowdelay");
+    esock_atom_mincost      = MKA(env, "mincost");
+    esock_atom_not_found    = MKA(env, "not_found");
+    esock_atom_not_owner    = MKA(env, "not_owner");
+    esock_atom_ok           = MKA(env, "ok");
+    esock_atom_oob          = MKA(env, "oob");
+    esock_atom_origdstaddr  = MKA(env, "origdstaddr");
+    esock_atom_path         = MKA(env, "path");
+    esock_atom_pktinfo      = MKA(env, "pktinfo");
+    esock_atom_port         = MKA(env, "port");
+    esock_atom_protocol     = MKA(env, "protocol");
+    esock_atom_raw          = MKA(env, "raw");
+    esock_atom_rdm          = MKA(env, "rdm");
+    esock_atom_recv         = MKA(env, "recv");
+    esock_atom_recvfrom     = MKA(env, "recvfrom");
+    esock_atom_recvmsg      = MKA(env, "recvmsg");
+    esock_atom_reliability  = MKA(env, "reliability");
+    esock_atom_rights       = MKA(env, "rights");
+    esock_atom_scope_id     = MKA(env, "scope_id");
+    esock_atom_sctp         = MKA(env, "sctp");
+    esock_atom_sec          = MKA(env, "sec");
+    esock_atom_select_sent  = MKA(env, "select_sent");
+    esock_atom_send         = MKA(env, "send");
+    esock_atom_sendmsg      = MKA(env, "sendmsg");
+    esock_atom_sendto       = MKA(env, "sendto");
+    esock_atom_seqpacket    = MKA(env, "seqpacket");
+    esock_atom_socket       = MKA(env, "socket");
+    esock_atom_spec_dst     = MKA(env, "spec_dst");
+    esock_atom_stream       = MKA(env, "stream");
+    esock_atom_tcp          = MKA(env, "tcp");
+    esock_atom_throughput   = MKA(env, "throughput");
+    esock_atom_timestamp    = MKA(env, "timestamp");
+    esock_atom_tos          = MKA(env, "tos");
+    esock_atom_true         = MKA(env, "true");
+    esock_atom_trunc        = MKA(env, "trunc");
+    esock_atom_ttl          = MKA(env, "ttl");
+    esock_atom_type         = MKA(env, "type");
+    esock_atom_udp          = MKA(env, "udp");
+    esock_atom_undefined    = MKA(env, "undefined");
+    esock_atom_unknown      = MKA(env, "unknown");
+    esock_atom_usec         = MKA(env, "usec");
 
     /* Global error codes */
     esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);

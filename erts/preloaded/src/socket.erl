@@ -817,6 +817,8 @@
 -define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
+-define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
+
 
 %% ===========================================================================
 %%
@@ -853,6 +855,7 @@ supports(options) ->
     nif_supports(?SOCKET_SUPPORTS_OPTIONS);
 supports(_) ->
     false.
+
 
 
 %% ===========================================================================
