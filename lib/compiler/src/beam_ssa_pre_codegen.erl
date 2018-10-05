@@ -1043,11 +1043,11 @@ need_frame_1([#b_set{op=call,args=[Func|_]}|Is], Context) ->
         #b_remote{} ->
             %% This is an apply(), which always needs a frame.
             true;
-        #b_var{} ->
-            %% A fun call always needs a frame.
-            true;
+        #b_local{} ->
+            Context =:= body orelse Is =/= [];
         _ ->
-            Context =:= body orelse Is =/= []
+             %% A fun call always needs a frame.
+            true
     end;
 need_frame_1([I|Is], Context) ->
     beam_ssa:clobbers_xregs(I) orelse need_frame_1(Is, Context);
