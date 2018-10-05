@@ -27,6 +27,7 @@
 -export([
 	 on_load/0, on_load/1,
 	 info/0,
+         supports/0, supports/1,
          ensure_sockaddr/1
         ]).
 
@@ -842,6 +843,16 @@ on_load(Extra) ->
 info() ->
     nif_info().
 
+
+-spec supports() -> list().
+
+supports() ->
+    [{options, supports(options)}].
+
+supports(options) ->
+    nif_supports(?SOCKET_SUPPORTS_OPTIONS);
+supports(_) ->
+    false.
 
 
 %% ===========================================================================
@@ -3415,6 +3426,9 @@ error(Reason) ->
 %% ===========================================================================
 
 nif_info() ->
+    erlang:nif_error(undef).
+
+nif_supports(_Key) ->
     erlang:nif_error(undef).
 
 nif_open(_Domain, _Type, _Protocol, _Extra) ->

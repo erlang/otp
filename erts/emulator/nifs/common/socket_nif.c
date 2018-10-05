@@ -860,6 +860,9 @@ typedef struct {
 static ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
+                                 int                argc,
+                                 const ERL_NIF_TERM argv[]);
 /*
 This is a *global* debug function (enable or disable for all
 operations and all sockets.
@@ -2536,6 +2539,7 @@ static SocketData data;
  * Utility and admin functions:
  * ----------------------------
  * nif_info/0
+ * nif_supports/1
  * (nif_debug/1)
  *
  * The "proper" socket functions:
@@ -2617,6 +2621,31 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
         return info;
     }
 }
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_supports
+ *
+ * Description:
+ * This function is intended to answer the question: "Is X supported?"
+ * Currently only one key is "supported": options
+ * That results in a list of all *known options* (known by us) and if
+ * the platform supports (OS) it or not.
+ */
+
+static
+ERL_NIF_TERM nif_support(ErlNifEnv*         env,
+                         int                argc,
+                         const ERL_NIF_TERM argv[])
+{
+    if (argc != 1) {
+        return enif_make_badarg(env);
+    } else {
+        return MKEL(env); // PLACEHOLDER
+    }
+}
+
 
 
 /* ----------------------------------------------------------------------
@@ -15412,9 +15441,11 @@ void socket_down_reader(ErlNifEnv*        env,
 static
 ErlNifFunc socket_funcs[] =
 {
-    // Some utility functions
-    {"nif_info",      0, nif_info, 0},
-    // {"nif_debug",      1, nif_debug_, 0},
+    // Some utility and support functions
+    {"nif_info",                0, nif_info, 0},
+    {"nif_supports",            1, nif_supports, 0},
+    // {"nif_debug",               1, nif_debug, 0},
+    // {"nif_command",             1, nif_command, 0},
 
     // The proper "socket" interface
     // nif_open/1 is used when we already have a file descriptor
