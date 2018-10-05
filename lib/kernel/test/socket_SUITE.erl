@@ -71,6 +71,7 @@
 %% -export([]).
 
 
+-type initial_evaluator_state() :: map().
 -type evaluator_state() :: term().
 -type command_fun() :: 
         fun((State :: evaluator_state()) -> ok) |
@@ -78,8 +79,7 @@
         fun((State :: evaluator_state()) -> {error, term()}).
 
 -type command() :: #{desc  := string(),
-                     cmd   := command_fun()
-                    }.
+                     cmd   := command_fun()}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -88,6 +88,8 @@
 -define(BASIC_REP, <<"hoppsan">>).
 
 -define(FAIL(R), exit(R)).
+
+-define(SLEEP(T), receive after T -> ok end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -366,19 +368,6 @@ api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 api_b_send_and_recv_udp(InitState) ->
-    %% SockSrc = sock_open(Domain, dgram, udp),
-    %% LAddr   = which_local_addr(Domain),
-    %% LSA     = #{family => Domain, addr => LAddr}, 
-    %% sock_bind(SockSrc, LSA),
-    %% SockDst = sock_open(Domain, dgram, udp),
-    %% sock_bind(SockDst, LSA),
-    %% Dst     = sock_sockname(SockDst),
-    %% ok      = Send(SockSrc, ?BASIC_REQ, Dst),
-    %% {ok, {Src, ?BASIC_REQ}} = Recv(SockDst),
-    %% ok      = Send(SockDst, ?BASIC_REP, Src),
-    %% {ok, {Dst, ?BASIC_REP}} = Recv(SockSrc),
-    %% socket:close(SockSrc),
-    %% socket:close(SockDst),
     Seq = 
         [
          #{desc => "local address",
@@ -425,7 +414,7 @@ api_b_send_and_recv_udp(InitState) ->
                            ok = Send(Sock, ?BASIC_REQ, Dst)
                    end},
          #{desc => "recv req (from src)",
-           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv} = State) ->
+           cmd  => fun(#{sock_dst := Sock, sa_src := Src, recv := Recv}) ->
                            {ok, {Src, ?BASIC_REQ}} = Recv(Sock),
                            ok
                    end},
@@ -469,7 +458,10 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
     Recv = fun(Sock) ->
                    socket:recv(Sock)
            end,
-    ok = api_b_send_and_recv_tcp(inet, Send, Recv),
+    InitState = #{domain => inet,
+                  send   => Send,
+                  recv   => Recv},
+    ok = api_b_send_and_recv_tcp(InitState),
     tc_end().
 
 
@@ -496,119 +488,157 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
                            ERROR
                    end
            end,
-    ok = api_b_send_and_recv_tcp(inet, Send, Recv),
+    InitState = #{domain => inet,
+                  send   => Send,
+                  recv   => Recv},
+    ok = api_b_send_and_recv_tcp(InitState),
     tc_end().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_b_send_and_recv_tcp(Domain, Send, Recv) ->
+api_b_send_and_recv_tcp(InitState) ->
     process_flag(trap_exit, true),
-    LAddr     = which_local_addr(Domain),
-    LSA       = #{family => Domain, addr => LAddr}, 
-    Starter   = self(),
-    ServerFun = fun() ->
-                        put(sname, "server"),
-                        %% Create the listen socket
-                        ServerLSock = 
-                            case socket:open(Domain, stream, tcp) of
-                                {ok, S1} ->
-                                    S1;
-                                {error, ServerOR} ->
-                                    ?FAIL({server, open, ServerOR})
-                            end,
-                        %% And bind it to the local address
-                        SP = 
-                            case socket:bind(ServerLSock, LSA) of
-                                {ok, P} ->
-                                    P;
-                                {error, ServerBR} ->
-                                    ?FAIL({server, bind, ServerBR})
-                            end,
-                        %% Listen for connecting clients
-                        case socket:listen(ServerLSock) of
-                            ok ->
-                                ok;
-                            {error, ServerLR} ->
-                                ?FAIL({server, listen, ServerLR})
-                        end,
-                        %% We are ready
-                        Starter ! {self(), {ok, SP}},
-                        %% Accept connections
-                        ServerSock = 
-                            case socket:accept(ServerLSock) of
-                                {ok, Sock} ->
-                                    Sock;
-                                {error, ServerAR} ->
-                                    ?FAIL({server, accept, ServerAR})
-                            end,
-                        %% Wait for a message
-                        case Recv(ServerSock) of
-                            {ok, ?BASIC_REQ} ->
-                                ok;
-                            {error, ServerRR} ->
-                                ?FAIL({server, recv, ServerRR})
-                        end,
-                        %% Send the reply
-                        case Send(ServerSock, ?BASIC_REP) of
-                            ok ->
-                                ok;
-                            {error, ServerSR} ->
-                                ?FAIL({server, send, ServerSR})
-                        end,
-                        %% Close the sockets
-                        socket:close(ServerSock),
-                        socket:close(ServerLSock),
-                        %% We are done
-                        exit(normal)
-                end,
-    Server = spawn_link(ServerFun),
-    ServerPort = 
-        receive
-            {Server, {ok, P}} ->
-                P;
-            {'EXIT', Server, ServerStartReason} ->
-                ?FAIL({server, start, ServerStartReason})
-        end,
-    ClientSock = 
-        case socket:open(Domain, stream, tcp) of
-            {ok, S2} ->
-                S2;
-            {error, ClientOR} ->
-                ?FAIL({client, open, ClientOR})
-        end,
-    case socket:bind(ClientSock, LSA) of
-        {ok, _} ->
-            ok;
-        {error, ClientBR} ->
-            ?FAIL({client, bind, ClientBR})
-    end,
-    case socket:connect(ClientSock, LSA#{port => ServerPort}) of
-        ok ->
-            ok;
-        {error, ClientCR} ->
-            ?FAIL({client, connect, ClientCR})
-    end,
-    case Send(ClientSock, ?BASIC_REQ) of
-        ok ->
-            ok;
-        {error, ClientSR} ->
-            ?FAIL({client, send, ClientSR})
-    end,
-    case Recv(ClientSock) of
-        {ok, ?BASIC_REP} ->
-            ok;
-        {ok, Msg} ->
-            ?FAIL({client, recv, {unexpected, Msg}})
-    end,
-    receive
-        {'EXIT', Server, normal} ->
-            ok;
-        {'EXIT', Server, ServerStopReason} ->
-            ?FAIL({server, stop, ServerStopReason})
-    end,
-    socket:close(ClientSock),
-    ok.
+    ServerSeq = 
+        [
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce server port",
+           cmd  => fun(#{parent := Parent, lport := Port}) ->
+                           ei("announcing port to parent (~p)", [Parent]),
+                           Parent ! {server_port, self(), Port},
+                           ok
+                   end},
+         #{desc => "await connection",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ei("accepted: ~p", [Sock]),
+                                   {ok, State#{tsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await request",
+           cmd  => fun(#{tsock := Sock, recv := Recv}) ->
+                           case Recv(Sock) of
+                               {ok, ?BASIC_REQ} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "send reply",
+           cmd  => fun(#{tsock := Sock, send := Send}) ->
+                           Send(Sock, ?BASIC_REP)
+                   end},
+         #{desc => "sleep some",
+           cmd  => fun(_) ->
+                           ?SLEEP(1000),
+                           ok
+                   end},
+         #{desc => "close traffic socket",
+           cmd  => fun(#{tsock := Sock}) ->
+                           socket:close(Sock)
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{lsock := Sock}) ->
+                           socket:close(Sock)
+                   end},
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    ClientSeq = 
+        [
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, 
+                                     addr   => LAddr},
+                           SSA   = LSA#{port => Port},
+                           {ok, State#{lsa => LSA, ssa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, lsa := LSA} = State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{port => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, ssa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "send request (to server)",
+           cmd  => fun(#{sock := Sock, send := Send}) ->
+                           Send(Sock, ?BASIC_REQ)
+                   end},
+         #{desc => "recv reply (from server)",
+           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+                           {ok, ?BASIC_REP} = Recv(Sock),
+                           ok
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock}) ->
+                           socket:close(Sock)
+                   end},
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    p("start server evaluator"),
+    Server = evaluator_start("server", ServerSeq, InitState),
+    p("await server (~p) port", [Server]),
+    SPort = receive
+                {server_port, Server, Port} ->
+                    Port
+            end,
+    p("start client evaluator"),
+    Client = evaluator_start("client", ClientSeq, InitState#{server_port => SPort}),
+    p("await evaluator(s)"),
+    ok = await_evaluator_finish([Server, Client]).
 
 
 
@@ -1404,13 +1434,15 @@ which_addr2(Domain, [_|IFO]) ->
 -spec evaluator_start(Name, Seq, Init) -> {Pid, MRef} when
       Name :: string(),
       Seq  :: [command()],
-      Init :: evaluator_state(),
+      Init :: initial_evaluator_state(),
       Pid  :: pid(),
       MRef :: reference().
                              
 evaluator_start(Name, Seq, Init) 
   when is_list(Name) andalso is_list(Seq) andalso (Seq =/= []) ->
-    erlang:spawn_monitor(fun() -> evaluator_init(Name, Seq, Init) end).
+    Init2 = Init#{parent => self()},
+    {Pid, _} = erlang:spawn_monitor(fun() -> evaluator_init(Name, Seq, Init2) end),
+    Pid.
 
 evaluator_init(Name, Seq, Init) ->
     put(sname, Name),
@@ -1449,7 +1481,7 @@ await_evaluator_finish([], Fails) ->
 await_evaluator_finish(Evs, Fails) ->
     receive
         {'DOWN', _MRef, process, Pid, normal} ->
-            case lists:keydelete(Pid, 1, Evs) of
+            case lists:delete(Pid, Evs) of
                 Evs ->
                     p("unknown process ~p died (normal)", [Pid]),
                     await_evaluator_finish(Evs, Fails);
@@ -1458,7 +1490,7 @@ await_evaluator_finish(Evs, Fails) ->
                     await_evaluator_finish(NewEvs, Fails)
             end;
         {'DOWN', _MRef, process, Pid, Reason} ->
-            case lists:keydelete(Pid, 1, Evs) of
+            case lists:delete(Pid, Evs) of
                 Evs ->
                     p("unknown process ~p died: "
                         "~n   ~p", [Pid, Reason]),
