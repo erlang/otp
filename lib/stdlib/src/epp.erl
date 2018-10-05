@@ -117,6 +117,7 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
 		  'extra'],
@@ -248,6 +249,7 @@ parse_file(Ifile, Path, Predefs) ->
         {'ok', [Form]} | {'ok', [Form], Extra} | {error, OpenError} when
       FileName :: file:name(),
       Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
+		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
 		  'extra'],
@@ -540,9 +542,10 @@ server(Pid, Name, Options, #epp{pre_opened=PreOpened}=St) ->
             init_server(Pid, Name, Options, St)
     end.
 
-init_server(Pid, Name, Options, St0) ->
+init_server(Pid, FileName, Options, St0) ->
+    SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
-    Ms0 = predef_macros(Name),
+    Ms0 = predef_macros(FileName),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
 	    #epp{file = File, location = AtLocation} = St0,
@@ -552,14 +555,14 @@ init_server(Pid, Name, Options, St0) ->
             epp_reply(Pid, {ok,self(),Encoding}),
             %% ensure directory of current source file is
             %% first in path
-            Path = [filename:dirname(Name) |
+            Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
-            St = St0#epp{delta=0, name=Name, name2=Name,
+            St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, macs=Ms1,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
-            enter_file_reply(From, file_name(Name), Anno,
+            enter_file_reply(From, file_name(SourceName), Anno,
 			     AtLocation, code),
             wait_req_scan(St);
 	{error,E} ->
