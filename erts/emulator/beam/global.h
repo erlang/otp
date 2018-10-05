@@ -1001,6 +1001,7 @@ typedef struct {
     Uint literal_size;
     Eterm *lit_purge_ptr;
     Uint lit_purge_sz;
+    int copy_literals;
 } erts_shcopy_t;
 
 #define INITIALIZE_SHCOPY(info)						\
@@ -1010,6 +1011,7 @@ typedef struct {
 	info.bitstore_start = info.bitstore_default;			\
 	info.shtable_start = info.shtable_default;			\
 	info.literal_size = 0;						\
+	info.copy_literals = 0;						\
 	if (larea__) {							\
 	    info.lit_purge_ptr = &larea__->start[0];			\
 	    info.lit_purge_sz = larea__->end - info.lit_purge_ptr;	\
