@@ -93,13 +93,11 @@ load_interpreted(_Config) ->
 compile_and_load(_Config) ->
     Dir = emacs_dir(),
     Files0 = filelib:wildcard("*.el", Dir),
-    Files = Files0,
-    %% Files = case emacs_version_ok(25) of
-    %%             true -> Files0;
-    %%             %% Comments in original test indicated that erldoc.el should not work
-    %%             %% but works fine for me 24.5 ???
-    %%             false -> Files0 -- ["erldoc.el"]
-    %%         end,
+    Files = case emacs_version_ok(24.3) of
+                %% erldoc.el depends on cl-lib which was introduced in 24.3.
+                false -> Files0 -- ["erldoc.el"];
+                _ -> Files0
+            end,
     Unforgiving =
         case emacs_version_ok(24) of
             Ver when Ver < 25 ->
@@ -140,7 +138,7 @@ tests_compiled(_Config) ->
     case emacs_version_ok(25) of
         false -> {skip, "Old or no emacs found"};
         _ ->
-            emacs(["-l erlang.el ",
+            emacs(["-l erlang.elc ",
                    "-l erlang-test.elc -f ert-run-tests-batch-and-exit"]),
             ok
     end.
@@ -212,8 +210,8 @@ emacs(EmacsCmds) when is_list(EmacsCmds) ->
     Res0 = os:cmd(Cmd ++ " ; echo $?"),
     Rows = string:lexemes(Res0, ["\r\n", $\n]),
     Res = lists:last(Rows),
-    Output = lists:droplast(Rows),
-    io:format("Cmd ~s:~n  => ~s ~s~n", [Cmd, Res, Output]),
+    Output = string:join(lists:droplast(Rows), "\n"),
+    io:format("Cmd ~s:~n  => ~s ~ts~n", [Cmd, Res, Output]),
     "0" = Res,
     Output.
 
