@@ -734,8 +734,8 @@
 %% -define(SOCKET_OPT_IPV6_CHECKSUM,           5). % FreeBSD
 -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
 -define(SOCKET_OPT_IPV6_DSTOPTS,            7).
-%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  8). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    9). % FreeBSD
 %% -define(SOCKET_OPT_IPV6_FAITH,             10). % FreeBSD
 -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
 -define(SOCKET_OPT_IPV6_HOPLIMIT,          12).

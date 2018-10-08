@@ -2387,74 +2387,151 @@ static char str_exsend[]         = "exsend";     // failed send
 /* *** "Global" Atoms *** */
 ERL_NIF_TERM esock_atom_accept;
 ERL_NIF_TERM esock_atom_acceptconn;
+ERL_NIF_TERM esock_atom_acceptfilter;
 ERL_NIF_TERM esock_atom_addr;
+ERL_NIF_TERM esock_atom_addrform;
+ERL_NIF_TERM esock_atom_add_membership;
+ERL_NIF_TERM esock_atom_add_source_membership;
 ERL_NIF_TERM esock_atom_any;
+ERL_NIF_TERM esock_atom_authhdr;
+ERL_NIF_TERM esock_atom_auth_level;
 ERL_NIF_TERM esock_atom_bindtodevice;
+ERL_NIF_TERM esock_atom_block_source;
 ERL_NIF_TERM esock_atom_broadcast;
+ERL_NIF_TERM esock_atom_busy_poll;
+ERL_NIF_TERM esock_atom_checksum;
 ERL_NIF_TERM esock_atom_connect;
 ERL_NIF_TERM esock_atom_credentials;
 ERL_NIF_TERM esock_atom_ctrl;
 ERL_NIF_TERM esock_atom_ctrunc;
 ERL_NIF_TERM esock_atom_data;
-ERL_NIF_TERM esock_atom_dgram;
 ERL_NIF_TERM esock_atom_debug;
+ERL_NIF_TERM esock_atom_dgram;
+ERL_NIF_TERM esock_atom_domain;
+ERL_NIF_TERM esock_atom_dontfrag;
+ERL_NIF_TERM esock_atom_dontroute;
+ERL_NIF_TERM esock_atom_drop_membership;
+ERL_NIF_TERM esock_atom_drop_source_membership;
+ERL_NIF_TERM esock_atom_dstopts;
 ERL_NIF_TERM esock_atom_eor;
 ERL_NIF_TERM esock_atom_error;
 ERL_NIF_TERM esock_atom_errqueue;
+ERL_NIF_TERM esock_atom_esp_network_level;
+ERL_NIF_TERM esock_atom_esp_trans_level;
+ERL_NIF_TERM esock_atom_faith;
 ERL_NIF_TERM esock_atom_false;
 ERL_NIF_TERM esock_atom_family;
 ERL_NIF_TERM esock_atom_flags;
 ERL_NIF_TERM esock_atom_flowinfo;
+ERL_NIF_TERM esock_atom_freebind;
+ERL_NIF_TERM esock_atom_hdrincl;
+ERL_NIF_TERM esock_atom_hoplimit;
+ERL_NIF_TERM esock_atom_hopopts;
 ERL_NIF_TERM esock_atom_ifindex;
 ERL_NIF_TERM esock_atom_inet;
 ERL_NIF_TERM esock_atom_inet6;
 ERL_NIF_TERM esock_atom_iov;
 ERL_NIF_TERM esock_atom_ip;
+ERL_NIF_TERM esock_atom_ipcomp_level;
 ERL_NIF_TERM esock_atom_ipv6;
+ERL_NIF_TERM esock_atom_join_group;
+ERL_NIF_TERM esock_atom_keepalive;
+ERL_NIF_TERM esock_atom_leave_group;
 ERL_NIF_TERM esock_atom_level;
+ERL_NIF_TERM esock_atom_linger;
 ERL_NIF_TERM esock_atom_local;
 ERL_NIF_TERM esock_atom_loopback;
 ERL_NIF_TERM esock_atom_lowdelay;
+ERL_NIF_TERM esock_atom_mark;
 ERL_NIF_TERM esock_atom_mincost;
+ERL_NIF_TERM esock_atom_minttl;
+ERL_NIF_TERM esock_atom_msfilter;
+ERL_NIF_TERM esock_atom_mtu;
+ERL_NIF_TERM esock_atom_mtu_discover;
+ERL_NIF_TERM esock_atom_multicast_all;
+ERL_NIF_TERM esock_atom_multicast_hops;
+ERL_NIF_TERM esock_atom_multicast_if;
+ERL_NIF_TERM esock_atom_multicast_loop;
+ERL_NIF_TERM esock_atom_multicast_ttl;
+ERL_NIF_TERM esock_atom_nodefrag;
 ERL_NIF_TERM esock_atom_not_found;
 ERL_NIF_TERM esock_atom_not_owner;
 ERL_NIF_TERM esock_atom_ok;
 ERL_NIF_TERM esock_atom_oob;
+ERL_NIF_TERM esock_atom_oobinline;
+ERL_NIF_TERM esock_atom_options;
 ERL_NIF_TERM esock_atom_origdstaddr;
+ERL_NIF_TERM esock_atom_passcred;
 ERL_NIF_TERM esock_atom_path;
+ERL_NIF_TERM esock_atom_peekcred;
+ERL_NIF_TERM esock_atom_peek_off;
 ERL_NIF_TERM esock_atom_pktinfo;
+ERL_NIF_TERM esock_atom_pktoptions;
 ERL_NIF_TERM esock_atom_port;
+ERL_NIF_TERM esock_atom_portrange;
+ERL_NIF_TERM esock_atom_priority;
 ERL_NIF_TERM esock_atom_protocol;
 ERL_NIF_TERM esock_atom_raw;
+ERL_NIF_TERM esock_atom_rcvbuf;
+ERL_NIF_TERM esock_atom_rcvbufforce;
+ERL_NIF_TERM esock_atom_rcvlowat;
+ERL_NIF_TERM esock_atom_rcvtimeo;
 ERL_NIF_TERM esock_atom_rdm;
 ERL_NIF_TERM esock_atom_recv;
+ERL_NIF_TERM esock_atom_recvdstaddr;
+ERL_NIF_TERM esock_atom_recverr;
 ERL_NIF_TERM esock_atom_recvfrom;
+ERL_NIF_TERM esock_atom_recvif;
 ERL_NIF_TERM esock_atom_recvmsg;
+ERL_NIF_TERM esock_atom_recvopts;
+ERL_NIF_TERM esock_atom_recvorigdstaddr;
+ERL_NIF_TERM esock_atom_recvpktinfo;
+ERL_NIF_TERM esock_atom_recvtclass;
+ERL_NIF_TERM esock_atom_recvtos;
+ERL_NIF_TERM esock_atom_recvttl;
 ERL_NIF_TERM esock_atom_reliability;
+ERL_NIF_TERM esock_atom_retopts;
+ERL_NIF_TERM esock_atom_reuseaddr;
+ERL_NIF_TERM esock_atom_reuseport;
 ERL_NIF_TERM esock_atom_rights;
+ERL_NIF_TERM esock_atom_router_alert;
+ERL_NIF_TERM esock_atom_rthdr;
+ERL_NIF_TERM esock_atom_rxq_ovfl;
 ERL_NIF_TERM esock_atom_scope_id;
 ERL_NIF_TERM esock_atom_sctp;
 ERL_NIF_TERM esock_atom_sec;
 ERL_NIF_TERM esock_atom_select_sent;
 ERL_NIF_TERM esock_atom_send;
 ERL_NIF_TERM esock_atom_sendmsg;
+ERL_NIF_TERM esock_atom_sendsrcaddr;
 ERL_NIF_TERM esock_atom_sendto;
 ERL_NIF_TERM esock_atom_seqpacket;
+ERL_NIF_TERM esock_atom_setfib;
 ERL_NIF_TERM esock_atom_socket;
+ERL_NIF_TERM esock_atom_sndbuf;
+ERL_NIF_TERM esock_atom_sndbufforce;
+ERL_NIF_TERM esock_atom_sndlowat;
+ERL_NIF_TERM esock_atom_sndtimeo;
 ERL_NIF_TERM esock_atom_spec_dst;
 ERL_NIF_TERM esock_atom_stream;
+ERL_NIF_TERM esock_atom_tclass;
 ERL_NIF_TERM esock_atom_tcp;
 ERL_NIF_TERM esock_atom_throughput;
 ERL_NIF_TERM esock_atom_timestamp;
 ERL_NIF_TERM esock_atom_tos;
+ERL_NIF_TERM esock_atom_transparent;
 ERL_NIF_TERM esock_atom_true;
 ERL_NIF_TERM esock_atom_trunc;
 ERL_NIF_TERM esock_atom_ttl;
 ERL_NIF_TERM esock_atom_type;
 ERL_NIF_TERM esock_atom_udp;
+ERL_NIF_TERM esock_atom_unblock_source;
 ERL_NIF_TERM esock_atom_undefined;
+ERL_NIF_TERM esock_atom_unicast_hops;
 ERL_NIF_TERM esock_atom_unknown;
 ERL_NIF_TERM esock_atom_usec;
+ERL_NIF_TERM esock_atom_use_min_mtu;
+ERL_NIF_TERM esock_atom_v6only;
 
 /* *** "Global" error (=reason) atoms *** */
 ERL_NIF_TERM esock_atom_eagain;
@@ -2749,6 +2826,11 @@ ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
+    /* *** SOCKET_OPT_SOCK_ACCEPTFILTER => SO_ACCEPTFILTER *** */
+    tmp = MKT2(env, esock_atom_acceptfilter, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
     /* *** SOCKET_OPT_SOCK_BINDTODEVICE => SO_BINDTODEVICE *** */
 #if defined(SO_BINDTODEVICE)
     tmp = MKT2(env, esock_atom_bindtodevice, esock_atom_true);
@@ -2767,6 +2849,222 @@ ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
+    /* *** SOCKET_OPT_SOCK_BUSY_POLL => SO_BUSY_POLL *** */
+    tmp = MKT2(env, esock_atom_busy_poll, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_DEBUG => SO_DEBUG *** */
+#if defined(SO_DEBUG)
+    tmp = MKT2(env, esock_atom_debug, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_debug, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_DOMAIN => SO_DOMAIN *** */
+#if defined(SO_DOMAIN)
+    tmp = MKT2(env, esock_atom_domain, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_domain, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_DONTROUTE => SO_DONTROUTE *** */
+#if defined(SO_DONTROUTE)
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_ERROR => SO_ERROR *** */
+    tmp = MKT2(env, esock_atom_error, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_KEEPALIVE => SO_KEEPALIVE *** */
+#if defined(SO_KEEPALIVE)
+    tmp = MKT2(env, esock_atom_keepalive, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_keepalive, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_LINGER => SO_LINGER *** */
+#if defined(SO_LINGER)
+    tmp = MKT2(env, esock_atom_linger, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_linger, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_MARK => SO_MARK *** */
+    tmp = MKT2(env, esock_atom_mark, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_OOBINLINE => SO_OOBINLINE *** */
+#if defined(SO_OOBINLINE)
+    tmp = MKT2(env, esock_atom_oobinline, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_oobinline, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_PASSCRED => SO_PASSCRED *** */
+    tmp = MKT2(env, esock_atom_passcred, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_PEEK_OFF => SO_PEEK_OFF *** */
+#if defined(SO_PEEK_OFF)
+    tmp = MKT2(env, esock_atom_peek_off, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_peek_off, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_PEEKCRED => SO_PEEKCRED *** */
+    tmp = MKT2(env, esock_atom_peekcred, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_PRIORITY => SO_PRIORITY *** */
+#if defined(SO_PRIORITY)
+    tmp = MKT2(env, esock_atom_priority, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_priority, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_PROTOCOL => SO_PROTOCOL *** */
+#if defined(SO_PROTOCOL)
+    tmp = MKT2(env, esock_atom_protocol, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_protocol, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_RCVBUF => SO_RCVBUF *** */
+#if defined(SO_RCVBUF)
+    tmp = MKT2(env, esock_atom_rcvbuf, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_rcvbuf, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_RCVBUFFORCE => SO_RCVBUFFORCE *** */
+    tmp = MKT2(env, esock_atom_rcvbufforce, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_RCVLOWAT => SO_RCVLOWAT *** */
+#if defined(SO_RCVLOWAT)
+    tmp = MKT2(env, esock_atom_rcvlowat, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_rcvlowat, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_RCVTIMEO => SO_RCVTIMEO *** */
+#if defined(SO_RCVTIMEO)
+    tmp = MKT2(env, esock_atom_rcvtimeo, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_rcvtimeo, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_REUSEADDR => SO_REUSEADDR *** */
+#if defined(SO_REUSEADDR)
+    tmp = MKT2(env, esock_atom_reuseaddr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_reuseaddr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_REUSEPORT => SO_REUSEPORT *** */
+#if defined(SO_REUSEPORT)
+    tmp = MKT2(env, esock_atom_reuseport, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_reuseport, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_RXQ_OVFL => SO_RXQ_OVFL *** */
+    tmp = MKT2(env, esock_atom_rxq_ovfl, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_SETFIB => SO_SETFIB *** */
+    tmp = MKT2(env, esock_atom_setfib, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_SNDBUF => SO_SNDBUF *** */
+#if defined(SO_SNDBUF)
+    tmp = MKT2(env, esock_atom_sndbuf, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_sndbuf, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_SNDBUFFORCE => SO_SNDBUFFORCE *** */
+    tmp = MKT2(env, esock_atom_sndbufforce, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_SNDLOWAT => SO_SNDLOWAT *** */
+#if defined(SO_SNDLOWAT)
+    tmp = MKT2(env, esock_atom_sndlowat, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_sndlowat, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_SNDTIMEO => SO_SNDTIMEO *** */
+#if defined(SO_SNDTIMEO)
+    tmp = MKT2(env, esock_atom_sndtimeo, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_sndtimeo, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_TIMESTAMP => SO_TIMESTAMP *** */
+#if defined(SO_TIMESTAMP)
+    tmp = MKT2(env, esock_atom_timestamp, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_timestamp, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_SOCK_TYPE => SO_TYPE *** */
+#if defined(SO_TYPE)
+    tmp = MKT2(env, esock_atom_type, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_type, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
     TARRAY_TOLIST(opts, env, &optsL);
     
     return optsL;
@@ -2777,11 +3075,298 @@ ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
 static
 ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env)
 {
-    ERL_NIF_TERM result;
+    SocketTArray opts = TARRAY_CREATE(128);
+    ERL_NIF_TERM tmp, optsL;
 
-    result = MKEL(env);
 
-    return result;
+    /* *** SOCKET_OPT_IP_ADD_MEMBERSHIP => IP_ADD_MEMBERSHIP *** */
+#if defined(IP_ADD_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_add_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_add_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP => IP_ADD_SOURCE_MEMBERSHIP *** */
+#if defined(IP_ADD_SOURCE_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_add_source_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_add_source_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_BLOCK_SOURCE => IP_BLOCK_SOURCE *** */
+#if defined(IP_BLOCK_SOURCE)
+    tmp = MKT2(env, esock_atom_block_source, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_block_source, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_DONTFRAG => IP_DONTFRAG *** */
+    tmp = MKT2(env, esock_atom_dontfrag, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_DROP_MEMBERSHIP => IP_DROP_MEMBERSHIP *** */
+#if defined(IP_DROP_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_drop_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_drop_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP => IP_DROP_SOURCE_MEMBERSHIP *** */
+#if defined(IP_DROP_SOURCE_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_drop_source_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_drop_source_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_FREEBIND => IP_FREEBIND *** */
+#if defined(IP_FREEBIND)
+    tmp = MKT2(env, esock_atom_freebind, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_freebind, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_HDRINCL => IP_HDRINCL *** */
+#if defined(IP_HDRINCL)
+    tmp = MKT2(env, esock_atom_hdrincl, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_hdrincl, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MINTTL => IP_MINTTL *** */
+#if defined(IP_MINTTL)
+    tmp = MKT2(env, esock_atom_minttl, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_minttl, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MSFILTER => IP_MSFILTER / IP_MSFILTER_SIZE *** */
+#if defined(IP_MSFILTER) && defined(IP_MSFILTER_SIZE)
+    tmp = MKT2(env, esock_atom_msfilter, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_msfilter, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MTU => IP_MTU *** */
+    tmp = MKT2(env, esock_atom_mtu, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MTU_DISCOVER => IP_MTU_DISCOVER *** */
+#if defined(IP_MTU_DISCOVER)
+    tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MULTICAST_ALL => IP_MULTICAST_ALL *** */
+#if defined(IP_MULTICAST_ALL)
+    tmp = MKT2(env, esock_atom_multicast_all, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_all, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MULTICAST_IF => IP_MULTICAST_IF *** */
+#if defined(IP_MULTICAST_IF)
+    tmp = MKT2(env, esock_atom_multicast_if, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_if, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MULTICAST_LOOP => IP_MULTICAST_LOOP *** */
+#if defined(IP_MULTICAST_LOOP)
+    tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_MULTICAST_TTL => IP_MULTICAST_TTL *** */
+#if defined(IP_MULTICAST_TTL)
+    tmp = MKT2(env, esock_atom_multicast_ttl, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_ttl, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_NODEFRAG => IP_NODEFRAG *** */
+#if defined(IP_NODEFRAG)
+    tmp = MKT2(env, esock_atom_nodefrag, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_nodefrag, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_OPTIONS => IP_OPTIONS *** */
+    tmp = MKT2(env, esock_atom_options, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_PKTINFO => IP_PKTINFO *** */
+#if defined(IP_PKTINFO)
+    tmp = MKT2(env, esock_atom_pktinfo, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_pktinfo, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVDSTADDR => IP_RECVDSTADDR *** */
+#if defined(IP_RECVDSTADDR)
+    tmp = MKT2(env, esock_atom_recvdstaddr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvdstaddr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVERR => IP_RECVERR *** */
+#if defined(IP_RECVERR)
+    tmp = MKT2(env, esock_atom_recverr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recverr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVIF => IP_RECVIF *** */
+#if defined(IP_RECVIF)
+    tmp = MKT2(env, esock_atom_recvif, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvif, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVOPTS => IP_RECVOPTS *** */
+#if defined(IP_RECVOPTS)
+    tmp = MKT2(env, esock_atom_recvopts, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvopts, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVORIGDSTADDR => IP_RECVORIGDSTADDR *** */
+#if defined(IP_RECVORIGDSTADDR)
+    tmp = MKT2(env, esock_atom_recvorigdstaddr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvorigdstaddr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVTOS => IP_RECVTOS *** */
+#if defined(IP_RECVTOS)
+    tmp = MKT2(env, esock_atom_recvtos, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvtos, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RECVTTL => IP_RECVTTL *** */
+#if defined(IP_RECVTTL)
+    tmp = MKT2(env, esock_atom_recvttl, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvttl, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_RETOPTS => IP_RETOPTS *** */
+#if defined(IP_RETOPTS)
+    tmp = MKT2(env, esock_atom_retopts, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_retopts, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_ROUTER_ALERT => IP_ROUTER_ALERT *** */
+#if defined(IP_ROUTER_ALERT)
+    tmp = MKT2(env, esock_atom_router_alert, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_router_alert, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_SENDSRCADDR => IP_SENDSRCADDR *** */
+#if defined(IP_SENDSRCADDR)
+    tmp = MKT2(env, esock_atom_sendsrcaddr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_sendsrcaddr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_TOS => IP_TOS *** */
+#if defined(IP_TOS)
+    tmp = MKT2(env, esock_atom_tos, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_tos, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_TRANSPARENT => IP_TRANSPARENT *** */
+#if defined(IP_TRANSPARENT)
+    tmp = MKT2(env, esock_atom_transparent, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_transparent, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_TTL => IP_TTL *** */
+#if defined(IP_TTL)
+    tmp = MKT2(env, esock_atom_ttl, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_ttl, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IP_UNBLOCK_SOURCE => IP_UNBLOCK_SOURCE *** */
+#if defined(IP_UNBLOCK_SOURCE)
+    tmp = MKT2(env, esock_atom_unblock_source, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_unblock_source, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    TARRAY_TOLIST(opts, env, &optsL);
+    
+    return optsL;
 }
 
 
@@ -2789,11 +3374,249 @@ ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env)
 static
 ERL_NIF_TERM nsupports_options_ipv6(ErlNifEnv* env)
 {
-    ERL_NIF_TERM result;
+    SocketTArray opts = TARRAY_CREATE(128);
+    ERL_NIF_TERM tmp, optsL;
 
-    result = MKEL(env);
 
-    return result;
+    /* *** SOCKET_OPT_IPV6_ADDRFORM => IPV6_ADDRFORM *** */
+#if defined(IPV6_ADDRFORM)
+    tmp = MKT2(env, esock_atom_addrform, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_addrform, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_ADD_MEMBERSHIP => IPV6_ADD_MEMBERSHIP *** */
+#if defined(IPV6_ADD_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_add_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_add_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_AUTHHDR => IPV6_AUTHHDR *** */
+#if defined(IPV6_AUTHHDR)
+    tmp = MKT2(env, esock_atom_authhdr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_authhdr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_AUTH_LEVEL => IPV6_AUTH_LEVEL *** */
+    tmp = MKT2(env, esock_atom_auth_level, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_CHECKSUM => IPV6_CHECKSUM *** */
+    tmp = MKT2(env, esock_atom_checksum, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_DROP_MEMBERSHIP => IPV6_DROP_MEMBERSHIP *** */
+#if defined(IPV6_DROP_MEMBERSHIP)
+    tmp = MKT2(env, esock_atom_drop_membership, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_drop_membership, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_DSTOPTS => IPV6_DSTOPTS *** */
+#if defined(IPV6_DSTOPTS)
+    tmp = MKT2(env, esock_atom_dstopts, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_dstopts, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL => IPV6_ESP_NETWORK_LEVEL *** */
+    tmp = MKT2(env, esock_atom_esp_network_level, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_ESP_TRANS_LEVEL => IPV6_ESP_TRANS_LEVEL *** */
+    tmp = MKT2(env, esock_atom_esp_trans_level, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_FAITH => IPV6_FAITH *** */
+    tmp = MKT2(env, esock_atom_faith, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_FLOWINFO => IPV6_FLOWINFO *** */
+#if defined(IPV6_FLOWINFO)
+    tmp = MKT2(env, esock_atom_flowinfo, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_flowinfo, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_HOPLIMIT => IPV6_HOPLIMIT *** */
+#if defined(IPV6_HOPLIMIT)
+    tmp = MKT2(env, esock_atom_hoplimit, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_hoplimit, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_HOPOPTS => IPV6_HOPOPTS *** */
+#if defined(IPV6_HOPOPTS)
+    tmp = MKT2(env, esock_atom_hopopts, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_hopopts, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_IPCOMP_LEVEL => IPV6_IPCOMP_LEVEL *** */
+    tmp = MKT2(env, esock_atom_ipcomp_level, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_JOIN_GROUP => IPV6_JOIN_GROUP *** */
+    tmp = MKT2(env, esock_atom_join_group, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_LEAVE_GROUP => IPV6_LEAVE_GROUP *** */
+    tmp = MKT2(env, esock_atom_leave_group, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_MTU => IPV6_MTU *** */
+#if defined(IPV6_MTU)
+    tmp = MKT2(env, esock_atom_mtu, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_mtu, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_MTU_DISCOVER => IPV6_MTU_DISCOVER *** */
+#if defined(IPV6_MTU_DISCOVER)
+    tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_mtu_discover, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_MULTICAST_HOPS => IPV6_MULTICAST_HOPS *** */
+#if defined(IPV6_MULTICAST_HOPS)
+    tmp = MKT2(env, esock_atom_multicast_hops, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_hops, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_MULTICAST_IF => IPV6_MULTICAST_IF *** */
+#if defined(IPV6_MULTICAST_IF)
+    tmp = MKT2(env, esock_atom_multicast_if, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_if, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_MULTICAST_LOOP => IPV6_MULTICAST_LOOP *** */
+#if defined(IPV6_MULTICAST_LOOP)
+    tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_multicast_loop, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_PORTRANGE => IPV6_PORTRANGE *** */
+    tmp = MKT2(env, esock_atom_portrange, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_PKTOPTIONS => IPV6_PKTOPTIONS *** */
+    tmp = MKT2(env, esock_atom_pktoptions, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_RECVERR => IPV6_RECVERR *** */
+#if defined(IPV6_RECVERR)
+    tmp = MKT2(env, esock_atom_recverr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recverr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_RECVPKTINFO => IPV6_RECVPKTINFO *** */
+#if defined(IPV6_RECVPKTINFO)
+    tmp = MKT2(env, esock_atom_recvpktinfo, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvpktinfo, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_RECVTCLASS => IPV6_RECVTCLASS *** */
+    tmp = MKT2(env, esock_atom_recvtclass, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_ROUTER_ALERT => IPV6_ROUTER_ALERT *** */
+#if defined(IPV6_ROUTER_ALERT)
+    tmp = MKT2(env, esock_atom_router_alert, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_router_alert, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_RTHDR => IPV6_RTHDR *** */
+#if defined(IPV6_RTHDR)
+    tmp = MKT2(env, esock_atom_rthdr, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_rthdr, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_TCLASS => IPV6_TCLASS *** */
+    tmp = MKT2(env, esock_atom_tclass, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_UNICAST_HOPS => IPV6_UNICAST_HOPS *** */
+#if defined(IPV6_UNICAST_HOPS)
+    tmp = MKT2(env, esock_atom_unicast_hops, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_unicast_hops, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_USE_MIN_MTU => IPV6_USE_MIN_MTU *** */
+    tmp = MKT2(env, esock_atom_use_min_mtu, esock_atom_false);
+    TARRAY_ADD(opts, tmp);
+
+
+    /* *** SOCKET_OPT_IPV6_V6ONLY => IPV6_V6ONLY *** */
+#if defined(IPV6_V6ONLY)
+    tmp = MKT2(env, esock_atom_v6only, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_v6only, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
+    TARRAY_TOLIST(opts, env, &optsL);
+    
+    return optsL;
 }
 
 
@@ -15783,10 +16606,19 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     /* Global atom(s) */
     esock_atom_accept       = MKA(env, "accept");
     esock_atom_acceptconn   = MKA(env, "acceptconn");
+    esock_atom_acceptfilter = MKA(env, "acceptfilter");
     esock_atom_addr         = MKA(env, "addr");
+    esock_atom_addrform     = MKA(env, "addrform");
+    esock_atom_add_membership = MKA(env, "add_membership");
+    esock_atom_add_source_membership = MKA(env, "add_source_membership");
     esock_atom_any          = MKA(env, "any");
+    esock_atom_authhdr      = MKA(env, "authhdr");
+    esock_atom_auth_level   = MKA(env, "auth_level");
     esock_atom_bindtodevice = MKA(env, "bindtodevice");
+    esock_atom_block_source = MKA(env, "block_source");
     esock_atom_broadcast    = MKA(env, "broadcast");
+    esock_atom_busy_poll    = MKA(env, "busy_poll");
+    esock_atom_checksum     = MKA(env, "checksum");
     esock_atom_connect      = MKA(env, "connect");
     esock_atom_credentials  = MKA(env, "credentials");
     esock_atom_ctrl         = MKA(env, "ctrl");
@@ -15794,63 +16626,131 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     esock_atom_data         = MKA(env, "data");
     esock_atom_debug        = MKA(env, "debug");
     esock_atom_dgram        = MKA(env, "dgram");
+    esock_atom_domain       = MKA(env, "domain");
+    esock_atom_dontfrag     = MKA(env, "dontfrag");
+    esock_atom_dontroute    = MKA(env, "dontroute");
+    esock_atom_drop_membership        = MKA(env, "drop_membership");
+    esock_atom_drop_source_membership = MKA(env, "drop_source_membership");
+    esock_atom_dstopts      = MKA(env, "dstpopts");
     esock_atom_eor          = MKA(env, "eor");
     esock_atom_error        = MKA(env, "error");
     esock_atom_errqueue     = MKA(env, "errqueue");
+    esock_atom_esp_network_level = MKA(env, "esp_network_level");
+    esock_atom_esp_trans_level   = MKA(env, "esp_trans_level");
+    esock_atom_faith        = MKA(env, "faith");
     esock_atom_false        = MKA(env, "false");
     esock_atom_family       = MKA(env, "family");
     esock_atom_flags        = MKA(env, "flags");
     esock_atom_flowinfo     = MKA(env, "flowinfo");
+    esock_atom_freebind     = MKA(env, "freebind");
+    esock_atom_hdrincl      = MKA(env, "hdrincl");
+    esock_atom_hoplimit     = MKA(env, "hoplimit");
+    esock_atom_hopopts      = MKA(env, "hopopts");
     esock_atom_ifindex      = MKA(env, "ifindex");
     esock_atom_inet         = MKA(env, "inet");
     esock_atom_inet6        = MKA(env, "inet6");
     esock_atom_iov          = MKA(env, "iov");
     esock_atom_ip           = MKA(env, "ip");
+    esock_atom_ipcomp_level = MKA(env, "ipcomp_level");
     esock_atom_ipv6         = MKA(env, "ipv6");
+    esock_atom_join_group   = MKA(env, "join_group");
+    esock_atom_keepalive    = MKA(env, "keepalive");
+    esock_atom_leave_group  = MKA(env, "leave_group");
     esock_atom_level        = MKA(env, "level");
+    esock_atom_linger       = MKA(env, "linger");
     esock_atom_local        = MKA(env, "local");
     esock_atom_loopback     = MKA(env, "loopback");
     esock_atom_lowdelay     = MKA(env, "lowdelay");
+    esock_atom_mark         = MKA(env, "mark");
     esock_atom_mincost      = MKA(env, "mincost");
+    esock_atom_minttl         = MKA(env, "minttl");
+    esock_atom_msfilter       = MKA(env, "msfilter");
+    esock_atom_mtu            = MKA(env, "mtu");
+    esock_atom_mtu_discover   = MKA(env, "mtu_discover");
+    esock_atom_multicast_all  = MKA(env, "multicast_all");
+    esock_atom_multicast_hops = MKA(env, "multicast_hops");
+    esock_atom_multicast_if   = MKA(env, "multicast_if");
+    esock_atom_multicast_loop = MKA(env, "multicast_loop");
+    esock_atom_multicast_ttl  = MKA(env, "multicast_ttl");
+    esock_atom_nodefrag     = MKA(env, "nodefrag");
     esock_atom_not_found    = MKA(env, "not_found");
     esock_atom_not_owner    = MKA(env, "not_owner");
     esock_atom_ok           = MKA(env, "ok");
     esock_atom_oob          = MKA(env, "oob");
+    esock_atom_oobinline    = MKA(env, "oobinline");
+    esock_atom_options      = MKA(env, "options");
     esock_atom_origdstaddr  = MKA(env, "origdstaddr");
+    esock_atom_passcred     = MKA(env, "passcred");
     esock_atom_path         = MKA(env, "path");
+    esock_atom_peekcred     = MKA(env, "peekcred");
+    esock_atom_peek_off     = MKA(env, "peek_off");
     esock_atom_pktinfo      = MKA(env, "pktinfo");
+    esock_atom_pktoptions   = MKA(env, "pktoptions");
     esock_atom_port         = MKA(env, "port");
+    esock_atom_portrange    = MKA(env, "portrange");
+    esock_atom_priority     = MKA(env, "priority");
     esock_atom_protocol     = MKA(env, "protocol");
     esock_atom_raw          = MKA(env, "raw");
+    esock_atom_rcvbuf       = MKA(env, "rcvbuf");
+    esock_atom_rcvbufforce  = MKA(env, "rcvbufforce");
+    esock_atom_rcvlowat     = MKA(env, "rcvlowat");
+    esock_atom_rcvtimeo     = MKA(env, "rcvtimeo");
     esock_atom_rdm          = MKA(env, "rdm");
     esock_atom_recv         = MKA(env, "recv");
+    esock_atom_recvdstaddr  = MKA(env, "recvdstaddr");
+    esock_atom_recverr      = MKA(env, "recverr");
     esock_atom_recvfrom     = MKA(env, "recvfrom");
+    esock_atom_recvif       = MKA(env, "recvif");
     esock_atom_recvmsg      = MKA(env, "recvmsg");
+    esock_atom_recvopts     = MKA(env, "recvopts");
+    esock_atom_recvorigdstaddr = MKA(env, "recvorigdstaddr");
+    esock_atom_recvpktinfo     = MKA(env, "recvpktinfo");
+    esock_atom_recvtclass   = MKA(env, "recvtclass");
+    esock_atom_recvtos      = MKA(env, "recvtos");
+    esock_atom_recvttl      = MKA(env, "recvttl");
     esock_atom_reliability  = MKA(env, "reliability");
+    esock_atom_retopts    = MKA(env, "retopts");
+    esock_atom_reuseaddr    = MKA(env, "reuseaddr");
+    esock_atom_reuseport    = MKA(env, "reuseport");
     esock_atom_rights       = MKA(env, "rights");
+    esock_atom_router_alert = MKA(env, "router_alert");
+    esock_atom_rthdr        = MKA(env, "rthdr");
+    esock_atom_rxq_ovfl     = MKA(env, "rxq_ovfl");
     esock_atom_scope_id     = MKA(env, "scope_id");
     esock_atom_sctp         = MKA(env, "sctp");
     esock_atom_sec          = MKA(env, "sec");
     esock_atom_select_sent  = MKA(env, "select_sent");
     esock_atom_send         = MKA(env, "send");
     esock_atom_sendmsg      = MKA(env, "sendmsg");
+    esock_atom_sendsrcaddr       = MKA(env, "sendsrcaddr");
     esock_atom_sendto       = MKA(env, "sendto");
     esock_atom_seqpacket    = MKA(env, "seqpacket");
+    esock_atom_setfib       = MKA(env, "setfib");
+    esock_atom_sndbuf       = MKA(env, "sndbuf");
+    esock_atom_sndbufforce  = MKA(env, "sndbufforce");
+    esock_atom_sndlowat     = MKA(env, "sndlowat");
+    esock_atom_sndtimeo     = MKA(env, "sndtimeo");
     esock_atom_socket       = MKA(env, "socket");
     esock_atom_spec_dst     = MKA(env, "spec_dst");
     esock_atom_stream       = MKA(env, "stream");
+    esock_atom_tclass       = MKA(env, "tclass");
     esock_atom_tcp          = MKA(env, "tcp");
     esock_atom_throughput   = MKA(env, "throughput");
     esock_atom_timestamp    = MKA(env, "timestamp");
     esock_atom_tos          = MKA(env, "tos");
+    esock_atom_transparent         = MKA(env, "transparent");
     esock_atom_true         = MKA(env, "true");
     esock_atom_trunc        = MKA(env, "trunc");
     esock_atom_ttl          = MKA(env, "ttl");
     esock_atom_type         = MKA(env, "type");
     esock_atom_udp          = MKA(env, "udp");
+    esock_atom_unblock_source    = MKA(env, "unblock_source");
     esock_atom_undefined    = MKA(env, "undefined");
+    esock_atom_unicast_hops = MKA(env, "unicast_hops");
     esock_atom_unknown      = MKA(env, "unknown");
     esock_atom_usec         = MKA(env, "usec");
+    esock_atom_use_min_mtu  = MKA(env, "use_min_mtu");
+    esock_atom_v6only       = MKA(env, "v6only");
 
     /* Global error codes */
     esock_atom_eafnosupport = MKA(env, ESOCK_STR_EAFNOSUPPORT);
