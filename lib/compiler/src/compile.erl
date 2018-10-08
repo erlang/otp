@@ -931,11 +931,17 @@ parse_module(_Code, St0) ->
     end.
 
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
+    SourceName0 = proplists:get_value(source, Opts, File),
+    SourceName = case member(deterministic, Opts) of
+                     true -> filename:basename(SourceName0);
+                     false -> SourceName0
+                 end,
     R = epp:parse_file(File,
-		       [{includes,[".",Dir|inc_paths(Opts)]},
-			{macros,pre_defs(Opts)},
-			{default_encoding,DefEncoding},
-			extra]),
+                       [{includes,[".",Dir|inc_paths(Opts)]},
+                        {source_name, SourceName},
+                        {macros,pre_defs(Opts)},
+                        {default_encoding,DefEncoding},
+                        extra]),
     case R of
 	{ok,Forms,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
