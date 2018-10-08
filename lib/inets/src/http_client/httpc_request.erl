@@ -213,9 +213,11 @@ update_body(Headers, Body) ->
 update_headers(Headers, ContentType, Body, []) ->
     case Body of
         [] ->
-            Headers#http_request_h{'content-length' = "0"};
+            Headers1 = Headers#http_request_h{'content-length' = "0"},
+            handle_content_type(Headers1, ContentType);
         <<>> ->
-            Headers#http_request_h{'content-length' = "0"};
+            Headers1 = Headers#http_request_h{'content-length' = "0"},
+            handle_content_type(Headers1, ContentType);
         {Fun, _Acc} when is_function(Fun, 1) ->
             %% A client MUST NOT generate a 100-continue expectation in a request
             %% that does not include a message body. This implies that either the
@@ -244,6 +246,12 @@ body_length(Body) when is_binary(Body) ->
 
 body_length(Body) when is_list(Body) ->
   integer_to_list(length(Body)).
+
+%% Set 'Content-Type' when it is explicitly set.
+handle_content_type(Headers, "") ->
+    Headers;
+handle_content_type(Headers, ContentType) ->
+    Headers#http_request_h{'content-type' = ContentType}.
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).

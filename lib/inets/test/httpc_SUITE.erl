@@ -156,6 +156,7 @@ only_simulated() ->
      multipart_chunks,
      get_space,
      delete_no_body,
+     post_with_content_type,
      stream_fun_server_close
     ].
 
@@ -1599,6 +1600,15 @@ delete_no_body(Config) when is_list(Config) ->
         httpc:request(delete, {URL, []}, [], []),
     {ok, {{_,500,_}, _, _}} =
         httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], []).
+
+%%--------------------------------------------------------------------
+post_with_content_type(doc) ->
+    ["Test that a POST request with explicit 'Content-Type' does not drop the 'Content-Type' header - Solves ERL-736"];
+post_with_content_type(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/delete_no_body.html", Config),
+    %% Simulated server replies 500 if 'Content-Type' header is present
+    {ok, {{_,500,_}, _, _}} =
+        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [], []).
 
 %%--------------------------------------------------------------------
 request_options() ->
