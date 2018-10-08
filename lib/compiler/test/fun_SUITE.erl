@@ -249,6 +249,13 @@ badfun(_Config) ->
     expect_badfun(X, catch X(put(?FUNCTION_NAME, of_course))),
     of_course = erase(?FUNCTION_NAME),
 
+    %% A literal as a Fun used to crash the code generator. This only happened
+    %% when type optimization had reduced `Fun` to a literal, hence the match.
+    Literal = fun(literal = Fun) ->
+                      Fun()
+              end,
+    expect_badfun(literal, catch Literal(literal)),
+
     ok.
 
 expect_badfun(Term, Exit) ->
