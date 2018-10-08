@@ -906,6 +906,8 @@ typedef struct ErtsLiteralArea_ {
     Eterm start[1]; /* beginning of area */
 } ErtsLiteralArea;
 
+void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
+
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
