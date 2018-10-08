@@ -3679,7 +3679,7 @@ create_tempfile(Template) ->
 		    false ->
 			case os:getenv("TEMP") of
 			    false ->
-				throw({error, "Variabel TMP or TEMP doesn't exist"});
+				throw({error, "Variable TMP or TEMP doesn't exist"});
 			    P2 ->
 				P2
 			end;

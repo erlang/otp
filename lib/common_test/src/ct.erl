@@ -390,11 +390,7 @@ testcases(TestDir, Suite) ->
     end.
 
 make_and_load(Dir, Suite) ->
-    EnvInclude =
-	case os:getenv("CT_INCLUDE_PATH") of
-	    false -> [];
-	    CtInclPath -> string:lexemes(CtInclPath, [$:,$ ,$,])
-	end,
+    EnvInclude = string:lexemes(os:getenv("CT_INCLUDE_PATH", ""), [$:,$ ,$,]),
     StartInclude =
 	case init:get_argument(include) of
 	    {ok,[Dirs]} -> Dirs;

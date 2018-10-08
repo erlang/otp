@@ -448,10 +448,7 @@ maybe_warn_filename(FileName) ->
         true ->
             continue;
         false ->
-            DumpName = case os:getenv("ERL_CRASH_DUMP") of
-                           false -> filename:absname("erl_crash.dump");
-                           Name -> filename:absname(Name)
-                       end,
+            DumpName = filename:absname(os:getenv("ERL_CRASH_DUMP", "erl_crash.dump")),
             case filename:absname(FileName) of
                 DumpName ->
                     Warning =
