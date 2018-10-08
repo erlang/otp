@@ -221,7 +221,8 @@ update_headers(Headers, ContentType, Body, []) ->
             %% that does not include a message body. This implies that either the
             %% Content-Length or the Transfer-Encoding header MUST be present.
             %% DO NOT send content-type when Body is empty.
-            Headers#http_request_h{'content-type' = ContentType};
+            Headers1 = Headers#http_request_h{'content-type' = ContentType},
+            handle_transfer_encoding(Headers1);
         _ ->
             Headers#http_request_h{
               'content-length' = body_length(Body),
@@ -229,6 +230,14 @@ update_headers(Headers, ContentType, Body, []) ->
     end;
 update_headers(_, _, _, HeadersAsIs) ->
     HeadersAsIs.
+
+handle_transfer_encoding(Headers = #http_request_h{'transfer-encoding' = undefined}) ->
+    Headers;
+handle_transfer_encoding(Headers) ->
+    %% RFC7230 3.3.2
+    %% A sender MUST NOT send a 'Content-Length' header field in any message
+    %% that contains a 'Transfer-Encoding' header field.
+    Headers#http_request_h{'content-length' = undefined}.
 
 body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
