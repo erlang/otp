@@ -57,7 +57,9 @@
          empty_connection_state/2]).
 
 %% Alert and close handling
--export([send_alert/2, send_alert_in_connection/2, encode_alert/3, close/5, protocol_name/0]).
+-export([send_alert/2, send_alert_in_connection/2,
+         send_sync_alert/2,
+         encode_alert/3, close/5, protocol_name/0]).
 
 %% Data handling
 -export([encode_data/3, passive_receive/2, next_record_if_active/1, 
@@ -364,21 +366,38 @@ encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
 
 send_alert(Alert, #state{negotiated_version = Version,
                          socket = Socket,
-                         protocol_cb = Connection, 
                          transport_cb = Transport,
                          connection_states = ConnectionStates0,
                          ssl_options = SslOpts} = StateData0) ->
-    {BinMsg, ConnectionStates} =
-	Connection:encode_alert(Alert, Version, ConnectionStates0),
-    Connection:send(Transport, Socket, BinMsg),
+    {BinMsg, ConnectionStates} = encode_alert(Alert, Version, ConnectionStates0),
+    send(Transport, Socket, BinMsg),
     Report = #{direction => outbound,
                protocol => 'tls_record',
                message => BinMsg},
     ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     StateData0#state{connection_states = ConnectionStates}.
 
-send_alert_in_connection(Alert, #state{protocol_specific = #{sender := Sender}}) ->
+%% If an ALERT sent in the connection state, should cause the TLS
+%% connection to end, we need to synchronize with the tls_sender
+%% process so that the ALERT if possible (that is the tls_sender process is
+%% not blocked) is sent before the connection process terminates and
+%% thereby closes the transport socket.
+send_alert_in_connection(#alert{level = ?FATAL} = Alert, State) ->
+    send_sync_alert(Alert, State);
+send_alert_in_connection(#alert{description = ?CLOSE_NOTIFY} = Alert, State) ->
+    send_sync_alert(Alert, State);
+send_alert_in_connection(Alert,
+                         #state{protocol_specific = #{sender := Sender}}) ->
     tls_sender:send_alert(Sender, Alert).
+send_sync_alert(Alert, #state{protocol_specific = #{sender := Sender}}= State) ->
+    tls_sender:send_and_ack_alert(Sender, Alert),
+    receive
+        {Sender, ack_alert} ->
+            ok
+    after ?DEFAULT_TIMEOUT ->
+            %% Sender is blocked terminate anyway
+            throw({stop, {shutdown, own_alert}, State})
+    end.
 
 %% User closes or recursive call!
 close({close, Timeout}, Socket, Transport = gen_tcp, _,_) ->
@@ -536,7 +555,9 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
         #alert{} = Alert ->
-            ssl_connection:handle_own_alert(Alert, ClientVersion, hello, State);
+            ssl_connection:handle_own_alert(Alert, ClientVersion, hello,
+                                            State#state{negotiated_version
+                                                        = ClientVersion});
         {Version, {Type, Session},
 	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
 	    Protocol = case Protocol0 of
@@ -559,7 +580,8 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello, State);
+	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
+                                            State#state{negotiated_version = ReqVersion});
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
@@ -667,8 +689,8 @@ callback_mode() ->
     state_functions.
 
 terminate(Reason, StateName, State) ->
-    ensure_sender_terminate(Reason, State),
-    catch ssl_connection:terminate(Reason, StateName, State).
+    catch ssl_connection:terminate(Reason, StateName, State),
+    ensure_sender_terminate(Reason, State).
 
 format_status(Type, Data) ->
     ssl_connection:format_status(Type, Data).
@@ -827,8 +849,8 @@ handle_info({CloseTag, Socket}, StateName,
             %% and then receive the final message.
             next_event(StateName, no_record, State)
     end;
-handle_info({'EXIT', Pid, Reason}, _,
-            #state{protocol_specific = Pid} = State) ->
+handle_info({'EXIT', Sender, Reason}, _,
+            #state{protocol_specific = #{sender := Sender}} = State) ->
     {stop, {shutdown, sender_died, Reason}, State};
 handle_info(Msg, StateName, State) ->
     ssl_connection:StateName(info, Msg, State, ?MODULE).
