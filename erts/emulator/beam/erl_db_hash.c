@@ -2731,13 +2731,9 @@ static int free_seg(DbTableHash *tb, int free_records)
                  * sure no lingering threads are still hanging in BUCKET macro
                  * with an old segtab pointer.
                  */
-                Uint sz = SIZEOF_EXT_SEGTAB(est->nsegs);
-                ASSERT(sz == ERTS_ALC_DBG_BLK_SZ(est));
-                ERTS_DB_ALC_MEM_UPDATE_(tb, sz, 0);
-                erts_schedule_thr_prgr_later_cleanup_op(dealloc_ext_segtab,
-                                                        est,
-                                                        &est->lop,
-                                                        sz);
+                erts_schedule_db_free(&tb->common, dealloc_ext_segtab,
+                                      est, &est->lop,
+                                      SIZEOF_EXT_SEGTAB(est->nsegs));
             }
             else
                 erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,

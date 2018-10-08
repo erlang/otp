@@ -46,7 +46,6 @@
 typedef struct {
     int inited;
     Sint16 id;
-    int check_order;
     erts_lock_flags_t flags;
     erts_lock_options_t taken_options;
     UWord extra;
@@ -54,12 +53,11 @@ typedef struct {
 
 #define ERTS_LC_INITITALIZED 0x7f7f7f7f
 
-#define ERTS_LC_LOCK_INIT(ID, X, F) {ERTS_LC_INITITALIZED, (ID), 1, (F), 0, (X)}
+#define ERTS_LC_LOCK_INIT(ID, X, F) {ERTS_LC_INITITALIZED, (ID), (F), 0, (X)}
 
 void erts_lc_init(void);
 void erts_lc_late_init(void);
 Sint16 erts_lc_get_lock_order_id(char *name);
-int erts_lc_is_check_order(char *name);
 void erts_lc_check(erts_lc_lock_t *have, int have_len,
 		   erts_lc_lock_t *have_not, int have_not_len);
 void erts_lc_check_exact(erts_lc_lock_t *have, int have_len);
@@ -106,7 +104,7 @@ Eterm erts_lc_dump_graph(void);
 
 #define erts_lc_lock(lck) erts_lc_lock_x(lck,__FILE__,__LINE__)
 #define erts_lc_trylock(res,lck) erts_lc_trylock_x(res,lck,__FILE__,__LINE__)
-#define erts_lc_lock_flg(lck) erts_lc_lock_flg_x(lck,__FILE__,__LINE__)
-#define erts_lc_trylock_flg(res,lck) erts_lc_trylock_flg_x(res,lck,__FILE__,__LINE__)
+#define erts_lc_lock_flg(lck,flg) erts_lc_lock_flg_x(lck,flg,__FILE__,__LINE__)
+#define erts_lc_trylock_flg(res,lck,flg) erts_lc_trylock_flg_x(res,lck,flg,__FILE__,__LINE__)
 
 #endif /* #ifndef ERTS_LOCK_CHECK_H__ */

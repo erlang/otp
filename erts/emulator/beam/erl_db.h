@@ -286,6 +286,12 @@ ERTS_GLB_INLINE void erts_db_free(ErtsAlcType_t type,
 				  void *ptr,
 				  Uint size);
 
+ERTS_GLB_INLINE void erts_schedule_db_free(DbTableCommon* tab,
+                                           void (*free_func)(void *),
+                                           void *ptr,
+                                           ErtsThrPrgrLaterOp *lop,
+                                           Uint size);
+
 ERTS_GLB_INLINE void erts_db_free_nt(ErtsAlcType_t type,
 				     void *ptr,
 				     Uint size);
@@ -303,6 +309,26 @@ erts_db_free(ErtsAlcType_t type, DbTable *tab, void *ptr, Uint size)
 	   || erts_atomic_read_nob(&tab->common.memory_size) == 0);
 
     erts_free(type, ptr);
+}
+
+ERTS_GLB_INLINE void
+erts_schedule_db_free(DbTableCommon* tab,
+                      void (*free_func)(void *),
+                      void *ptr,
+                      ErtsThrPrgrLaterOp *lop,
+                      Uint size)
+{
+    ASSERT(ptr != 0);
+    ASSERT(((void *) tab) != ptr);
+    ASSERT(size == ERTS_ALC_DBG_BLK_SZ(ptr));
+
+    /*
+     * We update table memory stats here as table may already be gone
+     * when 'free_func' is finally called.
+     */
+    ERTS_DB_ALC_MEM_UPDATE_((DbTable*)tab, size, 0);
+
+    erts_schedule_thr_prgr_later_cleanup_op(free_func, ptr, lop, size);
 }
 
 ERTS_GLB_INLINE void

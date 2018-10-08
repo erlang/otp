@@ -34,23 +34,36 @@
 struct DbTableCATreeNode;
 
 typedef struct {
+    Eterm term;
+    struct erl_off_heap_header* oh;
+    Uint size;
+    Eterm heap[1];
+} DbRouteKey;
+
+typedef struct {
     erts_rwmtx_t lock; /* The lock for this base node */
     Sint lock_statistics;
     int is_valid; /* If this base node is still valid */
     TreeDbTerm *root; /* The root of the sequential tree */
-    DbTable * tab; /* Table ptr, used when freeing using thread progress */
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    DbRouteKey lc_key;
+#endif
+    char end_of_struct__;
 } DbTableCATreeBaseNode;
 
 typedef struct {
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    Sint lc_order;
+#endif
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
-    DbTable* tab; /* Table ptr, used when freeing using thread progress */
     erts_mtx_t lock; /* Used when joining route nodes */
     int is_valid; /* If this route node is still valid */
     erts_atomic_t left;
     erts_atomic_t right;
-    DbTerm key;
+    DbRouteKey key;
 } DbTableCATreeRouteNode;
 
 typedef struct DbTableCATreeNode {
@@ -58,7 +71,7 @@ typedef struct DbTableCATreeNode {
     union {
         DbTableCATreeRouteNode route;
         DbTableCATreeBaseNode base;
-    } baseOrRoute;
+    } u;
 } DbTableCATreeNode;
 
 typedef struct {

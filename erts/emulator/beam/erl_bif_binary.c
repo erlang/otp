@@ -471,6 +471,9 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 			     Binary **the_bin /* out */)
 {
     Uint datasize;
+    BMData *bmd;
+    Binary *mb;
+    byte *data;
 
     if(len > 1) {
 	datasize = BM_SIZE_MULTI(len);
@@ -478,9 +481,8 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 	datasize = BM_SIZE_SINGLE();
     }
 
-    BMData *bmd;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
-    byte *data = ERTS_MAGIC_BIN_DATA(mb);
+    mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
+    data = ERTS_MAGIC_BIN_DATA(mb);
     init_my_allocator(my, datasize, data);
     bmd = my_alloc(my, sizeof(BMData));
     bmd->x = my_alloc(my,len);
