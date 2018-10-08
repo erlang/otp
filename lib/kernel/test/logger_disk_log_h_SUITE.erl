@@ -332,16 +332,18 @@ errors(Config) ->
     %%! Check how bad log_opts are handled!
 
     {error,{illegal_config_change,
-            #{config:=#{type:=wrap}},
-            #{config:=#{type:=halt}}}} =
+            logger_disk_log_h,
+            #{type:=wrap},
+            #{type:=halt}}} =
         logger:update_handler_config(Name1,
                                      config,
                                      #{type=>halt,
                                        file=>LogFile1}),
 
     {error,{illegal_config_change,
-            #{config:=#{file:=LogFile1}},
-            #{config:=#{file:="newfilename"}}}} =
+            logger_disk_log_h,
+            #{file:=LogFile1},
+            #{file:="newfilename"}}} =
         logger:update_handler_config(Name1,
                                      config,
                                      #{file=>"newfilename"}),
@@ -411,7 +413,7 @@ formatter_fail(cleanup,_Config) ->
     ok.
 
 config_fail(_Config) ->
-    {error,{handler_not_added,{invalid_config,logger_disk_log_h,{bad,bad}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,#{bad:=bad}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{bad => bad},
                              filter_default=>log,
@@ -433,12 +435,9 @@ config_fail(_Config) ->
                             #{filter_default=>log,
                               formatter=>{?MODULE,self()}}),
     %% can't change the disk log options for a log already in use
-    {error,{illegal_config_change,_,_}} =
+    {error,{illegal_config_change,logger_disk_log_h,_,_}} =
         logger:update_handler_config(?MODULE,config,
                                      #{max_no_files=>2}),
-    %% can't change name of an existing handler
-    {error,{illegal_config_change,_,_}} =
-        logger:update_handler_config(?MODULE,id,bad),
     %% incorrect values of OP params
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     {error,{invalid_levels,_}} =
@@ -446,7 +445,7 @@ config_fail(_Config) ->
                                      HConfig#{sync_mode_qlen=>100,
                                               flush_qlen=>99}),
     %% invalid name of config parameter
-    {error,{invalid_config,logger_disk_log_h,{filesync_rep_int,2000}}} =
+    {error,{invalid_config,logger_disk_log_h,#{filesync_rep_int:=2000}}} =
         logger:update_handler_config(?MODULE, config,
                                      HConfig#{filesync_rep_int => 2000}),
     ok.
@@ -487,10 +486,11 @@ reconfig(Config) ->
       overload_kill_mem_size := ?OVERLOAD_KILL_MEM_SIZE,
       overload_kill_restart_after := ?OVERLOAD_KILL_RESTART_AFTER,
       filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL,
-      log_opts := #{type := ?DISK_LOG_TYPE,
-                    max_no_files := ?DISK_LOG_MAX_NO_FILES,
-                    max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
-                    file := DiskLogFile}} =
+      handler_state :=
+          #{log_opts := #{type := ?DISK_LOG_TYPE,
+                          max_no_files := ?DISK_LOG_MAX_NO_FILES,
+                          max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
+                          file := DiskLogFile}}} =
         logger_disk_log_h:info(?MODULE),
     {ok,#{config :=
               #{sync_mode_qlen := ?SYNC_MODE_QLEN,
@@ -572,10 +572,11 @@ reconfig(Config) ->
                                     max_no_files => 1,
                                     max_no_bytes => 1024,
                                     file => File}}),
-    #{log_opts := #{type := halt,
-                    max_no_files := 1,
-                    max_no_bytes := 1024,
-                    file := File}} =
+    #{handler_state :=
+          #{log_opts := #{type := halt,
+                          max_no_files := 1,
+                          max_no_bytes := 1024,
+                          file := File}}} =
         logger_disk_log_h:info(?MODULE),
     {ok,#{config :=
               #{type := halt,
@@ -596,13 +597,13 @@ reconfig(Config) ->
 
     %% You are not allowed to actively set the write once fields
     %% (type, max_no_files, max_no_bytes, file) in runtime.
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{type=>wrap}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{max_no_files=>2}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{max_no_bytes=>2048}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{file=>"otherfile.log"}),
     {ok,C7} = logger:get_handler_config(?MODULE),
     ct:log("C7: ~p",[C7]),
@@ -639,7 +640,7 @@ sync(Config) ->
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
-    %% check that if there's no repeated disk_log_sync active,
+    %% check that if there's no repeated filesync active,
     %% a disk_log_sync is still performed when handler goes idle
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
@@ -667,12 +668,12 @@ sync(Config) ->
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
     
-    %% switch repeated disk_log_sync on and verify that the looping works
+    %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_disk_log_h,handle_cast,repeated_disk_log_sync},
-    %% receive 1 initial repeated_disk_log_sync, then 1 per sec
-    start_tracer([{logger_disk_log_h,handle_cast,2}],
+    OneSync = {logger_h_common,handle_cast,repeated_filesync},
+    %% receive 1 initial repeated_filesync, then 1 per sec
+    start_tracer([{logger_h_common,handle_cast,2}],
                  [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
@@ -851,7 +852,8 @@ write_failure(Config) ->
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
     HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
+    ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts,
+                                               maps:get(handler_state,HState))]),
 
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
@@ -901,7 +903,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
     HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    LogOpts = maps:get(log_opts, HState),
+    LogOpts = maps:get(log_opts, maps:get(handler_state,HState)),
     
     SyncInt = 500,
     ok = rpc:call(Node, logger, update_handler_config,
@@ -1606,7 +1608,7 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_disk_log_h,handle_cast,[Op|_]},Caller},
+tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
 tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
