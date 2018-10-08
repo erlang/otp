@@ -156,6 +156,7 @@ only_simulated() ->
      multipart_chunks,
      get_space,
      delete_no_body,
+     post_with_content_type,
      stream_fun_server_close
     ].
 
@@ -170,7 +171,8 @@ misc() ->
      server_does_not_exist,
      timeout_memory_leak,
      wait_for_whole_response,
-     post_204_chunked
+     post_204_chunked,
+     chunkify_fun
     ].
 
 sim_mixed() ->
@@ -1408,7 +1410,8 @@ post_204_chunked(_Config) ->
 
     {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
     {ok,{_,Port}} = inet:sockname(ListenSocket),
-    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket) end),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun post_204_receive/0) end),
 
     {ok,Host} = inet:gethostname(),
     End = "/cgi-bin/erl/httpd_example:post_204",
@@ -1418,24 +1421,7 @@ post_204_chunked(_Config) ->
     %% Second request times out in the faulty case.
     {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []).
 
-custom_server(Msg, Chunk, ListenSocket) ->
-    {ok, Accept} = gen_tcp:accept(ListenSocket),
-    receive_packet(),
-    send_response(Msg, Chunk, Accept),
-    custom_server_loop(Msg, Chunk, Accept).
-
-custom_server_loop(Msg, Chunk, Accept) ->
-    receive_packet(),
-    send_response(Msg, Chunk, Accept),
-    custom_server_loop(Msg, Chunk, Accept).
-
-send_response(Msg, Chunk, Socket) ->
-    inet:setopts(Socket, [{active, once}]),
-    gen_tcp:send(Socket, Msg),
-    timer:sleep(250),
-    gen_tcp:send(Socket, Chunk).
-
-receive_packet() ->
+post_204_receive() ->
     receive
         {tcp, _, Msg} ->
             ct:log("Message received: ~p", [Msg])
@@ -1444,6 +1430,72 @@ receive_packet() ->
             ct:fail("Timeout: did not recive packet")
     end.
 
+%% Custom server is used to test special cases when using chunked encoding
+custom_server(Msg, Chunk, ListenSocket, ReceiveFun) ->
+    {ok, Accept} = gen_tcp:accept(ListenSocket),
+    ReceiveFun(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept, ReceiveFun).
+
+custom_server_loop(Msg, Chunk, Accept, ReceiveFun) ->
+    ReceiveFun(),
+    send_response(Msg, Chunk, Accept),
+    custom_server_loop(Msg, Chunk, Accept, ReceiveFun).
+
+send_response(Msg, Chunk, Socket) ->
+    inet:setopts(Socket, [{active, once}]),
+    gen_tcp:send(Socket, Msg),
+    timer:sleep(250),
+    gen_tcp:send(Socket, Chunk).
+
+%%--------------------------------------------------------------------
+chunkify_fun() ->
+    [{doc,"Test that a chunked encoded request does not include the 'Content-Length header'"}].
+chunkify_fun(_Config) ->
+    Msg = "HTTP/1.1 204 No Content\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun chunkify_receive/0) end),
+
+    {ok,Host} = inet:gethostname(),
+    End = "/cgi-bin/erl/httpd_example",
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End,
+    Fun = fun(_) -> {ok,<<1>>,eof_body} end,
+    Acc = start,
+
+    {ok, {{_,204,_}, _, _}} =
+        httpc:request(put, {URL, [], "text/html", {chunkify, Fun, Acc}}, [], []).
+
+chunkify_receive() ->
+    Error = "HTTP/1.1 500 Internal Server Error\r\n" ++
+        "Content-Length: 0\r\n\r\n",
+    receive
+        {tcp, Port, Msg} ->
+            case binary:match(Msg, <<"content-length">>) of
+                nomatch ->
+                    ct:log("Message received: ~s", [binary_to_list(Msg)]);
+                {_, _} ->
+                    ct:log("Message received (negative): ~s", [binary_to_list(Msg)]),
+                    %% Signal a testcase failure when the received HTTP request
+                    %% contains a 'Content-Length' header.
+                    gen_tcp:send(Port, Error),
+                    ct:fail("Content-Length present in received headers.")
+            end
+    after
+        1000 ->
+            ct:fail("Timeout: did not recive packet")
+    end.
 %%--------------------------------------------------------------------
 stream_fun_server_close() ->
     [{doc, "Test that an error msg is received when using a receiver fun as stream target"}].
@@ -1548,6 +1600,15 @@ delete_no_body(Config) when is_list(Config) ->
         httpc:request(delete, {URL, []}, [], []),
     {ok, {{_,500,_}, _, _}} =
         httpc:request(delete, {URL, [], "text/plain", "TEST"}, [], []).
+
+%%--------------------------------------------------------------------
+post_with_content_type(doc) ->
+    ["Test that a POST request with explicit 'Content-Type' does not drop the 'Content-Type' header - Solves ERL-736"];
+post_with_content_type(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/delete_no_body.html", Config),
+    %% Simulated server replies 500 if 'Content-Type' header is present
+    {ok, {{_,500,_}, _, _}} =
+        httpc:request(post, {URL, [], "application/x-www-form-urlencoded", ""}, [], []).
 
 %%--------------------------------------------------------------------
 request_options() ->
