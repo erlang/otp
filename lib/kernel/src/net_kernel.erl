@@ -1432,7 +1432,7 @@ validate_hostname([$@|HostPart] = Host) ->
     end.
 
 valid_name_head(Head) ->
-    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]*$", [unicode]),
+    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]+$", [unicode]),
         case re:run(Head, MP) of
             {match, _} ->
                 true;
