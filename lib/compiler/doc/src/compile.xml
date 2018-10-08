@@ -203,7 +203,8 @@
           <tag><c>deterministic</c></tag>
           <item>
             <p>Omit the <c>options</c> and <c>source</c> tuples in
-	    the list returned by <c>Module:module_info(compile)</c>.
+            the list returned by <c>Module:module_info(compile)</c>, and
+            reduce the paths in stack traces to the module name alone.
 	    This option will make it easier to achieve reproducible builds.
 	    </p>
           </item>
@@ -347,8 +348,8 @@ module.beam: module.erl \
 
 	  <tag><c>{source,FileName}</c></tag>
           <item>
-            <p>Sets the value of the source, as returned by
-              <c>module_info(compile)</c>.</p>
+            <p>Overrides the source file name as presented in
+              <c>module_info(compile)</c> and stack traces.</p>
           </item>
 
 	  <tag><c>{outdir,Dir}</c></tag>
