@@ -185,16 +185,20 @@ static void do_dump_tree2(DbTableTree*, int to, void *to_arg, int show,
 ** Datatypes
 */
 
+enum ms_key_boundness {
+    /* Order significant, larger means more "boundness" => less iteration */
+    MS_KEY_UNBOUND           = 0,
+    MS_KEY_PARTIALLY_BOUND   = 1,
+    MS_KEY_BOUND             = 2,
+    MS_KEY_IMPOSSIBLE        = 3
+};
+
 /* 
  * This structure is filled in by analyze_pattern() for the select 
  * functions.
  */
 struct mp_info {
-    int something_can_match;	/* The match_spec is not "impossible" */
-    int some_limitation;	/* There is some limitation on the search
-				 * area, i. e. least and/or most is set.*/
-    int got_partial;		/* The limitation has a partially bound
-				 * key */
+    enum ms_key_boundness key_boundness;
     Eterm least;		/* The lowest matching key (possibly 
 				 * partially bound expression) */
     Eterm most;                 /* The highest matching key (possibly 
@@ -323,8 +327,9 @@ static void traverse_update_backwards(DbTableCommon *tb,
                                                   void *,
                                                   int),
                                       void *context);
-static int key_given(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
-                     TreeDbTerm ***ret, Eterm *partly_bound);
+static enum ms_key_boundness key_boundness(DbTableCommon *tb, TreeDbTerm **root,
+                                           Eterm pattern,
+                                           TreeDbTerm ***ret, Eterm *keyp);
 static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done);
 
@@ -1187,22 +1192,21 @@ int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
 	RET_TO_BIF(NIL,errcode);
     }
 
-    if (!mpi.something_can_match) {
+    if (mpi.key_boundness == MS_KEY_IMPOSSIBLE) {
 	RET_TO_BIF(NIL,DB_ERROR_NONE);  
 	/* can't possibly match anything */
     }
 
     sc.mp = mpi.mp;
 
-    if (!mpi.got_partial && mpi.some_limitation && 
-	CMP_EQ(mpi.least,mpi.most)) {
+    if (mpi.key_boundness == MS_KEY_BOUND) {
 	doit_select(tb,*(mpi.save_term),&sc,0 /* direction doesn't matter */);
 	RET_TO_BIF(sc.accum,DB_ERROR_NONE);
     }
 
     stack = get_any_stack((DbTable*)tb,stack_container);
     if (reverse) {
-	if (mpi.some_limitation) {
+	if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	    if ((this = find_prev_from_pb_key(tb, *root, stack, mpi.least)) != NULL) {
 		lastkey = GETKEY(tb, this->dbterm.tpl);
 	    }
@@ -1210,7 +1214,7 @@ int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
 	}
 	traverse_forward(tb, root, stack, lastkey, &doit_select, &sc);
     } else {
-	if (mpi.some_limitation) {
+	if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	    if ((this = find_next_from_pb_key(tb, *root, stack, mpi.most)) != NULL) {
 		lastkey = GETKEY(tb, this->dbterm.tpl);
 	    }
@@ -1405,21 +1409,20 @@ int db_select_count_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
 	RET_TO_BIF(NIL,errcode);
     }
 
-    if (!mpi.something_can_match) {
+    if (mpi.key_boundness == MS_KEY_IMPOSSIBLE) {
 	RET_TO_BIF(make_small(0),DB_ERROR_NONE);  
 	/* can't possibly match anything */
     }
 
     sc.mp = mpi.mp;
 
-    if (!mpi.got_partial && mpi.some_limitation && 
-	CMP_EQ(mpi.least,mpi.most)) {
+    if (mpi.key_boundness == MS_KEY_BOUND) {
 	doit_select_count(tb,*(mpi.save_term),&sc,0 /* dummy */);
 	RET_TO_BIF(erts_make_integer(sc.got,p),DB_ERROR_NONE);
     }
 
     stack = get_any_stack((DbTable*)tb, stack_container);
-    if (mpi.some_limitation) {
+    if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	if ((this = find_next_from_pb_key(tb, *root, stack, mpi.most)) != NULL) {
 	    lastkey = GETKEY(tb, this->dbterm.tpl);
 	}
@@ -1513,15 +1516,14 @@ int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
 	RET_TO_BIF(NIL,errcode);
     }
 
-    if (!mpi.something_can_match) {
+    if (mpi.key_boundness == MS_KEY_IMPOSSIBLE) {
 	RET_TO_BIF(am_EOT,DB_ERROR_NONE);
 	/* can't possibly match anything */
     }
 
     sc.mp = mpi.mp;
 
-    if (!mpi.got_partial && mpi.some_limitation && 
-	CMP_EQ(mpi.least,mpi.most)) {
+    if (mpi.key_boundness == MS_KEY_BOUND) {
 	doit_select(tb,*(mpi.save_term),&sc, 0 /* direction doesn't matter */);
 	if (sc.accum != NIL) {
 	    hp=HAlloc(p, 3);
@@ -1533,7 +1535,7 @@ int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
 
     stack = get_any_stack((DbTable*)tb,stack_container);
     if (reverse) {
-	if (mpi.some_limitation) {
+	if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	    if ((this = find_next_from_pb_key(tb, *root, stack, mpi.most)) != NULL) {
 		lastkey = GETKEY(tb, this->dbterm.tpl);
 	    }
@@ -1541,7 +1543,7 @@ int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
 	}
 	traverse_backwards(tb, root, stack, lastkey, &doit_select_chunk, &sc);
     } else {
-	if (mpi.some_limitation) {
+	if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	    if ((this = find_prev_from_pb_key(tb, *root, stack, mpi.least)) != NULL) {
 		lastkey = GETKEY(tb, this->dbterm.tpl);
 	    }
@@ -1777,21 +1779,20 @@ int db_select_delete_tree_common(Process *p, DbTable *tbl,
 	RET_TO_BIF(0,errcode);
     }
 
-    if (!mpi.something_can_match) {
+    if (mpi.key_boundness == MS_KEY_IMPOSSIBLE) {
 	RET_TO_BIF(make_small(0),DB_ERROR_NONE);  
 	/* can't possibly match anything */
     }
 
     sc.mp = mpi.mp;
 
-    if (!mpi.got_partial && mpi.some_limitation && 
-	CMP_EQ(mpi.least,mpi.most)) {
+    if (mpi.key_boundness == MS_KEY_BOUND) {
 	doit_select_delete(&tbl->common,*(mpi.save_term),&sc, 0 /* direction doesn't
 						      matter */);
 	RET_TO_BIF(erts_make_integer(sc.accum,p),DB_ERROR_NONE);
     }
 
-    if (mpi.some_limitation) {
+    if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
 	if ((this = find_next_from_pb_key(&tbl->common, *root, stack, mpi.most)) != NULL) {
 	    lastkey = GETKEY(&tbl->common, this->dbterm.tpl);
 	}
@@ -1988,23 +1989,22 @@ int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **ro
         RET_TO_BIF(NIL,errcode);
     }
 
-    if (!mpi.something_can_match) {
+    if (mpi.key_boundness == MS_KEY_IMPOSSIBLE) {
         RET_TO_BIF(make_small(0),DB_ERROR_NONE);
         /* can't possibly match anything */
     }
 
     sc.mp = mpi.mp;
 
-    if (!mpi.got_partial && mpi.some_limitation &&
-            CMP_EQ(mpi.least,mpi.most)) {
-        doit_select_replace(tb,mpi.save_term,&sc,0 /* dummy */);
+    if (mpi.key_boundness == MS_KEY_BOUND) {
+        doit_select_replace(tb,*mpi.save_term,&sc,0 /* dummy */);
         reset_static_stack(stack_container); /* may refer replaced term */
         RET_TO_BIF(erts_make_integer(sc.replaced,p),DB_ERROR_NONE);
     }
 
     stack = get_any_stack((DbTable*)tb,stack_container);
 
-    if (mpi.some_limitation) {
+    if (mpi.key_boundness == MS_KEY_PARTIALLY_BOUND) {
         if ((this = find_next_from_pb_key(tb, *root, stack, mpi.most)) != NULL) {
             lastkey = GETKEY(tb, this->dbterm.tpl);
         }
@@ -2340,14 +2340,11 @@ static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
     int i;
     int num_heads = 0;
     Eterm key;
-    Eterm partly_bound;
-    int res;
-    Eterm least = 0;
-    Eterm most = 0;
+    Eterm least = THE_NON_VALUE;
+    Eterm most = THE_NON_VALUE;
+    enum ms_key_boundness boundness;
 
-    mpi->some_limitation = 1;
-    mpi->got_partial = 0;
-    mpi->something_can_match = 0;
+    mpi->key_boundness = MS_KEY_IMPOSSIBLE;
     mpi->mp = NULL;
     mpi->save_term = NULL;
 
@@ -2401,30 +2398,29 @@ static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
 	}
 	++i;
 
-	partly_bound = NIL;
-	res = key_given(tb, root, tpl, &(mpi->save_term), &partly_bound);
-	if ( res >= 0 ) {   /* Can match something */
-	    key = 0;
-	    mpi->something_can_match = 1;
-	    if (res > 0) {
-		key = GETKEY(tb,tuple_val(tpl)); 
-	    } else if (partly_bound != NIL) {
-		mpi->got_partial = 1;
-		key = partly_bound;
-	    } else {
-		mpi->some_limitation = 0;
-	    }
-	    if (key != 0) {
-		if (least == 0 || 
-		    partly_bound_can_match_lesser(key,least)) {
-		    least = key;
-		}
-		if (most == 0 || 
-		    partly_bound_can_match_greater(key,most)) {
-		    most = key;
-		}
-	    }
-	}
+        boundness = key_boundness(tb, root, tpl, &(mpi->save_term), &key);
+	switch (boundness)
+        {
+        case MS_KEY_BOUND:
+        case MS_KEY_PARTIALLY_BOUND:
+            if (is_non_value(least) || partly_bound_can_match_lesser(key,least)) {
+                least = key;
+            }
+            if (is_non_value(most) || partly_bound_can_match_greater(key,most)) {
+                most = key;
+            }
+            break;
+        case MS_KEY_IMPOSSIBLE:
+        case MS_KEY_UNBOUND:
+            break;
+        }
+        if (mpi->key_boundness > boundness)
+            mpi->key_boundness = boundness;
+    }
+
+    if (mpi->key_boundness == MS_KEY_BOUND && !CMP_EQ(least, most)) {
+        /* Several different bound keys */
+        mpi->key_boundness = MS_KEY_PARTIALLY_BOUND;
     }
     mpi->least = least;
     mpi->most = most;
@@ -3168,33 +3164,34 @@ static void traverse_update_backwards(DbTableCommon *tb,
     }
 }
 
-/*
- * Returns 0 if not given 1 if given and -1 on no possible match
- * if key is given; *ret is set to point to the object concerned.
- */
-static int key_given(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
-                     TreeDbTerm ***ret, Eterm *partly_bound)
+static enum ms_key_boundness key_boundness(DbTableCommon *tb, TreeDbTerm **root,
+                                           Eterm pattern, TreeDbTerm ***ret,
+                                           Eterm *keyp)
 {
     TreeDbTerm **this;
     Eterm key;
 
     ASSERT(ret != NULL);
     if (pattern == am_Underscore || db_is_variable(pattern) != -1)
-	return 0;
+	return MS_KEY_UNBOUND;
     key = db_getkey(tb->keypos, pattern);
     if (is_non_value(key))
-	return -1;  /* can't possibly match anything */
+	return MS_KEY_IMPOSSIBLE;  /* can't possibly match anything */
     if (!db_has_variable(key)) {   /* Bound key */
 	if (( this = find_node2(tb, root, key) ) == NULL) {
-	    return -1;
+	    return MS_KEY_IMPOSSIBLE;
 	}
 	*ret = this;
-	return 1;
-    } else if (partly_bound != NULL && key != am_Underscore && 
-	       db_is_variable(key) < 0 && !db_has_map(key))
-	*partly_bound = key;
+        *keyp = key;
+	return MS_KEY_BOUND;
+    } else if (key != am_Underscore &&
+	       db_is_variable(key) < 0 && !db_has_map(key)) {
+
+	*keyp = key;
+        return MS_KEY_PARTIALLY_BOUND;
+    }
 	
-    return 0;
+    return MS_KEY_UNBOUND;
 }
 
 
