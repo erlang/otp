@@ -319,14 +319,19 @@ config_fail(_Config) ->
                            #{config => #{restart_type => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
-    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_std_h,
+                               {invalid_levels,#{drop_mode_qlen:=1}}}}} =
         logger:add_handler(?MODULE,logger_std_h,
                            #{config => #{drop_mode_qlen=>1}}),
-    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_std_h,
+                               {invalid_levels,#{sync_mode_qlen:=43,
+                                                 drop_mode_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_std_h,
                            #{config => #{sync_mode_qlen=>43,
                                          drop_mode_qlen=>42}}),
-    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+    {error,{handler_not_added,{invalid_config,logger_std_h,
+                               {invalid_levels,#{drop_mode_qlen:=43,
+                                                 flush_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_std_h,
                            #{config => #{drop_mode_qlen=>43,
                                          flush_qlen=>42}}),
@@ -338,7 +343,7 @@ config_fail(_Config) ->
         logger:set_handler_config(?MODULE,config,
                                   #{type=>{file,"file"}}),
 
-    {error,{invalid_levels,_}} =
+    {error,{invalid_config,logger_std_h,{invalid_levels,_}}} =
         logger:set_handler_config(?MODULE,config,
                                   #{sync_mode_qlen=>100,
                                     flush_qlen=>99}),
@@ -643,10 +648,8 @@ sync(Config) ->
 
     %% check repeated filesync happens
     start_tracer([{logger_std_h, write_to_dev, 5},
-                  {logger_std_h, sync_dev, 4},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"first\n">>},
-                  {logger_std_h, sync_dev},
                   {file,datasync}]),
 
     logger:notice("first", ?domain),
@@ -655,10 +658,8 @@ sync(Config) ->
 
     %% check that explicit filesync is only done once
     start_tracer([{logger_std_h, write_to_dev, 5},
-                  {logger_std_h, sync_dev, 4},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"second\n">>},
-                  {logger_std_h, sync_dev},
                   {file,datasync},
                   {no_more,500}
                  ]),
@@ -679,13 +680,10 @@ sync(Config) ->
     %% triggered by the idle timeout between "thrid" and "fourth".
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
     start_tracer([{logger_std_h, write_to_dev, 5},
-                  {logger_std_h, sync_dev, 4},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"third\n">>},
-                  {logger_std_h, sync_dev},
                   {file,datasync},
                   {logger_std_h, write_to_dev, <<"fourth\n">>},
-                  {logger_std_h, sync_dev},
                   {file,datasync}]),
     logger:notice("third", ?domain),
     %% wait for automatic filesync
@@ -698,9 +696,9 @@ sync(Config) ->
     SyncInt = 1000,
     WaitT = 4500,
     OneSync = {logger_h_common,handle_cast,repeated_filesync},
-    %% receive 1 initial repeated_filesync, then 1 per sec
+    %% receive 1 repeated_filesync per sec
     start_tracer([{logger_h_common,handle_cast,2}],
-                 [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+                 [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     ok = logger:update_handler_config(?MODULE, config,
                                       #{filesync_repeat_interval => SyncInt}),

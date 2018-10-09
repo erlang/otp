@@ -27,10 +27,8 @@
 -export([info/1, filesync/1, reset/1]).
 
 %% logger_h_common callbacks
--export([init/2, check_config/4, reset_state/1,
-         async_filesync/2, sync_filesync/2,
-         async_write/3, sync_write/3,
-         handle_info/2, terminate/3]).
+-export([init/2, check_config/4, reset_state/2,
+         filesync/3, write/4, handle_info/3, terminate/3]).
 
 %% logger callbacks
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
@@ -185,45 +183,27 @@ merge_default_logopts(Name, HConfig) ->
                  type => Type},
     maps:merge(Defaults, HConfig).
 
-async_filesync(Name,State) ->
-    {_,State1} = disk_log_sync(Name,State),
-    State1.
-
-sync_filesync(Name,State) ->
+filesync(Name,_Mode,State) ->
     disk_log_sync(Name,State).
 
-async_write(Name, Bin, State) ->
-    {_,State1} = disk_log_write(Name, Bin, State),
-    State1.
-
-sync_write(Name, Bin, State) ->
+write(Name, _Mode, Bin, State) ->
     disk_log_write(Name, Bin, State).
 
-reset_state(State) ->
+reset_state(_Name, State) ->
     State#{prev_log_result => ok,
            prev_sync_result => ok,
            prev_disk_log_info => undefined}.
 
 %% The disk log owner must handle status messages from disk_log.
-handle_info({disk_log, _Node, _Log, {wrap,_NoLostItems}}, State) ->
-    State;
-handle_info({disk_log, _Node, Log, Info = {truncated,_NoLostItems}},
-            State = #{id := Name, prev_disk_log_info := PrevInfo}) ->
-    error_notify_new(Info, PrevInfo, {disk_log,Name,Log,Info}),
-    State#{prev_disk_log_info => Info};
-handle_info({disk_log, _Node, Log, Info = {blocked_log,_Items}},
-            State = #{id := Name, prev_disk_log_info := PrevInfo}) ->
-    error_notify_new(Info, PrevInfo, {disk_log,Name,Log,Info}),
-    State#{prev_disk_log_info => Info};
-handle_info({disk_log, _Node, Log, full},
-            State = #{id := Name, prev_disk_log_info := PrevInfo}) ->
-    error_notify_new(full, PrevInfo, {disk_log,Name,Log,full}),
-    State#{prev_disk_log_info => full};
-handle_info({disk_log, _Node, Log, Info = {error_status,_Status}},
-            State = #{id := Name, prev_disk_log_info := PrevInfo}) ->
-    error_notify_new(Info, PrevInfo, {disk_log,Name,Log,Info}),
-    State#{prev_disk_log_info => Info};
-handle_info(_, State) ->
+handle_info(Name, {disk_log, _Node, Log, Info={truncated,_NoLostItems}}, State) ->
+    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
+handle_info(Name, {disk_log, _Node, Log, Info = {blocked_log,_Items}}, State) ->
+    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
+handle_info(Name, {disk_log, _Node, Log, Info = full}, State) ->
+    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
+handle_info(Name, {disk_log, _Node, Log, Info = {error_status,_Status}}, State) ->
+    maybe_notify_status(Name, Log, Info, prev_disk_log_info, State);
+handle_info(_, _, State) ->
     State.
 
 terminate(Name, _Reason, _State) ->
@@ -265,42 +245,28 @@ close_disk_log(Name, _) ->
     ok.
 
 disk_log_write(Name, Bin, State) ->
-        case ?disk_log_blog(Name, Bin) of
-            ok ->
-                {ok,State#{prev_log_result => ok, last_op => write}};
-            LogError ->
-                _ = case maps:get(prev_log_result, State) of
-                        LogError ->
-                            %% don't report same error twice
-                            ok;
-                        _ ->
-                            LogOpts = maps:get(log_opts, State),
-                            logger_h_common:error_notify({Name,log,
-                                                          LogOpts,
-                                                          LogError})
-                    end,
-                {LogError,State#{prev_log_result => LogError}}
-        end.
+    Result = ?disk_log_blog(Name, Bin),
+    maybe_notify_error(Name, log, Result, prev_log_result, State).
 
 disk_log_sync(Name, State) ->
-    case ?disk_log_sync(Name) of
-        ok ->
-            {ok,State#{prev_sync_result => ok, last_op => sync}};
-        SyncError ->
-            _ = case maps:get(prev_sync_result, State) of
-                    SyncError ->
-                        %% don't report same error twice
-                        ok;
-                    _ ->
-                        LogOpts = maps:get(log_opts, State),
-                        logger_h_common:error_notify({Name,filesync,
-                                                      LogOpts,
-                                                      SyncError})
-                end,
-            {SyncError,State#{prev_sync_result => SyncError}}
-    end.
+    Result = ?disk_log_sync(Name),
+    maybe_notify_error(Name, filesync, Result, prev_sync_result, State).
 
-error_notify_new(Info,Info, _Term) ->
+%%%-----------------------------------------------------------------
+%%% Print error messages, but don't repeat the same message
+maybe_notify_error(Name, Op, Result, Key, #{log_opts:=LogOpts}=State) ->
+    {Result,error_notify_new({Name, Op, LogOpts, Result}, Result, Key, State)}.
+
+maybe_notify_status(Name, Log, Info, Key, State) ->
+    error_notify_new({disk_log, Name, Log, Info}, Info, Key, State).
+
+error_notify_new(Term, What, Key, State) ->
+    error_notify_new(What, maps:get(Key,State), Term),
+    State#{Key => What}.
+
+error_notify_new(ok,_Prev,_Term) ->
     ok;
-error_notify_new(_Info0,_Info1, Term) ->
+error_notify_new(Same,Same,_Term) ->
+    ok;
+error_notify_new(_New,_Prev,Term) ->
     logger_h_common:error_notify(Term).

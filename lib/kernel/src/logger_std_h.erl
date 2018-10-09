@@ -29,10 +29,8 @@
 -export([info/1, filesync/1, reset/1]).
 
 %% logger_h_common callbacks
--export([init/2, check_config/4, reset_state/1,
-         async_filesync/2, sync_filesync/2,
-         async_write/3, sync_write/3,
-         handle_info/2, terminate/3]).
+-export([init/2, check_config/4, reset_state/2,
+         filesync/3, write/4, handle_info/3, terminate/3]).
 
 %% logger callbacks
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
@@ -71,21 +69,36 @@ reset(Name) ->
     logger_h_common:reset(?MODULE,Name).
 
 %%%===================================================================
-%%% logger callbacks
+%%% logger callbacks - just forward to logger_h_common
 %%%===================================================================
 
 %%%-----------------------------------------------------------------
 %%% Handler being added
+-spec adding_handler(Config) -> {ok,Config} | {error,Reason} when
+      Config :: logger:handler_config(),
+      Reason :: term().
+
 adding_handler(Config) ->
     logger_h_common:adding_handler(Config).
 
 %%%-----------------------------------------------------------------
 %%% Updating handler config
+-spec changing_config(SetOrUpdate, OldConfig, NewConfig) ->
+                              {ok,Config} | {error,Reason} when
+      SetOrUpdate :: set | update,
+      OldConfig :: logger:handler_config(),
+      NewConfig :: logger:handler_config(),
+      Config :: logger:handler_config(),
+      Reason :: term().
+
 changing_config(SetOrUpdate, OldConfig, NewConfig) ->
     logger_h_common:changing_config(SetOrUpdate, OldConfig, NewConfig).
 
 %%%-----------------------------------------------------------------
 %%% Handler being removed
+-spec removing_handler(Config) -> ok when
+      Config :: logger:handler_config().
+
 removing_handler(Config) ->
     logger_h_common:removing_handler(Config).
 
@@ -100,6 +113,9 @@ log(LogEvent, Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Remove internal fields from configuration
+-spec filter_config(Config) -> Config when
+      Config :: logger:handler_config().
+
 filter_config(Config) ->
     logger_h_common:filter_config(Config).
 
@@ -163,33 +179,29 @@ check_h_config([]) ->
 get_default_config() ->
      #{type => standard_io}.
 
-async_filesync(_Name,#{type := Type}=State) when is_atom(Type) ->
-    State;
-async_filesync(_Name,#{file_ctrl_pid := FileCtrlPid}=State) ->
-    ok = file_ctrl_filesync_async(FileCtrlPid),
-    State.
-
-sync_filesync(_Name,#{type := Type}=State) when is_atom(Type) ->
+filesync(_Name, _Mode, #{type := Type}=State) when is_atom(Type) ->
     {ok,State};
-sync_filesync(_Name,#{file_ctrl_pid := FileCtrlPid}=State) ->
+filesync(_Name, async, #{file_ctrl_pid := FileCtrlPid} = State) ->
+    ok = file_ctrl_filesync_async(FileCtrlPid),
+    {ok,State};
+filesync(_Name, sync, #{file_ctrl_pid := FileCtrlPid} = State) ->
     Result = file_ctrl_filesync_sync(FileCtrlPid),
     {Result,State}.
 
-async_write(_Name, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
+write(_Name, async, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
     ok = file_write_async(FileCtrlPid, Bin),
-    State.
-
-sync_write(_Name, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
+    {ok,State};
+write(_Name, sync, Bin, #{file_ctrl_pid:=FileCtrlPid} = State) ->
     Result = file_write_sync(FileCtrlPid, Bin),
     {Result,State}.
 
-reset_state(State) ->
+reset_state(_Name, State) ->
     State.
 
-handle_info({'EXIT',Pid,Why}, #{type := FileInfo, file_ctrl_pid := Pid}) ->
+handle_info(_Name, {'EXIT',Pid,Why}, #{type := FileInfo, file_ctrl_pid := Pid}) ->
     %% file_ctrl_pid died, file error, terminate handler
     exit({error,{write_failed,FileInfo,Why}});
-handle_info(_, State) ->
+handle_info(_, _, State) ->
     State.
 
 terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
@@ -203,7 +215,8 @@ terminate(_Name, _Reason, #{file_ctrl_pid:=FWPid}) ->
                     ok
             after
                 ?DEFAULT_CALL_TIMEOUT ->
-                    exit(FWPid, kill)
+                    exit(FWPid, kill),
+                    ok
             end;
         false ->
             ok
@@ -273,18 +286,18 @@ file_write_async(Pid, Bin) ->
     ok.
 
 file_write_sync(Pid, Bin) ->
-    file_ctrl_call(Pid, {log,self(),Bin}).
+    file_ctrl_call(Pid, {log,Bin}).
 
 file_ctrl_filesync_async(Pid) ->
     Pid ! filesync,
     ok.
 
 file_ctrl_filesync_sync(Pid) ->
-    file_ctrl_call(Pid, {filesync,self()}).
+    file_ctrl_call(Pid, filesync).
 
 file_ctrl_call(Pid, Msg) ->
     MRef = monitor(process, Pid),
-    Pid ! {Msg,MRef},
+    Pid ! {Msg,{self(),MRef}},
     receive
         {MRef,Result} ->
             demonitor(MRef, [flush]),
@@ -302,63 +315,40 @@ file_ctrl_init(HandlerName, FileInfo, Starter) when is_tuple(FileInfo) ->
     case do_open_log_file(FileInfo) of
         {ok,Fd} ->
             Starter ! {self(),ok},
-            file_ctrl_loop(Fd, file, FileName, false, ok, ok, HandlerName);
+            file_ctrl_loop(Fd, FileName, false, ok, ok, HandlerName);
         {error,Reason} ->
             Starter ! {self(),{error,{open_failed,FileName,Reason}}}
     end;
 file_ctrl_init(HandlerName, StdDev, Starter) ->
     Starter ! {self(),ok},
-    file_ctrl_loop(StdDev, standard_io, StdDev, false, ok, ok, HandlerName).
+    file_ctrl_loop(StdDev, StdDev, false, ok, ok, HandlerName).
 
-file_ctrl_loop(Fd, Type, DevName, Synced,
+file_ctrl_loop(Fd, DevName, Synced,
                PrevWriteResult, PrevSyncResult, HandlerName) ->
     receive
         %% asynchronous event
         {log,Bin} ->
-            Result = if Type == file ->
-                             write_to_dev(Fd, Bin, DevName,
-                                          PrevWriteResult, HandlerName);
-                        true ->
-                             io:put_chars(Fd, Bin)
-                     end,
-            file_ctrl_loop(Fd, Type, DevName, false,
+            Result = write_to_dev(Fd, Bin, DevName, PrevWriteResult, HandlerName),
+            file_ctrl_loop(Fd, DevName, false,
                            Result, PrevSyncResult, HandlerName);
 
         %% synchronous event
-        {{log,From,Bin},MRef} ->
-            WResult =
-                if Type == file ->
-                        %% check that file hasn't been deleted
-                        CheckFile =
-                            fun() -> {ok,_} = file:read_file_info(DevName) end,
-                        spawn_link(CheckFile),
-                        write_to_dev(Fd, Bin, DevName,
-                                     PrevWriteResult, HandlerName);
-                   true ->
-                        _ = io:put_chars(Fd, Bin),
-                        ok
-                end,
+        {{log,Bin},{From,MRef}} ->
+            check_exist(Fd, DevName),
+            Result = write_to_dev(Fd, Bin, DevName, PrevWriteResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(Fd, Type, DevName, false,
-                           WResult, PrevSyncResult, HandlerName);
-
-        filesync when not Synced ->
-            Result = sync_dev(Fd, DevName, PrevSyncResult, HandlerName),
-            file_ctrl_loop(Fd, Type, DevName, true,
-                           PrevWriteResult, Result, HandlerName);
+            file_ctrl_loop(Fd, DevName, false,
+                           Result, PrevSyncResult, HandlerName);
 
         filesync ->
-            file_ctrl_loop(Fd, Type, DevName, true,
-                           PrevWriteResult, PrevSyncResult, HandlerName);
+            Result = sync_dev(Fd, DevName, Synced, PrevSyncResult, HandlerName),
+            file_ctrl_loop(Fd, DevName, true,
+                           PrevWriteResult, Result, HandlerName);
 
-        {{filesync,From},MRef} ->
-            Result = if not Synced ->
-                             sync_dev(Fd, DevName, PrevSyncResult, HandlerName);
-                        true ->
-                             ok
-                     end,
+        {filesync,{From,MRef}} ->
+            Result = sync_dev(Fd, DevName, Synced, PrevSyncResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(Fd, Type, DevName, true,
+            file_ctrl_loop(Fd, DevName, true,
                            PrevWriteResult, Result, HandlerName);
 
         stop ->
@@ -366,26 +356,30 @@ file_ctrl_loop(Fd, Type, DevName, Synced,
             stopped
     end.
 
-write_to_dev(Fd, Bin, FileName, PrevWriteResult, HandlerName) ->
-    case ?file_write(Fd, Bin) of
-        ok ->
-            ok;
-        PrevWriteResult ->
-            %% don't report same error twice
-            PrevWriteResult;
-        Error ->
-            logger_h_common:error_notify({HandlerName,write,FileName,Error}),
-            Error
-    end.
+check_exist(DevName, DevName) when is_atom(DevName) ->
+    ok;
+check_exist(_Fd, FileName) ->
+    _ = spawn_link(fun() -> {ok,_} = file:read_file_info(FileName) end),
+    ok.
 
-sync_dev(Fd, DevName, PrevSyncResult, HandlerName) ->
-    case ?file_datasync(Fd) of
-        ok ->
-            ok;
-        PrevSyncResult ->
-            %% don't report same error twice
-            PrevSyncResult;
-        Error ->
-            logger_h_common:error_notify({HandlerName,filesync,DevName,Error}),
-            Error
-    end.
+write_to_dev(DevName, Bin, _DevName, _PrevWriteResult, _HandlerName)
+  when is_atom(DevName) ->
+    io:put_chars(DevName, Bin);
+write_to_dev(Fd, Bin, FileName, PrevWriteResult, HandlerName) ->
+    Result = ?file_write(Fd, Bin),
+    maybe_notify_error(write,Result,PrevWriteResult,FileName,HandlerName).
+
+sync_dev(_Fd, _FileName, true, PrevSyncResult, _HandlerName) ->
+    PrevSyncResult;
+sync_dev(Fd, FileName, false, PrevSyncResult, HandlerName) ->
+    Result = ?file_datasync(Fd),
+    maybe_notify_error(filesync,Result,PrevSyncResult,FileName,HandlerName).
+
+maybe_notify_error(_Op, ok, _PrevResult, _FileName, _HandlerName) ->
+    ok;
+maybe_notify_error(_Op, PrevResult, PrevResult, _FileName, _HandlerName) ->
+    %% don't report same error twice
+    PrevResult;
+maybe_notify_error(Op, Error, _PrevResult, FileName, HandlerName) ->
+    logger_h_common:error_notify({HandlerName,Op,FileName,Error}),
+    Error.

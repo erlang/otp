@@ -419,14 +419,19 @@ config_fail(_Config) ->
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
 
-    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{drop_mode_qlen:=1}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>1}}),
-    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{sync_mode_qlen:=43,
+                                                 drop_mode_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{sync_mode_qlen=>43,
                                          drop_mode_qlen=>42}}),
-    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{drop_mode_qlen:=43,
+                                                 flush_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>43,
                                          flush_qlen=>42}}),
@@ -440,7 +445,7 @@ config_fail(_Config) ->
                                      #{max_no_files=>2}),
     %% incorrect values of OP params
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
-    {error,{invalid_levels,_}} =
+    {error,{invalid_config,logger_disk_log_h,{invalid_levels,_}}} =
         logger:update_handler_config(?MODULE,config,
                                      HConfig#{sync_mode_qlen=>100,
                                               flush_qlen=>99}),
@@ -672,9 +677,9 @@ sync(Config) ->
     SyncInt = 1000,
     WaitT = 4500,
     OneSync = {logger_h_common,handle_cast,repeated_filesync},
-    %% receive 1 initial repeated_filesync, then 1 per sec
+    %% receive 1 repeated_filesync per sec
     start_tracer([{logger_h_common,handle_cast,2}],
-                 [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+                 [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
     ok = logger:update_handler_config(?MODULE, config, HConfig2),
@@ -717,7 +722,7 @@ disk_log_wrap(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,MaxBytes)],
     ct:pal("String = ~p (~w)", [Text, erts_debug:size(Text)]),
@@ -735,7 +740,7 @@ disk_log_wrap(Config) ->
     timer:sleep(1000),
     dbg:stop_clear(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
@@ -771,7 +776,7 @@ disk_log_full(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     NoOfChars = 5,
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,NoOfChars)],
@@ -781,7 +786,7 @@ disk_log_full(Config) ->
     timer:sleep(2000),
     dbg:stop_clear(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
@@ -820,14 +825,14 @@ disk_log_events(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
     
     [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
     dbg:stop_clear(),
     Received = lists:map(fun({trace,_M,handle_info,
-                              [Got,_]}) -> Got
+                              [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
     NoOfEvents = length(Events),
