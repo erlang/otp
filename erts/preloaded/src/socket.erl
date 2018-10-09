@@ -27,6 +27,7 @@
 -export([
 	 on_load/0, on_load/1,
 	 info/0,
+         supports/0, supports/1, supports/2, supports/3,
          ensure_sockaddr/1
         ]).
 
@@ -733,8 +734,8 @@
 %% -define(SOCKET_OPT_IPV6_CHECKSUM,           5). % FreeBSD
 -define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
 -define(SOCKET_OPT_IPV6_DSTOPTS,            7).
-%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    8). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  9). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  8). % FreeBSD
+%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    9). % FreeBSD
 %% -define(SOCKET_OPT_IPV6_FAITH,             10). % FreeBSD
 -define(SOCKET_OPT_IPV6_FLOWINFO,          11).
 -define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
@@ -816,6 +817,10 @@
 -define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
+-define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
+-define(SOCKET_SUPPORTS_SCTP,    16#0002).
+-define(SOCKET_SUPPORTS_IPV6,    16#0003).
+
 
 %% ===========================================================================
 %%
@@ -841,6 +846,100 @@ on_load(Extra) ->
 
 info() ->
     nif_info().
+
+
+
+%% ===========================================================================
+%%
+%% supports - get information about what the platform "supports".
+%%
+%% Generates a list of various info about what the plaform can support. 
+%% The most obvious case is 'options'. 
+%%
+%% Each item in a 'supports'-list will appear only *one* time.
+%% 
+%% ===========================================================================
+
+-type supports_options_socket() :: [{socket_option(),      boolean()}].
+-type supports_options_ip()     :: [{ip_socket_option(),   boolean()}].
+-type supports_options_ipv6()   :: [{ipv6_socket_option(), boolean()}].
+-type supports_options_tcp()    :: [{tcp_socket_option(),  boolean()}].
+-type supports_options_udp()    :: [{udp_socket_option(),  boolean()}].
+-type supports_options_sctp()   :: [{sctp_socket_option(), boolean()}].
+-type supports_options() :: [{socket, supports_options_socket()} |
+                             {ip,     supports_options_ip()}     |
+                             {ipv6,   supports_options_ipv6()}   |
+                             {tcp,    supports_options_tcp()}    |
+                             {udp,    supports_options_udp()}    |
+                             {sctp,   supports_options_sctp()}].
+
+-spec supports() -> [{options, supports_options()} | 
+                     {sctp,    boolean()} |
+                     {ipv6,    boolean()}].
+
+supports() ->
+    [{options, supports(options)},
+     {sctp,    supports(sctp)},
+     {ipv6,    supports(ipv6)}].
+
+
+-spec supports(options) -> supports_options();
+              (sctp)    -> boolean();
+              (ipv6)    -> boolean();
+              (Key1)    -> false when
+      Key1 :: term().
+                        
+supports(options) ->
+    nif_supports(?SOCKET_SUPPORTS_OPTIONS);
+supports(sctp) ->
+    nif_supports(?SOCKET_SUPPORTS_SCTP);
+supports(ipv6) ->
+    nif_supports(?SOCKET_SUPPORTS_IPV6);
+supports(_Key1) ->
+    false.
+
+-spec supports(options, socket) -> supports_options_socket();
+              (options, ip) -> supports_options_ip();
+              (options, ipv6) -> supports_options_ipv6();
+              (options, tcp) -> supports_options_tcp();
+              (options, udp) -> supports_options_udp();
+              (options, sctp) -> supports_options_sctp();
+              (Key1, Key2) -> false when
+      Key1 :: term(),
+      Key2 :: term().
+
+supports(options, Level) ->
+    proplists:get_value(Level, supports(options), false);
+supports(_Key1, _Level) ->
+    false.
+
+
+-spec supports(options, socket, Opt) -> boolean() when
+      Opt :: socket_option();
+              (options, ip, Opt) -> boolean() when
+      Opt :: ip_socket_option();
+              (options, ipv6, Opt) -> boolean() when
+      Opt :: ipv6_socket_option();
+              (options, tcp, Opt) -> boolean() when
+      Opt :: tcp_socket_option();
+              (options, udp, Opt) -> boolean() when
+      Opt :: udp_socket_option();
+              (options, sctp, Opt) -> boolean() when
+      Opt :: sctp_socket_option();
+              (Key1, Key2, Key3) -> false when
+      Key1 :: term(),
+      Key2 :: term(),
+      Key3 :: term().
+
+supports(options, Level, Opt) ->
+    case supports(options, Level) of
+        S when is_list(S) ->
+            proplists:get_value(Opt, S, false);
+        _ ->
+            false
+    end;
+supports(_Key1, _Key2, _Key3) ->
+    false.
 
 
 
@@ -3415,6 +3514,9 @@ error(Reason) ->
 %% ===========================================================================
 
 nif_info() ->
+    erlang:nif_error(undef).
+
+nif_supports(_Key) ->
     erlang:nif_error(undef).
 
 nif_open(_Domain, _Type, _Protocol, _Extra) ->
