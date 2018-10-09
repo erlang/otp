@@ -124,6 +124,11 @@
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Opens a file for preprocessing.</p>
+        <p>The <c>{include_lib_paths, <anno>IncludeLibPaths</anno>}</c> option
+          can be used to explicitly provide the application paths used for
+          <c>-include_lib()</c> directives instead of asking the code server.
+          The provided list must be exhaustive as the directive will not fall
+          back to the code server when this option is specified.</p>
         <p>If you want to change the file name of the implicit -file()
           attributes inserted during preprocessing, you can do with
           <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
@@ -173,6 +178,11 @@
         <p>Preprocesses and parses an Erlang source file.
           Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
           end of the file is included as a "form".</p>
+        <p>The <c>{include_lib_paths, <anno>IncludeLibPaths</anno>}</c> option
+          can be used to explicitly provide the application paths used for
+          <c>-include_lib()</c> directives instead of asking the code server.
+          The provided list must be exhaustive as the directive will not fall
+          back to the code server when this option is specified.</p>
         <p>If you want to change the file name of the implicit -file()
           attributes inserted during preprocessing, you can do with
           <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will

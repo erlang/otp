@@ -67,6 +67,8 @@
               istk=[] :: [ifdef()],             %Ifdef stack
               sstk=[] :: [#epp{}],              %State stack
               path=[] :: [file:name()],         %Include-path
+              lib_paths=undefined ::            %-include_lib() path
+                undefined | [{atom(),file:name()}],
               macs = #{}		        %Macros (don't care locations)
 	            :: #{name() => predef() | [userdef()]},
               uses = #{}			%Macro use structure
@@ -117,6 +119,9 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'ok', Epp} | {'ok', Epp, Extra} | {'error', ErrorDescriptor} when
       Options :: [{'default_encoding', DefEncoding :: source_encoding()} |
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
+                  {'include_lib_paths',
+                    IncludeLibPaths :: [{Application :: atom(),
+                                         RootDirectory :: file:name()}]} |
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
@@ -249,6 +254,9 @@ parse_file(Ifile, Path, Predefs) ->
         {'ok', [Form]} | {'ok', [Form], Extra} | {error, OpenError} when
       FileName :: file:name(),
       Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
+                  {'include_lib_paths',
+                    IncludeLibPaths :: [{Application :: atom(),
+                                         RootDirectory :: file:name()}]} |
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
@@ -557,8 +565,9 @@ init_server(Pid, FileName, Options, St0) ->
             %% first in path
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
+            LibPaths = proplists:get_value(include_lib_paths, Options),
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
-			 path=Path, macs=Ms1,
+			 path=Path, lib_paths=LibPaths, macs=Ms1,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
@@ -981,15 +990,22 @@ scan_include1(_Toks, Inc, From, St) ->
 %%  normal search path, if not we assume that the first directory name
 %%  is a library name, find its true directory and try with that.
 
-expand_lib_dir(Name) ->
+expand_lib_dir(Name, St) ->
     try
-	[App|Path] = filename:split(Name),
-	LibDir = code:lib_dir(list_to_atom(App)),
-	{ok,fname_join([LibDir|Path])}
+        [AppName|Path] = filename:split(Name),
+        App = list_to_atom(AppName),
+        case expand_lib_dir_1(App, St#epp.lib_paths) of
+             LibDir when is_list(LibDir) -> {ok, fname_join([LibDir | Path])};
+             _ -> error
+        end
     catch
-	_:_ ->
-	    error
+        _:_ -> error
     end.
+
+expand_lib_dir_1(App, undefined) ->
+    code:lib_dir(App);
+expand_lib_dir_1(App, Paths) ->
+    proplists:get_value(App, Paths).
 
 scan_include_lib(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
@@ -1004,27 +1020,26 @@ scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                   Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
-    case file:path_open(St#epp.path, NewName, [read]) of
-	{ok,NewF,Pname} ->
-	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
-	{error,_E1} ->
-	    case expand_lib_dir(NewName) of
-		{ok,Header} ->
-		    case file:open(Header, [read]) of
-			{ok,NewF} ->
-			    wait_req_scan(enter_file2(NewF, Header, From,
-                                                      St, Loc));
-			{error,_E2} ->
-			    epp_reply(From,
-				      {error,{loc(Inc),epp,
-                                              {include,lib,NewName}}}),
-			    wait_req_scan(St)
-		    end;
-		error ->
-		    epp_reply(From, {error,{loc(Inc),epp,
-                                            {include,lib,NewName}}}),
-		    wait_req_scan(St)
-	    end
+    Res = case file:path_open(St#epp.path, NewName, [read]) of
+              {ok, Fd, FName} ->
+                  {ok, FName, Fd};
+              {error, _Reason} ->
+                  case expand_lib_dir(NewName, St) of
+                      {ok,FName} ->
+                          case file:open(FName, [read]) of
+                              {ok, Fd} -> {ok, FName, Fd};
+                              {error, _Reason} -> error
+                          end;
+                      error ->
+                          error
+                  end
+          end,
+    case Res of
+        {ok, FullName, FDesc} ->
+            wait_req_scan(enter_file2(FDesc, FullName, From, St, Loc));
+        error ->
+            epp_reply(From, {error,{loc(Inc),epp,{include,lib,NewName}}}),
+            wait_req_scan(St)
     end;
 scan_include_lib1(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),

@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1]).
+	 test_if/1,source_name/1,include_lib_paths/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name].
+     otp_14285, test_if, source_name, include_lib_paths].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1714,6 +1714,27 @@ source_name(Config) when is_list(Config) ->
 source_name_1(File, Expected) ->
     Res = epp:parse_file(File, [{source_name, Expected}]),
     {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
+
+include_lib_paths(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    LibPaths = [{gurka, DataDir ++ "include_lib_paths/nested"}],
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    File = filename:join(PrivDir, "epp_test.erl"),
+
+    Test = <<"-module(epp_test).\n"
+              "-include_lib(\"gurka/test.hrl\").\n"
+              "ok() -> ok.\n">>,
+
+    ok = file:write_file(File, Test),
+
+    {ok, SuccForms} = epp:parse_file(File, [{include_lib_paths, LibPaths}]),
+    [] = [F || {error,{_,epp,{include,lib,_}}}=F <- SuccForms],
+
+    {ok, FailForms} = epp:parse_file(File, []),
+    [_] = [F || {error,{2,epp,{include,lib,_}}}=F <- FailForms],
+
+    ok.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
