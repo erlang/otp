@@ -1998,7 +1998,7 @@ int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **ro
     if (!mpi.got_partial && mpi.some_limitation &&
             CMP_EQ(mpi.least,mpi.most)) {
         doit_select_replace(tb,mpi.save_term,&sc,0 /* dummy */);
-        reset_static_stack(tb); /* may refer replaced term */
+        reset_static_stack(stack_container); /* may refer replaced term */
         RET_TO_BIF(erts_make_integer(sc.replaced,p),DB_ERROR_NONE);
     }
 
