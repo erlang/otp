@@ -1860,22 +1860,14 @@ static int db_select_replace_tree(Process *p, DbTable *tbl, Eterm tid,
 
     sc.mp = mpi.mp;
 
-    stack = get_static_stack(tb);
     if (!mpi.got_partial && mpi.some_limitation &&
             CMP_EQ(mpi.least,mpi.most)) {
-        TreeDbTerm* term = *(mpi.save_term);
         doit_select_replace(tb,mpi.save_term,&sc,0 /* dummy */);
-        if (stack != NULL) {
-            if (TOP_NODE(stack) == term)
-                // throw away potentially invalid reference
-                REPLACE_TOP_NODE(stack, *(mpi.save_term));
-            release_stack(tb, stack);
-        }
+        reset_static_stack(tb); /* may refer replaced term */
         RET_TO_BIF(erts_make_integer(sc.replaced,p),DB_ERROR_NONE);
     }
 
-    if (stack == NULL)
-        stack = get_any_stack(tb);
+    stack = get_any_stack(tb);
 
     if (mpi.some_limitation) {
         if ((this = find_next_from_pb_key(tb, stack, mpi.most)) != NULL) {

@@ -41,7 +41,7 @@
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
          select_bound_chunk/1,
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
-	 t_select_delete/1,t_select_replace/1,t_ets_dets/1]).
+	 t_select_delete/1,t_select_replace/1,t_select_replace_next_bug/1,t_ets_dets/1]).
 
 -export([ordered/1, ordered_match/1, interface_equality/1,
 	 fixtable_next/1, fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
@@ -125,6 +125,7 @@ all() ->
      select_bound_chunk,
      t_init_table, t_whitebox, t_delete_all_objects,
      t_insert_list, t_test_ms, t_select_delete, t_select_replace,
+     t_select_replace_next_bug,
      t_ets_dets, memory, t_select_reverse, t_bucket_disappears,
      t_named_select,
      select_fail, t_insert_new, t_repair_continuation,
@@ -1465,6 +1466,25 @@ t_select_replace(Config) when is_list(Config) ->
     ets:delete(T2),
 
     verify_etsmem(EtsMem).
+
+%% OTP-15346: Bug caused select_replace of bound key to corrupt static stack
+%% used by ets:next and ets:prev.
+t_select_replace_next_bug(Config) when is_list(Config) ->
+    T = ets:new(k, [ordered_set]),
+    [ets:insert(T, {I, value}) || I <- lists:seq(1,10)],
+    1 = ets:first(T),
+
+    %% Make sure select_replace does not leave pointer
+    %% to deallocated {2,value} in static stack.
+    MS = [{{2,value}, [], [{{2,"new_value"}}]}],
+    1 = ets:select_replace(T, MS),
+
+    %% This would crash or give wrong result at least on DEBUG emulator
+    %% where deallocated memory is overwritten.
+    2 = ets:next(T, 1),
+
+    ets:delete(T).
+
 
 %% Test that partly bound keys gives faster matches.
 partly_bound(Config) when is_list(Config) ->
