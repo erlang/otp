@@ -203,10 +203,6 @@ struct mp_info {
 				 * partially bound expression) */
     Eterm most;                 /* The highest matching key (possibly 
 				 * partially bound expression) */
-
-    TreeDbTerm **save_term;      /* If the key is completely bound, this
-	 			  * will be the Tree node we're searching
-				  * for, otherwise it will be useless */
     Binary *mp;                 /* The compiled match program */
 };
 
@@ -327,13 +323,12 @@ static void traverse_update_backwards(DbTableCommon *tb,
                                                   void *,
                                                   int),
                                       void *context);
-static enum ms_key_boundness key_boundness(DbTableCommon *tb, TreeDbTerm **root,
-                                           Eterm pattern,
-                                           TreeDbTerm ***ret, Eterm *keyp);
+static enum ms_key_boundness key_boundness(DbTableCommon *tb,
+                                           Eterm pattern, Eterm *keyp);
 static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done);
 
-static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern, 
+static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
                            extra_match_validator_t extra_validator, /* Optional callback */
                            struct mp_info *mpi);
 static int doit_select(DbTableCommon *tb,
@@ -1188,7 +1183,7 @@ int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
     sc.got = 0;
     sc.chunk_size = 0;
 
-    if ((errcode = analyze_pattern(tb, root, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1200,7 +1195,10 @@ int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
     sc.mp = mpi.mp;
 
     if (mpi.key_boundness == MS_KEY_BOUND) {
-	doit_select(tb,*(mpi.save_term),&sc,0 /* direction doesn't matter */);
+        ASSERT(CMP_EQ(mpi.least, mpi.most));
+        this = find_node(tb, *root, mpi.least, NULL);
+        if (this)
+            doit_select(tb, this, &sc, 0 /* direction doesn't matter */);
 	RET_TO_BIF(sc.accum,DB_ERROR_NONE);
     }
 
@@ -1405,7 +1403,7 @@ int db_select_count_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
     sc.keypos = tb->keypos;
     sc.got = 0;
 
-    if ((errcode = analyze_pattern(tb, root, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1417,7 +1415,10 @@ int db_select_count_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
     sc.mp = mpi.mp;
 
     if (mpi.key_boundness == MS_KEY_BOUND) {
-	doit_select_count(tb,*(mpi.save_term),&sc,0 /* dummy */);
+        ASSERT(CMP_EQ(mpi.least, mpi.most));
+        this =  find_node(tb, *root, mpi.least, NULL);
+        if (this)
+            doit_select_count(tb, this, &sc, 0 /* dummy */);
 	RET_TO_BIF(erts_make_integer(sc.got,p),DB_ERROR_NONE);
     }
 
@@ -1512,7 +1513,7 @@ int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
     sc.got = 0;
     sc.chunk_size = chunk_size;
 
-    if ((errcode = analyze_pattern(tb, root, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(NIL,errcode);
     }
 
@@ -1524,7 +1525,10 @@ int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root
     sc.mp = mpi.mp;
 
     if (mpi.key_boundness == MS_KEY_BOUND) {
-	doit_select(tb,*(mpi.save_term),&sc, 0 /* direction doesn't matter */);
+        ASSERT(CMP_EQ(mpi.least, mpi.most));
+        this =  find_node(tb, *root, mpi.least, NULL);
+        if (this)
+            doit_select(tb, this, &sc, 0 /* direction doesn't matter */);
 	if (sc.accum != NIL) {
 	    hp=HAlloc(p, 3);
 	    RET_TO_BIF(TUPLE2(hp,sc.accum,am_EOT),DB_ERROR_NONE);
@@ -1775,7 +1779,7 @@ int db_select_delete_tree_common(Process *p, DbTable *tbl,
     sc.root = root;
     sc.stack = stack;
     
-    if ((errcode = analyze_pattern(&tbl->common, root, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(&tbl->common, pattern, NULL, &mpi)) != DB_ERROR_NONE) {
 	RET_TO_BIF(0,errcode);
     }
 
@@ -1787,7 +1791,10 @@ int db_select_delete_tree_common(Process *p, DbTable *tbl,
     sc.mp = mpi.mp;
 
     if (mpi.key_boundness == MS_KEY_BOUND) {
-	doit_select_delete(&tbl->common,*(mpi.save_term),&sc, 0 /* direction doesn't
+        ASSERT(CMP_EQ(mpi.least, mpi.most));
+        this =  find_node(&tbl->common, *root, mpi.least, NULL);
+        if (this)
+            doit_select_delete(&tbl->common, this, &sc, 0 /* direction doesn't
 						      matter */);
 	RET_TO_BIF(erts_make_integer(sc.accum,p),DB_ERROR_NONE);
     }
@@ -1985,7 +1992,7 @@ int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **ro
     sc.keypos = tb->keypos;
     sc.replaced = 0;
 
-    if ((errcode = analyze_pattern(tb, root, pattern, db_match_keeps_key, &mpi)) != DB_ERROR_NONE) {
+    if ((errcode = analyze_pattern(tb, pattern, db_match_keeps_key, &mpi)) != DB_ERROR_NONE) {
         RET_TO_BIF(NIL,errcode);
     }
 
@@ -1997,8 +2004,13 @@ int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **ro
     sc.mp = mpi.mp;
 
     if (mpi.key_boundness == MS_KEY_BOUND) {
-        doit_select_replace(tb,*mpi.save_term,&sc,0 /* dummy */);
-        reset_static_stack(stack_container); /* may refer replaced term */
+        TreeDbTerm** pp;
+        ASSERT(CMP_EQ(mpi.least, mpi.most));
+        pp = find_node2(tb, root, mpi.least);
+        if (pp) {
+            doit_select_replace(tb, pp, &sc, 0 /* dummy */);
+            reset_static_stack(stack_container); /* may refer replaced term */
+        }
         RET_TO_BIF(erts_make_integer(sc.replaced,p),DB_ERROR_NONE);
     }
 
@@ -2328,7 +2340,7 @@ static TreeDbTerm *linkout_object_tree(DbTableCommon *tb,  TreeDbTerm **root,
 ** For the select functions, analyzes the pattern and determines which
 ** part of the tree should be searched. Also compiles the match program
 */
-static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
+static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
                            extra_match_validator_t extra_validator, /* Optional callback */
                            struct mp_info *mpi)
 {
@@ -2339,14 +2351,12 @@ static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
     Eterm *ptpl;
     int i;
     int num_heads = 0;
-    Eterm key;
     Eterm least = THE_NON_VALUE;
     Eterm most = THE_NON_VALUE;
     enum ms_key_boundness boundness;
 
     mpi->key_boundness = MS_KEY_IMPOSSIBLE;
     mpi->mp = NULL;
-    mpi->save_term = NULL;
 
     for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
 	++num_heads;
@@ -2367,6 +2377,7 @@ static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
         Eterm match;
         Eterm guard;
         Eterm body;
+        Eterm key;
 
 	ttpl = CAR(list_val(lst));
 	if (!is_tuple(ttpl)) {
@@ -2398,7 +2409,7 @@ static int analyze_pattern(DbTableCommon *tb, TreeDbTerm **root, Eterm pattern,
 	}
 	++i;
 
-        boundness = key_boundness(tb, root, tpl, &(mpi->save_term), &key);
+        boundness = key_boundness(tb, tpl, &key);
 	switch (boundness)
         {
         case MS_KEY_BOUND:
@@ -3164,24 +3175,17 @@ static void traverse_update_backwards(DbTableCommon *tb,
     }
 }
 
-static enum ms_key_boundness key_boundness(DbTableCommon *tb, TreeDbTerm **root,
-                                           Eterm pattern, TreeDbTerm ***ret,
-                                           Eterm *keyp)
+static enum ms_key_boundness key_boundness(DbTableCommon *tb,
+                                           Eterm pattern, Eterm *keyp)
 {
-    TreeDbTerm **this;
     Eterm key;
 
-    ASSERT(ret != NULL);
     if (pattern == am_Underscore || db_is_variable(pattern) != -1)
 	return MS_KEY_UNBOUND;
     key = db_getkey(tb->keypos, pattern);
     if (is_non_value(key))
 	return MS_KEY_IMPOSSIBLE;  /* can't possibly match anything */
     if (!db_has_variable(key)) {   /* Bound key */
-	if (( this = find_node2(tb, root, key) ) == NULL) {
-	    return MS_KEY_IMPOSSIBLE;
-	}
-	*ret = this;
         *keyp = key;
 	return MS_KEY_BOUND;
     } else if (key != am_Underscore &&
