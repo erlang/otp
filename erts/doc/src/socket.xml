@@ -205,6 +205,27 @@
     <datatype>
       <name name="int32"/>
     </datatype>
+    <datatype>
+      <name name="supports_options_socket"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_ip"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_ipv6"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_tcp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_udp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_sctp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options"/>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -508,6 +529,34 @@
       <fsummary>Get socket name.</fsummary>
       <desc>
         <p>Returns the current address to which the socket is bound.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="supports" arity="0"/>
+      <name name="supports" arity="1" clause_i="1"/>
+      <name name="supports" arity="1" clause_i="2"/>
+      <name name="supports" arity="1" clause_i="3"/>
+      <name name="supports" arity="1" clause_i="4"/>
+      <name name="supports" arity="2" clause_i="1"/>
+      <name name="supports" arity="2" clause_i="2"/>
+      <name name="supports" arity="2" clause_i="3"/>
+      <name name="supports" arity="2" clause_i="4"/>
+      <name name="supports" arity="2" clause_i="5"/>
+      <name name="supports" arity="2" clause_i="6"/>
+      <name name="supports" arity="2" clause_i="7"/>
+      <name name="supports" arity="3" clause_i="1"/>
+      <name name="supports" arity="3" clause_i="2"/>
+      <name name="supports" arity="3" clause_i="3"/>
+      <name name="supports" arity="3" clause_i="4"/>
+      <name name="supports" arity="3" clause_i="5"/>
+      <name name="supports" arity="3" clause_i="6"/>
+      <name name="supports" arity="3" clause_i="7"/>
+      <fsummary>Report info about what the platform supports.</fsummary>
+      <desc>
+	<p>This function intends to retreive information about what the
+	platform supports. Such as if SCTP is supported. Or which socket
+	options are supported. </p>
       </desc>
     </func>
 
