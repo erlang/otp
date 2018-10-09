@@ -75,6 +75,7 @@
 #  define WANT_NONBLOCKING
 #endif
 
+#include "erl_thr_progress.h"
 #include "erl_poll.h"
 #if ERTS_POLL_USE_KQUEUE
 #  include <sys/types.h>
@@ -95,7 +96,6 @@
 #    include <limits.h>
 #  endif
 #endif
-#include "erl_thr_progress.h"
 #include "erl_driver.h"
 #include "erl_alloc.h"
 #include "erl_msacc.h"
@@ -1629,7 +1629,8 @@ check_fd_events(ErtsPollSet *ps, ErtsPollResFd pr[], int do_wait, int max_res)
 int
 ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
 				 ErtsPollResFd pr[],
-				 int *len)
+				 int *len,
+                                 ErtsThrPrgrData *tpd)
 {
     int res, no_fds, used_fds = 0;
     int ebadf = 0;
@@ -1659,7 +1660,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
     DEBUG_PRINT_WAIT("Entering %s(), do_wait=%d", ps, __FUNCTION__, do_wait);
 
     if (do_wait) {
-        erts_thr_progress_prepare_wait(NULL);
+        erts_thr_progress_prepare_wait(tpd);
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_SLEEP);
     }
 
@@ -1703,7 +1704,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet *ps,
     }
 
     if (do_wait) {
-        erts_thr_progress_finalize_wait(NULL);
+        erts_thr_progress_finalize_wait(tpd);
         ERTS_MSACC_UPDATE_CACHE();
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_CHECK_IO);
     }

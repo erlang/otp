@@ -508,6 +508,10 @@ init_wakeup_request_array(ErtsThrPrgrVal *w)
     }
 }
 
+ErtsThrPrgrData *erts_thr_progress_data(void) {
+    return erts_tsd_get(erts_thr_prgr_data_key__);
+}
+
 void
 erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 {
@@ -551,7 +555,7 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 }
 
 
-void
+ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 					  ErtsThrPrgrCallbacks *callbacks,
 					  int pref_wakeup)
@@ -630,6 +634,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 		wakeup_managed(id);
     }
     callbacks->finalize_wait(callbacks->arg);
+    return tpd;
 }
 
 static ERTS_INLINE int
@@ -849,23 +854,22 @@ update(ErtsThrPrgrData *tpd)
 }
 
 int
-erts_thr_progress_update(ErtsSchedulerData *esdp)
+erts_thr_progress_update(ErtsThrPrgrData *tpd)
 {
-    return update(thr_prgr_data(esdp));
+    return update(tpd);
 }
 
 
 int
-erts_thr_progress_leader_update(ErtsSchedulerData *esdp)
+erts_thr_progress_leader_update(ErtsThrPrgrData *tpd)
 {
-    return leader_update(thr_prgr_data(esdp));
+    return leader_update(tpd);
 }
 
 void
-erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp)
+erts_thr_progress_prepare_wait(ErtsThrPrgrData *tpd)
 {
     erts_aint32_t lflgs;
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
@@ -889,9 +893,8 @@ erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp)
 }
 
 void
-erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp)
+erts_thr_progress_finalize_wait(ErtsThrPrgrData *tpd)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
     ErtsThrPrgrVal current, val;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -921,9 +924,8 @@ erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp)
 }
 
 void
-erts_thr_progress_active(ErtsSchedulerData *esdp, int on)
+erts_thr_progress_active(ErtsThrPrgrData *tpd, int on)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
@@ -1182,10 +1184,10 @@ request_wakeup_unmanaged(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
 }
 
 void
-erts_thr_progress_wakeup(ErtsSchedulerData *esdp,
+erts_thr_progress_wakeup(ErtsThrPrgrData *tpd,
 			 ErtsThrPrgrVal value)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
+
     ASSERT(!tpd->is_temporary);
     if (tpd->is_managed)
 	request_wakeup_managed(tpd, value);

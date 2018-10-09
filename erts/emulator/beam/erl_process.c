@@ -1646,7 +1646,7 @@ haw_thr_prgr_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
 	    awdp->latest_wakeup = val;
 	    haw_chk_later_cleanup_op_wakeup(awdp, val);
 	}
-	erts_thr_progress_wakeup(awdp->esdp, val);
+	erts_thr_progress_wakeup(erts_thr_prgr_data(awdp->esdp), val);
     }
 }
 
@@ -1656,7 +1656,7 @@ haw_thr_prgr_soft_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val)
     if (erts_thr_progress_cmp(val, awdp->latest_wakeup) > 0) {
 	awdp->latest_wakeup = val;
 	haw_chk_later_cleanup_op_wakeup(awdp, val);
-	erts_thr_progress_wakeup(awdp->esdp, val);
+	erts_thr_progress_wakeup(erts_thr_prgr_data(awdp->esdp), val);
     }
 }
 
@@ -1670,7 +1670,7 @@ haw_thr_prgr_later_cleanup_op_wakeup(ErtsAuxWorkData *awdp, ErtsThrPrgrVal val, 
 	else {
 	    awdp->latest_wakeup = val;
 	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
-	    erts_thr_progress_wakeup(awdp->esdp, val);
+	    erts_thr_progress_wakeup(erts_thr_prgr_data(awdp->esdp), val);
 	}
     }
 }
@@ -3066,6 +3066,7 @@ aux_thread(void *unused)
     ErtsSchedulerSleepInfo *ssi = ERTS_SCHED_SLEEP_INFO_IX(-1);
     erts_aint32_t aux_work;
     ErtsThrPrgrCallbacks callbacks;
+    ErtsThrPrgrData *tpd;
     int thr_prgr_active = 1;
     ERTS_MSACC_DECLARE_CACHE();
 
@@ -3087,12 +3088,12 @@ aux_thread(void *unused)
     callbacks.wait = thr_prgr_wait;
     callbacks.finalize_wait = thr_prgr_fin_wait;
 
-    erts_thr_progress_register_managed_thread(NULL, &callbacks, 1);
+    tpd = erts_thr_progress_register_managed_thread(NULL, &callbacks, 1);
     init_aux_work_data(awdp, NULL, NULL);
     awdp->ssi = ssi;
 
 #if ERTS_POLL_USE_FALLBACK
-    ssi->psi = erts_create_pollset_thread(-1);
+    ssi->psi = erts_create_pollset_thread(-1, tpd);
 #endif
 
     sched_prep_spin_wait(ssi);
@@ -3105,11 +3106,11 @@ aux_thread(void *unused)
 	aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 	if (aux_work) {
 	    if (!thr_prgr_active)
-		erts_thr_progress_active(NULL, thr_prgr_active = 1);
+		erts_thr_progress_active(tpd, thr_prgr_active = 1);
 	    aux_work = handle_aux_work(awdp, aux_work, 1);
             ERTS_MSACC_UPDATE_CACHE();
-	    if (aux_work && erts_thr_progress_update(NULL))
-		erts_thr_progress_leader_update(NULL);
+	    if (aux_work && erts_thr_progress_update(tpd))
+		erts_thr_progress_leader_update(tpd);
 	}
 
 	if (!aux_work) {
@@ -3120,7 +3121,7 @@ aux_thread(void *unused)
 #endif
 
 	    if (thr_prgr_active)
-		erts_thr_progress_active(NULL, thr_prgr_active = 0);
+		erts_thr_progress_active(tpd, thr_prgr_active = 0);
 
 #if ERTS_POLL_USE_FALLBACK
 
@@ -3136,7 +3137,7 @@ aux_thread(void *unused)
 		}
             }
 #else
-            erts_thr_progress_prepare_wait(NULL);
+            erts_thr_progress_prepare_wait(tpd);
 
 	    flgs = sched_spin_wait(ssi, 0);
 
@@ -3153,7 +3154,7 @@ aux_thread(void *unused)
                     ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 		}
             }
-            erts_thr_progress_finalize_wait(NULL);
+            erts_thr_progress_finalize_wait(tpd);
 #endif
 	}
 
@@ -3171,7 +3172,8 @@ poll_thread(void *arg)
     erts_aint32_t aux_work;
     ErtsThrPrgrCallbacks callbacks;
     int thr_prgr_active = 1;
-    struct erts_poll_thread *psi = erts_create_pollset_thread(id);
+    struct erts_poll_thread *psi;
+    ErtsThrPrgrData *tpd;
     ERTS_MSACC_DECLARE_CACHE();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -3192,9 +3194,12 @@ poll_thread(void *arg)
     callbacks.wait = thr_prgr_wait;
     callbacks.finalize_wait = thr_prgr_fin_wait;
 
-    erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
+    tpd = erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
     init_aux_work_data(awdp, NULL, NULL);
     awdp->ssi = ssi;
+
+    psi = erts_create_pollset_thread(id, tpd);
+
     ssi->psi = psi;
 
     sched_prep_spin_wait(ssi);
@@ -3207,16 +3212,16 @@ poll_thread(void *arg)
 	aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
 	if (aux_work) {
 	    if (!thr_prgr_active)
-		erts_thr_progress_active(NULL, thr_prgr_active = 1);
+		erts_thr_progress_active(tpd, thr_prgr_active = 1);
 	    aux_work = handle_aux_work(awdp, aux_work, 1);
             ERTS_MSACC_UPDATE_CACHE();
-	    if (aux_work && erts_thr_progress_update(NULL))
-		erts_thr_progress_leader_update(NULL);
+	    if (aux_work && erts_thr_progress_update(tpd))
+		erts_thr_progress_leader_update(tpd);
 	}
 
 	if (!aux_work) {
 	    if (thr_prgr_active)
-		erts_thr_progress_active(NULL, thr_prgr_active = 0);
+		erts_thr_progress_active(tpd, thr_prgr_active = 0);
 
 	    flgs = sched_spin_wait(ssi, 0);
 
@@ -3286,13 +3291,13 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
         aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
         if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
             if (!thr_prgr_active) {
-                erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
                 sched_wall_time_change(esdp, 1);
             }
             aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
             ERTS_MSACC_UPDATE_CACHE();
-            if (aux_work && erts_thr_progress_update(esdp))
-                erts_thr_progress_leader_update(esdp);
+            if (aux_work && erts_thr_progress_update(erts_thr_prgr_data(esdp)))
+                erts_thr_progress_leader_update(erts_thr_prgr_data(esdp));
         }
 
         if (aux_work) {
@@ -3301,7 +3306,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                 current_time = erts_get_monotonic_time(esdp);
                 if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
                     if (!thr_prgr_active) {
-                        erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                        erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
                         sched_wall_time_change(esdp, 1);
                     }
                     erts_bump_timers(esdp->timer_wheel, current_time);
@@ -3321,17 +3326,17 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
             }
             if (do_timeout) {
                 if (!thr_prgr_active) {
-                    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                    erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
                     sched_wall_time_change(esdp, 1);
                 }
             }
             else {
                 if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
                     if (thr_prgr_active) {
-                        erts_thr_progress_active(esdp, thr_prgr_active = 0);
+                        erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 0);
                         sched_wall_time_change(esdp, 0);
                     }
-                    erts_thr_progress_prepare_wait(esdp);
+                    erts_thr_progress_prepare_wait(erts_thr_prgr_data(esdp));
                 }
 
                 flgs = sched_spin_wait(ssi, spincount);
@@ -3363,7 +3368,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                     }
                 }
                 if (!ERTS_SCHEDULER_IS_DIRTY(esdp))
-                    erts_thr_progress_finalize_wait(esdp);
+                    erts_thr_progress_finalize_wait(erts_thr_prgr_data(esdp));
             }
             if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && current_time >= timeout_time)
                 erts_bump_timers(esdp->timer_wheel, current_time);
@@ -3392,7 +3397,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     if (ERTS_SCHEDULER_IS_DIRTY(esdp))
         dirty_sched_wall_time_change(esdp, working = 1);
     else if (!thr_prgr_active) {
-        erts_thr_progress_active(esdp, thr_prgr_active = 1);
+        erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
         sched_wall_time_change(esdp, 1);
     }
 
@@ -7565,7 +7570,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 		    if (aux_work|evacuate) {
 			if (!thr_prgr_active) {
-			    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+			    erts_thr_progress_active(erts_thr_prgr_data(esdp),
+                                                     thr_prgr_active = 1);
 			    sched_wall_time_change(esdp, 1);
 			}
 			if (aux_work)
@@ -7573,8 +7579,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 						       aux_work,
 						       1);
 
-			if (aux_work && erts_thr_progress_update(esdp))
-			    erts_thr_progress_leader_update(esdp);
+			if (aux_work && erts_thr_progress_update(erts_thr_prgr_data(esdp)))
+			    erts_thr_progress_leader_update(erts_thr_prgr_data(esdp));
 			if (evacuate) {
 			    erts_runq_lock(esdp->run_queue);
 			    evacuate_run_queue(esdp->run_queue, &sbp);
@@ -7593,18 +7599,18 @@ suspend_scheduler(ErtsSchedulerData *esdp)
                     if (!aux_work && current_time < timeout_time) {
                         /* go to sleep... */
                         if (thr_prgr_active) {
-                            erts_thr_progress_active(esdp, thr_prgr_active = 0);
+                            erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 0);
                             sched_wall_time_change(esdp, 0);
                         }
-                        erts_thr_progress_prepare_wait(NULL);
+                        erts_thr_progress_prepare_wait(erts_thr_prgr_data(NULL));
                         suspend_normal_scheduler_sleep(esdp);
-                        erts_thr_progress_finalize_wait(NULL);
+                        erts_thr_progress_finalize_wait(erts_thr_prgr_data(NULL));
                         current_time = erts_get_monotonic_time(esdp);
                     }
 
                     if (current_time >= timeout_time) {
                         if (!thr_prgr_active) {
-                            erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                            erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
                             sched_wall_time_change(esdp, 1);
                         }
                         erts_bump_timers(esdp->timer_wheel, current_time);
@@ -7661,7 +7667,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
             profile_scheduler(make_small(esdp->no), am_active);
 
         if (!thr_prgr_active) {
-            erts_thr_progress_active(esdp, thr_prgr_active = 1);
+            erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
             sched_wall_time_change(esdp, 1);
         }
     }
@@ -9313,12 +9319,12 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		}
 	    }
 
-	    leader_update = erts_thr_progress_update(esdp);
+	    leader_update = erts_thr_progress_update(erts_thr_prgr_data(esdp));
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
 	    if (aux_work | leader_update) {
 		erts_runq_unlock(rq);
 		if (leader_update)
-		    erts_thr_progress_leader_update(esdp);
+		    erts_thr_progress_leader_update(erts_thr_prgr_data(esdp));
 		if (aux_work)
 		    handle_aux_work(&esdp->aux_work_data, aux_work, 0);
 		erts_runq_lock(rq);

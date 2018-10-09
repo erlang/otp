@@ -90,8 +90,11 @@ void erts_check_io_interrupt(struct erts_poll_thread *pt, int set);
 /**
  * Create a new poll thread structure that is associated with the number no.
  * It is the callers responsibility that no is unique.
+ *
+ * @param no the id of the pollset thread, -2 = aux thread, -1 = scheduler
+ * @param tpd the thread progress data of the pollset thread
  */
-struct erts_poll_thread* erts_create_pollset_thread(int no);
+struct erts_poll_thread* erts_create_pollset_thread(int no, ErtsThrPrgrData *tpd);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 /**
  * Toggle lock counting on all check io locks

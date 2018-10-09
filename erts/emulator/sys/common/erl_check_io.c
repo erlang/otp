@@ -105,6 +105,7 @@ typedef struct erts_poll_thread
 {
     ErtsPollSet *ps;
     ErtsPollResFd *pollres;
+    ErtsThrPrgrData *tpd;
     int pollres_len;
 } ErtsPollThread;
 
@@ -1516,7 +1517,8 @@ erts_check_io_interrupt(ErtsPollThread *psi, int set)
 }
 
 ErtsPollThread *
-erts_create_pollset_thread(int id) {
+erts_create_pollset_thread(int id, ErtsThrPrgrData *tpd) {
+    psiv[id].tpd = tpd;
     return psiv+id;
 }
 
@@ -1538,12 +1540,12 @@ erts_check_io(ErtsPollThread *psi)
 #if ERTS_POLL_USE_FALLBACK
     if (psi->ps == get_fallback()) {
 
-        poll_ret = erts_poll_wait_flbk(psi->ps, psi->pollres, &pollres_len);
+        poll_ret = erts_poll_wait_flbk(psi->ps, psi->pollres, &pollres_len, psi->tpd);
 
     } else
 #endif
     {
-        poll_ret = erts_poll_wait(psi->ps, psi->pollres, &pollres_len);
+        poll_ret = erts_poll_wait(psi->ps, psi->pollres, &pollres_len, psi->tpd);
     }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
