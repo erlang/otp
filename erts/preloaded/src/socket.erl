@@ -818,6 +818,8 @@
 
 
 -define(SOCKET_SUPPORTS_OPTIONS, 16#0001).
+-define(SOCKET_SUPPORTS_SCTP,    16#0002).
+-define(SOCKET_SUPPORTS_IPV6,    16#0003).
 
 
 %% ===========================================================================
@@ -849,10 +851,16 @@ info() ->
 -spec supports() -> list().
 
 supports() ->
-    [{options, supports(options)}].
+    [{options, supports(options)},
+     {sctp,    supports(sctp)},
+     {ipv6,    supports(ipv6)}].
 
 supports(options) ->
     nif_supports(?SOCKET_SUPPORTS_OPTIONS);
+supports(sctp) ->
+    nif_supports(?SOCKET_SUPPORTS_SCTP);
+supports(ipv6) ->
+    nif_supports(?SOCKET_SUPPORTS_IPV6);
 supports(_) ->
     false.
 
