@@ -70,8 +70,10 @@
 */
 ERTS_INLINE static DbTreeStack* get_static_stack(DbTableTree* tb)
 {
-    if (tb != NULL && !erts_atomic_xchg_acqb(&tb->is_stack_busy, 1)) {
-	return &tb->static_stack;
+    if (tb != NULL) {
+        ASSERT(IS_TREE_TABLE(tb->common.type));
+        if (!erts_atomic_xchg_acqb(&tb->is_stack_busy, 1))
+            return &tb->static_stack;
     }
     return NULL;
 }
@@ -82,9 +84,10 @@ ERTS_INLINE static DbTreeStack* get_static_stack(DbTableTree* tb)
 static DbTreeStack* get_any_stack(DbTable* tb, DbTableTree* stack_container)
 {
     DbTreeStack* stack;
-    if (stack_container != NULL &&
-        !erts_atomic_xchg_acqb(&stack_container->is_stack_busy, 1)) {
-	return &stack_container->static_stack;
+    if (stack_container != NULL) {
+        ASSERT(IS_TREE_TABLE(stack_container->common.type));
+        if (!erts_atomic_xchg_acqb(&stack_container->is_stack_busy, 1))
+            return &stack_container->static_stack;
     }
     stack = erts_db_alloc(ERTS_ALC_T_DB_STK, tb,
 			  sizeof(DbTreeStack) + sizeof(TreeDbTerm*) * STACK_NEED);
@@ -96,14 +99,16 @@ static DbTreeStack* get_any_stack(DbTable* tb, DbTableTree* stack_container)
 
 static void release_stack(DbTable* tb, DbTableTree* stack_container, DbTreeStack* stack)
 {
-    if (stack_container != NULL && stack == &stack_container->static_stack) {
-	ASSERT(erts_atomic_read_nob(&stack_container->is_stack_busy) == 1);
-	erts_atomic_set_relb(&stack_container->is_stack_busy, 0);
+    if (stack_container != NULL) {
+        ASSERT(IS_TREE_TABLE(stack_container->common.type));
+        if (stack == &stack_container->static_stack) {
+            ASSERT(erts_atomic_read_nob(&stack_container->is_stack_busy) == 1);
+            erts_atomic_set_relb(&stack_container->is_stack_busy, 0);
+            return;
+        }
     }
-    else {
-	erts_db_free(ERTS_ALC_T_DB_STK, tb,
-		     (void *) stack, sizeof(DbTreeStack) + sizeof(TreeDbTerm*) * STACK_NEED);
-    }
+    erts_db_free(ERTS_ALC_T_DB_STK, tb,
+                 (void *) stack, sizeof(DbTreeStack) + sizeof(TreeDbTerm*) * STACK_NEED);
 }
 
 static ERTS_INLINE void reset_stack(DbTreeStack* stack)
@@ -117,6 +122,7 @@ static ERTS_INLINE void reset_stack(DbTreeStack* stack)
 static ERTS_INLINE void reset_static_stack(DbTableTree* tb)
 {
     if (tb != NULL) {
+        ASSERT(IS_TREE_TABLE(tb->common.type));
         reset_stack(&tb->static_stack);
     }
 }
