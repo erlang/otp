@@ -93,6 +93,7 @@ MODULES= \
 	hibernate_SUITE \
 	hipe_SUITE \
 	iovec_SUITE \
+	json_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
 	lcnt_SUITE \

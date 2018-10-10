@@ -738,3 +738,12 @@ bif erts_internal:spawn_system_process/3
 bif erlang:integer_to_list/2
 bif erlang:integer_to_binary/2
 bif persistent_term:get/2
+
+#
+# New in 22.0
+#
+
+bif erlang:term_to_json/1
+bif erlang:term_to_json/2
+bif erlang:json_to_term/1
+bif erlang:json_to_term/2

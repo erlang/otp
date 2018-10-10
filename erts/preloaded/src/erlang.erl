@@ -68,6 +68,8 @@
                       Secs :: non_neg_integer(),
                       MicroSecs :: non_neg_integer()}.
 
+-type json_binary() :: binary().
+
 -type time_unit() ::
 	pos_integer()
       | 'second'
@@ -183,6 +185,8 @@
          universaltime_to_localtime/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
 	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]). 
+
+-export([term_to_json/1, term_to_json/2, json_to_term/1, json_to_term/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2553,6 +2557,32 @@ term_to_binary(_Term) ->
                   {compressed, Level :: 0..9} |
                   {minor_version, Version :: 0..2} ].
 term_to_binary(_Term, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec term_to_json(Term) -> json_binary() when
+      Term :: term().
+term_to_json(_Term) ->
+    erlang:nif_error(undefined).
+
+-spec term_to_json(Term, Options) -> json_binary() when
+      Term :: term(),
+      Options :: [Option],
+      Option :: use_nil |
+                {min_buf_size, pos_integer()}.
+term_to_json(_Term, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec json_to_term(Json) -> term() when
+      Json :: json_binary().
+json_to_term(_Json) ->
+    erlang:nif_error(undefined).
+
+-spec json_to_term(Json, Options) -> term() when
+      Json :: json_binary(),
+      Options :: [Option],
+      Option :: return_maps |
+                use_nil.
+json_to_term(_Json, _Options) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:tl/1

@@ -273,6 +273,15 @@ error:
     BIF_ERROR(BIF_P, BADARG);
 }
 
+Eterm erts_map_from_validated_list(Process *p, Eterm list, Uint size) {
+    if (size > MAP_SMALL_MAP_LIMIT) {
+	return hashmap_from_validated_list(p, list, size);
+    } else {
+	return flatmap_from_validated_list(p, list, size);
+    }
+}
+
+
 static Eterm flatmap_from_validated_list(Process *p, Eterm list, Uint size) {
     Eterm *kv, item = list;
     Eterm *hp, *thp,*vs, *ks, keys, res;

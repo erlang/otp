@@ -373,6 +373,7 @@ erl_init(int ncpu,
     packet_parser_init();
     erl_nif_init();
     erts_msacc_init();
+    erts_init_json();
 }
 
 static Eterm

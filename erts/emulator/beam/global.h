@@ -1260,6 +1260,9 @@ extern Uint erts_num_persistent_areas;
 /* external.c */
 void erts_init_external(void);
 
+/* json.c */
+void erts_init_json(void);
+
 /* erl_map.c */
 void erts_init_map(void);
 

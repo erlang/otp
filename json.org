@@ -1,0 +1,958 @@
+#+STARTUP: showeverything
+#+TITLE: JSON BIFs for Erlang
+#+AUTHOR: David Hull
+
+This branch implements two new BIFs, =erlang:term_to_json= and
+=erlang:json_to_term=, for converting between Erlang terms and JSON-encoded
+binaries.  These BIFs are well-behaved: long running calls periodically yield
+to other processes.  The BIFs are fast: on my data, encoding is about five
+times faster and decoding is about three times faster than the other
+libraries; see the [[#benchmarks][benchmarks]] section below.
+
+The new BIFs have the specs:
+
+#+begin_src erlang
+-type json_binary() :: binary().
+
+-spec term_to_json(Term) -> json_binary() when
+      Term :: term().
+
+-spec term_to_json(Term, Options) -> json_binary() when
+      Term :: term(),
+      Options :: [Option],
+      Option :: use_nil |
+                {min_buf_size, pos_integer()}.
+-spec json_to_term(Json) -> term() when
+      Json :: json_binary().
+
+-spec json_to_term(Json, Options) -> term() when
+      Json :: json_binary(),
+      Options :: [Option],
+      Option :: return_maps |
+                use_nil.
+#+end_src
+
+* Term Representation
+
+These BIFs use an Erlang term representation that is very similar to that
+described in [[http://erlang.org/eeps/eep-0018.html][EEP-0018]].
+
+#+begin_src erlang
+-typedef jobject()      :: { list({jkey(), jvalue()} | jpreencoded()) } % proplist form
+                         | #{ jkey() => jvalue(), json => binary() }.   % map form
+-typedef jarray()       :: list(jvalue()).
+-typedef jvalue()       :: jstring()
+                         | jnumber()
+                         | 'true'
+                         | 'false'
+                         | jnull()
+                         | jobject()
+                         | jarray()
+                         | jpreencoded().
+-typedef jstring()      :: unicode:unicode_binary().
+-typedef jnumber()      :: integer()
+                         | float().
+-typedef jkey()         :: jstring()
+                         | atom().              % For term_to_binary only. Encoding is UTF-8.
+-typedef jpreencoded()  :: { 'json', binary() }.
+-typedef jnull()        :: 'null'
+                         | 'nil'.               % If `use_nil'.
+#+end_src
+
+** Objects
+
+For encoding JSON, =erlang:term_to_json= accepts a term in which objects are
+encoded in both the proplist and the map forms.  When decoding JSON, however,
+you must choose one or the other: the proplist form (the default) or the map
+form (when the =return_maps= option is passed to =erlang:json_to_term/2=).
+
+=erlang:term_to_json= accepts both binaries and atoms as object keys.  If
+atoms are used they must be in UTF-8 (=erlang:term_to_json= does the
+equivalent of ~atom_to_binary(Key, utf8)~ on them).  =erlang:json_to_term=
+always returns keys as binaries.
+
+=erlang:term_to_json= does not ensure that the keys in the JSON output are
+unique.  This can happen if the input contains objects in the proplist form
+that have duplicate keys, or in the map form if there are atom keys that when
+converted to binary clash with binary keys in the map.
+
+For =erlang:json_to_term=, when objects are being returned in the default
+proplist form the proplist elements are returned in the same order as they are
+in the JSON input.  If there are duplicate object keys in the JSON input then
+there will be duplicate keys in the returned object proplist.  When the
+=return_maps= option is passed, =erlang:json_to_term= calls the internal
+=erts_map_from_validated_list= function on the proplist to produce an Erlang
+map.  In my limited testing it appears that when the input contains duplicate
+keys this function keeps the last value associated with the key, but I don't
+know if this behavior is guaranteed.
+
+#+begin_example
+1> erlang:term_to_json({[ {<<"i">>, <<"one">>}, {<<"ii">>, 2}, {<<"iii">>, [ 1, 1, 1 ]} ]}).
+<<"{\"i\":\"one\",\"ii\":2,\"iii\":[1,1,1]}">>
+
+2> erlang:term_to_json(#{type => <<"cat">>, name => <<"fluffy">>, age => 7, says => <<"meow">>}).
+<<"{\"age\":7,\"name\":\"fluffy\",\"says\":\"meow\",\"type\":\"cat\"}">>
+
+3> erlang:json_to_term(<<"{\"title\":\"Ringworld\", \"author\":\"Larry Niven\", \"genre\":\"Science Fiction\"}">>).
+{[{<<"title">>,<<"Ringworld">>},
+  {<<"author">>,<<"Larry Niven">>},
+  {<<"genre">>,<<"Science Fiction">>}]}
+
+4> erlang:json_to_term(<<"{\"title\":\"The Hobbit\", \"author\":\"J.R.R. Tolkien\", \"genre\":\"Fantasy\"}">>, [ return_maps ]).
+#{<<"author">> => <<"J.R.R. Tolkien">>,
+  <<"genre">> => <<"Fantasy">>,
+  <<"title">> => <<"The Hobbit">>}
+#+end_example
+
+*** Differences From Other Implementations
+
+=erlang:json_to_term= does not support Jiffy's =dedupe_keys= option.
+
+=erlang:term_to_json= does not have the equivalent of Poison's =strict_keys=
+option to prevent duplicate keys in the JSON output.
+
+=erlang:term_to_json= does not have the provision to encode only a subset of
+an objects fields as Poison does through its =only= and =except= options.
+
+The keys in the objects that =erlang:json_to_term= returns are Erlang
+binaries, and there is no option to have atoms returned instead.
+
+** Arrays
+
+Erlang lists are converted to JSON arrays and vice versa.
+
+** Strings
+
+The BIFs convert between UTF-8-encoded Erlang binaries and JSON strings.
+
+=erlang:term_to_json= does some validation of its input, but is not pedantic.
+It does not validate that Unicode characters are encoded in their shortest
+representation, for example.
+
+#+begin_example
+5> io:format("~ts\n", [ erlang:term_to_json(<<"π ≈ 3.1416\n"/utf8, 0, 1, 7, 8, 9, 10, 13>>) ]).
+"π ≈ 3.1416\n\u0000\u0001\u0007\b\t\n\r"
+ok
+#+end_example
+
+=erlang:json_to_term= is more careful, and invalid UTF-8 throws a badarg
+error.
+
+#+begin_example
+6> erlang:json_to_term(<<$", 0, $">>).
+** exception error: bad argument
+     in function  json_to_term/1
+        called as json_to_term(<<34,0,34>>)
+#+end_example
+
+=erlang:json_to_term= decodes escaped UTF-16 surrogate pairs to their UTF-8
+code point.  For example, the G-clef character 𝄞 = U+1D11E is escaped as
+"\uD834\uDD1E", but =erlang:json_to_term= will convert it back into its
+UTF-8-encoded form.  Unescaped UTF-16 surrogate pairs, however, are rejected.
+
+#+begin_example
+7> erlang:json_to_term(<<"[\"\\uD834\\uDD1E\",\"𝄞\"]"/utf8>>).
+[<<240,157,132,158>>,<<240,157,132,158>>]
+
+8> erlang:json_to_term(<<$", 16#D834:16, 16#DD1E:16, $">>).
+** exception error: bad argument
+     in function  json_to_term/1
+        called as json_to_term(<<34,216,52,221,30,34>>)
+#+end_example
+
+*** Differences From Other Implementations
+
+=erlang:json_to_term= does not support Jiffy's =copy_strings= option.  It's
+not needed, as JSON strings are never returned as sub-binaries of the input.
+
+=erlang:term_to_json= does not support Jiffy's =uescape= option to escape
+multi-byte UTF-8 sequences to produce 7-bit output.
+
+=erlang:term_to_json= does not support Jiffy's =escape_forward_slashes= option.
+
+** Numbers
+
+For numbers, these BIFs distinguish between integers and floats.  The JSON
+form of an Erlang float will always contain a decimal point, and a JSON number
+with a decimal point will always be converted to an Erlang float.  This means
+that Erlang numbers that are round-tripped through JSON will maintain their
+types.
+
+#+begin_example
+9> erlang:term_to_json([ 123, 456.0 ]).
+<<"[123,456.0]">>
+
+10> erlang:json_to_term(<<"[ 654, 321.0 ]">>).
+[654,321.0]
+#+end_example
+
+Erlang bignums are also supported.
+
+#+begin_example
+11> erlang:term_to_json(123456789012345678901234567890).
+<<"123456789012345678901234567890">>
+
+12> erlang:json_to_term(<<"987654321098765432109876543210">>).
+987654321098765432109876543210
+#+end_example
+
+*** Differences From Other Implementations
+
+Unlike EEP-0018, the JSON =-0= is decoded as the integer 0.
+
+Unlike EEP-0018, =erlang:json_to_term= does not support the ={float, true}= option.
+
+** null
+
+By default, the BIFs convert between the Erlang atom =null= and the JSON
+=null=.  The =use_nil= options causes them to use the atom =nil= as the Erlang
+representation for JSON =null= (although the atom =null= is still accepted by
+=erlang:term_to_json=).  The BIFs do not have any special treatment for the
+atom =undefined=: it is not legal for input to =erlang:term_to_json= and it is
+not returned by =erlang:json_to_term=.
+
+#+begin_example
+13> erlang:term_to_json(null).
+<<"null">>
+
+14> erlang:term_to_json(nil).
+** exception error: bad argument
+     in function  term_to_json/1
+        called as term_to_json(nil)
+
+15> erlang:term_to_json(nil, [ use_nil ]).
+<<"null">>
+
+16> erlang:term_to_json(null, [ use_nil ]).
+<<"null">>
+
+17> erlang:json_to_term(<<"null">>).
+null
+
+18> erlang:json_to_term(<<"null">>, [ use_nil ]).
+null
+#+end_example
+
+*** Differences From Other Implementations
+
+Unlike Jiffy, the BIFs do not support the ={null_term, Term}= option.
+
+** Preencoded JSON
+
+The =erlang:term_to_json= function supports preencoded JSON in its input.
+This can be useful if you are encoding many JSON documents that share common
+parts.  The preencoded JSON is specified as ={json, binary()}= (or, in a map,
+as =json => binary()=).  Preencoded JSON can be used as a list or object
+value.
+
+#+begin_example
+19> erlang:term_to_json(#{o => {json, <<"{\"key\":\"value\"}">>}, a => {json, <<"[1,2,3]">>}}).
+<<"{\"a\":[1,2,3],\"o\":{\"key\":\"value\"}}">>
+#+end_example
+
+You can graft multiple values onto a list.
+
+#+begin_example
+20> PartialList = {json, (fun () -> B = erlang:term_to_json([ 1, 2, 3 ]), binary_part(B, 1, size(B) - 2) end)()}.
+{json,<<"1,2,3">>}
+
+21> erlang:term_to_json([ PartialList, 4, 5, 6 ]).
+<<"[1,2,3,4,5,6]">>
+#+end_example
+
+In addition, if an object proplist or map contains a entry with the
+key =json=, then the associated value will be grafted onto the object.
+
+#+begin_example
+22> erlang:term_to_json({[ {<<"a">>, <<"apple">>}, {<<"b">>, <<"ball">>}, {json, <<"\"c\":\"cake\",\"d\":\"dog\"">>} ]}).
+<<"{\"a\":\"apple\",\"b\":\"ball\",\"c\":\"cake\",\"d\":\"dog\"}">>
+
+23> erlang:term_to_json(#{<<"a">> => <<"apple">>, <<"b">> => <<"ball">>, json => <<"\"c\":\"cake\",\"d\":\"dog\"">>}).
+<<"{\"c\":\"cake\",\"d\":\"dog\",\"a\":\"apple\",\"b\":\"ball\"}">>
+#+end_example
+
+Beware that it is easy to generate invalid output with preencoded JSON.  For
+example, if you preencode a list that can be empty and then naively
+interpolate it into another list you can end up with something like
+=[,4,6,7]=.
+
+** Miscellaneous
+
+The BIFs do not insist [[https://tools.ietf.org/html/rfc4627#section-2][as per rfc4627]] that only an object or array is allowed
+as the base value in a JSON text.
+
+=erlang:term_to_json= does not support pretty-printing of the JSON output, as
+Jiffy does with its =pretty= option or EEP-0018 does with its ={space, N}= and
+={indent, N}= options.
+
+* Implementation Notes
+
+Both =erlang:term_to_json= and =erlang:json_to_term= are well-behaved,
+yielding regularly to allow other processes, including in the middle of
+encoding and decoding long strings.
+
+=erlang:term_to_json= uses a buffer-doubling technique for its output buffer
+and converts its input to JSON in a single pass, then shrinks the output to
+its actual size at the end.  This is simpler and probably faster than the
+approach taken by =term_to_binary=, which makes an initial pass to determine
+the size of the output before allocating the buffer, but it does take more
+memory.  In particular when encoding a binary to a JSON string it ensures that
+six times the size of the binary is available (although it does the conversion
+in chunks, which puts an upper limit on how much extra memory is allocated).
+
+=erlang:term_to_json= takes an =min_buf_size= option to set the initial buffer
+size; this is similar to =spawn_opt='s =min_heap_size= option.
+
+* Benchmarks
+  :PROPERTIES:
+  :CUSTOM_ID: benchmarks
+  :END:
+
+These results are from the [[https://github.com/devinus/poison#current-benchmarks][poison benchmarks]].  The =erlang:term_to_json= BIF
+is, on average, about 5 times faster than the next fastest JSON library
+(usually Jiffy).  The =erlang:json_to_term= BIF is, on average, about 2 to 3
+times faster than the next fastest JSON library (also usually Jiffy), although
+Jiffy does beat it on a few individual benchmarks.
+
+The [[https://github.com/iskra/jsonx][jsonx]] library is very fast but does not yield and is very memory intensive
+when encoding, and it caused my Erlang VM to be killed by the OOM killer for
+many of the benchmarks when I attempted to include it in the results.  For the
+encoding benchmarks that I was able to run, =erlang:term_to_json= was 2x or
+more faster than =jsonx:encode=.  For decoding, =jsonx:decode= was overall as
+fast as =erlang:json_to_term=, and on some individual benchmarks was as much
+as 1.6x faster.
+
+The "BIFs" lines in the results below are this code.  I ran these benchmarks
+in a VirtualBox VM on my Late 2013 MacBook Pro.
+
+#+begin_example
+Operating System: Linux
+CPU Information: Intel(R) Core(TM) i7-4750HQ CPU @ 2.00GHz
+Number of Available Cores: 2
+Available memory: 1.96 GB
+Elixir 1.6.5
+Erlang 20.3.8.18.2
+
+Benchmark suite executing with the following configuration:
+warmup: 2 s
+time: 5 s
+memory time: 0 μs
+parallel: 2
+#+end_example
+
+** Encoding
+
+#+begin_src 
+##### With input Blockchain #####
+Name             ips        average  deviation         median         99th %
+BIFs        26606.48      0.0376 ms   ±272.89%      0.0250 ms        0.28 ms
+jiffy        2872.25        0.35 ms   ±312.62%        0.20 ms        5.54 ms
+Jason        1332.87        0.75 ms   ±256.83%        0.30 ms        9.96 ms
+Poison        612.89        1.63 ms   ±170.10%        0.65 ms       14.47 ms
+Tiny          556.90        1.80 ms   ±188.12%        0.50 ms       16.10 ms
+JSX           415.22        2.41 ms   ±166.21%        0.82 ms       19.03 ms
+jsone         380.75        2.63 ms   ±138.48%        0.99 ms       17.84 ms
+JSON          295.95        3.38 ms   ±139.08%        1.36 ms       22.95 ms
+
+Comparison:
+BIFs        26606.48
+jiffy        2872.25 - 9.26x slower
+Jason        1332.87 - 19.96x slower
+Poison        612.89 - 43.41x slower
+Tiny          556.90 - 47.78x slower
+JSX           415.22 - 64.08x slower
+jsone         380.75 - 69.88x slower
+JSON          295.95 - 89.90x slower
+
+##### With input Giphy #####
+Name             ips        average  deviation         median         99th %
+BIFs         2909.89        0.34 ms    ±54.28%        0.26 ms        0.77 ms
+jiffy         328.34        3.05 ms   ±105.99%        1.78 ms       17.15 ms
+Jason         132.28        7.56 ms    ±71.32%        7.11 ms       25.53 ms
+Tiny           87.37       11.45 ms    ±47.05%        9.90 ms       31.07 ms
+Poison         61.61       16.23 ms    ±33.69%       14.71 ms       35.64 ms
+jsone          48.16       20.76 ms    ±40.35%       20.41 ms       41.85 ms
+JSON           31.44       31.80 ms    ±30.57%       30.45 ms       61.99 ms
+JSX            30.43       32.86 ms    ±31.68%       31.89 ms       61.86 ms
+
+Comparison:
+BIFs         2909.89
+jiffy         328.34 - 8.86x slower
+Jason         132.28 - 22.00x slower
+Tiny           87.37 - 33.30x slower
+Poison         61.61 - 47.23x slower
+jsone          48.16 - 60.42x slower
+JSON           31.44 - 92.54x slower
+JSX            30.43 - 95.63x slower
+
+##### With input GitHub #####
+Name             ips        average  deviation         median         99th %
+BIFs         7866.81       0.127 ms   ±114.21%      0.0890 ms        0.39 ms
+jiffy        1100.66        0.91 ms   ±199.80%        0.54 ms       10.67 ms
+Jason         409.77        2.44 ms   ±138.23%        1.14 ms       16.55 ms
+Tiny          262.71        3.81 ms   ±107.38%        1.69 ms       19.73 ms
+Poison        175.88        5.69 ms    ±82.63%        2.67 ms       22.41 ms
+JSX           100.48        9.95 ms    ±68.44%        8.49 ms       30.61 ms
+jsone          96.52       10.36 ms    ±54.22%        9.48 ms       27.47 ms
+JSON           92.49       10.81 ms    ±65.63%        9.82 ms       31.65 ms
+
+Comparison:
+BIFs         7866.81
+jiffy        1100.66 - 7.15x slower
+Jason         409.77 - 19.20x slower
+Tiny          262.71 - 29.95x slower
+Poison        175.88 - 44.73x slower
+JSX           100.48 - 78.29x slower
+jsone          96.52 - 81.50x slower
+JSON           92.49 - 85.06x slower
+
+##### With input GovTrack #####
+Name             ips        average  deviation         median         99th %
+BIFs           85.04       11.76 ms    ±19.86%       11.43 ms       21.34 ms
+jiffy          11.28       88.67 ms    ±17.18%       89.12 ms      131.38 ms
+Jason           5.15      194.14 ms    ±32.29%      185.82 ms      294.25 ms
+Poison          2.75      364.09 ms    ±16.84%      351.00 ms      486.87 ms
+Tiny            2.61      383.46 ms    ±22.34%      342.95 ms      560.91 ms
+JSON            1.78      562.60 ms    ±25.90%      514.99 ms     1002.22 ms
+jsone           1.54      649.40 ms    ±27.55%      733.24 ms      863.46 ms
+JSX             1.29      774.22 ms    ±15.32%      773.64 ms      994.17 ms
+
+Comparison:
+BIFs           85.04
+jiffy          11.28 - 7.54x slower
+Jason           5.15 - 16.51x slower
+Poison          2.75 - 30.96x slower
+Tiny            2.61 - 32.61x slower
+JSON            1.78 - 47.84x slower
+jsone           1.54 - 55.22x slower
+JSX             1.29 - 65.84x slower
+
+##### With input Issue 90 #####
+Name             ips        average  deviation         median         99th %
+BIFs           76.15       13.13 ms    ±14.01%       13.04 ms       17.93 ms
+jiffy          20.92       47.80 ms     ±3.39%       47.72 ms       53.00 ms
+Jason           6.30      158.82 ms     ±3.07%      157.55 ms      181.68 ms
+Tiny            5.17      193.41 ms     ±3.96%      191.28 ms      218.12 ms
+JSX             4.34      230.54 ms     ±8.12%      228.40 ms      283.51 ms
+Poison          2.92      342.61 ms     ±6.02%      338.82 ms      375.84 ms
+JSON            0.70     1420.19 ms    ±14.61%     1453.13 ms     1675.41 ms
+jsone           0.45     2205.14 ms     ±2.32%     2196.01 ms     2294.66 ms
+
+Comparison:
+BIFs           76.15
+jiffy          20.92 - 3.64x slower
+Jason           6.30 - 12.09x slower
+Tiny            5.17 - 14.73x slower
+JSX             4.34 - 17.56x slower
+Poison          2.92 - 26.09x slower
+JSON            0.70 - 108.15x slower
+jsone           0.45 - 167.92x slower
+
+##### With input JSON Generator #####
+Name             ips        average  deviation         median         99th %
+BIFs         3045.09        0.33 ms    ±67.22%        0.23 ms        0.85 ms
+jiffy         276.57        3.62 ms   ±106.00%        2.10 ms       19.12 ms
+Jason         152.86        6.54 ms    ±77.55%        3.26 ms       24.55 ms
+Poison         72.19       13.85 ms    ±40.98%       12.93 ms       31.56 ms
+Tiny           70.69       14.15 ms    ±34.88%       13.17 ms       30.75 ms
+jsone          42.98       23.27 ms    ±34.93%       21.34 ms       45.99 ms
+JSX            42.00       23.81 ms    ±38.00%       22.51 ms       49.08 ms
+JSON           33.67       29.70 ms    ±29.67%       27.86 ms       54.02 ms
+
+Comparison:
+BIFs         3045.09
+jiffy         276.57 - 11.01x slower
+Jason         152.86 - 19.92x slower
+Poison         72.19 - 42.18x slower
+Tiny           70.69 - 43.08x slower
+jsone          42.98 - 70.86x slower
+JSX            42.00 - 72.50x slower
+JSON           33.67 - 90.43x slower
+
+##### With input Pokedex #####
+Name             ips        average  deviation         median         99th %
+BIFs         3195.39        0.31 ms    ±63.07%        0.25 ms        0.88 ms
+jiffy         400.19        2.50 ms   ±119.90%        1.44 ms       15.16 ms
+Jason         177.93        5.62 ms    ±83.66%        2.63 ms       21.20 ms
+Poison        101.53        9.85 ms    ±53.90%        9.12 ms       27.73 ms
+Tiny           86.66       11.54 ms    ±45.42%       11.30 ms       26.94 ms
+jsone          75.43       13.26 ms    ±47.48%       12.02 ms       34.45 ms
+JSON           48.47       20.63 ms    ±37.48%       19.63 ms       46.09 ms
+JSX            39.16       25.54 ms    ±33.96%       24.37 ms       46.33 ms
+
+Comparison:
+BIFs         3195.39
+jiffy         400.19 - 7.98x slower
+Jason         177.93 - 17.96x slower
+Poison        101.53 - 31.47x slower
+Tiny           86.66 - 36.87x slower
+jsone          75.43 - 42.36x slower
+JSON           48.47 - 65.93x slower
+JSX            39.16 - 81.60x slower
+
+##### With input UTF-8 unescaped #####
+Name             ips        average  deviation         median         99th %
+BIFs         25.25 K       39.61 μs   ±222.08%          28 μs         300 μs
+jiffy         8.49 K      117.74 μs   ±117.83%         101 μs         410 μs
+Jason         3.42 K      292.55 μs   ±269.64%         199 μs     4597.08 μs
+Poison        1.46 K      683.29 μs   ±196.83%         435 μs     6851.47 μs
+JSX           1.35 K      741.80 μs   ±298.01%         301 μs    12111.26 μs
+JSON          0.83 K     1199.20 μs   ±245.11%         393 μs    15866.22 μs
+jsone         0.40 K     2477.55 μs   ±152.59%         831 μs    18416.85 μs
+Tiny         0.173 K     5773.07 μs    ±88.37%        5074 μs    22636.47 μs
+
+Comparison:
+BIFs         25.25 K
+jiffy         8.49 K - 2.97x slower
+Jason         3.42 K - 7.39x slower
+Poison        1.46 K - 17.25x slower
+JSX           1.35 K - 18.73x slower
+JSON          0.83 K - 30.28x slower
+jsone         0.40 K - 62.55x slower
+Tiny         0.173 K - 145.75x slower
+
+##### With input atom_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        235.47 K        4.25 μs  ±1671.98%           3 μs           7 μs
+Jason        41.68 K       23.99 μs  ±1586.02%           7 μs          38 μs
+Poison       31.62 K       31.62 μs  ±1133.78%          15 μs          46 μs
+JSON         22.31 K       44.82 μs  ±1107.55%          21 μs          69 μs
+jiffy        19.59 K       51.05 μs  ±1094.02%          20 μs          72 μs
+Tiny         18.85 K       53.05 μs  ±1041.27%          19 μs          86 μs
+jsone         5.95 K      168.16 μs   ±688.60%          39 μs     5486.05 μs
+JSX           4.80 K      208.28 μs   ±610.44%          60 μs     6037.30 μs
+
+Comparison:
+BIFs        235.47 K
+Jason        41.68 K - 5.65x slower
+Poison       31.62 K - 7.45x slower
+JSON         22.31 K - 10.55x slower
+jiffy        19.59 K - 12.02x slower
+Tiny         18.85 K - 12.49x slower
+jsone         5.95 K - 39.60x slower
+JSX           4.80 K - 49.04x slower
+
+##### With input base_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        713.66 K        1.40 μs   ±725.30%           1 μs        3.50 μs
+Jason        57.12 K       17.51 μs  ±1808.30%           6 μs          17 μs
+jiffy        52.95 K       18.89 μs  ±1646.76%           9 μs          22 μs
+Tiny         32.15 K       31.10 μs  ±1403.31%          10 μs          34 μs
+Poison       30.45 K       32.84 μs  ±1376.23%          12 μs          55 μs
+jsone        21.57 K       46.35 μs  ±1279.62%          14 μs          55 μs
+JSON         12.38 K       80.79 μs  ±1001.89%          25 μs         162 μs
+JSX          10.76 K       92.90 μs   ±964.71%          23 μs         166 μs
+
+Comparison:
+BIFs        713.66 K
+Jason        57.12 K - 12.49x slower
+jiffy        52.95 K - 13.48x slower
+Tiny         32.15 K - 22.20x slower
+Poison       30.45 K - 23.43x slower
+jsone        21.57 K - 33.08x slower
+JSON         12.38 K - 57.66x slower
+JSX          10.76 K - 66.30x slower
+
+##### With input int_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        180.63 K        5.54 μs  ±1270.90%           3 μs          24 μs
+Jason        37.95 K       26.35 μs  ±1528.21%           9 μs          26 μs
+Poison       29.96 K       33.37 μs  ±1258.60%          14 μs          51 μs
+Tiny         24.69 K       40.49 μs  ±1115.59%          18 μs          68 μs
+jiffy        17.79 K       56.20 μs   ±825.41%          31 μs          92 μs
+jsone        12.19 K       82.04 μs  ±1012.96%          20 μs      165.25 μs
+JSON          7.60 K      131.64 μs   ±749.91%          47 μs         395 μs
+JSX           5.92 K      168.93 μs   ±721.92%          41 μs     5070.06 μs
+
+Comparison:
+BIFs        180.63 K
+Jason        37.95 K - 4.76x slower
+Poison       29.96 K - 6.03x slower
+Tiny         24.69 K - 7.31x slower
+jiffy        17.79 K - 10.15x slower
+jsone        12.19 K - 14.82x slower
+JSON          7.60 K - 23.78x slower
+JSX           5.92 K - 30.51x slower
+
+##### With input no_floats #####
+Name             ips        average  deviation         median         99th %
+BIFs         87.99 K       11.36 μs   ±609.01%           8 μs          58 μs
+jiffy        10.36 K       96.49 μs   ±632.80%          54 μs         170 μs
+Jason         8.76 K      114.12 μs   ±609.99%          52 μs      344.51 μs
+Poison        4.77 K      209.48 μs   ±439.65%         100 μs        4722 μs
+Tiny          4.55 K      219.54 μs   ±518.91%          80 μs     5221.72 μs
+JSX           2.04 K      489.48 μs   ±389.42%         152 μs    10444.75 μs
+JSON          1.79 K      559.96 μs   ±375.29%         199 μs    11410.31 μs
+jsone         1.59 K      629.87 μs   ±332.73%         157 μs    11245.40 μs
+
+Comparison:
+BIFs         87.99 K
+jiffy        10.36 K - 8.49x slower
+Jason         8.76 K - 10.04x slower
+Poison        4.77 K - 18.43x slower
+Tiny          4.55 K - 19.32x slower
+JSX           2.04 K - 43.07x slower
+JSON          1.79 K - 49.27x slower
+jsone         1.59 K - 55.42x slower
+
+##### With input small_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        639.19 K        1.56 μs  ±2313.25%           1 μs           3 μs
+jiffy       103.03 K        9.71 μs  ±2286.69%           5 μs          15 μs
+Jason        92.86 K       10.77 μs  ±2474.40%           4 μs          13 μs
+Poison       58.35 K       17.14 μs  ±1718.84%           7 μs          19 μs
+Tiny         53.73 K       18.61 μs  ±1908.51%           6 μs          16 μs
+jsone        41.59 K       24.04 μs  ±1733.46%           8 μs          20 μs
+JSON         27.88 K       35.87 μs  ±1450.05%          13 μs          39 μs
+JSX          21.45 K       46.62 μs  ±1472.27%          13 μs          92 μs
+
+Comparison:
+BIFs        639.19 K
+jiffy       103.03 K - 6.20x slower
+Jason        92.86 K - 6.88x slower
+Poison       58.35 K - 10.96x slower
+Tiny         53.73 K - 11.90x slower
+jsone        41.59 K - 15.37x slower
+JSON         27.88 K - 22.93x slower
+JSX          21.45 K - 29.80x slower
+#+end_src
+
+** Decoding
+
+Jiffy beats =erlang:json_to_term= on the pure-string decoding benchmarks
+"Issue 90", "UTF-8 escaped", and "UTF-8 unescaped" because it does not yield
+in the middle of decoding a long string.
+
+I suspect that the JSON benchmarks are so slow because the code has some
+logging that is turned off but is still causing the log output to be formated
+before it is discarded.
+
+#+begin_src 
+##### With input Blockchain #####
+Name             ips        average  deviation         median         99th %
+BIFs          7.45 K      134.16 μs   ±280.38%          88 μs         462 μs
+jiffy         2.57 K      389.70 μs    ±42.90%         346 μs     1066.94 μs
+Jason         1.96 K      510.50 μs    ±16.77%         498 μs      840.16 μs
+Poison        1.70 K      589.49 μs    ±19.43%         583 μs         911 μs
+jsone         1.22 K      818.17 μs    ±18.90%         803 μs     1546.61 μs
+Tiny          1.07 K      932.30 μs    ±17.37%         922 μs     1654.46 μs
+JSX           0.87 K     1145.37 μs    ±18.18%        1133 μs     2014.36 μs
+JSON       0.00519 K   192564.29 μs     ±0.77%   192411.50 μs      196758 μs
+
+Comparison:
+BIFs          7.45 K
+jiffy         2.57 K - 2.90x slower
+Jason         1.96 K - 3.81x slower
+Poison        1.70 K - 4.39x slower
+jsone         1.22 K - 6.10x slower
+Tiny          1.07 K - 6.95x slower
+JSX           0.87 K - 8.54x slower
+JSON       0.00519 K - 1435.30x slower
+
+##### With input Giphy #####
+Name             ips        average  deviation         median         99th %
+BIFs          529.90        1.89 ms    ±63.27%        1.67 ms        5.17 ms
+jiffy         288.77        3.46 ms    ±20.82%        3.33 ms        5.56 ms
+Jason         186.64        5.36 ms    ±13.42%        5.28 ms        8.48 ms
+Poison        129.17        7.74 ms     ±4.97%        7.66 ms        9.12 ms
+jsone         100.85        9.92 ms     ±4.33%        9.83 ms       11.25 ms
+Tiny           92.74       10.78 ms     ±4.50%       10.68 ms       12.29 ms
+JSX            67.87       14.73 ms     ±4.74%       14.61 ms       16.85 ms
+JSON            2.10      475.34 ms     ±5.73%      469.20 ms      538.75 ms
+
+Comparison:
+BIFs          529.90
+jiffy         288.77 - 1.84x slower
+Jason         186.64 - 2.84x slower
+Poison        129.17 - 4.10x slower
+jsone         100.85 - 5.25x slower
+Tiny           92.74 - 5.71x slower
+JSX            67.87 - 7.81x slower
+JSON            2.10 - 251.88x slower
+
+##### With input GitHub #####
+Name             ips        average  deviation         median         99th %
+BIFs         2332.58        0.43 ms    ±84.76%        0.32 ms        1.51 ms
+jiffy         775.48        1.29 ms    ±58.43%        1.04 ms        4.18 ms
+Jason         693.23        1.44 ms     ±8.54%        1.41 ms        2.15 ms
+Poison        593.44        1.69 ms    ±10.62%        1.67 ms        2.43 ms
+jsone         397.71        2.51 ms    ±11.90%        2.46 ms        3.47 ms
+Tiny          389.67        2.57 ms     ±9.26%        2.53 ms        3.49 ms
+JSX           231.19        4.33 ms     ±7.71%        4.25 ms        5.58 ms
+JSON            5.31      188.33 ms     ±2.53%      187.09 ms      204.51 ms
+
+Comparison:
+BIFs         2332.58
+jiffy         775.48 - 3.01x slower
+Jason         693.23 - 3.36x slower
+Poison        593.44 - 3.93x slower
+jsone         397.71 - 5.86x slower
+Tiny          389.67 - 5.99x slower
+JSX           231.19 - 10.09x slower
+JSON            5.31 - 439.29x slower
+
+##### With input GovTrack #####
+Name             ips        average  deviation         median         99th %
+BIFs           23.15       43.19 ms    ±54.81%       32.40 ms       96.01 ms
+jiffy           6.44      155.29 ms    ±14.15%      158.99 ms      189.47 ms
+Jason           5.99      166.88 ms     ±9.11%      166.87 ms      198.84 ms
+jsone           2.77      361.50 ms     ±7.53%      361.76 ms      439.09 ms
+Poison          2.65      376.98 ms     ±5.95%      381.39 ms      432.57 ms
+Tiny            2.23      448.24 ms     ±8.08%      447.05 ms      526.13 ms
+JSX             1.47      681.85 ms     ±4.40%      677.93 ms      743.70 ms
+JSON         0.00318   314474.66 ms     ±0.53%   314474.66 ms   315648.46 ms
+
+Comparison:
+BIFs           23.15
+jiffy           6.44 - 3.60x slower
+Jason           5.99 - 3.86x slower
+jsone           2.77 - 8.37x slower
+Poison          2.65 - 8.73x slower
+Tiny            2.23 - 10.38x slower
+JSX             1.47 - 15.79x slower
+JSON         0.00318 - 7281.45x slower
+
+##### With input Issue 90 #####
+Name             ips        average  deviation         median         99th %
+jiffy          49.55       20.18 ms     ±3.36%       20.10 ms       22.20 ms
+BIFs           37.74       26.50 ms     ±4.35%       26.28 ms       29.68 ms
+Poison         19.84       50.41 ms     ±6.33%       49.71 ms       69.92 ms
+Jason           6.30      158.80 ms     ±1.09%      158.44 ms      167.02 ms
+JSX             5.31      188.46 ms     ±1.26%      188.05 ms      196.26 ms
+Tiny            4.96      201.76 ms     ±2.28%      201.41 ms      222.93 ms
+jsone           4.38      228.44 ms     ±0.57%      228.63 ms      232.03 ms
+JSON            0.32     3104.52 ms     ±1.47%     3096.73 ms     3163.34 ms
+
+Comparison:
+jiffy          49.55
+BIFs           37.74 - 1.31x slower
+Poison         19.84 - 2.50x slower
+Jason           6.30 - 7.87x slower
+JSX             5.31 - 9.34x slower
+Tiny            4.96 - 10.00x slower
+jsone           4.38 - 11.32x slower
+JSON            0.32 - 153.83x slower
+
+##### With input JSON Generator #####
+Name             ips        average  deviation         median         99th %
+BIFs          715.50        1.40 ms    ±41.59%        1.32 ms        3.38 ms
+Jason         259.82        3.85 ms     ±6.09%        3.78 ms        4.74 ms
+Poison        165.07        6.06 ms     ±6.70%        5.96 ms        7.17 ms
+jiffy         163.85        6.10 ms    ±16.84%        6.20 ms        8.14 ms
+jsone         137.15        7.29 ms     ±4.95%        7.20 ms        8.51 ms
+Tiny          123.12        8.12 ms     ±5.36%        8.02 ms        9.49 ms
+JSX            91.66       10.91 ms     ±4.21%       10.81 ms       12.21 ms
+JSON           0.125     8011.49 ms     ±0.31%     8011.49 ms     8028.83 ms
+
+Comparison:
+BIFs          715.50
+Jason         259.82 - 2.75x slower
+Poison        165.07 - 4.33x slower
+jiffy         163.85 - 4.37x slower
+jsone         137.15 - 5.22x slower
+Tiny          123.12 - 5.81x slower
+JSX            91.66 - 7.81x slower
+JSON           0.125 - 5732.19x slower
+
+##### With input JSON Generator (Pretty) #####
+Name             ips        average  deviation         median         99th %
+BIFs          712.08        1.40 ms    ±40.81%        1.32 ms        3.24 ms
+jiffy         243.75        4.10 ms    ±22.87%        3.90 ms        8.68 ms
+Jason         213.13        4.69 ms     ±7.15%        4.61 ms        5.74 ms
+Poison        156.23        6.40 ms     ±5.79%        6.30 ms        7.66 ms
+jsone         124.43        8.04 ms     ±4.75%        7.95 ms        9.36 ms
+Tiny          113.98        8.77 ms     ±4.67%        8.69 ms       10.10 ms
+JSX            78.70       12.71 ms     ±4.10%       12.60 ms       14.31 ms
+JSON           0.127     7847.06 ms     ±0.34%     7847.06 ms     7865.91 ms
+
+Comparison:
+BIFs          712.08
+jiffy         243.75 - 2.92x slower
+Jason         213.13 - 3.34x slower
+Poison        156.23 - 4.56x slower
+jsone         124.43 - 5.72x slower
+Tiny          113.98 - 6.25x slower
+JSX            78.70 - 9.05x slower
+JSON           0.127 - 5587.75x slower
+
+##### With input Pokedex #####
+Name             ips        average  deviation         median         99th %
+BIFs          704.90        1.42 ms    ±63.94%        0.88 ms        4.43 ms
+Jason         457.74        2.18 ms     ±7.87%        2.14 ms        2.94 ms
+jiffy         293.03        3.41 ms    ±44.63%        2.94 ms        8.11 ms
+Poison        201.80        4.96 ms     ±6.11%        4.87 ms        5.95 ms
+jsone         192.25        5.20 ms     ±5.93%        5.12 ms        6.23 ms
+Tiny          152.52        6.56 ms     ±6.64%        6.44 ms        7.82 ms
+JSX           113.70        8.80 ms     ±4.51%        8.69 ms       10.18 ms
+JSON           0.159     6287.07 ms     ±0.15%     6287.07 ms     6293.54 ms
+
+Comparison:
+BIFs          704.90
+Jason         457.74 - 1.54x slower
+jiffy         293.03 - 2.41x slower
+Poison        201.80 - 3.49x slower
+jsone         192.25 - 3.67x slower
+Tiny          152.52 - 4.62x slower
+JSX           113.70 - 6.20x slower
+JSON           0.159 - 4431.73x slower
+
+##### With input UTF-8 escaped #####
+Name             ips        average  deviation         median         99th %
+jiffy        9265.53       0.108 ms   ±106.37%       0.103 ms       0.176 ms
+BIFs         8904.48       0.112 ms    ±34.76%       0.109 ms       0.174 ms
+Jason         805.43        1.24 ms    ±28.47%        1.25 ms        1.91 ms
+Poison        637.64        1.57 ms    ±12.42%        1.51 ms        2.37 ms
+jsone         576.91        1.73 ms    ±13.23%        1.68 ms        2.64 ms
+Tiny          526.76        1.90 ms    ±13.40%        1.87 ms        2.82 ms
+JSX           312.63        3.20 ms     ±8.88%        3.14 ms        4.43 ms
+JSON           71.75       13.94 ms     ±7.26%       13.65 ms       18.48 ms
+
+Comparison:
+jiffy        9265.53
+BIFs         8904.48 - 1.04x slower
+Jason         805.43 - 11.50x slower
+Poison        637.64 - 14.53x slower
+jsone         576.91 - 16.06x slower
+Tiny          526.76 - 17.59x slower
+JSX           312.63 - 29.64x slower
+JSON           71.75 - 129.13x slower
+
+##### With input UTF-8 unescaped #####
+Name             ips        average  deviation         median         99th %
+BIFs         18.77 K       53.27 μs    ±40.02%          51 μs          89 μs
+jiffy        13.94 K       71.76 μs    ±63.35%          69 μs         121 μs
+Poison        6.55 K      152.74 μs    ±47.73%         125 μs         383 μs
+Jason         4.65 K      214.91 μs    ±25.95%         197 μs         389 μs
+JSX           2.87 K      347.97 μs    ±18.55%         342 μs      533.99 μs
+jsone         2.29 K      435.77 μs    ±24.80%         425 μs      823.25 μs
+Tiny          1.69 K      591.50 μs    ±23.15%         582 μs        1238 μs
+JSON         0.102 K     9775.99 μs     ±3.83%        9697 μs    11083.40 μs
+
+Comparison:
+BIFs         18.77 K
+jiffy        13.94 K - 1.35x slower
+Poison        6.55 K - 2.87x slower
+Jason         4.65 K - 4.03x slower
+JSX           2.87 K - 6.53x slower
+jsone         2.29 K - 8.18x slower
+Tiny          1.69 K - 11.10x slower
+JSON         0.102 K - 183.52x slower
+
+##### With input atom_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        111.88 K        8.94 μs  ±1602.14%           3 μs          33 μs
+jiffy        42.66 K       23.44 μs   ±542.75%          15 μs          79 μs
+Jason        35.83 K       27.91 μs   ±665.15%          13 μs         421 μs
+jsone        15.66 K       63.86 μs   ±460.75%          24 μs      817.14 μs
+Poison       14.47 K       69.13 μs   ±299.17%          12 μs         941 μs
+Tiny         14.02 K       71.35 μs   ±419.46%          27 μs         899 μs
+JSX          11.92 K       83.89 μs   ±360.19%          36 μs         827 μs
+JSON        0.0228 K    43949.93 μs     ±4.69%       43304 μs    54108.30 μs
+
+Comparison:
+BIFs        111.88 K
+jiffy        42.66 K - 2.62x slower
+Jason        35.83 K - 3.12x slower
+jsone        15.66 K - 7.15x slower
+Poison       14.47 K - 7.73x slower
+Tiny         14.02 K - 7.98x slower
+JSX          11.92 K - 9.39x slower
+JSON        0.0228 K - 4917.33x slower
+
+##### With input base_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        200.62 K        4.98 μs  ±1956.18%           2 μs          10 μs
+jiffy        92.42 K       10.82 μs   ±948.31%           7 μs          18 μs
+Jason        62.64 K       15.96 μs   ±837.71%           9 μs          65 μs
+jsone        30.48 K       32.81 μs   ±566.65%          15 μs         598 μs
+Poison       25.49 K       39.23 μs   ±778.90%           9 μs         701 μs
+Tiny         23.50 K       42.55 μs   ±514.89%          18 μs         704 μs
+JSX          18.27 K       54.72 μs   ±516.18%          22 μs         726 μs
+JSON          0.55 K     1812.23 μs    ±10.99%        1760 μs     2593.98 μs
+
+Comparison:
+BIFs        200.62 K
+jiffy        92.42 K - 2.17x slower
+Jason        62.64 K - 3.20x slower
+jsone        30.48 K - 6.58x slower
+Poison       25.49 K - 7.87x slower
+Tiny         23.50 K - 8.54x slower
+JSX          18.27 K - 10.98x slower
+JSON          0.55 K - 363.57x slower
+
+##### With input int_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        160.27 K        6.24 μs   ±275.23%        3.90 μs          85 μs
+jiffy        58.83 K       17.00 μs   ±575.54%          12 μs          39 μs
+Jason        23.01 K       43.45 μs   ±293.62%          28 μs         571 μs
+jsone        11.62 K       86.07 μs   ±149.52%          55 μs      664.55 μs
+Poison        9.86 K      101.41 μs   ±204.94%          50 μs      769.19 μs
+JSX           8.75 K      114.24 μs   ±108.04%          80 μs         450 μs
+Tiny          7.61 K      131.40 μs    ±68.76%         102 μs         385 μs
+JSON        0.0353 K    28364.40 μs     ±4.37%    28029.50 μs    33688.15 μs
+
+Comparison:
+BIFs        160.27 K
+jiffy        58.83 K - 2.72x slower
+Jason        23.01 K - 6.96x slower
+jsone        11.62 K - 13.79x slower
+Poison        9.86 K - 16.25x slower
+JSX           8.75 K - 18.31x slower
+Tiny          7.61 K - 21.06x slower
+JSON        0.0353 K - 4545.87x slower
+
+##### With input no_floats #####
+Name             ips        average  deviation         median         99th %
+BIFs         48.29 K       20.71 μs   ±590.49%          12 μs          84 μs
+jiffy        21.60 K       46.29 μs   ±329.30%          29 μs      394.54 μs
+Jason        11.09 K       90.14 μs   ±167.67%          68 μs      396.41 μs
+jsone         6.17 K      162.18 μs    ±67.14%         136 μs         495 μs
+Poison        5.73 K      174.61 μs    ±54.21%         149 μs         407 μs
+Tiny          4.59 K      217.85 μs    ±43.10%         206 μs      432.64 μs
+JSX           4.45 K      224.62 μs    ±33.66%         214 μs         426 μs
+JSON        0.0100 K    99902.09 μs     ±1.30%       99885 μs   103405.44 μs
+
+Comparison:
+BIFs         48.29 K
+jiffy        21.60 K - 2.24x slower
+Jason        11.09 K - 4.35x slower
+jsone         6.17 K - 7.83x slower
+Poison        5.73 K - 8.43x slower
+Tiny          4.59 K - 10.52x slower
+JSX           4.45 K - 10.85x slower
+JSON        0.0100 K - 4823.91x slower
+
+##### With input small_doc #####
+Name             ips        average  deviation         median         99th %
+BIFs        511.37 K        1.96 μs  ±1183.35%        0.70 μs        5.20 μs
+jiffy       135.87 K        7.36 μs  ±1543.96%           5 μs          10 μs
+Jason       101.38 K        9.86 μs  ±1345.47%           5 μs          38 μs
+jsone        61.11 K       16.36 μs   ±775.64%           7 μs         161 μs
+Poison       55.87 K       17.90 μs  ±1060.47%           5 μs         214 μs
+Tiny         49.59 K       20.17 μs   ±895.74%           8 μs         187 μs
+JSX          35.80 K       27.93 μs   ±719.10%          11 μs         515 μs
+JSON          1.30 K      769.89 μs    ±22.41%         753 μs     1490.60 μs
+
+Comparison:
+BIFs        511.37 K
+jiffy       135.87 K - 3.76x slower
+Jason       101.38 K - 5.04x slower
+jsone        61.11 K - 8.37x slower
+Poison       55.87 K - 9.15x slower
+Tiny         49.59 K - 10.31x slower
+JSX          35.80 K - 14.28x slower
+JSON          1.30 K - 393.70x slower
+#+end_src
+
+* Testing
+
+I have added some tests in the json_SUITE test suite.  Running these tests
+under valgrind has not detected any errors or memory leaks.
+
+The BIFs have passed the tests in [[https://github.com/nst/JSONTestSuite][JSONTestSuite]] and the relevant tests in
+Jiffy's test suite.
+
+* License
+
+This code is Copyright 2019 OpenX Technologies and is released under the
+Apache 2.0 license.

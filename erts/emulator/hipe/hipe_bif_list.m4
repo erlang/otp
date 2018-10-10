@@ -303,6 +303,10 @@ gc_bif_interface_2(nbif_send_2, hipe_wrapper_send_2)
 gc_bif_interface_3(nbif_send_3, hipe_wrapper_send_3)
 gc_bif_interface_2(nbif_ebif_bang_2, hipe_wrapper_ebif_bang_2)
 gc_bif_interface_2(nbif_maps_merge_2, hipe_wrapper_maps_merge_2)
+gc_bif_interface_1(nbif_term_to_json_1, hipe_wrapper_term_to_json_1)
+gc_bif_interface_2(nbif_term_to_json_2, hipe_wrapper_term_to_json_2)
+gc_bif_interface_1(nbif_json_to_term_1, hipe_wrapper_json_to_term_1)
+gc_bif_interface_2(nbif_json_to_term_2, hipe_wrapper_json_to_term_2)
 
 
 /*

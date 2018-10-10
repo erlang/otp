@@ -95,6 +95,7 @@ void   hashmap_iterator_init(struct ErtsWStack_* s, Eterm node, int reverse);
 Eterm* hashmap_iterator_next(struct ErtsWStack_* s);
 Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
+Eterm erts_map_from_validated_list(Process *p, Eterm list, Uint size);
 Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
 
 #define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \

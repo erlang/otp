@@ -60,6 +60,12 @@
       </desc>
     </datatype>
     <datatype>
+      <name name="json_binary"/>
+      <desc>
+        <p>A binary containing JSON-encoded data.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="iovec"/>
       <desc>
         <p>A list of binaries. This datatype is useful to use
@@ -9567,6 +9573,33 @@ hello
         <p>See also <seealso marker="#binary_to_term/1">
           <c>binary_to_term/1</c></seealso>.</p>
       </desc>
+    </func>
+
+    <func>
+      <name name="term_to_json" arity="1" since="OTP 22.0"/>
+      <fsummary>Encode a term to a JSON-encoded binary.</fsummary>
+      <desc>
+        <p>Returns a binary that contains the a JSON representation of the
+        data in <c><anno>Term</anno></c>.</p>
+      </desc>
+      <pre>
+> <input>erlang:term_to_json([1, 2.0, &lt;&lt;"three">>]).</input>
+&lt;&lt;"[1,2.0,\"three\"]"&gt;&gt;
+> <input>erlang:term_to_json({[{&lt;&lt;"name">>, &lt;&lt;"richard">>}, {&lt;&lt;"age">>, 7},
+      {&lt;&lt;"friends">>, [&lt;&lt;"alice">>, &lt;&lt;"jane">>]}]}).</input>
+&lt;&lt;"{\"name\":\"richard\",\"age\":7,\"friends\":[\"alice\",\"jane\"]}">></pre>
+    </func>
+
+    <func>
+      <name name="term_to_json" arity="2"/>
+      <fsummary>Encode a term to a JSON-encoded binary.</fsummary>
+      <desc>
+        <p>Returns a binary that contains the a JSON representation of the
+        data in <c><anno>Term</anno></c>.</p>
+      </desc>
+      <pre>
+> <input>erlang:term_to_json([1, nil, 3], [use_nil]).</input>
+&lt;&lt;"[1,null,3]"&gt;&gt;</pre>
     </func>
 
     <func>

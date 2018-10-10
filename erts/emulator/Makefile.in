@@ -895,7 +895,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
 	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o \
-	$(ESOCK_RUN_OBJS)
+	$(ESOCK_RUN_OBJS) \
+	$(OBJDIR)/json.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 

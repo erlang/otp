@@ -339,6 +339,8 @@ atom is_constant
 atom is_seq_trace
 atom iterator
 atom io
+atom json
+atom json_to_term_trap
 atom keypos
 atom kill
 atom killed
@@ -466,6 +468,7 @@ atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
+atom null
 atom off_heap
 atom offset
 atom ok
@@ -627,6 +630,7 @@ atom system_version
 atom system_architecture
 atom table
 atom term_to_binary_trap
+atom term_to_json_trap
 atom this
 atom thread_pool_size
 atom threads
