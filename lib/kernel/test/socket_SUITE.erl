@@ -652,10 +652,6 @@ api_opt_simple_otp_options(doc) ->
 api_opt_simple_otp_options(_Config) when is_list(_Config) ->
     tc_begin(api_opt_simple_otp_options),
 
-    p("Create sockets"),
-    S1 = sock_open(inet, stream, tcp),
-    S2 = sock_open(inet, dgram,  udp),
-
     Get = fun(S, Key) ->
                   socket:getopt(S, otp, Key)
           end,
@@ -663,68 +659,245 @@ api_opt_simple_otp_options(_Config) when is_list(_Config) ->
                   socket:setopt(S, otp, Key, Val)
           end,
 
-    p("Create dummy process"),
-    Pid = spawn_link(fun() -> 
-                             put(sname, "dummy"),
-                             receive
-                                 die -> 
-                                     exit(normal) 
-                             end 
-                     end),
+    Seq = 
+        [
+         %% *** Init part ***
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type,
+                         protocol := Protocol} = State) ->
+                           Sock = sock_open(Domain, Type, Protocol),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "create dummy process",
+           cmd  => fun(State) ->
+                           Pid =  spawn_link(fun() -> 
+                                                     put(sname, "dummy"),
+                                                     receive
+                                                         die -> 
+                                                             exit(normal) 
+                                                     end 
+                                             end),
+                           {ok, State#{dummy => Pid}}
+                   end},
 
-    F = fun(Sock) ->
-                p("Test IOW"),
-                {ok, IOW}    = Get(Sock, iow),
-                NotIOW       = not IOW,
-                ok           = Set(Sock, iow, NotIOW),
-                {ok, NotIOW} = Get(Sock, iow),
+         %% *** Check iow part ***
+         #{desc => "get iow",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock, iow) of
+                               {ok, IOW} when is_boolean(IOW) ->
+                                   {ok, State#{iow => IOW}};
+                               {ok, InvalidIOW} ->
+                                   {error, {invalid, InvalidIOW}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set (new) iow",
+           cmd  => fun(#{sock := Sock, iow := OldIOW} = State) ->
+                           NewIOW = not OldIOW,
+                           case Set(Sock, iow, NewIOW) of
+                               ok ->
+                                   {ok, State#{iow => NewIOW}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get (new) iow",
+           cmd  => fun(#{sock := Sock, iow := IOW}) ->
+                           case Get(Sock, iow) of
+                               {ok, IOW} ->
+                                   ok;
+                               {ok, InvalidIOW} ->
+                                   {error, {invalid, InvalidIOW}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
 
-                p("Test rcvbuf"),
-                {ok, RcvBuf}  = Get(Sock, rcvbuf),
-                RcvBuf2       = RcvBuf*2,
-                ok            = Set(Sock, rcvbuf, RcvBuf2),
-                {ok, RcvBuf2} = Get(Sock, rcvbuf),
-                ok            = Set(Sock, rcvbuf, default),
-                {ok, RcvBuf}  = Get(Sock, rcvbuf),
+         %% *** Check rcvbuf part ***
+         #{desc => "get rcvbuf",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock, rcvbuf) of
+                               {ok, RcvBuf} when is_integer(RcvBuf) ->
+                                   {ok, State#{rcvbuf => RcvBuf}};
+                               {ok, InvalidRcvBuf} ->
+                                   {error, {invalid, InvalidRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set (new) rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := OldRcvBuf} = State) ->
+                           NewRcvBuf = 2 * OldRcvBuf,
+                           case Set(Sock, rcvbuf, NewRcvBuf) of
+                               ok ->
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get (new) rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := RcvBuf}) ->
+                           case Get(Sock, rcvbuf) of
+                               {ok, RcvBuf} ->
+                                   ok;
+                               {ok, InvalidRcvBuf} ->
+                                   {error, {invalid, InvalidRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
 
-                p("Test rcvctrlbuf"),
-                {ok, RcvCtrlBuf}  = Get(Sock, rcvctrlbuf),
-                RcvCtrlBuf2       = RcvCtrlBuf*2,
-                ok                = Set(Sock, rcvctrlbuf, RcvCtrlBuf2),
-                {ok, RcvCtrlBuf2} = Get(Sock, rcvctrlbuf),
-                ok                = Set(Sock, rcvctrlbuf, default),
-                {ok, RcvCtrlBuf}  = Get(Sock, rcvctrlbuf),
+         %% *** Check rcvctrlbuf part ***
+         #{desc => "get rcvctrlbuf",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock, rcvctrlbuf) of
+                               {ok, RcvCtrlBuf} when is_integer(RcvCtrlBuf) ->
+                                   {ok, State#{rcvctrlbuf => RcvCtrlBuf}};
+                               {ok, InvalidRcvCtrlBuf} ->
+                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set (new) rcvctrlbuf",
+           cmd  => fun(#{sock := Sock, rcvctrlbuf := OldRcvCtrlBuf} = State) ->
+                           NewRcvCtrlBuf = 2 * OldRcvCtrlBuf,
+                           case Set(Sock, rcvctrlbuf, NewRcvCtrlBuf) of
+                               ok ->
+                                   {ok, State#{rcvctrlbuf => NewRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get (new) rcvctrlbuf",
+           cmd  => fun(#{sock := Sock, rcvctrlbuf := RcvCtrlBuf}) ->
+                           case Get(Sock, rcvctrlbuf) of
+                               {ok, RcvCtrlBuf} ->
+                                   ok;
+                               {ok, InvalidRcvCtrlBuf} ->
+                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         %% *** Check rcvctrlbuf part ***
+         #{desc => "get rcvctrlbuf",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock, rcvctrlbuf) of
+                               {ok, RcvCtrlBuf} when is_integer(RcvCtrlBuf) ->
+                                   {ok, State#{rcvctrlbuf => RcvCtrlBuf}};
+                               {ok, InvalidRcvCtrlBuf} ->
+                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set (new) rcvctrlbuf",
+           cmd  => fun(#{sock := Sock, rcvctrlbuf := OldRcvCtrlBuf} = State) ->
+                           NewRcvCtrlBuf = 2 * OldRcvCtrlBuf,
+                           case Set(Sock, rcvctrlbuf, NewRcvCtrlBuf) of
+                               ok ->
+                                   {ok, State#{rcvctrlbuf => NewRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get (new) rcvctrlbuf",
+           cmd  => fun(#{sock := Sock, rcvctrlbuf := RcvCtrlBuf}) ->
+                           case Get(Sock, rcvctrlbuf) of
+                               {ok, RcvCtrlBuf} ->
+                                   ok;
+                               {ok, InvalidRcvCtrlBuf} ->
+                                   {error, {invalid, InvalidRcvCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
 
-                p("Test sndctrlbuf"),
-                {ok, SndCtrlBuf}  = Get(Sock, sndctrlbuf),
-                SndCtrlBuf2       = SndCtrlBuf*2,
-                ok                = Set(Sock, sndctrlbuf, SndCtrlBuf2),
-                {ok, SndCtrlBuf2} = Get(Sock, sndctrlbuf),
-                ok                = Set(Sock, sndctrlbuf, default),
-                {ok, RcvCtrlBuf}  = Get(Sock, sndctrlbuf),
 
-                p("Test controlling-process"),
-                Self = self(),
-                {ok, Self}   = Get(Sock, controlling_process),
-                ok           = Set(Sock, controlling_process, Pid),
-                {ok, Pid}    = Get(Sock, controlling_process)
+         %% *** Check sndctrlbuf part ***
+         #{desc => "get sndctrlbuf",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case Get(Sock, sndctrlbuf) of
+                               {ok, SndCtrlBuf} when is_integer(SndCtrlBuf) ->
+                                   {ok, State#{sndctrlbuf => SndCtrlBuf}};
+                               {ok, InvalidSndCtrlBuf} ->
+                                   {error, {invalid, InvalidSndCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set (new) sndctrlbuf",
+           cmd  => fun(#{sock := Sock, sndctrlbuf := OldSndCtrlBuf} = State) ->
+                           NewSndCtrlBuf = 2 * OldSndCtrlBuf,
+                           case Set(Sock, sndctrlbuf, NewSndCtrlBuf) of
+                               ok ->
+                                   {ok, State#{sndctrlbuf => NewSndCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get (new) sndctrlbuf",
+           cmd  => fun(#{sock := Sock, sndctrlbuf := SndCtrlBuf}) ->
+                           case Get(Sock, sndctrlbuf) of
+                               {ok, SndCtrlBuf} ->
+                                   ok;
+                               {ok, InvalidSndCtrlBuf} ->
+                                   {error, {invalid, InvalidSndCtrlBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
 
-        end,
+         %% *** Check controlling-process part ***
+         #{desc => "verify self as controlling-process",
+           cmd  => fun(#{sock := Sock}) ->
+                           Self = self(),
+                           case Get(Sock, controlling_process) of
+                               {ok, Self} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "set dummy as controlling-process",
+           cmd  => fun(#{sock := Sock, dummy := Dummy}) ->
+                           Set(Sock, controlling_process, Dummy)
+                   end},
+         #{desc => "verify dummy as controlling-process",
+           cmd  => fun(#{sock := Sock, dummy := Dummy}) ->
+                           case Get(Sock, controlling_process) of
+                               {ok, Dummy} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
 
-    p("Test stream/tcp "),
-    F(S1),
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
 
-    p("Test dgram/udp "),
-    F(S2),
+    p("Run test for stream/tcp socket"),
+    InitState1 = #{domain => inet, type => stream, protocol => tcp},
+    Tester1 = evaluator_start("tcp-tester", Seq, InitState1),
+    p("await evaluator 1"),
+    ok = await_evaluator_finish([Tester1]),
 
-    p("kill dummy process"),
-    %% This will also close its sockets (S1 and S2),
-    %% This should really be tested explicitly...
-    Pid ! die,
-
-    %% p("close sockets"),
-    %% sock_close(S1),
-    %% sock_close(S2),
+    p("Run test for dgram/udp socket"),
+    InitState2 = #{domain => inet, type => dgram, protocol => udp},
+    Tester2 = evaluator_start("udp-tester", Seq, InitState2),
+    p("await evaluator 2"),
+    ok = await_evaluator_finish([Tester2]),
 
     tc_end().
 
