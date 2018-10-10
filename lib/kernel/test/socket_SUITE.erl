@@ -912,10 +912,6 @@ api_opt_simple_otp_controlling_process(doc) ->
 api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
     tc_begin(api_opt_simple_otp_controlling_process),
 
-    p("Create sockets"),
-    S1 = sock_open(inet, stream, tcp),
-    S2 = sock_open(inet, dgram,  udp),
-
     Get = fun(S, Key) ->
                   socket:getopt(S, otp, Key)
           end,
@@ -923,110 +919,235 @@ api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
                   socket:setopt(S, otp, Key, Val)
           end,
 
-    AwaitStart =
-        fun() ->
-                p("await start command"),
-                receive
-                    {start, P, S} ->
-                        {P, S}
-                end
-        end,
-    AwaitContinue =
-        fun(Pid) ->
-                p("await continue command"),
-                receive
-                    {continue, Pid} -> 
-                        ok
-                end
-        end,
-    AwaitReady =
-        fun(Pid) ->
-                p("await ready confirmation from ~p", [Pid]),
-                receive
-                    {ready, Pid} -> 
-                        ok
-                end
-        end,
-    AwaitDie =
-        fun(Pid) ->
-                p("await die command"),
-                receive
-                    {die, Pid} -> 
-                        ok
-                end
-        end,
-    ClientStarter = 
-        fun() ->
-                put(sname, "client"),
-                Self = self(),
-                {Parent, Sock} = AwaitStart(),
-                p("verify parent ~p controlling", [Parent]),
-                {ok, Parent} = Get(Sock, controlling_process),
-                p("attempt invalid control transfer (to self)"),
-                {error, not_owner} = Set(Sock, controlling_process, self()),
-                p("verify parent ~p (still) controlling", [Parent]),
-                {ok, Parent} = Get(Sock, controlling_process),
-                p("announce ready"),
-                Parent ! {ready, self()},
+    ClientSeq =
+        [
+         %% *** Init part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester, Socket} ->
+                                   {ok, State#{tester => Tester,
+                                               sock   => Socket}}
+                           end
+                   end},
+         #{desc => "verify tester as controlling-process",
+           cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
+                           case Get(Sock, controlling_process) of
+                               {ok, Tester} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt invalid controlling-process transfer (to self)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Set(Sock, controlling_process, self()) of
+                               {error, not_owner} ->
+                                   ok;
+                               ok ->
+                                   {error, unexpected_success};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "await continue",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           receive
+                               {continue, Tester} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "verify self as controlling-process",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           Self = self(),
+                           case Get(Sock, controlling_process) of
+                               {ok, Self} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt controlling-process transfer to tester",
+           cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
+                           Set(Sock, controlling_process, Tester)
+                   end},
+         #{desc => "attempt invalid controlling-process transfer (to self)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Set(Sock, controlling_process, self()) of
+                               {error, not_owner} ->
+                                   ok;
+                               ok ->
+                                   {error, unexpected_success};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "await termination",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {terminate, Tester} ->
+                                   State1 = maps:remove(tester, State),
+                                   State2 = maps:remove(sock, State1),
+                                   {ok, State2}
+                           end
+                   end},
 
-                AwaitContinue(Parent),
-                p("verify self controlling"),
-                {ok, Self} = Get(Sock, controlling_process),
-                p("transfer control to parent ~p", [Parent]),
-                ok = Set(Sock, controlling_process, Parent),
-                p("attempt invalid control transfer (to self)"),
-                {error, not_owner} = Set(Sock, controlling_process, self()),
-                p("verify parent ~p controlling", [Parent]),
-                {ok, Parent} = Get(Sock, controlling_process),
-                p("announce ready"),
-                Parent ! {ready, self()},
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
 
-                AwaitDie(Parent),
-                p("done"),
-                exit(normal)
-        end,
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type,
+                         protocol := Protocol} = State) ->
+                           Sock = sock_open(Domain, Type, Protocol),
+                           {ok, State#{sock => Sock}}
+                   end},
+         #{desc => "verify self as controlling-process",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           Self = self(),
+                           case Get(Sock, controlling_process) of
+                               {ok, Self} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order (client) start",
+           cmd  => fun(#{client := Client, sock := Sock} = _State) ->
+                           Client ! {start, self(), Sock},
+                           ok
+                   end},
+         #{desc => "await (client) ready (1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "attempt controlling-process transfer to client",
+           cmd  => fun(#{client := Client, sock := Sock} = _State) ->
+                           Set(Sock, controlling_process, Client)
+                   end},
+         #{desc => "verify client as controlling-process",
+           cmd  => fun(#{client := Client, sock := Sock} = _State) ->
+                           case Get(Sock, controlling_process) of
+                               {ok, Client} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt invalid controlling-process transfer (to self)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case Set(Sock, controlling_process, self()) of
+                               {error, not_owner} ->
+                                   ok;
+                               ok ->
+                                   {error, unexpected_success};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order (client) continue",
+           cmd  => fun(#{client := Client} = _State) ->
+                           Client ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await (client) ready (2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "verify self as controlling-process",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           Self = self(),
+                           case Get(Sock, controlling_process) of
+                               {ok, Self} ->
+                                   ok;
+                               {ok, InvalidPid} ->
+                                   {error, {invalid, InvalidPid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Client} = State) ->
+                           MRef = erlang:monitor(process, Client),
+                           {ok, State#{client_mref => MRef}}
+                   end},
+         #{desc => "order (client) terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           Client ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await (client) down",
+           cmd  => fun(#{client := Client} = State) ->
+                           receive
+                               {'DOWN', _, process, Client, _} ->
+                                   {ok, maps:remove(client, State)}
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           sock_close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
 
-    Tester = 
-        fun(Sock, Client) ->
-                p("start"),
-                Self = self(),
-                p("verify self controlling"),
-                {ok, Self} = Get(Sock, controlling_process),
-                p("announce start"),
-                Client ! {start, Self, Sock},
-                AwaitReady(Client),
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
 
-                p("transfer control to client ~p", [Client]),
-                ok = Set(Sock, controlling_process, Client),
-                p("verify client ~p controlling", [Client]),
-                {ok, Client} = Get(Sock, controlling_process),
-                p("attempt invalid control transfer (to self)"),
-                {error, not_owner} = Set(Sock, controlling_process, self()),
-                p("announce continue"),
-                Client ! {continue, Self},
-                AwaitReady(Client),
+    p("Run test for stream/tcp socket"),
+    ClientInitState1 = #{},
+    Client1          = evaluator_start("tcp-client", ClientSeq, ClientInitState1),
+    TesterInitState1 = #{domain   => inet, 
+                         type     => stream, 
+                         protocol => tcp,
+                         client   => Client1},
+    Tester1          = evaluator_start("tcp-tester", TesterSeq, TesterInitState1),
+    p("await stream/tcp evaluator"),
+    ok = await_evaluator_finish([Tester1, Client1]),
 
-                p("verify self controlling"),
-                {ok, Self} = Get(Sock, controlling_process),
-                p("announce die"),
-                Client ! {die, Self},
-                p("done"),
-                ok
-        end,
-
-    p("Create Worker Process(s)"),
-    Pid1 = spawn_link(ClientStarter),
-    Pid2 = spawn_link(ClientStarter),
-
-    p("Test stream/tcp "),
-    Tester(S1, Pid1),
-
-    p("Test dgram/udp "),
-    Tester(S2, Pid2),
-
-    p("close sockets"),
-    sock_close(S1),
-    sock_close(S2),
+    p("Run test for dgram/udp socket"),
+    ClientInitState2 = #{},
+    Client2          = evaluator_start("udp-client", ClientSeq, ClientInitState2),
+    TesterInitState2 = #{domain   => inet, 
+                         type     => dgram, 
+                         protocol => udp,
+                         client   => Client2},
+    Tester2          = evaluator_start("udp-tester", TesterSeq, TesterInitState2),
+    p("await dgram/udp evaluator"),
+    ok = await_evaluator_finish([Tester2, Client2]),
 
     tc_end().
 
