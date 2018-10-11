@@ -29,7 +29,7 @@
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2, send_alert/2,
-         send_and_ack_alert/2, renegotiate/1,
+         send_and_ack_alert/2, setopts/2, renegotiate/1,
          update_connection_state/3, dist_tls_socket/1, dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -81,7 +81,7 @@ initialize(Pid, InitMsg) ->
     gen_statem:call(Pid, {self(), InitMsg}).
 
 %%--------------------------------------------------------------------
--spec send_data(pid(), iodata()) -> ok. 
+-spec send_data(pid(), iodata()) -> ok | {error, term()}.
 %%  Description: Send application data
 %%--------------------------------------------------------------------
 send_data(Pid, AppData) ->
@@ -97,12 +97,19 @@ send_alert(Pid, Alert) ->
     gen_statem:cast(Pid, Alert).
 
 %%--------------------------------------------------------------------
--spec send_and_ack_alert(pid(), #alert{}) -> ok.
+-spec send_and_ack_alert(pid(), #alert{}) -> _.
 %% Description: TLS connection process wants to send an Alert
 %% in the connection state and recive an ack.
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
     gen_statem:cast(Pid, {ack_alert, Alert}).
+
+%%--------------------------------------------------------------------
+-spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
+%%  Description: Send application data
+%%--------------------------------------------------------------------
+setopts(Pid, Opts) ->
+    call(Pid, {set_opts, Opts}).
 
 %%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.
@@ -201,6 +208,8 @@ connection({call, From}, {application_data, AppData},
         Data ->
             send_application_data(Data, From, ?FUNCTION_NAME, StateData)
     end;
+connection({call, From}, {set_opts, _} = Call, StateData) ->
+    handle_call(From, Call, ?FUNCTION_NAME, StateData);
 connection({call, From}, dist_get_tls_socket, 
            #data{protocol_cb = Connection, 
                  transport_cb = Transport,
@@ -254,6 +263,8 @@ connection(info, Msg, StateData) ->
                   StateData :: term()) ->
                          gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
+handshake({call, From}, {set_opts, _} = Call, StateData) ->
+    handle_call(From, Call, ?FUNCTION_NAME, StateData);
 handshake({call, _}, _, _) ->
     {keep_state_and_data, [postpone]};
 handshake(cast, {new_write, WritesState, Version}, 
@@ -298,6 +309,9 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+handle_call(From, {set_opts, Opts}, StateName, #data{socket_options = SockOpts} = StateData) ->
+    {next_state, StateName, StateData#data{socket_options = set_opts(SockOpts, Opts)}, [{reply, From, ok}]}.
+        
 handle_info({'DOWN', Monitor, _, _, Reason}, _, 
             #data{connection_monitor = Monitor,
                   dist_handle = Handle} = StateData) when Handle =/= undefined->
@@ -369,6 +383,10 @@ encode_size_packet(Bin, Size, Max) ->
         false -> 
             <<Len:Size, Bin/binary>>
     end.
+
+set_opts(SocketOptions, [{packet, N}]) ->
+    SocketOptions#socket_options{packet = N}.
+
 time_to_renegotiate(_Data, 
 		    #{current_write := #{sequence_number := Num}}, 
 		    RenegotiateAt) ->
