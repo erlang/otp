@@ -63,9 +63,9 @@
 
 	<row><cell><c>aes_ige256</c></cell><cell>16</cell><cell>32</cell><cell>16</cell></row>
 	<row><cell><c>blowfish_cbc</c></cell> <cell>4-56</cell> <cell>8</cell> <cell>8</cell></row>
-	<row><cell><c>blowfish_cfb64</c></cell> <cell>1-</cell> <cell>8</cell> <cell>any</cell></row>
-	<row><cell><c>blowfish_ecb</c></cell><cell>1-</cell><cell> </cell><cell>8</cell></row>
-	<row><cell><c>blowfish_ofb64</c></cell><cell>1-</cell><cell>8</cell><cell>any</cell></row>
+	<row><cell><c>blowfish_cfb64</c></cell> <cell>&#8805;1</cell> <cell>8</cell> <cell>any</cell></row>
+	<row><cell><c>blowfish_ecb</c></cell><cell>&#8805;1</cell><cell> </cell><cell>8</cell></row>
+	<row><cell><c>blowfish_ofb64</c></cell><cell>&#8805;1</cell><cell>8</cell><cell>any</cell></row>
 
 	<row><cell><c>des3_cbc</c><br/><i>(=DES EDE3 CBC)</i></cell><cell>[8,8,8]</cell><cell>8</cell><cell>8</cell></row>
 	<row><cell><c>des3_cfb</c><br/><i>(=DES EDE3 CFB)</i></cell><cell>[8,8,8]</cell><cell>8</cell><cell>any</cell></row>
@@ -74,7 +74,7 @@
 	<row><cell><c>des_cfb</c></cell><cell>8</cell><cell>8</cell><cell>any</cell></row>
 	<row><cell><c>des_ecb</c></cell><cell>8</cell><cell> </cell><cell>8</cell></row>
 	<row><cell><c>des_ede3</c><br/><i>(=DES EDE3 CBC)</i></cell><cell>[8,8,8]</cell><cell>8</cell><cell>8</cell></row>
-	<row><cell><c>rc2_cbc</c></cell><cell>1-</cell><cell>8</cell><cell>8</cell></row>
+	<row><cell><c>rc2_cbc</c></cell><cell>&#8805;1</cell><cell>8</cell><cell>8</cell></row>
 	<tcaption>Block cipher key lengths</tcaption>
       </table>
     </section>
@@ -90,9 +90,9 @@
       </p>
       <table>
 	<row><cell><strong>Cipher and Mode</strong></cell><cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell><cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell><cell><strong>AAD length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Tag length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Block size</strong><br/><strong>[bytes]</strong></cell><cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell></row>
-	<row><cell><c>aes_ccm</c></cell> <cell>16,24,32</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
-	<row><cell><c>aes_gcm</c></cell> <cell>16,24,32</cell> <cell>1-</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
-	<row><cell><c>chacha20_poly1305</c></cell><cell>32</cell> <cell>1-16</cell> <cell>any</cell> <cell>16</cell> <cell>any</cell><cell>1.1.0 -</cell></row>
+	<row><cell><c>aes_ccm</c></cell> <cell>16,24,32</cell> <cell>7-13</cell> <cell>any</cell> <cell>even 4-16<br/>default: 12</cell> <cell>any</cell><cell>&#8805;1.1.0</cell></row>
+	<row><cell><c>aes_gcm</c></cell> <cell>16,24,32</cell> <cell>&#8805;1</cell> <cell>any</cell> <cell>1-16<br/>default: 16</cell> <cell>any</cell><cell>&#8805;1.1.0</cell></row>
+	<row><cell><c>chacha20_poly1305</c></cell><cell>32</cell> <cell>1-16</cell> <cell>any</cell> <cell>16</cell> <cell>any</cell><cell>&#8805;1.1.0</cell></row>
 	<tcaption>AEAD cipher key lengths</tcaption>
       </table>
     </section>
@@ -108,8 +108,8 @@
       </p>
       <table>
 	<row><cell><strong>Cipher and Mode</strong></cell><cell><strong>Key length</strong><br/><strong>[bytes]</strong></cell><cell><strong>IV length</strong><br/><strong>[bytes]</strong></cell><cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell></row>
-	<row><cell><c>aes_ctr</c></cell><cell>16, 24, 32</cell><cell>16</cell><cell>1.0.1 -</cell></row>
-	<row><cell><c>rc4</c></cell><cell>1-</cell><cell> </cell> <cell>all</cell></row>
+	<row><cell><c>aes_ctr</c></cell><cell>16, 24, 32</cell><cell>16</cell><cell>&#8805;1.0.1</cell></row>
+	<row><cell><c>rc4</c></cell><cell>&#8805;1</cell><cell> </cell> <cell>all</cell></row>
 	<tcaption>Stream cipher key lengths</tcaption>
       </table>
     </section>
@@ -141,9 +141,9 @@
 	<row><cell><c>aes_cfb8</c></cell>  <cell>16</cell><cell>1</cell></row>
 
 	<row><cell><c>blowfish_cbc</c></cell> <cell>4-56</cell> <cell>8</cell></row>
-	<row><cell><c>blowfish_cfb64</c></cell> <cell>1-</cell> <cell>1</cell></row>
-	<row><cell><c>blowfish_ecb</c></cell><cell>1-</cell>    <cell>8</cell></row>
-	<row><cell><c>blowfish_ofb64</c></cell><cell>1-</cell>  <cell>1</cell></row>
+	<row><cell><c>blowfish_cfb64</c></cell> <cell>&#8805;1</cell> <cell>1</cell></row>
+	<row><cell><c>blowfish_ecb</c></cell><cell>&#8805;1</cell>    <cell>8</cell></row>
+	<row><cell><c>blowfish_ofb64</c></cell><cell>&#8805;1</cell>  <cell>1</cell></row>
 
 	<row><cell><c>des3_cbc</c><br/><i>(=DES EDE3 CBC)</i></cell><cell>[8,8,8]</cell><cell>8</cell></row>
 	<row><cell><c>des3_cfb</c><br/><i>(=DES EDE3 CFB)</i></cell><cell>[8,8,8]</cell><cell>1</cell></row>
@@ -152,7 +152,7 @@
 
 	<row><cell><c>des_cfb</c></cell><cell>8</cell><cell>1</cell></row>
 	<row><cell><c>des_ecb</c></cell><cell>8</cell><cell>1</cell></row>
-	<row><cell><c>rc2_cbc</c></cell><cell>1-</cell><cell>8</cell></row>
+	<row><cell><c>rc2_cbc</c></cell><cell>&#8805;1</cell><cell>8</cell></row>
 	<tcaption>CMAC cipher key lengths</tcaption>
       </table>
     </section>
@@ -195,7 +195,7 @@
       </row>
       <row><cell>SHA1</cell><cell>sha</cell><cell>all</cell></row>
       <row><cell>SHA2</cell><cell>sha224, sha256, sha384, sha512</cell><cell>all</cell></row>
-      <row><cell>SHA3</cell><cell>sha3_224, sha3_256, sha3_384, sha3_512</cell><cell>1.1.1 -</cell></row>
+      <row><cell>SHA3</cell><cell>sha3_224, sha3_256, sha3_384, sha3_512</cell><cell>&#8805;1.1.1</cell></row>
       <row><cell>MD4</cell><cell>md4</cell><cell>all</cell></row>
       <row><cell>MD5</cell><cell>md5</cell><cell>all</cell></row>
       <row><cell>RIPEMD</cell><cell>ripemd160</cell><cell>all</cell></row>
@@ -221,18 +221,62 @@
 	without prior notice.</p>
       </warning>
       <table>
-	<row><cell><strong>Option</strong></cell> <cell><strong>sign/verify</strong></cell> <cell><strong>encrypt/decrypt</strong></cell> <cell><strong>Supported with</strong><br/><strong>OpenSSL versions</strong></cell> </row>
-	<row><cell>{rsa_mgf1_md,atom()}</cell>                <cell>x</cell> <cell>x</cell>  <cell>1.0.1</cell></row>
-	<row><cell>{rsa_oaep_label, binary()}</cell>          <cell> </cell> <cell>x</cell>  <cell></cell></row>
-	<row><cell>{rsa_oaep_md, atom()}</cell>               <cell> </cell> <cell>x</cell>  <cell></cell></row>
-	<row><cell>{rsa_padding,rsa_pkcs1_pss_padding}</cell> <cell>x</cell> <cell> </cell>  <cell>1.0.0</cell></row>
-	<row><cell>{rsa_pss_saltlen, -2..}</cell>             <cell>x</cell> <cell> </cell>  <cell>1.0.0</cell></row>
-	<row><cell>{rsa_padding,rsa_no_padding}</cell>        <cell>x</cell> <cell>x</cell>  <cell></cell></row>
-	<row><cell>{rsa_padding,rsa_pkcs1_padding}</cell>     <cell>x</cell> <cell>x</cell>  <cell></cell></row>
-	<row><cell>{rsa_padding,rsa_sslv23_padding}</cell>    <cell> </cell> <cell>x</cell>  <cell></cell></row>
-	<row><cell>{rsa_padding,rsa_x931_padding}</cell>      <cell>x</cell> <cell> </cell>  <cell></cell></row>
+	<row><cell><strong>Option</strong></cell>
+	     <cell><strong>sign/verify</strong></cell>
+	     <cell><strong>public encrypt</strong><br/><strong>private decrypt</strong></cell>
+	     <cell><strong>private encrypt</strong><br/><strong>public decrypt</strong></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_x931_padding}</cell>
+             <cell>x</cell>
+             <cell></cell>
+             <cell>x</cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_padding}</cell>
+	     <cell>x</cell>
+             <cell>x</cell>
+             <cell>x</cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_pss_padding}<br/>
+	           {rsa_pss_saltlen, -2..}<br/>
+		   {rsa_mgf1_md, atom()}
+             </cell>
+	     <cell>x (2)<br/>
+	           x (2)<br/>
+	           x (2)</cell>
+	     <cell></cell>
+             <cell></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_pkcs1_oaep_padding}<br/>
+                   {rsa_mgf1_md, atom()}<br/>
+	           {rsa_oaep_label, binary()}}<br/>
+		   {rsa_oaep_md, atom()}
+	     </cell>
+	     <cell></cell>
+             <cell>x (2)<br/>
+	           x (2)<br/>
+	           x (3)<br/>
+	           x (3)
+	     </cell>
+	     <cell></cell>
+	</row>
+	<row><cell>{rsa_padding,rsa_no_padding}</cell>
+             <cell>x (1)</cell>
+	     <cell></cell>
+             <cell></cell>
+	</row>
+	<!-- row><cell>{rsa_padding,rsa_sslv23_padding}</cell>
+	     <cell></cell>
+             <cell></cell>
+             <cell></cell>
+	</row -->
 	<tcaption></tcaption>
       </table>
+      <p>Notes:</p>
+      <list type="ordered">
+	<item>(1)  OpenSSL &#8804; 1.0.0</item>
+	<item>(2)  OpenSSL &#8805; 1.0.1</item>
+	<item>(3)  OpenSSL &#8805; 1.1.0</item>
+      </list>
     </section>
 
     <section>

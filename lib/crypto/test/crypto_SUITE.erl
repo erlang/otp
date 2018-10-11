@@ -495,14 +495,14 @@ sign_verify(Config) when is_list(Config) ->
 public_encrypt() ->
      [{doc, "Test public_encrypt/decrypt "}].
 public_encrypt(Config) when is_list(Config) ->
-    Params = proplists:get_value(pub_priv_encrypt, Config),
+    Params = proplists:get_value(pub_pub_encrypt, Config, []),
     lists:foreach(fun do_public_encrypt/1, Params).
 
 %%-------------------------------------------------------------------- 
 private_encrypt() ->
      [{doc, "Test private_encrypt/decrypt functions. "}].
 private_encrypt(Config) when is_list(Config) ->
-    Params = proplists:get_value(pub_priv_encrypt, Config),
+    Params = proplists:get_value(pub_priv_encrypt, Config, []),
     lists:foreach(fun do_private_encrypt/1, Params).
 
 %%--------------------------------------------------------------------
@@ -943,30 +943,6 @@ negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
 	    ok
     end.
 
--define(PUB_PRIV_ENC_DEC_CATCH(Type,Padding),
-        CC:EE ->
-               ct:log("~p:~p in ~p:~p/~p, line ~p.~n"
-                      "Type = ~p~nPadding = ~p",
-                     [CC,EE,?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY,?LINE,(Type),(Padding)]),
-               MaybeUnsupported =
-                   case crypto:info_lib() of
-                       [{<<"OpenSSL">>,_,_}] ->
-                           is_list(Padding) andalso
-                               lists:any(fun(P) -> lists:member(P,(Padding)) end,
-                                         [{rsa_padding, rsa_pkcs1_oaep_padding},
-                                          {rsa_padding, rsa_sslv23_padding},
-                                          {rsa_padding, rsa_x931_padding}]);
-                       _ ->
-                           false
-                   end,
-               case CC of
-                   error when MaybeUnsupported ->
-                       ct:comment("Padding unsupported?",[]);
-                   _ ->
-                       ct:fail({?FUNCTION_NAME,CC,EE,(Type),(Padding)})
-               end
-       ).
-
 do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
     try
         crypto:public_encrypt(Type, Msg, Public, Padding)
@@ -980,10 +956,12 @@ do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
                 Other ->
                     ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
             catch
-                ?PUB_PRIV_ENC_DEC_CATCH(Type, Padding)
+                CC:EE ->
+                    ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
-        ?PUB_PRIV_ENC_DEC_CATCH(Type, Padding)
+        CC:EE ->
+            ct:fail({{crypto, public_encrypt, [Type, Msg, Public, Padding]}, {got, {CC,EE}}})
     end. 
 
 
@@ -1000,10 +978,12 @@ do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
                 Other ->
                     ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, Other}})
             catch
-                ?PUB_PRIV_ENC_DEC_CATCH(Type, Padding)
+                CC:EE ->
+                    ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
-        ?PUB_PRIV_ENC_DEC_CATCH(Type, Padding)
+        CC:EE ->
+            ct:fail({{crypto, private_encrypt, [Type, Msg, Private, Padding]}, {got, {CC,EE}}})
     end.
 
 do_generate_compute({srp = Type, UserPrivate, UserGenParams, UserComParams,
@@ -1395,36 +1375,42 @@ group_config(sha3_384 = Type, Config) ->
 group_config(sha3_512 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}}, {hmac, hmac_sha3(Type)} | Config];
-group_config(rsa = Type, Config) ->
+group_config(rsa, Config) ->
     Msg = rsa_plain(),
     Public = rsa_public(),
     Private = rsa_private(),
     PublicS = rsa_public_stronger(),
     PrivateS = rsa_private_stronger(),
-    SignVerify =
-        case ?config(fips, Config) of
-            true ->
-                %% Use only the strong keys in FIPS mode
-                sign_verify_tests(Type, Msg,
-                                  PublicS, PrivateS,
-                                  PublicS, PrivateS);
-            false ->
-                sign_verify_tests(Type, Msg,
-                                  Public,  Private,
-                                  PublicS, PrivateS)
-        end,
     MsgPubEnc = <<"7896345786348 Asldi">>,
-    PubPrivEnc = [{rsa, PublicS, PrivateS, MsgPubEnc, rsa_pkcs1_padding},
-                  {rsa, PublicS, PrivateS, MsgPubEnc, [{rsa_padding, rsa_pkcs1_padding}]},
-                  {rsa, PublicS, PrivateS, MsgPubEnc, [{rsa_padding, rsa_sslv23_padding}]},
-                  {rsa, PublicS, PrivateS, MsgPubEnc, [{rsa_padding, rsa_x931_padding}]},
-                  rsa_oaep(),
-		  %% rsa_oaep_label(),
-		  %% rsa_oaep256(),
-                  no_padding()
+    SignVerify_OptsToTry = [[{rsa_padding, rsa_x931_padding}],
+                            [{rsa_padding, rsa_pkcs1_padding}],
+                            [{rsa_padding, rsa_pkcs1_pss_padding}],
+                            [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, -2}],
+                            [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 5}],
+                            [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_mgf1_md,sha}],
+                            [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_mgf1_md,sha}, {rsa_pss_saltlen, 5}]
+                           ],
+    PrivEnc_OptsToTry = [rsa_pkcs1_padding,              % Compatibility
+                         [{rsa_pad, rsa_pkcs1_padding}], % Compatibility
+                         [{rsa_padding, rsa_pkcs1_padding}],
+                         [{rsa_padding,rsa_x931_padding}]
+                        ],
+    PubEnc_OptsToTry = [rsa_pkcs1_padding,              % Compatibility
+                 [{rsa_pad, rsa_pkcs1_padding}], % Compatibility
+                 [{rsa_padding, rsa_pkcs1_padding}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_oaep_label, <<"Hej hopp">>}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_oaep_md,sha}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_oaep_md,sha}, {rsa_oaep_label, <<"Hej hopp">>}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_mgf1_md,sha}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_mgf1_md,sha}, {rsa_oaep_label, <<"Hej hopp">>}],
+                 [{rsa_padding,rsa_pkcs1_oaep_padding}, {rsa_mgf1_md,sha}, {rsa_oaep_md,sha}, {rsa_oaep_label, <<"Hej hopp">>}]
                  ],
-    Generate = [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}],
-    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}, {generate, Generate} | Config];
+    [{sign_verify,      rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, SignVerify_OptsToTry)},
+     {pub_priv_encrypt, gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PrivEnc_OptsToTry)},
+     {pub_pub_encrypt,  gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PubEnc_OptsToTry)},
+     {generate, [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}]}
+     | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
     Public = dss_params() ++ [dss_public()], 
@@ -1553,39 +1539,73 @@ group_config(aes_cbc, Config) ->
 group_config(_, Config) ->
     Config.
 
-sign_verify_tests(Type, Msg, Public, Private, PublicS, PrivateS) ->
-    gen_sign_verify_tests(Type, [md5, ripemd160, sha, sha224, sha256], Msg, Public, Private,
-			  [undefined,
-			   [{rsa_padding, rsa_pkcs1_pss_padding}],
-			   [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
-			   [{rsa_padding, rsa_x931_padding}]
-			  ]) ++
-	gen_sign_verify_tests(Type, [sha384, sha512], Msg, PublicS, PrivateS,
-			      [undefined,
-			       [{rsa_padding, rsa_pkcs1_pss_padding}],
-			       [{rsa_padding, rsa_pkcs1_pss_padding}, {rsa_pss_saltlen, 0}],
-			       [{rsa_padding, rsa_x931_padding}]
-			      ]).
+rsa_sign_verify_tests(Config, Msg, Public, Private, PublicS, PrivateS, OptsToTry) ->
+        case ?config(fips, Config) of
+            true ->
+                %% Use only the strong keys in FIPS mode
+                rsa_sign_verify_tests(Msg,
+                                      PublicS, PrivateS,
+                                      PublicS, PrivateS,
+                                      OptsToTry);
+            false ->
+                rsa_sign_verify_tests(Msg,
+                                      Public,  Private,
+                                      PublicS, PrivateS,
+                                      OptsToTry)
+        end.
 
-gen_sign_verify_tests(Type, Hashs, Msg, Public, Private, Opts) ->
+rsa_sign_verify_tests(Msg, Public, Private, PublicS, PrivateS, OptsToTry) ->
+    gen_rsa_sign_verify_tests([md5, ripemd160, sha, sha224, sha256], Msg, Public, Private,
+                              [undefined | OptsToTry]) ++
+	gen_rsa_sign_verify_tests([sha384, sha512], Msg, PublicS, PrivateS,
+                                  [undefined | OptsToTry]).
+
+gen_rsa_sign_verify_tests(Hashs, Msg, Public, Private, Opts) ->
+    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []),
     lists:foldr(fun(Hash, Acc0) ->
 	case is_supported(Hash) of
 	    true ->
 		lists:foldr(fun
 		    (undefined, Acc1) ->
-			[{Type, Hash, Public, Private, Msg} | Acc1];
+			[{rsa, Hash, Public, Private, Msg} | Acc1];
 		    ([{rsa_padding, rsa_x931_padding} | _], Acc1)
 			    when Hash =:= md5
 			    orelse Hash =:= ripemd160
 			    orelse Hash =:= sha224 ->
 			Acc1;
 		    (Opt, Acc1) ->
-			[{Type, Hash, Public, Private, Msg, Opt} | Acc1]
+                        case rsa_opt_is_supported(Opt, SupOpts) of
+                            true ->
+                                [{rsa, Hash, Public, Private, Msg, Opt} | Acc1];
+                            false ->
+                                Acc1
+                        end
 		end, Acc0, Opts);
 	    false ->
 		Acc0
 	end
     end, [], Hashs).
+
+
+gen_rsa_pub_priv_tests(Public, Private, Msg, OptsToTry) ->
+    SupOpts = proplists:get_value(rsa_opts, crypto:supports(), []),
+    lists:foldr(fun(Opt, Acc) ->
+                        case rsa_opt_is_supported(Opt, SupOpts) of
+                            true ->
+                                [{rsa, Public, Private, Msg, Opt} | Acc];
+                            false ->
+                                Acc
+                        end
+                end, [], OptsToTry).
+
+
+rsa_opt_is_supported([_|_]=Opt, Sup) ->
+    lists:all(fun(O) -> rsa_opt_is_supported(O,Sup) end, Opt);
+rsa_opt_is_supported({A,B}, Sup) ->
+    rsa_opt_is_supported(A,Sup) orelse rsa_opt_is_supported(B,Sup);
+rsa_opt_is_supported(Opt, Sup) ->
+    lists:member(Opt, Sup).
+
 
 rfc_1321_msgs() ->
     [<<"">>, 
@@ -2803,6 +2823,8 @@ ecdh() ->
 dh() ->
     {dh, 90970053988169282502023478715631717259407236400413906591937635666709823903223997309250405131675572047545403771567755831138144089197560332757755059848492919215391041119286178688014693040542889497092308638580104031455627238700168892909539193174537248629499995652186913900511641708112112482297874449292467498403, 2}.
 
+
+
 rsa_oaep() ->
     %% ftp://ftp.rsa.com/pub/rsalabs/tmp/pkcs1v15crypt-vectors.txt
     Public = [hexstr2bin("010001"),
@@ -2876,13 +2898,6 @@ cmac_nist(Config, aes_cbc128 = Type) ->
 cmac_nist(Config, aes_cbc256 = Type) ->
    read_rsp(Config, Type,
             ["CMACGenAES256.rsp", "CMACVerAES256.rsp"]).
-
-no_padding() ->
-    Public = [_, Mod] = rsa_public_stronger(),
-    Private = rsa_private_stronger(),
-    MsgLen = erlang:byte_size(int_to_bin(Mod)),
-    Msg = list_to_binary(lists:duplicate(MsgLen, $X)),
-    {rsa, Public, Private, Msg, rsa_no_padding}.
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
 int_to_bin(X) -> int_to_bin_pos(X, []).
@@ -3063,7 +3078,7 @@ parse_rsp(Type,
             file := File,
             alen := Alen,
             plen := Plen,
-            nlen := Nlen,
+            nlen := _Nlen,
             tlen := Tlen,
             key := Key,
             nonce := IV,
