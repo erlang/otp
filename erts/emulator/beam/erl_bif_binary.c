@@ -1051,14 +1051,13 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	Uint bitoffs, bitsize;
 	byte *temp_alloc = NULL;
 	MyAllocator my;
-	BMData *bmd;
 	Binary *bin;
 
 	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
 	if (bitoffs != 0) {
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
-	bmd = create_bmdata(&my, bytes, characters, &bin);
+        create_bmdata(&my, bytes, characters, &bin);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
 	*tag = am_bm;
