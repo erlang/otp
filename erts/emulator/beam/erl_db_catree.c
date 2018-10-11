@@ -885,7 +885,8 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
                         "erl_db_catree_base_node",
                         lc_key,
                         ERTS_LOCK_FLAGS_CATEGORY_DB);
-    p->u.base.lock_statistics = 0;
+    p->u.base.lock_statistics = ((tb->common.status & DB_CATREE_FORCE_SPLIT)
+                                 ? INT_MAX : 0);
     p->u.base.is_valid = 1;
     return p;
 }
@@ -1205,7 +1206,8 @@ static void split_catree(DbTableCATree *tb,
     DbTableCATreeNode* ERTS_RESTRICT new_route;
 
     if (less_than_two_elements(base->u.base.root)) {
-        base->u.base.lock_statistics = 0;
+        if (!(tb->common.status & DB_CATREE_FORCE_SPLIT))
+            base->u.base.lock_statistics = 0;
         wunlock_base_node(&base->u.base);
         return;
     } else {
@@ -2117,6 +2119,25 @@ void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable)
     erts_lcnt_enable_db_catree_lock_count_helper(tb, GET_ROOT(tb), enable);
 }
 #endif /* ERTS_ENABLE_LOCK_COUNT */
+
+void db_catree_force_split(DbTableCATree* tb, int on)
+{
+    CATreeRootIterator iter;
+    TreeDbTerm** root;
+
+    init_root_iterator(tb, &iter, 1);
+    root = catree_find_first_root(&iter);
+    do {
+        iter.locked_bnode->lock_statistics = (on ? INT_MAX : 0);
+        root = catree_find_next_root(&iter);
+    } while (root);
+    ASSERT(!iter.locked_bnode);
+
+    if (on)
+        tb->common.status |= DB_CATREE_FORCE_SPLIT;
+    else
+        tb->common.status &= ~DB_CATREE_FORCE_SPLIT;
+}
 
 void db_calc_stats_catree(DbTableCATree* tb, DbCATreeStats* stats)
 {

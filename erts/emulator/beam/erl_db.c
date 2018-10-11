@@ -4465,3 +4465,16 @@ void erts_lcnt_update_db_locks(int enable) {
 #ifdef ETS_DBG_FORCE_TRAP
 erts_aint_t erts_ets_dbg_force_trap = 0;
 #endif
+
+int erts_ets_force_split(Eterm tid, int on)
+{
+    DbTable* tb = tid2tab(tid);
+    if (!tb || !IS_CATREE_TABLE(tb->common.type))
+        return 0;
+
+    db_lock(tb, LCK_WRITE);
+    if (!(tb->common.status & DB_DELETE))
+        db_catree_force_split(&tb->catree, on);
+    db_unlock(tb, LCK_WRITE);
+    return 1;
+}

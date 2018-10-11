@@ -290,6 +290,8 @@ typedef struct db_table_common {
 #define DB_NAMED_TABLE    (1 << 11)
 #define DB_BUSY           (1 << 12)
 
+#define DB_CATREE_FORCE_SPLIT (1 << 31)  /* erts_debug */
+
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
