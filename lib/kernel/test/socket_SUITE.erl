@@ -49,8 +49,8 @@
          api_to_accept_tcp6/1,
          api_to_send_tcp4/1,
          api_to_send_tcp6/1,
-         api_to_sendapi_to_udp4/1,
-         api_to_sendapi_to_udp6/1,
+         api_to_sendto_udp4/1,
+         api_to_sendto_udp6/1,
          api_to_sendmsg_tcp4/1,
          api_to_sendmsg_tcp6/1,
          api_to_recv_udp4/1,
@@ -143,8 +143,8 @@ api_op_with_timeout_cases() ->
      api_to_accept_tcp6,
      api_to_send_tcp4,
      api_to_send_tcp6,
-     api_to_sendapi_to_udp4,
-     api_to_sendapi_to_udp6,
+     api_to_sendto_udp4,
+     api_to_sendto_udp6,
      api_to_sendmsg_tcp4,
      api_to_sendmsg_tcp6,
      api_to_recv_udp4,
@@ -190,12 +190,13 @@ api_b_open_and_close_udp4(suite) ->
 api_b_open_and_close_udp4(doc) ->
     [];
 api_b_open_and_close_udp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_open_and_close_udp4),
-    State = #{domain   => inet,
-              type     => dgram,
-              protocol => udp},
-    ok = api_b_open_and_close(State),
-    tc_end().
+    tc_try(api_b_open_and_close_udp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_b_open_and_close(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -207,12 +208,13 @@ api_b_open_and_close_tcp4(suite) ->
 api_b_open_and_close_tcp4(doc) ->
     [];
 api_b_open_and_close_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_open_and_close_tcp4),
-    State = #{domain   => inet,
-              type     => stream,
-              protocol => tcp},
-    ok = api_b_open_and_close(State),
-    tc_end().
+    tc_try(api_b_open_and_close_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_b_open_and_close(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -317,18 +319,19 @@ api_b_sendto_and_recvfrom_udp4(suite) ->
 api_b_sendto_and_recvfrom_udp4(doc) ->
     [];
 api_b_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_sendto_and_recvfrom_udp4),
-    Send = fun(Sock, Data, Dest) ->
-                   socket:sendto(Sock, Data, Dest)
-           end,
-    Recv = fun(Sock) ->
-                   socket:recvfrom(Sock)
-           end,
-    InitState = #{domain => inet,
-                  send   => Send,
-                  recv   => Recv},
-    ok = api_b_send_and_recv_udp(InitState),
-    tc_end().
+    tc_try(api_b_sendto_and_recvfrom_udp4,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock)
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -340,29 +343,32 @@ api_b_sendmsg_and_recvmsg_udp4(suite) ->
 api_b_sendmsg_and_recvmsg_udp4(doc) ->
     [];
 api_b_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_sendmsg_and_recvmsg_udp4),
-    Send = fun(Sock, Data, Dest) ->
-                   %% CMsgHdr  = #{level => ip, type => tos, data => reliability},
-                   %% CMsgHdrs = [CMsgHdr],
+    tc_try(api_b_sendmsg_and_recvmsg_udp4,
+           fun() ->
+                   Send = fun(Sock, Data, Dest) ->
+                                  %% CMsgHdr  = #{level => ip,
+                                  %%              type  => tos,
+                                  %%              data  => reliability},
+                                  %% CMsgHdrs = [CMsgHdr],
                    MsgHdr = #{addr => Dest,
                               %% ctrl => CMsgHdrs,
                               iov  => [Data]},
-                   socket:sendmsg(Sock, MsgHdr)
-           end,
-    Recv = fun(Sock) ->
-                   case socket:recvmsg(Sock) of
-                       {ok, #{addr  := Source,
-                              iov   := [Data]}} ->
-                           {ok, {Source, Data}};
-                       {error, _} = ERROR ->
-                           ERROR
-                   end
-           end,
-    InitState = #{domain => inet,
-                  send   => Send,
-                  recv   => Recv},
-    ok = api_b_send_and_recv_udp(InitState),
-    tc_end().
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr  := Source,
+                                             iov   := [Data]}} ->
+                                          {ok, {Source, Data}};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_udp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -451,18 +457,19 @@ api_b_send_and_recv_tcp4(suite) ->
 api_b_send_and_recv_tcp4(doc) ->
     [];
 api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_send_and_recv_tcp4),
-    Send = fun(Sock, Data) ->
-                   socket:send(Sock, Data)
-           end,
-    Recv = fun(Sock) ->
-                   socket:recv(Sock)
-           end,
-    InitState = #{domain => inet,
-                  send   => Send,
-                  recv   => Recv},
-    ok = api_b_send_and_recv_tcp(InitState),
-    tc_end().
+    tc_try(api_b_send_and_recv_tcp4,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -474,25 +481,26 @@ api_b_sendmsg_and_recvmsg_tcp4(suite) ->
 api_b_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
 api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_b_sendmsg_and_recvmsg_tcp4),
-    Send = fun(Sock, Data) ->
-                   MsgHdr = #{iov => [Data]},
-                   socket:sendmsg(Sock, MsgHdr)
-           end,
-    Recv = fun(Sock) ->
-                   case socket:recvmsg(Sock) of
-                       {ok, #{addr  := undefined,
-                              iov   := [Data]}} ->
-                           {ok, Data};
-                       {error, _} = ERROR ->
-                           ERROR
-                   end
-           end,
-    InitState = #{domain => inet,
-                  send   => Send,
-                  recv   => Recv},
-    ok = api_b_send_and_recv_tcp(InitState),
-    tc_end().
+    tc_try(api_b_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock) ->
+                                  case socket:recvmsg(Sock) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -650,8 +658,10 @@ api_opt_simple_otp_options(suite) ->
 api_opt_simple_otp_options(doc) ->
     [];
 api_opt_simple_otp_options(_Config) when is_list(_Config) ->
-    tc_begin(api_opt_simple_otp_options),
+    tc_try(api_opt_simple_otp_options,
+           fun() -> api_opt_simple_otp_options() end).
 
+api_opt_simple_otp_options() ->
     Get = fun(S, Key) ->
                   socket:getopt(S, otp, Key)
           end,
@@ -897,9 +907,7 @@ api_opt_simple_otp_options(_Config) when is_list(_Config) ->
     InitState2 = #{domain => inet, type => dgram, protocol => udp},
     Tester2 = evaluator_start("udp-tester", Seq, InitState2),
     p("await evaluator 2"),
-    ok = await_evaluator_finish([Tester2]),
-
-    tc_end().
+    ok = await_evaluator_finish([Tester2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -910,8 +918,10 @@ api_opt_simple_otp_controlling_process(suite) ->
 api_opt_simple_otp_controlling_process(doc) ->
     [];
 api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
-    tc_begin(api_opt_simple_otp_controlling_process),
+    tc_try(api_opt_simple_otp_controlling_process,
+           fun() -> api_opt_simple_otp_controlling_process() end).
 
+api_opt_simple_otp_controlling_process() ->
     Get = fun(S, Key) ->
                   socket:getopt(S, otp, Key)
           end,
@@ -1147,9 +1157,8 @@ api_opt_simple_otp_controlling_process(_Config) when is_list(_Config) ->
                          client   => Client2},
     Tester2          = evaluator_start("udp-tester", TesterSeq, TesterInitState2),
     p("await dgram/udp evaluator"),
-    ok = await_evaluator_finish([Tester2, Client2]),
+    ok = await_evaluator_finish([Tester2, Client2]).
 
-    tc_end().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1161,11 +1170,11 @@ api_to_connect_tcp4(suite) ->
 api_to_connect_tcp4(doc) ->
     [];
 api_to_connect_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_to_connect_tcp4),
-    InitState = #{domain => inet},
-    ok = api_to_connect_tcp(InitState),
-    tc_end().
-    %% not_yet_implemented().
+    tc_try(api_to_connect_tcp4,
+           fun() ->
+                   InitState = #{domain => inet},
+                   ok = api_to_connect_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1177,11 +1186,12 @@ api_to_connect_tcp6(suite) ->
 api_to_connect_tcp6(doc) ->
     [];
 api_to_connect_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_connect_tcp6),
-    %% InitState = #{domain => inet6},
-    %% ok = api_to_connect_tcp(InitState),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_connect_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain => inet6},
+                   ok = api_to_connect_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1429,7 +1439,7 @@ api_to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
             ee("failed connecting: ~p", [Reason]),
             ?FAIL({connect, Reason});
         ok ->
-           ei("unexpected success (~w) - try next", [ID]),
+            ei("unexpected success (~w) - try next", [ID]),
             api_to_connect_tcp_await_timeout(Socks, ServerSA, ID+1)
     end.
         
@@ -1444,10 +1454,11 @@ api_to_accept_tcp4(suite) ->
 api_to_accept_tcp4(doc) ->
     [];
 api_to_accept_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_accept_tcp4),
-    %% ok = api_to_accept_tcp(inet),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_accept_tcp4,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_accept_tcp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1459,10 +1470,11 @@ api_to_accept_tcp6(suite) ->
 api_to_accept_tcp6(doc) ->
     [];
 api_to_accept_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_accept_tcp6),
-    %% ok = api_to_accept_tcp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_accept_tcp4,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_accept_tcp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1474,10 +1486,11 @@ api_to_send_tcp4(suite) ->
 api_to_send_tcp4(doc) ->
     [];
 api_to_send_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_send_tcp4),
-    %% ok = api_to_send_tcp(inet),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_send_tcp4,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_send_tcp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1489,40 +1502,43 @@ api_to_send_tcp6(suite) ->
 api_to_send_tcp6(doc) ->
     [];
 api_to_send_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_send_tcp6),
-    %% ok = api_to_send_tcp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_send_tcp6,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_send_tcp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This test case is intended to test the sendto timeout option
 %% on an IPv4 UDP (dgram) socket.
-api_to_sendapi_to_udp4(suite) ->
+api_to_sendto_udp4(suite) ->
     [];
-api_to_sendapi_to_udp4(doc) ->
+api_to_sendto_udp4(doc) ->
     [];
-api_to_sendapi_to_udp4(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_sendapi_to_udp4),
-    %% ok = api_to_sendapi_to_udp(inet),
-    %% tc_end().
-    not_yet_implemented().
+api_to_sendto_udp4(_Config) when is_list(_Config) ->
+    tc_try(api_to_sendto_udp4,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_sendto_to_udp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% This test case is intended to test the sendto timeout option
 %% on an IPv6 UDP (dgram) socket.
-api_to_sendapi_to_udp6(suite) ->
+api_to_sendto_udp6(suite) ->
     [];
-api_to_sendapi_to_udp6(doc) ->
+api_to_sendto_udp6(doc) ->
     [];
-api_to_sendapi_to_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_sendapi_to_udp6),
-    %% ok = api_to_sendapi_to_udp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+api_to_sendto_udp6(_Config) when is_list(_Config) ->
+    tc_try(api_to_sendto_udp6,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_sendto_to_udp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1534,10 +1550,11 @@ api_to_sendmsg_tcp4(suite) ->
 api_to_sendmsg_tcp4(doc) ->
     [];
 api_to_sendmsg_tcp4(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_sendmsg_tcp4),
-    %% ok = api_to_sendmsg_tcp(inet),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_sendmsg_tcp4,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_sendmsg_tcp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1549,10 +1566,11 @@ api_to_sendmsg_tcp6(suite) ->
 api_to_sendmsg_tcp6(doc) ->
     [];
 api_to_sendmsg_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_sendmsg_tcp6),
-    %% ok = api_to_sendmsg_tcp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_sendmsg_tcp6,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_sendmsg_tcp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1565,10 +1583,11 @@ api_to_recv_udp4(suite) ->
 api_to_recv_udp4(doc) ->
     [];
 api_to_recv_udp4(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recv_udp4),
-    %% ok = api_to_recv_udp(inet),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_recv_udp4,
+           fun() ->
+                   not_yet_implemented()%%,
+                   %%ok = api_to_recv_udp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1581,10 +1600,11 @@ api_to_recv_udp6(suite) ->
 api_to_recv_udp6(doc) ->
     [];
 api_to_recv_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recv_udp6),
-    %% ok = api_to_recv_udp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_recv_udp6,
+           fun() ->
+                   not_yet_implemented()%% ,
+                   %% ok = api_to_recv_udp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1596,11 +1616,12 @@ api_to_recv_tcp4(suite) ->
 api_to_recv_tcp4(doc) ->
     [];
 api_to_recv_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_to_recv_tcp4),
-    Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
-    InitState = #{domain => inet, recv => Recv},
-    ok = api_to_receive_tcp(InitState),
-    tc_end().
+    tc_try(api_to_recv_tcp4,
+           fun() ->
+                   Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
+                   InitState = #{domain => inet, recv => Recv},
+                   ok = api_to_receive_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1612,18 +1633,20 @@ api_to_recv_tcp6(suite) ->
 api_to_recv_tcp6(doc) ->
     [];
 api_to_recv_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recv_tcp6),
-    %% Res = case socket:supports(ipv6) of
-    %%     true ->
-    %% Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
-    %%         InitState = #{domain => inet6, recv => Recv},
-    %%         ok = api_to_receive_tcp(InitState);
-    %%     false ->
-    %%         {skip, ipv6_not_supported}
-    %% end,
-    %% tc_end(),
-    %% Res.
-    not_yet_implemented().
+    tc_try(api_to_recv_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   case socket:supports(ipv6) of
+                       true ->
+                           Recv = fun(Sock) -> 
+                                          socket:recv(Sock, 0, 5000)
+                                  end,
+                           InitState = #{domain => inet6, recv => Recv},
+                           ok = api_to_receive_tcp(InitState);
+                       false ->
+                           skip("ipv6 not supported")
+                   end
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1967,9 +1990,10 @@ api_to_recvfrom_udp4(suite) ->
 api_to_recvfrom_udp4(doc) ->
     [];
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
-    tc_begin(api_to_recvfrom_udp4),
-    ok = api_to_recvfrom_udp(inet),
-    tc_end().
+    tc_try(api_to_recvfrom_udp4,
+           fun() ->
+                   ok = api_to_recvfrom_udp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1981,10 +2005,11 @@ api_to_recvfrom_udp6(suite) ->
 api_to_recvfrom_udp6(doc) ->
     [];
 api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recvfrom_udp6),
-    %% ok = api_to_recvfrom_udp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_recvfrom_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ok = api_to_recvfrom_udp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2020,10 +2045,10 @@ api_to_recvmsg_udp4(suite) ->
 api_to_recvmsg_udp4(doc) ->
     [];
 api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
-    %% not_yet_implemented().
-    tc_begin(api_to_recvmsg_udp4),
-    ok = api_to_recvmsg_udp(inet),
-    tc_end().
+    tc_try(api_to_recvmsg_udp4,
+           fun() ->
+                   ok = api_to_recvmsg_udp(inet)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2035,10 +2060,11 @@ api_to_recvmsg_udp6(suite) ->
 api_to_recvmsg_udp6(doc) ->
     [];
 api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recvmsg_udp6),
-    %% ok = api_to_recvmsg_udp(inet6),
-    %% tc_end().
-    not_yet_implemented().
+    tc_try(api_to_recvmsg_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ok = api_to_recvmsg_udp(inet6)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2074,11 +2100,12 @@ api_to_recvmsg_tcp4(suite) ->
 api_to_recvmsg_tcp4(doc) ->
     [];
 api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    tc_begin(api_to_recvmsg_tcp4),
-    Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-    InitState = #{domain => inet, recv => Recv},
-    ok = api_to_receive_tcp(InitState),
-    tc_end().
+    tc_try(api_to_recvmsg_tcp4,
+           fun() ->
+                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+                   InitState = #{domain => inet, recv => Recv},
+                   ok = api_to_receive_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2090,13 +2117,13 @@ api_to_recvmsg_tcp6(suite) ->
 api_to_recvmsg_tcp6(doc) ->
     [];
 api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
-    %% tc_begin(api_to_recvmsg_tcp6),
-    %% Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-    %% InitState = #{domain => inet6, recv => Recv},
-    %% ok = api_to_receive_tcp(InitState),
-    %% tc_end().
-    not_yet_implemented().
-
+    tc_try(api_to_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+                   InitState = #{domain => inet6, recv => Recv},
+                   ok = api_to_receive_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2324,7 +2351,10 @@ sock_close(Sock) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 not_yet_implemented() ->
-    {skip, "not yet implemented"}.
+    skip("not yet implemented").
+
+skip(Reason) ->
+    throw({skip, Reason}).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2341,9 +2371,27 @@ tc_begin(TC) ->
     set_tc_name(TC),
     p("begin ***").
     
-tc_end() ->
-    p("done ***"),
+tc_end(Result) when is_list(Result) ->
+    p("done: ~s", [Result]),
     ok.
+
+
+tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
+    tc_begin(Case),
+    try 
+        begin
+            Fun(),
+            tc_end("ok")
+        end
+    catch
+        throw:{skip, _} = SKIP ->
+            tc_end("skipping"),
+            SKIP;
+        Class:Error:Stack ->
+            tc_end("failed"),
+            erlang:raise(Class, Error, Stack)
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
