@@ -28,6 +28,7 @@
 
 (defcustom erlang-edoc-indent-level 2
   "Indentation level of xhtml in Erlang edoc."
+  :type '(integer)
   :safe 'integerp
   :group 'erlang)
 
