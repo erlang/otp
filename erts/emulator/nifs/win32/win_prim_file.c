@@ -687,7 +687,7 @@ static int is_name_surrogate(const efile_path_t *path) {
 
     if(handle != INVALID_HANDLE_VALUE) {
         REPARSE_GUID_DATA_BUFFER reparse_buffer;
-        LPDWORD unused_length;
+        DWORD unused_length;
         BOOL success;
 
         success = DeviceIoControl(handle,
