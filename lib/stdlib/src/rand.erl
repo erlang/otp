@@ -43,13 +43,13 @@
 %% Debug
 -export([make_float/3, float2str/1, bc64/1]).
 
--compile({inline, [exs64_next/1, exsplus_next/1,
+-compile({inline, [exs64_next/1, exsplus_next/1, exsss_next/1,
 		   exs1024_next/1, exs1024_calc/2,
                    exro928_next_state/4,
                    exrop_next/1, exrop_next_s/2,
 		   get_52/1, normal_kiwi/1]}).
 
--define(DEFAULT_ALG_HANDLER, exrop).
+-define(DEFAULT_ALG_HANDLER, exsss).
 -define(SEED_DICT, rand_seed).
 
 %% =====================================================================
@@ -86,7 +86,7 @@
 
 %% This depends on the algorithm handler function
 -type alg_state() ::
-	exrop_state() | exs1024_state() |  exro928_state() |  exsplus_state() |
+	exsplus_state() | exro928_state() |  exrop_state() | exs1024_state() |
 	exs64_state() | term().
 
 %% This is the algorithm handling definition within this module,
@@ -131,7 +131,7 @@
 %% Algorithm state
 -type state() :: {alg_handler(), alg_state()}.
 -type builtin_alg() ::
-	exrop | exs1024s | exro928ss | exsp | exs64 | exsplus | exs1024.
+	exsss | exro928ss | exrop | exs1024s | exsp | exs64 | exsplus | exs1024.
 -type alg() :: builtin_alg() | atom().
 -type export_state() :: {alg(), alg_state()}.
 -type seed() :: [integer()] | integer() | {integer(), integer(), integer()}.
@@ -139,7 +139,7 @@
    [builtin_alg/0, alg/0, alg_handler/0, alg_state/0,
     state/0, export_state/0, seed/0]).
 -export_type(
-   [exrop_state/0, exs1024_state/0, exro928_state/0, exsplus_state/0,
+   [exsplus_state/0, exro928_state/0, exrop_state/0, exs1024_state/0,
     exs64_state/0]).
 
 %% =====================================================================
@@ -618,6 +618,11 @@ mk_alg(exsp) ->
        uniform=>fun exsp_uniform/1, uniform_n=>fun exsp_uniform/2,
        jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
+mk_alg(exsss) ->
+    {#{type=>exsss, bits=>58, next=>fun exsss_next/1,
+       uniform=>fun exsss_uniform/1, uniform_n=>fun exsss_uniform/2,
+       jump=>fun exsplus_jump/1},
+     fun exsss_seed/1};
 mk_alg(exs1024) ->
     {#{type=>exs1024, max=>?MASK(64), next=>fun exs1024_next/1,
        jump=>fun exs1024_jump/1},
@@ -675,6 +680,36 @@ exs64_next(R) ->
 %% 58 bits fits into an immediate on 64bits erlang and is thus much faster.
 %% Modification of the original Xorshift128+ algorithm to 116
 %% by Sebastiano Vigna, a lot of thanks for his help and work.
+%%
+%% Reference C code for Xorshift116+ and Xorshift116**
+%%
+%% #include <stdint.h>
+%%
+%% #define MASK(b, v) (((UINT64_C(1) << (b)) - 1) & (v))
+%% #define BSL(b, v, n) (MASK((b)-(n), (v)) << (n))
+%% #define ROTL(b, v, n) (BSL((b), (v), (n)) | ((v) >> ((b)-(n))))
+%%
+%% uint64_t s[2];
+%%
+%% uint64_t next(void) {
+%%     uint64_t s1 = s[0];
+%%     const uint64_t s0 = s[1];
+%%
+%%     s1 ^= BSL(58, s1, 24); // a
+%%     s1 ^= s0 ^ (s1 >> 11) ^ (s0 >> 41); // b, c
+%%     s[0] = s0;
+%%     s[1] = s1;
+%%
+%%     const uint64_t result_plus = MASK(58, s0 + s1);
+%%     uint64_t result_starstar = s0;
+%%     result_starstar = MASK(58, result_starstar * 5);
+%%     result_starstar = ROTL(58, result_starstar, 7);
+%%     result_starstar = MASK(58, result_starstar * 9);
+%%
+%%     return result_plus;
+%%     return result_starstar;
+%% }
+%%
 %% =====================================================================
 -opaque exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
 
@@ -697,16 +732,62 @@ exsplus_seed({A1, A2, A3}) ->
                  tl(R1)]),
     R2.
 
+-dialyzer({no_improper_lists, exsss_seed/1}).
+
+exsss_seed(L) when is_list(L) ->
+    [S0,S1] = seed58_nz(2, L),
+    [S0|S1];
+exsss_seed(X) when is_integer(X) ->
+    [S0,S1] = seed58(2, ?MASK(64, X)),
+    [S0|S1];
+%%
+%% Seed from traditional integer triple - mix into splitmix
+exsss_seed({A1, A2, A3}) ->
+    {_, X0} = seed58(?MASK(64, A1)),
+    {S0, X1} = seed58(?MASK(64, A2) bxor X0),
+    {S1, _} = seed58(?MASK(64, A3) bxor X1),
+    [S0|S1].
+
+%% Advance Xorshift116 state one step
+-define(
+   exs_next(S0, S1, S1_b),
+   begin
+       S1_b = S1 bxor ?BSL(58, S1, 24),
+       S1_b bxor S0 bxor (S1_b bsr 11) bxor (S0 bsr 41)
+   end).
+
+-define(
+   scramble_starstar(S, V_a, V_b),
+   begin
+       %% The multiply by add shifted trick avoids creating bignums
+       %% which improves performance significantly
+       %%
+       V_a = ?MASK(58, S + ?BSL(58, S, 2)), % V_a = S * 5
+       V_b = ?ROTL(58, V_a, 7),
+       ?MASK(58, V_b + ?BSL(58, V_b, 3)) % V_b * 9
+   end).
+
 -dialyzer({no_improper_lists, exsplus_next/1}).
 
-%% Advance xorshift116+ state for one step and generate 58bit unsigned integer
+%% Advance state and generate 58bit unsigned integer
 -spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsplus_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    S11 = S1 bxor ?BSL(58, S1, 24),
-    S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
-    {?MASK(58, S0 + S12), [S0|S12]}.
+    NewS1 = ?exs_next(S0, S1, S1_1),
+    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
+%%    %% Note: members s0 and s1 are swapped here
+%%    S11 = S1 bxor ?BSL(58, S1, 24),
+%%    S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
+%%    {?MASK(58, S0 + S12), [S0|S12]}.
 
+-dialyzer({no_improper_lists, exsss_next/1}).
+
+-spec exsss_next(exsplus_state()) -> {uint58(), exsplus_state()}.
+exsss_next([S1|S0]) ->
+    %% Note: members s0 and s1 are swapped here
+    NewS1 = ?exs_next(S0, S1, S1_1),
+    {?scramble_starstar(S0, V_0, V_1), [S0|NewS1]}.
+%%    {?MASK(58, S0 + NewS1), [S0|NewS1]}.
 
 exsp_uniform({Alg, R0}) ->
     {I, R1} = exsplus_next(R0),
@@ -714,18 +795,48 @@ exsp_uniform({Alg, R0}) ->
     %% randomness quality than the others
     {(I bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
 
+exsss_uniform({Alg, R0}) ->
+    {I, R1} = exsss_next(R0),
+    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
+
 exsp_uniform(Range, {Alg, R}) ->
     {V, R1} = exsplus_next(R),
     MaxMinusRange = ?BIT(58) - Range,
     ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
 
+exsss_uniform(Range, {Alg, R}) ->
+    {V, R1} = exsss_next(R),
+    MaxMinusRange = ?BIT(58) - Range,
+    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
 
-%% This is the jump function for the exsplus generator, equivalent
+
+%% This is the jump function for the exs* generators,
+%% i.e the Xorshift116 generators,  equivalent
 %% to 2^64 calls to next/1; it can be used to generate 2^52
 %% non-overlapping subsequences for parallel computations.
 %% Note: the jump function takes 116 times of the execution time of
 %% next/1.
-
+%%
+%% #include <stdint.h>
+%%
+%% void jump(void) {
+%%   static const uint64_t JUMP[] = { 0x02f8ea6bc32c797,
+%% 				   0x345d2a0f85f788c };
+%%   int i, b;
+%%   uint64_t s0 = 0;
+%%   uint64_t s1 = 0;
+%%   for(i = 0; i < sizeof JUMP / sizeof *JUMP; i++)
+%%     for(b = 0; b < 58; b++) {
+%%       if (JUMP[i] & 1ULL << b) {
+%% 	s0 ^= s[0];
+%% 	s1 ^= s[1];
+%%       }
+%%       next();
+%%     }
+%%   s[0] = s0;
+%%   s[1] = s1;
+%% }
+%%
 %% -define(JUMPCONST, 16#000d174a83e17de2302f8ea6bc32c797).
 %% split into 58-bit chunks
 %% and two iterative executions
@@ -973,13 +1084,14 @@ exro928ss_next({[S15,S0|Ss], Rs}) ->
     %% {S, R, T} = {5, 7, 9}
     %% const uint64_t result_starstar = rotl(s0 * S, R) * T;
     %%
-    %% The multiply by add shifted trick avoids creating bignums
-    %% which improves performance significantly
-    %%
-    V0 = ?MASK(58, S0 + ?BSL(58, S0, 2)), % V0 = S0 * 5
-    V1 = ?ROTL(58, V0, 7),
-    V = ?MASK(58, V1 + ?BSL(58, V1, 3)), % V = V1 * 9
-    {V, SR};
+    {?scramble_starstar(S0, V_0, V_1), SR};
+%%    %% The multiply by add shifted trick avoids creating bignums
+%%    %% which improves performance significantly
+%%    %%
+%%    V0 = ?MASK(58, S0 + ?BSL(58, S0, 2)), % V0 = S0 * 5
+%%    V1 = ?ROTL(58, V0, 7),
+%%    V = ?MASK(58, V1 + ?BSL(58, V1, 3)), % V = V1 * 9
+%%    {V, SR};
 exro928ss_next({[S15], Rs}) ->
     exro928ss_next({[S15|lists:reverse(Rs)], []}).
 
