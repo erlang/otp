@@ -111,13 +111,6 @@ setopts(Pid, Opts) ->
     call(Pid, {set_opts, Opts}).
 
 %%--------------------------------------------------------------------
--spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
-%%  Description: Send application data
-%%--------------------------------------------------------------------
-setopts(Pid, Opts) ->
-    call(Pid, {set_opts, Opts}).
-
-%%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.
 %% Description: So TLS connection process can synchronize the 
 %% encryption state to be used when handshaking.
