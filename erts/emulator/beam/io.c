@@ -1552,8 +1552,19 @@ erts_schedule_proc2port_signal(Process *c_p,
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     if (sched_res != 0) {
-	if (refp)
+	if (refp) {
+	    /*
+	     * We need to restore the message queue save
+	     * pointer to the beginning of the message queue
+	     * since the caller now wont wait for a message
+	     * containing the reference created above...
+	     */
+	    ASSERT(c_p);
+	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	    JOIN_MESSAGE(c_p);
+	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    *refp = NIL;
+	}
 	return ERTS_PORT_OP_DROPPED;
     }
     return ERTS_PORT_OP_SCHEDULED;
