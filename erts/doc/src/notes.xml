@@ -30,6 +30,84 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 6.4.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process communicating with a port via one of the
+	    <c>erlang:port_*</c> BIFs could potentially end up in an
+	    inconsistent state if the port terminated during the
+	    communication. When this occurred the process could later
+	    block in a <c>receive</c> even though it had messages
+	    matching in its message queue.</p>
+          <p>
+	    This bug was introduced in erts version 5.10 (OTP R16A).</p>
+          <p>
+	    Own Id: OTP-13424 Aux Id: OTP-10336 </p>
+        </item>
+        <item>
+          <p>
+	    Calls to <c>erl_drv_send_term()</c> or
+	    <c>erl_drv_output_term()</c> from a non-scheduler thread
+	    while the corresponding port was invalid caused the
+	    emulator to enter an inconsistent state which eventually
+	    caused an emulator crash.</p>
+          <p>
+	    Own Id: OTP-13866</p>
+        </item>
+        <item>
+	    <p>Driver and NIF operations accessing processes or ports
+	    could cause an emulator crash when used from
+	    non-scheduler threads. Those operations are:</p> <list>
+	    <item><c>erl_drv_send_term()</c></item>
+	    <item><c>driver_send_term()</c></item>
+	    <item><c>erl_drv_output_term()</c></item>
+	    <item><c>driver_output_term()</c></item>
+	    <item><c>enif_send()</c></item>
+	    <item><c>enif_port_command()</c></item> </list>
+          <p>
+	    Own Id: OTP-13869</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>binary_to_term</c> for binaries created by
+	    <c>term_to_binary </c> with option <c>compressed</c>. The
+	    bug can cause <c>badarg</c> exception for a valid binary
+	    when Erlang VM is linked against a <c>zlib</c> library of
+	    version 1.2.9 or newer. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-14159 Aux Id: ERL-340 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in operator <c>bxor</c> causing erroneuos
+	    result when one operand is a big <em>negative</em>
+	    integer with the lowest <c>N*W</c> bits as zero and the
+	    other operand not larger than <c>N*W</c> bits. <c>N</c>
+	    is an integer of 1 or larger and <c>W</c> is 32 or 64
+	    depending on word size.</p>
+          <p>
+	    Own Id: OTP-14514</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>binary_to_term</c> and
+	    <c>binary_to_atom</c> that could cause VM crash.
+	    Typically happens when the last character of an UTF8
+	    string is in the range 128 to 255, but truncated to only
+	    one byte. Bug exists in <c>binary_to_term</c> since ERTS
+	    version 5.10.2 (OTP_R16B01) and <c>binary_to_atom</c>
+	    since ERTS version 9.0 (OTP-20.0).</p>
+          <p>
+	    Own Id: OTP-14590 Aux Id: ERL-474 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 6.4.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
