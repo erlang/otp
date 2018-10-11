@@ -19,6 +19,9 @@
 %%
 -module(seq_trace_SUITE).
 
+%% label_capability_mismatch needs to run a part of the test on an OTP 20 node.
+-compile(r20).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
@@ -329,7 +332,7 @@ do_incompatible_labels(Rel) ->
     Mdir = filename:dirname(Dir),
     true = rpc:call(Node,code,add_patha,[Mdir]),
     seq_trace:reset_trace(),
-    rpc:call(Node,?MODULE,start_tracer,[]),
+    true = is_pid(rpc:call(Node,?MODULE,start_tracer,[])),
     Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
 
     %% This node does not support arbitrary labels, so it must fail with a
@@ -356,7 +359,7 @@ do_compatible_labels(Rel) ->
     Mdir = filename:dirname(Dir),
     true = rpc:call(Node,code,add_patha,[Mdir]),
     seq_trace:reset_trace(),
-    rpc:call(Node,?MODULE,start_tracer,[]),
+    true = is_pid(rpc:call(Node,?MODULE,start_tracer,[])),
     Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
 
     %% This node does not support arbitrary labels, but small integers should
