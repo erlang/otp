@@ -5692,16 +5692,20 @@ deliver_term_check_port(ErlDrvTermData port_id, Eterm *connected_p)
     ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
 #endif
     erts_aint32_t state;
+    int res = 1;
     Port *prt = erts_port_lookup_raw((Eterm) port_id);
-    if (!prt)
-	return -1;
+    if (!prt) {
+	res = -1;
+	goto done;
+    }
     state = erts_atomic32_read_nob(&prt->state);
     if (state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
 		 | ERTS_PORT_SFLG_CLOSING)) {
 	if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
-	    return -1;
+	    res = -1;
 	else
-	    return 0;
+	    res = 0;
+	goto done;
     }
     if (connected_p) {
 #ifdef ERTS_SMP
@@ -5710,22 +5714,25 @@ deliver_term_check_port(ErlDrvTermData port_id, Eterm *connected_p)
 #endif
 	*connected_p = ERTS_PORT_GET_CONNECTED(prt);
     }
+
+done:
+
 #ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED) {
+	ERTS_SMP_LC_ASSERT(!prt || !erts_lc_is_port_locked(prt));
 	erts_thr_progress_unmanaged_continue(dhndl);
 	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
-    }
+    } else
 #endif
-    ERTS_SMP_LC_ASSERT(dhndl == ERTS_THR_PRGR_DHANDLE_MANAGED
-		       ? erts_lc_is_port_locked(prt)
-		       : !erts_lc_is_port_locked(prt));
-    return 1;
+	ERTS_SMP_LC_ASSERT(res != 1 || erts_lc_is_port_locked(prt));
+
+    return res;
 }
 
 int erl_drv_output_term(ErlDrvTermData port_id, ErlDrvTermData* data, int len)
 {
     /* May be called from arbitrary thread */
-    Eterm connected;
+    Eterm connected = NIL; /* Shut up faulty warning... */
     int res = deliver_term_check_port(port_id, &connected);
     if (res <= 0)
 	return res;
