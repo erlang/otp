@@ -103,6 +103,12 @@ send_alert(Pid, Alert) ->
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
     gen_statem:cast(Pid, {ack_alert, Alert}).
+%%--------------------------------------------------------------------
+-spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
+%%  Description: Send application data
+%%--------------------------------------------------------------------
+setopts(Pid, Opts) ->
+    call(Pid, {set_opts, Opts}).
 
 %%--------------------------------------------------------------------
 -spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
