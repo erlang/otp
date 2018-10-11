@@ -137,7 +137,7 @@ atom_hash(Atom* obj)
     while(len--) {
 	v = *p++;
 	/* latin1 clutch for r16 */
-	if ((v & 0xFE) == 0xC2 && (*p & 0xC0) == 0x80) {
+	if (len && (v & 0xFE) == 0xC2 && (*p & 0xC0) == 0x80) {
 	    v = (v << 6) | (*p & 0x3F);
 	    p++; len--;
 	}

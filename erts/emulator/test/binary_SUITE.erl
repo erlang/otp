@@ -607,6 +607,9 @@ bad_binary_to_term(Config) when is_list(Config) ->
 
     %% Bad float.
     ?line bad_bin_to_term(<<131,70,-1:64>>),
+
+    %% Truncated UTF8 character (ERL-474)
+    bad_bin_to_term(<<131,119,1,194,163>>),
     ok.
 
 bad_bin_to_term(BadBin) ->
