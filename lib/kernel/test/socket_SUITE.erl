@@ -1597,8 +1597,9 @@ api_to_recv_tcp4(doc) ->
     [];
 api_to_recv_tcp4(_Config) when is_list(_Config) ->
     tc_begin(api_to_recv_tcp4),
-    InitState = #{domain => inet},
-    ok = api_to_recv_tcp(InitState),
+    Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
+    InitState = #{domain => inet, recv => Recv},
+    ok = api_to_receive_tcp(InitState),
     tc_end().
 
 
@@ -1612,15 +1613,22 @@ api_to_recv_tcp6(doc) ->
     [];
 api_to_recv_tcp6(_Config) when is_list(_Config) ->
     %% tc_begin(api_to_recv_tcp6),
-    %% InitState = #{domain => inet6},
-    %% ok = api_to_recv_tcp(InitState),
-    %% tc_end().
+    %% Res = case socket:supports(ipv6) of
+    %%     true ->
+    %% Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
+    %%         InitState = #{domain => inet6, recv => Recv},
+    %%         ok = api_to_receive_tcp(InitState);
+    %%     false ->
+    %%         {skip, ipv6_not_supported}
+    %% end,
+    %% tc_end(),
+    %% Res.
     not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_to_recv_tcp(InitState) ->
+api_to_receive_tcp(InitState) ->
     process_flag(trap_exit, true),
 
     ServerSeq = 
@@ -1694,8 +1702,8 @@ api_to_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "attempt to recv (without success)",
-           cmd  => fun(#{sock := Sock} = _State) ->
-                           case socket:recv(Sock, 0, 5000) of
+           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
+                           case Recv(Sock) of
                                {error, timeout} ->
                                    ok;
                                {ok, _Data} ->
@@ -1910,7 +1918,7 @@ api_to_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "order server to terminate",
-           cmd  => fun(#{server := Server} = State) ->
+           cmd  => fun(#{server := Server} = _State) ->
                            Server ! {terminate, self()},
                            ok
                    end},
@@ -2067,9 +2075,10 @@ api_to_recvmsg_tcp4(doc) ->
     [];
 api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
     tc_begin(api_to_recvmsg_tcp4),
-    ok = api_to_recvmsg_tcp(inet),
+    Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+    InitState = #{domain => inet, recv => Recv},
+    ok = api_to_receive_tcp(InitState),
     tc_end().
-    %% not_yet_implemented().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2082,59 +2091,12 @@ api_to_recvmsg_tcp6(doc) ->
     [];
 api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
     %% tc_begin(api_to_recvmsg_tcp6),
-    %% ok = api_to_recvmsg_tcp(inet6),
+    %% Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+    %% InitState = #{domain => inet6, recv => Recv},
+    %% ok = api_to_receive_tcp(InitState),
     %% tc_end().
     not_yet_implemented().
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-api_to_recvmsg_tcp(Domain) ->
-    process_flag(trap_exit, true),
-    p("server -> open"),
-    LSock     = sock_open(Domain, stream, tcp),
-    LocalAddr = which_local_addr(Domain),
-    LocalSA   = #{family => Domain, addr => LocalAddr}, 
-    p("server -> bind"),
-    ServerLPort     = sock_bind(LSock, LocalSA),
-    p("server(~w) -> listen", [ServerLPort]),
-    sock_listen(LSock),
-    ClientName = f("~s:client", [get_tc_name()]),
-    Client = spawn_link(fun() ->
-                                put(sname, ClientName),
-                                p("open"),
-                                CSock      = sock_open(Domain, stream, tcp),
-                                p("bind"),
-                                ClientPort = sock_bind(CSock, LocalSA),
-                                p("[~w] connect to ~w", 
-                                  [ClientPort, ServerLPort]),
-                                sock_connect(CSock, LocalSA#{port => ServerLPort}),
-                                p("await termination command"),
-                                receive
-                                    die ->
-                                        p("terminating"),
-                                        exit(normal)
-                                end
-                        end),
-    p("server -> accept on ~w", [ServerLPort]),
-    Sock      = sock_accept(LSock),
-    p("server -> recv"),
-    %% The zero (0) represents "give me everything you have"
-    case socket:recvmsg(Sock, 5000) of
-        {error, timeout} ->
-            p("server -> expected timeout"),
-            ok;
-        {ok, _Data} ->
-            ?FAIL(unexpected_success);
-        {error, Reason} ->
-            ?FAIL({recv, Reason})
-    end,
-    Client ! die,
-    receive
-        {'EXIT', Client, _} ->
-            ok
-    end,
-    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2312,36 +2274,36 @@ sock_sockname(Sock) ->
     end.
     
 
-sock_listen(Sock) ->
-    sock_listen2(fun() -> socket:listen(Sock) end).
+%% sock_listen(Sock) ->
+%%     sock_listen2(fun() -> socket:listen(Sock) end).
 
-sock_listen(Sock, BackLog) ->
-    sock_listen2(fun() -> socket:listen(Sock, BackLog) end).
+%% sock_listen(Sock, BackLog) ->
+%%     sock_listen2(fun() -> socket:listen(Sock, BackLog) end).
 
-sock_listen2(Listen) ->
-    try Listen() of
-        ok ->
-            ok;
-        {error, Reason} ->
-            ?FAIL({listen, Reason})
-    catch
-        C:E:S ->
-            ?FAIL({listen, C, E, S})
-    end.
+%% sock_listen2(Listen) ->
+%%     try Listen() of
+%%         ok ->
+%%             ok;
+%%         {error, Reason} ->
+%%             ?FAIL({listen, Reason})
+%%     catch
+%%         C:E:S ->
+%%             ?FAIL({listen, C, E, S})
+%%     end.
 
 
-sock_accept(LSock) ->
-    try socket:accept(LSock) of
-        {ok, Sock} ->
-            Sock;
-        {error, Reason} ->
-            p("sock_accept -> error: ~p", [Reason]),
-            ?FAIL({accept, Reason})
-    catch
-        C:E:S ->
-            p("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
-            ?FAIL({accept, C, E, S})
-    end.
+%% sock_accept(LSock) ->
+%%     try socket:accept(LSock) of
+%%         {ok, Sock} ->
+%%             Sock;
+%%         {error, Reason} ->
+%%             p("sock_accept -> error: ~p", [Reason]),
+%%             ?FAIL({accept, Reason})
+%%     catch
+%%         C:E:S ->
+%%             p("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
+%%             ?FAIL({accept, C, E, S})
+%%     end.
 
 
 sock_close(Sock) ->
@@ -2372,8 +2334,8 @@ set_tc_name(N) when is_atom(N) ->
 set_tc_name(N) when is_list(N) ->
     put(tc_name, N).
 
-get_tc_name() ->
-    get(tc_name).
+%% get_tc_name() ->
+%%     get(tc_name).
 
 tc_begin(TC) ->
     set_tc_name(TC),
@@ -2386,8 +2348,8 @@ tc_end() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
 
 p(F) ->
     p(F, []).
