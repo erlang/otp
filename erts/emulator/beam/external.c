@@ -1187,6 +1187,7 @@ typedef struct B2TContext_t {
     } u;
 } B2TContext;
 
+static B2TContext* b2t_export_context(Process*, B2TContext* src);
 
 static uLongf binary2term_uncomp_size(byte* data, Sint size)
 {
@@ -1219,7 +1220,7 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
 
 static ERTS_INLINE int
 binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
-		    B2TContext* ctx)
+		    B2TContext** ctxp, Process* p)
 {
     byte *bytes = data;
     Sint size = data_size;
@@ -1233,8 +1234,8 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
     size--;
     if (size < 5 || *bytes != COMPRESSED) {
 	state->extp = bytes;
-        if (ctx)
-	    ctx->state = B2TSizeInit;
+        if (ctxp)
+	    (*ctxp)->state = B2TSizeInit;
     }
     else  {
 	uLongf dest_len = (Uint32) get_int32(bytes+1);
@@ -1251,16 +1252,26 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
                 return -1;
 	    }
 	    state->extp = erts_alloc(ERTS_ALC_T_EXT_TERM_DATA, dest_len);
-            ctx->reds -= dest_len;
+            if (ctxp)
+                (*ctxp)->reds -= dest_len;
 	}
 	state->exttmp = 1;
-        if (ctx) {
+        if (ctxp) {
+            /*
+             * Start decompression by exporting trap context
+             * so we don't have to deal with deep-copying z_stream.
+             */
+            B2TContext* ctx = b2t_export_context(p, *ctxp);
+            ASSERT(state = &(*ctxp)->b2ts);
+            state = &ctx->b2ts;
+
 	    if (erl_zlib_inflate_start(&ctx->u.uc.stream, bytes, size) != Z_OK)
 		return -1;
 
 	    ctx->u.uc.dbytes = state->extp;
 	    ctx->u.uc.dleft = dest_len;
 	    ctx->state = B2TUncompressChunk;
+            *ctxp = ctx;
         }
 	else {
 	    uLongf dlen = dest_len;
@@ -1302,7 +1313,7 @@ erts_binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size
 {
     Sint res;
 
-    if (binary2term_prepare(state, data, data_size, NULL) < 0 ||
+    if (binary2term_prepare(state, data, data_size, NULL, NULL) < 0 ||
         (res=decoded_size(state->extp, state->extp + state->extsize, 0, NULL)) < 0) {
 
         if (state->exttmp)
@@ -1435,7 +1446,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Uint32 flags, Eterm bin, Binar
             if (ctx->aligned_alloc) {
                 ctx->reds -= bin_size / 8;
             }
-            if (binary2term_prepare(&ctx->b2ts, bytes, bin_size, ctx) < 0) {
+            if (binary2term_prepare(&ctx->b2ts, bytes, bin_size, &ctx, p) < 0) {
 		ctx->state = B2TBadArg;
 	    }
             break;
