@@ -48,13 +48,18 @@ main(_) ->
     ok = file:close(ExclF),
 
     %%  GraphemeBreakProperty table
+    {ok, Emoji} = file:open("../uc_spec/emoji-data.txt", [read, raw, {read_ahead, 1000000}]),
+    Props00 = foldl(fun parse_properties/2, [], Emoji),
+    %% Filter Extended_Pictographic class which we are interested in.
+    Props0 = [EP || {extended_pictographic, _} = EP <- Props00],
+    ok = file:close(Emoji),
     {ok, GBPF} = file:open("../uc_spec/GraphemeBreakProperty.txt", [read, raw, {read_ahead, 1000000}]),
-    Props0 = foldl(fun parse_properties/2, [], GBPF),
+    Props1 = foldl(fun parse_properties/2, Props0, GBPF),
     ok = file:close(GBPF),
     {ok, PropF} = file:open("../uc_spec/PropList.txt", [read, raw, {read_ahead, 1000000}]),
-    Props1 = foldl(fun parse_properties/2, Props0, PropF),
+    Props2 = foldl(fun parse_properties/2, Props1, PropF),
     ok = file:close(PropF),
-    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props1))),
+    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props2))),
 
     %% Make module
     {ok, Out} = file:open(?MOD++".erl", [write]),
@@ -170,7 +175,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
     io:put_chars(Fd, "-inline([class/1]).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
-    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2, gc_e_cont/2]}).\n"),
+    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2]}).\n"),
     io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n\n"),
     ok.
 
@@ -186,7 +191,7 @@ gen_static(Fd) ->
                  "        {U,L} -> #{upper=>U,lower=>L,title=>U,fold=>L};\n"
                  "        {U,L,T,F} -> #{upper=>U,lower=>L,title=>T,fold=>F}\n"
                  "    end.\n\n"),
-    io:put_chars(Fd, "spec_version() -> {10,0}.\n\n\n"),
+    io:put_chars(Fd, "spec_version() -> {11,0}.\n\n\n"),
     io:put_chars(Fd, "class(Codepoint) -> {CCC,_,_} = unicode_table(Codepoint),\n    CCC.\n\n"),
     io:put_chars(Fd, "-spec uppercase(unicode:chardata()) -> "
                  "maybe_improper_list(gc(),unicode:chardata()).\n"),
@@ -495,33 +500,34 @@ gen_gc(Fd, GBP) ->
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        _ -> R\n"
                  "    end;\n"
-                 %% "gc_1([CP1, CP2|_]=T) when CP1 < 256, CP2 < 256 ->\n"
-                 %% "    T;  %% Fast path\n"
-                 %% "gc_1([CP1|<<CP2/utf8, _/binary>>]=T) when CP1 < 256, CP2 < 256 ->\n"
-                 %% "    T;  %% Fast path\n"
                 ),
 
-    io:put_chars(Fd, "%% Handle control\n"),
+    GenExtP = fun(Range) -> io:format(Fd, "gc_1~s gc_ext_pict(R1,[CP]);\n", [gen_clause(Range)]) end,
+    ExtendedPictographic0 = merge_ranges(maps:get(extended_pictographic,GBP)),
+    %% Pick codepoints below 256 (some data knowledge here)
+    {ExtendedPictographicLow,ExtendedPictographicHigh} =
+        lists:splitwith(fun({Start,undefined}) -> Start < 256 end,ExtendedPictographic0),
+
+    io:put_chars(Fd, "\n%% Handle control\n"),
     GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
     CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP), false),
     [R1,R2,R3|Crs] = CRs0,
     [GenControl(CP) || CP <- merge_ranges([R1,R2,R3], split), CP =/= {$\r, undefined}],
     %%GenControl(R1),GenControl(R2),GenControl(R3),
-    io:format(Fd, "gc_1([CP|R]) when CP < 256 -> gc_extend(R,CP);\n", []),
+    io:put_chars(Fd, "\n%% Optimize Latin-1\n"),
+    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicLow)],
+    io:format(Fd, "gc_1([CP|R]) when CP < 256 -> gc_extend(R,CP);\n\n", []),
+    io:put_chars(Fd, "\n%% Continue control\n"),
     [GenControl(CP) || CP <- Crs],
     %% One clause per CP
     %% CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP)),
     %% [GenControl(CP) || CP <- CRs0, CP =/= {$\r, undefined}],
 
-    io:put_chars(Fd, "%% Handle ZWJ\n"),
-    GenZWJ = fun(Range) -> io:format(Fd, "gc_1~s gc_zwj(R1, [CP]);\n", [gen_clause(Range)]) end,
-    [GenZWJ(CP) || CP <- merge_ranges(maps:get(zwj,GBP))],
-
-    io:put_chars(Fd, "%% Handle prepend\n"),
+    io:put_chars(Fd, "\n%% Handle prepend\n"),
     GenPrepend = fun(Range) -> io:format(Fd, "gc_1~s gc_prepend(R1, CP);\n", [gen_clause(Range)]) end,
     [GenPrepend(CP) || CP <- merge_ranges(maps:get(prepend,GBP))],
 
-    io:put_chars(Fd, "%% Handle Hangul L\n"),
+    io:put_chars(Fd, "\n%% Handle Hangul L\n"),
     GenHangulL = fun(Range) -> io:format(Fd, "gc_1~s gc_h_L(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenHangulL(CP) || CP <- merge_ranges(maps:get(l,GBP))],
     io:put_chars(Fd, "%% Handle Hangul V\n"),
@@ -533,16 +539,19 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "%% Handle Hangul LV and LVT special, since they are large\n"),
     io:put_chars(Fd, "gc_1([CP|_]=R0) when 44000 < CP, CP < 56000 -> gc_h_lv_lvt(R0, []);\n"),
 
-    io:put_chars(Fd, "%% Handle Regional\n"),
+    io:put_chars(Fd, "\n%% Handle Regional\n"),
     GenRegional = fun(Range) -> io:format(Fd, "gc_1~s gc_regional(R1,[CP]);\n", [gen_clause(Range)]) end,
     [GenRegional(CP) || CP <- merge_ranges(maps:get(regional_indicator,GBP))],
-    io:put_chars(Fd, "%% Handle E_Base\n"),
-    GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
-    [GenEBase(CP) || CP <- merge_ranges(maps:get(e_base,GBP))],
-    io:put_chars(Fd, "%% Handle EBG\n"),
-    GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
-    [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
+    %% io:put_chars(Fd, "%% Handle E_Base\n"),
+    %% GenEBase = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
+    %% [GenEBase(CP) || CP <- merge_ranges(maps:get(e_base,GBP))],
+    %% io:put_chars(Fd, "%% Handle EBG\n"),
+    %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
+    %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
+    io:put_chars(Fd, "%% Handle extended_pictographic\n"),
+    [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+    io:put_chars(Fd, "\n%% default clauses\n"),
     io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(R, CP);\n"),
     io:put_chars(Fd, "gc_1([]) -> [];\n"),
     io:put_chars(Fd, "gc_1({error,_}=Error) -> Error.\n\n"),
@@ -577,21 +586,16 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd,
                  "gc_extend([CP|T], T0, Acc0) ->\n"
                  "    case is_extend(CP) of\n"
-                 "        zwj ->\n"
-                 "            case Acc0 of\n"
-                 "                [_|_] -> gc_zwj(T, [CP|Acc0]);\n"
-                 "                Acc -> gc_zwj(T, [CP,Acc])\n"
-                 "            end;\n"
-                 "        true ->\n"
-                 "            case Acc0 of\n"
-                 "                [_|_] -> gc_extend(T, [CP|Acc0]);\n"
-                 "                Acc -> gc_extend(T, [CP,Acc])\n"
-                 "            end;\n"
                  "        false ->\n"
                  "            case Acc0 of\n"
                  "                [Acc] -> [Acc|T0];\n"
                  "                [_|_]=Acc -> [lists:reverse(Acc)|T0];\n"
                  "                Acc -> [Acc|T0]\n"
+                 "            end;\n"
+                 "        _TrueOrZWJ ->\n"
+                 "            case Acc0 of\n"
+                 "                [_|_] -> gc_extend(T, [CP|Acc0]);\n"
+                 "                Acc -> gc_extend(T, [CP,Acc])\n"
                  "            end\n"
                  "    end;\n"
                  "gc_extend([], _, Acc0) ->\n"
@@ -612,49 +616,46 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "is_extend(_) -> false.\n\n"),
 
     io:put_chars(Fd,
-                 "gc_e_cont(R0, Acc) ->\n"
-                 "    case cp(R0) of\n"
-                 "        [CP|R1] ->\n"
-                 "            case is_extend(CP) of\n"
-                 "                zwj -> gc_zwj(R1, [CP|Acc]);\n"
-                 "                true -> gc_e_cont(R1, [CP|Acc]);\n"
-                 "                false ->\n"
-                 "                    case is_emodifier(CP) of\n"
-                 "                        true -> [lists:reverse([CP|Acc])|R1];\n"
-                 "                        false ->\n"
-                 "                            case Acc of\n"
-                 "                                [A] -> [A|R0];\n"
-                 "                                _ -> [lists:reverse(Acc)|R0]\n"
-                 "                            end\n"
-                 "                    end\n"
-                 "              end;\n"
-                 "        [] ->\n"
+                 "gc_ext_pict(T, Acc) ->\n"
+                 "    gc_ext_pict(cp(T), T, Acc).\n\n"
+                 "gc_ext_pict([CP|R1], T0, Acc) ->\n"
+                 "    case is_extend(CP) of\n"
+                 "        zwj -> gc_ext_pict_zwj(cp(R1), R1, [CP|Acc]);\n"
+                 "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
+                 "        false ->\n"
                  "            case Acc of\n"
-                 "                [A] -> [A];\n"
-                 "                _ -> [lists:reverse(Acc)]\n"
-                 "            end;\n"
-                 "        {error,R} ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|R];\n"
-                 "                _ -> [lists:reverse(Acc)|R]\n"
+                 "                [A] -> [A|T0];\n"
+                 "                _ -> [lists:reverse(Acc)|T0]\n"
                  "            end\n"
-                 "    end.\n\n"),
+                 "    end;\n"
+                 "gc_ext_pict([], _T0, Acc) ->\n"
+                 "    case Acc of\n"
+                 "        [A] -> [A];\n"
+                 "        _ -> [lists:reverse(Acc)]\n"
+                 "    end;\n"
+                 "gc_ext_pict({error,R}, T, Acc) ->\n"
+                 "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
+    io:put_chars(Fd,
+                 "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
+                 "    case is_ext_pict(CP) of\n"
+                 "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
+                 "        false ->\n"
+                 "            case Acc of\n"
+                 "                [A] -> [A|T0];\n"
+                 "                _ -> [lists:reverse(Acc)|T0]\n"
+                 "            end\n"
+                 "    end;\n"
+                 "gc_ext_pict_zwj([], _, Acc) ->\n"
+                 "    case Acc of\n"
+                 "        [A] -> [A];\n"
+                 "        _ -> [lists:reverse(Acc)]\n"
+                 "    end;\n"
+                 "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
+                 "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),
 
-    GenEMod = fun(Range) -> io:format(Fd, "is_emodifier~s true;\n", [gen_single_clause(Range)]) end,
-    EMods = merge_ranges(maps:get(e_modifier, GBP), split),
-    [GenEMod(CP) || CP <- EMods],
-    io:put_chars(Fd, "is_emodifier(_) -> false.\n\n"),
-
-    io:put_chars(Fd, "gc_zwj(R0, Acc) ->\n    case cp(R0) of\n"),
-    GenZWJGlue = fun(Range) -> io:format(Fd, "~8c~s gc_extend(R1, R0, [CP|Acc]);\n",
-                                         [$\s,gen_case_clause(Range)]) end,
-    [GenZWJGlue(CP) || CP <- merge_ranges(maps:get(glue_after_zwj,GBP))],
-    GenZWJEBG = fun(Range) -> io:format(Fd, "~8c~s gc_e_cont(R1, [CP|Acc]);\n",
-                                        [$\s,gen_case_clause(Range)]) end,
-    [GenZWJEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
-    io:put_chars(Fd,"        R1 -> gc_extend(R1, R0, Acc)\n"
-                 "    end.\n\n"),
-
+    GenExtPict = fun(Range) -> io:format(Fd, "is_ext_pict~s true;\n", [gen_single_clause(Range)]) end,
+    [GenExtPict(CP) || CP <- ExtendedPictographic0],
+    io:put_chars(Fd, "is_ext_pict(_) -> false.\n\n"),
 
     %% --------------------
     io:put_chars(Fd, "%% Handle Regional\n"),
