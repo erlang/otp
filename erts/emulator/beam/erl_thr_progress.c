@@ -801,7 +801,7 @@ leader_update(ErtsThrPrgrData *tpd)
 		     == ERTS_THR_PRGR_LFLG_NO_LEADER))
 		&& got_sched_wakeups()) {
 		/* Someone need to make progress */
-		wakeup_managed(0);
+		wakeup_managed(tpd->id);
 	    }
 	}
     }
@@ -888,7 +888,7 @@ erts_thr_progress_prepare_wait(ErtsThrPrgrData *tpd)
 	== ERTS_THR_PRGR_LFLG_NO_LEADER 
 	&& got_sched_wakeups()) {
 	/* Someone need to make progress */
-	wakeup_managed(0);
+	wakeup_managed(tpd->id);
     }
 }
 
@@ -975,7 +975,7 @@ unmanaged_continue(ErtsThrPrgrDelayHandle handle)
 	    == (ERTS_THR_PRGR_LFLG_NO_LEADER|ERTS_THR_PRGR_LFLG_WAITING_UM)
 	    && got_sched_wakeups()) {
 	    /* Others waiting for us... */
-	    wakeup_managed(0);
+	    wakeup_managed(1);
 	}
     }
 }
