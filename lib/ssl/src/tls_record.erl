@@ -41,7 +41,7 @@
 -export([encode_plain_text/4]).
 
 %% Decoding
--export([decode_cipher_text/3]).
+-export([decode_cipher_text/4]).
 
 %% Protocol version handling
 -export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
@@ -106,6 +106,8 @@ get_tls_records(Data, Versions, Buffer, SslOpts) ->
 %
 %% Description: Encodes a handshake message to send on the ssl-socket.
 %%--------------------------------------------------------------------
+encode_handshake(Frag, {3, 4}, ConnectionStates) ->
+    tls_record_1_3:encode_handshake(Frag, ConnectionStates);
 encode_handshake(Frag, Version, 
 		 #{current_write :=
 		       #{beast_mitigation := BeastMitigation,
@@ -126,6 +128,8 @@ encode_handshake(Frag, Version,
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
 %%--------------------------------------------------------------------
+encode_alert_record(Alert, {3, 4}, ConnectionStates) ->
+    tls_record_1_3:encode_handshake(Alert, ConnectionStates);
 encode_alert_record(#alert{level = Level, description = Description},
                     Version, ConnectionStates) ->
     encode_plain_text(?ALERT, Version, <<?BYTE(Level), ?BYTE(Description)>>,
@@ -146,6 +150,8 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
+encode_data(Data, {3, 4}, ConnectionStates) ->
+    tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Frag, Version,
 	    #{current_write := #{beast_mitigation := BeastMitigation,
 				 security_parameters :=
@@ -159,12 +165,14 @@ encode_data(Frag, Version,
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec decode_cipher_text(#ssl_tls{}, ssl_record:connection_states(), boolean()) ->
+-spec decode_cipher_text(tls_version(), #ssl_tls{}, ssl_record:connection_states(), boolean()) ->
 				{#ssl_tls{}, ssl_record:connection_states()}| #alert{}.
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
-decode_cipher_text(#ssl_tls{type = Type, version = Version,
+decode_cipher_text({3,4}, CipherTextRecord, ConnectionStates, _) -> 
+    tls_record_1_3:decode_cipher_text(CipherTextRecord, ConnectionStates);
+decode_cipher_text(_, #ssl_tls{type = Type, version = Version,
 			    fragment = CipherFragment} = CipherText,
 		   #{current_read :=
 			 #{compression_state := CompressionS0,
@@ -193,7 +201,7 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	    Alert
     end;
 
-decode_cipher_text(#ssl_tls{type = Type, version = Version,
+decode_cipher_text(_, #ssl_tls{type = Type, version = Version,
 			    fragment = CipherFragment} = CipherText,
 		   #{current_read :=
 			 #{compression_state := CompressionS0,

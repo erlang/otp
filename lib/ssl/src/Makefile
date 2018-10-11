@@ -83,6 +83,7 @@ MODULES= \
 	tls_socket \
 	dtls_socket \
 	tls_record \
+	tls_record_1_3\
 	dtls_record \
 	ssl_record \
 	ssl_v3 \
@@ -95,7 +96,7 @@ INTERNAL_HRL_FILES = \
 	tls_connection.hrl dtls_connection.hrl ssl_connection.hrl \
         ssl_handshake.hrl tls_handshake.hrl tls_handshake_1_3.hrl  dtls_handshake.hrl \
 	ssl_api.hrl ssl_internal.hrl \
-        ssl_record.hrl tls_record.hrl dtls_record.hrl ssl_srp.hrl 
+        ssl_record.hrl tls_record.hrl tls_record_1_3.hrl dtls_record.hrl ssl_srp.hrl 
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \

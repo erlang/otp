@@ -401,7 +401,7 @@
 %% Datagram Transport Layer Security (DTLS) Heartbeat Extension
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Not supported
--define(HEARTBEAT, 15).
+-define(HS_HEARTBEAT, 15).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RFC 6962 Certificate Transparency     
