@@ -64,7 +64,29 @@
          api_to_recvmsg_udp4/1,
          api_to_recvmsg_udp6/1,
          api_to_recvmsg_tcp4/1,
-         api_to_recvmsg_tcp6/1
+         api_to_recvmsg_tcp6/1,
+
+         %% Controlling Process
+         socket_cleanup_tcp4/1,
+         socket_cleanup_tcp6/1,
+         socket_cleanup_udp4/1,
+         socket_cleanup_udp6/1,
+         socket_close_tcp4/1,
+         socket_close_tcp6/1,
+         socket_close_udp4/1,
+         socket_close_udp6/1,
+         recv_response_local_close_tcp4/1,
+         recv_response_local_close_tcp6/1,
+         recv_response_remote_close_tcp4/1,
+         recv_response_remote_close_tcp6/1,
+         recvmsg_response_local_close_tcp4/1,
+         recvmsg_response_local_close_tcp6/1,
+         recvmsg_response_remote_close_tcp4/1,
+         recvmsg_response_remote_close_tcp6/1,
+         acceptor_response_local_close_tcp4/1,
+         acceptor_response_local_close_tcp6/1,
+         acceptor_response_remote_close_tcp4/1,
+         acceptor_response_remote_close_tcp6/1
 
          %% Tickets
         ]).
@@ -102,15 +124,17 @@ suite() ->
 
 all() -> 
     [
-     {group, api}
+     {group, api},
+     {group, controlling_process}
      %% {group, tickets}
     ].
 
 groups() -> 
     [{api,                 [], api_cases()},
      {api_basic,           [], api_basic_cases()},
+     {api_options,         [], api_options_cases()},
      {api_op_with_timeout, [], api_op_with_timeout_cases()},
-     {api_options,         [], api_options_cases()}
+     {controlling_process, [], controlling_process_cases()}
      %% {tickets,             [], ticket_cases()}
     ].
      
@@ -161,6 +185,34 @@ api_op_with_timeout_cases() ->
      api_to_recvmsg_tcp6
     ].
 
+%% These cases tests what happens when the controlling process dies
+controlling_process_cases() ->
+    [
+     socket_cleanup_tcp4,
+     socket_cleanup_tcp6,
+     socket_cleanup_udp4,
+     socket_cleanup_udp6,
+
+     socket_close_tcp4,
+     socket_close_tcp6,
+     socket_close_udp4,
+     socket_close_udp6,
+     
+     recv_response_local_close_tcp4,
+     recv_response_local_close_tcp6,
+     recv_response_remote_close_tcp4,
+     recv_response_remote_close_tcp6,
+
+     recvmsg_response_local_close_tcp4,
+     recvmsg_response_local_close_tcp6,
+     recvmsg_response_remote_close_tcp4,
+     recvmsg_response_remote_close_tcp6,
+
+     acceptor_response_local_close_tcp4,
+     acceptor_response_local_close_tcp6,
+     acceptor_response_remote_close_tcp4,
+     acceptor_response_remote_close_tcp6
+    ].
 
 %% ticket_cases() ->
 %%     [].
@@ -182,6 +234,14 @@ end_per_testcase(_TC, Config) ->
     Config.
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API BASIC                                 %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -549,7 +609,7 @@ api_b_send_and_recv_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-                                   ei("accepted: ~p", [Sock]),
+                                   ei("accepted: ~n   ~p", [Sock]),
                                    {ok, State#{tsock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -651,6 +711,14 @@ api_b_send_and_recv_tcp(InitState) ->
     ok = await_evaluator_finish([Server, Client]).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API OPTIONS                               %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1162,6 +1230,14 @@ api_opt_simple_otp_controlling_process() ->
     ok = await_evaluator_finish([Tester2, Client2]).
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                  API OPERATIONS WITH TIMEOUT                        %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2715,6 +2791,482 @@ api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
                                  timeout => 5000},
                    ok = api_to_receive_tcp(InitState)
            end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                       CONTROLLING PROCESS                           %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% (removed) when the controlling process terminates (without explicitly 
+%% calling the close function). For a IPv4 TCP (stream) socket.
+
+socket_cleanup_tcp4(suite) ->
+    [];
+socket_cleanup_tcp4(doc) ->
+    [];
+socket_cleanup_tcp4(_Config) when is_list(_Config) ->
+    tc_try(socket_cleanup_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = socket_cleanup(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% (removed) when the controlling process terminates (without explicitly 
+%% calling the close function). For a IPv6 TCP (stream) socket.
+
+socket_cleanup_tcp6(suite) ->
+    [];
+socket_cleanup_tcp6(doc) ->
+    [];
+socket_cleanup_tcp6(_Config) when is_list(_Config) ->
+    tc_try(socket_cleanup_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = socket_cleanup(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% (removed) when the controlling process terminates (without explicitly 
+%% calling the close function). For a IPv4 UDP (dgram) socket.
+
+socket_cleanup_udp4(suite) ->
+    [];
+socket_cleanup_udp4(doc) ->
+    [];
+socket_cleanup_udp4(_Config) when is_list(_Config) ->
+    tc_try(socket_cleanup_udp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = socket_cleanup(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sockets are cleaned up
+%% (removed) when the controlling process terminates (without explicitly 
+%% calling the close function). For a IPv6 UDP (dgram) socket.
+
+socket_cleanup_udp6(suite) ->
+    [];
+socket_cleanup_udp6(doc) ->
+    [];
+socket_cleanup_udp6(_Config) when is_list(_Config) ->
+    tc_try(socket_cleanup_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet6,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = socket_cleanup(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+socket_cleanup(_InitState) ->
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a process other 
+%% than the controlling process closes a socket. 
+%% For a IPv4 TCP (stream) socket.
+
+socket_close_tcp4(suite) ->
+    [];
+socket_close_tcp4(doc) ->
+    [];
+socket_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(socket_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = socket_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a process other 
+%% than the controlling process closes a socket. 
+%% For a IPv6 TCP (stream) socket.
+
+socket_close_tcp6(suite) ->
+    [];
+socket_close_tcp6(doc) ->
+    [];
+socket_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(socket_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = socket_close(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a process other 
+%% than the controlling process closes a socket. 
+%% For a IPv4 UDP (dgram) socket.
+
+socket_close_udp4(suite) ->
+    [];
+socket_close_udp4(doc) ->
+    [];
+socket_close_udp4(_Config) when is_list(_Config) ->
+    tc_try(socket_close_udp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = socket_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a process other 
+%% than the controlling process closes a socket. 
+%% For a IPv6 UDP (dgram) socket.
+
+socket_close_udp6(suite) ->
+    [];
+socket_close_udp6(doc) ->
+    [];
+socket_close_udp6(_Config) when is_list(_Config) ->
+    tc_try(socket_close_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet6,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = socket_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+socket_close(_InitState) ->
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is IPv4.
+
+recv_response_local_close_tcp4(suite) ->
+    [];
+recv_response_local_close_tcp4(doc) ->
+    [];
+recv_response_local_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(recv_response_local_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recv function.
+%% Socket is IPv6.
+
+recv_response_local_close_tcp6(suite) ->
+    [];
+recv_response_local_close_tcp6(doc) ->
+    [];
+recv_response_local_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(recv_response_local_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+receive_response_local_close_tcp(_InitState) ->
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is IPv4.
+
+recv_response_remote_close_tcp4(suite) ->
+    [];
+recv_response_remote_close_tcp4(doc) ->
+    [];
+recv_response_remote_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(recv_response_remote_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is IPv6.
+
+recv_response_remote_close_tcp6(suite) ->
+    [];
+recv_response_remote_close_tcp6(doc) ->
+    [];
+recv_response_remote_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(recv_response_remote_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+receive_response_remote_close_tcp(_InitState) ->
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is IPv4.
+
+recvmsg_response_local_close_tcp4(suite) ->
+    [];
+recvmsg_response_local_close_tcp4(doc) ->
+    [];
+recvmsg_response_local_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(recvmsg_response_local_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the recvmsg function.
+%% Socket is IPv6.
+
+recvmsg_response_local_close_tcp6(suite) ->
+    [];
+recvmsg_response_local_close_tcp6(doc) ->
+    [];
+recvmsg_response_local_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(recvmsg_response_local_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recvmsg function.
+%% Socket is IPv4.
+
+recvmsg_response_remote_close_tcp4(suite) ->
+    [];
+recvmsg_response_remote_close_tcp4(doc) ->
+    [];
+recvmsg_response_remote_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(recvmsg_response_remote_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recvmsg function.
+%% Socket is IPv6.
+
+recvmsg_response_remote_close_tcp6(suite) ->
+    [];
+recvmsg_response_remote_close_tcp6(doc) ->
+    [];
+recvmsg_response_remote_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(recvmsg_response_remote_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = receive_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is IPv4.
+
+acceptor_response_local_close_tcp4(suite) ->
+    [];
+acceptor_response_local_close_tcp4(doc) ->
+    [];
+acceptor_response_local_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(acceptor_response_local_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = acceptor_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% locally closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is IPv6.
+
+acceptor_response_local_close_tcp6(suite) ->
+    [];
+acceptor_response_local_close_tcp6(doc) ->
+    [];
+acceptor_response_local_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(acceptor_response_local_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = acceptor_response_local_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+acceptor_response_local_close_tcp(_InitState) ->
+    ok.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is IPv4.
+
+acceptor_response_remote_close_tcp4(suite) ->
+    [];
+acceptor_response_remote_close_tcp4(doc) ->
+    [];
+acceptor_response_remote_close_tcp4(_Config) when is_list(_Config) ->
+    tc_try(acceptor_response_remote_close_tcp4,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = acceptor_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the accept function.
+%% We test what happens with a non-controlling_process also, since we 
+%% git the setup anyway.
+%% Socket is IPv6.
+
+acceptor_response_remote_close_tcp6(suite) ->
+    [];
+acceptor_response_remote_close_tcp6(doc) ->
+    [];
+acceptor_response_remote_close_tcp6(_Config) when is_list(_Config) ->
+    tc_try(acceptor_response_remote_close_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = acceptor_response_remote_close_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+acceptor_response_remote_close_tcp(_InitState) ->
+    ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
