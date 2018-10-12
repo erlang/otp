@@ -1992,8 +1992,9 @@ api_to_recvfrom_udp4(doc) ->
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp4,
            fun() ->
-                   InitState = #{domain => inet},
-                   ok = api_to_recvfrom_udp(InitState)
+                   Recv = fun(Sock) -> socket:recvfrom(Sock, 0, 5000) end,
+                   InitState = #{domain => inet, recv => Recv},
+                   ok = api_to_receive_udp(InitState)
            end).
 
 
@@ -2009,14 +2010,15 @@ api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp6,
            fun() ->
                    not_yet_implemented(),
-                   InitState = #{domain => inet6},
-                   ok = api_to_recvfrom_udp(InitState)
+                   Recv = fun(Sock) -> socket:recvfrom(Sock, 0, 5000) end,
+                   InitState = #{domain => inet6, recv => Recv},
+                   ok = api_to_receive_udp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_to_recvfrom_udp(InitState) ->
+api_to_receive_udp(InitState) ->
     TesterSeq =
         [
          %% *** Init part ***
@@ -2047,11 +2049,11 @@ api_to_recvfrom_udp(InitState) ->
 
          %% *** The actual test ***
          #{desc => "attempt to read (without success)",
-           cmd  => fun(#{sock := Sock} = _State) ->
-                           case socket:recvfrom(Sock, 0, 5000) of
+           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
+                           case Recv(Sock) of
                                {error, timeout} ->
                                    ok;
-                               {ok, _SrcData} ->
+                               {ok, _} ->
                                    {error, unexpected_sucsess};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2091,7 +2093,9 @@ api_to_recvmsg_udp4(doc) ->
 api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_udp4,
            fun() ->
-                   ok = api_to_recvmsg_udp(inet)
+                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+                   InitState = #{domain => inet, recv => Recv},
+                   ok = api_to_receive_udp(InitState)
            end).
 
 
@@ -2107,32 +2111,10 @@ api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_udp6,
            fun() ->
                    not_yet_implemented(),
-                   ok = api_to_recvmsg_udp(inet6)
+                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
+                   InitState = #{domain => inet6, recv => Recv},
+                   ok = api_to_receive_udp(InitState)
            end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-api_to_recvmsg_udp(Domain) ->
-    process_flag(trap_exit, true),
-    p("init"),
-    LocalAddr = which_local_addr(Domain),
-    LocalSA   = #{family => Domain, addr => LocalAddr}, 
-    p("open"),
-    Sock      = sock_open(Domain, dgram, udp),
-    p("bind"),
-    _Port     = sock_bind(Sock, LocalSA),
-    p("recv"),
-    case socket:recvmsg(Sock, 5000) of
-        {error, timeout} ->
-            p("expected timeout"),
-            ok;
-        {ok, _MsgHdr} ->
-            ?FAIL(unexpected_success);
-        {error, Reason} ->
-            ?FAIL({recv, Reason})
-    end,
-    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2401,6 +2383,19 @@ skip(Reason) ->
     throw({skip, Reason}).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% t() ->
+%%     os:timestamp().
+
+
+%% tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
+%%     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
+%%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
+%%     T2 - T1.
+
+
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 set_tc_name(N) when is_atom(N) ->
