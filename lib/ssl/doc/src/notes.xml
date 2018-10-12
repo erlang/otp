@@ -27,6 +27,35 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct alert handling with new TLS sender process, from
+	    ssl-9.0.2. CLOSE ALERTS could under some circumstances be
+	    encoded using an incorrect cipher state. This would cause
+	    the peer to regard them as unknown messages.</p>
+          <p>
+	    Own Id: OTP-15337 Aux Id: ERL-738 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of socket packet option with new TLS
+	    sender process, from ssl-9.0.2. When changing the socket
+	    option {packet, 1|2|3|4} with ssl:setopts/2 the option
+	    must internally be propagated to the sender process as
+	    well as the reader process as this particular option also
+	    affects the data to be sent.</p>
+          <p>
+	    Own Id: OTP-15348 Aux Id: ERL-747 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

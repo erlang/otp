@@ -1300,7 +1300,8 @@ e_delete(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    %% Remove a character device.
-	    {error, eacces} = ?PRIM_FILE:delete("nul");
+	    expect({error, eacces}, {error, einval},
+                   ?PRIM_FILE:delete("nul"));
 	_ ->
 	    ?PRIM_FILE:write_file_info(
 	       Base, #file_info {mode=0}),

@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug where the socket option 'pktoptions' caused a read
+	    of uninitialized memory has been fixed. Would cause
+	    malfunction on FreeBSD.</p>
+          <p>
+	    Own Id: OTP-14297 Aux Id: OTP-15141 </p>
+        </item>
+        <item>
+	    <p>Fixed a memory leak on errors when reading files.</p>
+          <p>
+	    Own Id: OTP-15318</p>
+        </item>
+        <item>
+	    <p>File access through UNC paths works again on Windows.
+	    This regression was introduced in OTP 21.</p>
+          <p>
+	    Own Id: OTP-15333 Aux Id: ERL-737 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
