@@ -1018,10 +1018,11 @@ ErtsPollEvents erts_poll_control(ErtsPollSet *ps,
 int erts_poll_wait(ErtsPollSet *ps,
 		   ErtsPollResFd pr[],
 		   int *len,
-                   ErtsThrPrgrData *tpd)
+                   ErtsThrPrgrData *tpd,
+                   Sint64 timeout_in)
 {
     int no_fds;
-    DWORD timeout = INFINITE;
+    DWORD timeout = timeout_in == -1 ? INFINITE : timeout_in;
     EventData* ev;
     int res = 0;
     int num = 0;

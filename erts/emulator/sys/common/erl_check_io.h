@@ -68,7 +68,7 @@ int erts_check_io_max_files(void);
  *
  * @param pt the poll thread structure to use.
  */
-void erts_check_io(struct erts_poll_thread *pt);
+void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time);
 /**
  * Initialize the check io framework. This function will parse the arguments
  * and delete any entries that it is interested in.
@@ -129,16 +129,6 @@ extern int erts_no_poll_threads;
 #include "erl_poll.h"
 #include "erl_port_task.h"
 
-#ifdef __WIN32__
-/*
- * Current erts_poll implementation for Windows cannot handle
- * active events in the set of events polled.
- */
-#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 1
-#else
-#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 1
-#endif
-
 typedef struct {
     Eterm inport;
     Eterm outport;
@@ -150,10 +140,6 @@ struct erts_nif_select_event {
     Eterm pid;
     Eterm immed;
     Uint32 refn[ERTS_REF_NUMBERS];
-    Sint32 ddeselect_cnt; /* 0:  No delayed deselect in progress
-                           * 1:  Do deselect before next poll
-                           * >1: Countdown of ignored events
-                           */
 };
 
 typedef struct {
