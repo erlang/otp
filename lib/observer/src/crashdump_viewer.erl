@@ -74,6 +74,7 @@
 	 loaded_modules/0,
 	 loaded_mod_details/1,
 	 memory/0,
+         persistent_terms/0,
 	 allocated_areas/0,
 	 allocator_info/0,
 	 hash_tables/0,
@@ -139,6 +140,7 @@
 -define(node,node).
 -define(not_connected,not_connected).
 -define(old_instr_data,old_instr_data).
+-define(persistent_terms,persistent_terms).
 -define(port,port).
 -define(proc,proc).
 -define(proc_dictionary,proc_dictionary).
@@ -293,6 +295,8 @@ loaded_mod_details(Mod) ->
     call({loaded_mod_details,Mod}).
 memory() ->
     call(memory).
+persistent_terms() ->
+    call(persistent_terms).
 allocated_areas() ->
     call(allocated_areas).
 allocator_info() ->
@@ -471,6 +475,11 @@ handle_call(memory,_From,State=#state{file=File}) ->
     Memory=memory(File),
     TW = truncated_warning([?memory]),
     {reply,{ok,Memory,TW},State};
+handle_call(persistent_terms,_From,State=#state{file=File,dump_vsn=DumpVsn}) ->
+    TW = truncated_warning([?persistent_terms,?literals]),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    Terms = persistent_terms(File, DecodeOpts),
+    {reply,{ok,Terms,TW},State};
 handle_call(allocated_areas,_From,State=#state{file=File}) ->
     AllocatedAreas=allocated_areas(File),
     TW = truncated_warning([?allocated_areas]),
@@ -1444,15 +1453,7 @@ maybe_other_node2(Channel) ->
 expand_memory(Fd,Pid,DumpVsn) ->
     DecodeOpts = get_decode_opts(DumpVsn),
     put(fd,Fd),
-    Dict0 = case get(?literals) of
-                undefined ->
-                    Literals = read_literals(Fd,DecodeOpts),
-                    put(?literals,Literals),
-                    put(fd,Fd),
-                    Literals;
-                Literals ->
-                    Literals
-            end,
+    Dict0 = get_literals(Fd,DecodeOpts),
     Dict = read_heap(Fd,Pid,DecodeOpts,Dict0),
     Expanded = {read_stack_dump(Fd,Pid,DecodeOpts,Dict),
 		read_messages(Fd,Pid,DecodeOpts,Dict),
@@ -1467,6 +1468,18 @@ expand_memory(Fd,Pid,DumpVsn) ->
                  "Some information might be missing."]
         end,
     {Expanded,IncompleteWarning}.
+
+get_literals(Fd,DecodeOpts) ->
+    case get(?literals) of
+        undefined ->
+            OldFd = put(fd,Fd),
+            Literals = read_literals(Fd,DecodeOpts),
+            put(fd,OldFd),
+            put(?literals,Literals),
+            Literals;
+        Literals ->
+            Literals
+    end.
 
 read_literals(Fd,DecodeOpts) ->
     case lookup_index(?literals,[]) of
@@ -2201,6 +2214,56 @@ get_atom(<<"\'",Atom/binary>>) ->
     {Atom,q}; % quoted
 get_atom(Atom) when is_binary(Atom) ->
     {Atom,nq}. % not quoted
+
+%%-----------------------------------------------------------------
+%% Page with list of all persistent terms
+persistent_terms(File, DecodeOpts) ->
+    case lookup_index(?persistent_terms) of
+	[{_Id,Start}] ->
+	    Fd = open(File),
+	    pos_bof(Fd,Start),
+	    Terms = get_persistent_terms(Fd),
+            Dict = get_literals(Fd,DecodeOpts),
+            parse_persistent_terms(Terms,DecodeOpts,Dict);
+	_ ->
+	    []
+    end.
+
+parse_persistent_terms([[Name0,Val0]|Terms],DecodeOpts,Dict) ->
+    {Name,_,_} = parse_term(binary_to_list(Name0),DecodeOpts,Dict),
+    {Val,_,_} = parse_term(binary_to_list(Val0),DecodeOpts,Dict),
+    [{Name,Val}|parse_persistent_terms(Terms,DecodeOpts,Dict)];
+parse_persistent_terms([],_,_) -> [].
+
+get_persistent_terms(Fd) ->
+    case get_chunk(Fd) of
+	{ok,Bin} ->
+	    get_persistent_terms(Fd,Bin,[]);
+	eof ->
+	    []
+    end.
+
+
+%% Persistent_Terms are written one per line in the crash dump.
+get_persistent_terms(Fd,Bin,PersistentTerms) ->
+    Bins = binary:split(Bin,<<"\n">>,[global]),
+    get_persistent_terms1(Fd,Bins,PersistentTerms).
+
+get_persistent_terms1(_Fd,[<<"=",_/binary>>|_],PersistentTerms) ->
+    PersistentTerms;
+get_persistent_terms1(Fd,[LastBin],PersistentTerms) ->
+    case get_chunk(Fd) of
+	{ok,Bin0} ->
+	    get_persistent_terms(Fd,<<LastBin/binary,Bin0/binary>>,PersistentTerms);
+	eof ->
+	    [get_persistent_term(LastBin)|PersistentTerms]
+    end;
+get_persistent_terms1(Fd,[Bin|Bins],Persistent_Terms) ->
+    get_persistent_terms1(Fd,Bins,[get_persistent_term(Bin)|Persistent_Terms]).
+
+get_persistent_term(Bin) ->
+    binary:split(Bin,<<"|">>).
+
 
 %%-----------------------------------------------------------------
 %% Page with memory information
@@ -3192,6 +3255,7 @@ tag_to_atom("literals") -> ?literals;
 tag_to_atom("loaded_modules") -> ?loaded_modules;
 tag_to_atom("memory") -> ?memory;
 tag_to_atom("mod") -> ?mod;
+tag_to_atom("persistent_terms") -> ?persistent_terms;
 tag_to_atom("no_distribution") -> ?no_distribution;
 tag_to_atom("node") -> ?node;
 tag_to_atom("not_connected") -> ?not_connected;

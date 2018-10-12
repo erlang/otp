@@ -345,6 +345,7 @@ browse_file(File) ->
     {ok,_AllocINfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
     {ok,_HashTabs,_HashTabsTW} = crashdump_viewer:hash_tables(),
     {ok,_IndexTabs,_IndexTabsTW} = crashdump_viewer:index_tables(),
+    {ok,_PTs,_PTsTW} = crashdump_viewer:persistent_terms(),
 
     io:format("  info read",[]),
 
