@@ -431,6 +431,8 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_CHECK_IO);
+
     erts_mtx_lock(mtx);
     state = get_drv_ev_state(fd);
 
@@ -486,6 +488,8 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
         free_drv_select_data(free_select);
     if (free_nif)
         free_nif_select_data(free_nif);
+
+    ERTS_MSACC_POP_STATE_M_X();
 }
 
 static ERTS_INLINE void
