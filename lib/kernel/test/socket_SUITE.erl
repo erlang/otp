@@ -1992,7 +1992,8 @@ api_to_recvfrom_udp4(doc) ->
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp4,
            fun() ->
-                   ok = api_to_recvfrom_udp(inet)
+                   InitState = #{domain => inet},
+                   ok = api_to_recvfrom_udp(InitState)
            end).
 
 
@@ -2008,32 +2009,75 @@ api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp6,
            fun() ->
                    not_yet_implemented(),
-                   ok = api_to_recvfrom_udp(inet6)
+                   InitState = #{domain => inet6},
+                   ok = api_to_recvfrom_udp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_to_recvfrom_udp(Domain) ->
-    process_flag(trap_exit, true),
-    p("init"),
-    LocalAddr = which_local_addr(Domain),
-    LocalSA   = #{family => Domain, addr => LocalAddr}, 
-    p("open"),
-    Sock      = sock_open(Domain, dgram, udp),
-    p("bind"),
-    _Port     = sock_bind(Sock, LocalSA),
-    p("recv"),
-    case socket:recvfrom(Sock, 0, 5000) of
-        {error, timeout} ->
-            p("expected timeout"),
-            ok;
-        {ok, _SrcData} ->
-            ?FAIL(unexpected_success);
-        {error, Reason} ->
-            ?FAIL({recv, Reason})
-    end,
-    ok.
+api_to_recvfrom_udp(InitState) ->
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "attempt to read (without success)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case socket:recvfrom(Sock, 0, 5000) of
+                               {error, timeout} ->
+                                   ok;
+                               {ok, _SrcData} ->
+                                   {error, unexpected_sucsess};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           sock_close(Sock),
+                           ok
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    p("start tester evaluator"),
+    Tester = evaluator_start("tester", TesterSeq, InitState),
+    
+    p("await evaluator"),
+    ok = await_evaluator_finish([Tester]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
