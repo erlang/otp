@@ -1981,8 +1981,8 @@ recvtclass(_Config) ->
 %% pktoptions is not supported for IPv4
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
-recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 %% Using the option returns einval, so it is not implemented.
+recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Does not return any value - not implemented for pktoptions
 recvtos_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {3,1,0});
@@ -1993,8 +1993,8 @@ recvtos_ok(_, _) -> false.
 %% pktoptions is not supported for IPv4
 recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
 recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
-recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 %% Using the option returns einval, so it is not implemented.
+recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %%
 recvttl_ok({unix,linux}, _) -> true;
