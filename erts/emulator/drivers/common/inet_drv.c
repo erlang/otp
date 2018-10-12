@@ -5178,6 +5178,71 @@ static int hwaddr_libdlpi_lookup(const char *ifnm,
 }
 #endif
 
+#ifdef HAVE_GETIFADDRS
+/* Returns 0 for success and errno() for failure */
+static int call_getifaddrs(inet_descriptor* desc_p, struct ifaddrs **ifa_pp)
+{
+    int result, save_errno;
+#ifdef HAVE_SETNS
+    int current_ns;
+
+    current_ns = 0;
+    if (desc_p->netns != NULL) {
+        int new_ns;
+	/* Temporarily change network namespace for this thread
+	 * over the getifaddrs() call
+	 */
+	current_ns = open("/proc/self/ns/net", O_RDONLY);
+	if (current_ns == INVALID_SOCKET)
+	    return sock_errno();
+	new_ns = open(desc_p->netns, O_RDONLY);
+	if (new_ns == INVALID_SOCKET) {
+	    save_errno = sock_errno();
+	    while (close(current_ns) == INVALID_SOCKET &&
+		   sock_errno() == EINTR);
+	    return save_errno;
+	}
+	if (setns(new_ns, CLONE_NEWNET) != 0) {
+	    save_errno = sock_errno();
+	    while (close(new_ns) == INVALID_SOCKET &&
+		   sock_errno() == EINTR);
+	    while (close(current_ns) == INVALID_SOCKET &&
+		   sock_errno() == EINTR);
+	    return save_errno;
+	}
+	else {
+	    while (close(new_ns) == INVALID_SOCKET &&
+		   sock_errno() == EINTR);
+	}
+    }
+#endif
+    save_errno = 0;
+    result = getifaddrs(ifa_pp);
+    if (result  < 0)
+        save_errno = sock_errno();
+#ifdef HAVE_SETNS
+    if (desc_p->netns != NULL) {
+        /* Restore network namespace */
+        if (setns(current_ns, CLONE_NEWNET) != 0) {
+            /* XXX Failed to restore network namespace.
+             * What to do? Tidy up and return an error...
+             * Note that the thread now might still be in the set namespace.
+	     * Can this even happen? Should the emulator be aborted?
+	     */
+            if (result >= 0) {
+                /* We got a result but have to waste it */
+                save_errno = sock_errno();
+                freeifaddrs(*ifa_pp);
+            }
+	}
+        while (close(current_ns) == INVALID_SOCKET &&
+               sock_errno() == EINTR);
+    }
+#endif
+    return save_errno;
+}
+#endif /* #ifdef HAVE_GETIFADDRS */
+
 /* FIXME: temporary hack */
 #ifndef IFHWADDRLEN
 #define IFHWADDRLEN 6
@@ -5255,8 +5320,8 @@ static ErlDrvSSizeT inet_ctl_ifget(inet_descriptor* desc,
 	    struct sockaddr_dl *sdlp;
 	    int found = 0;
 
-	    if (getifaddrs(&ifa) == -1)
-		goto error;
+            if (call_getifaddrs(desc, &ifa) != 0)
+                goto error;
 
 	    for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
 		if ((ifp->ifa_addr->sa_family == AF_LINK) &&
@@ -5974,6 +6039,7 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     ErlDrvSizeT buf_size;
     char *buf_p;
     char *buf_alloc_p;
+    int save_errno;
 
     buf_size = GETIFADDRS_BUFSZ;
     buf_alloc_p = ALLOC(GETIFADDRS_BUFSZ);
@@ -6008,9 +6074,9 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	}                                                               \
     } while (0)
 
-    if (getifaddrs(&ifa_p) < 0) {
-	return ctl_error(sock_errno(), rbuf_pp, rsize);
-    }
+    if ((save_errno = call_getifaddrs(desc_p, &ifa_p)) != 0)
+        return ctl_error(save_errno, rbuf_pp, rsize);
+
     ifa_free_p = ifa_p;
     *buf_p++ = INET_REP_OK;
     for (;  ifa_p;  ifa_p = ifa_p->ifa_next) {

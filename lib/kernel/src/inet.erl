@@ -154,6 +154,15 @@
 		 'running' | 'multicast' | 'loopback']} |
       {'hwaddr', ether_address()}.
 
+-type getifaddrs_ifopts() ::
+        [Ifopt :: {flags, Flags :: [up | broadcast | loopback |
+                                    pointtopoint | running | multicast]} |
+                  {addr, Addr :: ip_address()} |
+                  {netmask, Netmask :: ip_address()} |
+                  {broadaddr, Broadaddr :: ip_address()} |
+                  {dstaddr, Dstaddr :: ip_address()} |
+                  {hwaddr, Hwaddr :: [byte()]}].
+
 -type address_family() :: 'inet' | 'inet6' | 'local'.
 -type socket_protocol() :: 'tcp' | 'udp' | 'sctp'.
 -type socket_type() :: 'stream' | 'dgram' | 'seqpacket'.
@@ -321,32 +330,32 @@ getopts(Socket, Opts) ->
 	    Other
     end.
 
--spec getifaddrs(Socket :: socket()) ->
-	{'ok', [string()]} | {'error', posix()}.
-
+-spec getifaddrs(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
+                        {'ok', [{Ifname :: string(),
+                                 Ifopts :: getifaddrs_ifopts()}]}
+                            | {'error', posix()}.
+getifaddrs(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> prim_inet:getifaddrs(S) end, Opts);
 getifaddrs(Socket) ->
     prim_inet:getifaddrs(Socket).
 
--spec getifaddrs() -> {ok, Iflist} | {error, posix()} when
-      Iflist :: [{Ifname,[Ifopt]}],
-      Ifname :: string(),
-      Ifopt :: {flags,[Flag]} | {addr,Addr} | {netmask,Netmask}
-             | {broadaddr,Broadaddr} | {dstaddr,Dstaddr}
-             | {hwaddr,Hwaddr},
-      Flag :: up | broadcast | loopback | pointtopoint
-            | running | multicast,
-      Addr :: ip_address(),
-      Netmask :: ip_address(),
-      Broadaddr :: ip_address(),
-      Dstaddr :: ip_address(),
-      Hwaddr :: [byte()].
-
+-spec getifaddrs() ->
+                        {'ok', [{Ifname :: string(),
+                                 Ifopts :: getifaddrs_ifopts()}]}
+                            | {'error', posix()}.
 getifaddrs() ->
     withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
 
--spec getiflist(Socket :: socket()) ->
-	{'ok', [string()]} | {'error', posix()}.
 
+-spec getiflist(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
+                       {'ok', [string()]} | {'error', posix()}.
+
+getiflist(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> prim_inet:getiflist(S) end, Opts);
 getiflist(Socket) -> 
     prim_inet:getiflist(Socket).
 
@@ -363,11 +372,19 @@ getiflist() ->
 ifget(Socket, Name, Opts) -> 
     prim_inet:ifget(Socket, Name, Opts).
 
--spec ifget(Name :: string() | atom(), Opts :: [if_getopt()]) ->
+-spec ifget(
+        Name :: string() | atom(),
+        Opts :: [if_getopt() |
+                 {netns, Namespace :: file:filename_all()}]) ->
 	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
 ifget(Name, Opts) ->
-    withsocket(fun(S) -> prim_inet:ifget(S, Name, Opts) end).
+    {NSOpts,IFOpts} =
+        lists:partition(
+          fun ({netns,_}) -> true;
+              (_) -> false
+          end, Opts),
+    withsocket(fun(S) -> prim_inet:ifget(S, Name, IFOpts) end, NSOpts).
 
 -spec ifset(Socket :: socket(),
             Name :: string() | atom(),
@@ -377,11 +394,19 @@ ifget(Name, Opts) ->
 ifset(Socket, Name, Opts) -> 
     prim_inet:ifset(Socket, Name, Opts).
 
--spec ifset(Name :: string() | atom(), Opts :: [if_setopt()]) ->
+-spec ifset(
+        Name :: string() | atom(),
+        Opts :: [if_setopt() |
+                 {netns, Namespace :: file:filename_all()}]) ->
 	'ok' | {'error', posix()}.
 
 ifset(Name, Opts) ->
-    withsocket(fun(S) -> prim_inet:ifset(S, Name, Opts) end).
+    {NSOpts,IFOpts} =
+        lists:partition(
+          fun ({netns,_}) -> true;
+              (_) -> false
+          end, Opts),
+    withsocket(fun(S) -> prim_inet:ifset(S, Name, IFOpts) end, NSOpts).
 
 -spec getif() ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} | 
@@ -391,10 +416,14 @@ getif() ->
     withsocket(fun(S) -> getif(S) end).
 
 %% backwards compatible getif
--spec getif(Socket :: socket()) ->
+-spec getif(
+        [Option :: {netns, Namespace :: file:filename_all()}]
+        | socket()) ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} | 
 	{'error', posix()}.
 
+getif(Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> getif(S) end, Opts);
 getif(Socket) ->
     case prim_inet:getiflist(Socket) of
 	{ok, IfList} ->
@@ -415,7 +444,10 @@ getif(Socket) ->
     end.
 
 withsocket(Fun) ->
-    case inet_udp:open(0,[]) of
+    withsocket(Fun, []).
+%%
+withsocket(Fun, Opts) ->
+    case inet_udp:open(0, Opts) of
 	{ok,Socket} ->
 	    Res = Fun(Socket),
 	    inet_udp:close(Socket),

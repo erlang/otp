@@ -198,6 +198,79 @@ fe80::204:acff:fe17:bf38
       </desc>
     </datatype>
     <datatype>
+      <name name="getifaddrs_ifopts"/>
+      <desc>
+	<p>
+	  Interface address description list returned from
+	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0,1</c></seealso>
+	  for a named interface, translated from the returned
+	  data of the POSIX API function <c>getaddrinfo()</c>.
+	</p>
+        <p>
+	  <c><anno>Hwaddr</anno></c> is hardware dependent,
+	  for example, on Ethernet interfaces it is
+	the 6-byte Ethernet address (MAC address (EUI-48 address)).
+	</p>
+        <p>
+	  The tuples <c>{addr,<anno>Addr</anno>}</c>,
+	  <c>{netmask,<anno>Netmask</anno>}</c>, and possibly
+	  <c>{broadaddr,<anno>Broadaddr</anno>}</c> or
+	  <c>{dstaddr,<anno>Dstaddr</anno>}</c>
+	  are repeated in the list
+	  if the interface has got multiple addresses.
+	  An interface may have multiple <c>{flag,_}</c> tuples
+	  for example if it has different flags
+	  for different address families.
+	  Multiple <c>{hwaddr,<anno>Hwaddr</anno>}</c> tuples
+	  is hard to say anything definite about, though.
+	  The tuple <c>{flag,<anno>Flags</anno>}</c> is mandatory,
+	  all others are optional.
+	</p>
+        <p>
+	  Do not rely too much on the order
+	  of <c><anno>Flags</anno></c> atoms
+          or the <c><anno>Ifopt</anno></c> tuples.
+	  There are however some rules:
+	</p>
+        <list type="bulleted">
+	  <item><p>
+	    A <c>{flag,_}</c> tuple applies to all other tuples that follow.
+	  </p></item>
+          <item><p>
+	    Immediately after <c>{addr,_}</c> follows <c>{netmask,_}</c>.
+	  </p></item>
+          <item><p>
+	    Immediately thereafter may <c>{broadaddr,_}</c> follow
+	    if <c>broadcast</c> is member of <c><anno>Flags</anno></c>,
+	    or <c>{dstaddr,_}</c> if <c>pointtopoint</c>
+	    is member of <c><anno>Flags</anno></c>.
+	    Both <c>{dstaddr,_}</c> and <c>{broadaddr,_}</c>
+	    does not occur for the same <c>{addr,_}</c>.
+	  </p></item>
+          <item><p>
+	    Any <c>{netmask,_}</c>, <c>{broadaddr,_}</c>, or
+            <c>{dstaddr,_}</c> tuples that follow an
+	    <c>{addr,<anno>Addr</anno>}</c>
+            tuple concerns the address <c><anno>Addr</anno></c>.
+	  </p></item>
+        </list>
+        <p>
+	  The tuple <c>{hwaddr,_}</c> is not returned on Solaris, as the
+          hardware address historically belongs to the link layer
+	  and it is not returned by the Solaris API function
+	  <c>getaddrinfo()</c>.
+	</p>
+	<warning>
+	  <p>
+	    On Windows, the data is fetched from different
+	    OS API functions, so the <c><anno>Netmask</anno></c>
+	    and <c><anno>Broadaddr</anno></c> values may be calculated,
+	    just as some <c><anno>Flags</anno></c> values.
+	  </p>
+	</warning>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="posix"/>
       <desc>
         <p>An atom that is named from the POSIX error codes used in Unix,
@@ -324,38 +397,64 @@ fe80::204:acff:fe17:bf38
       <name name="getifaddrs" arity="0"/>
       <fsummary>Return a list of interfaces and their addresses.</fsummary>
       <desc>
-        <p>Returns a list of 2-tuples containing interface names and the
-          interface addresses. <c><anno>Ifname</anno></c> is a Unicode string.
-          <c><anno>Hwaddr</anno></c> is hardware dependent, for example, on
-          Ethernet interfaces
-          it is the 6-byte Ethernet address (MAC address (EUI-48 address)).</p>
-        <p>The tuples <c>{addr,<anno>Addr</anno>}</c>, <c>{netmask,_}</c>, and
-          <c>{broadaddr,_}</c> are repeated in the result list if the interface
-          has multiple addresses. If you come across an interface with
-          multiple <c>{flag,_}</c> or <c>{hwaddr,_}</c> tuples, you have
-          a strange interface or possibly a bug in this function. The tuple
-          <c>{flag,_}</c> is mandatory, all others are optional.</p>
-        <p>Do not rely too much on the order of <c><anno>Flag</anno></c> atoms
-          or <c><anno>Ifopt</anno></c> tuples. There are however some rules:</p>
-        <list type="bulleted">
-          <item><p>Immediately after
-            <c>{addr,_}</c> follows <c>{netmask,_}</c>.</p></item>
-          <item><p>Immediately thereafter follows <c>{broadaddr,_}</c> if flag
-            <c>broadcast</c> is <em>not</em> set and flag
-            <c>pointtopoint</c> <em>is</em> set.</p></item>
-          <item><p>Any <c>{netmask,_}</c>, <c>{broadaddr,_}</c>, or
-            <c>{dstaddr,_}</c> tuples that follow an <c>{addr,_}</c>
-            tuple concerns that address.</p></item>
-        </list>
-        <p>The tuple <c>{hwaddr,_}</c> is not returned on Solaris, as the
-          hardware address historically belongs to the link layer and only
-          the superuser can read such addresses.</p>
-	<warning>
-	  <p>On Windows, the data is fetched from different OS API functions,
-            so the <c><anno>Netmask</anno></c> and <c><anno>Broadaddr</anno></c>
-            values can be calculated, just as some <c><anno>Flag</anno></c>
-            values. Report flagrant bugs.</p>
-	</warning>
+        <p>
+	  Returns a list of 2-tuples containing interface names and
+	  the interfaces' addresses. <c><anno>Ifname</anno></c>
+	  is a Unicode string and
+	  <c><anno>Ifopts</anno></c> is a list of
+	  interface address description tuples.
+	</p>
+        <p>
+	  The interface address description tuples
+	  are documented under the type of the
+          <seealso marker="#type-getifaddrs_ifopts">
+	    <c><anno>Ifopts</anno></c>
+	  </seealso>
+	  value.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>getifaddrs(Opts) ->
+        {ok, [{Ifname, Ifopts}]} | {error, Posix}
+      </name>
+      <fsummary>Return a list of interfaces and their addresses.</fsummary>
+      <type>
+	<v>
+	  Opts = [{netns, Namespace}]
+	</v>
+	<v>
+	  Namespace =
+	  <seealso marker="file#type-filename_all">
+	    file:filename_all()
+	  </seealso>
+	</v>
+	<v>Ifname = string()</v>
+	<v>
+	  Ifopts =
+	  <seealso marker="#type-getifaddrs_ifopts">
+	    getifaddrs_ifopts()
+	  </seealso>
+	</v>
+	<v>Posix = <seealso marker="#type-posix">posix()</seealso></v>
+      </type>
+      <desc>
+	<p>
+	  The same as
+	  <seealso marker="#getifaddrs/0"><c>getifaddrs/0</c></seealso>
+	  but the <c>Option</c>
+	  <c>{netns, Namespace}</c> sets a network namespace
+	  for the OS call, on platforms that supports that feature.
+	</p>
+	<p>
+	  See the socket option
+	  <seealso marker="#option-netns">
+	    <c>{netns, Namespace}</c>
+	  </seealso>
+	  under
+	  <seealso marker="#setopts/2"><c>setopts/2</c></seealso>.
+	</p>
       </desc>
     </func>
 
@@ -950,20 +1049,29 @@ get_tcpi_sacked(Sock) ->
           </item>
           <tag><c>{mode, Mode :: binary | list}</c></tag>
           <item>
-            <p>Received <c>Packet</c> is delivered as defined by <c>Mode</c>.
+            <p>
+	      Received <c>Packet</c> is delivered as defined by <c>Mode</c>.
             </p>
           </item>
-	  <tag><c>{netns, Namespace :: file:filename_all()}</c></tag>
+	  <tag>
+	    <marker id="option-netns"/>
+	    <c>{netns, Namespace :: file:filename_all()}</c>
+	  </tag>
 	  <item>
-	    <p>Sets a network namespace for the socket. Parameter
+	    <p>
+	      Sets a network namespace for the socket. Parameter
 	      <c>Namespace</c> is a filename defining the namespace, for
 	      example, <c>"/var/run/netns/example"</c>, typically created by
 	      command <c>ip netns add example</c>. This option must be used in
 	      a function call that creates a socket, that is,
 	      <seealso marker="gen_tcp#connect/3"><c>gen_tcp:connect/3,4</c></seealso>,
 	      <seealso marker="gen_tcp#listen/2"><c>gen_tcp:listen/2</c></seealso>,
-	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>, or
-	    <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>.</p>
+	      <seealso marker="gen_udp#open/1"><c>gen_udp:open/1,2</c></seealso>
+	      or
+	      <seealso marker="gen_sctp#open/0"><c>gen_sctp:open/0,1,2</c></seealso>,
+	      and also
+	      <seealso marker="#getifaddrs/1"><c>getifaddrs/1</c></seealso>.
+	    </p>
 	    <p>This option uses the Linux-specific syscall
 	      <c>setns()</c>, such as in Linux kernel 3.0 or later,
 	      and therefore only exists when the runtime system
