@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, the matched out tail of a
+	    binary could be the entire original binary. (There was
+	    partial correction to this problem in version 7.2.5 of
+	    the compiler application.)</p>
+          <p>
+	    Own Id: OTP-15335 Aux Id: ERL-689, OTP-15219 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

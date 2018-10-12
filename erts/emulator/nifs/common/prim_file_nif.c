@@ -514,6 +514,7 @@ static ERL_NIF_TERM read_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, con
     ASSERT(bytes_read <= block_size);
 
     if(bytes_read < 0) {
+        enif_release_binary(&result);
         return posix_error_to_tuple(env, d->posix_errno);
     } else if(bytes_read == 0) {
         enif_release_binary(&result);
@@ -576,6 +577,7 @@ static ERL_NIF_TERM pread_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, co
     bytes_read = efile_preadv(d, offset, read_vec, 1);
 
     if(bytes_read < 0) {
+        enif_release_binary(&result);
         return posix_error_to_tuple(env, d->posix_errno);
     } else if(bytes_read == 0) {
         enif_release_binary(&result);
@@ -802,6 +804,7 @@ static ERL_NIF_TERM ipread_s32bu_p32bu_nif_impl(efile_data_t *d, ErlNifEnv *env,
     bytes_read = efile_preadv(d, payload_offset, read_vec, 1);
 
     if(bytes_read < 0) {
+        enif_release_binary(&payload);
         return posix_error_to_tuple(env, d->posix_errno);
     } else if(bytes_read == 0) {
         enif_release_binary(&payload);
