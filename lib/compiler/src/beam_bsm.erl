@@ -310,18 +310,7 @@ btb_reaches_match_2([{test,bs_start_match2,{f,F},Live,[Bin,_],Ctx}|Is],
     end;
 btb_reaches_match_2([{test,_,{f,F},Ss}=I|Is], Regs, D0) ->
     btb_ensure_not_used(Ss, I, Regs),
-    D1 = btb_follow_branch(F, Regs, D0),
-    D = case Is of
-            [{bs_context_to_binary,_}|_] ->
-                %% bs_context_to_binary following a test instruction
-                %% probably needs the current position to be saved as
-                %% the new start position, but we can't be sure.
-                %% Therefore, conservatively disable the optimization
-                %% (instead of forcing a saving of the position).
-                D1#btb{must_save=true,must_not_save=true};
-            _ ->
-                D1
-        end,
+    D = btb_follow_branch(F, Regs, D0),
     btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([{test,_,{f,F},_,Ss,_}=I|Is], Regs, D0) ->
     btb_ensure_not_used(Ss, I, Regs),

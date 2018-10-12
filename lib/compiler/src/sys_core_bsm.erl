@@ -44,6 +44,14 @@ function([{#c_var{name={F,Arity}}=Name,B0}|Fs], FsAcc, Ws0) ->
         {B,Ws} ->
             function(Fs, [{Name,B}|FsAcc], Ws)
     catch
+        throw:unsafe_bs_context_to_binary ->
+            %% Unsafe bs_context_to_binary (in the sense that the
+            %% contents of the binary will probably be wrong).
+            %% Disable binary optimizations for the entire function.
+            %% We don't generate an INFO message, because this happens
+            %% very infrequently and it would be hard to explain in
+            %% a comprehensible way in an INFO message.
+            function(Fs, [{Name,B0}|FsAcc], Ws0);
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [F,Arity]),
 	    erlang:raise(Class, Error, Stack)
@@ -116,11 +124,65 @@ move_from_col(Pos, L) ->
     [Col|First] ++ Rest.
 
 bsm_do_an([#c_var{name=Vname}=V0|Vs0], Cs0, Case) ->
+    bsm_inner_context_to_binary(Cs0),
     Cs = bsm_do_an_var(Vname, Cs0),
     V = bsm_annotate_for_reuse(V0),
     Vs = core_lib:make_values([V|Vs0]),
     Case#c_case{arg=Vs,clauses=Cs};
 bsm_do_an(_Vs, _Cs, Case) -> Case.
+
+bsm_inner_context_to_binary([#c_clause{body=B}|Cs]) ->
+    %% Consider:
+    %%
+    %%   foo(<<Length, Data/binary>>) ->  %Line 1
+    %%      case {Data, Length} of        %Line 2
+    %%        {_, 0} -> Data;             %Line 3
+    %%        {<<...>>, 4} -> ...         %Line 4
+    %%      end.
+    %%
+    %% No sub binary will be created for Data in line 1. The match
+    %% context will be passed on to the `case` in line 2. In line 3,
+    %% this pass inserts a `bs_context_to_binary` instruction to
+    %% convert the match context representing Data to a binary before
+    %% returning it. The problem is that the binary created will be
+    %% the original binary (including the matched out Length field),
+    %% not the tail of the binary as it is supposed to be.
+    %%
+    %% Here follows a heuristic to disable the binary optimizations
+    %% for the entire function if this code kind of code is found.
+
+    case cerl_trees:free_variables(B) of
+        [] ->
+            %% Since there are no free variables in the body of
+            %% this clause, there can't be any troublesome
+            %% bs_context_to_binary instructions.
+            bsm_inner_context_to_binary(Cs);
+        [_|_]=Free ->
+            %% One of the free variables could refer to a match context
+            %% created by the outer binary match.
+            F = fun(#c_primop{name=#c_literal{val=bs_context_to_binary},
+                              args=[#c_var{name=V}]}, _) ->
+                        case member(V, Free) of
+                            true ->
+                                %% This bs_context_to_binary instruction will
+                                %% make a binary of the match context from an
+                                %% outer binary match. It is very likely that
+                                %% the contents of the binary will be wrong
+                                %% (the original binary as opposed to only
+                                %% the tail binary).
+                                throw(unsafe_bs_context_to_binary);
+                            false ->
+                                %% Safe. This bs_context_to_binary instruction
+                                %% will make a binary from a match context
+                                %% defined in the body of the clause.
+                                ok
+                        end;
+                   (_, _) ->
+                        ok
+                end,
+            cerl_trees:fold(F, ok, B)
+    end;
+bsm_inner_context_to_binary([]) -> ok.
 
 bsm_do_an_var(V, [#c_clause{pats=[P|_],guard=G,body=B0}=C0|Cs]) ->
     case P of
