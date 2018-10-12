@@ -1003,7 +1003,6 @@ ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     Error = {error, {tls_alert, "insufficient security"}},
     check_result(Server, Error, Client, Error).
 
-
 start_client(openssl, Port, ClientOpts, Config) ->
     Cert = proplists:get_value(certfile, ClientOpts),
     Key = proplists:get_value(keyfile, ClientOpts),
@@ -2061,3 +2060,40 @@ hardcode_dsa_key(3) ->
        y =  48598545580251057979126570873881530215432219542526130654707948736559463436274835406081281466091739849794036308281564299754438126857606949027748889019480936572605967021944405048011118039171039273602705998112739400664375208228641666852589396502386172780433510070337359132965412405544709871654840859752776060358,
        x = 1457508827177594730669011716588605181448418352823}.
 
+tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
+    receive
+	{Server, ServerMsg} ->
+	    client_msg(Client, ClientMsg);
+	{Client, ClientMsg} ->
+	    server_msg(Server, ServerMsg);
+	{Client, {error,closed}} ->
+	    server_msg(Server, ServerMsg);
+	{Server, {error,closed}} ->
+	    client_msg(Client, ClientMsg)
+    end.
+client_msg(Client, ClientMsg) ->
+    receive
+	{Client, ClientMsg} ->
+	    ok;
+	{Client, {error,closed}} ->
+	    ct:log("client got close"),
+	    ok;
+	{Client, {error, Reason}} ->
+	    ct:log("client got econnaborted: ~p", [Reason]),
+	    ok;
+	Unexpected ->
+	    ct:fail(Unexpected)
+    end.
+server_msg(Server, ServerMsg) ->
+    receive
+	{Server, ServerMsg} ->
+	    ok;
+	{Server, {error,closed}} ->
+	    ct:log("server got close"),
+	    ok;
+	{Server, {error, Reason}} ->
+	    ct:log("server got econnaborted: ~p", [Reason]),
+	    ok;
+	Unexpected ->
+	    ct:fail(Unexpected)
+    end.

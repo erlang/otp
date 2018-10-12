@@ -155,7 +155,7 @@ empty_client(Config) when is_list(Config) ->
     run_failing_handshake(Config,
         [{alpn_advertised_protocols, []}],
         [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
-        {connect_failed,{tls_alert,"no application protocol"}}).
+        {error,{tls_alert,"no application protocol"}}).
 
 %--------------------------------------------------------------------------------
 
@@ -163,7 +163,7 @@ empty_server(Config) when is_list(Config) ->
     run_failing_handshake(Config,
         [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
         [{alpn_preferred_protocols, []}],
-        {connect_failed,{tls_alert,"no application protocol"}}).
+        {error,{tls_alert,"no application protocol"}}).
 
 %--------------------------------------------------------------------------------
 
@@ -171,7 +171,7 @@ empty_client_empty_server(Config) when is_list(Config) ->
     run_failing_handshake(Config,
         [{alpn_advertised_protocols, []}],
         [{alpn_preferred_protocols, []}],
-        {connect_failed,{tls_alert,"no application protocol"}}).
+        {error,{tls_alert,"no application protocol"}}).
 
 %--------------------------------------------------------------------------------
 
@@ -179,7 +179,7 @@ no_matching_protocol(Config) when is_list(Config) ->
     run_failing_handshake(Config,
         [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
         [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
-        {connect_failed,{tls_alert,"no application protocol"}}).
+        {error,{tls_alert,"no application protocol"}}).
 
 %--------------------------------------------------------------------------------
 
@@ -342,18 +342,19 @@ run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) 
     ServerOpts = ServerExtraOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
                     {from, self()},
                     {mfa, {?MODULE, placeholder, []}},
                     {options, ServerOpts}]),
 
     Port = ssl_test_lib:inet_port(Server),
-    ExpectedResult
-        = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-               {host, Hostname},
-               {from, self()},
-               {mfa, {?MODULE, placeholder, []}},
-               {options, ClientOpts}]).
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                           {host, Hostname},
+                                           {from, self()},
+                                           {mfa, {?MODULE, placeholder, []}},
+                                           {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server, ExpectedResult,
+                              Client, ExpectedResult).
 
 run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",

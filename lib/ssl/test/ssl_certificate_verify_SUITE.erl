@@ -620,8 +620,8 @@ cert_expired(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer}, {active, Active}  | ClientOpts]}]),    
     
-    tcp_delivery_workaround(Server, {error, {tls_alert, "certificate expired"}},
-			    Client, {error, {tls_alert, "certificate expired"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "certificate expired"}},
+                              Client, {error, {tls_alert, "certificate expired"}}).
 
 two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
@@ -729,8 +729,8 @@ critical_extension_verify_server(Config) when is_list(Config) ->
     %% This certificate has a critical extension that we don't
     %% understand.  Therefore, verification should fail.      
 
-    tcp_delivery_workaround(Server, {error, {tls_alert, "unsupported certificate"}},
-			    Client, {error, {tls_alert, "unsupported certificate"}}),
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "unsupported certificate"}},
+                              Client, {error, {tls_alert, "unsupported certificate"}}),
     
     ssl_test_lib:close(Server).
 %%--------------------------------------------------------------------
@@ -909,8 +909,8 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
 
-    tcp_delivery_workaround(Server, {error, {tls_alert, "unknown ca"}},
-			    Client, {error, {tls_alert, "unknown ca"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "unknown ca"}},
+                              Client, {error, {tls_alert, "unknown ca"}}).
 
 %%--------------------------------------------------------------------
 
@@ -946,8 +946,8 @@ invalid_signature_client(Config) when is_list(Config) ->
 					      {from, self()},
 					      {options, NewClientOpts}]),
 
-    tcp_delivery_workaround(Server, {error, {tls_alert, "unknown ca"}},
-			    Client, {error, {tls_alert, "unknown ca"}}).
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "unknown ca"}},
+                              Client, {error, {tls_alert, "unknown ca"}}).
 
 
 %%--------------------------------------------------------------------
@@ -1236,41 +1236,3 @@ incomplete_chain(Config) when is_list(Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
-    receive
-	{Server, ServerMsg} ->
-	    client_msg(Client, ClientMsg);
-	{Client, ClientMsg} ->
-	    server_msg(Server, ServerMsg);
-	{Client, {error,closed}} ->
-	    server_msg(Server, ServerMsg);
-	{Server, {error,closed}} ->
-	    client_msg(Client, ClientMsg)
-    end.
-
-client_msg(Client, ClientMsg) ->
-    receive
-	{Client, ClientMsg} ->
-	    ok;
-	{Client, {error,closed}} ->
-	    ct:log("client got close"),
-	    ok;
-	{Client, {error, Reason}} ->
-	    ct:log("client got econnaborted: ~p", [Reason]),
-	    ok;
-	Unexpected ->
-	    ct:fail(Unexpected)
-    end.
-server_msg(Server, ServerMsg) ->
-    receive
-	{Server, ServerMsg} ->
-	    ok;
-	{Server, {error,closed}} ->
-	    ct:log("server got close"),
-	    ok;
-	{Server, {error, Reason}} ->
-	    ct:log("server got econnaborted: ~p", [Reason]),
-	    ok;
-	Unexpected ->
-	    ct:fail(Unexpected)
-    end.
