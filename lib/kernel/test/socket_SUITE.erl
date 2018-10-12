@@ -1172,7 +1172,7 @@ api_to_connect_tcp4(doc) ->
 api_to_connect_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_to_connect_tcp4,
            fun() ->
-                   InitState = #{domain => inet},
+                   InitState = #{domain => inet, timeout => 5000},
                    ok = api_to_connect_tcp(InitState)
            end).
 
@@ -1189,7 +1189,7 @@ api_to_connect_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_connect_tcp6,
            fun() ->
                    not_yet_implemented(),
-                   InitState = #{domain => inet6},
+                   InitState = #{domain => inet6, timeout => 5000},
                    ok = api_to_connect_tcp(InitState)
            end).
 
@@ -1352,12 +1352,13 @@ api_to_connect_tcp(InitState) ->
 
          %% *** Connect sequence ***
          #{desc => "order (server) start",
-           cmd  => fun(#{sock1 := Sock1,
-                         sock2 := Sock2,
-                         sock3 := Sock3,
-                         ssa   := SSA}) ->
+           cmd  => fun(#{sock1   := Sock1,
+                         sock2   := Sock2,
+                         sock3   := Sock3,
+                         ssa     := SSA,
+                         timeout := To}) ->
                            Socks = [Sock1, Sock2, Sock3],
-                           api_to_connect_tcp_await_timeout(Socks, SSA)
+                           api_to_connect_tcp_await_timeout(Socks, To, SSA)
                    end},
 
          %% *** Terminate server ***
@@ -1417,21 +1418,28 @@ api_to_connect_tcp(InitState) ->
     Tester          = evaluator_start("tester", TesterSeq, TesterInitState),
 
     p("await evaluator(s)"),
-    ok = await_evaluator_finish([Server, Tester]),
-    ok.
+    ok = await_evaluator_finish([Server, Tester]).
 
 
-api_to_connect_tcp_await_timeout(Socks, ServerSA) ->
-    api_to_connect_tcp_await_timeout(Socks, ServerSA, 1).
+api_to_connect_tcp_await_timeout(Socks, To, ServerSA) ->
+    api_to_connect_tcp_await_timeout(Socks, To, ServerSA, 1).
 
-api_to_connect_tcp_await_timeout([], _ServerSA, _ID) ->
+api_to_connect_tcp_await_timeout([], _To, _ServerSA, _ID) ->
     ?FAIL(unexpected_success);
-api_to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
+api_to_connect_tcp_await_timeout([Sock|Socks], To, ServerSA, ID) ->
     ei("~w: try connect", [ID]),
-    case socket:connect(Sock, ServerSA, 5000) of
+    Start = t(),
+    case socket:connect(Sock, ServerSA, To) of
         {error, timeout} ->
             ei("expected timeout (~w)", [ID]),
-            ok;
+            Stop  = t(),
+            TDiff = tdiff(Start, Stop),
+            if
+                (TDiff >= To) ->
+                    ok;
+                true ->
+                    {error, {unexpected_timeout, TDiff, To}}
+            end;
         {error, econnreset = Reason} ->
             ei("failed connecting: ~p - giving up", [Reason]),
             ok;
@@ -1440,7 +1448,7 @@ api_to_connect_tcp_await_timeout([Sock|Socks], ServerSA, ID) ->
             ?FAIL({connect, Reason});
         ok ->
             ei("unexpected success (~w) - try next", [ID]),
-            api_to_connect_tcp_await_timeout(Socks, ServerSA, ID+1)
+            api_to_connect_tcp_await_timeout(Socks, To, ServerSA, ID+1)
     end.
         
 
@@ -1456,8 +1464,8 @@ api_to_accept_tcp4(doc) ->
 api_to_accept_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_to_accept_tcp4,
            fun() ->
-                   not_yet_implemented()%% ,
-                   %% ok = api_to_accept_tcp(inet)
+                   InitState = #{domain => inet, timeout => 5000},
+                   ok = api_to_accept_tcp(InitState)
            end).
 
 
@@ -1472,9 +1480,92 @@ api_to_accept_tcp6(doc) ->
 api_to_accept_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_accept_tcp4,
            fun() ->
-                   not_yet_implemented()%% ,
-                   %% ok = api_to_accept_tcp(inet6)
+                   not_yet_implemented(),
+                   InitState = #{domain => inet6, timeout => 5000},
+                   ok = api_to_accept_tcp(InitState)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_to_accept_tcp(InitState) ->
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create (listen) socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+
+         %% *** The actual test part ***
+         #{desc => "attempt to accept (without success)",
+           cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
+                           Start = t(),
+                           case socket:accept(LSock, To) of
+                               {error, timeout} ->
+                                   {ok, State#{start => Start, stop => t()}};
+                               {ok, Sock} ->
+                                   (catch socket:close(Sock)),
+                                   {error, unexpected_success};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "validate timeout time",
+           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
+                           TDiff  = tdiff(Start, Stop),
+                           if
+                               (TDiff >= To) ->
+                                   ok;
+                               true ->
+                                   {error, {unexpected_timeout, TDiff, To}}
+                           end
+                   end},
+
+         %% *** Close (listen) socket ***
+         #{desc => "close (listen) socket",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           sock_close(LSock),
+                           {ok, maps:remove(sock3, State)}
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    p("create tester evaluator"),
+    Tester = evaluator_start("tester", TesterSeq, InitState),
+
+    p("await evaluator"),
+    ok = await_evaluator_finish([Tester]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1618,8 +1709,10 @@ api_to_recv_tcp4(doc) ->
 api_to_recv_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recv_tcp4,
            fun() ->
-                   Recv = fun(Sock) -> socket:recv(Sock, 0, 5000) end,
-                   InitState = #{domain => inet, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recv(Sock, 0, To) end,
+                   InitState = #{domain  => inet,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_tcp(InitState)
            end).
 
@@ -1638,10 +1731,12 @@ api_to_recv_tcp6(_Config) when is_list(_Config) ->
                    not_yet_implemented(),
                    case socket:supports(ipv6) of
                        true ->
-                           Recv = fun(Sock) -> 
-                                          socket:recv(Sock, 0, 5000)
+                           Recv = fun(Sock, To) -> 
+                                          socket:recv(Sock, 0, To)
                                   end,
-                           InitState = #{domain => inet6, recv => Recv},
+                           InitState = #{domain  => inet6,
+                                         recv    => Recv,
+                                         timeout => 5000},
                            ok = api_to_receive_tcp(InitState);
                        false ->
                            skip("ipv6 not supported")
@@ -1725,14 +1820,25 @@ api_to_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "attempt to recv (without success)",
-           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
-                           case Recv(Sock) of
+           cmd  => fun(#{sock := Sock, recv := Recv, timeout := To} = State) ->
+                           Start = t(),
+                           case Recv(Sock, To) of
                                {error, timeout} ->
-                                   ok;
+                                   {ok, State#{start => Start, stop => t()}};
                                {ok, _Data} ->
                                    {error, unexpected_success};
                                {error, _} = ERROR ->
                                    ERROR
+                           end
+                   end},
+         #{desc => "validate timeout time",
+           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
+                           TDiff  = tdiff(Start, Stop),
+                           if
+                               (TDiff >= To) ->
+                                   ok;
+                               true ->
+                                   {error, {unexpected_timeout, TDiff, To}}
                            end
                    end},
          #{desc => "announce ready (recv timeout success)",
@@ -1992,8 +2098,10 @@ api_to_recvfrom_udp4(doc) ->
 api_to_recvfrom_udp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp4,
            fun() ->
-                   Recv = fun(Sock) -> socket:recvfrom(Sock, 0, 5000) end,
-                   InitState = #{domain => inet, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
+                   InitState = #{domain  => inet,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -2010,8 +2118,10 @@ api_to_recvfrom_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvfrom_udp6,
            fun() ->
                    not_yet_implemented(),
-                   Recv = fun(Sock) -> socket:recvfrom(Sock, 0, 5000) end,
-                   InitState = #{domain => inet6, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvfrom(Sock, 0, To) end,
+                   InitState = #{domain  => inet6,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -2049,17 +2159,28 @@ api_to_receive_udp(InitState) ->
 
          %% *** The actual test ***
          #{desc => "attempt to read (without success)",
-           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
-                           case Recv(Sock) of
+           cmd  => fun(#{sock := Sock, recv := Recv, timeout := To} = State) ->
+                           Start = t(),
+                           case Recv(Sock, To) of
                                {error, timeout} ->
-                                   ok;
+                                   {ok, State#{start => Start, stop => t()}};
                                {ok, _} ->
                                    {error, unexpected_sucsess};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-
+         #{desc => "validate timeout time",
+           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
+                           TDiff  = tdiff(Start, Stop),
+                           if
+                               (TDiff >= To) ->
+                                   ok;
+                               true ->
+                                   {error, {unexpected_timeout, TDiff, To}}
+                           end
+                   end},
+         
          %% *** Termination ***
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = _State) ->
@@ -2093,8 +2214,10 @@ api_to_recvmsg_udp4(doc) ->
 api_to_recvmsg_udp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_udp4,
            fun() ->
-                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-                   InitState = #{domain => inet, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain  => inet,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -2111,8 +2234,10 @@ api_to_recvmsg_udp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_udp6,
            fun() ->
                    not_yet_implemented(),
-                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-                   InitState = #{domain => inet6, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain  => inet6,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_udp(InitState)
            end).
 
@@ -2128,8 +2253,10 @@ api_to_recvmsg_tcp4(doc) ->
 api_to_recvmsg_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_tcp4,
            fun() ->
-                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-                   InitState = #{domain => inet, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain  => inet,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_tcp(InitState)
            end).
 
@@ -2146,8 +2273,10 @@ api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recvmsg_tcp6,
            fun() ->
                    not_yet_implemented(),
-                   Recv = fun(Sock) -> socket:recvmsg(Sock, 5000) end,
-                   InitState = #{domain => inet6, recv => Recv},
+                   Recv = fun(Sock, To) -> socket:recvmsg(Sock, To) end,
+                   InitState = #{domain  => inet6,
+                                 recv    => Recv,
+                                 timeout => 5000},
                    ok = api_to_receive_tcp(InitState)
            end).
 
@@ -2273,7 +2402,8 @@ ee(F, A) ->
     eprint("<ERROR> ", F, A).
 
 eprint(Prefix, F, A) ->
-    io:format(user, "[~s][~p] ~s" ++ F ++ "~n", [get(sname), self(), Prefix | A]).
+    io:format(user, "[~s][~s][~p] ~s" ++ F ++ "~n", 
+              [formated_timestamp(), get(sname), self(), Prefix | A]).
 
 
 
@@ -2385,17 +2515,30 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% t() ->
-%%     os:timestamp().
+t() ->
+    os:timestamp().
 
 
-%% tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
-%%     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
-%%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
-%%     T2 - T1.
+tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
+    T1 = A1*1000000000+B1*1000+(C1 div 1000), 
+    T2 = A2*1000000000+B2*1000+(C2 div 1000), 
+    T2 - T1.
 
 
-    
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, _N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    %% {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    %% FormatTS = 
+    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
+    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
+    lists:flatten(FormatTS).
+
+   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 set_tc_name(N) when is_atom(N) ->
@@ -2454,7 +2597,7 @@ p(F, A) ->
             Name when is_list(Name) ->
                 Name
         end,
-    i("*** ~s[~p] " ++ F, [TcName,self()|A]).
+    i("*** [~s][~s][~p] " ++ F, [formated_timestamp(),TcName,self()|A]).
 
 
 %% i(F) ->
