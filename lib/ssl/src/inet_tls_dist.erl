@@ -567,7 +567,7 @@ gen_close(Driver, Socket) ->
 get_address_resolver(EpmdModule, Driver) ->
     case erlang:function_exported(EpmdModule, address_please, 3) of
         true -> {EpmdModule, address_please};
-        _    -> {Driver, getaddr}
+        _    -> {erl_epmd, address_please}
     end.
 
 %% ------------------------------------------------------------
