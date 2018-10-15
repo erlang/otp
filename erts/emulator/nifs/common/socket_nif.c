@@ -390,7 +390,18 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define SOCKET_STATE_ACCEPTING       (SOCKET_STATE_LISTENING | SOCKET_FLAG_ACC)
 #define SOCKET_STATE_CLOSING         (SOCKET_FLAG_CLOSE)
 
-#define IS_OPEN(d) \
+#define IS_CLOSED(d)                            \
+    ((d)->state == SOCKET_STATE_CLOSED)
+
+/*
+#define IS_STATE(d, f) \
+    (((d)->state & (f)) == (f))
+*/
+
+#define IS_CLOSING(d)                                                   \
+    (((d)->state & SOCKET_STATE_CLOSING) == SOCKET_STATE_CLOSING)
+
+#define IS_OPEN(d)                                              \
     (((d)->state & SOCKET_FLAG_OPEN) == SOCKET_FLAG_OPEN)
 
 #define IS_CONNECTED(d)                                                 \
@@ -2945,6 +2956,9 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
     }
     eSockAddr = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_bind -> args when sock = %d (0x%lX)"
             "\r\n   Socket:   %T"
@@ -3034,6 +3048,9 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     }
     eSockAddr = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_connect -> args when sock = %d:"
             "\r\n   Socket:   %T"
@@ -3235,6 +3252,9 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_listen -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -3295,6 +3315,9 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     ref = argv[1];
+    
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
     
     SSDBG( descP,
            ("SOCKET", "nif_accept -> args when sock = %d:"
@@ -3676,6 +3699,9 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     }
     sendRef = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_send -> args when sock = %d:"
             "\r\n   Socket:       %T"
@@ -3800,6 +3826,9 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     sendRef   = argv[1];
     eSockAddr = argv[3];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_sendto -> args when sock = %d:"
             "\r\n   Socket:       %T"
@@ -3923,6 +3952,9 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     sendRef = argv[1];
     eMsgHdr = argv[2];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_sendmsg -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -4212,6 +4244,9 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     }
     recvRef  = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     if (!IS_CONNECTED(descP))
         return esock_make_error(env, atom_enotconn);
 
@@ -4351,6 +4386,9 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     }
     recvRef  = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_recvfrom -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -4511,6 +4549,9 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     }
     recvRef  = argv[1];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_recvmsg -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -4669,6 +4710,9 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     return nclose(env, descP);
 }
 
@@ -4807,10 +4851,10 @@ ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
 {
     ERL_NIF_TERM reply;
 
-    if (descP->state == SOCKET_STATE_CLOSED)
+    if (IS_CLOSED(descP))
         return esock_atom_ok;
 
-    if (descP->state != SOCKET_STATE_CLOSING)
+    if (!IS_CLOSING(descP))
         return esock_make_error(env, atom_enotclosing);
 
     /* This nif is executed in a dirty scheduler just so that
@@ -4873,6 +4917,9 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     if (!ehow2how(ehow, &how))
         return enif_make_badarg(env);
 
@@ -4957,6 +5004,9 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
     eIsEncoded = argv[1];
     eVal       = argv[4];
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     isEncoded = esock_decode_bool(eIsEncoded);
 
     /* SGDBG( ("SOCKET", "nif_setopt -> eIsDecoded (%T) decoded: %d\r\n", */
@@ -8214,6 +8264,9 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     eIsEncoded = argv[1];
     eOpt       = argv[3]; // Is "normally" an int, but if raw mode: {Int, ValueSz}
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_getopt -> args when sock = %d:"
             "\r\n   Socket:     %T"
@@ -10807,6 +10860,9 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_sockname -> args when sock = %d:"
             "\r\n   Socket: %T"
@@ -10872,6 +10928,9 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_peername -> args when sock = %d:"
             "\r\n   Socket: %T"
@@ -10940,6 +10999,9 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
     op    = argv[1];
     opRef = argv[2];
         
+    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+        return esock_make_error(env, atom_closed);
+    
     SSDBG( descP,
            ("SOCKET", "nif_cancel -> args when sock = %d:"
             "\r\n   op:    %T"
@@ -14955,6 +15017,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MLOCK(descP->accMtx);
     MLOCK(descP->closeMtx);
     
+    SSDBG( descP, ("SOCKET", "socket_stop -> all mutex(s) locked\r\n") );
     
     descP->state      = SOCKET_STATE_CLOSING; // Just in case...???
     descP->isReadable = FALSE;
@@ -14964,7 +15027,13 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     /* We should check that we actually have a monitor.
      * This *should* be done with a "NULL" monitor value,
      * which there currently is none...
+     * If we got here because the controlling process died,
+     * its no point in demonitor. Also, we not actually have 
+     * a monitor in that case...
      */
+    SSDBG( descP,
+           ("SOCKET",
+            "socket_stop -> demonitor (maybe) controlling process\r\n") );
     DEMONP(env, descP, &descP->ctrlMon);
     
     if (descP->currentWriterP != NULL) {
@@ -14972,6 +15041,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * writers waiting.
          */
 
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle writer(s)\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentWriter.pid) &&
@@ -14998,6 +15068,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * readers waiting.
          */
         
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle reader(s)\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentReader.pid) &&
@@ -15023,6 +15094,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * acceptors waiting.
          */
         
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle acceptor(s)\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentAcceptor.pid) &&
@@ -15085,7 +15157,15 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         }
     }
     
-    
+
+    if (!is_direct_call) {
+        descP->sock  = INVALID_SOCKET;
+        descP->event = INVALID_EVENT;
+        descP->state = SOCKET_STATE_CLOSED;
+    }
+
+    SSDBG( descP, ("SOCKET", "socket_stop -> unlock all mutex(s)\r\n") );
+
     MUNLOCK(descP->closeMtx);
     MUNLOCK(descP->accMtx);
     MUNLOCK(descP->readMtx);
@@ -15163,22 +15243,108 @@ void socket_down(ErlNifEnv*           env,
 
     
     if (compare_pids(env, &descP->ctrlPid, pid)) {
+        int selectRes;
+
         /* We don't bother with the queue cleanup here - 
          * we leave it to the stop callback function.
          */
+
+        SSDBG( descP, ("SOCKET", "socket_down -> controlling process term\r\n") );
 
         descP->state      = SOCKET_STATE_CLOSING;
         descP->closeLocal = TRUE;
         descP->closerPid  = *pid;
         descP->closerMon  = *mon;
-        descP->closeRef   = MKREF(env);
-        enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
-                    descP, NULL, descP->closeRef);
+        descP->closeRef   = MKREF(env); // Do we really need this in this case?
+
+        selectRes = enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
+                                descP, NULL, descP->closeRef);
+
+        if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
+            /* We are done - wwe can finalize (socket close) directly */
+            SSDBG( descP,
+                   ("SOCKET", "socket_down -> [%d] stop called\r\n", descP->sock) );
+            dec_socket(descP->domain, descP->type, descP->protocol);
+            descP->state = SOCKET_STATE_CLOSED;
+
+            /* And finally close the socket.
+             * Since we close the socket because of an exiting owner,
+             * we do not need to wait for buffers to sync (linger).
+             * If the owner wish to ensure the buffer are written,
+             * it should have closed teh socket explicitly...
+             */
+            if (sock_close(descP->sock) != 0) {
+                int save_errno = sock_errno();
+                
+                esock_warning_msg("Failed closing socket for terminating "
+                                  "controlling process: "
+                                  "\r\n   Controlling Process: %T"
+                                  "\r\n   Descriptor:          %d"
+                                  "\r\n   Errno:               %d"
+                                  "\r\n", pid, descP->sock, save_errno);
+            }
+            sock_close_event(descP->event);
+            
+            descP->sock  = INVALID_SOCKET;
+            descP->event = INVALID_EVENT;
+            
+            descP->state = SOCKET_STATE_CLOSED;
+
+        } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
+            /* The stop callback function has been *scheduled* which means that 
+             * "should" wait for it to complete. But since we are in a callback
+             * (down) function, we cannot... 
+             * So, we must close the socket 
+             */
+            SSDBG( descP,
+                   ("SOCKET",
+                    "socket_down -> [%d] stop scheduled\r\n", descP->sock) );
+            dec_socket(descP->domain, descP->type, descP->protocol);
+
+            /* And now what? We can't wait for the stop function here... 
+             * So, we simply close it here and leave the rest of the "close"
+             * for later (when the stop function actually gets called...
+             */
+
+            if (sock_close(descP->sock) != 0) {
+                int save_errno = sock_errno();
+                
+                esock_warning_msg("Failed closing socket for terminating "
+                                  "controlling process: "
+                                  "\r\n   Controlling Process: %T"
+                                  "\r\n   Descriptor:          %d"
+                                  "\r\n   Errno:               %d"
+                                  "\r\n", pid, descP->sock, save_errno);
+            }
+            sock_close_event(descP->event);
+            
+        } else {
+
+            /*
+             * <KOLLA>
+             *
+             * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
+             * SO WE DON'T LET STUFF LEAK.
+             * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
+             * THE CLOSE, WHAT TO DO? ABORT?
+             *
+             * </KOLLA>
+             */
+            esock_warning_msg("Failed selecting stop when handling down "
+                              "of controlling process: "
+                              "\r\n   Select Res:          %d"
+                              "\r\n   Controlling Process: %T"
+                              "\r\n   Descriptor:          %d"
+                              "\r\n", selectRes, pid, descP->sock);
+        }
+        
 
     } else {
     
         /* check all operation queue(s): acceptor, writer and reader. */
         
+        SSDBG( descP, ("SOCKET", "socket_down -> other process term\r\n") );
+
         MLOCK(descP->accMtx);
         if (descP->currentAcceptorP != NULL)
             socket_down_acceptor(env, descP, pid);
