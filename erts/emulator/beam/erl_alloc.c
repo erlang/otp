@@ -4030,6 +4030,9 @@ debug_free(ErtsAlcType_t n, void *extra, void *ptr)
 
     ASSERT(ERTS_ALC_N_MIN <= n && n <= ERTS_ALC_N_MAX);
 
+    if (!ptr)
+        return;
+
     dptr = check_memory_fence(ptr, &size, n, ERTS_ALC_O_FREE);
 
 #ifdef ERTS_ALC_A_EXEC
