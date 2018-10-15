@@ -1034,11 +1034,6 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 #endif
 }
 
-/*
- * locked = 0    trylock failed
- * locked > 0    trylock succeeded
- * locked < 0    prelocking of newly created lock (no lock order check)
- */
 void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t options,
 			   char *file, unsigned int line)
 {
@@ -1069,7 +1064,7 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
             int order = compare_locked_by_id_extra(tl_lck, lck);
 	    if (order <= 0) {
-		if (order == 0 && locked >= 0)
+		if (order == 0)
 		    lock_twice("Trylocking", thr, lck, options);
 		if (locked) {
 		    ll->next = tl_lck->next;
