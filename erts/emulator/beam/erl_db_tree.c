@@ -547,7 +547,7 @@ int db_next_tree_common(Process *p, DbTable *tbl,
 {
     TreeDbTerm *this;
 
-    if (is_atom(key) && key == am_EOT)
+    if (key == am_EOT)
 	return DB_ERROR_BADKEY;
     this = find_next(&tbl->common, root, stack, key);
     if (this == NULL) {
@@ -605,7 +605,7 @@ int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
 {
     TreeDbTerm *this;
 
-    if (is_atom(key) && key == am_EOT)
+    if (key == am_EOT)
 	return DB_ERROR_BADKEY;
     this = find_prev(&tbl->common, root, stack, key);
     if (this == NULL) {

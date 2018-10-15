@@ -1125,34 +1125,6 @@ clone_stack(CATreeNodeStack *search_stack_ptr,
     }
 }
 
-
-
-static ERTS_INLINE DbTableCATreeNode*
-lock_first_base_node(DbTable *tbl,
-                     CATreeNodeStack *search_stack_ptr,
-                     CATreeNodeStack *locked_base_nodes_stack_ptr)
-{
-    DbTableCATreeNode *current_node;
-    DbTableCATreeBaseNode *base_node;
-    DbTableCATree* tb = &tbl->catree;
-    while (1) {
-        current_node = GET_ROOT_ACQB(tb);
-        while ( ! current_node->is_base_node ) {
-            PUSH_NODE(search_stack_ptr, current_node);
-            current_node = GET_LEFT_ACQB(current_node);
-        }
-        base_node = &current_node->u.base;
-        rlock_base_node(base_node);
-        if (base_node->is_valid)
-            break;
-        /* Retry */
-        runlock_base_node(base_node);
-        search_stack_ptr->pos = 0;
-    }
-    push_node_dyn_array(tbl, locked_base_nodes_stack_ptr, current_node);
-    return current_node;
-}
-
 static ERTS_INLINE DbTableCATreeBaseNode*
 find_and_lock_next_base_node_and_path(DbTable *tbl,
                                       CATreeNodeStack **search_stack_ptr_ptr,
@@ -1748,68 +1720,93 @@ int db_create_catree(Process *p, DbTable *tbl)
 
 static int db_first_catree(Process *p, DbTable *tbl, Eterm *ret)
 {
-    DbTableCATreeBaseNode *base_node;
+    TreeDbTerm *root;
+    CATreeRootIterator iter;
     int result;
-    DECLARE_AND_INIT_BASE_NODE_SEARCH_STACKS;
-    /* Find first base node */
-    base_node = &(lock_first_base_node(tbl, &search_stack, &locked_base_nodes_stack)->u.base);
-    /* Find next base node until non-empty base node is found */
-    while (base_node != NULL && base_node->root == NULL) {
-        base_node = find_and_lock_next_base_node_and_path(tbl, &search_stack_ptr, &search_stack_copy_ptr, locked_base_nodes_stack_ptr);
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    root = *catree_find_first_root(&iter);
+    if (!root) {
+        TreeDbTerm **pp = catree_find_next_root(&iter);
+        root = pp ? *pp : NULL;
     }
-    /* Get the return value */
-    result = db_first_tree_common(p, tbl, (base_node == NULL ? NULL : base_node->root), ret, NULL);
-    /* Unlock base nodes */
-    unlock_and_release_locked_base_node_stack(tbl, locked_base_nodes_stack_ptr);
+
+    result = db_first_tree_common(p, tbl, root, ret, NULL);
+
+    if (iter.locked_bnode)
+        runlock_base_node(iter.locked_bnode);
     return result;
 }
 
 static int db_next_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
-    DbTreeStack next_search_stack;
-    TreeDbTerm *next_search_stack_array[STACK_NEED];
-    DbTableCATreeBaseNode *base_node;
-    int result = 0;
-    DECLARE_AND_INIT_BASE_NODE_SEARCH_STACKS;
-    init_tree_stack(&next_search_stack, next_search_stack_array, 0);
-    /* Lock base node with key */
-    base_node = lock_base_node_with_key(tbl, key, &search_stack, &locked_base_nodes_stack);
-    /* Continue until key is not >= greatest key in base_node */
-    while (base_node != NULL) {
-        result = db_next_tree_common(p, tbl, base_node->root, key,
-                                     ret, &next_search_stack);
-        if (result != DB_ERROR_NONE || *ret != am_EOT) {
+    DbTreeStack stack;
+    TreeDbTerm * stack_array[STACK_NEED];
+    TreeDbTerm **rootp;
+    CATreeRootIterator iter;
+    int result;
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    iter.next_route_key = key;
+    rootp = catree_find_next_root(&iter);
+
+    do {
+        init_tree_stack(&stack, stack_array, 0);
+        result = db_next_tree_common(p, tbl, (rootp ? *rootp : NULL), key, ret, &stack);
+        if (result != DB_ERROR_NONE || *ret != am_EOT)
             break;
-        }
-        base_node =
-            find_and_lock_next_base_node_and_path(tbl,
-                                                  &search_stack_ptr,
-                                                  &search_stack_copy_ptr,
-                                                  locked_base_nodes_stack_ptr);
-    }
-    unlock_and_release_locked_base_node_stack(tbl, &locked_base_nodes_stack);
+
+        rootp = catree_find_next_root(&iter);
+    } while (rootp);
+
+    if (iter.locked_bnode)
+        runlock_base_node(iter.locked_bnode);
     return result;
 }
 
 static int db_last_catree(Process *p, DbTable *tbl, Eterm *ret)
 {
-    DbTableCATreeNode *base = merge_to_one_locked_base_node(&tbl->catree);
-    int result = db_last_tree_common(p, tbl, base->u.base.root, ret, NULL);
-    wunlock_base_node(&(base->u.base));
+    TreeDbTerm *root;
+    CATreeRootIterator iter;
+    int result;
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    root = *catree_find_last_root(&iter);
+    if (!root) {
+        TreeDbTerm **pp = catree_find_prev_root(&iter);
+        root = pp ? *pp : NULL;
+    }
+
+    result = db_last_tree_common(p, tbl, root, ret, NULL);
+
+    if (iter.locked_bnode)
+        runlock_base_node(iter.locked_bnode);
     return result;
-    
 }
 
 static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTreeStack stack;
     TreeDbTerm * stack_array[STACK_NEED];
+    TreeDbTerm **rootp;
+    CATreeRootIterator iter;
     int result;
-    DbTableCATreeNode *base;
-    init_tree_stack(&stack, stack_array, 0);
-    base = merge_to_one_locked_base_node(&tbl->catree);
-    result = db_prev_tree_common(p, tbl, base->u.base.root, key, ret, &stack);
-    wunlock_base_node(&(base->u.base));
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    iter.next_route_key = key;
+    rootp = catree_find_prev_root(&iter);
+
+    do {
+        init_tree_stack(&stack, stack_array, 0);
+        result = db_prev_tree_common(p, tbl, (rootp ? *rootp : NULL), key, ret,
+                                     &stack);
+        if (result != DB_ERROR_NONE || *ret != am_EOT)
+            break;
+        rootp = catree_find_prev_root(&iter);
+    } while (rootp);
+
+    if (iter.locked_bnode)
+        runlock_base_node(iter.locked_bnode);
     return result;
 }
 
