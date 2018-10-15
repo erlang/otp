@@ -169,53 +169,5 @@ multiple_setelement(T0) ->
         {Bin1,Bin2} = split_binary(Bin, Num)</code>
    </section>
 
-  <section>
-    <title>Operator "--"</title>
-     <p>The "<c>--</c>" operator has a complexity
-     proportional to the product of the length of its operands.
-     This means that the operator is very slow if both of its operands
-     are long lists:</p>
-
-        <p><em>DO NOT</em></p>
-        <code type="none"><![CDATA[
-        HugeList1 -- HugeList2]]></code>
-
-     <p>Instead use the <seealso marker="stdlib:ordsets">ordsets</seealso>
-     module in STDLIB:</p>
-
-        <p><em>DO</em></p>
-        <code type="none">
-        HugeSet1 = ordsets:from_list(HugeList1),
-        HugeSet2 = ordsets:from_list(HugeList2),
-        ordsets:subtract(HugeSet1, HugeSet2)</code>
-
-     <p>Obviously, that code does not work if the original order
-     of the list is important. If the order of the list must be
-     preserved, do as follows:</p>
-
-        <p><em>DO</em></p>
-        <code type="none"><![CDATA[
-        Set = gb_sets:from_list(HugeList2),
-        [E || E <- HugeList1, not gb_sets:is_element(E, Set)]]]></code>
-
-     <note><p>This code behaves differently from "<c>--</c>"
-     if the lists contain duplicate elements (one occurrence
-     of an element in HugeList2 removes <em>all</em>
-     occurrences in HugeList1.)</p>
-     <p>Also, this code compares lists elements using the
-     "<c>==</c>" operator, while "<c>--</c>" uses the "<c>=:=</c>" operator.
-     If that difference is important, <c>sets</c> can be used instead of
-     <c>gb_sets</c>, but <c>sets:from_list/1</c> is much
-     slower than <c>gb_sets:from_list/1</c> for long lists.</p></note>
-
-     <p>Using the "<c>--</c>" operator to delete an element
-     from a list is not a performance problem:</p>
-
-        <p><em>OK</em></p>
-        <code type="none">
-        HugeList1 -- [Element]</code>
-
-   </section>
-
 </chapter>
 
