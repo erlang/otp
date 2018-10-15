@@ -525,7 +525,7 @@ upgrade(Config) ->
             T = [beam, hipe],
             [upgrade_do(DataDir, Client, T) || Client <- T],
 
-            case hipe:llvm_support_available() of
+            case hipe:erllvm_is_supported() of
                 false -> ok;
                 true  ->
                     T2 = [beam, hipe_llvm],
