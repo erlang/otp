@@ -386,6 +386,14 @@ module.beam: module.erl \
             </list>
           </item>
 
+          <tag><c>{include_lib_paths,[{'application', "RootDir"}]}</c></tag>
+          <item>
+            <p>Provides explicit application paths for <c>-include_lib</c>
+              directives, ignoring the code server. Note that this list must be
+              exhaustive as the directive will not fall back to using the code
+              server when this option has been specified.</p>
+          </item>
+
           <tag><c>{d,Macro}</c></tag>
           <item></item>
           <tag><c>{d,Macro,Value}</c></tag>

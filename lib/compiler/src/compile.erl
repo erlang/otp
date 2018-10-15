@@ -930,18 +930,26 @@ parse_module(_Code, St0) ->
 	    end
     end.
 
-do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
+epp_parse_opts(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}) ->
     SourceName0 = proplists:get_value(source, Opts, File),
     SourceName = case member(deterministic, Opts) of
                      true -> filename:basename(SourceName0);
                      false -> SourceName0
                  end,
-    R = epp:parse_file(File,
-                       [{includes,[".",Dir|inc_paths(Opts)]},
-                        {source_name, SourceName},
-                        {macros,pre_defs(Opts)},
-                        {default_encoding,DefEncoding},
-                        extra]),
+
+    EppOpts0 = [{includes,[".",Dir|inc_paths(Opts)]},
+                {source_name, SourceName},
+                {macros,pre_defs(Opts)},
+                {default_encoding,DefEncoding},
+                extra],
+
+    case proplists:lookup(include_lib_paths, Opts) of
+        none -> EppOpts0;
+        LibPaths -> [LibPaths | EppOpts0]
+    end.
+
+do_parse_module(DefEncoding, #compile{ifile=File}=St) ->
+    R = epp:parse_file(File, epp_parse_opts(DefEncoding, St)),
     case R of
 	{ok,Forms,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),

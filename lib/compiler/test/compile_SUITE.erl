@@ -36,7 +36,8 @@
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1, deterministic_include/1, deterministic_paths/1
+         bc_options/1, deterministic_include/1, deterministic_paths/1,
+         include_lib_paths/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +54,8 @@ all() ->
      cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
-     custom_compile_info, deterministic_include, deterministic_paths].
+     custom_compile_info, deterministic_include, deterministic_paths,
+     include_lib_paths].
 
 groups() -> 
     [].
@@ -1554,6 +1556,29 @@ deterministic_paths_1(DataDir, Name, Opts) ->
     after
         file:set_cwd(Cwd)
     end.
+
+include_lib_paths(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    LibPaths = [{kernel, DataDir ++ "include_lib_paths"}],
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    File = filename:join(PrivDir, "lib_path_test.erl"),
+
+    Test = <<"-module(lib_path_test).\n"
+              "-include_lib(\"kernel/include/file.hrl\").\n"
+              "ok() -> #gurka{gaffel=elefant}.\n">>,
+
+    ok = file:write_file(File, Test),
+
+    %% OTP's kernel/include/file.hrl exists but does not define #gurka{}.
+    {error, Errors, _} = compile:file(File, [binary, return_errors]),
+    [{File, [{3,erl_lint,{undefined_record,gurka}}]} | _] = Errors,
+
+    %% Our version of kernel/include/file.hrl defines #gurka{}.
+    {ok, _, _} = compile:file(File, [binary, {include_lib_paths, LibPaths}]),
+
+    ok.
+
 
 %%%
 %%% Utilities.
