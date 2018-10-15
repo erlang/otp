@@ -60,4 +60,18 @@
     That leads us to the myth that tail-recursive functions are faster
     than body-recursive functions.</p>
   </section>
+
+  <section>
+    <title>Myth: List subtraction ("--" operator) is slow</title>
+
+    <p>List subtraction used to have a run-time complexity proportional to the
+      product of the length of its operands, so it was extremely slow when both
+      lists were long.</p>
+
+    <p>As of OTP 22 the run-time complexity is "n log n" and the operation will
+      complete quickly even when both lists are very long. In fact, it is
+      faster and uses less memory than the commonly used workaround to convert
+      both lists to ordered sets before subtracting them with
+      <c>ordsets:subtract/2</c>.</p>
+  </section>
 </chapter>

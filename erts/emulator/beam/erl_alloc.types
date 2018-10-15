@@ -322,6 +322,7 @@ type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
 +endif
+type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 
 #
 # Types used for special emulators
