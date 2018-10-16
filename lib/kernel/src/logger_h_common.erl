@@ -421,7 +421,7 @@ write(Name, Mode, T1, Bin, _CallOrCast,
                 last_log_ts := T0}) ->
     %% check if we need to limit the number of writes
     %% during a burst of log events
-    {DoWrite,BurstWinT,BurstMsgCount} = limit_burst(State),
+    {DoWrite,State1} = limit_burst(State),
 
     %% only log synhrounously every ?CONTROLLER_SYNC_INTERVAL time, to
     %% give the handler time between writes so it can keep up with
@@ -448,30 +448,28 @@ write(Name, Mode, T1, Bin, _CallOrCast,
     %% time between two consecutive log events is fast and no new
     %% event comes in after the last one, idle state won't be detected!
     Time = ?diff_time(T1,T0),
-    {Mode1,BurstMsgCount1,HandlerState2} =
+    State2 =
         if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
            (Time > ?IDLE_DETECT_TIME_USEC) ->
                 {_,HS2} = Module:filesync(Name,async,HandlerState),
-                {?change_mode(ModeTab, Mode, async),0,HS2};
+                State1#{mode => ?change_mode(ModeTab, Mode, async),
+                        burst_msg_count => 0,
+                        handler_state => HS2};
            true ->
-                {Mode,BurstMsgCount,HandlerState1}
+                State1#{mode => Mode, handler_state => HandlerState1}
         end,
-    State1 = ?update_calls_or_casts(_CallOrCast,1,State),
-    State2 = ?update_max_qlen(LastQLen1,State1),
-    State3 =
+    State3 = ?update_calls_or_casts(_CallOrCast,1,State2),
+    State4 = ?update_max_qlen(LastQLen1,State3),
+    State5 =
         ?update_max_time(Time,
-                         State2#{mode => Mode1,
-                                 last_qlen := LastQLen1,
+                         State4#{last_qlen := LastQLen1,
                                  last_log_ts => T1,
                                  last_op => write,
-                                 burst_win_ts => BurstWinT,
-                                 burst_msg_count => BurstMsgCount1,
                                  ctrl_sync_count =>
                                      if CtrlSync==0 -> ?CONTROLLER_SYNC_INTERVAL;
                                         true -> CtrlSync-1
-                                     end,
-                                 handler_state => HandlerState2}),
-    {Result,State3}.
+                                     end}),
+    {Result,State5}.
 
 log_handler_info(Name, Format, Args, #{module:=Module,
                                        formatter:=Formatter,
@@ -681,26 +679,28 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State1#{last_qlen => QLen})}.
 
-limit_burst(#{burst_limit_enable := false}) ->
-     {true,0,0};
+limit_burst(#{burst_limit_enable := false}=State) ->
+     {true,State};
 limit_burst(#{burst_win_ts := BurstWinT0,
               burst_msg_count := BurstMsgCount,
               burst_limit_window_time := BurstLimitWinTime,
-              burst_limit_max_count := BurstLimitMaxCnt}) ->
+              burst_limit_max_count := BurstLimitMaxCnt} = State) ->
     if (BurstMsgCount >= BurstLimitMaxCnt) -> 
             %% the limit for allowed messages has been reached
             BurstWinT1 = ?timestamp(),
             case ?diff_time(BurstWinT1,BurstWinT0) of
                 BurstCheckTime when BurstCheckTime < (BurstLimitWinTime*1000) ->
                     %% we're still within the burst time frame
-                    {false,BurstWinT0,BurstMsgCount};
+                    {false,?update_other(burst_drops,BURSTS,1,State)};
                 _BurstCheckTime ->
                     %% burst time frame passed, reset counters
-                    {true,BurstWinT1,0}
+                    {true,State#{burst_win_ts => BurstWinT1,
+                                 burst_msg_count => 0}}
             end;
        true ->
             %% the limit for allowed messages not yet reached
-            {true,BurstWinT0,BurstMsgCount+1}
+            {true,State#{burst_win_ts => BurstWinT0,
+                         burst_msg_count => BurstMsgCount+1}}
     end.
 
 kill_if_choked(Name, QLen, Mem, State = #{overload_kill_enable   := KillIfOL,

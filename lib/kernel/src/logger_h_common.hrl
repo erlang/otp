@@ -210,7 +210,7 @@
 -ifdef(SAVE_STATS).
   -define(merge_with_stats(STATE),
           STATE#{flushes => 0, flushed => 0, drops => 0,
-                 casts => 0, calls => 0,
+                 burst_drops => 0, casts => 0, calls => 0,
                  max_qlen => 0, max_time => 0}).
 
   -define(update_max_qlen(QLEN, STATE),
