@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:select_replace</c> when called with a
+	    fully bound key could cause a following call to
+	    <c>ets:next</c> or <c>ets:prev</c> to crash the emulator
+	    or return invalid result.</p>
+          <p>
+	    Own Id: OTP-15346</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
