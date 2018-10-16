@@ -52,7 +52,7 @@ ifeq ($(TYPE),gcov)
 ZLIB_CFLAGS = -O0 -fprofile-arcs -ftest-coverage $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
 else  # gcov
 ifeq ($(TYPE),debug)
-ZLIB_CFLAGS = $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
+ZLIB_CFLAGS = -DZLIB_DEBUG=1 $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
 else # debug
 ZLIB_CFLAGS = $(subst -O2, -O3, $(CONFIGURE_CFLAGS) $(DEFS) $(THR_DEFS))
 #ZLIB_CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
