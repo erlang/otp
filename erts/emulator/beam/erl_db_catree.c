@@ -2304,9 +2304,16 @@ static int db_take_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 static void db_print_catree(fmtfn_t to, void *to_arg,
                             int show, DbTable *tbl)
 {
-    DbTableCATreeNode *base = merge_to_one_locked_base_node(&tbl->catree);
-    db_print_tree_common(to, to_arg, show, base->u.base.root, tbl);
-    wunlock_base_node(&(base->u.base));
+    CATreeRootIterator iter;
+    TreeDbTerm** root;
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    root = catree_find_first_root(&iter);
+    do {
+        db_print_tree_common(to, to_arg, show, *root, tbl);
+        root = catree_find_next_root(&iter);
+    } while (root);
+    ASSERT(!iter.locked_bnode);
 }
 
 /* Release all memory occupied by a single table */
@@ -2382,9 +2389,16 @@ static void db_foreach_offheap_catree(DbTable *tbl,
                                       void (*func)(ErlOffHeap *, void *),
                                       void *arg)
 {
-    DbTableCATreeNode *base = merge_to_one_locked_base_node(&tbl->catree);
-    db_foreach_offheap_tree_common(base->u.base.root, func, arg);
-    wunlock_base_node(&(base->u.base));
+    CATreeRootIterator iter;
+    TreeDbTerm** root;
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    root = catree_find_first_root(&iter);
+    do {
+        db_foreach_offheap_tree_common(*root, func, arg);
+        root = catree_find_next_root(&iter);
+    } while (root);
+    ASSERT(!iter.locked_bnode);
 }
 
 static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
