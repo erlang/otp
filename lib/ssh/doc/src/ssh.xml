@@ -502,7 +502,7 @@
 	    </p>
           </item>
 
-	  <tag><c>user_passwords</c></tag>
+	  <tag><marker id="option-user_passwords"/><c>user_passwords</c></tag>
 	  <item>
             <p>Provides passwords for password authentication. The passwords are used when someone tries
 	    to connect to the server and public key user-authentication fails. The option provides
@@ -510,7 +510,7 @@
 	    </p>
           </item>
 
-          <tag><c>password</c></tag>
+          <tag><marker id="option-password"/><c>password</c></tag>
           <item>
             <p>Provides a global password that authenticates any user.</p>
 	    <warning>
@@ -519,7 +519,9 @@
 	    </warning>
 	  </item>
 
-	  <tag><c>pwdfun</c> with <c>pwdfun_4()</c></tag>
+	  <tag><marker id="option-pwdfun"/><c>pwdfun</c> with 
+	  <seealso marker="#type-pwdfun_4"><c>pwdfun_4()</c></seealso>
+	  </tag>
 	  <item>
 	    <p>Provides a function for password validation. This could used for calling an external system or handeling
 	    passwords stored as hash values.
@@ -546,7 +548,9 @@
 	    can be used for this. The return value <c>disconnect</c> is useful for this.</p>
 	  </item>
 
-	  <tag><c>pwdfun</c> with <c>pwdfun_2()</c></tag>
+	  <tag><c>pwdfun</c> with
+	  <seealso marker="#type-pwdfun_2"><c>pwdfun_2()</c></seealso>
+	  </tag>
 	  <item>
 	    <p>Provides a function for password validation. This function is called with user and password
 	    as strings, and returns:</p>
@@ -730,7 +734,8 @@
 	<p>Sets the user directory. That is, the directory containing <c>ssh</c> configuration
 	files for the user, such as 
 	<c>known_hosts</c>, <c>id_rsa</c>, <c>id_dsa</c>>, <c>id_ecdsa</c> and <c>authorized_key</c>.
-	Defaults to the directory normally referred to as <c>~/.ssh</c>.
+	Defaults to the directory normally referred to as <c>~/.ssh</c> where ~ is the home directory of the user
+	that the Erlang executes as.
 	</p>
 	<p>See also the option 
 	<seealso marker="#type-key_cb_common_option">key_cb</seealso>
@@ -804,7 +809,10 @@
 	<p>where <c>...</c> are arguments to <c>F</c> as in 
 	<seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
 	<seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
-	The <c>UserOptions</c> are the options given to <c>ssh:connect</c>, <c>ssh:shell</c> or <c>ssh:daemon</c>.
+	The <c>UserOptions</c> are the options given to 
+	<seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+	<seealso marker="ssh:ssh#shell-1">ssh:shell</seealso> or
+	<seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso>.
 	</p>
 
       </desc>
