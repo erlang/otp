@@ -66,11 +66,11 @@
          api_to_recvmsg_tcp4/1,
          api_to_recvmsg_tcp6/1,
 
-         %% Controlling Process
-         sc_socket_cleanup_tcp4/1,
-         sc_socket_cleanup_tcp6/1,
-         sc_socket_cleanup_udp4/1,
-         sc_socket_cleanup_udp6/1,
+         %% Socket Closure
+         sc_cpe_socket_cleanup_tcp4/1,
+         sc_cpe_socket_cleanup_tcp6/1,
+         sc_cpe_socket_cleanup_udp4/1,
+         sc_cpe_socket_cleanup_udp6/1,
          sc_recv_response_local_close_tcp4/1,
          sc_recv_response_local_close_tcp6/1,
          sc_recv_response_remote_close_tcp4/1,
@@ -130,7 +130,8 @@ groups() ->
      {api_basic,           [], api_basic_cases()},
      {api_options,         [], api_options_cases()},
      {api_op_with_timeout, [], api_op_with_timeout_cases()},
-     {socket_closure,      [], socket_closure_cases()}
+     {socket_closure,      [], socket_closure_cases()},
+     {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()}
      %% {tickets,             [], ticket_cases()}
     ].
      
@@ -185,10 +186,7 @@ api_op_with_timeout_cases() ->
 %% remotely.
 socket_closure_cases() ->
     [
-     sc_socket_cleanup_tcp4,
-     sc_socket_cleanup_tcp6,
-     sc_socket_cleanup_udp4,
-     sc_socket_cleanup_udp6,
+     {group, sc_ctrl_proc_exit},
 
      sc_recv_response_local_close_tcp4,
      sc_recv_response_local_close_tcp6,
@@ -204,6 +202,16 @@ socket_closure_cases() ->
      sc_acceptor_response_local_close_tcp6,
      sc_acceptor_response_remote_close_tcp4,
      sc_acceptor_response_remote_close_tcp6
+    ].
+
+%% These cases are all about socket cleanup after the controlling process
+%% exits *without* calling socket:close/1.
+sc_cp_exit_cases() ->
+    [
+     sc_cpe_socket_cleanup_tcp4,
+     sc_cpe_socket_cleanup_tcp6,
+     sc_cpe_socket_cleanup_udp4,
+     sc_cpe_socket_cleanup_udp6
     ].
 
 %% ticket_cases() ->
@@ -1782,7 +1790,7 @@ api_to_maccept_tcp(InitState) ->
          #{desc => "close (listen) socket",
            cmd  => fun(#{lsock := LSock} = State) ->
                            sock_close(LSock),
-                           {ok, maps:remove(sock3, State)}
+                           {ok, maps:remove(lsock, State)}
                    end},
 
          %% *** We are done ***
@@ -2805,18 +2813,18 @@ api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
 %% ("removed") when the controlling process terminates (without explicitly 
 %% calling the close function). For a IPv4 TCP (stream) socket.
 
-sc_socket_cleanup_tcp4(suite) ->
+sc_cpe_socket_cleanup_tcp4(suite) ->
     [];
-sc_socket_cleanup_tcp4(doc) ->
+sc_cpe_socket_cleanup_tcp4(doc) ->
     [];
-sc_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_socket_cleanup_tcp4,
+sc_cpe_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_tcp4,
            fun() ->
                    %% not_yet_implemented(),
                    InitState = #{domain   => inet,
                                  type     => stream,
                                  protocol => tcp},
-                   ok = sc_socket_cleanup(InitState)
+                   ok = sc_cpe_socket_cleanup(InitState)
            end).
 
 
@@ -2825,18 +2833,18 @@ sc_socket_cleanup_tcp4(_Config) when is_list(_Config) ->
 %% ("removed") when the controlling process terminates (without explicitly 
 %% calling the close function). For a IPv6 TCP (stream) socket.
 
-sc_socket_cleanup_tcp6(suite) ->
+sc_cpe_socket_cleanup_tcp6(suite) ->
     [];
-sc_socket_cleanup_tcp6(doc) ->
+sc_cpe_socket_cleanup_tcp6(doc) ->
     [];
-sc_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_socket_cleanup_tcp6,
+sc_cpe_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_tcp6,
            fun() ->
                    not_yet_implemented(),
                    InitState = #{domain   => inet6,
                                  type     => stream,
                                  protocol => tcp},
-                   ok = sc_socket_cleanup(InitState)
+                   ok = sc_cpe_socket_cleanup(InitState)
            end).
 
 
@@ -2845,17 +2853,17 @@ sc_socket_cleanup_tcp6(_Config) when is_list(_Config) ->
 %% ("removed") when the controlling process terminates (without explicitly 
 %% calling the close function). For a IPv4 UDP (dgram) socket.
 
-sc_socket_cleanup_udp4(suite) ->
+sc_cpe_socket_cleanup_udp4(suite) ->
     [];
-sc_socket_cleanup_udp4(doc) ->
+sc_cpe_socket_cleanup_udp4(doc) ->
     [];
-sc_socket_cleanup_udp4(_Config) when is_list(_Config) ->
-    tc_try(sc_socket_cleanup_udp4,
+sc_cpe_socket_cleanup_udp4(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_udp4,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => dgram,
                                  protocol => udp},
-                   ok = sc_socket_cleanup(InitState)
+                   ok = sc_cpe_socket_cleanup(InitState)
            end).
 
 
@@ -2865,24 +2873,24 @@ sc_socket_cleanup_udp4(_Config) when is_list(_Config) ->
 %% (removed) when the controlling process terminates (without explicitly 
 %% calling the close function). For a IPv6 UDP (dgram) socket.
 
-sc_socket_cleanup_udp6(suite) ->
+sc_cpe_socket_cleanup_udp6(suite) ->
     [];
-sc_socket_cleanup_udp6(doc) ->
+sc_cpe_socket_cleanup_udp6(doc) ->
     [];
-sc_socket_cleanup_udp6(_Config) when is_list(_Config) ->
-    tc_try(sc_socket_cleanup_udp6,
+sc_cpe_socket_cleanup_udp6(_Config) when is_list(_Config) ->
+    tc_try(sc_cpe_socket_cleanup_udp6,
            fun() ->
                    not_yet_implemented(),
                    InitState = #{domain   => inet6,
                                  type     => dgram,
                                  protocol => udp},
-                   ok = sc_socket_cleanup(InitState)
+                   ok = sc_cpe_socket_cleanup(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sc_socket_cleanup(InitState) ->
+sc_cpe_socket_cleanup(InitState) ->
     OwnerSeq =
         [
          %% *** Wait for start order part ***
@@ -3022,8 +3030,16 @@ sc_socket_cleanup(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test what happens when a socket is 
-%% locally closed while the process is calling the recv function.
+%% locally closed while a process is calling the recv function.
 %% Socket is IPv4.
+%% 
+%% <KOLLA>
+%% 
+%% We should really have a similar test cases for when the controlling
+%% process exits and there are other processes in recv, accept, and 
+%% all the other functions.
+%% 
+%% </KOLLA>
 
 sc_recv_response_local_close_tcp4(suite) ->
     [];
@@ -3032,7 +3048,7 @@ sc_recv_response_local_close_tcp4(doc) ->
 sc_recv_response_local_close_tcp4(_Config) when is_list(_Config) ->
     tc_try(sc_recv_response_local_close_tcp4,
            fun() ->
-                   not_yet_implemented(),
+                   %% not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -3066,8 +3082,548 @@ sc_recv_response_local_close_tcp6(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sc_receive_response_local_close_tcp(_InitState) ->
-    ok.
+sc_receive_response_local_close_tcp(InitState) ->
+    %% This is the server that accepts connections.
+    %% But it is also suppose to close the connection socket, 
+    %% and trigger the read failure for the handler process.
+    AcceptorSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester} when is_pid(Tester) ->
+                                   {ok, State#{tester => Tester}}
+                           end
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create (listen) socket",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, lport := Port}) ->
+                           Tester ! {ready, self(), Port},
+                           ok
+                   end},
+                           
+         %% The actual test
+         #{desc => "await continue (connection)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {continue, Tester, Handler} ->
+                                   {ok, State#{handler => Handler}}
+                           end
+                   end},
+         #{desc => "await connection",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ei("connection accepted"),
+                                   {ok, State#{csock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "transfer new connection to handler",
+           cmd  => fun(#{handler := Handler, csock := Sock}) ->
+                           ok = socket:setopt(Sock, 
+                                              otp, controlling_process, 
+                                              Handler),
+                           Handler ! {connection, Sock},
+                           ok
+                   end},
+         #{desc => "announce ready (connection)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "await continue (close)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {continue, Tester} ->
+                                   ok
+                           end
+                   end},
+         %% #{desc => "enable debug",
+         %%   cmd  => fun(#{csock := Sock}) ->
+         %%                   socket:setopt(Sock, otp, debug, true)
+         %%           end},
+         #{desc => "close (the connection) socket",
+           cmd  => fun(#{csock := Sock}) ->
+                           socket:close(Sock)
+                   end},
+
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {terminate, Tester} ->
+                                   {ok, maps:remove(tester, State)}
+                           end
+                   end},
+         #{desc => "socket cleanup",
+           cmd  => fun(#{lsock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           State1 = maps:remove(csock, State),
+                           State2 = maps:remove(lsock, State1),
+                           State3 = maps:remove(lport, State2),
+                           {ok, State3}
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    %% The point of this is to perform the recv for which we are testing the reponse
+    HandlerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester} when is_pid(Tester) ->
+                                   {ok, State#{tester => Tester}}
+                           end
+                   end},
+         #{desc => "monitor server",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await connection socket",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {connection, Sock} ->
+                                   {ok, State#{sock => Sock}}
+                           end
+                   end},
+         #{desc => "announce ready (connection)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         %% #{desc => "enable debug",
+         %%   cmd  => fun(#{sock := Sock}) ->
+         %%                   socket:setopt(Sock, otp, debug, true)
+         %%           end},
+         %% #{desc => "monitored-by",
+         %%   cmd  => fun(_) ->
+         %%                   {_, Mons} = process_info(self(), monitored_by),
+         %%                   ei("Monitored By: ~p", [Mons]),
+         %%                   ok
+         %%           end},
+         #{desc => "attempt recv",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           case socket:recv(Sock) of
+                               {ok, _Data} ->
+                                   ee("Unexpected data received"),
+                                   {error, unexpected_data};
+                               {error, closed} ->
+                                   State1 = maps:remove(sock, State),
+                                   {ok, State1};
+                               {error, Reason} = ERROR ->
+                                   ee("Unexpected read faulure: "
+                                      "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         %% #{desc => "monitored-by",
+         %%   cmd  => fun(_) ->
+         %%                   {_, Mons} = process_info(self(), monitored_by),
+         %%                   ei("Monitored By: ~p", [Mons]),
+         %%                   ok
+         %%           end},
+         #{desc => "announce ready (close)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "sleep some",
+           cmd  => fun(_) ->
+                           ?SLEEP(1000),
+                           ok
+                   end},
+         %% #{desc => "monitored-by",
+         %%   cmd  => fun(_) ->
+         %%                   {_, Mons} = process_info(self(), monitored_by),
+         %%                   ei("Monitored By: ~p", [Mons]),
+         %%                   ok
+         %%           end},
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {terminate, Tester} ->
+                                   ok
+                           end
+                   end},
+
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    %% The point of this is basically just to create the connection.
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester} when is_pid(Tester) ->
+                                   {ok, State#{tester => Tester}}
+                           end
+                   end},
+
+         %% Init
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain, 
+                         type     := Type, 
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind socket to local address",
+           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester, Reason}};
+                               {continue, Tester, Port} ->
+                                   {ok, State#{lport => Port}}
+                           end
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, lsa := LSA, lport := LPort}) ->
+                           socket:connect(Sock, LSA#{port => LPort})
+                   end},
+         #{desc => "announce ready (connection)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+
+         %% Cleaning up
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {terminate, Tester} ->
+                                   {ok, maps:remove(tester, State)}
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           sock_close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor acceptor",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor handler",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the acceptor
+         #{desc => "order acceptor start",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           Pid ! {start, self()},
+                           ok
+                   end},
+         #{desc => "await acceptor ready (init)",
+           cmd  => fun(#{acceptor := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding acceptor ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid, Port} ->
+                                   {ok, State#{lport => Port}}
+                           end
+                   end},
+
+         %% Start the handler
+         #{desc => "order handler start",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           Pid ! {start, self()},
+                           ok
+                   end},
+         #{desc => "await handler ready (init)",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding handler ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           Pid ! {start, self()},
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding cient ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+
+         %% The actual test
+         #{desc => "order acceptor to continue",
+           cmd  => fun(#{acceptor := Pid, handler := Handler} = _State) ->
+                           Pid ! {continue, self(), Handler},
+                           ok
+                   end},
+         #{desc => "order client to continue",
+           cmd  => fun(#{client := Pid, lport := Port} = _State) ->
+                           Pid ! {continue, self(), Port},
+                           ok
+                   end},
+         #{desc => "await acceptor ready (connection)",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding acceptor ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "await client ready (connection)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "await handler ready (connection)",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding handler ~p: "
+                                      "~n   ~p", [Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+         #{desc => "sleep some",
+           cmd  => fun(_State) ->
+                           ?SLEEP(1000),
+                           ok
+                   end},
+         #{desc => "order acceptor to continue (close)",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           Pid ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await handler ready (close)",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           receive
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding handler ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, acceptor}};
+                               {ready, Pid} ->
+                                   ok
+                           end
+                   end},
+
+         %% Terminations
+         #{desc => "order handler to terminate",
+           cmd  => fun(#{handler := Pid} = _State) ->
+                           Pid ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await handler termination",
+           cmd  => fun(#{handler := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   {ok, maps:remove(handler, State)}
+                           end
+                   end},
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           Pid ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   {ok, maps:remove(client, State)}
+                           end
+                   end},
+         #{desc => "order acceptor to terminate",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           Pid ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await acceptor termination",
+           cmd  => fun(#{acceptor := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   {ok, maps:remove(acceptor, State)}
+                           end
+                   end},
+
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    p("start acceptor evaluator"),
+    AccInitState = InitState,
+    Acceptor = evaluator_start("acceptor", AcceptorSeq, AccInitState),
+
+    p("start handler evaluator"),
+    HandlerInitState = #{},
+    Handler = evaluator_start("handler", HandlerSeq, HandlerInitState),
+
+    p("start client evaluator"),
+    ClientInitState = InitState,
+    Client = evaluator_start("client", ClientSeq, ClientInitState),
+
+    p("start tester evaluator"),
+    TesterInitState = #{acceptor => Acceptor,
+                        handler  => Handler,
+                        client   => Client},
+    Tester = evaluator_start("tester", TesterSeq, TesterInitState),
+
+    p("await evaluator"),
+    ok = await_evaluator_finish([Acceptor, Handler, Client, Tester]).
 
 
 
@@ -3426,9 +3982,13 @@ await_evaluator_finish(Evs, Fails) ->
     end.
 
 
+ei(F) ->
+    ei(F, []).
 ei(F, A) ->
     eprint("", F, A).
 
+ee(F) ->
+    ee(F, []).
 ee(F, A) ->
     eprint("<ERROR> ", F, A).
 
