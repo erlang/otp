@@ -7373,53 +7373,43 @@ ets_new(Name, Opts) ->
             EtsNewHelper(Opts)
     end.
 
-% This function do the following to the input ETS table:
-%  1. Perform a number of concurrent insert operations
-%  2. Remove all inserted items
-%
 % The purpose of this function is to stimulate fine grained locking in
 % tables of types ordered_set with the write_concurrency options
-% turned on. Such tables are implemented as CA trees* and thus
-% activates fine grained locking only when lock contention is
-% detected.
-%
-% A Contention Adapting Approach to Concurrent Ordered Sets
-% Journal of Parallel and Distributed Computing, 2018
-% Kjell Winblad and Konstantinos Sagonas
-% https://doi.org/10.1016/j.jpdc.2017.11.007
-stimulate_contention(T) ->
-    NrOfSchedulers = erlang:system_info(schedulers),
-    ParentPid = self(),
-    KeyRange = 100000,
-    ChildPids =
-        lists:map(fun(_N) -> 
-                          spawn(fun() ->
-                                        receive start -> ok end,
-                                        stimulate_contention_do_inserts(T, KeyRange, 0),
-                                        ParentPid ! done
-                                end)
-                  end, lists:seq(1, NrOfSchedulers)),
-    lists:foreach(fun(Pid) -> Pid ! start end, ChildPids),
-    timer:sleep(100),
-    lists:foreach(fun(Pid) -> Pid ! stop end, ChildPids),
-    lists:foreach(fun(_P) -> receive done -> ok end end, ChildPids),
-    lists:foreach(fun(N) -> ets:delete(T, N) end, lists:seq(0, KeyRange)).
-        
+% turned on. The erts_debug feature 'ets_force_split' is used to easier
+% generate a routing tree with fine grained locking without having to
+% provoke lots of actual lock contentions.
+stimulate_contention(Tid) ->
+    T = case Tid of
+            A when is_atom(A) -> ets:whereis(A);
+            _ -> Tid
+        end,
+    erts_debug:set_internal_state(ets_force_split, {T, true}),
+    KeyRange = 1000*1000,
+    Num = 50,
+    Seed = rand:uniform(KeyRange),
+    %%io:format("prefill_table: Seed = ~p\n", [Seed]),
+    RState = unique_rand_start(KeyRange, Seed),
+    stim_inserter_loop(T, RState, Num),
+    Num = ets:info(T, size),
+    erts_debug:set_internal_state(ets_force_split, {T, false}),
+    Stats1 = ets:info(T,stats),
+    ets:match_delete(T, {'$1','$1','$1'}),
+    case ets:info(T,stats) of
+        Stats1 ->
+            io:format("stimulated ordered_set: ~p\n", [Stats1]);
+        Stats2 ->
+            io:format("Houston, we got a testability problem.\n"
+                      "Someone seems to have implemented join-on-delete\n"
+                      "~p =/= ~p\n", [Stats1, Stats2]),
+            ct:fail("Join on delete?")
+    end.
 
-
-stimulate_contention_do_inserts(T, KeyRange, 0) ->
-    OpsBetweenStopCheck = 10000,
-    receive
-        stop -> ok
-    after
-        0 -> stimulate_contention_do_inserts(T, KeyRange, OpsBetweenStopCheck)
-    end;
-stimulate_contention_do_inserts(T, KeyRange, OpsToNextStopCheck) ->
-    R = trunc(KeyRange * rand:uniform()),
-    ets:insert(T,{R,R,R}),
-    stimulate_contention_do_inserts(T, KeyRange, OpsToNextStopCheck - 1).
-        
-
+stim_inserter_loop(_, _, 0) ->
+    ok;
+stim_inserter_loop(T, RS0, N) ->
+    {Key, RS1} = unique_rand_next(RS0),
+    ets:insert(T, {Key, Key, Key}),
+    stim_inserter_loop(T, RS1, N-1).
 
 do_tc(Do, Report) ->
     T1 = erlang:monotonic_time(),
