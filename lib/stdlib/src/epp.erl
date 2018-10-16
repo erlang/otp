@@ -121,7 +121,7 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'includes', IncludePath :: [DirectoryName :: file:name()]} |
                   {'include_lib_paths',
                     IncludeLibPaths :: [{Application :: atom(),
-                                         RootDirectory :: file:name()}]} |
+                                         AppDirectory :: file:name()}]} |
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
@@ -256,7 +256,7 @@ parse_file(Ifile, Path, Predefs) ->
       Options :: [{'includes', IncludePath :: [DirectoryName :: file:name()]} |
                   {'include_lib_paths',
                     IncludeLibPaths :: [{Application :: atom(),
-                                         RootDirectory :: file:name()}]} |
+                                         AppDirectory :: file:name()}]} |
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
