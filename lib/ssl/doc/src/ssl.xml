@@ -209,7 +209,24 @@
 		   elliptic_curves => [oid] | undefined,
 		   sni => string() | undefined}
        }</c></p></item>
-      
+
+       <tag><c>signature_scheme() =</c></tag>
+       <item>
+	 <p><c>rsa_pkcs1_sha256</c></p>
+	 <p><c>| rsa_pkcs1_sha384</c></p>
+	 <p><c>| rsa_pkcs1_sha512</c></p>
+	 <p><c>| ecdsa_secp256r1_sha256</c></p>
+	 <p><c>| ecdsa_secp384r1_sha384</c></p>
+	 <p><c>| ecdsa_secp521r1_sha512</c></p>
+	 <p><c>| rsa_pss_rsae_sha256</c></p>
+	 <p><c>| rsa_pss_rsae_sha384</c></p>
+	 <p><c>| rsa_pss_rsae_sha512</c></p>
+	 <p><c>| rsa_pss_pss_sha256</c></p>
+	 <p><c>| rsa_pss_pss_sha384</c></p>
+	 <p><c>| rsa_pss_pss_sha512</c></p>
+	 <p><c>| rsa_pkcs1_sha1</c></p>
+	 <p><c>| ecdsa_sha1</c></p>
+       </item>
 
     </taglist>
   </section>
@@ -709,6 +726,26 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	that may be selected. Default support for {md5, rsa} removed in ssl-8.0
 	</p>
 	</item>
+	<tag><marker id="signature_algs_cert"/><c>{signature_algs_cert, [signature_scheme()]}</c></tag>
+	<item>
+	  <p>
+	    In addition to the signature_algorithms extension from TLS 1.2,
+	    <url href="http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3">TLS 1.3
+	    (RFC 5246 Section 4.2.3)</url>adds the signature_algorithms_cert extension
+	    which enables having special requirements on the signatures used in the
+	    certificates that differs from the requirements on digital signatures as a whole.
+	    If this is not required this extension is not needed.
+	  </p>
+	  <p>
+	    The client will send a signature_algorithms_cert extension (ClientHello),
+	    if TLS version 1.3 or later is used, and the signature_algs_cert option is
+	    explicitly specified. By default, only the signature_algs extension is sent.
+	  </p>
+	  <p>
+	    The signature schemes shall be ordered according to the client's preference
+	    (favorite choice first).
+	  </p>
+	</item>
       </taglist>
    </section>
    
@@ -860,7 +897,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
       negotiation, introduced in TLS-1.2. The algorithms will also be offered to the client if a
       client certificate is requested. For more details see the <seealso marker="#client_signature_algs">corresponding client option</seealso>.
       </p> </item>
-
     </taglist>
   </section>
   

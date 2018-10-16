@@ -276,6 +276,7 @@ handle_client_hello(Version,
 	true ->
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
+            ClientSignatureSchemes = maps:get(signature_algs_cert, HelloExt, undefined),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert, Version),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
@@ -289,8 +290,10 @@ handle_client_hello(Version,
                     ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_ciphers);
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_definition(CipherSuite),
-		    case ssl_handshake:select_hashsign(ClientHashSigns, Cert, KeyExAlg, 
-                                                       SupportedHashSigns, Version) of
+		    case ssl_handshake:select_hashsign({ClientHashSigns, ClientSignatureSchemes},
+                                                       Cert, KeyExAlg,
+                                                       SupportedHashSigns,
+                                                       Version) of
 			#alert{} = Alert ->
 			    Alert;
 			HashSign ->

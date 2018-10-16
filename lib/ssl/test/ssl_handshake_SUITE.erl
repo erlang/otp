@@ -25,6 +25,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -41,7 +42,7 @@ all() -> [decode_hello_handshake,
 	  decode_empty_server_sni_correctly,
 	  select_proper_tls_1_2_rsa_default_hashsign,
 	  ignore_hassign_extension_pre_tls_1_2,
-          unorded_chain].
+	  unorded_chain, signature_algorithms].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -55,7 +56,9 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_,Config) ->
     Config.
 
-init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
+init_per_testcase(TC, Config0) when
+      TC =:= ignore_hassign_extension_pre_tls_1_2 orelse
+      TC =:= signature_algorithms ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
@@ -163,11 +166,11 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     Opts = proplists:get_value(server_opts, Config),
     CertFile = proplists:get_value(certfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
-    HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}]},
-    {sha512, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,3}), {3,3}),
+    HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}, {sha, rsa}]},
+    {sha512, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,3}), {3,3}),
     %%% Ignore
-    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
-    {md5sha, rsa} = ssl_handshake:select_hashsign(HashSigns, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
+    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,2}), {3,2}),
+    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs({3,0}), {3,0}).
 
 unorded_chain(Config) when is_list(Config) ->
     DefConf = ssl_test_lib:default_cert_chain_conf(),
@@ -187,6 +190,55 @@ unorded_chain(Config) when is_list(Config) ->
     {ok, _, OrderedChain} = 
         ssl_certificate:certificate_chain(PeerCert, ets:new(foo, []), ExtractedCerts, UnordedChain).
 
+
+signature_algorithms(Config) ->
+    Opts = proplists:get_value(server_opts, Config),
+    CertFile = proplists:get_value(certfile, Opts),
+    io:format("Cert = ~p~n", [CertFile]),
+    [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
+    HashSigns0 = #hash_sign_algos{
+                   hash_sign_algos = [{sha512, rsa},
+                                      {sha, dsa},
+                                      {sha, rsa}]},
+    Schemes0 = #signature_scheme_list{
+                 signature_scheme_list = [rsa_pkcs1_sha1,
+                                          ecdsa_sha1]},
+    {sha512, rsa} = ssl_handshake:select_hashsign(
+                      {HashSigns0, Schemes0},
+                      Cert, ecdhe_rsa,
+                      tls_v1:default_signature_algs({3,3}),
+                      {3,3}),
+    HashSigns1 = #hash_sign_algos{
+                    hash_sign_algos = [{sha, dsa},
+                                      {sha, rsa}]},
+    {sha, rsa} = ssl_handshake:select_hashsign(
+                      {HashSigns1, Schemes0},
+                      Cert, ecdhe_rsa,
+                      tls_v1:default_signature_algs({3,3}),
+                   {3,3}),
+    Schemes1 = #signature_scheme_list{
+                  signature_scheme_list = [rsa_pkcs1_sha256,
+                                           ecdsa_sha1]},
+    %% Signature not supported
+    #alert{} = ssl_handshake:select_hashsign(
+                 {HashSigns1, Schemes1},
+                 Cert, ecdhe_rsa,
+                 tls_v1:default_signature_algs({3,3}),
+                 {3,3}),
+    %% No scheme, hashsign is used
+    {sha, rsa} = ssl_handshake:select_hashsign(
+                   {HashSigns1, undefined},
+                   Cert, ecdhe_rsa,
+                   tls_v1:default_signature_algs({3,3}),
+                   {3,3}),
+    HashSigns2 = #hash_sign_algos{
+                    hash_sign_algos = [{sha, dsa}]},
+    %% Signature not supported
+    #alert{} = ssl_handshake:select_hashsign(
+                 {HashSigns2, Schemes1},
+                 Cert, ecdhe_rsa,
+                 tls_v1:default_signature_algs({3,3}),
+                 {3,3}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

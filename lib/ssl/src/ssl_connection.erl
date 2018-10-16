@@ -848,7 +848,9 @@ certify(internal, #certificate_request{} = CertRequest,
 	       role = client,
 	       ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
 	       negotiated_version = Version} = State0, Connection) ->
-    case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, ssl:tls_version(Version)) of
+    case ssl_handshake:select_hashsign(CertRequest, Cert,
+                                       SupportedHashSigns,
+                                       ssl:tls_version(Version)) of
 	#alert {} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	NegotiatedHashSign -> 

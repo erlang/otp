@@ -994,10 +994,7 @@ handle_options(Opts0, Role, Host) ->
                            proplists:get_value(
                              signature_algs_cert,
                              Opts,
-                             default_option_role(server,
-                                                 tls_v1:default_signature_schemes(HighestVersion),
-                                                 Role
-                                                )),
+                             undefined),  %% Do not send by default
                            tls_version(HighestVersion)),
 		    %% Server side option
 		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
@@ -1060,8 +1057,8 @@ handle_options(Opts0, Role, Host) ->
 		  alpn_preferred_protocols, next_protocols_advertised,
 		  client_preferred_next_protocols, log_alert, log_level,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
-		  fallback, signature_algs, eccs, honor_ecc_order, beast_mitigation,
-                  max_handshake_size, handshake, customize_hostname_check],
+		  fallback, signature_algs, signature_algs_cert, eccs, honor_ecc_order,
+                  beast_mitigation, max_handshake_size, handshake, customize_hostname_check],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -1345,8 +1342,6 @@ handle_signature_algorithms_option(Value, Version) when is_list(Value)
 	_ ->
 	    Value
     end;
-handle_signature_algorithms_option(_, Version)  when Version >= {3, 4} ->
-    handle_signature_algorithms_option(tls_v1:default_signature_schemes(Version), Version);
 handle_signature_algorithms_option(_, _Version) ->
     undefined.
 
@@ -1664,6 +1659,14 @@ new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordC
 					 handle_hashsigns_option(Value, 
 								 tls_version(RecordCB:highest_protocol_version()))}, 
 		    RecordCB);
+new_ssl_options([{signature_algs_cert, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(
+      Rest,
+      Opts#ssl_options{signature_algs_cert =
+                           handle_signature_algorithms_option(
+                             Value,
+                             tls_version(RecordCB:highest_protocol_version()))},
+      RecordCB);
 new_ssl_options([{protocol, dtls = Value} | Rest], #ssl_options{} = Opts, dtls_record = RecordCB) -> 
     new_ssl_options(Rest, Opts#ssl_options{protocol = Value}, RecordCB);
 new_ssl_options([{protocol, tls = Value} | Rest], #ssl_options{} = Opts, tls_record = RecordCB) -> 
