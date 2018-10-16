@@ -93,48 +93,52 @@ int db_erase_object_tree_common(DbTable *tbl, TreeDbTerm **root, Eterm object,
 int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
                         Eterm slot_term, Eterm *ret,
                         DbTableTree *stack_container);
-int db_select_chunk_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+int db_select_chunk_tree_common(Process *p, DbTable *tb,
                                 Eterm tid, Eterm pattern, Sint chunk_size,
                                 int reverse, Eterm *ret,
-                                DbTableTree *stack_container);
-int db_select_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                DbTableTree *stack_container,
+                                CATreeRootIterator*);
+int db_select_tree_common(Process *p, DbTable *tb,
                           Eterm tid, Eterm pattern, int reverse, Eterm *ret,
-                          DbTableTree *stack_container);
+                          DbTableTree *stack_container,
+                          CATreeRootIterator*);
 int db_select_delete_tree_common(Process *p, DbTable *tbl,
-                                 TreeDbTerm **root,
                                  Eterm tid, Eterm pattern,
                                  Eterm *ret,
-                                 DbTreeStack* stack);
+                                 DbTreeStack* stack,
+                                 CATreeRootIterator* iter);
 int db_select_continue_tree_common(Process *p, 
                                    DbTableCommon *tb,
-                                   TreeDbTerm **root,
                                    Eterm continuation,
                                    Eterm *ret,
-                                   DbTableTree *stack_container);
+                                   DbTableTree *stack_container,
+                                   CATreeRootIterator* iter);
 int db_select_delete_continue_tree_common(Process *p, 
                                           DbTable *tbl,
-                                          TreeDbTerm **root,
                                           Eterm continuation,
                                           Eterm *ret,
-                                          DbTreeStack* stack);
-int db_select_count_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                          DbTreeStack* stack,
+                                          CATreeRootIterator* iter);
+int db_select_count_tree_common(Process *p, DbTable *tb,
                                 Eterm tid, Eterm pattern, Eterm *ret,
-                                DbTableTree *stack_container);
+                                DbTableTree *stack_container,
+                                CATreeRootIterator* iter);
 int db_select_count_continue_tree_common(Process *p,
-                                         DbTableCommon *tb,
-                                         TreeDbTerm **root,
+                                         DbTable *tb,
                                          Eterm continuation,
                                          Eterm *ret,
-                                         DbTableTree *stack_container);
-int db_select_replace_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm **root,
+                                         DbTableTree *stack_container,
+                                         CATreeRootIterator* iter);
+int db_select_replace_tree_common(Process *p, DbTable*,
                                   Eterm tid, Eterm pattern, Eterm *ret,
-                                  DbTableTree *stack_container);
+                                  DbTableTree *stack_container,
+                                  CATreeRootIterator* iter);
 int db_select_replace_continue_tree_common(Process *p,
-                                           DbTableCommon *tb,
-                                           TreeDbTerm **root,
+                                           DbTable*,
                                            Eterm continuation,
                                            Eterm *ret,
-                                           DbTableTree *stack_container);
+                                           DbTableTree *stack_container,
+                                           CATreeRootIterator* iter);
 int db_take_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                         Eterm key, Eterm *ret,
                         DbTreeStack *stack /* NULL if no static stack */);
@@ -148,4 +152,6 @@ int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  DbTableTree *stack_container);
 void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
                                     DbTableTree *stack_container);
+Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
+
 #endif /* _DB_TREE_UTIL_H */

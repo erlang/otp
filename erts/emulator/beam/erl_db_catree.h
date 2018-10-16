@@ -92,9 +92,28 @@ typedef struct db_table_catree {
     int is_routing_nodes_freed;
 } DbTableCATree;
 
+typedef struct {
+    DbTableCATree* tb;
+    Eterm next_route_key;
+    DbTableCATreeBaseNode* locked_bnode;
+    int read_only;
+} CATreeRootIterator;
+
+
 void db_initialize_catree(void);
 
 int db_create_catree(Process *p, DbTable *tbl);
+
+
+TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
+
+TreeDbTerm** catree_find_next_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator*, int next);
+TreeDbTerm** catree_find_next_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_prev_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_first_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_last_root(CATreeRootIterator*);
 
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
