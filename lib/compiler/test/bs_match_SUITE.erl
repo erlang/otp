@@ -43,7 +43,7 @@
          beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,
          expression_before_match/1,erl_689/1,restore_on_call/1,
          restore_after_catch/1,matches_on_parameter/1,big_positions/1,
-         matching_meets_apply/1]).
+         matching_meets_apply/1,bs_start_match2_defs/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -78,7 +78,7 @@ groups() ->
        beam_bsm,guard,is_ascii,non_opt_eq,
        expression_before_match,erl_689,restore_on_call,
        matches_on_parameter,big_positions,
-       matching_meets_apply]}].
+       matching_meets_apply,bs_start_match2_defs]}].
 
 
 init_per_suite(Config) ->
@@ -1797,6 +1797,19 @@ do_erl_689_2b(_, <<Length, Data/binary>>) ->
         {4, <<Y:16/little, M, D, Rest/binary>>} ->
             id(1),
             {{Y, M, D}, Rest}
+    end.
+
+%% ERL-753
+
+bs_start_match2_defs(_Config) ->
+    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>, dummy),
+    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}, dummy).
+
+api_url(URL, Auth) ->
+    Header = [],
+    case URL of
+        <<_/binary>> -> {<<"http://127.0.0.1:1234/vsaas/",URL/binary>>};
+        {https, [_|_] = URL1} -> {"https://127.0.0.1:4321/vsaas/"++URL1}
     end.
 
 check(F, R) ->
