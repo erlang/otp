@@ -120,4 +120,12 @@ TreeDbTerm** catree_find_last_root(CATreeRootIterator*);
 void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable);
 #endif
 
+typedef struct {
+    Uint route_nodes;
+    Uint base_nodes;
+    Uint max_depth;
+} DbCATreeStats;
+void db_calc_stats_catree(DbTableCATree*, DbCATreeStats*);
+
+
 #endif /* _DB_CATREE_H */

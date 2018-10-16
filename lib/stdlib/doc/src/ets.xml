@@ -611,9 +611,8 @@ Error: fun containing local Erlang function calls
           </item>
           <item>
             <p><c>Item=stats, Value=tuple()</c></p>
-            <p>Returns internal statistics about <c>set</c>, <c>bag</c>, and
-              <c>duplicate_bag</c> tables on an internal format used by OTP
-              test suites. Not for production use.</p></item>
+            <p>Returns internal statistics about tables on an internal format
+	    used by OTP test suites. Not for production use.</p></item>
         </list>
       </desc>
     </func>

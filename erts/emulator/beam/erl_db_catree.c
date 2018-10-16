@@ -2118,6 +2118,42 @@ void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable)
 }
 #endif /* ERTS_ENABLE_LOCK_COUNT */
 
+void db_calc_stats_catree(DbTableCATree* tb, DbCATreeStats* stats)
+{
+    DbTableCATreeNode* stack[ERL_DB_CATREE_MAX_ROUTE_NODE_LAYER_HEIGHT];
+    DbTableCATreeNode* node;
+    Uint depth = 0;
+
+    stats->route_nodes = 0;
+    stats->base_nodes = 0;
+    stats->max_depth = 0;
+
+    node = GET_ROOT(tb);
+    do {
+        while (!node->is_base_node) {
+            stats->route_nodes++;
+            ASSERT(depth < sizeof(stack)/sizeof(*stack));
+            stack[depth++] = node;  /* PUSH parent */
+            if (stats->max_depth < depth)
+                stats->max_depth = depth;
+            node = GET_LEFT(node);
+        }
+        stats->base_nodes++;
+
+        while (depth > 0) {
+            DbTableCATreeNode* parent = stack[depth-1];
+            if (node == GET_LEFT(parent)) {
+                node = GET_RIGHT(parent);
+                break;
+            }
+            else {
+                ASSERT(node == GET_RIGHT(parent));
+                node = parent;
+                depth--; /* POP parent */
+            }
+        }
+    } while (depth > 0);
+}
 
 #ifdef HARDDEBUG
 

@@ -4247,9 +4247,20 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 make_small(stats.max_chain_len),
 			 make_small(stats.kept_items));
 	}
-	else {
+	else if (IS_CATREE_TABLE(tb->common.status)) {
+            DbCATreeStats stats;
+            Eterm* hp;
+
+            db_calc_stats_catree(&tb->catree, &stats);
+            hp = HAlloc(p, 4);
+            ret = TUPLE3(hp,
+                         make_small(stats.route_nodes),
+                         make_small(stats.base_nodes),
+                         make_small(stats.max_depth));
+
+        }
+        else
 	    ret = am_false;
-	}
     }
     return ret;
 }

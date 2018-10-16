@@ -796,10 +796,10 @@ t_delete_all_objects(Config) when is_list(Config) ->
 
 get_kept_objects(T) ->
     case ets:info(T,stats) of
-	false ->
-	    0;
 	{_,_,_,_,_,_,KO}  ->
-	    KO
+	    KO;
+        _ ->
+            0
     end.
 
 t_delete_all_objects_do(Opts) ->
