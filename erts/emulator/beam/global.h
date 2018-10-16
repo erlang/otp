@@ -877,6 +877,10 @@ erts_bld_port_info(Eterm **hpp,
 
 void erts_bif_info_init(void);
 
+/* erl_bif_lists.c */
+
+void erts_init_bif_lists(void);
+
 /* bif.c */
 
 void erts_queue_monitor_message(Process *,

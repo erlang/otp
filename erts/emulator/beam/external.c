@@ -1947,13 +1947,14 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 	    context_b = erts_create_magic_binary(sizeof(TTBContext),    \
                                                  ttb_context_destructor);   \
 	    context =  ERTS_MAGIC_BIN_DATA(context_b);			\
-	    sys_memcpy(context,&c_buff,sizeof(TTBContext));			\
+	    sys_memcpy(context,&c_buff,sizeof(TTBContext));		\
 	}								\
     } while (0)
 
 #define RETURN_STATE()							\
     do {								\
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE+3);                    \
+	static const int TUPLE2_SIZE = 2 + 1;				\
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE2_SIZE);        \
 	c_term = erts_mk_magic_ref(&hp, &MSO(p), context_b);            \
 	res = TUPLE2(hp, Term, c_term);					\
 	BUMP_ALL_REDS(p);                                               \
