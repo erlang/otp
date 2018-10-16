@@ -295,7 +295,8 @@ int tree_balance_left(TreeDbTerm **this);
 int tree_balance_right(TreeDbTerm **this); 
 static int delsub(TreeDbTerm **this); 
 static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root, Sint slot,
-                               DbTable *tb, DbTableTree *stack_container);
+                               DbTable *tb, DbTableTree *stack_container,
+                               CATreeRootIterator *iter);
 static TreeDbTerm *find_node(DbTableCommon *tb, TreeDbTerm *root,
                              Eterm key, DbTableTree *stack_container);
 static TreeDbTerm **find_node2(DbTableCommon *tb, TreeDbTerm **root, Eterm key);
@@ -873,7 +874,8 @@ static int db_erase_object_tree(DbTable *tbl, Eterm object, Eterm *ret)
 
 int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
                         Eterm slot_term, Eterm *ret,
-                        DbTableTree *stack_container)
+                        DbTableTree *stack_container,
+                        CATreeRootIterator *iter)
 {
     Sint slot;
     TreeDbTerm *st;
@@ -903,7 +905,7 @@ int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
      * are counted from 1 and up.
      */
     ++slot;
-    st = slot_search(p, root, slot, tbl, stack_container); 
+    st = slot_search(p, root, slot, tbl, stack_container, iter);
     if (st == NULL) {
 	*ret = am_false;
 	return DB_ERROR_UNSPEC;
@@ -921,7 +923,7 @@ static int db_slot_tree(Process *p, DbTable *tbl,
 			Eterm slot_term, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_slot_tree_common(p, tbl, tb->root, slot_term, ret, tb);
+    return db_slot_tree_common(p, tbl, tb->root, slot_term, ret, tb, NULL);
 }
 
 
@@ -2727,10 +2729,12 @@ static int delsub(TreeDbTerm **this)
 
 static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
                                Sint slot, DbTable *tb,
-                               DbTableTree *stack_container)
+                               DbTableTree *stack_container,
+                               CATreeRootIterator *iter)
 {
     TreeDbTerm *this;
     TreeDbTerm *tmp;
+    TreeDbTerm **pp;
     DbTreeStack* stack = get_any_stack(tb,stack_container);
     ASSERT(stack != NULL);
 
@@ -2743,56 +2747,77 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
 				are not recorded */
 	stack->pos = 0;
     }
-    if (EMPTY_NODE(stack)) {
-	this = root;
-	if (this == NULL)
-	    goto done;
-	while (this->left != NULL){
-	    PUSH_NODE(stack, this);
-	    this = this->left;
-	}
-	PUSH_NODE(stack, this);
-	stack->slot = 1;
+    while (1) {
+        if (EMPTY_NODE(stack)) {
+            this = root;
+            if (this == NULL)
+                goto next_root;
+            while (this->left != NULL){
+                PUSH_NODE(stack, this);
+                this = this->left;
+            }
+            PUSH_NODE(stack, this);
+            stack->slot++;
+        }
+        this = TOP_NODE(stack);
+        while (stack->slot != slot) {
+            ASSERT(this);
+            if (slot > stack->slot) {
+                if (this->right != NULL) {
+                    this = this->right;
+                    while (this->left != NULL) {
+                        PUSH_NODE(stack, this);
+                        this = this->left;
+                    }
+                    PUSH_NODE(stack, this);
+                } else {
+                    for (;;) {
+                        tmp = POP_NODE(stack);
+                        this = TOP_NODE(stack);
+                        if (!this)
+                            goto next_root;
+                        if (this->left == tmp)
+                            break;
+                    }
+                }
+                ++(stack->slot);
+            } else {
+                if (this->left != NULL) {
+                    this = this->left;
+                    while (this->right != NULL) {
+                        PUSH_NODE(stack, this);
+                        this = this->right;
+                    }
+                    PUSH_NODE(stack, this);
+                } else {
+                    for (;;) {
+                        tmp = POP_NODE(stack);
+                        this = TOP_NODE(stack);
+                        if (!this)
+                            goto next_root;
+                        if (this->right == tmp)
+                            break;
+                    }
+                }
+                --(stack->slot);
+            }
+        }
+         /* Found slot */
+        ASSERT(this);
+        break;
+
+next_root:
+        if (!iter)
+            break; /* EOT */
+
+        pp = catree_find_next_root(iter);
+        if (!pp)
+            break; /* EOT */
+        root = *pp;
+        stack->pos = 0;
     }
-    this = TOP_NODE(stack);
-    while (stack->slot != slot && this != NULL) {
-	if (slot > stack->slot) {
-	    if (this->right != NULL) {
-		this = this->right;
-		while (this->left != NULL) {
-		    PUSH_NODE(stack, this);
-		    this = this->left;
-		}
-		PUSH_NODE(stack, this);
-	    } else {
-		for (;;) {
-		    tmp = POP_NODE(stack);
-		    this = TOP_NODE(stack);
-		    if (this == NULL || this->left == tmp)
-			break;
-		}
-	    }		
-	    ++(stack->slot);
-	} else {
-	    if (this->left != NULL) {
-		this = this->left;
-		while (this->right != NULL) {
-		    PUSH_NODE(stack, this);
-		    this = this->right;
-		}
-		PUSH_NODE(stack, this);
-	    } else {
-		for (;;) {
-		    tmp = POP_NODE(stack);
-		    this = TOP_NODE(stack);
-		    if (this == NULL || this->right == tmp)
-			break;
-		}
-	    }		
-	    --(stack->slot);
-	}
-    }
-done:
+
+
     release_stack(tb,stack_container,stack);
     return this;
 }

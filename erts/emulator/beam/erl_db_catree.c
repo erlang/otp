@@ -2128,11 +2128,13 @@ static int db_slot_catree(Process *p, DbTable *tbl,
                           Eterm slot_term, Eterm *ret)
 {
     int result;
-    DbTableCATreeNode *base;
-    base = merge_to_one_locked_base_node(&tbl->catree);
-    result = db_slot_tree_common(p, tbl, base->u.base.root,
-                                 slot_term, ret, NULL);
-    wunlock_base_node(&(base->u.base));
+    CATreeRootIterator iter;
+
+    init_root_iterator(&tbl->catree, &iter, 1);
+    result = db_slot_tree_common(p, tbl, *catree_find_first_root(&iter),
+                                 slot_term, ret, NULL, &iter);
+    if (iter.locked_bnode)
+        runlock_base_node(iter.locked_bnode);
     return result;
 }
 

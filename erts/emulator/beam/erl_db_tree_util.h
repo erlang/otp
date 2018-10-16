@@ -92,7 +92,8 @@ int db_erase_object_tree_common(DbTable *tbl, TreeDbTerm **root, Eterm object,
                                 Eterm *ret, DbTableTree *stack_container);
 int db_slot_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root,
                         Eterm slot_term, Eterm *ret,
-                        DbTableTree *stack_container);
+                        DbTableTree *stack_container,
+                        CATreeRootIterator*);
 int db_select_chunk_tree_common(Process *p, DbTable *tb,
                                 Eterm tid, Eterm pattern, Sint chunk_size,
                                 int reverse, Eterm *ret,
