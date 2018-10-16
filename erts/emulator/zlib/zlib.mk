@@ -62,6 +62,9 @@ ZLIB_CFLAGS = $(subst -O2, -O3, $(CONFIGURE_CFLAGS) $(DEFS) $(THR_DEFS))
 endif # debug
 endif # gcov
 
+# Don't fail if _LFS64_LARGEFILE is undefined
+ZLIB_CFLAGS := $(filter-out -Werror=undef,$(ZLIB_CFLAGS))
+
 ifeq ($(TARGET), win32)
 $(ZLIB_LIBRARY): $(ZLIB_OBJS)
 	$(V_AR) -out:$@ $(ZLIB_OBJS)
