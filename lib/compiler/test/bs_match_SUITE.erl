@@ -40,7 +40,8 @@
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
 	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
-         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,erl_689/1]).
+         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,erl_689/1,
+         bs_start_match2_defs/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -72,7 +73,8 @@ groups() ->
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
        get_payload,escape,num_slots_different,
-       beam_bsm,guard,is_ascii,non_opt_eq,erl_689]}].
+       beam_bsm,guard,is_ascii,non_opt_eq,erl_689,
+       bs_start_match2_defs]}].
 
 
 init_per_suite(Config) ->
@@ -1747,6 +1749,19 @@ do_erl_689_2b(_, <<Length, Data/binary>>) ->
         {4, <<Y:16/little, M, D, Rest/binary>>} ->
             id(1),
             {{Y, M, D}, Rest}
+    end.
+
+%% ERL-753
+
+bs_start_match2_defs(_Config) ->
+    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>, dummy),
+    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}, dummy).
+
+api_url(URL, Auth) ->
+    Header = [],
+    case URL of
+        <<_/binary>> -> {<<"http://127.0.0.1:1234/vsaas/",URL/binary>>};
+        {https, [_|_] = URL1} -> {"https://127.0.0.1:4321/vsaas/"++URL1}
     end.
 
 check(F, R) ->
