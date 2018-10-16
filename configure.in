@@ -185,6 +185,10 @@ fi
 
 AC_PROG_LN_S
 AC_PROG_RANLIB
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required!])
+fi
 
 #
 # Get erts version from erts/vsn.mk
