@@ -4776,17 +4776,23 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
         if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
             /* Prep done - inform the caller it can finalize (close) directly */
             SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop called\r\n", descP->sock) );
+                   ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
             dec_socket(domain, type, protocol);
             reply = esock_atom_ok;
         } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
             /* The stop callback function has been *scheduled* which means that we
              * have to wait for it to complete. */
             SSDBG( descP,
-                   ("SOCKET", "nclose -> [%d] stop scheduled\r\n", descP->sock) );
+                   ("SOCKET", "nclose -> [%d] stop was scheduled\r\n",
+                    descP->sock) );
             dec_socket(domain, type, protocol); // SHALL WE DO THIS AT finalize?
             reply = esock_make_ok2(env, descP->closeRef);
         } else {
+
+            SSDBG( descP,
+                   ("SOCKET", "nclose -> [%d] stop failed: %d\r\n",
+                    descP->sock, selectRes) );
+
             /* <KOLLA>
              *
              * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
@@ -4796,6 +4802,7 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
              *
              * </KOLLA>
              */
+
             reason = MKT2(env, atom_select, MKI(env, selectRes));
             reply  = esock_make_error(env, reason);
         }
@@ -12000,6 +12007,9 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
             SSDBG( descP, ("SOCKET",
                            "recv_check_result -> [%d] eagain\r\n", toRead) );
 
+            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
+                return esock_make_error_str(env, xres);
+            
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
 
@@ -15005,6 +15015,7 @@ static
 void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 {
     SocketDescriptor* descP = (SocketDescriptor*) obj;
+    int               dres;
     
     SSDBG( descP,
            ("SOCKET", "socket_stop -> entry when"
@@ -15033,15 +15044,24 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
      */
     SSDBG( descP,
            ("SOCKET",
-            "socket_stop -> demonitor (maybe) controlling process\r\n") );
-    DEMONP(env, descP, &descP->ctrlMon);
+            "socket_stop -> demonitor (maybe) controlling process (%T)\r\n",
+            descP->ctrlPid) );
+    dres = DEMONP(env, descP, &descP->ctrlMon);
+    SSDBG( descP, ("SOCKET", "socket_stop -> demonitor result: %d\r\n", dres) );
+        
     
     if (descP->currentWriterP != NULL) {
         /* We have a (current) writer and *may* therefor also have
          * writers waiting.
          */
 
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle writer(s)\r\n") );
+        SSDBG( descP,
+               ("SOCKET",
+                "socket_stop -> demonitor (maybe) current writer: %T, %T\r\n",
+                descP->currentWriter.pid, descP->currentWriter.ref) );
+        DEMONP(env, descP, &descP->currentWriter.mon);
+
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle current writer\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentWriter.pid) &&
@@ -15059,6 +15079,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         }
         
         /* And also deal with the waiting writers (in the same way) */
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting writer(s)\r\n") );
         inform_waiting_procs(env, descP, &descP->writersQ, TRUE, atom_closed);
     }
     
@@ -15068,7 +15089,13 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * readers waiting.
          */
         
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle reader(s)\r\n") );
+        SSDBG( descP,
+               ("SOCKET",
+                "socket_stop -> demonitor (maybe) current reader: %T, %T\r\n",
+                descP->currentReader.pid, descP->currentReader.ref) );
+        DEMONP(env, descP, &descP->currentReader.mon);
+
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle current reader\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentReader.pid) &&
@@ -15086,6 +15113,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         }
         
         /* And also deal with the waiting readers (in the same way) */
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting reader(s)\r\n") );
         inform_waiting_procs(env, descP, &descP->readersQ, TRUE, atom_closed);
     }
     
@@ -15094,7 +15122,13 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * acceptors waiting.
          */
         
-        SSDBG( descP, ("SOCKET", "socket_stop -> handle acceptor(s)\r\n") );
+        SSDBG( descP,
+               ("SOCKET",
+                "socket_stop -> demonitor (maybe) current acceptor: %T, %T\r\n",
+                descP->currentAcceptor.pid, descP->currentAcceptor.ref) );
+        DEMONP(env, descP, &descP->currentAcceptor.mon);
+
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle current acceptor\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
                           &descP->currentAcceptor.pid) &&
@@ -15112,6 +15146,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         }
         
         /* And also deal with the waiting acceptors (in the same way) */
+        SSDBG( descP, ("SOCKET", "socket_stop -> handle waiting acceptor(s)\r\n") );
         inform_waiting_procs(env, descP, &descP->acceptorsQ, TRUE, atom_closed);
     }
     
@@ -15237,9 +15272,13 @@ void socket_down(ErlNifEnv*           env,
     SocketDescriptor* descP = (SocketDescriptor*) obj;
 
     SSDBG( descP, ("SOCKET", "socket_down -> entry with"
-                   "\r\n   sock: %d"
-                   "\r\n   pid:  %T"
-                   "\r\n", descP->sock, *pid) );
+                   "\r\n   sock:    %d"
+                   "\r\n   pid:     %T"
+                   "\r\n   Closed:  %s"
+                   "\r\n   Closing: %s"
+                   "\r\n",
+                   descP->sock, *pid,
+                   B2S(IS_CLOSED(descP)), B2S(IS_CLOSING(descP))) );
 
     
     if (compare_pids(env, &descP->ctrlPid, pid)) {
@@ -15249,7 +15288,7 @@ void socket_down(ErlNifEnv*           env,
          * we leave it to the stop callback function.
          */
 
-        SSDBG( descP, ("SOCKET", "socket_down -> controlling process term\r\n") );
+        SSDBG( descP, ("SOCKET", "socket_down -> controlling process exit\r\n") );
 
         descP->state      = SOCKET_STATE_CLOSING;
         descP->closeLocal = TRUE;
