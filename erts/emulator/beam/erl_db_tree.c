@@ -2947,7 +2947,7 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
 {
     TreeDbTerm* root;
     TreeDbTerm *this;
-    TreeDbTerm *tmp;
+    Uint candidate = 0;
     Sint c;
 
     if (iter) {
@@ -2967,20 +2967,15 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
 	PUSH_NODE(stack, this);
 	if (( c = cmp_partly_bound(key,GETKEY(tbl, this->dbterm.tpl))) >= 0) {
 	    if (this->right == NULL) {
-		do {
-		    tmp = POP_NODE(stack);
-		    if (( this = TOP_NODE(stack)) == NULL) {
-			return NULL;
-		    }
-		} while (this->right == tmp);
-		return this;
-	    } else
-		this = this->right;
+                stack->pos = candidate;
+                return TOP_NODE(stack);
+	    }
+            this = this->right;
 	} else /*if (c < 0)*/ {
 	    if (this->left == NULL) /* Done */
 		return this;
-	    else
-		this = this->left;
+            candidate = stack->pos;
+            this = this->left;
 	} 
     }
 }
@@ -2991,7 +2986,7 @@ static TreeDbTerm *find_prev_from_pb_key(DbTable *tbl, TreeDbTerm*** rootpp,
 {
     TreeDbTerm* root;
     TreeDbTerm *this;
-    TreeDbTerm *tmp;
+    Uint candidate = 0;
     Sint c;
 
     if (iter) {
@@ -3011,20 +3006,15 @@ static TreeDbTerm *find_prev_from_pb_key(DbTable *tbl, TreeDbTerm*** rootpp,
 	PUSH_NODE(stack, this);
 	if (( c = cmp_partly_bound(key,GETKEY(tbl, this->dbterm.tpl))) <= 0) {
 	    if (this->left == NULL) {
-		do {
-		    tmp = POP_NODE(stack);
-		    if (( this = TOP_NODE(stack)) == NULL) {
-			return NULL;
-		    }
-		} while (this->left == tmp);
-		return this;
-	    } else
-		this = this->left;
+                stack->pos = candidate;
+                return TOP_NODE(stack);
+	    }
+            this = this->left;
 	} else /*if (c > 0)*/ {
 	    if (this->right == NULL) /* Done */
 		return this;
-	    else
-		this = this->right;
+            candidate = stack->pos;
+            this = this->right;
 	} 
     }
 }
