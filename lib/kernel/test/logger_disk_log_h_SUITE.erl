@@ -636,10 +636,10 @@ sync(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"first\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"first\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("first", ?domain),
     %% wait for automatic disk_log_sync
@@ -658,12 +658,12 @@ sync(Config) ->
     %% triggered by the idle timeout between "fourth" and "fifth".
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"second\n">>},
-                  {logger_disk_log_h,disk_log_sync},
-                  {disk_log,blog,<<"third\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"second\n">>},
+                  {disk_log,sync},
+                  {logger_disk_log_h,disk_log_write,<<"third\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("second", ?domain),
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
@@ -792,8 +792,12 @@ disk_log_full(Config) ->
                                      []
                              end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
-    [{trace,full},
-     {trace,{error_status,{error,{full,_}}}}] = Received,
+
+    %% The tail here could be an error_status notification, if the
+    %% last write was synchronous, but in most cases it will not be
+    [{trace,full}|_] = Received,
+    %% [{trace,full},
+    %%  {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
     dbg:stop_clear(),
@@ -855,14 +859,15 @@ write_failure(Config) ->
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
     HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
     ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts,
                                                maps:get(handler_state,HState))]),
 
+    %% ?check and ?check_no_log in this test only check for internal log events
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
 
     SyncRepInt = case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
                      true -> 5500;
@@ -871,24 +876,26 @@ write_failure(Config) ->
 
     try_read_file(Log, {ok,<<"Logged1\n">>}, SyncRepInt),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,{error,no_such_log}]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
 
+    %% this should have caused an internal log
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,{error,no_such_log}}}),
-    
-    ok = log_on_remote_node(Node, "No second error printout"),
-    ?check_no_log,
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,
+    ok = log_on_remote_node(Node, "No second error printout"),
+    ?check_no_log, % but don't log same error twice
+
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,
                                          {error,{full,?STANDARD_HANDLER}}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
+    %% this was a different error, so it should be logged
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,
                    {error,{full,?STANDARD_HANDLER}}}}),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, SyncRepInt),
     ok.
 write_failure(cleanup, _Config) ->
@@ -1616,7 +1623,7 @@ tpl([]) ->
 tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
-tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
+tracer({trace,_,call,{Mod=logger_disk_log_h,Func=disk_log_write,[_,_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data},Caller);
 tracer({trace,_,call,{Mod,Func,_},Caller}, {Pid,[{Mod,Func}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);

@@ -184,10 +184,12 @@ merge_default_logopts(Name, HConfig) ->
     maps:merge(Defaults, HConfig).
 
 filesync(Name,_Mode,State) ->
-    disk_log_sync(Name,State).
+    Result = ?disk_log_sync(Name),
+    maybe_notify_error(Name, filesync, Result, prev_sync_result, State).
 
-write(Name, _Mode, Bin, State) ->
-    disk_log_write(Name, Bin, State).
+write(Name, Mode, Bin, State) ->
+    Result = ?disk_log_write(Name, Mode, Bin),
+    maybe_notify_error(Name, log, Result, prev_log_result, State).
 
 reset_state(_Name, State) ->
     State#{prev_log_result => ok,
@@ -244,13 +246,10 @@ close_disk_log(Name, _) ->
     _ = disk_log:lclose(Name),
     ok.
 
-disk_log_write(Name, Bin, State) ->
-    Result = ?disk_log_blog(Name, Bin),
-    maybe_notify_error(Name, log, Result, prev_log_result, State).
-
-disk_log_sync(Name, State) ->
-    Result = ?disk_log_sync(Name),
-    maybe_notify_error(Name, filesync, Result, prev_sync_result, State).
+disk_log_write(Name, sync, Bin) ->
+    disk_log:blog(Name, Bin);
+disk_log_write(Name, async, Bin) ->
+    disk_log:balog(Name, Bin).
 
 %%%-----------------------------------------------------------------
 %%% Print error messages, but don't repeat the same message
