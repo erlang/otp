@@ -46,7 +46,7 @@
       is the macro name, for example, <c>assertEqual</c>. <c>Info</c> is a list
       of tagged values, such as <c>[{module, M}, {line, L}, ...]</c>, which
       gives more information about the location and cause of the exception. All
-      entries in the <c>Info</c> list are optional; do not rely programatically
+      entries in the <c>Info</c> list are optional; do not rely programmatically
       on any of them being present.</p>
 
     <p>Each assert macro has a corresponding version with an extra argument,
