@@ -520,12 +520,34 @@ sendfile(S, FileHandle, Offset, Length)
 sendfile(S, FileHandle, Offset, Length) ->
     case erlang:port_info(S, connected) of
         {connected, Pid} when Pid =:= self() ->
-            sendfile_1(S, FileHandle, Offset, Length);
+            Uncork = sendfile_maybe_cork(S),
+            Result = sendfile_1(S, FileHandle, Offset, Length),
+            sendfile_maybe_uncork(S, Uncork),
+            Result;
         {connected, Pid} when Pid =/= self() ->
             {error, not_owner};
         _Other ->
             {error, einval}
     end.
+
+sendfile_maybe_cork(S) ->
+    case getprotocol(S) of
+        tcp ->
+            case getopts(S, [nopush]) of
+                {ok, [{nopush,false}]} ->
+                    _ = setopts(S, [{nopush,true}]),
+                    true;
+                _ ->
+                    false
+            end;
+        _ -> false
+    end.
+
+sendfile_maybe_uncork(S, true) ->
+    _ = setopts(S, [{nopush,false}]),
+    ok;
+sendfile_maybe_uncork(_, false) ->
+    ok.
 
 sendfile_1(S, FileHandle, Offset, 0) ->
     sendfile_1(S, FileHandle, Offset, (1 bsl 63) - 1);
@@ -1318,6 +1340,7 @@ enc_opt(pktoptions)      -> ?INET_OPT_PKTOPTIONS;
 enc_opt(ttl)             -> ?INET_OPT_TTL;
 enc_opt(recvttl)         -> ?INET_OPT_RECVTTL;
 enc_opt(nodelay)         -> ?TCP_OPT_NODELAY;
+enc_opt(nopush)          -> ?TCP_OPT_NOPUSH;
 enc_opt(multicast_if)    -> ?UDP_OPT_MULTICAST_IF;
 enc_opt(multicast_ttl)   -> ?UDP_OPT_MULTICAST_TTL;
 enc_opt(multicast_loop)  -> ?UDP_OPT_MULTICAST_LOOP;
@@ -1379,6 +1402,7 @@ dec_opt(?INET_OPT_PRIORITY)       -> priority;
 dec_opt(?INET_OPT_TOS)            -> tos;
 dec_opt(?INET_OPT_TCLASS)         -> tclass;
 dec_opt(?TCP_OPT_NODELAY)         -> nodelay;
+dec_opt(?TCP_OPT_NOPUSH)          -> nopush;
 dec_opt(?INET_OPT_RECVTOS)        -> recvtos;
 dec_opt(?INET_OPT_RECVTCLASS)     -> recvtclass;
 dec_opt(?INET_OPT_PKTOPTIONS)     -> pktoptions;
@@ -1465,6 +1489,7 @@ type_opt_1(pktoptions)      -> opts;
 type_opt_1(ttl)             -> int;
 type_opt_1(recvttl)         -> bool;
 type_opt_1(nodelay)         -> bool;
+type_opt_1(nopush)          -> bool;
 type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
 type_opt_1(multicast_ttl)   -> int;
