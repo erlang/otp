@@ -1147,6 +1147,18 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
               is turned on for the socket, which means that also small
               amounts of data are sent immediately.</p>
           </item>
+          <tag><c>{nopush, Boolean}</c>(TCP/IP sockets)</tag>
+          <item>
+            <p>This translates to <c>TCP_NOPUSH</c> on BSD and
+              to <c>TCP_CORK</c> on Linux.</p>
+            <p>If <c>Boolean == true</c>, the corresponding option
+              is turned on for the socket, which means that small
+              amounts of data are accumulated until a full MSS-worth
+              of data is available or this option is turned off.</p>
+            <p>Note that while <c>TCP_NOPUSH</c> socket option is available on OSX, its semantics
+              is very different (e.g., unsetting it does not cause immediate send
+              of accumulated data). Hence, <c>nopush</c> option is intentionally ignored on OSX.</p>
+          </item>
           <tag><c>{packet, PacketType}</c>(TCP/IP sockets)</tag>
           <item>
             <p><marker id="packet"/>Defines the type of packets to use for a socket.
