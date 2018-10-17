@@ -34,7 +34,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, security_parameters/3, 
-	 cipher_init/3, decipher/6, cipher/5, decipher_aead/6, cipher_aead/6,
+	 cipher_init/3, nonce_seed/2, decipher/6, cipher/5, aead_encrypt/5, aead_decrypt/6,
 	 suites/1, all_suites/1,  crypto_support_filters/0,
 	 chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
          srp_suites/0, srp_suites_anon/0,
@@ -47,6 +47,8 @@
 -compile(inline).
 
 -type cipher_enum()        :: integer().
+
+-export_type([cipher_enum/0]).
 
 %%--------------------------------------------------------------------
 -spec security_parameters(ssl_cipher_format:cipher_suite(), #security_parameters{}) ->
@@ -91,9 +93,14 @@ cipher_init(?RC4, IV, Key) ->
     #cipher_state{iv = IV, key = Key, state = State};
 cipher_init(?AES_GCM, IV, Key) ->
     <<Nonce:64>> = random_bytes(8),
-    #cipher_state{iv = IV, key = Key, nonce = Nonce};
+    #cipher_state{iv = IV, key = Key, nonce = Nonce, tag_len = 16};
+cipher_init(?CHACHA20_POLY1305, IV, Key) ->
+    #cipher_state{iv = IV, key = Key, tag_len = 16};
 cipher_init(_BCA, IV, Key) ->
     #cipher_state{iv = IV, key = Key}.
+
+nonce_seed(Seed, CipherState) ->
+    CipherState#cipher_state{nonce = Seed}.
 
 %%--------------------------------------------------------------------
 -spec cipher(cipher_enum(), #cipher_state{}, binary(), iodata(), ssl_record:ssl_version()) ->
@@ -126,32 +133,16 @@ cipher(?AES_CBC, CipherState, Mac, Fragment, Version) ->
 			 crypto:block_encrypt(aes_cbc256, Key, IV, T)
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
-%%--------------------------------------------------------------------
--spec cipher_aead(cipher_enum(), #cipher_state{}, integer(), binary(), iodata(), ssl_record:ssl_version()) ->
-		    {binary(), #cipher_state{}}.
-%%
-%% Description: Encrypts the data and protects associated data (AAD) using chipher
-%% described by cipher_enum() and updating the cipher state
-%% Use for suites that use authenticated encryption with associated data (AEAD)
-%%-------------------------------------------------------------------
-cipher_aead(?AES_GCM, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_cipher(aes_gcm, CipherState, SeqNo, AAD, Fragment, Version);
-cipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_cipher(chacha20_poly1305, CipherState, SeqNo, AAD, Fragment, Version).
+aead_encrypt(Type, Key, Nonce, Fragment, AdditionalData) ->
+    crypto:block_encrypt(aead_type(Type), Key, Nonce, {AdditionalData, Fragment}).
 
-aead_cipher(chacha20_poly1305, #cipher_state{key=Key} = CipherState, SeqNo, AAD0, Fragment, _Version) ->
-    CipherLen = erlang:iolist_size(Fragment),
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = ?uint64(SeqNo),
-    {Content, CipherTag} = crypto:block_encrypt(chacha20_poly1305, Key, Nonce, {AAD, Fragment}),
-    {<<Content/binary, CipherTag/binary>>, CipherState};
-aead_cipher(Type, #cipher_state{key=Key, iv = IV0, nonce = Nonce} = CipherState, _SeqNo, AAD0, Fragment, _Version) ->
-    CipherLen = erlang:iolist_size(Fragment),
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    <<Salt:4/bytes, _/binary>> = IV0,
-    IV = <<Salt/binary, Nonce:64/integer>>,
-    {Content, CipherTag} = crypto:block_encrypt(Type, Key, IV, {AAD, Fragment}),
-    {<<Nonce:64/integer, Content/binary, CipherTag/binary>>, CipherState#cipher_state{nonce = Nonce + 1}}.
+aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AdditionalData) ->
+    crypto:block_decrypt(aead_type(Type), Key, Nonce, {AdditionalData, CipherText, CipherTag}).
+
+aead_type(?AES_GCM) ->
+    aes_gcm;
+aead_type(?CHACHA20_POLY1305) ->
+    chacha20_poly1305.
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
@@ -218,19 +209,6 @@ decipher(?AES_CBC, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
 			   crypto:block_decrypt(aes_cbc256, Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version, PaddingCheck).
 
-%%--------------------------------------------------------------------
--spec decipher_aead(cipher_enum(),  #cipher_state{}, integer(), binary(), binary(), ssl_record:ssl_version()) ->
-			   {binary(), #cipher_state{}} | #alert{}.
-%%
-%% Description: Decrypts the data and checks the associated data (AAD) MAC using
-%% cipher described by cipher_enum() and updating the cipher state.
-%% Use for suites that use authenticated encryption with associated data (AEAD)
-%%-------------------------------------------------------------------
-decipher_aead(?AES_GCM, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_decipher(aes_gcm, CipherState, SeqNo, AAD, Fragment, Version);
-decipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
-    aead_decipher(chacha20_poly1305, CipherState, SeqNo, AAD, Fragment, Version).
-
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version, PaddingCheck) ->
     try 
@@ -258,34 +236,6 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	    %% alerts may permit certain attacks against CBC mode as used in
 	    %% TLS [CBCATT].  It is preferable to uniformly use the
 	    %% bad_record_mac alert to hide the specific type of the error."
-            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
-    end.
-
-aead_ciphertext_to_state(chacha20_poly1305, SeqNo, _IV, AAD0, Fragment, _Version) ->
-    CipherLen = size(Fragment) - 16,
-    <<CipherText:CipherLen/bytes, CipherTag:16/bytes>> = Fragment,
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = ?uint64(SeqNo),
-    {Nonce, AAD, CipherText, CipherTag};
-aead_ciphertext_to_state(_, _SeqNo, <<Salt:4/bytes, _/binary>>, AAD0, Fragment, _Version) ->
-    CipherLen = size(Fragment) - 24,
-    <<ExplicitNonce:8/bytes, CipherText:CipherLen/bytes,  CipherTag:16/bytes>> = Fragment,
-    AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<Salt/binary, ExplicitNonce/binary>>,
-    {Nonce, AAD, CipherText, CipherTag}.
-
-aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
-	      SeqNo, AAD0, Fragment, Version) ->
-    try
-	{Nonce, AAD, CipherText, CipherTag} = aead_ciphertext_to_state(Type, SeqNo, IV, AAD0, Fragment, Version),
-	case crypto:block_decrypt(Type, Key, Nonce, {AAD, CipherText, CipherTag}) of
-	    Content when is_binary(Content) ->
-		{Content, CipherState};
-	    _ ->
-                ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
-	end
-    catch
-	_:_ ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 
