@@ -8533,7 +8533,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
                                       ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_DSTOPTS, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_DSTOPTS, eVal);
 }
 #endif
 
@@ -8544,7 +8550,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_FLOWINFO, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_FLOWINFO, eVal);
 }
 #endif
 
@@ -8555,7 +8567,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        SocketDescriptor* descP,
                                        ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_HOPLIMIT, eVal);
 }
 #endif
 
@@ -8566,7 +8584,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
                                       ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPOPTS, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_HOPOPTS, eVal);
 }
 #endif
 
@@ -8577,7 +8601,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                   SocketDescriptor* descP,
                                   ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IPV6_MTU, eVal);
 }
 #endif
 
@@ -8602,8 +8632,14 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
         result = esock_make_error_str(env, xres);
 
     } else {
+#if defined(SOL_IPV6)
+        int level = SOL_IPV6;
+#else
+        int level = IPPROTO_IPV6;
+#endif
 
-        res = socket_setopt(descP->sock, SOL_IPV6, IPV6_MTU_DISCOVER,
+
+        res = socket_setopt(descP->sock, level, IPV6_MTU_DISCOVER,
                             &val, sizeof(val));
 
         if (res != 0)
@@ -8624,7 +8660,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                              SocketDescriptor* descP,
                                              ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_HOPS, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IPV6_MULTICAST_HOPS, eVal);
 }
 #endif
 
@@ -8636,7 +8678,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
                                            ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_IF, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IPV6_MULTICAST_IF, eVal);
 }
 #endif
 
@@ -8648,7 +8696,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
                                              SocketDescriptor* descP,
                                              ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_LOOP, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_MULTICAST_LOOP, eVal);
 }
 #endif
 
@@ -8659,7 +8713,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
                                       SocketDescriptor* descP,
                                       ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_RECVERR, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_RECVERR, eVal);
 }
 #endif
 
@@ -8670,13 +8730,18 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
                                           SocketDescriptor* descP,
                                           ERL_NIF_TERM      eVal)
 {
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
 #if defined(IPV6_RECVPKTINFO)
     int opt = IPV6_RECVPKTINFO;
 #else
     int opt = IPV6_PKTINFO;
 #endif
 
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, opt, eVal);
+    return nsetopt_bool_opt(env, descP, level, opt, eVal);
 }
 #endif
 
@@ -8687,7 +8752,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
                                            ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_ROUTER_ALERT, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IPV6_ROUTER_ALERT, eVal);
 }
 #endif
 
@@ -8699,7 +8770,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
                                     SocketDescriptor* descP,
                                     ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_RTHDR, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_RTHDR, eVal);
 }
 #endif
 
@@ -8710,7 +8787,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
                                            SocketDescriptor* descP,
                                            ERL_NIF_TERM      eVal)
 {
-    return nsetopt_int_opt(env, descP, SOL_IPV6, IPV6_UNICAST_HOPS, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_int_opt(env, descP, level, IPV6_UNICAST_HOPS, eVal);
 }
 #endif
 
@@ -8722,7 +8805,13 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                      SocketDescriptor* descP,
                                      ERL_NIF_TERM      eVal)
 {
-    return nsetopt_bool_opt(env, descP, SOL_IPV6, IPV6_V6ONLY, eVal);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return nsetopt_bool_opt(env, descP, level, IPV6_V6ONLY, eVal);
 }
 #endif
 
@@ -8739,7 +8828,11 @@ ERL_NIF_TERM nsetopt_lvl_ipv6_update_membership(ErlNifEnv*        env,
     char*            xres;
     int              res;
     size_t           sz;
+#if defined(SOL_IPV6)
+    int              level = SOL_IPV6;
+#else
     int              level = IPPROTO_IPV6;
+#endif
 
     // It must be a map
     if (!IS_MAP(env, eVal))
@@ -11581,7 +11674,12 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_dstopts(ErlNifEnv*        env,
                                       SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_DSTOPTS);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+    return ngetopt_bool_opt(env, descP, level, IPV6_DSTOPTS);
 }
 #endif
 
@@ -11591,7 +11689,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_flowinfo(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_FLOWINFO);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_FLOWINFO);
 }
 #endif
 
@@ -11601,7 +11705,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_hoplimit(ErlNifEnv*        env,
                                        SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPLIMIT);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_HOPLIMIT);
 }
 #endif
 
@@ -11611,7 +11721,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_hopopts(ErlNifEnv*        env,
                                       SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_HOPOPTS);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_HOPOPTS);
 }
 #endif
 
@@ -11621,7 +11737,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_mtu(ErlNifEnv*        env,
                                   SocketDescriptor* descP)
 {
-    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MTU);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IPV6_MTU);
 }
 #endif
 
@@ -11638,8 +11760,13 @@ ERL_NIF_TERM ngetopt_lvl_ipv6_mtu_discover(ErlNifEnv*        env,
     int           mtuDisc;
     SOCKOPTLEN_T  mtuDiscSz = sizeof(mtuDisc);
     int           res;
+#if defined(SOL_IPV6)
+    int           level = SOL_IPV6;
+#else
+    int           level = IPPROTO_IPV6;
+#endif
 
-    res = sock_getopt(descP->sock, SOL_IPV6, IPV6_MTU_DISCOVER,
+    res = sock_getopt(descP->sock, level, IPV6_MTU_DISCOVER,
                       &mtuDisc, &mtuDiscSz);
 
     if (res != 0) {
@@ -11660,7 +11787,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_hops(ErlNifEnv*        env,
                                              SocketDescriptor* descP)
 {
-    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_HOPS);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IPV6_MULTICAST_HOPS);
 }
 #endif
 
@@ -11670,7 +11803,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_if(ErlNifEnv*        env,
                                            SocketDescriptor* descP)
 {
-    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_IF);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IPV6_MULTICAST_IF);
 }
 #endif
 
@@ -11680,7 +11819,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_multicast_loop(ErlNifEnv*        env,
                                              SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_MULTICAST_LOOP);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_MULTICAST_LOOP);
 }
 #endif
 
@@ -11690,7 +11835,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_recverr(ErlNifEnv*        env,
                                       SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_RECVERR);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_RECVERR);
 }
 #endif
 
@@ -11700,13 +11851,18 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_recvpktinfo(ErlNifEnv*        env,
                                           SocketDescriptor* descP)
 {
-#if defined(IPV6_RECVPKTINFO)
-    int opt = IPV6_RECVPKTINFO;
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
 #else
-    int opt = IPV6_PKTINFO;
+    int level = IPPROTO_IPV6;
+#endif
+#if defined(IPV6_RECVPKTINFO)
+    int opt   = IPV6_RECVPKTINFO;
+#else
+    int opt   = IPV6_PKTINFO;
 #endif
 
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, opt);
+    return ngetopt_bool_opt(env, descP, level, opt);
 }
 #endif
 
@@ -11716,7 +11872,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_router_alert(ErlNifEnv*        env,
                                            SocketDescriptor* descP)
 {
-    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_ROUTER_ALERT);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IPV6_ROUTER_ALERT);
 }
 #endif
 
@@ -11726,7 +11888,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_rthdr(ErlNifEnv*        env,
                                     SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_RTHDR);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_RTHDR);
 }
 #endif
 
@@ -11736,7 +11904,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_unicast_hops(ErlNifEnv*        env,
                                            SocketDescriptor* descP)
 {
-    return ngetopt_int_opt(env, descP, SOL_IPV6, IPV6_UNICAST_HOPS);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_int_opt(env, descP, level, IPV6_UNICAST_HOPS);
 }
 #endif
 
@@ -11746,7 +11920,13 @@ static
 ERL_NIF_TERM ngetopt_lvl_ipv6_v6only(ErlNifEnv*        env,
                                      SocketDescriptor* descP)
 {
-    return ngetopt_bool_opt(env, descP, SOL_IPV6, IPV6_V6ONLY);
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+
+    return ngetopt_bool_opt(env, descP, level, IPV6_V6ONLY);
 }
 #endif
 
