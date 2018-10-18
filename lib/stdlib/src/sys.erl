@@ -388,9 +388,9 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
 handle_debug([{trace, true} | T], FormFunc, State, Event) ->
     print_event({Event, State, FormFunc}),
     [{trace, true} | handle_debug(T, FormFunc, State, Event)];
-handle_debug([{log, {N, LogData}} | T], FormFunc, State, Event) ->
-    NLogData = [{Event, State, FormFunc} | trim(N, LogData)],
-    [{log, {N, NLogData}} | handle_debug(T, FormFunc, State, Event)];
+handle_debug([{log, NLog} | T], FormFunc, State, Event) ->
+    Item = {Event, State, FormFunc},
+    [{log, nlog_put(Item, NLog)} | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{log_to_file, Fd} | T], FormFunc, State, Event) ->
     print_event(Fd, {Event, State, FormFunc}),
     [{log_to_file, Fd} | handle_debug(T, FormFunc, State, Event)];
@@ -526,19 +526,19 @@ debug_cmd({trace, true}, Debug) ->
 debug_cmd({trace, false}, Debug) ->
     {ok, remove_debug(trace, Debug)};
 debug_cmd({log, true}, Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {ok, install_debug(log, {10, trim(10, Logs)}, Debug)};
-debug_cmd({log, {true, N}}, Debug) when is_integer(N), N > 0 ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {ok, install_debug(log, {N, trim(N, Logs)}, Debug)};
+    NLog = get_debug(log, Debug, nlog_new()),
+    {ok, install_debug(log, nlog_new(NLog), Debug)};
+debug_cmd({log, {true, N}}, Debug) when is_integer(N), 1 =< N ->
+    NLog = get_debug(log, Debug, nlog_new(N)),
+    {ok, install_debug(log, nlog_new(N, NLog), Debug)};
 debug_cmd({log, false}, Debug) ->
     {ok, remove_debug(log, Debug)};
 debug_cmd({log, print}, Debug) ->
     print_log(Debug),
     {ok, Debug};
 debug_cmd({log, get}, Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    {{ok, lists:reverse(Logs)}, Debug};
+    NLog = get_debug(log, Debug, nlog_new()),
+    {{ok, nlog_get(NLog)}, Debug};
 debug_cmd({log_to_file, false}, Debug) ->
     NDebug = close_log_file(Debug),
     {ok, NDebug};
@@ -625,9 +625,8 @@ get_debug2(Item, Debug, Default) ->
 -spec print_log(Debug) -> 'ok' when
       Debug :: [dbg_opt()].
 print_log(Debug) ->
-    {_N, Logs} = get_debug(log, Debug, {0, []}),
-    lists:foreach(fun print_event/1,
-		  lists:reverse(Logs)).
+    NLog = get_debug(log, Debug, nlog_new()),
+    lists:foreach(fun print_event/1, nlog_get(NLog)).
     
 close_log_file(Debug) ->
     case get_debug2(log_to_file, Debug, []) of
@@ -637,6 +636,27 @@ close_log_file(Debug) ->
 	    ok = file:close(Fd),
 	    remove_debug(log_to_file, Debug)
     end.
+
+%%-----------------------------------------------------------------
+%% Keep the last N Log functions
+%%-----------------------------------------------------------------
+
+nlog_new() ->
+    nlog_new(10).
+%%
+nlog_new(N) when is_integer(N) ->
+    {N, []};
+nlog_new(NLog) ->
+    nlog_new(10, NLog).
+%%
+nlog_new(NewN, {_N, R}) ->
+    {NewN, trim(NewN, R)}.
+
+nlog_put(Item, {N, R}) ->
+    {N, [Item | trim(N, R)]}.
+
+nlog_get({_N, R}) ->
+    lists:reverse(R).
 
 %%-----------------------------------------------------------------
 %% Func: debug_options/1
@@ -665,9 +685,9 @@ debug_options(Options) ->
 debug_options([trace | T], Debug) ->
     debug_options(T, install_debug(trace, true, Debug));
 debug_options([log | T], Debug) ->
-    debug_options(T, install_debug(log, {10, []}, Debug));
+    debug_options(T, install_debug(log, nlog_new(), Debug));
 debug_options([{log, N} | T], Debug) when is_integer(N), N > 0 ->
-    debug_options(T, install_debug(log, {N, []}, Debug));
+    debug_options(T, install_debug(log, nlog_new(N), Debug));
 debug_options([statistics | T], Debug) ->
     debug_options(T, install_debug(statistics, init_stat(), Debug));
 debug_options([{log_to_file, FileName} | T], Debug) ->
