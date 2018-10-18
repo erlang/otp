@@ -216,8 +216,12 @@ extern ERL_NIF_TERM esock_atom_einval;
 #define MLOCK(M)            enif_mutex_lock((M))
 #define MUNLOCK(M)          enif_mutex_unlock((M))
 
-#define MONP(E,D,P,M)       enif_monitor_process((E), (D), (P), (M))
-#define DEMONP(E,D,M)       enif_demonitor_process((E), (D), (M))
+// #define MONP(S,E,D,P,M)  enif_monitor_process((E), (D), (P), (M))
+// #define DEMONP(S,E,D,M)  enif_demonitor_process((E), (D), (M))
+#define MONP(S,E,D,P,M)     esock_monitor((S), (E), (D), (P), (M))
+#define DEMONP(S,E,D,M)     esock_demonitor((S), (E), (D), (M))
+#define MON_INIT(M)         esock_monitor_init((M))
+// #define MON_COMP(M1, M2)    esock_monitor_compare((M1), (M2))
 
 #define SELECT(E,FD,M,O,P,R)                                    \
     if (enif_select((E), (FD), (M), (O), (P), (R)) < 0)         \
