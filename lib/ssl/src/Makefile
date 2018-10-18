@@ -89,7 +89,8 @@ MODULES= \
 	ssl_v3 \
 	tls_v1 \
 	dtls_v1 \
-	ssl_logger
+	ssl_logger \
+	ssl_dh_groups
 
 INTERNAL_HRL_FILES = \
 	ssl_alert.hrl ssl_cipher.hrl \
