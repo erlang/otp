@@ -71,18 +71,16 @@
          sc_cpe_socket_cleanup_tcp6/1,
          sc_cpe_socket_cleanup_udp4/1,
          sc_cpe_socket_cleanup_udp6/1,
-         sc_recv_response_local_close_tcp4/1,
-         sc_recv_response_local_close_tcp6/1,
-         sc_recv_response_remote_close_tcp4/1,
-         sc_recv_response_remote_close_tcp6/1,
-         sc_recvmsg_response_local_close_tcp4/1,
-         sc_recvmsg_response_local_close_tcp6/1,
-         sc_recvmsg_response_remote_close_tcp4/1,
-         sc_recvmsg_response_remote_close_tcp6/1,
-         sc_acceptor_response_local_close_tcp4/1,
-         sc_acceptor_response_local_close_tcp6/1,
-         sc_acceptor_response_remote_close_tcp4/1,
-         sc_acceptor_response_remote_close_tcp6/1
+         sc_lc_recv_response_tcp4/1,
+         sc_lc_recv_response_tcp6/1,
+         sc_lc_recvmsg_response_tcp4/1,
+         sc_lc_recvmsg_response_tcp6/1,
+         sc_lc_acceptor_response_tcp4/1,
+         sc_lc_acceptor_response_tcp6/1,
+         sc_rc_recv_response_tcp4/1,
+         sc_rc_recv_response_tcp6/1,
+         sc_rc_recvmsg_response_tcp4/1,
+         sc_rc_recvmsg_response_tcp6/1
 
          %% Tickets
         ]).
@@ -131,7 +129,9 @@ groups() ->
      {api_options,         [], api_options_cases()},
      {api_op_with_timeout, [], api_op_with_timeout_cases()},
      {socket_closure,      [], socket_closure_cases()},
-     {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()}
+     {sc_ctrl_proc_exit,   [], sc_cp_exit_cases()},
+     {sc_local_close,      [], sc_lc_cases()},
+     {sc_remote_close,     [], sc_rc_cases()}
      %% {tickets,             [], ticket_cases()}
     ].
      
@@ -187,21 +187,8 @@ api_op_with_timeout_cases() ->
 socket_closure_cases() ->
     [
      {group, sc_ctrl_proc_exit},
-
-     sc_recv_response_local_close_tcp4,
-     sc_recv_response_local_close_tcp6,
-     sc_recv_response_remote_close_tcp4,
-     sc_recv_response_remote_close_tcp6,
-
-     sc_recvmsg_response_local_close_tcp4,
-     sc_recvmsg_response_local_close_tcp6,
-     sc_recvmsg_response_remote_close_tcp4,
-     sc_recvmsg_response_remote_close_tcp6,
-
-     sc_acceptor_response_local_close_tcp4,
-     sc_acceptor_response_local_close_tcp6,
-     sc_acceptor_response_remote_close_tcp4,
-     sc_acceptor_response_remote_close_tcp6
+     {group, sc_local_close},
+     {group, sc_remote_close}
     ].
 
 %% These cases are all about socket cleanup after the controlling process
@@ -213,6 +200,30 @@ sc_cp_exit_cases() ->
      sc_cpe_socket_cleanup_udp4,
      sc_cpe_socket_cleanup_udp6
     ].
+
+%% These cases tests what happens when the socket is closed locally.
+sc_lc_cases() ->
+    [
+     sc_lc_recv_response_tcp4,
+     sc_lc_recv_response_tcp6,
+
+     sc_lc_recvmsg_response_tcp4,
+     sc_lc_recvmsg_response_tcp6,
+
+     sc_lc_acceptor_response_tcp4,
+     sc_lc_acceptor_response_tcp6
+    ].
+
+%% These cases tests what happens when the socket is closed remotely.
+sc_rc_cases() ->
+    [
+     sc_rc_recv_response_tcp4,
+     sc_rc_recv_response_tcp6,
+
+     sc_rc_recvmsg_response_tcp4,
+     sc_rc_recvmsg_response_tcp6
+    ].
+
 
 %% ticket_cases() ->
 %%     [].
@@ -2332,6 +2343,7 @@ api_to_receive_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
+                                   %% ok = socket:setopt(Sock, otp, debug, true),
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2375,16 +2387,44 @@ api_to_receive_tcp(InitState) ->
                                    {ok, maps:remove(tester, State)}
                            end
                    end},
+         %% #{desc => "sleep some (before traffic close)",
+         %%   cmd  => fun(_) ->
+         %%                   ?SLEEP(1000),
+         %%                   ok
+         %%           end},
+         %% #{desc => "monitored-by",
+         %%   cmd  => fun(_) ->
+         %%                   {_, Mons} = process_info(self(), monitored_by),
+         %%                   ei("Monitored By: ~p", [Mons]),
+         %%                   ok
+         %%           end},
          #{desc => "close (traffic) socket",
            cmd  => fun(#{sock := Sock} = State) ->
+                           %% ok = socket:setopt(Sock, otp, debug, true),
                            sock_close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
+         %% #{desc => "monitored-by",
+         %%   cmd  => fun(_) ->
+         %%                   {_, Mons} = process_info(self(), monitored_by),
+         %%                   ei("Monitored By: ~p", [Mons]),
+         %%                   ok
+         %%           end},
+         %% #{desc => "sleep some (before listen close)",
+         %%   cmd  => fun(_) ->
+         %%                   ?SLEEP(1000),
+         %%                   ok
+         %%           end},
          #{desc => "close (listen) socket",
            cmd  => fun(#{lsock := LSock} = State) ->
                            sock_close(LSock),
                            {ok, maps:remove(lsock, State)}
                    end},
+         %% #{desc => "sleep some (after listen close)",
+         %%   cmd  => fun(_) ->
+         %%                   ?SLEEP(1000),
+         %%                   ok
+         %%           end},
 
          %% *** We are done ***
          #{desc => "finish",
@@ -2938,10 +2978,10 @@ sc_cpe_socket_cleanup(InitState) ->
                                    {ok, maps:remove(tester, State)}
                            end
                    end},
-         #{desc => "enable (otp) debug",
-           cmd  => fun(#{sock := Sock} = _State) ->
-                           ok = socket:setopt(Sock, otp, debug, true)
-                   end},
+         %% #{desc => "enable (otp) debug",
+         %%   cmd  => fun(#{sock := Sock} = _State) ->
+         %%                   ok = socket:setopt(Sock, otp, debug, true)
+         %%           end},
 
          %% *** We are done ***
          #{desc => "finish",
@@ -3041,12 +3081,12 @@ sc_cpe_socket_cleanup(InitState) ->
 %% 
 %% </KOLLA>
 
-sc_recv_response_local_close_tcp4(suite) ->
+sc_lc_recv_response_tcp4(suite) ->
     [];
-sc_recv_response_local_close_tcp4(doc) ->
+sc_lc_recv_response_tcp4(doc) ->
     [];
-sc_recv_response_local_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_recv_response_local_close_tcp4,
+sc_lc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_lc_recv_response_tcp4,
            fun() ->
                    %% not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -3054,7 +3094,7 @@ sc_recv_response_local_close_tcp4(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_local_close_tcp(InitState)
+                   ok = sc_lc_receive_response_tcp(InitState)
            end).
 
 
@@ -3063,12 +3103,12 @@ sc_recv_response_local_close_tcp4(_Config) when is_list(_Config) ->
 %% locally closed while the process is calling the recv function.
 %% Socket is IPv6.
 
-sc_recv_response_local_close_tcp6(suite) ->
+sc_lc_recv_response_tcp6(suite) ->
     [];
-sc_recv_response_local_close_tcp6(doc) ->
+sc_lc_recv_response_tcp6(doc) ->
     [];
-sc_recv_response_local_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_recv_response_local_close_tcp6,
+sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_lc_recv_response_tcp6,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -3076,13 +3116,13 @@ sc_recv_response_local_close_tcp6(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_local_close_tcp(InitState)
+                   ok = sc_lc_receive_response_tcp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sc_receive_response_local_close_tcp(InitState) ->
+sc_lc_receive_response_tcp(InitState) ->
     %% This is the server that accepts connections.
     %% But it is also suppose to close the connection socket, 
     %% and trigger the read failure for the handler process.
@@ -3271,8 +3311,8 @@ sc_receive_response_local_close_tcp(InitState) ->
          %%                   ok
          %%           end},
          #{desc => "attempt recv",
-           cmd  => fun(#{sock := Sock} = State) ->
-                           case socket:recv(Sock) of
+           cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
+                           case Recv(Sock) of
                                {ok, _Data} ->
                                    ee("Unexpected data received"),
                                    {error, unexpected_data};
@@ -3609,7 +3649,7 @@ sc_receive_response_local_close_tcp(InitState) ->
     Acceptor = evaluator_start("acceptor", AcceptorSeq, AccInitState),
 
     p("start handler evaluator"),
-    HandlerInitState = #{},
+    HandlerInitState = #{recv => maps:get(recv, InitState)},
     Handler = evaluator_start("handler", HandlerSeq, HandlerInitState),
 
     p("start client evaluator"),
@@ -3632,12 +3672,12 @@ sc_receive_response_local_close_tcp(InitState) ->
 %% remotely closed while the process is calling the recv function.
 %% Socket is IPv4.
 
-sc_recv_response_remote_close_tcp4(suite) ->
+sc_rc_recv_response_tcp4(suite) ->
     [];
-sc_recv_response_remote_close_tcp4(doc) ->
+sc_rc_recv_response_tcp4(doc) ->
     [];
-sc_recv_response_remote_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_recv_response_remote_close_tcp4,
+sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recv_response_tcp4,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -3645,7 +3685,7 @@ sc_recv_response_remote_close_tcp4(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_remote_close_tcp(InitState)
+                   ok = sc_rc_receive_response_tcp(InitState)
            end).
 
 
@@ -3654,12 +3694,12 @@ sc_recv_response_remote_close_tcp4(_Config) when is_list(_Config) ->
 %% remotely closed while the process is calling the recv function.
 %% Socket is IPv6.
 
-sc_recv_response_remote_close_tcp6(suite) ->
+sc_rc_recv_response_tcp6(suite) ->
     [];
-sc_recv_response_remote_close_tcp6(doc) ->
+sc_rc_recv_response_tcp6(doc) ->
     [];
-sc_recv_response_remote_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_recv_response_remote_close_tcp6,
+sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recv_response_tcp6,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recv(Sock) end,
@@ -3667,13 +3707,13 @@ sc_recv_response_remote_close_tcp6(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_remote_close_tcp(InitState)
+                   ok = sc_rc_receive_response_tcp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sc_receive_response_remote_close_tcp(_InitState) ->
+sc_rc_receive_response_tcp(_InitState) ->
     ok.
 
 
@@ -3683,12 +3723,12 @@ sc_receive_response_remote_close_tcp(_InitState) ->
 %% locally closed while the process is calling the recvmsg function.
 %% Socket is IPv4.
 
-sc_recvmsg_response_local_close_tcp4(suite) ->
+sc_lc_recvmsg_response_tcp4(suite) ->
     [];
-sc_recvmsg_response_local_close_tcp4(doc) ->
+sc_lc_recvmsg_response_tcp4(doc) ->
     [];
-sc_recvmsg_response_local_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_recvmsg_response_local_close_tcp4,
+sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_lc_recvmsg_response_tcp4,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
@@ -3696,7 +3736,7 @@ sc_recvmsg_response_local_close_tcp4(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_local_close_tcp(InitState)
+                   ok = sc_lc_receive_response_tcp(InitState)
            end).
 
 
@@ -3705,12 +3745,12 @@ sc_recvmsg_response_local_close_tcp4(_Config) when is_list(_Config) ->
 %% locally closed while the process is calling the recvmsg function.
 %% Socket is IPv6.
 
-sc_recvmsg_response_local_close_tcp6(suite) ->
+sc_lc_recvmsg_response_tcp6(suite) ->
     [];
-sc_recvmsg_response_local_close_tcp6(doc) ->
+sc_lc_recvmsg_response_tcp6(doc) ->
     [];
-sc_recvmsg_response_local_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_recvmsg_response_local_close_tcp6,
+sc_lc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_recvmsg_response_tcp6,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
@@ -3718,7 +3758,7 @@ sc_recvmsg_response_local_close_tcp6(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_local_close_tcp(InitState)
+                   ok = sc_lc_receive_response_tcp(InitState)
            end).
 
 
@@ -3727,12 +3767,12 @@ sc_recvmsg_response_local_close_tcp6(_Config) when is_list(_Config) ->
 %% remotely closed while the process is calling the recvmsg function.
 %% Socket is IPv4.
 
-sc_recvmsg_response_remote_close_tcp4(suite) ->
+sc_rc_recvmsg_response_tcp4(suite) ->
     [];
-sc_recvmsg_response_remote_close_tcp4(doc) ->
+sc_rc_recvmsg_response_tcp4(doc) ->
     [];
-sc_recvmsg_response_remote_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_recvmsg_response_remote_close_tcp4,
+sc_rc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recvmsg_response_tcp4,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
@@ -3740,7 +3780,7 @@ sc_recvmsg_response_remote_close_tcp4(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_remote_close_tcp(InitState)
+                   ok = sc_rc_receive_response_tcp(InitState)
            end).
 
 
@@ -3749,12 +3789,12 @@ sc_recvmsg_response_remote_close_tcp4(_Config) when is_list(_Config) ->
 %% remotely closed while the process is calling the recvmsg function.
 %% Socket is IPv6.
 
-sc_recvmsg_response_remote_close_tcp6(suite) ->
+sc_rc_recvmsg_response_tcp6(suite) ->
     [];
-sc_recvmsg_response_remote_close_tcp6(doc) ->
+sc_rc_recvmsg_response_tcp6(doc) ->
     [];
-sc_recvmsg_response_remote_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_recvmsg_response_remote_close_tcp6,
+sc_rc_recvmsg_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recvmsg_response_tcp6,
            fun() ->
                    not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
@@ -3762,7 +3802,7 @@ sc_recvmsg_response_remote_close_tcp6(_Config) when is_list(_Config) ->
                                  type     => stream,
                                  protocol => tcp,
                                  recv     => Recv},
-                   ok = sc_receive_response_remote_close_tcp(InitState)
+                   ok = sc_rc_receive_response_tcp(InitState)
            end).
 
 
@@ -3773,18 +3813,18 @@ sc_recvmsg_response_remote_close_tcp6(_Config) when is_list(_Config) ->
 %% git the setup anyway.
 %% Socket is IPv4.
 
-sc_acceptor_response_local_close_tcp4(suite) ->
+sc_lc_acceptor_response_tcp4(suite) ->
     [];
-sc_acceptor_response_local_close_tcp4(doc) ->
+sc_lc_acceptor_response_tcp4(doc) ->
     [];
-sc_acceptor_response_local_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_acceptor_response_local_close_tcp4,
+sc_lc_acceptor_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_lc_acceptor_response_tcp4,
            fun() ->
                    not_yet_implemented(),
                    InitState = #{domain   => inet,
                                  type     => stream,
                                  protocol => tcp},
-                   ok = sc_acceptor_response_local_close_tcp(InitState)
+                   ok = sc_lc_acceptor_response_tcp(InitState)
            end).
 
 
@@ -3795,75 +3835,24 @@ sc_acceptor_response_local_close_tcp4(_Config) when is_list(_Config) ->
 %% git the setup anyway.
 %% Socket is IPv6.
 
-sc_acceptor_response_local_close_tcp6(suite) ->
+sc_lc_acceptor_response_tcp6(suite) ->
     [];
-sc_acceptor_response_local_close_tcp6(doc) ->
+sc_lc_acceptor_response_tcp6(doc) ->
     [];
-sc_acceptor_response_local_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_acceptor_response_local_close_tcp6,
+sc_lc_acceptor_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_lc_acceptor_response_tcp6,
            fun() ->
                    not_yet_implemented(),
                    InitState = #{domain   => inet,
                                  type     => stream,
                                  protocol => tcp},
-                   ok = sc_acceptor_response_local_close_tcp(InitState)
+                   ok = sc_lc_acceptor_response_tcp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sc_acceptor_response_local_close_tcp(_InitState) ->
-    ok.
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test what happens when a socket is 
-%% remotely closed while the process is calling the accept function.
-%% We test what happens with a non-controlling_process also, since we 
-%% git the setup anyway.
-%% Socket is IPv4.
-
-sc_acceptor_response_remote_close_tcp4(suite) ->
-    [];
-sc_acceptor_response_remote_close_tcp4(doc) ->
-    [];
-sc_acceptor_response_remote_close_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_acceptor_response_remote_close_tcp4,
-           fun() ->
-                   not_yet_implemented(),
-                   InitState = #{domain   => inet,
-                                 type     => stream,
-                                 protocol => tcp},
-                   ok = sc_acceptor_response_remote_close_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test what happens when a socket is 
-%% remotely closed while the process is calling the accept function.
-%% We test what happens with a non-controlling_process also, since we 
-%% git the setup anyway.
-%% Socket is IPv6.
-
-sc_acceptor_response_remote_close_tcp6(suite) ->
-    [];
-sc_acceptor_response_remote_close_tcp6(doc) ->
-    [];
-sc_acceptor_response_remote_close_tcp6(_Config) when is_list(_Config) ->
-    tc_try(acceptor_response_remote_close_tcp6,
-           fun() ->
-                   not_yet_implemented(),
-                   InitState = #{domain   => inet,
-                                 type     => stream,
-                                 protocol => tcp},
-                   ok = sc_acceptor_response_remote_close_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-sc_acceptor_response_remote_close_tcp(_InitState) ->
+sc_lc_acceptor_response_tcp(_InitState) ->
     ok.
 
 
