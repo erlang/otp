@@ -28,7 +28,7 @@
          fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
          t_copy_literals/1, t_copy_literals_frags/1,
-         erl_544/1]).
+         erl_544/1, max_heap_size/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -43,7 +43,7 @@ all() ->
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
-     erl_544].
+     erl_544, max_heap_size].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -966,6 +966,39 @@ erl_544(Config) when is_list(Config) ->
             ok;
         _Enc ->
             {skipped, "Only run when native file name encoding is utf8"}
+    end.
+
+%% Test that the copying of literals to a process during purging of
+%% literals will cause the process to be killed if the max heap size
+%% is exceeded.
+max_heap_size(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Value = [I || I <- lists:seq(1, 5000)],
+    Code = gen_lit(Mod, [{term,Value}]),
+    {module,Mod} = erlang:load_module(Mod, Code),
+    SpawnOpts = [monitor,
+                 {max_heap_size,
+                  #{size=>1024,
+                    kill=>true,
+                    error_logger=>true}}],
+    {Pid,Ref} = spawn_opt(fun() ->
+                                  max_heap_size_proc(Mod)
+                          end, SpawnOpts),
+    receive
+        {'DOWN',Ref,process,Pid,Reason} ->
+            killed = Reason;
+        Other ->
+            ct:fail({unexpected_message,Other})
+    after 10000 ->
+            ct:fail({process_did_not_die, Pid, erlang:process_info(Pid)})
+    end.
+
+max_heap_size_proc(Mod) ->
+    Value = Mod:term(),
+    code:delete(Mod),
+    code:purge(Mod),
+    receive
+        _ -> Value
     end.
 
 %% Utilities.
