@@ -168,15 +168,47 @@ subtract_maybe_alloc(Sint src_size, Eterm *static_array, Sint static_size) {
 }
 
 
-/* Copy elements from list 'src' into 'dst' */
+typedef struct {
+    Eterm src;
+    Eterm *dst;
+} ErtsCopyListToArrayContext;
+
+
 static ERTS_INLINE void
-subtract_copy_list(Eterm src, Sint src_size, Eterm *dst) {
-    Eterm *dst_p = dst;
-    for (Sint i = src_size - 1; i >= 0; i--) {
+erts_trappable_copy_list_to_array_setup(Eterm src, Eterm *dst,
+                                        ErtsCopyListToArrayContext *context) {
+    context->src = src;
+    context->dst = dst;
+}
+
+
+/*
+ * Copy elements from list 'src' into array 'dst' of src_size elements
+ *
+ * Before start: call erts_trappable_copy_list_to_array_setup on the context
+ * Returns: 1 if finished, 0 if not finished, please call again.
+ */
+static int
+erts_trappable_copy_list_to_array(ErtsCopyListToArrayContext *context) {
+    const static Uint MAX_WORK_BEFORE_TRAPPING = 500;
+    register Uint reds = MAX_WORK_BEFORE_TRAPPING;
+    Eterm src = context->src;
+    Eterm *dst = context->dst;
+
+    while (is_list(src) && reds) {
         const Eterm *src_p = list_val(src);
-        *dst_p++ = CAR(src_p);
+        *dst++ = CAR(src_p);
         src = CDR(src_p);
+        reds--;
     }
+
+    if (reds) {
+        /* Work is finished */
+        return 1;
+    }
+    context->src = src;
+    context->dst = dst;
+    return 0;
 }
 
 
@@ -194,29 +226,32 @@ subtract_find_in_array(Eterm val, const Eterm *array_p, Sint array_sz) {
 
 
 enum { SUBTRACT_SMALL_VEC_SIZE = 10 };
+/* This value comes as 1st argument to list:subtract to indicate trapping.
+ * In this case second arg must be {A, B, StateMagicBin} */
 #define SUBTRACT_SPECIAL_VALUE am_bif_return_trap
 
 typedef enum {
-    SUBTRACT_STEP_LEN_A = 1, /* calculate length of A */
-    SUBTRACT_STEP_LEN_B = 2, /* calculate length of B */
-    SUBTRACT_STEP_SCAN = 3   /* scan A and copy elements not in B to result */
+    SUBTRACT_STEP_LEN_A,    /* calculate length of A */
+    SUBTRACT_STEP_LEN_B,    /* calculate length of B */
+    SUBTRACT_STEP_COPY_B,   /* copy B to temporary array */
+    SUBTRACT_STEP_SCAN,     /* scan A and copy elements not in B to result */
+    SUBTRACT_STEP_BUILD_RESULT /* from result array build a result list */
 } ErtsSubtractFsmState;
 
-/* Context used for trapping length calculation */
+/*
+ * Context used for trapping length calculation.
+ * The algorithm is reusable and might be moved elsewhere for where trappable
+ * length is needed.
+ */
 typedef struct {
-    Eterm iter;
-    Sint count;
-} ErtsSubtractLengthContext;
+    Eterm iter;         /* points to next element of the list */
+    Sint count;         /* stores the result */
+} ErtsLengthContext;
 
 /* Context used for trapping scanning of inputs */
 typedef struct {
     /* Preallocated memory for small lists */
     Eterm small_vec_a[SUBTRACT_SMALL_VEC_SIZE];
-    Eterm small_vec_b[SUBTRACT_SMALL_VEC_SIZE];
-
-    /* Dynamically allocated copy of B, for shrinking it when elements are
-     * found and removed */
-    Eterm *copy_of_b;
 
     /* iterator over A when subtracting and moving remaining elts */
     Eterm iter_a;
@@ -227,12 +262,19 @@ typedef struct {
 } ErtsSubtractScanContext;
 
 typedef struct {
-    /* Allows doing work in stages possibly interrupting on large inputs */
+    /* Allows doing work in stages interrupting on large inputs */
     ErtsSubtractFsmState fsm_state;
     Sint len_a;
     Sint len_b;
+
+    /* Dynamically allocated copy of B, for shrinking it when elements are
+     * found and removed */
+    Eterm small_vec_b[SUBTRACT_SMALL_VEC_SIZE];
+    Eterm *copy_of_b;
+
     union {
-        ErtsSubtractLengthContext len;
+        ErtsLengthContext len;
+        ErtsCopyListToArrayContext copy_b;
         ErtsSubtractScanContext scan;
     } s;
 } ErtsSubtractContext;
@@ -294,9 +336,9 @@ subtractcontext_dtor(ErtsSubtractContext *context) {
         erts_free(ERTS_ALC_T_TMP, (void *) s->result_array);
         s->result_array = NULL;
     }
-    if (s->copy_of_b && s->copy_of_b != s->small_vec_b) {
-        erts_free(ERTS_ALC_T_TMP, (void *) s->copy_of_b);
-        s->copy_of_b = NULL;
+    if (context->copy_of_b && context->copy_of_b != context->small_vec_b) {
+        erts_free(ERTS_ALC_T_TMP, (void *) context->copy_of_b);
+        context->copy_of_b = NULL;
     }
     return 1;
 }
@@ -340,12 +382,12 @@ subtract_fsm_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
      * start will fail */
     while (is_list(iter_a)) {
         const Eterm *ptr_a = list_val(iter_a);
-        Sint found_at = subtract_find_in_array(CAR(ptr_a), s->copy_of_b,
+        Sint found_at = subtract_find_in_array(CAR(ptr_a), context->copy_of_b,
                                                context->len_b);
         if (found_at >= 0) {
             /* Remove elem from B and skip; shrink B by 1 */
             context->len_b--;
-            s->copy_of_b[found_at] = s->copy_of_b[context->len_b];
+            context->copy_of_b[found_at] = context->copy_of_b[context->len_b];
 
             if (context->len_b == 0) {
                 iter_a = CDR(ptr_a);
@@ -394,29 +436,54 @@ subtract_fsm_construct_context(Process *_p, Eterm A, Eterm B) {
 
 
 /*
- * Setup variables for entering length calculation state.
+ * Setup variables for entering trappable length function
  */
 static ERTS_INLINE void
-subtract_enter_state_len_of(Eterm T, ErtsSubtractContext *context) {
-    ErtsSubtractLengthContext *lc = &context->s.len;
+erts_trappable_list_length_setup(Eterm T, ErtsSubtractContext *context) {
+    ErtsLengthContext *lc = &context->s.len;
     lc->count = 0;
     lc->iter = T;
 }
 
 
 /*
- * Stages 1 and 2 perform length calculation on lists A and B respectively.
- * Possibly trapping if the lists are too long.
- * Reentering this stage
+ * Perform length calculation on a list. Will break early if the list is too
+ * long and return atom 'false', you can reenter it with the same
+ * ErtsLengthContext and continue.
+ *
+ * Before start: call erts_trappable_list_length_setup on the context
+ * Returns: smallint(-1) - list did not end with a NIL.
+ * Returns: smallint(Length) - if result is ready.
+ * Returns: am_false - if you need to call it again.
  */
 static Eterm
-subtract_fsm_len(Process *p, ErtsSubtractContext *context) {
-    context->s.len.count = erts_list_length(context->s.len.iter);
-    return am_true;
+erts_trappable_list_length(ErtsLengthContext *context) {
+    Eterm iter = context->iter;
+    const static Uint WORK_BEFORE_TRAPPING = 500;
+    register Sint count = context->count;
+    register Uint reds = WORK_BEFORE_TRAPPING;
+
+    while (reds && is_list(iter)) {
+        count++;
+        reds--;
+        iter = CDR(list_val(iter));
+    }
+    if (reds) {
+        /* if reds is non-zero means the work is finished, result is ready */
+        if (is_not_nil(iter)) {
+            return make_small(-1);
+        }
+        return make_small(count);
+    } else {
+        /* reds==0 means there's more work, save intermediate count */
+        context->count = count;
+        context->iter = iter;
+        return am_false;
+    }
 }
 
 
-/* Stage 3 creates binary or on-stack state and performs the subtraction
+/* Stage SCAN creates binary or on-stack state and performs the subtraction
  * also possibly trapping if the inputs are too long. */
 static ERTS_INLINE void
 subtract_enter_state_scan(Process *p, Eterm A, Eterm B,
@@ -424,13 +491,19 @@ subtract_enter_state_scan(Process *p, Eterm A, Eterm B,
     ErtsSubtractScanContext *s = &context->s.scan;
     s->result_array = subtract_maybe_alloc(context->len_a, s->small_vec_a,
                                            SUBTRACT_SMALL_VEC_SIZE);
-    s->copy_of_b = subtract_maybe_alloc(context->len_b, s->small_vec_b,
-                                        SUBTRACT_SMALL_VEC_SIZE);
-    subtract_copy_list(B, context->len_b, s->copy_of_b);
-
     /* Initialise loop counters and run the loop */
     s->result_size = 0;
     s->iter_a = A;
+}
+
+
+static ERTS_INLINE void
+subtract_enter_state_copy_B(Eterm B, ErtsSubtractContext *context) {
+    context->copy_of_b = subtract_maybe_alloc(
+            context->len_b, context->small_vec_b, SUBTRACT_SMALL_VEC_SIZE);
+
+    erts_trappable_copy_list_to_array_setup(B, context->copy_of_b,
+                                            &context->s.copy_b);
 }
 
 
@@ -456,13 +529,13 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
 
     switch (context->fsm_state) {
         case SUBTRACT_STEP_LEN_A: {
-            Eterm res = subtract_fsm_len(p, context);
+            Eterm res = erts_trappable_list_length(&context->s.len);
             Sint count;
-            if (res != am_true) {
+            if (res == am_false) {
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
-            count = context->s.len.count;
+            count = signed_val(res);
             /* Returning true means length is done, result in s.len.count */
             if (count < 0) {
                 BIF_ERROR(p, BADARG);
@@ -472,23 +545,18 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
             }
             context->len_a = count;
             context->fsm_state = SUBTRACT_STEP_LEN_B;
-            subtract_enter_state_len_of(orig_B, context);
+            erts_trappable_list_length_setup(orig_B, context);
             /* FALL THROUGH */
         }
 
         case SUBTRACT_STEP_LEN_B: {
-            Eterm res = subtract_fsm_len(p, context);
+            Eterm res = erts_trappable_list_length(&context->s.len);
             Sint count;
-            if (res != am_true) {
+            if (res == am_false) {
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
-            if (NULL != 0) {
-                /* Some platforms have different idea of NULL, set fields like this */
-                context->s.scan.result_array = NULL;
-                context->s.scan.copy_of_b = NULL;
-            }
-            count = context->s.len.count;
+            count = signed_val(res);;
             /* Returning true means length is done, result in s.len.count */
             if (count < 0) {
                 BIF_ERROR(p, BADARG);
@@ -497,6 +565,17 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
                 BIF_RET(orig_A);
             }
             context->len_b = count;
+            context->fsm_state = SUBTRACT_STEP_COPY_B;
+            subtract_enter_state_copy_B(orig_B, context);
+            /* FALL THROUGH */
+        }
+
+        case SUBTRACT_STEP_COPY_B: {
+            if (!erts_trappable_copy_list_to_array(&context->s.copy_b)) {
+                erts_fprintf(stderr, "<tr:3>");
+                BIF_TRAP2(&subtract_trap_export, p,
+                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+            }
             context->fsm_state = SUBTRACT_STEP_SCAN;
             subtract_enter_state_scan(p, orig_A, orig_B, context);
             /* FALL THROUGH */
@@ -537,7 +616,7 @@ subtract(Process *p, Eterm A, Eterm B) {
 
         /* Enter now with state */
         ErtsSubtractContext *context = ERTS_MAGIC_BIN_DATA(state_bin);
-        subtract_enter_state_len_of(A, context);
+        erts_trappable_list_length_setup(A, context);
         return subtract_switch(
                 p, SUBTRACT_SPECIAL_VALUE,
                 subtract_create_returnstate(p, A, B, state_bin));
