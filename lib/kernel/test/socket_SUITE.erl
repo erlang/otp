@@ -3730,7 +3730,6 @@ sc_lc_recvmsg_response_tcp4(doc) ->
 sc_lc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
     tc_try(sc_lc_recvmsg_response_tcp4,
            fun() ->
-                   not_yet_implemented(),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
                                  type     => stream,
