@@ -195,7 +195,7 @@ erts_trappable_copy_list_to_array(ErtsCopyListToArrayContext *context) {
     Eterm src = context->src;
     Eterm *dst = context->dst;
 
-    while (is_list(src) && reds) {
+    while (is_list(src)) {
         const Eterm *src_p = list_val(src);
         *dst++ = CAR(src_p);
         src = CDR(src_p);
@@ -250,14 +250,12 @@ typedef struct {
 
 /* Context used for trapping scanning of inputs */
 typedef struct {
-    /* Preallocated memory for small lists */
+    /* Dynamically allocated result output array (on TMP heap) */
     Eterm small_vec_a[SUBTRACT_SMALL_VEC_SIZE];
+    Eterm *result_array;
 
     /* iterator over A when subtracting and moving remaining elts */
     Eterm iter_a;
-
-    /* Dynamically allocated result output array (on TMP heap) */
-    Eterm *result_array;
     Sint result_size;
 } ErtsSubtractScanContext;
 
@@ -372,22 +370,30 @@ subtract_create_returnstate(Process *p, Eterm A, Eterm B, Binary *context_b) {
  * Repeat until either end of A is reached or B is empty.
  *
  * Result is built in s->result_array of Eterm[result_size]
+ *
+ * Returns: [] if subtraction eliminated all elements in A
+ * Returns: A if subtraction did not affect any elements in A
+ * Returns: atom 'false' if the work is not done and must call again
+ * Returns: atom 'true' if the work is done and must copy result to a new list
  */
 static Eterm
-subtract_fsm_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
+subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
     ErtsSubtractScanContext *s = &context->s.scan;
     Eterm iter_a = s->iter_a; /* load iterator from state */
+    static const Uint WORK_BEFORE_TRAPPING = 300;
+    register Uint reds = WORK_BEFORE_TRAPPING;
+    Eterm *b = context->copy_of_b;
 
     /* A is guaranteed to be proper list, otherwise erts_list_length() call at
      * start will fail */
     while (is_list(iter_a)) {
-        const Eterm *ptr_a = list_val(iter_a);
-        Sint found_at = subtract_find_in_array(CAR(ptr_a), context->copy_of_b,
-                                               context->len_b);
+        const Eterm *ptr_a  = list_val(iter_a);
+        Sint found_at = subtract_find_in_array(CAR(ptr_a), b, context->len_b);
+        erts_fprintf(stderr, "<sc:%T:foundat=%li>", CAR(ptr_a), found_at);
         if (found_at >= 0) {
             /* Remove elem from B and skip; shrink B by 1 */
             context->len_b--;
-            context->copy_of_b[found_at] = context->copy_of_b[context->len_b];
+            b[found_at] = b[context->len_b];
 
             if (context->len_b == 0) {
                 iter_a = CDR(ptr_a);
@@ -406,10 +412,16 @@ subtract_fsm_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
             s->result_size++;
         }
         iter_a = CDR(ptr_a);
+        reds--;
     }
 
+    if (reds) {
+        /* Reds not 0, work seems to be completed */
+        erts_fprintf(stderr, "<sc:size=%li>", s->result_size);
+        return subtract_build_result(p, A, context);
+    }
     s->iter_a = iter_a; /* save iterator */
-    return subtract_build_result(p, A, context);
+    return am_false;
 }
 
 
@@ -463,10 +475,10 @@ erts_trappable_list_length(ErtsLengthContext *context) {
     register Sint count = context->count;
     register Uint reds = WORK_BEFORE_TRAPPING;
 
-    while (reds && is_list(iter)) {
+    while (is_list(iter)) {
         count++;
-        reds--;
         iter = CDR(list_val(iter));
+        reds--;
     }
     if (reds) {
         /* if reds is non-zero means the work is finished, result is ready */
@@ -486,8 +498,7 @@ erts_trappable_list_length(ErtsLengthContext *context) {
 /* Stage SCAN creates binary or on-stack state and performs the subtraction
  * also possibly trapping if the inputs are too long. */
 static ERTS_INLINE void
-subtract_enter_state_scan(Process *p, Eterm A, Eterm B,
-                          ErtsSubtractContext *context) {
+subtract_enter_state_scan(Eterm A, ErtsSubtractContext *context) {
     ErtsSubtractScanContext *s = &context->s.scan;
     s->result_array = subtract_maybe_alloc(context->len_a, s->small_vec_a,
                                            SUBTRACT_SMALL_VEC_SIZE);
@@ -577,13 +588,14 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
             context->fsm_state = SUBTRACT_STEP_SCAN;
-            subtract_enter_state_scan(p, orig_A, orig_B, context);
+            subtract_enter_state_scan(orig_A, context);
             /* FALL THROUGH */
         }
 
         case SUBTRACT_STEP_SCAN: {
-            Eterm res = subtract_fsm_scan(p, orig_A, context);
-            if (res == SUBTRACT_SPECIAL_VALUE) {
+            Eterm res = subtract_trappable_scan(p, orig_A, context);
+            if (res == am_false) {
+                erts_fprintf(stderr, "<tr:4>");
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
