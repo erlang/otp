@@ -1506,7 +1506,7 @@ void esock_warning_msg( const char* format, ... )
 {
   va_list         args;
   char            f[512 + sizeof(format)]; // This has to suffice...
-  char            stamp[32];
+  char            stamp[64]; // Just in case...
   struct timespec ts;
   int             res;
 
