@@ -6017,7 +6017,9 @@ smp_select_replace_do(Opts) ->
                                1 -> Cnt0+1;
                                0 ->
                                    ets:insert_new(T, {CounterId, 0}),
-                                   Cnt0
+                                   Cnt0;
+                               _ ->
+                                   erlang:display("Nooooo!")
                            end,
                     receive stop ->
                             [end_of_work | Cnt1]

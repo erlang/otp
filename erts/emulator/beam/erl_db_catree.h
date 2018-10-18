@@ -95,8 +95,11 @@ typedef struct db_table_catree {
 typedef struct {
     DbTableCATree* tb;
     Eterm next_route_key;
-    DbTableCATreeBaseNode* locked_bnode;
+    DbTableCATreeNode* locked_bnode;
+    DbTableCATreeNode* bnode_parent;
+    int bnode_level;
     int read_only;
+    DbRouteKey* search_key;
 } CATreeRootIterator;
 
 
@@ -109,9 +112,9 @@ TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
 
 TreeDbTerm** catree_find_next_from_pb_key_root(Eterm key, CATreeRootIterator*);
 TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key, CATreeRootIterator*);
-TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator*, int next);
-TreeDbTerm** catree_find_next_root(CATreeRootIterator*);
-TreeDbTerm** catree_find_prev_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator*, int next, Eterm* keyp);
+TreeDbTerm** catree_find_next_root(CATreeRootIterator*, Eterm* keyp);
+TreeDbTerm** catree_find_prev_root(CATreeRootIterator*, Eterm* keyp);
 TreeDbTerm** catree_find_first_root(CATreeRootIterator*);
 TreeDbTerm** catree_find_last_root(CATreeRootIterator*);
 
