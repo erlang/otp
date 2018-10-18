@@ -12334,8 +12334,12 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
+            char* xres;
 
             SSDBG( descP, ("SOCKET", "recvmsg_check_result -> eagain\r\n") );
+            
+            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
+                return esock_make_error_str(env, xres);
             
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
