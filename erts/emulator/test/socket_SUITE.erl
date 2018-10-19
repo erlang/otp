@@ -709,16 +709,16 @@ api_b_send_and_recv_tcp(InitState) ->
                    end}
         ],
 
-    p("start server evaluator"),
+    i("start server evaluator"),
     Server = evaluator_start("server", ServerSeq, InitState),
-    p("await server (~p) port", [Server]),
+    i("await server (~p) port", [Server]),
     SPort = receive
                 {server_port, Server, Port} ->
                     Port
             end,
-    p("start client evaluator"),
+    i("start client evaluator"),
     Client = evaluator_start("client", ClientSeq, InitState#{server_port => SPort}),
-    p("await evaluator(s)"),
+    i("await evaluator(s)"),
     ok = await_evaluator_finish([Server, Client]).
 
 
@@ -978,16 +978,16 @@ api_opt_simple_otp_options() ->
                    end}
         ],
 
-    p("Run test for stream/tcp socket"),
+    i("start tcp (stream) evaluator"),
     InitState1 = #{domain => inet, type => stream, protocol => tcp},
     Tester1 = evaluator_start("tcp-tester", Seq, InitState1),
-    p("await evaluator 1"),
+    i("await tcp evaluator"),
     ok = await_evaluator_finish([Tester1]),
 
-    p("Run test for dgram/udp socket"),
+    i("start udp (dgram) socket"),
     InitState2 = #{domain => inet, type => dgram, protocol => udp},
     Tester2 = evaluator_start("udp-tester", Seq, InitState2),
-    p("await evaluator 2"),
+    i("await udp evaluator"),
     ok = await_evaluator_finish([Tester2]).
 
 
@@ -1218,7 +1218,7 @@ api_opt_simple_otp_controlling_process() ->
                    end}
         ],
 
-    p("Run test for stream/tcp socket"),
+    i("start tcp (stream) socket"),
     ClientInitState1 = #{},
     Client1          = evaluator_start("tcp-client", ClientSeq, ClientInitState1),
     TesterInitState1 = #{domain   => inet, 
@@ -1226,10 +1226,10 @@ api_opt_simple_otp_controlling_process() ->
                          protocol => tcp,
                          client   => Client1},
     Tester1          = evaluator_start("tcp-tester", TesterSeq, TesterInitState1),
-    p("await stream/tcp evaluator"),
+    i("await tcp evaluator"),
     ok = await_evaluator_finish([Tester1, Client1]),
 
-    p("Run test for dgram/udp socket"),
+    i("start udp (dgram) socket"),
     ClientInitState2 = #{},
     Client2          = evaluator_start("udp-client", ClientSeq, ClientInitState2),
     TesterInitState2 = #{domain   => inet, 
@@ -1237,7 +1237,7 @@ api_opt_simple_otp_controlling_process() ->
                          protocol => udp,
                          client   => Client2},
     Tester2          = evaluator_start("udp-tester", TesterSeq, TesterInitState2),
-    p("await dgram/udp evaluator"),
+    i("await udp evaluator"),
     ok = await_evaluator_finish([Tester2, Client2]).
 
 
@@ -1500,15 +1500,15 @@ api_to_connect_tcp(InitState) ->
                    end}
         ],
 
-    p("create server evaluator"),
+    i("create server evaluator"),
     ServerInitState = InitState,
     Server          = evaluator_start("server", ServerSeq, ServerInitState),
 
-    p("create tester evaluator"),
+    i("create tester evaluator"),
     TesterInitState = InitState#{server => Server},
     Tester          = evaluator_start("tester", TesterSeq, TesterInitState),
 
-    p("await evaluator(s)"),
+    i("await evaluator(s)"),
     ok = await_evaluator_finish([Server, Tester]).
 
 
@@ -1651,10 +1651,10 @@ api_to_accept_tcp(InitState) ->
                    end}
         ],
 
-    p("create tester evaluator"),
+    i("create tester evaluator"),
     Tester = evaluator_start("tester", TesterSeq, InitState),
 
-    p("await evaluator"),
+    i("await evaluator"),
     ok = await_evaluator_finish([Tester]).
 
 
@@ -2071,28 +2071,28 @@ api_to_maccept_tcp(InitState) ->
                    end}
         ],
 
-    p("create prim-acceptor evaluator"),
+    i("create prim-acceptor evaluator"),
     PrimAInitState = InitState,
     PrimAcceptor = evaluator_start("prim-acceptor", 
                                    PrimAcceptorSeq, PrimAInitState),
 
-    p("create prim-acceptor 1 evaluator"),
+    i("create sec-acceptor 1 evaluator"),
     SecAInitState1 = maps:remove(domain, InitState),
     SecAcceptor1   = evaluator_start("sec-acceptor-1", 
                                      SecAcceptorSeq, SecAInitState1),
 
-    p("create prim-acceptor 2 evaluator"),
+    i("create sec-acceptor 2 evaluator"),
     SecAInitState2 = SecAInitState1,
     SecAcceptor2   = evaluator_start("sec-acceptor-2", 
                                      SecAcceptorSeq, SecAInitState2),
 
-    p("create tester evaluator"),
+    i("create tester evaluator"),
     TesterInitState = #{prim_acceptor => PrimAcceptor,
                         sec_acceptor1 => SecAcceptor1,
                         sec_acceptor2 => SecAcceptor2},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
-    p("await evaluator(s)"),
+    i("await evaluator(s)"),
     ok = await_evaluator_finish([PrimAcceptor, SecAcceptor1, SecAcceptor2, Tester]).
 
 
@@ -2628,19 +2628,19 @@ api_to_receive_tcp(InitState) ->
         ],
 
     
-    p("start server evaluator"),
+    i("start server evaluator"),
     ServerInitState = InitState,
     Server = evaluator_start("server", ServerSeq, ServerInitState),
 
-    p("start client evaluator"),
+    i("start client evaluator"),
     ClientInitState = InitState,
     Client = evaluator_start("client", ClientSeq, ClientInitState),
 
-    p("start tester evaluator"),
+    i("start tester evaluator"),
     TesterInitState = #{server => Server, client => Client},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
-    p("await evaluator(s)"),
+    i("await evaluator(s)"),
     ok = await_evaluator_finish([Server, Client, Tester]).
 
 
@@ -2753,10 +2753,10 @@ api_to_receive_udp(InitState) ->
                    end}
         ],
 
-    p("start tester evaluator"),
+    i("start tester evaluator"),
     Tester = evaluator_start("tester", TesterSeq, InitState),
     
-    p("await evaluator"),
+    i("await evaluator"),
     ok = await_evaluator_finish([Tester]).
 
 
@@ -3057,14 +3057,14 @@ sc_cpe_socket_cleanup(InitState) ->
                    end}
         ],
 
-    p("start (socket) owner evaluator"),
+    i("start (socket) owner evaluator"),
     Owner = evaluator_start("owner", OwnerSeq, InitState),
 
-    p("start tester evaluator"),
+    i("start tester evaluator"),
     TesterInitState = #{owner => Owner},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
-    p("await evaluator"),
+    i("await evaluator"),
     ok = await_evaluator_finish([Owner, Tester]).
 
 
@@ -3644,25 +3644,25 @@ sc_lc_receive_response_tcp(InitState) ->
                    end}
         ],
 
-    p("start acceptor evaluator"),
+    i("start acceptor evaluator"),
     AccInitState = InitState,
     Acceptor = evaluator_start("acceptor", AcceptorSeq, AccInitState),
 
-    p("start handler evaluator"),
+    i("start handler evaluator"),
     HandlerInitState = #{recv => maps:get(recv, InitState)},
     Handler = evaluator_start("handler", HandlerSeq, HandlerInitState),
 
-    p("start client evaluator"),
+    i("start client evaluator"),
     ClientInitState = InitState,
     Client = evaluator_start("client", ClientSeq, ClientInitState),
 
-    p("start tester evaluator"),
+    i("start tester evaluator"),
     TesterInitState = #{acceptor => Acceptor,
                         handler  => Handler,
                         client   => Client},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
-    p("await evaluator"),
+    i("await evaluator"),
     ok = await_evaluator_finish([Acceptor, Handler, Client, Tester]).
 
 
@@ -3951,20 +3951,20 @@ await_evaluator_finish(Evs, Fails) ->
         {'DOWN', _MRef, process, Pid, normal} ->
             case lists:delete(Pid, Evs) of
                 Evs ->
-                    p("unknown process ~p died (normal)", [Pid]),
+                    i("unknown process ~p died (normal)", [Pid]),
                     await_evaluator_finish(Evs, Fails);
                 NewEvs ->
-                    p("evaluator ~p success", [Pid]),
+                    i("evaluator ~p success", [Pid]),
                     await_evaluator_finish(NewEvs, Fails)
             end;
         {'DOWN', _MRef, process, Pid, Reason} ->
             case lists:delete(Pid, Evs) of
                 Evs ->
-                    p("unknown process ~p died: "
+                    i("unknown process ~p died: "
                         "~n   ~p", [Pid, Reason]),
                     await_evaluator_finish(Evs, Fails);
                 NewEvs ->
-                    p("Evaluator ~p failed", [Pid]),
+                    i("Evaluator ~p failed", [Pid]),
                     await_evaluator_finish(NewEvs, [{Pid, Reason}|Fails])
             end
     end.
@@ -3981,8 +3981,12 @@ ee(F, A) ->
     eprint("<ERROR> ", F, A).
 
 eprint(Prefix, F, A) ->
-    io:format(user, "[~s][~s][~p] ~s" ++ F ++ "~n", 
-              [formated_timestamp(), get(sname), self(), Prefix | A]).
+    %% The two prints is to get the output both in the shell (for when
+    %% "personal" testing is going on) and in the logs.
+    FStr = f("[~s][~s][~p] ~s" ++ F, 
+             [formated_timestamp(), get(sname), self(), Prefix | A]),
+    io:format(user, FStr ++ "~n", []),
+    io:format(FStr, []).
 
 
 
@@ -4005,11 +4009,11 @@ sock_bind(Sock, SockAddr) ->
         {ok, Port} ->
             Port;
         {error, Reason} ->
-            p("sock_bind -> error: ~p", [Reason]),
+            i("sock_bind -> error: ~p", [Reason]),
             ?FAIL({bind, Reason})
     catch
         C:E:S ->
-            p("sock_bind -> failed: ~p, ~p, ~p", [C, E, S]),
+            i("sock_bind -> failed: ~p, ~p, ~p", [C, E, S]),
             ?FAIL({bind, C, E, S})
     end.
 
@@ -4059,11 +4063,11 @@ sock_sockname(Sock) ->
 %%         {ok, Sock} ->
 %%             Sock;
 %%         {error, Reason} ->
-%%             p("sock_accept -> error: ~p", [Reason]),
+%%             i("sock_accept -> error: ~p", [Reason]),
 %%             ?FAIL({accept, Reason})
 %%     catch
 %%         C:E:S ->
-%%             p("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
+%%             i("sock_accept -> failed: ~p, ~p, ~p", [C, E, S]),
 %%             ?FAIL({accept, C, E, S})
 %%     end.
 
@@ -4073,11 +4077,11 @@ sock_close(Sock) ->
         ok ->
             ok;
         {error, Reason} ->
-            p("sock_close -> error: ~p", [Reason]),
+            i("sock_close -> error: ~p", [Reason]),
             ?FAIL({close, Reason})
     catch
         C:E:S ->
-            p("sock_close -> failed: ~p, ~p, ~p", [C, E, S]),
+            i("sock_close -> failed: ~p, ~p, ~p", [C, E, S]),
             ?FAIL({close, C, E, S})
     end.
 
@@ -4130,10 +4134,12 @@ set_tc_name(N) when is_list(N) ->
 
 tc_begin(TC) ->
     set_tc_name(TC),
-    p("begin ***").
+    tc_print("begin ***",
+             "~n----------------------------------------------------~n", "").
     
 tc_end(Result) when is_list(Result) ->
-    p("done: ~s", [Result]),
+    tc_print("done: ~s", [Result], 
+             "", "----------------------------------------------------~n~n"),
     ok.
 
 
@@ -4154,33 +4160,63 @@ tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
     end.
 
 
+tc_print(F, Before, After) ->
+    tc_print(F, [], Before, After).
 
+tc_print(F, A, Before, After) ->
+    Name = tc_which_name(),
+    FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+             [formated_timestamp(),Name,self()|A]),
+    io:format(user, Before ++ FStr ++ After, []).
+
+tc_which_name() ->
+    case get(tc_name) of
+        undefined ->
+            case get(sname) of
+                undefined ->
+                    "";
+                SName when is_list(SName) ->
+                    SName
+            end;
+        Name when is_list(Name) ->
+            Name
+    end.
+    
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% f(F, A) ->
-%%     lists:flatten(io_lib:format(F, A)).
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
-p(F) ->
-    p(F, []).
+%% p(F) ->
+%%     p(F, []).
 
-p(F, A) ->
-    TcName = 
-        case get(tc_name) of
-            undefined ->
-                case get(sname) of
-                    undefined ->
-                        "";
-                    SName when is_list(SName) ->
-                        SName
-                end;
-            Name when is_list(Name) ->
-                Name
-        end,
-    i("*** [~s][~s][~p] " ++ F, [formated_timestamp(),TcName,self()|A]).
+%% p(F, A) ->
+%%     p(F, A, "", "").
+
+%% p(F, A, Before, After) when is_list(Before) andalso is_list(After) ->
+%%     TcName = 
+%%         case get(tc_name) of
+%%             undefined ->
+%%                 case get(sname) of
+%%                     undefined ->
+%%                         "";
+%%                     SName when is_list(SName) ->
+%%                         SName
+%%                 end;
+%%             Name when is_list(Name) ->
+%%                 Name
+%%         end,
+%%     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
+%%              [formated_timestamp(),TcName,self()|A]),
+%%     i(Before ++ FStr ++ After, []).
 
 
-%% i(F) ->
-%%     i(F, []).
+i(F) ->
+    i(F, []).
 
 i(F, A) ->
-    io:format(user, F ++ "~n", A).
+    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    io:format(user, FStr ++ "~n", []),
+    io:format(FStr, []).
+
