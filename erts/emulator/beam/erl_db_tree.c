@@ -2872,7 +2872,7 @@ static TreeDbTerm *find_next(DbTableCommon *tb, TreeDbTerm *root,
 		    this = this->right;
 	    } else if (c < 0) {
 		if (this->left == NULL) /* Done */
-		    return this;
+                    goto found_next;
 		else
 		    this = this->left;
 	    } else
@@ -2887,8 +2887,6 @@ static TreeDbTerm *find_next(DbTableCommon *tb, TreeDbTerm *root,
 	    this = this->left;
 	    PUSH_NODE(stack, this);
 	}
-	if (stack->slot > 0) 
-	    ++(stack->slot);
     } else {
 	do {
 	    tmp = POP_NODE(stack);
@@ -2897,9 +2895,12 @@ static TreeDbTerm *find_next(DbTableCommon *tb, TreeDbTerm *root,
 		return NULL;
 	    }
 	} while (this->right == tmp);
-	if (stack->slot > 0) 
-	    ++(stack->slot);
     }
+
+found_next:
+    if (stack->slot > 0)
+        ++(stack->slot);
+
     return this;
 }
 
@@ -2929,7 +2930,7 @@ static TreeDbTerm *find_prev(DbTableCommon *tb, TreeDbTerm *root,
 		    this = this->left;
 	    } else if (c > 0) {
 		if (this->right == NULL) /* Done */
-		    return this;
+                    goto found_prev;
 		else
 		    this = this->right;
 	    } else
@@ -2944,8 +2945,6 @@ static TreeDbTerm *find_prev(DbTableCommon *tb, TreeDbTerm *root,
 	    this = this->right;
 	    PUSH_NODE(stack, this);
 	}
-	if (stack->slot > 0) 
-	    --(stack->slot);
     } else {
 	do {
 	    tmp = POP_NODE(stack);
@@ -2954,9 +2953,12 @@ static TreeDbTerm *find_prev(DbTableCommon *tb, TreeDbTerm *root,
 		return NULL;
 	    }
 	} while (this->left == tmp);
-	if (stack->slot > 0) 
-	    --(stack->slot);
     }
+
+found_prev:
+    if (stack->slot > 0)
+        --(stack->slot);
+
     return this;
 }
 
