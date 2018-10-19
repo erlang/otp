@@ -21,7 +21,9 @@
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2,
          dump_maps/0,create_maps/0,
-         create_binaries/0,create_sub_binaries/1]).
+         create_binaries/0,create_sub_binaries/1,
+         dump_persistent_terms/0,
+         create_persistent_terms/0]).
 -compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
@@ -162,3 +164,27 @@ literal_map() ->
     %% Adress1, then the map at Address2.
 
     #{"one"=>1,"two"=>2,"three"=>3,"four"=>4}.
+
+%%%
+%%% Test dumping of persistent terms (from OTP 21.2).
+%%%
+
+dump_persistent_terms() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_persistent_terms, self()),
+                put(pts, create_persistent_terms()),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            {ok,Pid}
+    end.
+
+create_persistent_terms() ->
+    persistent_term:put({?MODULE,first}, {pid,42.0}),
+    persistent_term:put({?MODULE,second}, [1,2,3]),
+    persistent_term:get().
+
