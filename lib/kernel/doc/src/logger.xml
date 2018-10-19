@@ -748,6 +748,14 @@ start(_, []) ->
           exists, its associated value will be changed
           to the given value. If it does not exist, it will
           be added.</p>
+	<p>If the value is incomplete, which for example can be the
+	  case for the <c>config</c> key, it is up to the handler
+	  implementation how the unspecified parts are set. For all
+	  handlers in the Kernel application, unspecified data for
+	  the <c>config</c> key is set to default values. To update
+	  only specified data, and keep the existing configuration for
+	  the rest, use <seealso marker="#update_handler_config-3">
+	    <c>update_handler_config/3</c></seealso>.</p>
 	<p>See the definition of
 	  the <seealso marker="#type-handler_config">
 	    <c>handler_config()</c></seealso> type for more
@@ -933,6 +941,42 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
     </func>
 
     <func>
+      <name name="update_handler_config" arity="3" clause_i="1"/>
+      <name name="update_handler_config" arity="3" clause_i="2"/>
+      <name name="update_handler_config" arity="3" clause_i="3"/>
+      <name name="update_handler_config" arity="3" clause_i="4"/>
+      <name name="update_handler_config" arity="3" clause_i="5"/>
+      <fsummary>Add or update configuration data for the specified
+        handler.</fsummary>
+      <type variable="HandlerId"/>
+      <type variable="Level" name_i="1"/>
+      <type variable="FilterDefault" name_i="2"/>
+      <type variable="Filters" name_i="3"/>
+      <type variable="Formatter" name_i="4"/>
+      <type variable="Config" name_i="5"/>
+      <type variable="Return"/>
+      <desc>
+        <p>Add or update configuration data for the specified
+          handler. If the given <c><anno>Key</anno></c> already
+          exists, its associated value will be changed
+          to the given value. If it does not exist, it will
+          be added.</p>
+	<p>If the value is incomplete, which for example can be the
+	  case for the <c>config</c> key, it is up to the handler
+	  implementation how the unspecified parts are set. For all
+	  handlers in the Kernel application, unspecified data for
+	  the <c>config</c> key is not changed. To reset unspecified
+	  data to default values,
+	  use <seealso marker="#set_handler_config-3">
+	    <c>set_handler_config/3</c></seealso>.</p>
+	<p>See the definition of
+	  the <seealso marker="#type-handler_config">
+	    <c>handler_config()</c></seealso> type for more
+	  information about the different parameters.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="update_primary_config" arity="1"/>
       <fsummary>Update primary configuration data for Logger.</fsummary>
       <desc>
@@ -1041,10 +1085,11 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:changing_config(Config1, Config2) -> {ok, Config3} | {error, Reason}</name>
+      <name>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -> {ok, Config} | {error, Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
-	<v>Config1 = Config2 = Config3 =
+	<v>SetOrUpdate = set | update</v>
+	<v>OldConfig = NewConfig = Config =
 	  <seealso marker="#type-handler_config">handler_config()</seealso></v>
 	<v>Reason = term()</v>
       </type>
@@ -1053,14 +1098,47 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	<p>The function is called on a temporary process when the
 	  configuration for a handler is about to change. The purpose
 	  is to verify and act on the new configuration.</p>
-	<p><c>Config1</c> is the existing configuration
-	  and <c>Config2</c> is the new configuration.</p>
+	<p><c>OldConfig</c> is the existing configuration
+	  and <c>NewConfig</c> is the new configuration.</p>
 	<p>The handler identity is associated with the <c>id</c> key
-	  in <c>Config1</c>.</p>
+	  in <c>OldConfig</c>.</p>
+	<p><c>SetOrUpdate</c> has the value <c>set</c> if the
+	  configuration change originates from a call to
+	  <seealso marker="#set_handler_config-2">
+	    <c>set_handler_config/2,3</c></seealso>, and <c>update</c>
+	  if it originates from <seealso marker="#update_handler_config-2">
+	    <c>update_handler_config/2,3</c></seealso>. The handler can
+	  use this parameteter to decide how to update the value of
+	  the <c>config</c> field, that is, the handler specific
+	  configuration data. Typically, if <c>SetOrUpdate</c>
+	  equals <c>set</c>, values that are not specified must be
+	  given their default values. If <c>SetOrUpdate</c>
+	  equals <c>update</c>, the values found in <c>OldConfig</c>
+	  must be used instead.</p>
 	<p>If everything succeeds, the callback function must return a
-	  possibly adjusted configuration in <c>{ok,Config3}</c>.</p>
+	  possibly adjusted configuration in <c>{ok,Config}</c>.</p>
 	<p>If the configuration is faulty, the callback function must
 	  return <c>{error,Reason}</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>HModule:filter_config(Config) -> FilteredConfig</name>
+      <fsummary>Remove internal data from configuration.</fsummary>
+      <type>
+	<v>Config = FilteredConfig =
+	  <seealso marker="#type-handler_config">handler_config()</seealso></v>
+      </type>
+      <desc>
+	<p>This callback function is optional.</p>
+	<p>The function is called when one of the Logger API functions
+	  for fetching the handler configuration is called, for
+	  example
+	  <seealso marker="#get_handler_config-1">
+	    <c>logger:get_handler_config/1</c></seealso>.</p>
+	<p>It allows the handler to remove internal data fields from
+	  its configuration data before it is returned to the
+	  caller.</p>
       </desc>
     </func>
 
@@ -1136,7 +1214,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	  <item><seealso marker="logger#set_handler_config-2">
 	      <c>logger:set_handler_config/2,3</c></seealso></item>
 	  <item><seealso marker="logger#update_handler_config-2">
-	      <c>logger:updata_handler_config/2</c></seealso></item>
+	      <c>logger:updata_handler_config/2,3</c></seealso></item>
 	  <item><seealso marker="logger#update_formatter_config-2">
 	      <c>logger:update_formatter_config/2</c></seealso></item>
 	</list>

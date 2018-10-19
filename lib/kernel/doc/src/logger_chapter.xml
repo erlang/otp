@@ -384,8 +384,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 
     <p>In addition to the mandatory callback function <c>log/2</c>, a
       handler module can export the optional callback
-      functions <c>adding_handler/1</c>, <c>changing_config/2</c>
-      and <c>removing_handler/1</c>. See
+      functions <c>adding_handler/1</c>, <c>changing_config/3</c>,
+      <c>filter_config/1</c>, and <c>removing_handler/1</c>. See
       section <seealso marker="logger#handler_callback_functions">Handler
       Callback Functions</seealso> in the logger(3) manual page for
       more information about these function.</p>
@@ -555,7 +555,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<item><seealso marker="logger#set_handler_config-2">
 	    <c>set_handler_config/2,3</c></seealso></item>
 	<item><seealso marker="logger#update_handler_config-2">
-	    <c>update_handler_config/2</c></seealso></item>
+	    <c>update_handler_config/2,3</c></seealso></item>
 	<item><seealso marker="logger#add_handler_filter-3">
 	    <c>add_handler_filter/3</c></seealso></item>
 	<item><seealso marker="logger#remove_handler_filter-2">
@@ -704,9 +704,13 @@ logger:debug(#{got => connection_request, id => Id, state => State},
           <item>
 	    <p>If <c>HandlerId</c> is <c>default</c>, then this entry
 	      modifies the default handler, equivalent to calling</p>
-	    <pre><seealso marker="logger#set_handler_config-2">
-		logger:set_handler_config(default, Module, HandlerConfig)
-	      </seealso></pre>
+	    <pre><seealso marker="logger#remove_handler-1">
+		logger:remove_handler(default)
+	    </seealso></pre>
+	    <p>followed by</p>
+	    <pre><seealso marker="logger#add_handler-3">
+		logger:add_handler(default, Module, HandlerConfig)
+	    </seealso></pre>
 	    <p>For all other values of <c>HandlerId</c>, this entry
 	      adds a new handler, equivalent to calling</p>
 	    <pre><seealso marker="logger:add_handler/3">
@@ -1024,7 +1028,8 @@ ok</pre>
     <list>
       <item><c>adding_handler(Config)</c></item>
       <item><c>removing_handler(Config)</c></item>
-      <item><c>changing_config(OldConfig, NewConfig)</c></item>
+      <item><c>changing_config(SetOrUpdate, OldConfig, NewConfig)</c></item>
+      <item><c>filter_config(Config)</c></item>
     </list>
     <p>When a handler is added, by for example a call
       to <seealso marker="logger#add_handler-3">
@@ -1043,11 +1048,18 @@ ok</pre>
     <p>When <seealso marker="logger#set_handler_config-2">
 	<c>logger:set_handler_config/2,3</c></seealso>
       or <seealso marker="logger#update_handler_config/2">
-	<c>logger:update_handler_config/2</c></seealso> is called,
+	<c>logger:update_handler_config/2,3</c></seealso> is called,
       Logger
-      calls <c>HModule:changing_config(OldConfig, NewConfig)</c>. If
+      calls <c>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig)</c>. If
       this function returns <c>{ok,NewConfig1}</c>, Logger
       writes <c>NewConfig1</c> to the configuration database.</p>
+    <p>When <seealso marker="logger#get_config-0">
+	<c>logger:get_config/0</c></seealso> or
+      <seealso marker="logger#get_handler_config-0">
+	<c>logger:get_handler_config/0,1</c></seealso> is called,
+      Logger calls <c>HModule:filter_config(Config)</c>. This function
+      must return the handler configuration where internal data is
+      removed.</p>
 
     <p>A simple handler that prints to the terminal can be implemented
       as follows:</p>
