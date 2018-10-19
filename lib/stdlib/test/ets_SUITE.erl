@@ -7394,16 +7394,14 @@ stimulate_contention(Tid) ->
     stim_inserter_loop(T, RState, Num),
     Num = ets:info(T, size),
     erts_debug:set_internal_state(ets_force_split, {T, false}),
-    Stats1 = ets:info(T,stats),
     ets:match_delete(T, {'$1','$1','$1'}),
     case ets:info(T,stats) of
-        Stats1 ->
-            io:format("stimulated ordered_set: ~p\n", [Stats1]);
-        Stats2 ->
+        {0, _, _} ->
             io:format("Houston, we got a testability problem.\n"
-                      "Someone seems to have implemented join-on-delete\n"
-                      "~p =/= ~p\n", [Stats1, Stats2]),
-            ct:fail("Join on delete?")
+                      "Someone seems to have implemented join-on-delete\n", []),
+            ct:fail("Join on delete?");
+        Stats ->
+            io:format("stimulated ordered_set: ~p\n", [Stats])
     end.
 
 stim_inserter_loop(_, _, 0) ->

@@ -630,6 +630,31 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
     }
 }
 
+#ifdef DEBUG
+#  define FORCE_RANDOM_SPLIT_JOIN
+#endif
+#ifdef FORCE_RANDOM_SPLIT_JOIN
+static int dbg_fastrand(void)
+{
+    static int g_seed = 648835;
+    g_seed = (214013*g_seed+2531011);
+    return (g_seed>>16)&0x7FFF;
+}
+
+static void dbg_maybe_force_splitjoin(DbTableCATreeNode* base_node)
+{
+    switch (dbg_fastrand() % 8) {
+    case 1:
+        base_node->u.base.lock_statistics = 1+ERL_DB_CATREE_HIGH_CONTENTION_LIMIT;
+        break;
+    case 2:
+        base_node->u.base.lock_statistics = -1+ERL_DB_CATREE_LOW_CONTENTION_LIMIT;
+        break;
+    }
+}
+#else
+#  define dbg_maybe_force_splitjoin(N)
+#endif /* FORCE_RANDOM_SPLIT_JOIN */
 
 static ERTS_INLINE
 int try_wlock_base_node(DbTableCATreeBaseNode *base_node)
@@ -676,6 +701,7 @@ void wunlock_adapt_base_node(DbTableCATree* tb,
                              DbTableCATreeNode* parent,
                              int current_level)
 {
+    dbg_maybe_force_splitjoin(base_node);
     if (base_node->u.base.lock_statistics > ERL_DB_CATREE_HIGH_CONTENTION_LIMIT
         && current_level < ERL_DB_CATREE_MAX_ROUTE_NODE_LAYER_HEIGHT) {
         split_catree(tb, base_node, parent);
