@@ -28,6 +28,12 @@ EBIN = .
 # Target Specs
 # ----------------------------------------------------
 
+SOCKET_MODULES = \
+	socket_lib \
+	socket_server \
+	socket_client \
+	socket_SUITE
+
 MODULES= \
 	a_SUITE \
 	after_SUITE \
@@ -103,6 +109,7 @@ MODULES= \
 	sensitive_SUITE \
 	signal_SUITE \
 	smoke_test_SUITE \
+	$(SOCKET_MODULES) \
 	statistics_SUITE \
 	system_info_SUITE \
 	system_profile_SUITE \
@@ -151,6 +158,7 @@ NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOCKET_TARGET = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 EMAKEFILE=Emakefile
 
@@ -196,6 +204,9 @@ clean:
 	rm -f core *~
 
 docs:
+
+targets: $(TARGET_FILES)
+socket_targets: $(SOCKET_TARGETS)
 
 # ----------------------------------------------------
 # Special targets
