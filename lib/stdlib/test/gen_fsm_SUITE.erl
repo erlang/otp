@@ -124,8 +124,10 @@ start2(Config) when is_list(Config) ->
     {ok, Pid0} = gen_fsm:start(gen_fsm_SUITE, [], []),
     ok = do_func_test(Pid0),
     ok = do_sync_func_test(Pid0),
+    MRef = monitor(process,Pid0),
     shutdown_stopped =
 	gen_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
+    receive {'DOWN',MRef,_,_,shutdown} -> ok end,
     {'EXIT', {noproc,_}} =
 	(catch gen_fsm:sync_send_event(Pid0, hej)),
 
