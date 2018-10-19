@@ -66,6 +66,10 @@
 	corresponds to the <c>name</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
+	<p>Defaults to the same name as the handler identity, in the
+	  current directory.</p>
       </item>
       <tag><c>type</c></tag>
       <item>
@@ -73,6 +77,8 @@
 	corresponds to the <c>type</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
 	<p>Defaults to <c>wrap</c>.</p>
       </item>
       <tag><c>max_no_files</c></tag>
@@ -82,6 +88,8 @@
 	corresponds to the <c>MaxNoFiles</c> element in the <c>size</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
 	<p>Defaults to <c>10</c>.</p>
 	<p>The setting has no effect on a halt log.</p>
       </item>
@@ -93,6 +101,8 @@
 	corresponds to the <c>MaxNoBytes</c> element in the <c>size</c> property in the
 	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
 	datatype.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
 	<p>Defaults to <c>1048576</c> bytes for a wrap log, and
 	<c>infinity</c> for a halt log.</p>
       </item>

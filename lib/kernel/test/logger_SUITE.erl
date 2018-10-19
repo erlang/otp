@@ -246,6 +246,18 @@ change_config(_Config) ->
     {ok,C4} = logger:get_handler_config(h1),
     C4 = C3#{custom:=new_custom},
 
+    %% Change handler config: Id and module can not be changed
+    {error,{illegal_config_change,Old,New}} =
+        logger:set_handler_config(h1,id,newid),
+    %% Check that only the faulty field is included in return
+    [{id,h1}] = maps:to_list(Old),
+    [{id,newid}] = maps:to_list(New),
+    %% Check that both fields are included when both are changed
+    {error,{illegal_config_change,
+            #{id:=h1,module:=?MODULE},
+            #{id:=newid,module:=newmodule}}} =
+        logger:set_handler_config(h1,#{id=>newid,module=>newmodule}),
+
     %% Change primary config: Single key
     PConfig0 = logger:get_primary_config(),
     ok = logger:set_primary_config(level,warning),

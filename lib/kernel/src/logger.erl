@@ -43,7 +43,8 @@
          get_module_level/0, get_module_level/1,
          set_primary_config/1, set_primary_config/2,
          set_handler_config/2, set_handler_config/3,
-         update_primary_config/1, update_handler_config/2,
+         update_primary_config/1,
+         update_handler_config/2, update_handler_config/3,
          update_formatter_config/2, update_formatter_config/3,
          get_primary_config/0, get_handler_config/1,
          get_handler_config/0, get_handler_ids/0, get_config/0,
@@ -423,6 +424,29 @@ set_handler_config(HandlerId,Config) ->
 update_primary_config(Config) ->
     logger_server:update_config(primary,Config).
 
+-spec update_handler_config(HandlerId,level,Level) -> Return when
+      HandlerId :: handler_id(),
+      Level :: level() | all | none,
+      Return :: ok | {error,term()};
+                        (HandlerId,filter_default,FilterDefault) -> Return when
+      HandlerId :: handler_id(),
+      FilterDefault :: log | stop,
+      Return :: ok | {error,term()};
+                        (HandlerId,filters,Filters) -> Return when
+      HandlerId :: handler_id(),
+      Filters :: [{filter_id(),filter()}],
+      Return :: ok | {error,term()};
+                        (HandlerId,formatter,Formatter) -> Return when
+      HandlerId :: handler_id(),
+      Formatter :: {module(), formatter_config()},
+      Return :: ok | {error,term()};
+                        (HandlerId,config,Config) -> Return when
+      HandlerId :: handler_id(),
+      Config :: term(),
+      Return :: ok | {error,term()}.
+update_handler_config(HandlerId,Key,Value) ->
+    logger_server:update_config(HandlerId,Key,Value).
+
 -spec update_handler_config(HandlerId,Config) -> ok | {error,term()} when
       HandlerId :: handler_id(),
       Config :: handler_config().
@@ -439,7 +463,14 @@ get_primary_config() ->
       HandlerId :: handler_id(),
       Config :: handler_config().
 get_handler_config(HandlerId) ->
-    logger_config:get(?LOGGER_TABLE,HandlerId).
+    case logger_config:get(?LOGGER_TABLE,HandlerId) of
+        {ok,#{module:=Module}=Config} ->
+            {ok,try Module:filter_config(Config)
+                catch _:_ -> Config
+                end};
+        Error ->
+            Error
+    end.
 
 -spec get_handler_config() -> [Config] when
       Config :: handler_config().
