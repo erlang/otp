@@ -33,11 +33,13 @@
 #include "erl_binary.h"
 
 static Export subtract_trap_export;
+
 #if defined(DEBUG)
     #define IF_DEBUG(VAL_DEBUG, IGNORE) (VAL_DEBUG)
 #else
     #define IF_DEBUG(IGNORE, VAL_RELEASE) (VAL_RELEASE)
 #endif
+
 
 static Eterm keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
 
@@ -194,19 +196,25 @@ erts_trappable_copy_list_to_array_setup(Eterm src, Eterm *dst,
  * Returns: 1 if finished, 0 if not finished, please call again.
  */
 static int
-erts_trappable_copy_list_to_array(ErtsCopyListToArrayContext *context) {
-    const static Uint MAX_WORK_BEFORE_TRAPPING = IF_DEBUG(50, 500);
-    register Uint reds = MAX_WORK_BEFORE_TRAPPING;
+erts_trappable_copy_list_to_array(Process *p,
+                                  ErtsCopyListToArrayContext *context) {
+    /* Step through so many elements of list per available reduction */
+    const static Sint COPIES_PER_REDUC = 30;
+    const Sint budget = COPIES_PER_REDUC * IF_DEBUG(p->fcalls / 10 + 1,
+                                                    p->fcalls);
+    register Sint reds = budget;
+
     Eterm src = context->src;
     Eterm *dst = context->dst;
 
-    while (is_list(src)) {
+    while (reds && is_list(src)) {
         const Eterm *src_p = list_val(src);
         *dst++ = CAR(src_p);
         src = CDR(src_p);
         reds--;
     }
 
+    BUMP_REDS(p, budget - reds);
     if (reds) {
         /* Work is finished */
         return 1;
@@ -262,9 +270,14 @@ erts_trappable_copy_array_to_list_setup(Process *p,
  * Return: am_false if result is not ready and another call is required
  */
 static ERTS_INLINE Eterm
-erts_trappable_copy_array_to_list(ErtsCopyArrayToListContext *context) {
-    const static Uint WORK_BEFORE_TRAPPING = IF_DEBUG(60, 600);
-    register Uint reds = WORK_BEFORE_TRAPPING;
+erts_trappable_copy_array_to_list(Process *p,
+                                  ErtsCopyArrayToListContext *context) {
+    /* Step through so many elements of list per available reduction */
+    const static Sint COPIES_PER_REDUC = 30;
+    const Sint budget = COPIES_PER_REDUC * IF_DEBUG(p->fcalls / 10 + 1,
+                                                    p->fcalls);
+    register Sint reds = budget;
+
     Eterm result = context->result;
     Eterm *dst = context->dst;
     const Eterm *src = context->src;
@@ -276,6 +289,8 @@ erts_trappable_copy_array_to_list(ErtsCopyArrayToListContext *context) {
         src--;
         reds--;
     }
+
+    BUMP_REDS(p, budget - reds);
     if (reds) {
         /* Work complete, reds non-zero */
         return make_list(context->dst_start);
@@ -404,10 +419,14 @@ subtract_create_returnstate(Process *p, Eterm A, Eterm B, Binary *context_b) {
  */
 static int
 subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
+    /* Step through so many elements of list per available reduction */
+    const static Sint CHECKS_PER_REDUC = 2;
+    const Sint budget = CHECKS_PER_REDUC * IF_DEBUG(p->fcalls / 10 + 1,
+                                                    p->fcalls);
+    register Sint reds = budget;
+
     ErtsSubtractScanContext *s = &context->s.scan;
     Eterm iter_a = s->iter_a; /* load iterator from state */
-    static const Uint WORK_BEFORE_TRAPPING = IF_DEBUG(30, 300);
-    register Uint reds = WORK_BEFORE_TRAPPING;
     Eterm *b = context->copy_of_b;
 
     /* A is guaranteed to be proper list, otherwise erts_list_length() call at
@@ -440,6 +459,7 @@ subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
         reds--;
     }
 
+    BUMP_REDS(p, budget - reds);
     if (reds) {
         /* Reds not 0, work seems to be completed */
         return am_true;
@@ -493,17 +513,23 @@ erts_trappable_list_length_setup(Eterm T, ErtsSubtractContext *context) {
  * Returns: am_false - if you need to call it again.
  */
 static Eterm
-erts_trappable_list_length(ErtsLengthContext *context) {
+erts_trappable_list_length(Process *p, ErtsLengthContext *context) {
     Eterm iter = context->iter;
-    const static Uint WORK_BEFORE_TRAPPING = IF_DEBUG(50, 500);
     register Sint count = context->count;
-    register Uint reds = WORK_BEFORE_TRAPPING;
+
+    /* Step through so many elements of list per available reduction */
+    static const Sint ELEMENTS_PER_REDUC = 30;
+    const Sint budget = ELEMENTS_PER_REDUC * IF_DEBUG(p->fcalls / 10 + 1,
+                                                      p->fcalls);
+    register Sint reds = budget;
 
     while (is_list(iter)) {
         count++;
         iter = CDR(list_val(iter));
         reds--;
     }
+
+    BUMP_REDS(p, budget - reds);
     if (reds) {
         /* if reds is non-zero means the work is finished, result is ready */
         if (is_not_nil(iter)) {
@@ -564,7 +590,7 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
 
     switch (context->fsm_state) {
         case SUBTRACT_STEP_LEN_A: {
-            Eterm res = erts_trappable_list_length(&context->s.len);
+            Eterm res = erts_trappable_list_length(p, &context->s.len);
             Sint count;
             if (res == am_false) {
                 BIF_TRAP2(&subtract_trap_export, p,
@@ -587,7 +613,7 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         }
 
         case SUBTRACT_STEP_LEN_B: {
-            Eterm res = erts_trappable_list_length(&context->s.len);
+            Eterm res = erts_trappable_list_length(p, &context->s.len);
             Sint count;
             if (res == am_false) {
                 BIF_TRAP2(&subtract_trap_export, p,
@@ -610,7 +636,7 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         }
 
         case SUBTRACT_STEP_COPY_B: {
-            if (!erts_trappable_copy_list_to_array(&context->s.copy_b)) {
+            if (!erts_trappable_copy_list_to_array(p, &context->s.copy_b)) {
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
@@ -641,7 +667,7 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         }
 
         case SUBTRACT_STEP_BUILD_RESULT: {
-            Eterm res = erts_trappable_copy_array_to_list(&context->s.build_res);
+            Eterm res = erts_trappable_copy_array_to_list(p, &context->s.build_res);
             if (res == am_false) {
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
