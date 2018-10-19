@@ -108,6 +108,7 @@ is_pure(erlang, list_to_atom, 1) -> true;
 is_pure(erlang, list_to_binary, 1) -> true;
 is_pure(erlang, list_to_float, 1) -> true;
 is_pure(erlang, list_to_integer, 1) -> true;
+is_pure(erlang, list_to_integer, 2) -> true;
 is_pure(erlang, list_to_pid, 1) -> true;
 is_pure(erlang, list_to_tuple, 1) -> true;
 is_pure(erlang, max, 2) -> true;
