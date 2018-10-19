@@ -283,7 +283,7 @@ erts_trappable_copy_array_to_list(Process *p,
     const Eterm *src = context->src;
     const Eterm *src_start = context->src_start;
 
-    while (src >= src_start && reds) {
+    while (src >= src_start && reds > 0) {
         result = CONS(dst, *src, result);
         dst += 2;
         src--;
@@ -291,9 +291,10 @@ erts_trappable_copy_array_to_list(Process *p,
     }
 
     BUMP_REDS(p, budget - reds);
-    if (reds) {
+    if (reds > 0) {
         /* Work complete, reds non-zero */
-        return make_list(context->dst_start);
+        //return make_list(context->dst_start);
+        return result;
     }
 
     context->result = result;
@@ -331,7 +332,6 @@ typedef struct {
 typedef struct {
     /* iterator over A when subtracting and moving remaining elts */
     Eterm iter_a;
-    Sint result_size;
 } ErtsSubtractScanContext;
 
 typedef struct {
@@ -343,6 +343,7 @@ typedef struct {
     /* Dynamically allocated result output array (on TMP heap) */
     Eterm small_vec_a[SUBTRACT_SMALL_VEC_SIZE];
     Eterm *result_array;
+    Sint result_size;
 
     /* Dynamically allocated copy of B, for shrinking it when elements are
      * found and removed */
@@ -400,7 +401,7 @@ subtractcontext_binary_dtor(Binary *context_bin) {
  * Return a triple {A, B, MagicRef}
  */
 static ERTS_INLINE Eterm
-subtract_create_returnstate(Process *p, Eterm A, Eterm B, Binary *context_b) {
+subtract_create_state_tuple3(Process *p, Eterm A, Eterm B, Binary *context_b) {
     const static int TUPLE3_SIZE = 3 + 1;
     Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE3_SIZE);
     Eterm state_binref = erts_mk_magic_ref(&hp, &MSO(p), context_b);
@@ -418,8 +419,9 @@ subtract_create_returnstate(Process *p, Eterm A, Eterm B, Binary *context_b) {
  * Returns: 1 if the work is done and must copy result to a new list
  */
 static int
-subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
-    /* Step through so many elements of list per available reduction */
+subtract_trappable_scan(Process *p, ErtsSubtractContext *context) {
+    /* Step through so many elements of list per available reduction.
+     * Scanning B each time takes 'remaining_in_B' reductions. */
     const static Sint CHECKS_PER_REDUC = 2;
     const Sint budget = CHECKS_PER_REDUC * IF_DEBUG(p->fcalls / 10 + 1,
                                                     p->fcalls);
@@ -428,64 +430,87 @@ subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
     ErtsSubtractScanContext *s = &context->s.scan;
     Eterm iter_a = s->iter_a; /* load iterator from state */
     Eterm *b = context->copy_of_b;
+    Sint len_b = context->len_b;
+    Sint result_size = context->result_size;
+    Eterm *result_array = context->result_array;
 
     /* A is guaranteed to be proper list, otherwise erts_list_length() call at
      * start will fail */
-    while (is_list(iter_a)) {
+    while (reds > 0 && is_list(iter_a)) {
         const Eterm *ptr_a  = list_val(iter_a);
-        Sint found_at = subtract_find_in_array(CAR(ptr_a), b, context->len_b);
+        Sint found_at = subtract_find_in_array(CAR(ptr_a), b, len_b);
+        reds -= len_b;
         if (found_at >= 0) {
             /* Remove elem from B and skip; shrink B by 1 */
-            context->len_b--;
-            b[found_at] = b[context->len_b];
+            len_b--;
+            b[found_at] = b[len_b];
 
-            if (context->len_b == 0) {
+            if (len_b == 0) {
+                /* for reds calculation after the copy */
+                Sint result_size_before_copy = result_size;
+
                 iter_a = CDR(ptr_a);
 
-                /* B is empty at this point, so copy remaining A elements */
+                /* B is empty at this point, so copy remaining A elements
+                 * TODO: This could be done via trappable copy list to array
+                 */
                 while (is_list(iter_a)) {
                     ptr_a = list_val(iter_a);
-                    context->result_array[s->result_size] = CAR(ptr_a);
-                    s->result_size++;
+                    result_array[result_size] = CAR(ptr_a);
+                    result_size++;
                     iter_a = CDR(ptr_a);
                 }
+                reds -= (result_size - result_size_before_copy);
+                /* Trim reds to 1 so that reds>0 below does not trigger */
+                reds = MAX(reds, 1);
+
                 break; /* nothing left in B, end search here */
             }
         } else {
-            context->result_array[s->result_size] = CAR(ptr_a);
-            s->result_size++;
+            result_array[result_size] = CAR(ptr_a);
+            result_size++;
         }
         iter_a = CDR(ptr_a);
-        reds--;
     }
 
     BUMP_REDS(p, budget - reds);
-    if (reds) {
+    context->len_b = len_b;
+    context->result_size = result_size;
+
+    if (reds > 0) {
         /* Reds not 0, work seems to be completed */
-        return am_true;
+        return 1;
     }
-    s->iter_a = iter_a; /* save iterator */
-    return am_false;
+
+    s->iter_a = iter_a; /* save iterator, only needed when we trap */
+    return 0;
 }
 
 
 /*
- * Stage 0 creates binary state for subsequent stages
+ * Creates a magic binary and moves state there to survive subsequent stages
  */
 static Binary *
-subtract_fsm_construct_context(Process *_p, Eterm A, Eterm B) {
-    ErtsSubtractContext *context;
-
+subtract_move_context_to_magicbin(ErtsSubtractContext *context) {
     /* Context stored in magic binary. If this is not null, we will be trapping
      * periodically otherwise we will run operation till the end & return. */
-    Binary *state_bin = NULL;
+    Binary *state_bin = erts_create_magic_binary(sizeof(ErtsSubtractContext),
+                                                 subtractcontext_binary_dtor);
 
-    /* Allocate tmp binary and use it for state */
-    state_bin = erts_create_magic_binary(sizeof(ErtsSubtractContext),
-                                         subtractcontext_binary_dtor);
+    /* Detect whether context was using local small vectors for storage */
+    int local_a = context->result_array == context->small_vec_a;
+    int local_b = context->copy_of_b == context->small_vec_b;
 
-    context = ERTS_MAGIC_BIN_DATA(state_bin);
-    subtractcontext_ctor(context);
+    ErtsSubtractContext *new_context = ERTS_MAGIC_BIN_DATA(state_bin);
+    memmove((void *)new_context, (void *)context, sizeof(ErtsSubtractContext));
+
+    /* Restore pointers to local arrays of a and b */
+    if (local_a) {
+        new_context->result_array = new_context->small_vec_a;
+    }
+    if (local_b) {
+        new_context->copy_of_b = new_context->small_vec_b;
+    }
 
     return state_bin;
 }
@@ -523,7 +548,7 @@ erts_trappable_list_length(Process *p, ErtsLengthContext *context) {
                                                       p->fcalls);
     register Sint reds = budget;
 
-    while (is_list(iter)) {
+    while (reds && is_list(iter)) {
         count++;
         iter = CDR(list_val(iter));
         reds--;
@@ -553,7 +578,7 @@ subtract_enter_state_scan(Eterm A, ErtsSubtractContext *context) {
                                                  context->small_vec_a,
                                                  SUBTRACT_SMALL_VEC_SIZE);
     /* Initialise loop counters and run the loop */
-    context->s.scan.result_size = 0;
+    context->result_size = 0;
     context->s.scan.iter_a = A;
 }
 
@@ -568,39 +593,29 @@ subtract_enter_state_copy_B(Eterm B, ErtsSubtractContext *context) {
 }
 
 
-/* Unpack the state triple and based on step field do something.
- * To enter here, A must be NON VALUE and B must be {OrigA, OrigB, MagicBin}
+/* Do another part of work based on the current state.
+ *
+ * Returns: Value if result is found
+ * Returns: am_badarg, if caller must BIF_ERROR(p, BADARG)
+ * Returns: NON_VALUE if caller must BIF_TRAP2()
  */
 static ERTS_INLINE Eterm
-subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
-    Binary *magic_bin;
-    ErtsSubtractContext *context;
-    Eterm *a_b_state_ptr;
-    Eterm orig_A, orig_B;
-
-    ERTS_ASSERT(special_arg == SUBTRACT_SPECIAL_VALUE);
-    ERTS_ASSERT(is_tuple(a_b_state));
-    ERTS_ASSERT(is_tuple_arity(a_b_state, 3));
-    a_b_state_ptr = tuple_val(a_b_state);
-    orig_A = a_b_state_ptr[1];
-    orig_B = a_b_state_ptr[2];
-
-    magic_bin = erts_magic_ref2bin(a_b_state_ptr[3]);
-    context = ERTS_MAGIC_BIN_DATA(magic_bin);
-
+subtract_switch(Process *p, Eterm *bif_args_p,
+                Eterm orig_A, Eterm orig_B, ErtsSubtractContext *context) {
     switch (context->fsm_state) {
         case SUBTRACT_STEP_LEN_A: {
             Eterm res = erts_trappable_list_length(p, &context->s.len);
             Sint count;
             if (res == am_false) {
-                BIF_TRAP2(&subtract_trap_export, p,
-                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+                return THE_NON_VALUE; /* the caller fun will trap */
             }
+            /* Returning smallint means that length result is ready */
             count = signed_val(res);
-            /* Returning true means length is done, result in s.len.count */
             if (count < 0) {
                 p->flags &= ~F_DISABLE_GC;
-                BIF_ERROR(p, BADARG);
+                bif_args_p[0] = orig_A;
+                bif_args_p[1] = orig_B;
+                return am_badarg;
             }
             if (count == 0) {
                 p->flags &= ~F_DISABLE_GC;
@@ -616,14 +631,15 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
             Eterm res = erts_trappable_list_length(p, &context->s.len);
             Sint count;
             if (res == am_false) {
-                BIF_TRAP2(&subtract_trap_export, p,
-                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+                return THE_NON_VALUE; /* the caller fun will trap */
             }
-            count = signed_val(res);;
-            /* Returning true means length is done, result in s.len.count */
+            /* Returning smallint means that length result is ready */
+            count = signed_val(res);
             if (count < 0) {
                 p->flags &= ~F_DISABLE_GC;
-                BIF_ERROR(p, BADARG);
+                bif_args_p[0] = orig_A;
+                bif_args_p[1] = orig_B;
+                return am_badarg;
             }
             if (count == 0) {
                 p->flags &= ~F_DISABLE_GC;
@@ -637,8 +653,7 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
 
         case SUBTRACT_STEP_COPY_B: {
             if (!erts_trappable_copy_list_to_array(p, &context->s.copy_b)) {
-                BIF_TRAP2(&subtract_trap_export, p,
-                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+                return THE_NON_VALUE; /* the caller fun will trap */
             }
             context->fsm_state = SUBTRACT_STEP_SCAN;
             subtract_enter_state_scan(orig_A, context);
@@ -646,22 +661,21 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         }
 
         case SUBTRACT_STEP_SCAN: {
-            int res = subtract_trappable_scan(p, orig_A, context);
+            int res = subtract_trappable_scan(p, context);
             if (!res) {
-                BIF_TRAP2(&subtract_trap_export, p,
-                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+                return THE_NON_VALUE; /* the caller fun will trap */
             }
-            if (context->s.scan.result_size == 0) { /* All deleted? Return a [] */
+            if (context->result_size == 0) { /* All deleted? Return a [] */
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(NIL);
-            } else if (context->s.scan.result_size == context->len_a) {
+            } else if (context->result_size == context->len_a) {
                 /* None deleted? Return the original A */
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(orig_A);
             }
             context->fsm_state = SUBTRACT_STEP_BUILD_RESULT;
             erts_trappable_copy_array_to_list_setup(p, context->result_array,
-                                                    context->s.scan.result_size,
+                                                    context->result_size,
                                                     &context->s.build_res);
             /* FALL THROUGH */
         }
@@ -669,15 +683,14 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         case SUBTRACT_STEP_BUILD_RESULT: {
             Eterm res = erts_trappable_copy_array_to_list(p, &context->s.build_res);
             if (res == am_false) {
-                BIF_TRAP2(&subtract_trap_export, p,
-                          SUBTRACT_SPECIAL_VALUE, a_b_state);
+                return THE_NON_VALUE; /* the caller fun will trap */
             }
             subtractcontext_dtor(context);
             p->flags &= ~F_DISABLE_GC;
             BIF_RET(res);
         }
     }
-    BIF_ERROR(p, EXC_BADFUN); /* bloop. Unreachable, should not be here */
+    ERTS_ASSERT(!"unreachable"); /* bloop. Unreachable, should not be here */
 }
 
 
@@ -694,36 +707,83 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
  *  The step field in state will define next action.
  */
 static Eterm
-subtract(Process *p, Eterm A, Eterm B) {
+subtract(Process *p, Eterm *bif_args_p, Eterm A, Eterm B) {
     if (A != SUBTRACT_SPECIAL_VALUE && ! is_tuple(B)) {
+        Eterm result;
+
         /* This is initial call entry from Erlang, both args are lists, no ctx
          * is yet created. So create state here. */
-        Binary *state_bin = subtract_fsm_construct_context(p, A, B);
+        ErtsSubtractContext onstack_context;
+        subtractcontext_ctor(&onstack_context);
 
         /* Enter now with state */
-        ErtsSubtractContext *context = ERTS_MAGIC_BIN_DATA(state_bin);
-        erts_trappable_list_length_setup(A, context);
+        erts_trappable_list_length_setup(A, &onstack_context);
+
+        result = subtract_switch(p, bif_args_p, A, B, &onstack_context);
+
+        if (result == am_badarg) {
+            BIF_ERROR(p, BADARG);
+        }
+        /* Check if result was produced, and then do not create tmp binary */
+        if (result != THE_NON_VALUE) {
+            /* We got result in one go, do not allocate tmp binary */
+            BIF_RET(result);
+        }
+
+        /* From here, a trap return is requested */
+
+        /* We got a trap return, means we must allocate a tmp binary now */
+        Binary *state_bin = subtract_move_context_to_magicbin(&onstack_context);
         p->flags |= F_DISABLE_GC;
-        return subtract_switch(
-                p, SUBTRACT_SPECIAL_VALUE,
-                subtract_create_returnstate(p, A, B, state_bin));
+        BIF_TRAP2(&subtract_trap_export, p,
+                  SUBTRACT_SPECIAL_VALUE,
+                  subtract_create_state_tuple3(p, A, B, state_bin));
     }
 
     /* Continue. There A must be non value and B must be triple
      * {OrigA, OrigB, StateMagicBin} */
-    return subtract_switch(p, A, B);
+    do {
+        Eterm *a_b_state_ptr;
+        Binary *magic_bin;
+        ErtsSubtractContext *context;
+        Eterm result;
+        Eterm state_tuple = B;
+
+        ERTS_ASSERT(A == SUBTRACT_SPECIAL_VALUE);
+        ERTS_ASSERT(is_tuple(B));
+        ERTS_ASSERT(is_tuple_arity(B, 3));
+        a_b_state_ptr = tuple_val(B);
+        A = a_b_state_ptr[1];
+        B = a_b_state_ptr[2];
+
+        magic_bin = erts_magic_ref2bin(a_b_state_ptr[3]);
+        context = ERTS_MAGIC_BIN_DATA(magic_bin);
+        result = subtract_switch(p, bif_args_p, A, B, context);
+
+        if (result == am_badarg) {
+            BIF_ERROR(p, BADARG);
+        }
+        /* Check if result was produced, and then do not create tmp binary */
+        if (result != THE_NON_VALUE) {
+            /* We got result in one go, do not allocate tmp binary */
+            BIF_RET(result);
+        }
+        BIF_TRAP2(&subtract_trap_export, p, SUBTRACT_SPECIAL_VALUE, state_tuple);
+    } while (0);
 }
 
 
-BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2)
-{
-    return subtract(BIF_P, BIF_ARG_1, BIF_ARG_2);
+BIF_RETTYPE ebif_minusminus_2(BIF_ALIST_2) {
+    /* Passing also &BIF_ARG_1 to modify BIF__ARGS for nice badarg reporting */
+    return subtract(BIF_P, &BIF_ARG_1, BIF_ARG_1, BIF_ARG_2);
 }
 
-BIF_RETTYPE subtract_2(BIF_ALIST_2)
-{
-    return subtract(BIF_P, BIF_ARG_1, BIF_ARG_2);
+
+BIF_RETTYPE subtract_2(BIF_ALIST_2) {
+    /* Passing also &BIF_ARG_1 to modify BIF__ARGS for nice badarg reporting */
+    return subtract(BIF_P, &BIF_ARG_1, BIF_ARG_1, BIF_ARG_2);
 }
+
 
 BIF_RETTYPE lists_member_2(BIF_ALIST_2)
 {
