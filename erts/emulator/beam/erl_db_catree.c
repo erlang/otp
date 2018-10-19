@@ -855,7 +855,7 @@ DbTableCATreeNode* find_base_node(DbTableCATree* tb, Eterm key,
 
 
 static ERTS_INLINE
-void copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
+Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
 {
     dst->size = key_size;
     if (key_size != 0) {
@@ -870,6 +870,7 @@ void copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
         dst->term = key;
         dst->oh = NULL;
     }
+    return dst->term;
 }
 
 static ERTS_INLINE
@@ -914,7 +915,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
         rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    copy_route_key(&p->u.base.lc_key, lc_key, lc_key_size);
+    lc_key = copy_route_key(&p->u.base.lc_key, lc_key, lc_key_size);
 #endif
     erts_rwmtx_init_opt(&p->u.base.lock, &rwmtx_opt,
                         "erl_db_catree_base_node",
@@ -1613,8 +1614,7 @@ static Eterm copy_iter_search_key(CATreeRootIterator* iter, Eterm key)
                                         (offsetof(DbRouteKey, heap)
                                          + key_size*sizeof(Eterm)));
     }
-    copy_route_key(iter->search_key, key, key_size);
-    return iter->search_key->term;
+    return copy_route_key(iter->search_key, key, key_size);
 }
 
 TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter, int next,
