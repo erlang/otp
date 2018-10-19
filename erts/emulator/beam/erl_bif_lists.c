@@ -33,6 +33,11 @@
 #include "erl_binary.h"
 
 static Export subtract_trap_export;
+#if defined(DEBUG)
+    #define IF_DEBUG(VAL_DEBUG, IGNORE) (VAL_DEBUG)
+#else
+    #define IF_DEBUG(IGNORE, VAL_RELEASE) (VAL_RELEASE)
+#endif
 
 static Eterm keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List);
 
@@ -190,7 +195,7 @@ erts_trappable_copy_list_to_array_setup(Eterm src, Eterm *dst,
  */
 static int
 erts_trappable_copy_list_to_array(ErtsCopyListToArrayContext *context) {
-    const static Uint MAX_WORK_BEFORE_TRAPPING = 500;
+    const static Uint MAX_WORK_BEFORE_TRAPPING = IF_DEBUG(50, 500);
     register Uint reds = MAX_WORK_BEFORE_TRAPPING;
     Eterm src = context->src;
     Eterm *dst = context->dst;
@@ -216,7 +221,8 @@ erts_trappable_copy_list_to_array(ErtsCopyListToArrayContext *context) {
  * Returns index where found or -1 if not found */
 static ERTS_INLINE Sint
 subtract_find_in_array(Eterm val, const Eterm *array_p, Sint array_sz) {
-    for (Sint i = array_sz - 1; i >= 0; i--) {
+    Sint i;
+    for (i = array_sz - 1; i >= 0; i--) {
         if (eq(val, array_p[i])) {
             return i;
         }
@@ -257,7 +263,7 @@ erts_trappable_copy_array_to_list_setup(Process *p,
  */
 static ERTS_INLINE Eterm
 erts_trappable_copy_array_to_list(ErtsCopyArrayToListContext *context) {
-    const static Uint WORK_BEFORE_TRAPPING = 600;
+    const static Uint WORK_BEFORE_TRAPPING = IF_DEBUG(60, 600);
     register Uint reds = WORK_BEFORE_TRAPPING;
     Eterm result = context->result;
     Eterm *dst = context->dst;
@@ -349,13 +355,11 @@ subtractcontext_ctor(ErtsSubtractContext *context) {
 
 static int
 subtractcontext_dtor(ErtsSubtractContext *context) {
-    ErtsSubtractScanContext *s;
     if (context->fsm_state != SUBTRACT_STEP_SCAN) {
         /* nothing to do if we didn't allocate any memory yet */
         return 1;
     }
 
-    s = &context->s.scan;
     if (context->result_array && context->result_array != context->small_vec_a) {
         erts_free(ERTS_ALC_T_TMP, (void *) context->result_array);
         context->result_array = NULL;
@@ -385,7 +389,6 @@ subtract_create_returnstate(Process *p, Eterm A, Eterm B, Binary *context_b) {
     const static int TUPLE3_SIZE = 3 + 1;
     Eterm *hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE3_SIZE);
     Eterm state_binref = erts_mk_magic_ref(&hp, &MSO(p), context_b);
-    BUMP_ALL_REDS(p);
     return TUPLE3(hp, A, B, state_binref);
 }
 
@@ -403,7 +406,7 @@ static int
 subtract_trappable_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
     ErtsSubtractScanContext *s = &context->s.scan;
     Eterm iter_a = s->iter_a; /* load iterator from state */
-    static const Uint WORK_BEFORE_TRAPPING = 300;
+    static const Uint WORK_BEFORE_TRAPPING = IF_DEBUG(30, 300);
     register Uint reds = WORK_BEFORE_TRAPPING;
     Eterm *b = context->copy_of_b;
 
@@ -492,7 +495,7 @@ erts_trappable_list_length_setup(Eterm T, ErtsSubtractContext *context) {
 static Eterm
 erts_trappable_list_length(ErtsLengthContext *context) {
     Eterm iter = context->iter;
-    const static Uint WORK_BEFORE_TRAPPING = 500;
+    const static Uint WORK_BEFORE_TRAPPING = IF_DEBUG(50, 500);
     register Sint count = context->count;
     register Uint reds = WORK_BEFORE_TRAPPING;
 
@@ -570,9 +573,11 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
             count = signed_val(res);
             /* Returning true means length is done, result in s.len.count */
             if (count < 0) {
+                p->flags &= ~F_DISABLE_GC;
                 BIF_ERROR(p, BADARG);
             }
             if (count == 0) {
+                p->flags &= ~F_DISABLE_GC;
                 BIF_RET(NIL);
             }
             context->len_a = count;
@@ -591,9 +596,11 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
             count = signed_val(res);;
             /* Returning true means length is done, result in s.len.count */
             if (count < 0) {
+                p->flags &= ~F_DISABLE_GC;
                 BIF_ERROR(p, BADARG);
             }
             if (count == 0) {
+                p->flags &= ~F_DISABLE_GC;
                 BIF_RET(orig_A);
             }
             context->len_b = count;
@@ -619,9 +626,11 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
             if (context->s.scan.result_size == 0) { /* All deleted? Return a [] */
+                p->flags &= ~F_DISABLE_GC;
                 BIF_RET(NIL);
             } else if (context->s.scan.result_size == context->len_a) {
                 /* None deleted? Return the original A */
+                p->flags &= ~F_DISABLE_GC;
                 BIF_RET(orig_A);
             }
             context->fsm_state = SUBTRACT_STEP_BUILD_RESULT;
@@ -634,12 +643,11 @@ subtract_switch(Process *p, Eterm special_arg, Eterm a_b_state) {
         case SUBTRACT_STEP_BUILD_RESULT: {
             Eterm res = erts_trappable_copy_array_to_list(&context->s.build_res);
             if (res == am_false) {
-                erts_fprintf(stderr, "<tr:5>");
                 BIF_TRAP2(&subtract_trap_export, p,
                           SUBTRACT_SPECIAL_VALUE, a_b_state);
             }
             subtractcontext_dtor(context);
-            /* Dst is filled from back to front, final dst will be list head */
+            p->flags &= ~F_DISABLE_GC;
             BIF_RET(res);
         }
     }
@@ -669,6 +677,7 @@ subtract(Process *p, Eterm A, Eterm B) {
         /* Enter now with state */
         ErtsSubtractContext *context = ERTS_MAGIC_BIN_DATA(state_bin);
         erts_trappable_list_length_setup(A, context);
+        p->flags |= F_DISABLE_GC;
         return subtract_switch(
                 p, SUBTRACT_SPECIAL_VALUE,
                 subtract_create_returnstate(p, A, B, state_bin));
