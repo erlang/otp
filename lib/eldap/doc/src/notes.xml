@@ -108,6 +108,22 @@
 
 </section>
 
+<section><title>Eldap 1.2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition at close could cause the eldap client to
+	    exit with a badarg message as cause.</p>
+          <p>
+	    Own Id: OTP-15342 Aux Id: ERIERL-242 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eldap 1.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
