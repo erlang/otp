@@ -315,7 +315,6 @@ typedef enum {
     SUBTRACT_STEP_LEN_B,    /* calculate length of B */
     SUBTRACT_STEP_COPY_B,   /* copy B to temporary array */
     SUBTRACT_STEP_SCAN,     /* scan A and copy elements not in B to result */
-    SUBTRACT_STEP_BUILD_RESULT /* from result array build a result list */
 } ErtsSubtractFsmState;
 
 /*
@@ -337,13 +336,15 @@ typedef struct {
 typedef struct {
     /* Allows doing work in stages interrupting on large inputs */
     ErtsSubtractFsmState fsm_state;
-    Sint len_a;
-    Sint len_b;
+    Uint len_a;
+    Uint len_b;
 
-    /* Dynamically allocated result output array (on TMP heap) */
-    Eterm small_vec_a[SUBTRACT_SMALL_VEC_SIZE];
-    Eterm *result_array;
-    Sint result_size;
+    /* 1 if heap of p had enough space for result, otherwise 0 if heap fragment
+     * was allocated. This is used to later judge whether we can free some of
+     * result memory or we have to occupy it with NILs or a fake tuple. */
+    int is_result_on_heap;
+    Eterm *result_p; /* Start of allocated result mem */
+    Eterm *result_write_p;
 
     /* Dynamically allocated copy of B, for shrinking it when elements are
      * found and removed */
@@ -376,10 +377,6 @@ subtractcontext_dtor(ErtsSubtractContext *context) {
         return 1;
     }
 
-    if (context->result_array && context->result_array != context->small_vec_a) {
-        erts_free(ERTS_ALC_T_TMP, (void *) context->result_array);
-        context->result_array = NULL;
-    }
     if (context->copy_of_b && context->copy_of_b != context->small_vec_b) {
         erts_free(ERTS_ALC_T_TMP, (void *) context->copy_of_b);
         context->copy_of_b = NULL;
@@ -409,6 +406,18 @@ subtract_create_state_tuple3(Process *p, Eterm A, Eterm B, Binary *context_b) {
 }
 
 
+/* Given a pointer to list cell, write value into it. Link this cell to the
+ * future uninitialised cell located next in memory.
+ * Eterm **ptr_p is assumed to point to large enough memory array.
+ */
+static ERTS_INLINE void
+build_list_forward(Eterm **ptr_p, Eterm val) {
+    CAR(*ptr_p) = val;
+    CDR(*ptr_p) = make_list(*ptr_p + 2);
+    *ptr_p += 2;
+}
+
+
 /* Iterate over A and for each element that is present in B, skip it
  * in A and remove it from B (by moving last element of B in its place and
  * making B shorter), otherwise that element is copied to the result.
@@ -430,9 +439,8 @@ subtract_trappable_scan(Process *p, ErtsSubtractContext *context) {
     ErtsSubtractScanContext *s = &context->s.scan;
     Eterm iter_a = s->iter_a; /* load iterator from state */
     Eterm *b = context->copy_of_b;
-    Sint len_b = context->len_b;
-    Sint result_size = context->result_size;
-    Eterm *result_array = context->result_array;
+    Uint len_b = context->len_b;
+    Eterm *result_write_p = context->result_write_p;
 
     /* A is guaranteed to be proper list, otherwise erts_list_length() call at
      * start will fail */
@@ -447,8 +455,6 @@ subtract_trappable_scan(Process *p, ErtsSubtractContext *context) {
 
             if (len_b == 0) {
                 /* for reds calculation after the copy */
-                Sint result_size_before_copy = result_size;
-
                 iter_a = CDR(ptr_a);
 
                 /* B is empty at this point, so copy remaining A elements
@@ -456,26 +462,26 @@ subtract_trappable_scan(Process *p, ErtsSubtractContext *context) {
                  */
                 while (is_list(iter_a)) {
                     ptr_a = list_val(iter_a);
-                    result_array[result_size] = CAR(ptr_a);
-                    result_size++;
+
+                    /* Write next element, and fill previous element's tail */
+                    build_list_forward(&result_write_p, CAR(ptr_a));
+
+                    reds--;
                     iter_a = CDR(ptr_a);
                 }
-                reds -= (result_size - result_size_before_copy);
                 /* Trim reds to 1 so that reds>0 below does not trigger */
                 reds = MAX(reds, 1);
 
                 break; /* nothing left in B, end search here */
             }
         } else {
-            result_array[result_size] = CAR(ptr_a);
-            result_size++;
+            build_list_forward(&result_write_p, CAR(ptr_a));
         }
         iter_a = CDR(ptr_a);
     }
 
     BUMP_REDS(p, budget - reds);
     context->len_b = len_b;
-    context->result_size = result_size;
 
     if (reds > 0) {
         /* Reds not 0, work seems to be completed */
@@ -497,17 +503,13 @@ subtract_move_context_to_magicbin(ErtsSubtractContext *context) {
     Binary *state_bin = erts_create_magic_binary(sizeof(ErtsSubtractContext),
                                                  subtractcontext_binary_dtor);
 
-    /* Detect whether context was using local small vectors for storage */
-    int local_a = context->result_array == context->small_vec_a;
+    /* Detect whether context was using local small vector for storage */
     int local_b = context->copy_of_b == context->small_vec_b;
 
     ErtsSubtractContext *new_context = ERTS_MAGIC_BIN_DATA(state_bin);
     memmove((void *)new_context, (void *)context, sizeof(ErtsSubtractContext));
 
-    /* Restore pointers to local arrays of a and b */
-    if (local_a) {
-        new_context->result_array = new_context->small_vec_a;
-    }
+    /* Restore pointer to local array of b */
     if (local_b) {
         new_context->copy_of_b = new_context->small_vec_b;
     }
@@ -573,12 +575,11 @@ erts_trappable_list_length(Process *p, ErtsLengthContext *context) {
 /* Stage SCAN creates binary or on-stack state and performs the subtraction
  * also possibly trapping if the inputs are too long. */
 static ERTS_INLINE void
-subtract_enter_state_scan(Eterm A, ErtsSubtractContext *context) {
-    context->result_array = subtract_maybe_alloc(context->len_a,
-                                                 context->small_vec_a,
-                                                 SUBTRACT_SMALL_VEC_SIZE);
+subtract_enter_state_scan(Process *p, Eterm A, ErtsSubtractContext *context) {
+    /* Having is_result_on_heap=1 later will allow us to free its unused part */
+    context->is_result_on_heap = HeapWordsLeft(p) >= context->len_a;
+    context->result_write_p = context->result_p = HAllocX(p, context->len_a, 0);
     /* Initialise loop counters and run the loop */
-    context->result_size = 0;
     context->s.scan.iter_a = A;
 }
 
@@ -590,6 +591,27 @@ subtract_enter_state_copy_B(Eterm B, ErtsSubtractContext *context) {
 
     erts_trappable_copy_list_to_array_setup(B, context->copy_of_b,
                                             &context->s.copy_b);
+}
+
+
+static ERTS_INLINE void
+subtract_abandon_result_memory(Process *p, ErtsSubtractContext *context) {
+    Uint remaining_words;
+    Uint used_words;
+
+    if (context->is_result_on_heap) {
+        /* drop remaining words of the allocated block */
+        p->htop = context->result_write_p;
+        return;
+    }
+    /* Fill heap fragment with an unused value */
+    used_words = context->result_write_p - context->result_p;
+    remaining_words = context->len_a * 2 - used_words;
+    if (remaining_words > 1) {
+        /* If a binary header will fit in there */
+        *context->result_p = header_heap_bin(remaining_words * sizeof(Eterm));
+    }
+    ERTS_ASSERT(!"need to fill unused words here");
 }
 
 
@@ -615,13 +637,13 @@ subtract_switch(Process *p, Eterm *bif_args_p,
                 p->flags &= ~F_DISABLE_GC;
                 bif_args_p[0] = orig_A;
                 bif_args_p[1] = orig_B;
-                return am_badarg;
+                return am_badarg; /* exception created by the caller function */
             }
             if (count == 0) {
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(NIL);
             }
-            context->len_a = count;
+            context->len_a = (Uint) count;
             context->fsm_state = SUBTRACT_STEP_LEN_B;
             erts_trappable_list_length_setup(orig_B, context);
             /* FALL THROUGH */
@@ -645,7 +667,7 @@ subtract_switch(Process *p, Eterm *bif_args_p,
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(orig_A);
             }
-            context->len_b = count;
+            context->len_b = (Uint) count;
             context->fsm_state = SUBTRACT_STEP_COPY_B;
             subtract_enter_state_copy_B(orig_B, context);
             /* FALL THROUGH */
@@ -656,39 +678,41 @@ subtract_switch(Process *p, Eterm *bif_args_p,
                 return THE_NON_VALUE; /* the caller fun will trap */
             }
             context->fsm_state = SUBTRACT_STEP_SCAN;
-            subtract_enter_state_scan(orig_A, context);
+            subtract_enter_state_scan(p, orig_A, context);
             /* FALL THROUGH */
         }
 
         case SUBTRACT_STEP_SCAN: {
             int res = subtract_trappable_scan(p, context);
+            Uint result_len;
             if (!res) {
                 return THE_NON_VALUE; /* the caller fun will trap */
             }
-            if (context->result_size == 0) { /* All deleted? Return a [] */
+            if (context->result_write_p == context->result_p) {
+                /* No values went into result? Free and return a [] */
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(NIL);
-            } else if (context->result_size == context->len_a) {
-                /* None deleted? Return the original A */
+            }
+            result_len = (context->result_write_p - context->result_p) / 2;
+            subtract_abandon_result_memory(p, context);
+            if (result_len == context->len_a) {
+                /* All elements of A survived? Return the original A */
                 p->flags &= ~F_DISABLE_GC;
                 BIF_RET(orig_A);
             }
-            context->fsm_state = SUBTRACT_STEP_BUILD_RESULT;
-            erts_trappable_copy_array_to_list_setup(p, context->result_array,
-                                                    context->result_size,
-                                                    &context->s.build_res);
-            /* FALL THROUGH */
+            CDR(context->result_write_p - 2) = NIL; /* terminate last element */
+            BIF_RET(make_list(context->result_p));
         }
 
-        case SUBTRACT_STEP_BUILD_RESULT: {
-            Eterm res = erts_trappable_copy_array_to_list(p, &context->s.build_res);
-            if (res == am_false) {
-                return THE_NON_VALUE; /* the caller fun will trap */
-            }
-            subtractcontext_dtor(context);
-            p->flags &= ~F_DISABLE_GC;
-            BIF_RET(res);
-        }
+//        case SUBTRACT_STEP_BUILD_RESULT: {
+//            Eterm res = erts_trappable_copy_array_to_list(p, &context->s.build_res);
+//            if (res == am_false) {
+//                return THE_NON_VALUE; /* the caller fun will trap */
+//            }
+//            subtractcontext_dtor(context);
+//            p->flags &= ~F_DISABLE_GC;
+//            BIF_RET(res);
+//        }
     }
     ERTS_ASSERT(!"unreachable"); /* bloop. Unreachable, should not be here */
 }
