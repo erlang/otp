@@ -21,7 +21,8 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 undefined_label/1,ambiguous_catch_try_state/1]).
+	 undefined_label/1,ambiguous_catch_try_state/1,
+         unsafe_move_elimination/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -32,7 +33,8 @@ all() ->
 groups() ->
     [{p,[parallel],
       [undefined_label,
-       ambiguous_catch_try_state
+       ambiguous_catch_try_state,
+       unsafe_move_elimination
       ]}].
 
 init_per_suite(Config) ->
@@ -72,3 +74,44 @@ river() -> song.
 checks(Wanted) ->
     %% Must be one line to cause the unsafe optimization.
     {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.
+
+unsafe_move_elimination(_Config) ->
+    {{left,right,false},false} = unsafe_move_elimination(left, right, false),
+    {{false,right,false},false} = unsafe_move_elimination(false, right, true),
+    {{true,right,right},right} = unsafe_move_elimination(true, right, true),
+    ok.
+
+unsafe_move_elimination(Left, Right, Simple0) ->
+    id(1),
+
+    %% The move at label 29 would be removed by beam_jump, which is unsafe because
+    %% the two select_val instructions have different source registers.
+    %%
+    %%   {select_val,{y,0},{f,25},{list,[{atom,true},{f,27},{atom,false},{f,29}]}}.
+    %%               ^^^^^                                  ^^^^^^^^^^^^^^^^^^^
+    %% {label,27}.
+    %%   {kill,{y,0}}.
+    %%   {move,{y,2},{x,0}}.
+    %%   {line,...}.
+    %%   {call,1,{f,31}}.
+    %%   {select_val,{x,0},{f,33},{list,[{atom,true},{f,35},{atom,false},{f,29}]}}.
+    %%               ^^^^^                                  ^^^^^^^^^^^^^^^^^^^
+    %% {label,29}.
+    %%   {move,{atom,false},{y,0}}.  <=== REMOVED (unsafely).
+    %%   {jump,{f,37}}.
+
+    Simple = case case Simple0 of
+                      false -> false;
+                      true -> id(Left)
+                  end
+             of
+                 false ->
+                     false;
+                 true ->
+                     id(Right)
+             end,
+    {id({Left,Right,Simple}),Simple}.
+
+
+id(I) ->
+    I.

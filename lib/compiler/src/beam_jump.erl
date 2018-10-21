@@ -196,22 +196,19 @@ no_fallthrough([I|_]) ->
     is_unreachable_after(I).
 
 already_has_value(Lit, Lbl, Reg, D) ->
-    Key = {Lbl,Reg},
     case D of
-        #{Lbl:=unsafe} ->
-            false;
-        #{Key:=Lit} ->
+        #{Lbl:={Reg,Lit}} ->
             true;
         #{} ->
             false
     end.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
-    Key = {Lbl,Reg},
     D = case D0 of
-            #{Key := inconsistent} -> D0;
-            #{Key := _} -> D0#{Key := inconsistent};
-            _ -> D0#{Key => Lit}
+            #{Lbl:=unsafe} -> D0;
+            #{Lbl:={Reg,Lit}} -> D0;
+            #{Lbl:=_} -> D0#{Lbl:=unsafe};
+            #{} -> D0#{Lbl=>{Reg,Lit}}
         end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
