@@ -13377,21 +13377,24 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*        env,
         }
 
         if (!compare_pids(env, &descP->currentReader.pid, &caller)) {
+            ERL_NIF_TERM tmp;
+
             /* Not the "current reader", so (maybe) push onto queue */
 
             SSDBG( descP,
                    ("SOCKET", "recv_check_reader -> not (current) reader\r\n") );
 
             if (!reader_search4pid(env, descP, &caller))
-                *checkResult = reader_push(env, descP, caller, ref);
+                tmp = reader_push(env, descP, caller, ref);
             else
-                *checkResult = esock_make_error(env, esock_atom_eagain);
+                tmp = esock_make_error(env, esock_atom_eagain);
             
             SSDBG( descP,
                    ("SOCKET",
-                    "recv_check_reader -> queue (push) result: %T\r\n",
-                    checkResult) );
-            
+                    "recv_check_reader -> queue (push) result: %T\r\n", tmp) );
+
+            *checkResult = tmp;
+
             return FALSE;
 
         }
@@ -13769,6 +13772,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                                    unsigned int      fromAddrLen,
                                    ERL_NIF_TERM      recvRef)
 {
+    char*        xres;
     ERL_NIF_TERM data;
 
     SSDBG( descP,
@@ -13817,6 +13821,9 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                    (saveErrno == EAGAIN)) {
 
             SSDBG( descP, ("SOCKET", "recvfrom_check_result -> eagain\r\n") );
+            
+            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
+                return esock_make_error_str(env, xres);
             
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
