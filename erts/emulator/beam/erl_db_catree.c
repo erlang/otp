@@ -96,6 +96,12 @@
 #include "erl_db_tree.h"
 #include "erl_db_tree_util.h"
 
+#ifdef DEBUG
+#  define IF_DEBUG(X) X
+#else
+#  define IF_DEBUG(X)
+#endif
+
 /*
 ** Forward declarations
 */
@@ -1647,7 +1653,8 @@ TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter, int next,
                                        Eterm *keyp)
 {
 #ifdef DEBUG
-    DbTableCATreeNode *rejected_base = NULL;
+    DbTableCATreeNode *rejected_invalid = NULL;
+    DbTableCATreeNode *rejected_empty = NULL;
 #endif
     DbTableCATreeNode *node;
     DbTableCATreeNode *parent;
@@ -1689,9 +1696,10 @@ TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter, int next,
                 }
             }
         }
-        ASSERT(node != rejected_base);
+        ASSERT(node != rejected_invalid);
         lock_iter_base_node(iter, node, parent, current_level);
         if (node->u.base.is_valid) {
+            ASSERT(node != rejected_empty);
             if (node->u.base.root) {
                 iter->next_route_key = (next_route_node ?
                                         next_route_node->u.route.key.term :
@@ -1704,12 +1712,13 @@ TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter, int next,
                 return NULL;
             }
             key = next_route_node->u.route.key.term;
+            IF_DEBUG(rejected_empty = node);
         }
+        else
+            IF_DEBUG(rejected_invalid = node);
+
         /* Retry */
         unlock_iter_base_node(iter);
-#ifdef DEBUG
-        rejected_base = node;
-#endif
     }
 }
 
