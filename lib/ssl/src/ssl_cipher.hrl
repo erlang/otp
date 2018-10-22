@@ -48,7 +48,8 @@
 	  iv,
 	  key,
 	  state,
-	  nonce
+	  nonce,
+          tag_len       
 	 }).
 
 %%% TLS_NULL_WITH_NULL_NULL is specified and is the initial state of a

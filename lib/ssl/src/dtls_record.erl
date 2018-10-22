@@ -499,23 +499,22 @@ encode_dtls_cipher_text(Type, {MajVer, MinVer}, Fragment,
      WriteState#{sequence_number => Seq + 1}}.
 
 encode_plain_text(Type, Version, Data, #{compression_state := CompS0,
+                                         cipher_state := CipherS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
-                                         cipher_state := CipherS0,
 					 security_parameters :=
 					     #security_parameters{
 						cipher_type = ?AEAD,
-                                                  bulk_cipher_algorithm =
-                                                    BulkCipherAlgo,
+                                                bulk_cipher_algorithm = BCAlg,
 						compression_algorithm = CompAlg}
 					} = WriteState0) ->
     {Comp, CompS1} = ssl_record:compress(CompAlg, Data, CompS0),
-    AAD = calc_aad(Type, Version, Epoch, Seq),
+    AAD = start_additional_data(Type, Version, Epoch, Seq),
+    CipherS = ssl_record:nonce_seed(BCAlg, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
+    WriteState = WriteState0#{compression_state => CompS1,
+                              cipher_state => CipherS},
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    {CipherFragment, CipherS1} =
-	ssl_cipher:cipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, Comp, TLSVersion),
-    {CipherFragment,  WriteState0#{compression_state => CompS1,
-                                   cipher_state => CipherS1}};
+    ssl_record:cipher_aead(TLSVersion, Comp, WriteState, AAD);
 encode_plain_text(Type, Version, Fragment, #{compression_state := CompS0,
 					 epoch := Epoch,
 					 sequence_number := Seq,
@@ -547,9 +546,10 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
                                 BulkCipherAlgo,
 			    compression_algorithm = CompAlg}} = ReadState0, 
 		   ConnnectionStates0) ->
-    AAD = calc_aad(Type, Version, Epoch, Seq),
+    AAD = start_additional_data(Type, Version, Epoch, Seq),
+    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT16(Epoch), ?UINT48(Seq)>>, CipherS0),
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    case  ssl_cipher:decipher_aead(BulkCipherAlgo, CipherS0, Seq, AAD, CipherFragment, TLSVersion) of
+    case  ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherFragment, TLSVersion) of
 	{PlainFragment, CipherState} ->
 	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 							   PlainFragment, CompressionS0),
@@ -600,7 +600,7 @@ mac_hash({Major, Minor}, MacAlg, MacSecret, Epoch, SeqNo, Type, Length, Fragment
      Fragment],
     dtls_v1:hmac_hash(MacAlg, MacSecret, Value).
     
-calc_aad(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
+start_additional_data(Type, {MajVer, MinVer}, Epoch, SeqNo) ->
     <<?UINT16(Epoch), ?UINT48(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
 
 %%--------------------------------------------------------------------
