@@ -89,9 +89,16 @@ typedef struct {
     void** bp;         /* {Hash|Tree}DbTerm** */
     Uint new_size;
     int flags;
-    void* lck;
-    void* lck2;
-    int current_level;
+    union {
+        struct {
+            erts_rwmtx_t* lck;
+        } hash;
+        struct {
+            struct DbTableCATreeNode* base_node;
+            struct DbTableCATreeNode* parent;
+            int current_level;
+        } catree;
+    } u;
 } DbUpdateHandle;
 
 

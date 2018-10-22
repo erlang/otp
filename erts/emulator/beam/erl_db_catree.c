@@ -2111,9 +2111,9 @@ static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm ob
         wunlock_adapt_base_node(tb, node, fbn.parent, fbn.current_level);
     } else {
         /* db_finalize_dbterm_catree will unlock */
-        handle->lck = fbn.parent;
-        handle->lck2 = node;
-        handle->current_level = fbn.current_level;
+        handle->u.catree.base_node = node;
+        handle->u.catree.parent = fbn.parent;
+        handle->u.catree.current_level = fbn.current_level;
     }
     return res;
 }
@@ -2121,10 +2121,10 @@ static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm ob
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *handle)
 {
     DbTableCATree *tb = &(handle->tb->catree);
-    DbTableCATreeNode *prev_node = handle->lck;    
-    DbTableCATreeNode *current_node = handle->lck2;
     db_finalize_dbterm_tree_common(cret, handle, NULL);
-    wunlock_adapt_base_node(tb, current_node, prev_node, handle->current_level);
+    wunlock_adapt_base_node(tb, handle->u.catree.base_node,
+                            handle->u.catree.parent,
+                            handle->u.catree.current_level);
     return;
 }
 
