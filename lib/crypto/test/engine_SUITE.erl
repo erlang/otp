@@ -75,11 +75,18 @@ groups() ->
 
 
 init_per_suite(Config) ->
-    case crypto:info_lib() of
-        [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->
+    case {os:type(), crypto:info_lib()} of
+        {_, [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}]} ->
             {skip, "Problem with engine on OpenSSL 1.0.1s-freebsd"};
-        Res ->
-            ct:log("crypto:info_lib() -> ~p\n", [Res]),
+
+        {{unix,darwin}, _} ->
+            {skip, "Engine unsupported on Darwin"};
+        
+        {{win32,_}, _} ->
+            {skip, "Engine unsupported on Windows"};
+        
+        {OS, Res} ->
+            ct:log("crypto:info_lib() -> ~p\nos:type() -> ~p", [Res,OS]),
             try crypto:start() of
                 ok ->
                     Config;
