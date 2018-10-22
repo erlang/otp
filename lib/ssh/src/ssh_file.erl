@@ -39,6 +39,21 @@
 	 is_auth_key/3]).
 
 
+-export_type([system_dir_daemon_option/0,
+              user_dir_common_option/0,
+              user_dir_fun_common_option/0,
+              pubkey_passphrase_client_options/0
+             ]).
+
+-type system_dir_daemon_option()   :: {system_dir, string()}.
+-type user_dir_common_option()     :: {user_dir,  false | string()}.
+-type user_dir_fun_common_option() :: {user_dir_fun, fun()}.
+-type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
+                                            | {rsa_pass_phrase,      string()}
+                                            | {ecdsa_pass_phrase,    string()} .
+
+
+
 -define(PERM_700, 8#700).
 -define(PERM_644, 8#644).
 

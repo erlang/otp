@@ -147,11 +147,11 @@
 		are searched in a directory found in the following order:
 		<list>
 		  <item>If the option
-		  <seealso marker="ssh:ssh_file#user_dir_fun"><c>user_dir_fun</c></seealso>
+		  <seealso marker="ssh:ssh_file#type-user_dir_fun_common_option"><c>user_dir_fun</c></seealso>
 		  is defined, that fun is called and the returned directory is used,
 		  </item>
 		  <item>Else, If the option 
-		  <seealso marker="ssh:ssh#type-user_dir_common_option"><c>user_dir</c></seealso>
+		  <seealso marker="ssh:ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
 			is defined, that directory is used,
 		  </item>
 		  <item>Else the subdirectory <c>.ssh</c> in the home directory of the user executing

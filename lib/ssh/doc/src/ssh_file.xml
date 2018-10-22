@@ -34,37 +34,52 @@
     <p>This module is the default callback handler for the client's and the server's user and host "database" operations.
     </p>
     <p>
-      The intention is to be compatible with the OpenSSH storage in files. Therefore it mimics directories and filenames
-      of OpenSSH.
+      The intention is to be compatible with the
+      <url href="http://www.openssh.com">OpenSSH</url>
+      storage in files. Therefore it mimics directories and filenames of
+      <url href="http://www.openssh.com">OpenSSH</url>.
     </p>
     <note>
       <p>The functions are <i>Callbacks</i> for the SSH app. They are not intended to be called from the user's code!
       </p>
     </note>
   </description>
-    <section>
-      <title>Making your own callback module</title>
-      <p>Ssh_file implements the <seealso marker="ssh:ssh_server_key_api">ssh_server_key_api</seealso> and
-      <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>.
-	This enables the user to make an own interface using for example a database handler.
-      </p>
-      <p>Such another callback module could be used by setting the option
-      <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
-      when starting a client or a server (with for example
-      <seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
-      <seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso> of
-      <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
-      ).
-      </p>
-    </section>
+  <section>
+    <title>Making your own callback module</title>
+    <p>Ssh_file implements the <seealso marker="ssh:ssh_server_key_api">ssh_server_key_api</seealso> and
+    <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>.
+    This enables the user to make an own interface using for example a database handler.
+    </p>
+    <p>Such another callback module could be used by setting the option
+    <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+    when starting a client or a server (with for example
+    <seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+    <seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso> of
+    <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
+    ).
+    </p>
+  </section>
+
+  <section>
+    <title>Daemons</title>
+    <p>Daemons uses all files stored in the <seealso marker="#SYSDIR">SYSDIR</seealso> directory and
+    optionaly one or more <i>User's public key</i> in case of <c>publickey</c> authorization.
+    The user's public keys are stored concatenated in the file 
+    <seealso marker="#USERDIR-authorized_keys"><c>authorized_keys</c></seealso>
+    in the
+    <seealso marker="#USERDIR">USERDIR</seealso> directory.
+    </p>
+  </section>
+
+  <section>
+    <title>Clients</title>
+    <p>Clients uses all files stored in the <seealso marker="#USERDIR">USERDIR</seealso> directory.
+    </p>
+  </section>
 
   <section>
     <title>Files, directories and conventions</title>
     <taglist>
-      <!--tag><marker id="REMOTEUSER"/>REMOTEUSER</tag>
-      <item>The user name sent by the client to the server.
-      <p/></item-->
-
       <tag><marker id="LOCALUSER"/>LOCALUSER</tag>
       <item>The user name of the OS process running the Erlang virtual machine (emulator).
       <p/></item>
@@ -77,6 +92,10 @@
 	  <item><marker id="SYSDIR-ssh_host_ecdsa_key"/><c>ssh_host_ecdsa_key</c> - private ecdsa host key (optional)</item>
       </list>
       <p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
+      </p>
+      <p>For security reasons, this directory is normally accessible only to the root user.
+      </p>
+      <p>To change the SYSDIR, see the <seealso marker="#type-system_dir_daemon_option">system_dir</seealso> option.
       </p>
       </item>
 
@@ -91,11 +110,50 @@
 	  <item><marker id="USERDIR-id_ecdsa"/><c>id_ecdsa</c> - private ecdsa user key (optional)</item>
       </list>
       <p>The default value of USERDIR is <c>/home/</c><seealso marker="#LOCALUSER"><c>LOCALUSER</c></seealso><c>/.ssh</c>.
-      See also the <seealso marker="ssh:ssh#type-user_dir_common_option">user_dir</seealso> common option.
-      </p></item>
+      </p>
+      <p>To change the USERDIR, see the <seealso marker="#type-user_dir_common_option">user_dir</seealso> option
+      </p>
+    </item>
       
     </taglist>
   </section>
+
+  <datatypes>
+    <datatype_title>Options for the default ssh_file callback module</datatype_title>
+    <datatype>
+      <name name="user_dir_common_option"/>
+      <desc>
+	<p>Sets the <seealso marker="#USERDIR">user directory</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="user_dir_fun_common_option"/>
+      <desc>
+	<p>Sets the <seealso marker="#USERDIR">user directory</seealso> dynamically
+	by evaluating the function
+	</p>
+	<code> fun(RemoteUser) -> USERDIR end </code>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="system_dir_daemon_option"/>
+      <desc>
+        <p>Sets the <seealso marker="#SYSDIR">system directory</seealso>.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pubkey_passphrase_client_options"/>
+      <desc>
+	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
+	supplied with thoose options.
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
 
   <funcs>
     <func>
@@ -108,7 +166,7 @@
 	</p>
 	<p><strong>Options</strong></p>
 	<list>
-	  <item><c>{system_dir, </c><seealso marker="#SYSDIR">SYSDIR</seealso><c>}</c></item>
+	  <item><seealso marker="#type-system_dir_daemon_option">system_dir</seealso></item>
 	  <!-- item>dsa_pass_phrase</item -->
 	  <!-- item>rsa_pass_phrase</item -->
 	  <!-- item>ecdsa_pass_phrase</item -->
@@ -133,8 +191,8 @@
 	</p>
 	<p><strong>Options</strong></p>
 	<list>
-	  <item><marker id="user_dir_fun"/><c>{user_dir_fun, fun(RemoteUser) -> USERDIR end}</c></item>
-	  <item><c>{user_dir, </c><seealso marker="#USERDIR"><c>USERDIR</c></seealso><c>}</c></item>
+	  <item><seealso marker="#type-user_dir_fun_common_option">user_dir_fun</seealso></item>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
 	</list>
 	<p><strong>Files</strong></p>
 	<list>
@@ -155,7 +213,7 @@
 	</p>
 	<p><strong>Option</strong></p>
 	<list>
-	  <item><c>{user_dir, </c><seealso marker="#USERDIR"><c>USERDIR</c></seealso><c>}</c></item>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
 	</list>
 	<p><strong>File</strong></p>
 	<list>
@@ -175,7 +233,7 @@
 	</p>
 	<p><strong>Option</strong></p>
 	<list>
-	  <item><c>{user_dir, </c><seealso marker="#USERDIR"><c>USERDIR</c></seealso><c>}</c></item>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
 	</list>
 	<p><strong>File</strong></p>
 	<list>
@@ -195,10 +253,10 @@
 	</p>
 	<p><strong>Options</strong></p>
 	<list>
-	  <item><c>{user_dir, </c><seealso marker="#USERDIR"><c>USERDIR</c></seealso><c>}</c></item>
-	  <item><seealso marker="ssh:ssh#type-pubkey_passphrase_client_options"><c>{dsa_pass_phrase, PWD}</c></seealso></item>
-	  <item><seealso marker="ssh:ssh#type-pubkey_passphrase_client_options"><c>{rsa_pass_phrase, PWD}</c></seealso></item>
-	  <item><seealso marker="ssh:ssh#type-pubkey_passphrase_client_options"><c>{ecdsa_pass_phrase, PWD}</c></seealso></item>
+	  <item><seealso marker="#type-user_dir_common_option">user_dir</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">dsa_pass_phrase</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">rsa_pass_phrase</seealso></item>
+	  <item><seealso marker="#type-pubkey_passphrase_client_options">ecdsa_pass_phrase</seealso></item>
 	</list>
 	<p><strong>Files</strong></p>
 	<list>
