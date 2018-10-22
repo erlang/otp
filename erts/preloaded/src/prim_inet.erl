@@ -49,9 +49,15 @@
 -include("inet_sctp.hrl").
 -include("inet_int.hrl").
 
-%-define(DEBUG, 1).
+%%%-define(DEBUG, 1).
 -ifdef(DEBUG).
--define(DBG_FORMAT(Format, Args), (io:format((Format), (Args)))).
+-define(
+   DBG_FORMAT(Format, Args),
+   begin
+       %% io:format((Format), (Args)),
+       erlang:display(lists:flatten(io_lib:format((Format), (Args)))),
+       ok
+   end).
 -else.
 -define(DBG_FORMAT(Format, Args), ok).
 -endif.
@@ -150,39 +156,96 @@ shutdown_1(S, How) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 close(S) when is_port(S) ->
+    ?DBG_FORMAT("prim_inet:close(~p)~n", [S]),
     case getopt(S, linger) of
     	{ok,{true,0}} -> 
 	    close_port(S);
-	_ ->
-	    case subscribe(S, [subs_empty_out_q]) of
-		{ok, [{subs_empty_out_q,N}]} when N > 0 ->
-		    close_pend_loop(S, N);   %% wait for pending output to be sent
-		_ ->
-		    close_port(S)
-	    end
+        {ok,{true,T}} ->
+            %% Wait for T seconds for pending output to be sent
+            %%
+            %% Note that this handling of Linger may look ok,
+            %% but sweeps some problems under the rug since
+            %% there are OS buffers that may have remaining data
+            %% after the inet driver has emptied its buffers.
+            %% But Linger for nonblocking sockets is broken
+            %% anyway on all OS:es, according to hearsay,
+            %% and is a contradiction in itself.
+            %% We have hereby done our best...
+            %%
+            Tref = erlang:start_timer(T * 1000, self(), close_port),
+            close_pend_loop(S, Tref, undefined);
+	_ -> % Regard this as {ok,{false,_}}
+            case subscribe(S, [subs_empty_out_q]) of
+                {ok, [{subs_empty_out_q,N}]} when N > 0 ->
+                    %% Wait for pending output to be sent
+                    DefaultT = 180000, % Arbitrary system timeout 3 min
+                    Tref = erlang:start_timer(DefaultT, self(), close_port),
+                    close_pend_loop(S, Tref, N);
+                _ ->
+                    %% Subscribe failed or empty out q - give up or done
+                    close_port(S)
+            end
     end.
 
-close_pend_loop(S, N) ->
+close_pend_loop(S, Tref, N) ->
+    ?DBG_FORMAT("prim_inet:close_pend_loop(~p, _, ~p)~n", [S,N]),
     receive
-	{empty_out_q,S} ->
-	    close_port(S)
+        {timeout,Tref,_} -> % Linger timeout
+            ?DBG_FORMAT("prim_inet:close_pend_loop(~p, _, _) timeout~n", [S]),
+	    close_port(S);
+	{empty_out_q,S} when N =/= undefined ->
+            ?DBG_FORMAT(
+               "prim_inet:close_pend_loop(~p, _, _) empty_out_q~n", [S]),
+	    close_port(S, Tref)
     after ?INET_CLOSE_TIMEOUT ->
 	    case getstat(S, [send_pend]) of
                 {ok, [{send_pend,N1}]} ->
+                    ?DBG_FORMAT(
+                       "prim_inet:close_pend_loop(~p, _, _) send_pend ~p~n",
+                       [S,N1]),
                     if
-			N1 =:= N ->
-			    close_port(S);
-                       true ->
-			    close_pend_loop(S, N1)
+                        N1 =:= 0 ->
+                            %% Empty outq - done
+                            close_port(S, Tref);
+                        N =:= undefined ->
+                            %% Within linger time - wait some more
+                            close_pend_loop(S, Tref, N);
+                        N1 =:= N ->
+                            %% Inactivity - give up
+                            close_port(S, Tref);
+                        true ->
+                            %% Still moving - wait some more
+                            close_pend_loop(S, Tref, N)
                     end;
-		_ ->
-		    close_port(S)
-	    end
+                _Stat ->
+                    %% Failed getstat - give up
+                    ?DBG_FORMAT(
+                       "prim_inet:close_pend_loop(~p, _, _) getstat ~p~n",
+                       [S,_Stat]),
+		    close_port(S, Tref)
+            end
     end.
 
+
+close_port(S, Tref) ->
+    ?DBG_FORMAT("prim_inet:close_port(~p, _)~n", [S]),
+    case erlang:cancel_timer(Tref) of
+        false ->
+            receive
+                {timeout,Tref,_} ->
+                    ok
+            end;
+        _N ->
+            ok
+    end,
+    close_port(S).
+%%
 close_port(S) ->
-    catch erlang:port_close(S),
-    receive {'EXIT',S,_} -> ok after 0 -> ok end.
+    ?DBG_FORMAT("prim_inet:close_port(~p)~n", [S]),
+    _Closed = (catch erlang:port_close(S)),
+    receive {'EXIT',S,_} -> ok after 0 -> ok end,
+    ?DBG_FORMAT("prim_inet:close_port(~p) ~p~n", [S,_Closed]),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -424,22 +487,48 @@ peeloff(S, AssocId) ->
 %% be called directly -- use "sendmsg" instead:
 %%
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
-    ?DBG_FORMAT("prim_inet:send(~p, ~p)~n", [S,Data]),
+    ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
     try erlang:port_command(S, Data, OptList) of
 	false -> % Port busy and nosuspend option passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
 	    {error,busy};
 	true ->
-	    receive
-		{inet_reply,S,Status} ->
-		    ?DBG_FORMAT("prim_inet:send() -> ~p~n", [Status]),
-		    Status
-	    end
+            send_recv_reply(S, undefined)
     catch
 	error:_Error ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
 	     {error,einval}
     end.
+
+send_recv_reply(S, Mref) ->
+    ReplyTimeout =
+        case Mref of
+            undefined ->
+                ?INET_CLOSE_TIMEOUT;
+            _ ->
+                infinity
+        end,
+    receive
+        {inet_reply,S,Status} ->
+            ?DBG_FORMAT(
+               "prim_inet:send_recv_reply(~p, _): inet_reply ~p~n",
+               [S,Status]),
+            case Mref of
+                undefined -> ok;
+                _ ->
+                    demonitor(Mref, [flush]),
+                    ok
+            end,
+            Status;
+        {'DOWN',Mref,_,_,_Reason} when Mref =/= undefined ->
+            ?DBG_FORMAT(
+               "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
+               [S,_Reason]),
+            {error,closed}
+    after ReplyTimeout ->
+            send_recv_reply(S, monitor(port, S))
+    end.
+
 
 send(S, Data) ->
     send(S, Data, []).
