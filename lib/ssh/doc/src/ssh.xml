@@ -204,6 +204,12 @@
 	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
 	supplied with thoose options.
 	</p>
+	<note>
+	  <p>Those options can only be used if the module in
+	  <seealso marker="#type-key_cb_common_option">key_cb</seealso>
+	  handles that option. That is the case with the default value of the <c>key_cb</c> option.
+	  </p>
+	</note>
       </desc>
     </datatype>
 
@@ -488,6 +494,12 @@
 	    <seealso marker="#type-key_cb_common_option">key_cb</seealso>
 	    for the general way to handle keys.
 	    </p>
+	    <note>
+	      <p>This option can only be used if the module in
+	      <seealso marker="#type-key_cb_common_option">key_cb</seealso>
+	      handles that option. That is the case with the default value of the <c>key_cb</c> option.
+	      </p>
+	    </note>
 	  </item>
 
 	  <tag><c>auth_method_kb_interactive_data</c></tag>
@@ -741,6 +753,12 @@
 	<seealso marker="#type-key_cb_common_option">key_cb</seealso>
 	for the general way to handle keys.
 	</p>
+	<note>
+	  <p>This option can only be used if the module in
+	  <seealso marker="#type-key_cb_common_option">key_cb</seealso>
+	  handles that option. That is the case with the default value of the <c>key_cb</c> option.
+	  </p>
+	</note>
       </desc>
     </datatype>
 
@@ -800,7 +818,8 @@
 	</p>
 	<p>The <c>Opts</c> defaults to <c>[]</c> when only the <c>Module</c> is specified.
 	</p>
-	<p>The default value of this option is <c>{ssh_file, []}</c>.
+	<p>The default value of this option is <c>{ssh_file, []}</c>. See also the manpage of
+	<seealso marker="ssh:ssh_file">ssh_file</seealso>.
 	</p>
 	<p>A call to the call-back function <c>F</c> will be</p>
 	<code>
