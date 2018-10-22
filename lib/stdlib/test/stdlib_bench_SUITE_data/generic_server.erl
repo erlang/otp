@@ -8,8 +8,8 @@
 
 -define(GEN_SERVER, gen_server).
 
-start(State) ->
-    {ok, Pid} = ?GEN_SERVER:start(?MODULE, State, []),
+start([State|Opts]) ->
+    {ok, Pid} = ?GEN_SERVER:start(?MODULE, State, Opts),
     Pid.
 
 init(State) ->

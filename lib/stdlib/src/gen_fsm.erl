@@ -610,16 +610,17 @@ terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
     end.
 
 error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
+    Log = [{Event, State} || {Event, State, _FormFunc} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_fsm,terminate},
                  name=>Name,
                  last_message=>Msg,
                  state_name=>StateName,
                  state_data=>StateData,
+                 log=>Log,
                  reason=>Reason},
                #{domain=>[otp],
                  report_cb=>fun gen_fsm:format_log/1,
                  error_logger=>#{tag=>error}}),
-    sys:print_log(Debug),
     ok.
 
 format_log(#{label:={gen_fsm,terminate},
@@ -627,6 +628,7 @@ format_log(#{label:={gen_fsm,terminate},
              last_message:=Msg,
              state_name:=StateName,
              state_data:=StateData,
+             log:=Log,
              reason:=Reason}) ->
     Reason1 = 
 	case Reason of
@@ -645,12 +647,21 @@ format_log(#{label:={gen_fsm,terminate},
 	    _ ->
 		Reason
 	end,
+    LimitedLog = [error_logger:limit_term(D) || D <- Log],
     {"** State machine ~tp terminating \n" ++
          get_msg_str(Msg) ++
      "** When State == ~tp~n"
      "**      Data  == ~tp~n"
-     "** Reason for termination = ~n** ~tp~n",
-     [Name, get_msg(Msg), StateName, StateData, Reason1]};
+     "** Reason for termination ==~n** ~tp~n" ++
+         case LimitedLog of
+             [] -> [];
+             _ -> "** Log ==~n** ~tp~n"
+         end,
+     [Name, get_msg(Msg), StateName, StateData, Reason1 |
+      case LimitedLog of
+          [] -> [];
+          _ -> [LimitedLog]
+      end]};
 format_log(#{label:={gen_fsm,no_handle_info},
              module:=Mod,
              message:=Msg}) ->
@@ -689,7 +700,7 @@ format_status(Opt, StatusData) ->
 	StatusData,
     Header = gen:format_status_header("Status for state machine",
                                       Name),
-    Log = sys:get_debug(log, Debug, []),
+    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
     Specfic = format_status(Opt, Mod, PDict, StateData),
     Specfic = case format_status(Opt, Mod, PDict, StateData) of
 		  S when is_list(S) -> S;

@@ -885,16 +885,17 @@ error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) -
     %% of it instead
     ok;
 error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
+    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
                  last_message=>Msg,
                  state=>format_status(terminate, Mod, get(), State),
+                 log=>Log,
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
                #{domain=>[otp],
                  report_cb=>fun gen_server:format_log/1,
                  error_logger=>#{tag=>error}}),
-    sys:print_log(Debug),
     ok.
 
 client_stacktrace(undefined) ->
@@ -917,6 +918,7 @@ format_log(#{label:={gen_server,terminate},
              name:=Name,
              last_message:=Msg,
              state:=State,
+             log:=Log,
              reason:=Reason,
              client_info:=Client}) ->
     Reason1 = 
@@ -937,11 +939,21 @@ format_log(#{label:={gen_server,terminate},
 		error_logger:limit_term(Reason)
 	end,    
     {ClientFmt,ClientArgs} = format_client_log(Client),
+    [LimitedState|LimitedLog] =
+        [error_logger:limit_term(D) || D <- [State|Log]],
     {"** Generic server ~tp terminating \n"
      "** Last message in was ~tp~n"
      "** When Server state == ~tp~n"
-     "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
-     [Name, Msg, error_logger:limit_term(State), Reason1] ++ ClientArgs};
+     "** Reason for termination ==~n** ~tp~n" ++
+         case LimitedLog of
+             [] -> [];
+             _ -> "** Log ==~n** ~tp~n"
+         end ++ ClientFmt,
+     [Name, Msg, LimitedState, Reason1] ++
+         case LimitedLog of
+             [] -> [];
+             _ -> [LimitedLog]
+         end ++ ClientArgs};
 format_log(#{label:={gen_server,no_handle_info},
              module:=Mod,
              message:=Msg}) ->
@@ -966,7 +978,7 @@ format_client_log({_From,{Name,Stacktrace}}) ->
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = sys:get_debug(log, Debug, []),
+    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
     Specfic = case format_status(Opt, Mod, PDict, State) of
 		  S when is_list(S) -> S;
 		  S -> [S]

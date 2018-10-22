@@ -30,7 +30,7 @@
 	 log_to_file/2, log_to_file/3, no_debug/1, no_debug/2,
 	 install/2, install/3, remove/2, remove/3]).
 -export([handle_system_msg/6, handle_system_msg/7, handle_debug/4,
-	 print_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
+	 print_log/1, get_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
 
 %%-----------------------------------------------------------------
 %% Types
@@ -634,6 +634,12 @@ get_debug2(Item, Debug, Default) ->
 print_log(Debug) ->
     NLog = get_debug(log, Debug, nlog_new()),
     lists:foreach(fun print_event/1, nlog_get(NLog)).
+    
+-spec get_log(Debug) -> [system_event()] when
+      Debug :: [dbg_opt()].
+get_log(Debug) ->
+    NLog = get_debug(log, Debug, nlog_new()),
+    nlog_get(NLog).
     
 close_log_file(Debug) ->
     case get_debug2(log_to_file, Debug, []) of

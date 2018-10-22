@@ -28,8 +28,8 @@
 
 %% API
 
-start(Data) ->
-    {ok, Pid} = gen_statem:start(?MODULE, Data, []),
+start([Data|Opts]) ->
+    {ok, Pid} = gen_statem:start(?MODULE, Data, Opts),
     Pid.
 
 stop(P) ->

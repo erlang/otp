@@ -586,7 +586,12 @@ enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
 enter_loop(Module, Opts, State, Data, Server, Actions) ->
     is_atom(Module) orelse error({atom,Module}),
     Parent = gen:get_parent(),
-    enter(Module, Opts, State, Data, Server, Actions, Parent).
+    Name = gen:get_proc_name(Server),
+    Debug = gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen:hibernate_after(Opts),
+    enter(
+      Parent, Debug, Module, Name, HibernateAfterTimeout,
+      State, Data, Actions).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -658,11 +663,10 @@ send(Proc, Msg) ->
     ok.
 
 %% Here the init_it/6 and enter_loop/5,6,7 functions converge
-enter(Module, Opts, State, Data, Server, Actions, Parent) ->
+enter(
+  Parent, Debug, Module, Name, HibernateAfterTimeout,
+  State, Data, Actions) ->
     %% The values should already have been type checked
-    Name = gen:get_proc_name(Server),
-    Debug = gen:debug_options(Name, Opts),
-    HibernateAfterTimeout = gen:hibernate_after(Opts),
     Events = [],
     Event = {internal,init_state},
     %% We enforce {postpone,false} to ensure that
@@ -695,18 +699,24 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
 init_it(Starter, self, ServerRef, Module, Args, Opts) ->
     init_it(Starter, self(), ServerRef, Module, Args, Opts);
 init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
+    Name = gen:get_proc_name(ServerRef),
+    Debug = gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen:hibernate_after(Opts),
     try Module:init(Args) of
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Opts)
+	    init_result(
+              Starter, Parent, ServerRef, Module, Result,
+              Name, Debug, HibernateAfterTimeout)
     catch
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
+	    init_result(
+              Starter, Parent, ServerRef, Module, Result,
+              Name, Debug, HibernateAfterTimeout);
 	Class:Reason:Stacktrace ->
-	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
-	      Class, Reason, Stacktrace,
+	      Class, Reason, Stacktrace, Debug,
 	      #state{name = Name},
 	      []),
 	    erlang:raise(Class, Reason, Stacktrace)
@@ -715,14 +725,20 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 %%---------------------------------------------------------------------------
 %% gen callbacks helpers
 
-init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
+init_result(
+  Starter, Parent, ServerRef, Module, Result,
+  Name, Debug, HibernateAfterTimeout) ->
     case Result of
 	{ok,State,Data} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, [], Parent);
+            enter(
+              Parent, Debug, Module, Name, HibernateAfterTimeout,
+              State, Data, []);
 	{ok,State,Data,Actions} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, Actions, Parent);
+            enter(
+              Parent, Debug, Module, Name, HibernateAfterTimeout,
+              State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -732,12 +748,11 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	_ ->
-	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    Error = {bad_return_from_init,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    error_info(
-	      error, Error, ?STACKTRACE(),
+	      error, Error, ?STACKTRACE(), Debug,
 	      #state{name = Name},
 	      []),
 	    exit(Error)
@@ -792,7 +807,7 @@ format_status(
   [PDict,SysState,Parent,Debug,
    #state{name = Name, postponed = P} = S]) ->
     Header = gen:format_status_header("Status for state machine", Name),
-    Log = sys:get_debug(log, Debug, []),
+    Log = [{Event, State} || {Event, State, _FormFunc} <- sys:get_log(Debug)],
     [{header,Header},
      {data,
       [{"Status",SysState},
@@ -1877,8 +1892,7 @@ terminate(
 	    catch
 		_ -> ok;
 		C:R:ST ->
-		    error_info(C, R, ST, S, Q),
-		    sys:print_log(Debug),
+		    error_info(C, R, ST, Debug, S, Q),
 		    erlang:raise(C, R, ST)
 	    end;
 	false ->
@@ -1893,8 +1907,7 @@ terminate(
 	    {shutdown,_} ->
                 terminate_sys_debug(Debug, S, State, Reason);
 	    _ ->
-		error_info(Class, Reason, Stacktrace, S, Q),
-		sys:print_log(Debug)
+		error_info(Class, Reason, Stacktrace, Debug, S, Q)
 	end,
     case Stacktrace of
 	[] ->
@@ -1908,13 +1921,14 @@ terminate_sys_debug(Debug, S, State, Reason) ->
 
 
 error_info(
-  Class, Reason, Stacktrace,
+  Class, Reason, Stacktrace, Debug,
   #state{
      name = Name,
      callback_mode = CallbackMode,
      state_enter = StateEnter,
      postponed = P} = S,
   Q) ->
+    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
                  name=>Name,
                  queue=>Q,
@@ -1922,6 +1936,7 @@ error_info(
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), S),
+                 log=>Log,
                  reason=>{Class,Reason,Stacktrace}},
                #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/1,
@@ -1934,6 +1949,7 @@ format_log(#{label:={gen_statem,terminate},
              callback_mode:=CallbackMode,
              state_enter:=StateEnter,
              state:=FmtData,
+             log:=Log,
              reason:={Class,Reason,Stacktrace}}) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
@@ -1960,8 +1976,8 @@ format_log(#{label:={gen_statem,terminate},
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
-    [LimitedP, LimitedFmtData, LimitedFixedReason] =
-        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
+    [LimitedP, LimitedFmtData, LimitedFixedReason | LimitedLog] =
+        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason | Log]],
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -1988,6 +2004,10 @@ format_log(#{label:={gen_statem,terminate},
          case FixedStacktrace of
              [] -> "";
              _ -> "** Stacktrace =~n**  ~tp~n"
+         end ++
+         case LimitedLog of
+             [] -> "";
+             _ -> "** Log =~n**  ~tp~n"
          end,
      [Name |
       case Q of
@@ -2008,6 +2028,10 @@ format_log(#{label:={gen_statem,terminate},
          case FixedStacktrace of
              [] -> [];
              _ -> [FixedStacktrace]
+         end ++
+         case LimitedLog of
+             [] -> [];
+             _ -> [LimitedLog]
          end}.
 
 %% Call Module:format_status/2 or return a default value
