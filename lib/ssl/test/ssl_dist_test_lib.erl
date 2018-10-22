@@ -179,8 +179,9 @@ check_ssl_node_up(Socket, Name, Bin) ->
 		    Parent = self(),
 		    Go = make_ref(),
 		    %% Spawn connection handler on test server side
-		    Pid = spawn_link(
+		    Pid = spawn(
 			    fun () ->
+                                    link(group_leader()),
 				    receive Go -> ok end,
                                     process_flag(trap_exit, true),
 				    tstsrvr_con_loop(Name, Socket, Parent)
