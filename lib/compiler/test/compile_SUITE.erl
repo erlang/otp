@@ -396,6 +396,7 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dclean, ".clean"),
     do_listing(Simple, TargetDir, dpeep, ".peep"),
     do_listing(Simple, TargetDir, dopt, ".optimize"),
+    do_listing(Simple, TargetDir, diffable, ".S"),
 
     %% First clean up.
     Listings = filename:join(PrivDir, listings),

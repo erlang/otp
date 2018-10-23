@@ -66,7 +66,7 @@ module(Stream, [_|_]=Fs) ->
     foreach(fun (F) -> io:format(Stream, "~p.\n", [F]) end, Fs).
 
 format_asm([{label,L}|Is]) ->
-    ["  {label,",integer_to_list(L),"}.\n"|format_asm(Is)];
+    [io_lib:format("  {label,~p}.\n", [L])|format_asm(Is)];
 format_asm([I|Is]) ->
     [io_lib:format("    ~p", [I]),".\n"|format_asm(Is)];
 format_asm([]) -> [].
