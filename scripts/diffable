@@ -22,7 +22,7 @@ usage() ->
         "\n"
         "DESCRIPTION\n"
         "\n"
-        "Compile some applications from OTP (more than 700 modules) to either\n"
+        "Compile some applications from OTP (about 1000 modules) to either\n"
         ".S files or .dis files. The files are massaged to make them diff-friendly.\n"
         "\n"
         "The --legacy-asm options forces the output file to be in Latin1 encoding\n"
