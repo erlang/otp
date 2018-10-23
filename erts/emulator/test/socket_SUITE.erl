@@ -2327,10 +2327,8 @@ api_to_receive_tcp(InitState) ->
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
                    end},
 
          %% *** Init part ***
@@ -2369,25 +2367,20 @@ api_to_receive_tcp(InitState) ->
                    end},
          #{desc => "announce ready",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
-                           Tester ! {ready, self(), Port},
+                           %% Tester ! {ready, self(), Port},
+                           ev_ready(Tester, init, Port),
                            ok
                    end},
-         #{desc => "await continue",
+         #{desc => "await continue (accept and recv)",
            cmd  => fun(#{tester := Tester}) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ok = ev_await_continue(Tester, tester, accept_recv)
                    end},
 
          %% *** The actual test ***
-         #{desc => "await accept",
+         #{desc => "attempt accept",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-                                   %% ok = socket:setopt(Sock, otp, debug, true),
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -2417,58 +2410,32 @@ api_to_receive_tcp(InitState) ->
                    end},
          #{desc => "announce ready (recv timeout success)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           %% Tester ! {ready, self()},
+                           %% ok
+                           ev_ready(Tester, accept_recv),
                            ok
                    end},
 
          %% *** Termination ***
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
-         %% #{desc => "sleep some (before traffic close)",
-         %%   cmd  => fun(_) ->
-         %%                   ?SLEEP(1000),
-         %%                   ok
-         %%           end},
-         %% #{desc => "monitored-by",
-         %%   cmd  => fun(_) ->
-         %%                   {_, Mons} = process_info(self(), monitored_by),
-         %%                   ei("Monitored By: ~p", [Mons]),
-         %%                   ok
-         %%           end},
          #{desc => "close (traffic) socket",
            cmd  => fun(#{sock := Sock} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
                            sock_close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
-         %% #{desc => "monitored-by",
-         %%   cmd  => fun(_) ->
-         %%                   {_, Mons} = process_info(self(), monitored_by),
-         %%                   ei("Monitored By: ~p", [Mons]),
-         %%                   ok
-         %%           end},
-         %% #{desc => "sleep some (before listen close)",
-         %%   cmd  => fun(_) ->
-         %%                   ?SLEEP(1000),
-         %%                   ok
-         %%           end},
          #{desc => "close (listen) socket",
            cmd  => fun(#{lsock := LSock} = State) ->
                            sock_close(LSock),
                            {ok, maps:remove(lsock, State)}
                    end},
-         %% #{desc => "sleep some (after listen close)",
-         %%   cmd  => fun(_) ->
-         %%                   ?SLEEP(1000),
-         %%                   ok
-         %%           end},
 
          %% *** We are done ***
          #{desc => "finish",
@@ -2482,11 +2449,9 @@ api_to_receive_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester, Port} when is_pid(Tester) ->
-                                   {ok, State#{tester      => Tester,
-                                               server_port => Port}}
-                           end
+                           {Tester, Port} = ev_await_start(),
+                           {ok, State#{tester      => Tester,
+                                       server_port => Port}}
                    end},
 
          %% *** Init part ***
@@ -2521,21 +2486,16 @@ api_to_receive_tcp(InitState) ->
                            MRef = erlang:monitor(process, Tester),
                            {ok, State#{tester_mref => MRef}}
                    end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, init),
                            ok
                    end},
 
          %% *** The actual test ***
          #{desc => "await continue (with connect)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ok = ev_await_continue(Tester, tester, connect)
                    end},
          #{desc => "connect",
            cmd  => fun(#{sock := Sock, ssa := SSA}) ->
@@ -2546,11 +2506,11 @@ api_to_receive_tcp(InitState) ->
          %% *** Termination ***
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
          #{desc => "close socket",
@@ -2583,85 +2543,69 @@ api_to_receive_tcp(InitState) ->
          %% *** Activate server ***
          #{desc => "start server",
            cmd  => fun(#{server := Server} = _State) ->
-                           Server ! {start, self()},
+                           ev_start(Server),
                            ok
                    end},
          #{desc => "await server ready (init)",
            cmd  => fun(#{server := Server} = State) ->
-                           receive
-                               {'DOWN', _, process, Server, Reason} ->
-                                   {error, {unexpected_exit, server, Reason}};
-                               {ready, Server, Port} ->
-                                   {ok, State#{server_port => Port}}
-                           end
+                           {ok, Port} = ev_await_ready(Server, server, init),
+                           {ok, State#{server_port => Port}}
                    end},
          #{desc => "order server to continue (with accept)",
            cmd  => fun(#{server := Server} = _State) ->
-                           Server ! {continue, self()},
+                           ev_continue(Server, accept_recv),
                            ok
                    end},
 
          %% *** Activate client ***
          #{desc => "start client",
            cmd  => fun(#{client := Client, server_port := Port} = _State) ->
-                           Client ! {start, self(), Port},
+                           ev_start(Client, Port),
                            ok
                    end},
-         #{desc => "await client ready",
+         #{desc => "await client ready (init)",
            cmd  => fun(#{client := Client} = _State) ->
-                           receive
-                               {'DOWN', _, process, Client, Reason} ->
-                                   {error, {unexpected_exit, client, Reason}};
-                               {ready, Client} ->
-                                   ok
-                           end
+                           ev_await_ready(Client, client, init)
                    end},
 
          %% *** The actual test ***
          #{desc => "order client to continue (with connect)",
            cmd  => fun(#{client := Client} = _State) ->
-                           Client ! {continue, self()},
+                           ev_continue(Client, connect),
                            ok
                    end},
          #{desc => "await server ready (accept/recv)",
            cmd  => fun(#{server := Server} = _State) ->
-                           receive
-                               {'DOWN', _, process, Server, Reason} ->
-                                   {error, {unexpected_exit, server, Reason}};
-                               {ready, Server} ->
-                                   ok
-                           end
+                           ev_await_ready(Server, server, accept_recv)
                    end},
 
          %% *** Termination ***
          #{desc => "order client to terminate",
            cmd  => fun(#{client := Client} = _State) ->
-                           Client ! {terminate, self()},
+                           %% Client ! {terminate, self()},
+                           %% ok
+                           ev_terminate(Client),
                            ok
                    end},
          #{desc => "await client termination",
            cmd  => fun(#{client := Client} = State) ->
-                           receive
-                               {'DOWN', _, process, Client, _Reason} ->
-                                   State1 = maps:remove(client, State),
-                                   State2 = maps:remove(client_mref, State1),
-                                   {ok, State2}
-                           end
+                           ev_await_termination(Client),
+                           State1 = maps:remove(client, State),
+                           State2 = maps:remove(client_mref, State1),
+                           {ok, State2}
                    end},
          #{desc => "order server to terminate",
            cmd  => fun(#{server := Server} = _State) ->
-                           Server ! {terminate, self()},
+                           ev_terminate(Server),
                            ok
                    end},
          #{desc => "await server termination",
            cmd  => fun(#{server := Server} = State) ->
-                           receive
-                               {'DOWN', _, process, Server, _Reason} ->
-                                   State1 = maps:remove(server, State),
-                                   State2 = maps:remove(server_mref, State1),
-                                   State3 = maps:remove(server_port, State2),
-                                   {ok, State3}
-                           end
+                           ev_await_termination(Server),
+                           State1 = maps:remove(server, State),
+                           State2 = maps:remove(server_mref, State1),
+                           State3 = maps:remove(server_port, State2),
+                           {ok, State3}
                    end},
 
          %% *** We are done ***
@@ -5138,63 +5082,6 @@ sc_rc_tcp_client_await_terminate(Parent) ->
     end.
 
 
-%% ev_continue(Pid, Slogan) ->
-%%     ev_announce(Pid, continue, Slogan).
-
-%% ev_continue(Pid, Slogan, Extra) ->
-%%     ev_announce(Pid, continue, Slogan, Extra).
-
-%% ev_ready(Pid, Slogan) ->
-%%     ev_announce(Pid, ready, Slogan).
-
-%% ev_ready(Pid, Slogan, Extra) ->
-%%     ev_announce(Pid, ready, Slogan, Extra).
-
-%% ev_terminate(Pid) ->
-%%     Pid ! {terminate, self()}.
-
-%% ev_announce(To, Tag, Slogan) ->
-%%     ev_announce(To, Tag, Slogan, undefined)
-
-%% ev_announce(To, Tag, Slogan, Extra) ->
-%%     To ! {Tag, self(), Slogan, Extra}.
-
-%% ev_await_continue(Pid, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
-%%     ev_await(Pid, continue, Slogan, Pids).
-
-%% ev_await_ready(Pid, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
-%%     ev_await(Pid, ready, Slogan, Pids).
-
-%% ev_await_termination(Pid) ->
-%%     receive
-%%         {'DOWN', _, process, Pid, _} ->
-%%             ok
-%%     end.
-
-%% %% We expect a message from Pid, but we also watch for DOWN from 
-%% %% both Pid and Pids, in which case the test has failed!
-%% ev_await(Pid, Tag, Slogan, Pids) ->
-%%     receive
-%%         {Tag, Pid, Slogan, undefined} ->
-%%             ok;
-%%         {Tag, Pid, Slogan, Extra} ->
-%%             {ok, Extra};
-%%         {'DOWN', _, process, Pid, Reason} ->
-%%             ee("Unexpected DOWN regarding tester ~p: "
-%%                "~n   ~p", [Tester, Reason]),
-%%             {error, {unexpected_exit, tester}};
-            
-%% ev_await_check_down(DownPid, DownReason, Pids) ->
-%%     case lists:keymember(DownPid, 1, Pids) of
-%%         {value, {_, Name}} ->
-%%             ee("Unexpected DOWN regarding ~w ~p: "
-%%                "~n   ~p", [Name, DownPid, Reason]),
-%%             throw({error, {unexpected_exit, Name}});
-%%         false ->
-%%             ok
-%%     end.
-
-    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test what happens when a socket is 
 %% remotely closed while the process is calling the recvmsg function.
@@ -5907,6 +5794,114 @@ eprint(Prefix, F, A) ->
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ev_start(Pid) ->
+    ev_announce(Pid, start, undefined).
+
+ev_start(Pid, Extra) ->
+    ev_announce(Pid, start, undefined, Extra).
+
+ev_continue(Pid, Slogan) ->
+    ev_announce(Pid, continue, Slogan).
+
+%% ev_continue(Pid, Slogan, Extra) ->
+%%     ev_announce(Pid, continue, Slogan, Extra).
+
+ev_ready(Pid, Slogan) ->
+    ev_announce(Pid, ready, Slogan).
+
+ev_ready(Pid, Slogan, Extra) ->
+    ev_announce(Pid, ready, Slogan, Extra).
+
+ev_terminate(Pid) ->
+    Pid ! {terminate, self()}.
+
+ev_announce(To, Tag, Slogan) ->
+    ev_announce(To, Tag, Slogan, undefined).
+
+ev_announce(To, Tag, Slogan, Extra) ->
+    To ! {Tag, self(), Slogan, Extra}.
+
+ev_await_start() ->
+    receive
+        {start, Pid, _, undefined} ->
+            Pid;
+        {start, Pid, _, Extra} ->
+            {Pid, Extra}
+    end.
+
+ev_await_continue(Pid, Name, Slogan) ->
+    ev_await_continue(Pid, Name, Slogan, []).
+ev_await_continue(Pid, Name, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
+    ev_await(Pid, Name, continue, Slogan, Pids).
+
+ev_await_ready(Pid, Name, Slogan) ->
+    ev_await_ready(Pid, Name, Slogan, []).
+ev_await_ready(Pid, Name, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
+    ev_await(Pid, Name, ready, Slogan, Pids).
+
+ev_await_terminate(Pid, Name) ->
+    ev_await_terminate(Pid, Name, []).
+ev_await_terminate(Pid, Name, Pids) ->
+    receive
+        {terminate, Pid} ->
+            ok;
+        {'DOWN', _, process, Pid, Reason} ->
+            ee("Unexpected DOWN regarding ~w ~p: "
+               "~n   ~p", [Name, Pid, Reason]),
+            {error, {unexpected_exit, Name}};
+        {'DOWN', _, process, DownPid, Reason} ->
+            case ev_await_check_down(DownPid, Reason, Pids) of
+                ok ->
+                    ei("DOWN from unknown process ~p: "
+                       "~n   ~p", [DownPid, Reason]),
+                    ev_await_terminate(Pid, Name, Pids);
+                {error, _} = ERROR ->
+                    ERROR
+            end
+    end.
+
+ev_await_termination(Pid) ->
+    receive
+        {'DOWN', _, process, Pid, _} ->
+            ok
+    end.
+
+%% We expect a message from Pid, but we also watch for DOWN from 
+%% both Pid and Pids, in which case the test has failed!
+ev_await(Pid, Name, Tag, Slogan, Pids) ->
+    receive
+        {Tag, Pid, Slogan, undefined} ->
+            ok;
+        {Tag, Pid, Slogan, Extra} ->
+            {ok, Extra};
+        {'DOWN', _, process, Pid, Reason} ->
+            ee("Unexpected DOWN regarding ~w ~p: "
+               "~n   ~p", [Name, Pid, Reason]),
+            {error, {unexpected_exit, Name}};
+        {'DOWN', _, process, DownPid, Reason} ->
+            case ev_await_check_down(DownPid, Reason, Pids) of
+                ok ->
+                    ei("DOWN from unknown process ~p: "
+                       "~n   ~p", [DownPid, Reason]),
+                    ev_await(Pid, Name, Tag, Slogan, Pids);
+                {error, _} = ERROR ->
+                    ERROR
+            end
+    end.
+
+ev_await_check_down(DownPid, DownReason, Pids) ->
+    case lists:keymember(DownPid, 1, Pids) of
+        {value, {_, Name}} ->
+            ee("Unexpected DOWN regarding ~w ~p: "
+               "~n   ~p", [Name, DownPid, DownReason]),
+            {error, {unexpected_exit, Name}};
+        false ->
+            ok
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
