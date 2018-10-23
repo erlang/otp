@@ -385,31 +385,41 @@ handle_system_msg(SysState, Msg, From, Parent, Mod, Debug, Misc, Hib) ->
       FormFunc :: format_fun(),
       Extra :: term(),
       Event :: system_event().
-handle_debug([{trace, true} | T], FormFunc, State, Event) ->
+handle_debug([{trace, true} = DbgOpt | T], FormFunc, State, Event) ->
     print_event({Event, State, FormFunc}),
-    [{trace, true} | handle_debug(T, FormFunc, State, Event)];
+    [DbgOpt | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{log, NLog} | T], FormFunc, State, Event) ->
     Item = {Event, State, FormFunc},
     [{log, nlog_put(Item, NLog)} | handle_debug(T, FormFunc, State, Event)];
-handle_debug([{log_to_file, Fd} | T], FormFunc, State, Event) ->
+handle_debug([{log_to_file, Fd} = DbgOpt | T], FormFunc, State, Event) ->
     print_event(Fd, {Event, State, FormFunc}),
-    [{log_to_file, Fd} | handle_debug(T, FormFunc, State, Event)];
+    [DbgOpt | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{statistics, StatData} | T], FormFunc, State, Event) ->
     NStatData = stat(Event, StatData),
     [{statistics, NStatData} | handle_debug(T, FormFunc, State, Event)];
 handle_debug([{FuncId, {Func, FuncState}} | T], FormFunc, State, Event) ->
-    case catch Func(FuncState, Event, State) of
+    try Func(FuncState, Event, State) of
         done -> handle_debug(T, FormFunc, State, Event);
-        {'EXIT', _} -> handle_debug(T, FormFunc, State, Event);
         NFuncState ->
-            [{FuncId, {Func, NFuncState}} | handle_debug(T, FormFunc, State, Event)]
+            [{FuncId, {Func, NFuncState}} |
+             handle_debug(T, FormFunc, State, Event)]
+    catch
+        done -> handle_debug(T, FormFunc, State, Event);
+        NFuncState ->
+            [{FuncId, {Func, NFuncState}} |
+             handle_debug(T, FormFunc, State, Event)];
+        _:_ -> handle_debug(T, FormFunc, State, Event)
     end;
 handle_debug([{Func, FuncState} | T], FormFunc, State, Event) ->
-    case catch Func(FuncState, Event, State) of
+    try Func(FuncState, Event, State) of
 	done -> handle_debug(T, FormFunc, State, Event);
-	{'EXIT', _} -> handle_debug(T, FormFunc, State, Event);
-	NFuncState ->		     
+	NFuncState ->
 	    [{Func, NFuncState} | handle_debug(T, FormFunc, State, Event)]
+    catch
+	done -> handle_debug(T, FormFunc, State, Event);
+	NFuncState ->
+	    [{Func, NFuncState} | handle_debug(T, FormFunc, State, Event)];
+        _:_ -> handle_debug(T, FormFunc, State, Event)
     end;
 handle_debug([], _FormFunc, _State, _Event) ->
     [].
