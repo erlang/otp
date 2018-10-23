@@ -38,7 +38,9 @@ groups() ->
       [norm_nfc_list, norm_nfc_deep_l, norm_nfc_binary,
        string_lexemes_list, string_lexemes_binary
       ]},
-     {binary, [{repeat, 5}],
+     %% Only run 1 binary match repeat as it is very slow pre OTP-22.
+     %% The results seem to be stable enough anyway
+     {binary, [{repeat, 1}],
       [match_single_pattern_no_match,
        matches_single_pattern_no_match,
        matches_single_pattern_eventual_match,
@@ -164,19 +166,19 @@ norm_data(Config) ->
 
 match_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
-    comment(test(binary, match, [Binary, <<"o">>])).
+    comment(test(100, binary, match, [Binary, <<"o">>])).
 
 matches_single_pattern_no_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsalp">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"o">>])).
+    comment(test(100, binary, matches, [Binary, <<"o">>])).
 
 matches_single_pattern_eventual_match(_Config) ->
     Binary = binary:copy(<<"ugbcfuysabfuqyfikgfsdalpaskfhgjsdgfjwsal\n">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"\n">>])).
+    comment(test(100, binary, matches, [Binary, <<"\n">>])).
 
 matches_single_pattern_frequent_match(_Config) ->
     Binary = binary:copy(<<"abc\n">>, 1000000),
-    comment(test(binary, matches, [Binary, <<"abc">>])).
+    comment(test(100, binary, matches, [Binary, <<"abc">>])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -233,9 +235,11 @@ list() ->
     random_byte_list(?SIZE).
 
 test(Mod, Fun, Args) ->
-    F = fun() -> loop(?N, Mod, Fun, Args) end,
+    test(?N, Mod, Fun, Args).
+test(Iter, Mod, Fun, Args) ->
+    F = fun() -> loop(Iter, Mod, Fun, Args) end,
     {Time, ok} = timer:tc(fun() -> lspawn(F) end),
-    report_mfa(Time, Mod).
+    report_mfa(Iter, Time, Mod).
 
 loop(0, _M, _F, _A) -> garbage_collect(), ok;
 loop(N, M, F, A) ->
@@ -248,8 +252,8 @@ lspawn(Fun) ->
         {'DOWN', Ref, process, Pid, Rep} -> Rep
     end.
 
-report_mfa(Time, Mod) ->
-    Tps = round((?N*1000000)/Time),
+report_mfa(Iter, Time, Mod) ->
+    Tps = round((Iter*1000000)/Time),
     ct_event:notify(#event{name = benchmark_data,
                            data = [{suite, "stdlib_" ++ atom_to_list(Mod)},
                                    {value, Tps}]}),
