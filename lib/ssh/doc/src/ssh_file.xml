@@ -32,22 +32,17 @@
   <modulesummary>Default callback module for the client's and server's database operations in the ssh application</modulesummary>
   <description>
     <p>This module is the default callback handler for the client's and the server's user and host "database" operations.
+    All data, for instance key pairs, are stored in files in the normal file system. This page documents the files, where they
+    are stored and configuration options for this callback module.
     </p>
-    <p>
-      The intention is to be compatible with the
-      <url href="http://www.openssh.com">OpenSSH</url>
-      storage in files. Therefore it mimics directories and filenames of
-      <url href="http://www.openssh.com">OpenSSH</url>.
+    <p>The intention is to be compatible with the
+    <url href="http://www.openssh.com">OpenSSH</url>
+    storage in files. Therefore it mimics directories and filenames of
+    <url href="http://www.openssh.com">OpenSSH</url>.
     </p>
-    <note>
-      <p>The functions are <i>Callbacks</i> for the SSH app. They are not intended to be called from the user's code!
-      </p>
-    </note>
-  </description>
-  <section>
-    <title>Making your own callback module</title>
+
     <p>Ssh_file implements the <seealso marker="ssh:ssh_server_key_api">ssh_server_key_api</seealso> and
-    <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>.
+    the <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>.
     This enables the user to make an own interface using for example a database handler.
     </p>
     <p>Such another callback module could be used by setting the option
@@ -58,64 +53,76 @@
     <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
     ).
     </p>
-  </section>
+
+    <note>
+      <p>The functions are <i>Callbacks</i> for the SSH app. They are not intended to be called from the user's code!
+      </p>
+    </note>
+  </description>
 
   <section>
-    <title>Daemons</title>
-    <p>Daemons uses all files stored in the <seealso marker="#SYSDIR">SYSDIR</seealso> directory and
-    optionaly one or more <i>User's public key</i> in case of <c>publickey</c> authorization.
-    The user's public keys are stored concatenated in the file 
-    <seealso marker="#USERDIR-authorized_keys"><c>authorized_keys</c></seealso>
-    in the
-    <seealso marker="#USERDIR">USERDIR</seealso> directory.
-    </p>
-  </section>
+    <title>Files, directories and who uses them</title>
+    <section>
+      <title>Daemons</title>
+      <p>Daemons uses all files stored in the <seealso marker="#SYSDIR">SYSDIR</seealso> directory.
+      </p>
+      <p>Optionaly, in case of <c>publickey</c> authorization, one or more of the remote user's public keys
+      in the <seealso marker="#USERDIR">USERDIR</seealso> directory are used.
+      See the files 
+      <seealso marker="#USERDIR-authorized_keys"><c>USERDIR/authorized_keys</c></seealso> and
+      <seealso marker="#USERDIR-authorized_keys2"><c>USERDIR/authorized_keys2</c></seealso>.
+      </p>
+    </section>
 
-  <section>
-    <title>Clients</title>
-    <p>Clients uses all files stored in the <seealso marker="#USERDIR">USERDIR</seealso> directory.
-    </p>
-  </section>
+    <section>
+      <title>Clients</title>
+      <p>Clients uses all files stored in the <seealso marker="#USERDIR">USERDIR</seealso> directory.
+      </p>
+    </section>
 
-  <section>
-    <title>Files, directories and conventions</title>
-    <taglist>
-      <tag><marker id="LOCALUSER"/>LOCALUSER</tag>
-      <item>The user name of the OS process running the Erlang virtual machine (emulator).
-      <p/></item>
+    <section>
+      <title>Directory contents</title>
+      <taglist>
+	<tag><marker id="LOCALUSER"/>LOCALUSER</tag>
+	<item><p>The user name of the OS process running the Erlang virtual machine (emulator).</p>
+	</item>
 
-      <tag><marker id="SYSDIR"/>SYSDIR</tag>
-      <item>SYSDIR is the directory holding the server's files:
-      <list>
+	<tag><marker id="SYSDIR"/>SYSDIR</tag>
+	<item><p>This is the directory holding the server's files:</p>
+	<list>
 	  <item><marker id="SYSDIR-ssh_host_dsa_key"/><c>ssh_host_dsa_key</c> - private dss host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_rsa_key"/><c>ssh_host_rsa_key</c> - private rsa host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_ecdsa_key"/><c>ssh_host_ecdsa_key</c> - private ecdsa host key (optional)</item>
-      </list>
-      <p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
-      </p>
-      <p>For security reasons, this directory is normally accessible only to the root user.
-      </p>
-      <p>To change the SYSDIR, see the <seealso marker="#type-system_dir_daemon_option">system_dir</seealso> option.
-      </p>
-      </item>
+	</list>
+	<p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
+	</p>
+	<p>For security reasons, this directory is normally accessible only to the root user.
+	</p>
+	<p>To change the SYSDIR, see the <seealso marker="#type-system_dir_daemon_option">system_dir</seealso> option.
+	</p>
+	</item>
 
-      <tag><marker id="USERDIR"/>USERDIR</tag>
-      <item>USERDIR is the directory holding the files:
-      <list>
-	  <item><marker id="USERDIR-authorized_keys"/><c>authorized_keys</c> - list of keys allowed in public_key authorization (optional)</item>
-	  <item><marker id="USERDIR-authorized_keys2"/><c>authorized_keys2</c> - list of keys allowed in public_key authorization (optional and unusual)</item>
-	  <item><marker id="USERDIR-known_hosts"/><c>known_hosts</c> - list of hosts visited (created by the client)</item>
+	<tag><marker id="USERDIR"/>USERDIR</tag>
+	<item><p>This is the directory holding the files:</p>
+	<list>
+	  <item><marker id="USERDIR-authorized_keys"/><c>authorized_keys</c>
+	  and, as second alternative
+	  <marker id="USERDIR-authorized_keys2"/><c>authorized_keys2</c> - 
+	  the user's public keys are stored concatenated in one of those files.
+	  </item>
+	  <item><marker id="USERDIR-known_hosts"/><c>known_hosts</c> - host keys from hosts visited
+	  concatenated. The file is created and used by the client.</item>
 	  <item><marker id="USERDIR-id_dsa"/><c>id_dsa</c> - private dss user key (optional)</item>
 	  <item><marker id="USERDIR-id_rsa"/><c>id_rsa</c> - private rsa user key (optional)</item>
 	  <item><marker id="USERDIR-id_ecdsa"/><c>id_ecdsa</c> - private ecdsa user key (optional)</item>
-      </list>
-      <p>The default value of USERDIR is <c>/home/</c><seealso marker="#LOCALUSER"><c>LOCALUSER</c></seealso><c>/.ssh</c>.
-      </p>
-      <p>To change the USERDIR, see the <seealso marker="#type-user_dir_common_option">user_dir</seealso> option
-      </p>
-    </item>
-      
-    </taglist>
+	</list>
+	<p>The default value of USERDIR is <c>/home/</c><seealso marker="#LOCALUSER"><c>LOCALUSER</c></seealso><c>/.ssh</c>.
+	</p>
+	<p>To change the USERDIR, see the <seealso marker="#type-user_dir_common_option">user_dir</seealso> option
+	</p>
+	</item>
+      </taglist>
+    </section>
   </section>
 
   <datatypes>
@@ -129,11 +136,11 @@
 
     <datatype>
       <name name="user_dir_fun_common_option"/>
+      <name name="user2dir"/>
       <desc>
 	<p>Sets the <seealso marker="#USERDIR">user directory</seealso> dynamically
-	by evaluating the function
+	by evaluating the <c>user2dir</c> function.
 	</p>
-	<code> fun(RemoteUser) -> USERDIR end </code>
       </desc>
     </datatype>
 
@@ -177,7 +184,6 @@
 	  <item><seealso marker="#SYSDIR-ssh_host_dsa_key"><c>SYSDIR/ssh_host_dsa_key</c></seealso></item>
 	  <item><seealso marker="#SYSDIR-ssh_host_ecdsa_key"><c>SYSDIR/ssh_host_ecdsa_key</c></seealso></item>
 	</list>
-	<p>&nbsp;</p>
       </desc>
     </func>
 
@@ -199,7 +205,6 @@
 	  <item><seealso marker="#USERDIR-authorized_keys"><c>USERDIR/authorized_keys</c></seealso></item>
 	  <item><seealso marker="#USERDIR-authorized_keys2"><c>USERDIR/authorized_keys2</c></seealso></item>
 	</list>
-	<p>&nbsp;</p>
       </desc>
     </func>
 
@@ -219,7 +224,6 @@
 	<list>
 	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso></item>
 	</list>
-	<p>&nbsp;</p>
       </desc>
     </func>
 
@@ -239,7 +243,6 @@
 	<list>
 	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso></item>
 	</list>
-	<p>&nbsp;</p>
       </desc>
     </func>
 

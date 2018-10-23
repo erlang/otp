@@ -46,8 +46,10 @@
              ]).
 
 -type system_dir_daemon_option()   :: {system_dir, string()}.
--type user_dir_common_option()     :: {user_dir,  false | string()}.
--type user_dir_fun_common_option() :: {user_dir_fun, fun()}.
+-type user_dir_common_option()     :: {user_dir,  string()}.
+-type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
+-type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
+
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
                                             | {ecdsa_pass_phrase,    string()} .
