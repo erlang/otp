@@ -32,6 +32,7 @@
 -export(
    [setup/1,
     roundtrip/1,
+    sched_utilization/1,
     throughput_1024/1,
     throughput_4096/1,
     throughput_16384/1,
@@ -54,6 +55,7 @@ groups() ->
      %%
      {setup, [{repeat, 1}], [setup]},
      {roundtrip, [{repeat, 1}], [roundtrip]},
+     {sched_utilization,[{repeat, 1}], [sched_utilization]},
      {throughput, [{repeat, 1}],
       [throughput_1024,
        throughput_4096,
@@ -65,7 +67,9 @@ groups() ->
 all_groups() ->
     [{group, setup},
      {group, roundtrip},
-     {group, throughput}].
+     {group, throughput},
+     {group, sched_utilization}
+    ].
 
 init_per_suite(Config) ->
     Digest = sha1,
@@ -330,6 +334,98 @@ roundtrip_client(Pid, Mon, StartTime, N) ->
             roundtrip_client(Pid, Mon, StartTime, N - 1)
     end.
 
+%%---------------------------------------
+%% Scheduler utilization at constant load
+
+
+sched_utilization(Config) ->
+    run_nodepair_test(
+      fun(A, B, Prefix, HA, HB) ->
+              sched_utilization(A, B, Prefix, HA, HB, proplists:get_value(ssl_dist, Config))
+      end, Config).
+
+sched_utilization(A, B, Prefix, HA, HB, SSL) ->
+    [] = ssl_apply(HA, erlang, nodes, []),
+    [] = ssl_apply(HB, erlang, nodes, []),
+    {ClientMsacc, ServerMsacc, Msgs} =
+        ssl_apply(HA, fun () -> sched_util_runner(A, B, SSL) end),
+    [B] = ssl_apply(HA, erlang, nodes, []),
+    [A] = ssl_apply(HB, erlang, nodes, []),
+    msacc:print(ClientMsacc),
+    msacc:print(ServerMsacc),
+    ct:pal("Got ~p msgs",[length(Msgs)]),
+    report(Prefix++" Sched Utilization Client",
+           10000 * msacc:stats(system_runtime,ClientMsacc) /
+               msacc:stats(system_realtime,ClientMsacc), "util 0.01 %"),
+    report(Prefix++" Sched Utilization Server",
+           10000 * msacc:stats(system_runtime,ServerMsacc) /
+               msacc:stats(system_realtime,ServerMsacc), "util 0.01 %"),
+    ok.
+
+%% Runs on node A and spawns a server on node B
+%% We want to avoid getting busy_dist_port as it hides the true SU usage
+%% of the receiver and sender.
+sched_util_runner(A, B, true) ->
+    sched_util_runner(A, B, 50);
+sched_util_runner(A, B, false) ->
+    sched_util_runner(A, B, 250);
+sched_util_runner(A, B, Senders) ->
+    Payload = payload(5),
+    [A] = rpc:call(B, erlang, nodes, []),
+    ServerPid =
+        erlang:spawn(
+          B,
+          fun () -> throughput_server() end),
+    ServerMsacc =
+        erlang:spawn(
+          B,
+          fun() ->
+                  receive
+                      {start,Pid} ->
+                          msacc:start(10000),
+                          Pid ! {ServerPid,msacc:stats()}
+                  end
+          end),
+    ServerMon = erlang:monitor(process, ServerPid),
+    ClientPid =
+        spawn_link(fun() ->
+                           %% We spawn 250 senders which should mean that we
+                           %% have a load of 250 msgs/msec
+                           [spawn_link(fun() -> throughput_client(ServerPid,Payload) end) ||
+                               _ <- lists:seq(1, Senders)]
+                   end),
+
+    erlang:system_monitor(self(),[busy_dist_port]),
+    ServerMsacc ! {start,self()},
+    msacc:start(10000),
+    ClientMsaccStats = msacc:stats(),
+    ServerMsaccStats = receive {ServerPid,Stats} -> Stats end,
+    {ClientMsaccStats,ServerMsaccStats, flush()}.
+
+flush() ->
+    receive
+        M ->
+            [M | flush()]
+    after 0 ->
+            []
+    end.
+
+throughput_server() ->
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    receive _ -> ok end,
+    throughput_server().
+
+throughput_client(Pid, Payload) ->
+    Pid ! Payload,
+    receive after 1 -> throughput_client(Pid, Payload) end.
 
 %%-----------------
 %% Throughput speed
