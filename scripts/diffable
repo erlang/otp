@@ -8,8 +8,7 @@ main(Args0) ->
 	[OutDir] ->
 	    do_compile(OutDir, Opts);
 	_ ->
-            usage(),
-	    halt(1)
+            usage()
     end.
 
 usage() ->
@@ -42,16 +41,24 @@ usage() ->
         "# Hack ops.tab and/or one of the *instr.tab files.\n"
         "$ scripts/diffable --dis --no-compile new\n"
         "$ diff -u old new\n",
-    io:put_chars(S).
+    io:put_chars(S),
+    halt(1).
 
-opts(["--asm"|Args], Opts) ->
-    opts(Args, Opts#{format:=asm});
-opts(["--dis"|Args], Opts) ->
-    opts(Args, Opts#{format:=dis});
-opts(["--no-compile"|Args], Opts) ->
-    opts(Args, Opts#{format:=dis,no_compile:=true});
+opts(["--"++Opt|Args], Opts0) ->
+    Opts = opt(Opt, Opts0),
+    opts(Args, Opts);
 opts(Args, Opts) ->
     {Args,Opts}.
+
+opt("asm", Opts) ->
+    Opts#{format:=asm};
+opt("dis", Opts) ->
+    Opts#{format:=dis};
+opt("no-compile", Opts) ->
+    Opts#{format:=dis,no_compile:=true};
+opt(Opt, Opts) ->
+    io:format("Uknown option: --~ts\n\n", [Opt]),
+    usage().
 
 do_compile(OutDir, Opts0) ->
     Opts1 = Opts0#{outdir=>OutDir},
