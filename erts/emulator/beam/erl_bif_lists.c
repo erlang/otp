@@ -283,7 +283,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
 {
     static const Uint CELLS_PER_RED = 40;
 
-    Eterm *heap_top, *heap_end;
+    Eterm *alloc_top, *alloc_end;
     Uint cells_left, max_cells;
     Eterm list, tail;
     Eterm lookahead;
@@ -305,18 +305,18 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
         BIF_ERROR(c_p, BADARG);
     }
 
-    heap_top = HAlloc(c_p, 2 * (max_cells - cells_left));
-    heap_end = heap_top + 2 * (max_cells - cells_left);
+    alloc_top = HAlloc(c_p, 2 * (max_cells - cells_left));
+    alloc_end = alloc_top + 2 * (max_cells - cells_left);
 
-    while (heap_top < heap_end) {
+    while (alloc_top < alloc_end) {
         Eterm *pair = list_val(list);
 
-        tail = CONS(heap_top, CAR(pair), tail);
+        tail = CONS(alloc_top, CAR(pair), tail);
         list = CDR(pair);
 
         ASSERT(is_list(list) || is_nil(list));
 
-        heap_top += 2;
+        alloc_top += 2;
     }
 
     if (is_nil(list)) {
@@ -333,7 +333,7 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
 {
     static const Uint CELLS_PER_RED = 60;
 
-    Eterm *heap_top, *heap_end;
+    Eterm *alloc_start, *alloc_top, *alloc_end;
     Uint cells_left, max_cells;
     Eterm list, tail;
 
@@ -343,21 +343,27 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
 
     ASSERT(HEAP_LIMIT(c_p) >= HEAP_TOP(c_p) + 2);
-    heap_end = HEAP_LIMIT(c_p) - 2;
-    heap_top = HEAP_TOP(c_p);
+    alloc_start = HEAP_TOP(c_p);
+    alloc_end = HEAP_LIMIT(c_p) - 2;
+    alloc_top = alloc_start;
 
-    while (heap_top < heap_end && is_list(list)) {
+    /* Don't process more cells than we have reductions for. */
+    alloc_end = MIN(alloc_top + (cells_left * 2), alloc_end);
+
+    while (alloc_top < alloc_end && is_list(list)) {
         Eterm *pair = list_val(list);
 
-        tail = CONS(heap_top, CAR(pair), tail);
+        tail = CONS(alloc_top, CAR(pair), tail);
         list = CDR(pair);
 
-        heap_top += 2;
+        alloc_top += 2;
     }
 
-    cells_left -= (heap_top - heap_end) / 2;
+    cells_left -= (alloc_top - alloc_start) / 2;
+    HEAP_TOP(c_p) = alloc_top;
+
+    ASSERT(cells_left >= 0 && cells_left <= max_cells);
     BUMP_REDS(c_p, (max_cells - cells_left) / CELLS_PER_RED);
-    HEAP_TOP(c_p) = heap_top;
 
     if (is_nil(list)) {
         BIF_RET(tail);
