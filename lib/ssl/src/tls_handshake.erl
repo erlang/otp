@@ -260,6 +260,8 @@ get_tls_handshake(Version, Data, Buffer, Options) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+handle_client_hello(Version = {3,4}, ClientHello, SslOpts, Info, Renegotiation) ->
+    tls_handshake_1_3:handle_client_hello(Version, ClientHello, SslOpts, Info, Renegotiation);
 handle_client_hello(Version, 
                     #client_hello{session_id = SugesstedId,
                                   cipher_suites = CipherSuites,
@@ -341,25 +343,18 @@ handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
 do_hello(undefined, _Versions, _CipherSuites, _Hello, _SslOpts, _Info, _Renegotiation) ->
     ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION);
 do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation) ->
-    case tls_record:is_higher({3,4}, Version) of
-        true -> %% TLS 1.2 and older
-            case ssl_cipher:is_fallback(CipherSuites) of
+    case ssl_cipher:is_fallback(CipherSuites) of
+        true ->
+            Highest = tls_record:highest_protocol_version(Versions),
+            case tls_record:is_higher(Highest, Version) of
                 true ->
-                    Highest = tls_record:highest_protocol_version(Versions),
-                    case tls_record:is_higher(Highest, Version) of
-                        true ->
-                            ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
-                        false ->
-                            handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
-                    end;
+                    ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
                 false ->
                     handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
             end;
         false ->
-            %% Implement TLS 1.3 statem ???
-            ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+            handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
     end.
-
 
 %%--------------------------------------------------------------------
 enc_handshake(#hello_request{}, {3, N}) when N < 4 ->

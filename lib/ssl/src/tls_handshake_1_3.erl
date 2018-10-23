@@ -33,6 +33,9 @@
 %% Encode
 -export([encode_handshake/1, decode_handshake/2]).
 
+%% Handshake
+-export([handle_client_hello/5]).
+
 encode_handshake(#certificate_request_1_3{
                     certificate_request_context = Context, 
                     extensions = Exts})->
@@ -151,3 +154,47 @@ decode_extensions(Exts) ->
 
 extensions_list(HelloExtensions) ->
     [Ext || {_, Ext} <- maps:to_list(HelloExtensions)].
+
+
+handle_client_hello(Version,
+                    #client_hello{session_id = SugesstedId,
+                                  cipher_suites = CipherSuites,
+                                  compression_methods = Compressions,
+                                  random = Random,
+                                  extensions = HelloExt},
+		    #ssl_options{versions = Versions,
+				 signature_algs = SupportedHashSigns,
+				 eccs = SupportedECCs,
+				 honor_ecc_order = ECCOrder} = SslOpts,
+		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _},
+                    Renegotiation) ->
+    case tls_record:is_acceptable_version(Version, Versions) of
+	true ->
+            %% Get supported_groups
+            %% SupportedGroups = maps:get(elliptic_curves, HelloExt, undefined),
+            %% Get KeyShareClientHello
+
+            %% Validate supported_groups + KeyShareClientHello
+            %% IF valid THEN
+            %%   IF supported_groups IS empty send HelloRetryRequest
+            %%   ELSE continue
+            %% ELSE
+            %%   send Alert
+            %% ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
+            %% ClientSignatureSchemes = maps:get(signature_algs_cert, HelloExt, undefined),
+
+            %% Implement session handling.
+
+            %% Select curve
+
+            %% Sessions cannot be resumed by ClientHello
+
+            %% Select cipher_suite
+            %% Select hash_sign
+
+            %% Handle extensions
+	    ok;
+	false ->
+	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
+    end.
+

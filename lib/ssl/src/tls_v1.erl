@@ -33,7 +33,8 @@
 	 setup_keys/8, suites/1, prf/5,
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
 	 default_signature_algs/1, signature_algs/2,
-         default_signature_schemes/1, signature_schemes/2]).
+         default_signature_schemes/1, signature_schemes/2,
+         groups/1, group_to_enum/1]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -42,7 +43,10 @@
                        sect193r1 | sect193r2 | secp192k1 | secp192r1 | sect163k1 |
                        sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2.
 -type curves() :: [named_curve()].
--export_type([curves/0, named_curve/0]).
+-type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
+                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
+-type supported_groups() :: [group()].
+-export_type([curves/0, named_curve/0, group/0, supported_groups/0]).
 
 %%====================================================================
 %% Internal application API
@@ -468,6 +472,7 @@ ecc_curves(all) ->
      sect239k1,sect233k1,sect233r1,secp224k1,secp224r1,
      sect193r1,sect193r2,secp192k1,secp192r1,sect163k1,
      sect163r1,sect163r2,secp160k1,secp160r1,secp160r2];
+
 ecc_curves(Minor) ->
     TLSCurves = ecc_curves(all),
     ecc_curves(Minor, TLSCurves).
@@ -481,6 +486,35 @@ ecc_curves(_Minor, TLSCurves) ->
 			    false -> Curves
 			end
 		end, [], TLSCurves).
+
+-spec groups(4 | all) -> [group()].
+groups(all) ->
+    [secp256r1,
+     secp384r1,
+     secp521r1,
+     ffdhe2048,
+     ffdhe3072,
+     ffdhe4096,
+     ffdhe6144,
+     ffdhe8192];
+groups(Minor) ->
+    TLSGroups = groups(all),
+    groups(Minor, TLSGroups).
+%%
+-spec groups(4, [group()]) -> [group()].
+groups(_Minor, TLSGroups) ->
+    %% TODO: Adding FFDHE groups to crypto?
+    CryptoGroups = crypto:ec_curves() ++ [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192],
+    lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
+
+group_to_enum(secp256r1) -> 23;
+group_to_enum(secp384r1) -> 24;
+group_to_enum(secp521r1) -> 25;
+group_to_enum(ffdhe2048) -> 256;
+group_to_enum(ffdhe3072) -> 257;
+group_to_enum(ffdhe4096) -> 258;
+group_to_enum(ffdhe6144) -> 259;
+group_to_enum(ffdhe8192) -> 260.
 
 
 %% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)

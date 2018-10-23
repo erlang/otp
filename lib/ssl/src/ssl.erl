@@ -51,7 +51,7 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, cipher_suites/2, filter_cipher_suites/2,
          prepend_cipher_suites/2, append_cipher_suites/2,
-         eccs/0, eccs/1, versions/0, 
+         eccs/0, eccs/1, versions/0, groups/0,
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
@@ -578,6 +578,13 @@ eccs_filter_supported(Curves) ->
                  Curves).
 
 %%--------------------------------------------------------------------
+-spec groups() -> tls_v1:supported_groups().
+%% Description: returns all supported groups (TLS 1.3 and later)
+%%--------------------------------------------------------------------
+groups() ->
+    tls_v1:groups(4).
+
+%%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
 %%
@@ -980,6 +987,9 @@ handle_options(Opts0, Role, Host) ->
 						      HighestVersion),
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
                                                     HighestVersion),
+                    supported_groups = handle_supported_groups_option(
+                                         proplists:get_value(supported_groups, Opts, groups()),
+                                         HighestVersion),
 		    signature_algs =
                          handle_hashsigns_option(
                            proplists:get_value(
@@ -1058,7 +1068,8 @@ handle_options(Opts0, Role, Host) ->
 		  client_preferred_next_protocols, log_alert, log_level,
 		  server_name_indication, honor_cipher_order, padding_check, crl_check, crl_cache,
 		  fallback, signature_algs, signature_algs_cert, eccs, honor_ecc_order,
-                  beast_mitigation, max_handshake_size, handshake, customize_hostname_check],
+                  beast_mitigation, max_handshake_size, handshake, customize_hostname_check,
+                  supported_groups],
     SockOpts = lists:foldl(fun(Key, PropList) ->
 				   proplists:delete(Key, PropList)
 			   end, Opts, SslOptions),
@@ -1492,6 +1503,16 @@ handle_eccs_option(Value, Version) when is_list(Value) ->
         error:_ -> throw({error, {options, {eccs, Value}}})
     end.
 
+handle_supported_groups_option(Value, Version) when is_list(Value) ->
+    {_Major, Minor} = tls_version(Version),
+    try tls_v1:groups(Minor, Value) of
+        Groups -> #supported_groups{supported_groups = Groups}
+    catch
+        exit:_ -> throw({error, {options, {supported_groups, Value}}});
+        error:_ -> throw({error, {options, {supported_groups, Value}}})
+    end.
+
+
 unexpected_format(Error) ->
     lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
 
@@ -1651,6 +1672,12 @@ new_ssl_options([{eccs, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
     new_ssl_options(Rest,
 		    Opts#ssl_options{eccs =
 			 handle_eccs_option(Value, RecordCB:highest_protocol_version())
+		    },
+		    RecordCB);
+new_ssl_options([{supported_groups, Value} | Rest], #ssl_options{} = Opts, RecordCB) ->
+    new_ssl_options(Rest,
+		    Opts#ssl_options{supported_groups =
+			 handle_supported_groups_option(Value, RecordCB:highest_protocol_version())
 		    },
 		    RecordCB);
 new_ssl_options([{signature_algs, Value} | Rest], #ssl_options{} = Opts, RecordCB) -> 

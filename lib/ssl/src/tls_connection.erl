@@ -69,6 +69,22 @@
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
 	 hello/3, user_hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]).
+%% TLS 1.3 state functions (server)
+-export([start/3,         %% common state with client
+         negotiated/3,
+         recvd_ch/3,
+         wait_cert/3,     %% common state with client
+         wait_cv/3,       %% common state with client
+         wait_eoed/3,
+         wait_finished/3, %% common state with client
+         wait_flight2/3,
+         connected/3      %% common state with client
+        ]).
+%% TLS 1.3 state functions (client)
+-export([wait_cert_cr/3,
+         wait_ee/3,
+         wait_sh/3
+        ]).
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
@@ -560,7 +576,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                             State#state{negotiated_version
                                                         = ClientVersion});
         {Version, {Type, Session},
-	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
+	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} when Version < {3,4} ->
 	    Protocol = case Protocol0 of
 			   undefined -> CurrentProtocol;
 			   _ -> Protocol0
@@ -571,7 +587,23 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                       hashsign_algorithm = HashSign,
                                       client_hello_version = ClientVersion,
                                       session = Session,
-                                      negotiated_protocol = Protocol})
+                                      negotiated_protocol = Protocol});
+        %% TLS 1.3
+        {Version, {Type, Session},
+	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
+	    Protocol = case Protocol0 of
+			   undefined -> CurrentProtocol;
+			   _ -> Protocol0
+		       end,
+            tls_connection_1_3:gen_handshake(?FUNCTION_NAME,
+                                             internal,
+                                             {common_client_hello, Type, ServerHelloExt},
+                                             State#state{connection_states  = ConnectionStates,
+                                                         negotiated_version = Version,
+                                                         hashsign_algorithm = HashSign,
+                                                         client_hello_version = ClientVersion,
+                                                         session = Session,
+                                                         negotiated_protocol = Protocol})
     end;
 hello(internal, #server_hello{} = Hello,      
       #state{connection_states = ConnectionStates0,
@@ -682,6 +714,117 @@ connection(Type, Event, State) ->
 %%--------------------------------------------------------------------
 downgrade(Type, Event, State) ->
      ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
+
+%%--------------------------------------------------------------------
+%% TLS 1.3 state functions
+%%--------------------------------------------------------------------
+%%--------------------------------------------------------------------
+-spec start(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+start(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+start(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec negotiated(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+negotiated(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+negotiated(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec recvd_ch(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+recvd_ch(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+recvd_ch(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_cert(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cert(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cert(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_cv(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cv(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cv(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_eoed(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_eoed(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_eoed(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_finished(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_finished(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_finished(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_flight2(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_flight2(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_flight2(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec connected(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+connected(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+connected(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_cert_cr(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_cert_cr(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_cert_cr(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_ee(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_ee(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_ee(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+
+%%--------------------------------------------------------------------
+-spec wait_sh(gen_statem:event_type(), term(), #state{}) ->
+			 gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+wait_sh(info, Event, State) ->
+    gen_info(Event, ?FUNCTION_NAME, State);
+wait_sh(Type, Event, State) ->
+    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
 %--------------------------------------------------------------------
 %% gen_statem callbacks

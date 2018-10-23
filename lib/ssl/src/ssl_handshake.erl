@@ -620,6 +620,14 @@ encode_extensions([#elliptic_curves{elliptic_curve_list = EllipticCurves} | Rest
     Len = ListLen + 2,
     encode_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary, Acc/binary>>);
+encode_extensions([#supported_groups{supported_groups = SupportedGroups} | Rest], Acc) ->
+
+    SupportedGroupList = << <<(tls_v1:group_to_enum(X)):16>> || X <- SupportedGroups>>,
+    ListLen = byte_size(SupportedGroupList),
+    Len = ListLen + 2,
+    encode_extensions(Rest, <<?UINT16(?ELLIPTIC_CURVES_EXT),
+                              ?UINT16(Len), ?UINT16(ListLen), 
+                              SupportedGroupList/binary, Acc/binary>>);
 encode_extensions([#ec_point_formats{ec_point_format_list = ECPointFormats} | Rest], Acc) ->
     ECPointFormatList = list_to_binary(ECPointFormats),
     ListLen = byte_size(ECPointFormatList),
@@ -983,43 +991,78 @@ premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
 %%====================================================================
 %% Extensions handling
 %%====================================================================
-client_hello_extensions(Version, CipherSuites, 
-			#ssl_options{signature_algs = SupportedHashSigns,
-                                     signature_algs_cert = SignatureSchemes,
-				     eccs = SupportedECCs,
-                                     versions = Versions} = SslOpts, ConnectionStates, Renegotiation) ->
-    {EcPointFormats, EllipticCurves} =
-	case advertises_ec_ciphers(lists:map(fun ssl_cipher_format:suite_definition/1, CipherSuites)) of
-	    true ->
-		client_ecc_extensions(SupportedECCs);
-	    false ->
-		{undefined, undefined}
-	end,
+client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation) ->
+    HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
+    HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
+    maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts).
+
+
+add_tls12_extensions(Version,
+                     #ssl_options{signature_algs = SupportedHashSigns} = SslOpts,
+                     ConnectionStates,
+                     Renegotiation) ->
     SRP = srp_user(SslOpts),
+    #{renegotiation_info => renegotiation_info(tls_record, client,
+                                               ConnectionStates, Renegotiation),
+      srp => SRP,
+      signature_algs => available_signature_algs(SupportedHashSigns, Version),
+      alpn => encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
+      next_protocol_negotiation =>
+          encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
+                                             Renegotiation),
+      sni => sni(SslOpts#ssl_options.server_name_indication)
+     }.
 
-    HelloExtensions = #{renegotiation_info => renegotiation_info(tls_record, client,
-                                                                 ConnectionStates, Renegotiation),
-                        srp => SRP,
-                        signature_algs => available_signature_algs(SupportedHashSigns, Version),
-                        ec_point_formats => EcPointFormats,
-                        elliptic_curves => EllipticCurves,
-                        alpn => encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
-                        next_protocol_negotiation =>
-                            encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
-                                                               Renegotiation),
-                        sni => sni(SslOpts#ssl_options.server_name_indication)
-                       },
 
-    %% Add "supported_versions" extension if TLS 1.3
-    case Version of
-        {3,4} ->
-            HelloExtensions#{client_hello_versions => 
-                                 #client_hello_versions{versions = Versions},
-                             signature_algs_cert =>
-                                 signature_scheme_list(SignatureSchemes)};
-        _Else ->
-            HelloExtensions
-    end.
+add_common_extensions({3,4} = Version,
+                      HelloExtensions,
+                      _CipherSuites,
+                      #ssl_options{eccs = SupportedECCs,
+                                   supported_groups = Groups}) ->
+    {EcPointFormats, EllipticCurves} =
+        client_ecc_extensions(SupportedECCs),
+    HelloExtensions#{ec_point_formats => EcPointFormats,
+                     elliptic_curves => maybe_supported_groups(Version,
+                                                               EllipticCurves,
+                                                               Groups)};
+
+add_common_extensions(Version,
+                      HelloExtensions,
+                      CipherSuites,
+                      #ssl_options{eccs = SupportedECCs,
+                                   supported_groups = Groups}) ->
+
+    {EcPointFormats, EllipticCurves} =
+        case advertises_ec_ciphers(
+               lists:map(fun ssl_cipher_format:suite_definition/1,
+                         CipherSuites)) of
+            true ->
+                client_ecc_extensions(SupportedECCs);
+            false ->
+                {undefined, undefined}
+        end,
+    HelloExtensions#{ec_point_formats => EcPointFormats,
+                     elliptic_curves => maybe_supported_groups(Version,
+                                                               EllipticCurves,
+                                                               Groups)}.
+
+
+maybe_add_tls13_extensions({3,4},
+                           HelloExtensions,
+                           #ssl_options{signature_algs_cert = SignatureSchemes,
+                                        versions = SupportedVersions}) ->
+    HelloExtensions#{client_hello_versions => 
+                         #client_hello_versions{versions = SupportedVersions},
+                     signature_algs_cert =>
+                         signature_scheme_list(SignatureSchemes)};
+maybe_add_tls13_extensions(_, HelloExtensions, _) ->
+    HelloExtensions.
+
+maybe_supported_groups({3,4}, _, SupportedGroups) ->
+    SupportedGroups;
+maybe_supported_groups(_, EllipticCurves, _) ->
+    EllipticCurves.
+
 
 signature_scheme_list(undefined) ->
     undefined;
@@ -1299,6 +1342,8 @@ extension_value(#ec_point_formats{ec_point_format_list = List}) ->
     List;
 extension_value(#elliptic_curves{elliptic_curve_list = List}) ->
     List;
+extension_value(#supported_groups{supported_groups = SupportedGroups}) ->
+    SupportedGroups;
 extension_value(#hash_sign_algos{hash_sign_algos = Algos}) ->
     Algos;
 extension_value(#alpn{extension_data = Data}) ->
@@ -2520,6 +2565,11 @@ client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
     case proplists:get_bool(ecdh, CryptoSupport) of
 	true ->
+            %% RFC 8422 - 5.1.  Client Hello Extensions
+            %% Clients SHOULD send both the Supported Elliptic Curves Extension and the
+            %% Supported Point Formats Extension.  If the Supported Point Formats
+            %% Extension is indeed sent, it MUST contain the value 0 (uncompressed)
+            %% as one of the items in the list of point formats.
 	    EcPointFormats = #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]},
 	    EllipticCurves = SupportedECCs,
 	    {EcPointFormats, EllipticCurves};

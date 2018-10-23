@@ -340,9 +340,8 @@
 -record(next_protocol, {selected_protocol}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ECC Extensions RFC 8422  section 4 and 5 (RFC 7919 not supported)
+%% ECC Extensions RFC 8422  section 4 and 5
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 -define(ELLIPTIC_CURVES_EXT, 10).
 -define(EC_POINT_FORMATS_EXT, 11).
 
@@ -350,11 +349,18 @@
 	  elliptic_curve_list
 	 }).
 
+%% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
+-record(supported_groups, {
+	  supported_groups
+	 }).
+
 -record(ec_point_formats, {
 	  ec_point_format_list
 	 }).
 
 -define(ECPOINT_UNCOMPRESSED, 0).
+%% Defined in RFC 4492, deprecated by RFC 8422
+%% RFC 8422 compliant implementations MUST not support the two formats below
 -define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
 
