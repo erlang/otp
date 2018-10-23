@@ -150,7 +150,7 @@ decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
 decode_extensions(Exts) ->
-    ssl_handshake:decode_extensions(Exts).
+    ssl_handshake:decode_extensions(Exts, {3,4}).
 
 extensions_list(HelloExtensions) ->
     [Ext || {_, Ext} <- maps:to_list(HelloExtensions)].

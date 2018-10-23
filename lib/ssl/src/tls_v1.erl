@@ -34,7 +34,7 @@
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
 	 default_signature_algs/1, signature_algs/2,
          default_signature_schemes/1, signature_schemes/2,
-         groups/1, group_to_enum/1]).
+         groups/1, groups/2, group_to_enum/1, enum_to_group/1]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -516,6 +516,15 @@ group_to_enum(ffdhe4096) -> 258;
 group_to_enum(ffdhe6144) -> 259;
 group_to_enum(ffdhe8192) -> 260.
 
+enum_to_group(23) -> secp256r1;
+enum_to_group(24) -> secp384r1;
+enum_to_group(25) -> secp521r1;
+enum_to_group(256) -> ffdhe2048;
+enum_to_group(257) -> ffdhe3072;
+enum_to_group(258) -> ffdhe4096;
+enum_to_group(259) -> ffdhe6144;
+enum_to_group(260) -> ffdhe8192;
+enum_to_group(_) -> undefined.
 
 %% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
 oid_to_enum(?sect163k1) -> 1;
