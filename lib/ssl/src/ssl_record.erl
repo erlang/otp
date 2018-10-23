@@ -452,7 +452,7 @@ decrypt_nonce(?AES_GCM, #cipher_state{iv = <<Salt:4/bytes, _/binary>>}, <<Explic
 aead_ciphertext_split(?CHACHA20_POLY1305, #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
     CipherLen = size(CipherTextFragment) - Len,
     <<CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
-    {end_additional_data(AAD, Len), CipherText, CipherTag};
+    {end_additional_data(AAD, CipherLen), CipherText, CipherTag};
 aead_ciphertext_split(?AES_GCM,  #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
     CipherLen = size(CipherTextFragment) - (Len + 8), %% 8 is length of explicit Nonce
     << _:8/bytes, CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
