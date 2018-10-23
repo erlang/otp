@@ -161,6 +161,8 @@ ERLANG_LIBDIR     = $(DESTDIR)$(ERLANG_INST_LIBDIR)
 # Must be GNU make!
 MAKE		= @MAKE_PROG@
 
+PERL		= @PERL@
+
 NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
 
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
@@ -327,16 +329,16 @@ ifneq ($(CROSS_COMPILING),yes)
 # Not cross compiling
 
 ifeq ($(BOOTSTRAP_ONLY),yes)
-all: bootstrap
+all: bootstrap check_dev_rt_dep
 else
 # The normal case; not cross compiling, and not bootstrap only build.
-all: bootstrap libs local_setup
+all: bootstrap libs local_setup check_dev_rt_dep
 endif
 
 else
 # Cross compiling
 
-all: cross_check_erl depend emulator libs start_scripts
+all: cross_check_erl depend emulator libs start_scripts check_dev_rt_dep
 
 endif
 
@@ -356,7 +358,10 @@ erlang_inst_libdir_configured:
 
 bootstrap: depend all_bootstraps
 
-
+check_dev_rt_dep:
+	@if `grep DEVELOPMENT "$(ERL_TOP)/make/otp_version_tickets" 1>/dev/null 2>&1`; then \
+	  LANG=C "$(PERL)" "$(ERL_TOP)/make/fixup_development_runtime_dependencies" "$(ERL_TOP)"; \
+	fi
 
 ifeq ($(OTP_STRICT_INSTALL),yes)
 
