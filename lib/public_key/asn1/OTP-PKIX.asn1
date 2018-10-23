@@ -368,6 +368,13 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 		 ID id-dsaWithSHA1
 		 TYPE  DSAParams }
 
+   id-dsa-with-sha224 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 1 }
+
+    id-dsa-with-sha256 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 2 }
 				  --
    --   RSA Keys and Signatures
    --
