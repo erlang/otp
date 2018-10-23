@@ -86,6 +86,10 @@
          sc_rc_recvmsg_response_tcp4/1,
          sc_rc_recvmsg_response_tcp6/1
 
+         %% Traffic
+
+
+
          %% Tickets
         ]).
 
@@ -242,6 +246,10 @@ sc_rc_cases() ->
      sc_rc_recvmsg_response_tcp4,
      sc_rc_recvmsg_response_tcp6
     ].
+
+
+%% traffic_cases() ->
+%%     [].
 
 
 %% ticket_cases() ->
@@ -1378,7 +1386,7 @@ api_to_connect_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -1779,7 +1787,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -1821,7 +1829,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    ok
@@ -1866,7 +1874,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester, Reason}};
                                {continue, Tester} ->
                                    ok
@@ -1907,7 +1915,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester, Reason}};
                                {terminate, Tester} ->
                                    ok
@@ -1953,7 +1961,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding prim-acceptor ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, prim_acceptor}};
                                {ready, Pid, LSock} ->
                                    {ok, State#{lsock => LSock}}
@@ -1971,7 +1979,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding sec-acceptor 1 ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, sec_acceptor_1}};
                                {ready, Pid} ->
                                    ok
@@ -1989,7 +1997,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding sec-acceptor 2 ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, sec_acceptor_2}};
                                {ready, Pid} ->
                                    ok
@@ -2019,7 +2027,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding prim-acceptor ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, prim_acceptor}};
                                {ready, Pid} ->
                                    ok
@@ -2030,7 +2038,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding sec-acceptor 1 ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, sec_acceptor_1}};
                                {ready, Pid} ->
                                    ok
@@ -2041,7 +2049,7 @@ api_to_maccept_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding sec-acceptor 2 ~p:"
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, sec_acceptor_2}};
                                {ready, Pid} ->
                                    ok
@@ -3022,7 +3030,7 @@ sc_cpe_socket_cleanup(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -3058,7 +3066,7 @@ sc_cpe_socket_cleanup(InitState) ->
                            receive
                                {'DOWN', _, process, Owner, Reason} ->
                                    ee("Unexpected DOWN regarding owner ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Owner, Reason]),
                                    {error, {unexpected_exit, owner}};
                                {ready, Owner, Sock} ->
                                    {ok, State#{sock => Sock}}
@@ -3236,7 +3244,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester, {H1, H2, H3}} ->
                                    {ok, State#{handler1 => H1,
@@ -3288,7 +3296,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -3304,7 +3312,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -3354,7 +3362,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {connection, Sock} ->
                                    {ok, State#{sock => Sock}}
@@ -3391,7 +3399,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    ok
@@ -3659,7 +3667,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding handler 1 ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, handler1}};
                                {ready, Pid} ->
                                    ok
@@ -3670,7 +3678,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding handler 2 ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, handler2}};
                                {ready, Pid} ->
                                    ok
@@ -3681,7 +3689,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Pid, Reason} ->
                                    ee("Unexpected DOWN regarding handler 3 ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Pid, Reason]),
                                    {error, {unexpected_exit, handler3}};
                                {ready, Pid} ->
                                    ok
@@ -3925,7 +3933,7 @@ sc_lc_receive_response_udp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester, Timeout} ->
                                    {ok, State#{timeout => Timeout}}
@@ -3952,7 +3960,7 @@ sc_lc_receive_response_udp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -3979,7 +3987,7 @@ sc_lc_receive_response_udp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -4020,7 +4028,7 @@ sc_lc_receive_response_udp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -4050,7 +4058,7 @@ sc_lc_receive_response_udp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -4355,59 +4363,6 @@ sc_lc_receive_response_udp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test what happens when a socket is 
-%% remotely closed while the process is calling the recv function.
-%% Socket is IPv4.
-
-sc_rc_recv_response_tcp4(suite) ->
-    [];
-sc_rc_recv_response_tcp4(doc) ->
-    [];
-sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
-    tc_try(sc_rc_recv_response_tcp4,
-           fun() ->
-                   not_yet_implemented(),
-                   ?TT(?SECS(10)),
-                   Recv      = fun(Sock) -> socket:recv(Sock) end,
-                   InitState = #{domain   => inet,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv},
-                   ok = sc_rc_receive_response_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test what happens when a socket is 
-%% remotely closed while the process is calling the recv function.
-%% Socket is IPv6.
-
-sc_rc_recv_response_tcp6(suite) ->
-    [];
-sc_rc_recv_response_tcp6(doc) ->
-    [];
-sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
-    tc_try(sc_rc_recv_response_tcp6,
-           fun() ->
-                   not_yet_implemented(),
-                   ?TT(?SECS(10)),
-                   Recv      = fun(Sock) -> socket:recv(Sock) end,
-                   InitState = #{domain   => inet6,
-                                 type     => stream,
-                                 protocol => tcp,
-                                 recv     => Recv},
-                   ok = sc_rc_receive_response_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-sc_rc_receive_response_tcp(_InitState) ->
-    ok.
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test what happens when a socket is 
 %% locally closed while the process is calling the recvmsg function.
 %% Socket is IPv4.
 
@@ -4494,6 +4449,754 @@ sc_lc_recvmsg_response_udp6(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is IPv4.
+%%
+%% To minimize the chance of "weirdness", we should really have test cases
+%% where the two sides of the connection is on different machines. But for
+%% now, we will make do with different VMs on the same host.
+%%
+
+sc_rc_recv_response_tcp4(suite) ->
+    [];
+sc_rc_recv_response_tcp4(doc) ->
+    [];
+sc_rc_recv_response_tcp4(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recv_response_tcp4,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
+%% remotely closed while the process is calling the recv function.
+%% Socket is IPv6.
+
+sc_rc_recv_response_tcp6(suite) ->
+    [];
+sc_rc_recv_response_tcp6(doc) ->
+    [];
+sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
+    tc_try(sc_rc_recv_response_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(10)),
+                   Recv      = fun(Sock) -> socket:recv(Sock) end,
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 recv     => Recv},
+                   ok = sc_rc_receive_response_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+sc_rc_receive_response_tcp(InitState) ->
+    ServerSeq =
+        [
+         %% *** Init part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester} ->
+                                   {ok, State#{tester => Tester}}
+                           end
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, lsa := LSA, lport := Port}) ->
+                           SA = LSA#{port => Port},
+                           Tester ! {ready, self(), SA},
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           receive
+                               {continue, Tester} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}}
+                           end
+                   end},
+         #{desc => "accept",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   {ok, State#{csock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accepted)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "receive",
+           cmd  => fun(#{csock := Sock, recv := Recv} = State) ->
+                           case Recv(Sock) of
+                               {error, closed} ->
+                                   {ok, maps:remove(csock, State)};
+                               {ok, _} ->
+                                   {error, unexpected_success};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (closed)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {terminate, Tester} ->
+                                   {ok, maps:remove(tester, State)}
+                           end
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{lsock := LSock} = _State) ->
+                           socket:close(LSock)
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    ClientSeq =
+        [
+         %% *** Init part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           receive
+                               {start, Tester, Node, ServerSA} ->
+                                   {ok, State#{tester    => Tester, 
+                                               node      => Node, 
+                                               server_sa => ServerSA}}
+                           end
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+         #{desc => "start client process on client node",
+           cmd  => fun(#{node := Node} = State) ->
+                           Pid = sc_rc_tcp_client_start(Node),
+                           ei("client ~p started", [Pid]),
+                           {ok, State#{client => Pid}}
+                   end},
+         #{desc => "monitor client process",
+           cmd  => fun(#{client := Pid}) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "order client process to start",
+           cmd  => fun(#{client := Client, server_sa := ServerSA}) ->
+                           Client ! {start, self(), ServerSA},
+                           ok
+                   end},
+         #{desc => "await client process ready",
+           cmd  => fun(#{tester := Tester,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester,
+                         client := Client} = _State) ->
+                           receive
+                               {continue, Tester} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "order client process to continue (connect)",
+           cmd  => fun(#{client := Client}) ->
+                           Client ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await client process ready (connected)",
+           cmd  => fun(#{tester := Tester,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "announce ready (connected)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+         #{desc => "await continue (close)",
+           cmd  => fun(#{tester := Tester,
+                         client := Client} = _State) ->
+                           receive
+                               {continue, Tester} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "order client process to close",
+           cmd  => fun(#{client := Client}) ->
+                           Client ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await client process ready (closed)",
+           cmd  => fun(#{tester := Tester,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok;
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "announce ready (closed)",
+           cmd  => fun(#{tester := Tester}) ->
+                           Tester ! {ready, self()},
+                           ok
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester, client := Client} = State) ->
+                           receive
+                               {'DOWN', _, process, Tester, Reason} ->
+                                   ee("Unexpected DOWN regarding tester ~p: "
+                                      "~n   ~p", [Tester, Reason]),
+                                   {error, {unexpected_exit, tester}};
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}};
+                               {terminate, Tester} ->
+                                   {ok, maps:remove(tester, State)}
+                           end
+                   end},
+         #{desc => "kill client process",
+           cmd  => fun(#{client := Client}) ->
+                           Client ! {terminate, self(), normal},
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           receive
+                               {'DOWN', _, process, Client, _} ->
+                                   {ok, maps:remove(client, State)}
+                           end
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "create client node",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client) of
+                               {ok, Node} ->
+                                   ei("client node ~p started", [Node]),
+                                   {ok, State#{client_node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node",
+           cmd  => fun(#{client_node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           Pid ! {start, self()},
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           receive
+                               {ready, Pid, ServerSA} ->
+                                   {ok, State#{server_sa => ServerSA}};
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding server ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, server}}
+                           end
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client      := Pid, 
+                         client_node := Node,
+                         server_sa   := ServerSA} = _State) ->
+                           Pid ! {start, self(), Node, ServerSA},
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           receive
+                               {ready, Pid} ->
+                                   ok;
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Pid, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+
+         %% The actual test
+         #{desc => "order server accept",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           Pid ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "sleep",
+           cmd  => fun(_) ->
+                           ?SLEEP(?SECS(1)),
+                           ok
+                   end},
+         #{desc => "order client connect",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           Pid ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await client ready (connected)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok;
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}};
+                               {'DOWN', _, process, Server, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Server, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "await server ready (accepted)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Server} ->
+                                   ok;
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}};
+                               {'DOWN', _, process, Server, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Server, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "sleep",
+           cmd  => fun(_) ->
+                           ?SLEEP(?SECS(1)),
+                           ok
+                   end},
+         #{desc => "order client close",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           Pid ! {continue, self()},
+                           ok
+                   end},
+         #{desc => "await client ready (closed)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Client} ->
+                                   ok;
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}};
+                               {'DOWN', _, process, Server, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Server, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+         #{desc => "await server ready (closed)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           receive
+                               {ready, Server} ->
+                                   ok;
+                               {'DOWN', _, process, Client, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Client, Reason]),
+                                   {error, {unexpected_exit, client}};
+                               {'DOWN', _, process, Server, Reason} ->
+                                   ee("Unexpected DOWN regarding client ~p: "
+                                      "~n   ~p", [Server, Reason]),
+                                   {error, {unexpected_exit, client}}
+                           end
+                   end},
+
+         %% Terminations
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           Pid ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   {ok, maps:remove(client, State)}
+                           end
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           Pid ! {terminate, self()},
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   {ok, maps:remove(server, State)}
+                           end
+                   end},
+         #{desc => "stop client node",
+           cmd  => fun(#{client_node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node termination",
+           cmd  => fun(#{client_node := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(client_node, State)}
+                           end
+                   end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    i("start server evaluator"),
+    ServerInitState = InitState,
+    Server = evaluator_start("server", ServerSeq, ServerInitState),
+
+    i("start client evaluator"),
+    ClientInitState = InitState,
+    Client = evaluator_start("client", ClientSeq, ClientInitState),
+
+    i("start 'tester' evaluator"),
+    TesterInitState = #{host   => local_host(),
+                        server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = evaluator_start("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = await_evaluator_finish([Server, Client, Tester]).
+
+
+start_node(Host, NodeName) ->
+    Dir   = filename:dirname(code:which(?MODULE)),
+    Flags = "-pa " ++ Dir,
+    Opts  = [{monitor_master, true}, {erl_flags, Flags}],
+    ct_slave:start(Host, NodeName, Opts).
+
+stop_node(Node) ->
+    case ct_slave:stop(Node) of
+        {ok, _} ->
+            ok;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+local_host() ->
+    try net_adm:localhost() of
+        Host when is_list(Host) ->
+            list_to_atom(Host)
+    catch
+        C:E:S ->
+            erlang:raise(C, E, S)
+    end.
+
+    
+sc_rc_tcp_client_start(Node) ->
+    Self = self(),
+    GL   = group_leader(),
+    Fun  = fun() -> sc_rc_tcp_client(Self, GL) end,
+    erlang:spawn(Node, Fun).
+
+
+sc_rc_tcp_client(Parent, GL) ->
+    sc_rc_tcp_client_init(Parent, GL),
+    ServerSA = sc_rc_tcp_client_await_start(Parent),
+    Domain   = maps:get(family, ServerSA),
+    Sock     = sc_rc_tcp_client_create(Domain),
+    sc_rc_tcp_client_bind(Sock, Domain),
+    sc_rc_tcp_client_announce_ready(Parent),
+    sc_rc_tcp_client_await_continue(Parent),
+    sc_rc_tcp_client_connect(Sock, ServerSA),
+    sc_rc_tcp_client_announce_ready(Parent),
+    sc_rc_tcp_client_await_continue(Parent),
+    sc_rc_tcp_client_close(Sock),
+    sc_rc_tcp_client_announce_ready(Parent),
+    Reason = sc_rc_tcp_client_await_terminate(Parent),
+    exit(Reason).
+
+sc_rc_tcp_client_init(Parent, GL) ->
+    i("sc_rc_tcp_client_init -> entry"),
+    _MRef = erlang:monitor(process, Parent),
+    group_leader(self(), GL),
+    ok.
+
+sc_rc_tcp_client_await_start(Parent) ->
+    i("sc_rc_tcp_client_await_start -> entry"),
+    receive
+        {start, Parent, ServerSA} ->
+            ServerSA;
+        {'DOWN', _, process, Parent, _Reason} ->
+            init:stop()
+    end.
+
+sc_rc_tcp_client_create(Domain) ->
+    i("sc_rc_tcp_client_create -> entry"),
+    case socket:open(Domain, stream, tcp) of
+        {ok, Sock} ->
+            Sock;
+        {error, Reason} ->
+            exit({open_failed, Reason})
+    end.
+
+sc_rc_tcp_client_bind(Sock, Domain) ->
+    i("sc_rc_tcp_client_bind -> entry"),
+    LAddr = which_local_addr(Domain),
+    LSA   = #{family => Domain, 
+              addr   => LAddr},
+    case socket:bind(Sock, LSA) of
+        {ok, _} ->
+            ok;
+        {error, Reason} ->
+            exit({bind, Reason})
+    end.
+
+sc_rc_tcp_client_announce_ready(Parent) ->
+    Parent ! {ready, self()},
+    ok.
+
+sc_rc_tcp_client_await_continue(Parent) ->
+    i("sc_rc_tcp_client_await_continue -> entry"),
+    receive
+        {continue, Parent} ->
+            ok;
+        {'DOWN', _, process, Parent, _Reason} ->
+            init:stop()
+    end.
+
+sc_rc_tcp_client_connect(Sock, ServerSA) ->
+    i("sc_rc_tcp_client_connect -> entry"),
+    case socket:connect(Sock, ServerSA) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            exit({connect, Reason})
+    end.
+
+sc_rc_tcp_client_close(Sock) ->
+    i("sc_rc_tcp_client_close -> entry"),
+    case socket:close(Sock) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            exit({close, Reason})
+    end.
+
+sc_rc_tcp_client_await_terminate(Parent) ->
+    i("sc_rc_tcp_client_await_terminate -> entry"),
+    receive
+        {terminate, Parent, Reason} ->
+            Reason;
+        {'DOWN', _, process, Parent, _Reason} ->
+            init:stop()
+    end.
+
+
+%% ev_continue(Pid, Slogan) ->
+%%     ev_announce(Pid, continue, Slogan).
+
+%% ev_continue(Pid, Slogan, Extra) ->
+%%     ev_announce(Pid, continue, Slogan, Extra).
+
+%% ev_ready(Pid, Slogan) ->
+%%     ev_announce(Pid, ready, Slogan).
+
+%% ev_ready(Pid, Slogan, Extra) ->
+%%     ev_announce(Pid, ready, Slogan, Extra).
+
+%% ev_terminate(Pid) ->
+%%     Pid ! {terminate, self()}.
+
+%% ev_announce(To, Tag, Slogan) ->
+%%     ev_announce(To, Tag, Slogan, undefined)
+
+%% ev_announce(To, Tag, Slogan, Extra) ->
+%%     To ! {Tag, self(), Slogan, Extra}.
+
+%% ev_await_continue(Pid, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
+%%     ev_await(Pid, continue, Slogan, Pids).
+
+%% ev_await_ready(Pid, Slogan, Pids) when is_pid(Pid) andalso is_list(Pids) ->
+%%     ev_await(Pid, ready, Slogan, Pids).
+
+%% ev_await_termination(Pid) ->
+%%     receive
+%%         {'DOWN', _, process, Pid, _} ->
+%%             ok
+%%     end.
+
+%% %% We expect a message from Pid, but we also watch for DOWN from 
+%% %% both Pid and Pids, in which case the test has failed!
+%% ev_await(Pid, Tag, Slogan, Pids) ->
+%%     receive
+%%         {Tag, Pid, Slogan, undefined} ->
+%%             ok;
+%%         {Tag, Pid, Slogan, Extra} ->
+%%             {ok, Extra};
+%%         {'DOWN', _, process, Pid, Reason} ->
+%%             ee("Unexpected DOWN regarding tester ~p: "
+%%                "~n   ~p", [Tester, Reason]),
+%%             {error, {unexpected_exit, tester}};
+            
+%% ev_await_check_down(DownPid, DownReason, Pids) ->
+%%     case lists:keymember(DownPid, 1, Pids) of
+%%         {value, {_, Name}} ->
+%%             ee("Unexpected DOWN regarding ~w ~p: "
+%%                "~n   ~p", [Name, DownPid, Reason]),
+%%             throw({error, {unexpected_exit, Name}});
+%%         false ->
+%%             ok
+%%     end.
+
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test what happens when a socket is 
 %% remotely closed while the process is calling the recvmsg function.
 %% Socket is IPv4.
 
@@ -4504,8 +5207,7 @@ sc_rc_recvmsg_response_tcp4(doc) ->
 sc_rc_recvmsg_response_tcp4(_Config) when is_list(_Config) ->
     tc_try(sc_rc_recvmsg_response_tcp4,
            fun() ->
-                   not_yet_implemented(),
-                   ?TT(?SECS(10)),
+                   ?TT(?SECS(30)),
                    Recv      = fun(Sock) -> socket:recvmsg(Sock) end,
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -4645,7 +5347,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester, Timeout} ->
                                    {ok, State#{timeout => Timeout}}
@@ -4674,7 +5376,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -4701,7 +5403,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
@@ -4742,7 +5444,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {continue, Tester} ->
                                    ok
@@ -4772,7 +5474,7 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            receive
                                {'DOWN', _, process, Tester, Reason} ->
                                    ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Reason]),
+                                      "~n   ~p", [Tester, Reason]),
                                    {error, {unexpected_exit, tester}};
                                {terminate, Tester} ->
                                    {ok, maps:remove(tester, State)}
