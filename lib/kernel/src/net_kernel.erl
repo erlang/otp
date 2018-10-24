@@ -135,7 +135,6 @@
 	  node %% remote node name
 	 }).
 
-
 -record(tick, {ticker,        %% ticker                     : pid()
 	       time           %% Ticktime in milli seconds  : integer()
 	      }).
@@ -213,7 +212,6 @@ set_net_ticktime(T) when is_integer(T) ->
 get_net_ticktime() ->
     ticktime_res(request(ticktime)).
 
-
 %% The monitor_nodes() feature has been moved into the emulator.
 %% The feature is reached via (intentionally) undocumented process
 %% flags (we may want to move it elsewhere later). In order to easily
@@ -274,7 +272,6 @@ connect_node(Node) when is_atom(Node) ->
 hidden_connect_node(Node) when is_atom(Node) ->
     request({connect, hidden, Node}).
 
-
 passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
     Reply = case lists:member(Node,nodes([connected])) of
@@ -291,7 +288,6 @@ passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(false,[{node_type,all}]),
     {Pid, Tag} = From,
     erlang:send(Pid, {Tag, Reply}).
-
 
 %% If the net_kernel isn't running we ignore all requests to the
 %% kernel, thus basically accepting them :-)
@@ -367,7 +363,7 @@ do_auto_connect_1(Node, ConnId, From, State) ->
         ConnLookup ->
             do_auto_connect_2(Node, ConnId, From, State, ConnLookup)
     end.
-   
+
 do_auto_connect_2(Node, passive_cnct, From, State, ConnLookup) ->
     try erts_internal:new_connection(Node) of
         ConnId ->
@@ -393,7 +389,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
             case application:get_env(kernel, dist_auto_connect) of
                 {ok, never} ->
                     ?connect_failure(Node,{dist_auto_connect,never}),
-                    erts_internal:abort_connection(Node, ConnId),                    
+                    erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
 
                 %% This might happen due to connection close
@@ -418,14 +414,13 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
             end
     end.
 
-
 do_explicit_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
     {reply, true, State};
 do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, State)
   when Conn#connection.state =:= pending;
        Conn#connection.state =:= up_pending ->
     Waiting = Conn#connection.waiting,
-    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),    
+    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
     {noreply, State};
 do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
@@ -439,7 +434,6 @@ do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
             ?connect_failure(Node, {setup_call, failed, _Error}),
             {reply, false, State}
     end.
-
 
 %% ------------------------------------------------------------
 %% handle_call.
@@ -477,15 +471,13 @@ handle_call({connect, Type, Node}, From, State) ->
                         erts_internal:abort_connection(Node, ConnId)
                 end,
                 R1
-                    
         catch
             _:_ ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                        [Node]),
-                {reply, false, State}                    
+                {reply, false, State}
         end,
     return_call(R, From);
-            
 
 %%
 %% Close the connection to Node.
@@ -569,7 +561,6 @@ handle_call({publish_on_node, Node}, From, State) ->
 		      lists:member(Node, Nodes)
 	      end,
     async_reply({reply, Publish, NewState}, From);
-
 
 handle_call({verbose, Level}, From, State) ->
     async_reply({reply, State#state.verbose, State#state{verbose = Level}},
@@ -680,7 +671,6 @@ terminate(_Reason, State) ->
     lists:foreach(
       fun(Node) -> ?nodedown(Node, State)
       end, get_nodes_up_normal() ++ [node()]).
-
 
 %% ------------------------------------------------------------
 %% handle_info.
@@ -808,7 +798,6 @@ handle_info({SetupPid, {is_pending, Node}}, State) ->
     Reply = lists:member({SetupPid,Node},State#state.conn_owners),
     SetupPid ! {self(), {is_pending, Reply}},
     {noreply, State};
-
 
 %%
 %% Handle different types of process terminations.
@@ -1011,7 +1000,6 @@ up_pending_nodedown(Conn, Node, _Reason, _Type, State) ->
     AcceptPid ! {self(), pending},
     State#state{conn_owners = [{AcceptPid,Node}|Owners], pend_owners = Pend}.
 
-
 up_nodedown(Conn, Node, _Reason, Type, State) ->
     mark_sys_dist_nodedown(Conn, Node),
     case Type of
@@ -1032,7 +1020,6 @@ mark_sys_dist_nodedown(Conn, Node) ->
 %% -----------------------------------------------------------
 %% End handle_exit/2 !!
 %% -----------------------------------------------------------
-
 
 %% -----------------------------------------------------------
 %% monitor_nodes/[1,2] errors
@@ -1116,7 +1103,6 @@ do_disconnect(Node, State) ->
 	_ ->
 	    {false, State}
     end.
-
 
 disconnect_pid(Pid, State) ->
     exit(Pid, disconnect),
@@ -1270,7 +1256,7 @@ setup(Node, ConnId, Type, From, State) ->
     end.
 
 setup_check(Node, State) ->
-    Allowed = State#state.allowed,    
+    Allowed = State#state.allowed,
     case lists:member(Node, Allowed) of
 	false when Allowed =/= [] ->
 	    error_msg("** Connection attempt with "
@@ -1281,9 +1267,7 @@ setup_check(Node, State) ->
                 {ok, _L}=OK -> OK;
                 Error -> Error
             end
-    end.                    
-
-    
+    end.
 
 %%
 %% Find a module that is willing to handle connection setup to Node
@@ -1296,7 +1280,6 @@ select_mod(Node, [L|Ls]) ->
     end;
 select_mod(Node, []) ->
     {error, {unsupported_address_type, Node}}.
-
 
 get_proto_mod(Family,Protocol,[L|Ls]) ->
     A = L#listen.address,
@@ -1323,7 +1306,7 @@ init_node(Name, LongOrShortNames, CleanHalt) ->
 		    Error
 	    end;
 	Error ->
- 	    Error
+	    Error
     end.
 
 %% Create the node name
@@ -1431,7 +1414,6 @@ protocol_childspecs([H|T]) ->
 	_ ->
 	    protocol_childspecs(T)
     end.
-
 
 %%
 %% epmd_module() -> module_name of erl_epmd or similar gen_server_module.
@@ -1626,7 +1608,6 @@ reply_waiting1([From|W], Rep) ->
 reply_waiting1([], _) ->
     ok.
 
-
 -ifdef(UNUSED).
 
 delete_all(From, [From |Tail]) -> delete_all(From, Tail);
@@ -1686,7 +1667,6 @@ fmt_address(A) ->
 	_ ->
 	    lists:flatten(io_lib:format("~p", [A#net_address.address]))
     end.
-
 
 fetch(Key, Info) ->
     case lists:keysearch(Key, 1, Info) of
@@ -1758,7 +1738,6 @@ call_owner(Owner, Msg) ->
 	{'DOWN', Mref, _, _, _} ->
 	    error
     end.
-
 
 -spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
       Node :: node() | new,
