@@ -142,4 +142,23 @@ create_maps() ->
     Map3 = lists:foldl(fun(I, A) ->
                                A#{I=>I*I}
                        end, Map2, lists:seq(-10, 0)),
-    #{a=>Map0,b=>Map1,c=>Map2,d=>Map3,e=>#{}}.
+    #{a=>Map0,b=>Map1,c=>Map2,d=>Map3,e=>#{},literal=>literal_map()}.
+
+literal_map() ->
+    %% A literal map such as the one below will produce a heap dump
+    %% like this:
+    %%
+    %%   Address1:t4:H<Address3>,H<Address4>,H<Address5>,H<Address6>
+    %%   Address2:Mf4:H<Adress1>:I1,I2,I3,I4
+    %%   Address3: ...  % "one"
+    %%   Address4: ...  % "two"
+    %%   Address5: ...  % "three"
+    %%   Address6: ...  % "four"
+    %%
+    %% The map cannot be reconstructed in a single sequential pass.
+    %%
+    %% To reconstruct the map, first the string keys "one"
+    %% through "four" must be reconstructed, then the tuple at
+    %% Adress1, then the map at Address2.
+
+    #{"one"=>1,"two"=>2,"three"=>3,"four"=>4}.
