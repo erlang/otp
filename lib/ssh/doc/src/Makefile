@@ -45,6 +45,7 @@ XML_REF3_FILES = \
 	ssh_connection.xml \
 	ssh_server_channel.xml \
 	ssh_server_key_api.xml \
+	ssh_file.xml \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
@@ -56,8 +57,8 @@ XML_CHAPTER_FILES = \
 	notes.xml \
 	introduction.xml \
 	using_ssh.xml \
+	terminology.xml \
 	configure_algos.xml
-#	ssh_protocol.xml \
 
 BOOK_FILES = book.xml
 

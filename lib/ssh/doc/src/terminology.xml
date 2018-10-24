@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2018</year>
+      <year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Terminology</title>
+    <prepared></prepared>
+    <docno></docno>
+    <approved></approved>
+    <date></date>
+    <rev></rev>
+    <file>terminology.xml</file>
+  </header>
+
+  <section>
+    <title>General Information</title>
+    <p>In the following terms that may cause confusion are explained.
+    </p>
+  </section>
+
+  <section>
+    <title>The term "user"</title>
+    <p>A "user" is a term that everyone understands intuitively. However, the understandings may differ which can
+       cause confusion.
+    </p>
+    <p>The term is used differently in <url href="http://www.openssh.com">OpenSSH</url> and SSH in Erlang/OTP.
+       The reason is the different environments and use cases that are not immediatly obvious.
+    </p>
+    <p>This chapter aims at explaining the differences and giving a rationale for why Erlang/OTP handles "user" as
+       it does.
+    </p>
+
+    <section>
+      <title>In OpenSSH</title>
+      <p>Many have been in contact with the command 'ssh' on a Linux machine (or similar) to remotly log in on
+      another machine. One types 
+      </p>
+      <code>ssh host</code>
+      <p>to log in on the machine named <c>host</c>. The command prompts for your password on the remote <c>host</c> and
+      then you can read, write and execute as your <i>user name</i> has rights on the remote <c>host</c>. There are
+      stronger variants with pre-distributed keys or certificates, but that are for now just details in the
+      authentication process.
+      </p>
+      <p>You could log in as the user <c>anotheruser</c> with
+      </p>
+      <code>ssh anotheruser@host</code>
+      <p>and you will then be enabled to act as <c>anotheruser</c> on the <c>host</c> if authorized correctly.
+      </p>
+      <p>So what does <i>"your user name has rights"</i> mean? In a UNIX/Linux/etc context it is exactly as that context:
+      The <i>user</i> could read, write and execute programs according to the OS rules.
+      In addition, the user has a home directory (<c>$HOME</c>) and there is a <c>$HOME/.ssh/</c> directory
+      with ssh-specific files.
+      </p>
+      <section>
+	<title>SSH password authentication</title>
+	<p>When SSH tries to log in to a host, the ssh protocol communicates the user name (as a string) and a password.
+	The remote ssh server checks that there is such a user defined and that the provided password is acceptable.
+	</p>
+	<p>If so, the user is authorized.
+	</p>
+      </section>
+      <section>
+	<title>SSH public key authentication</title>
+	<p>This is a stronger method where the ssh protocol brings the user name, the user's public key and some
+	cryptographic information which we could ignore here.
+	</p>
+	<p>The ssh server on the remote host checks:
+	</p>
+	<list>
+	  <item>That the <i>user</i> has a home directory,</item>
+	  <item>that home directory contains a .ssh/ directory and</item>
+	  <item>the .ssh/ directory contains the public key just received in the <c>authorized_keys</c> file</item>
+	</list>
+	<p>if so, the user is authorized.
+	</p>
+      </section>
+      <section>
+	<title>The SSH server on UNIX/Linux/etc after a succesful authentication</title>
+	<p>After a succesful incoming authentication, a new process runs as the just authenticated user.</p>
+	<p>Next step is to start a service according to the ssh request. In case of a request of a shell, 
+	a new one is started which handles the OS-commands that arrives from the client (that's "you").
+	</p>
+	<p>In case of a sftp request, an sftp server is started in with the user's rights. So it could read, write or delete
+	files if allowed for that user.
+	</p>
+      </section>
+    </section>
+
+    <section>
+      <title>In Erlang/OTP SSH</title>
+      <p>For the Erlang/OTP SSH server the situation is different. The server executes in an Erlang process
+      in the Erlang emulator which in turn executes in an OS process. The emulator does not try to change its
+      user when authenticated over the SSH protocol.
+      So the remote user name is only for authentication purposes in the Erlang/OTP SSH application.
+      </p>
+      <section>
+	<title>Password authentication in Erlang SSH</title>
+	<p>The Erlang/OTP SSH server checks the user name and password in the following order:
+	</p>
+	<list type="ordered">
+	  <item>If a 
+	  <seealso marker="ssh:ssh#option-pwdfun"><c>pwdfun</c></seealso>
+	  is defined, that one is called and the returned boolean is the authentication result.
+	  </item>
+	  <item>Else, if the 
+	  <seealso marker="ssh:ssh#option-user_passwords"><c>user_passwords</c></seealso>
+	  option is defined and the username and the password matches, the authentication is a success.
+	  </item>
+	  <item>Else, if the option 
+	  <seealso marker="ssh:ssh#option-password"><c>password</c></seealso>
+	  is defined and matches the password the authentication is a success.
+	  Note that the use of this option is not recommended in non-test code.
+	  </item>
+	</list>
+      </section>
+      <section>
+	<title>Public key authentication in Erlang SSH</title>
+	<p>The user name, public key and cryptographic data (a signature) that is sent by the client, are used as follows
+	(some steps left out for clearity):
+	</p>
+	<list type="ordered">
+	  <item>A callback module is selected using the options 
+	  <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>.
+	  </item>
+	  <item>The callback module is used to check that the provided public key is one of the user's pre-stored.
+	        In case of the default callback module, the files <c>authorized_keys</c> and <c>authorized_keys2</c>
+		are searched in a directory found in the following order:
+		<list>
+		  <item>If the option
+		  <seealso marker="ssh:ssh_file#type-user_dir_fun_common_option"><c>user_dir_fun</c></seealso>
+		  is defined, that fun is called and the returned directory is used,
+		  </item>
+		  <item>Else, If the option 
+		  <seealso marker="ssh:ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+			is defined, that directory is used,
+		  </item>
+		  <item>Else the subdirectory <c>.ssh</c> in the home directory of the user executing
+		  the OS process of the Erlang emulator is used.
+		  </item>
+		</list>
+		If the provided public key is not found, the authentication fails.
+	  </item>
+	  <item>Finally, if the provided public key is found, the signature provided by the client is checked with
+	  the public key.
+	  </item>
+	</list>
+      </section>
+      <section>
+	<title>The Erlang/OTP SSH server after a succesful authentication</title>
+	<p>After a successful authentication an <i>Erlang process</i> is handling the service request from the remote
+	ssh client. The rights of that process are those of the user of the OS process running the Erlang emulator.
+	</p>
+	<p>If a shell service request arrives to the server, an <i>Erlang shell</i> is opened in the server's emulator.
+	The rights in that shell is independent of the just authenticated user.
+	</p>
+	<p>In case of an sftp request, an sftp server is started with the rights of the user of the Erlang emulator's OS
+	process. So with sftp the authenticated user does not influence the rights.
+	</p>
+	<p>So after an authentication, the user name is not used anymore and has no influence.
+	</p>
+      </section>
+    </section>
+  </section>
+</chapter>
+	
