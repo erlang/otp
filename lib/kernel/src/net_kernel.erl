@@ -670,24 +670,16 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(no_network, State) ->
     lists:foreach(
-      fun({Node, Type}) ->
-	      case Type of
-		  normal -> ?nodedown(Node, State);
-		  _ -> ok
-	      end
-      end, get_up_nodes() ++ [{node(), normal}]);
+      fun(Node) -> ?nodedown(Node, State)
+      end, get_nodes_up_normal() ++ [node()]);
 terminate(_Reason, State) ->
     lists:foreach(
       fun(#listen {listen = Listen,module = Mod}) ->
 	      Mod:close(Listen)
       end, State#state.listen),
     lists:foreach(
-      fun({Node, Type}) ->
-	      case Type of
-		  normal -> ?nodedown(Node, State);
-		  _ -> ok
-	      end
-      end, get_up_nodes() ++ [{node(), normal}]).
+      fun(Node) -> ?nodedown(Node, State)
+      end, get_nodes_up_normal() ++ [node()]).
 
 
 %% ------------------------------------------------------------
@@ -1138,35 +1130,10 @@ disconnect_pid(Pid, State) ->
 %%
 %%
 %%
-get_nodes(Which) ->
-    get_nodes(ets:first(sys_dist), Which).
 
-get_nodes('$end_of_table', _) ->
-    [];
-get_nodes(Key, Which) ->
-    case ets:lookup(sys_dist, Key) of
-	[Conn = #connection{state = up}] ->
-	    [Conn#connection.node | get_nodes(ets:next(sys_dist, Key),
-					      Which)];
-	[Conn = #connection{}] when Which =:= all ->
-	    [Conn#connection.node | get_nodes(ets:next(sys_dist, Key),
-					      Which)];
-	_ ->
-	    get_nodes(ets:next(sys_dist, Key), Which)
-    end.
-
-%% Return a list of all nodes that are 'up'.
-get_up_nodes() ->
-    get_up_nodes(ets:first(sys_dist)).
-
-get_up_nodes('$end_of_table') -> [];
-get_up_nodes(Key) ->
-    case ets:lookup(sys_dist, Key) of
- 	[#connection{state=up,node=Node,type=Type}] ->
- 	    [{Node,Type}|get_up_nodes(ets:next(sys_dist, Key))];
- 	_ ->
- 	    get_up_nodes(ets:next(sys_dist, Key))
-    end.
+%% Return a list of all nodes that are 'up' and not hidden.
+get_nodes_up_normal() ->
+    ets:select(sys_dist, [{#connection{node = '$1', state = up, type = normal, _ = '_'}, [], ['$1']}]).
 
 ticker(Kernel, Tick) when is_integer(Tick) ->
     process_flag(priority, max),
@@ -1631,15 +1598,14 @@ get_node_info(Node, Key) ->
     end.
 
 get_nodes_info() ->
-    get_nodes_info(get_nodes(all), []).
-
-get_nodes_info([Node|Nodes], InfoList) ->
-    case get_node_info(Node) of
-	{ok, Info} -> get_nodes_info(Nodes, [{Node, Info}|InfoList]);
-	_          -> get_nodes_info(Nodes, InfoList)
-    end;
-get_nodes_info([], InfoList) ->
-    {ok, InfoList}.
+    Nodes = ets:select(sys_dist, [{#connection{node = '$1', _ = '_'}, [], ['$1']}]),
+    {ok, lists:filtermap(
+        fun(Node) ->
+            case get_node_info(Node) of
+                {ok, Info} -> {true, {Node, Info}};
+                _ -> false
+             end
+        end, Nodes)}.
 
 %% ------------------------------------------------------------
 %% Misc. functions
