@@ -1594,31 +1594,92 @@ read_heap(Fd,Pid,DecodeOpts,Dict0) ->
 	    Dict0
     end.
 
-read_heap(DecodeOpts,Dict0) ->
-    %% This function is never called if the dump is truncated in {?proc_heap,Pid}
-    case get(fd) of
-	end_of_heap ->
-            end_progress(),
-	    Dict0;
-	Fd ->
-	    case bytes(Fd) of
-		"=" ++ _next_tag ->
-                    end_progress(),
-		    put(fd, end_of_heap),
-		    Dict0;
-		Line ->
-                    update_progress(length(Line)+1),
-		    Dict = parse(Line,DecodeOpts,Dict0),
-		    read_heap(DecodeOpts,Dict)
-	    end
-    end.
+read_heap(DecodeOpts, Dict0) ->
+    %% This function is never called if the dump is truncated in
+    %% {?proc_heap,Pid}.
+    %%
+    %% It is not always possible to reconstruct the heap terms
+    %% in a single pass, especially if maps are involved.
+    %% See crashdump_helper:literal_map/0 for an example.
+    %%
+    %% Therefore, we need two passes. In the first pass
+    %% we collect all lines without parsing them, and in the
+    %% second pass we parse them.
+    %%
+    %% The first pass follows.
 
-parse(Line0, DecodeOpts, Dict0) ->
-    {Addr,":"++Line1} = get_hex(Line0),
-    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
-    [] = skip_blanks(Line),
+    Lines0 = read_heap_lines(),
+
+    %% Save a map of all unprocessed lines so that deref_ptr() can
+    %% access any line when there are references to terms not yet
+    %% built.
+
+    LineMap = maps:from_list(Lines0),
+    put(line_map, LineMap),
+
+    %% Refc binaries (tag "Yc") must be processed before any sub
+    %% binaries (tag "Ys") referencing them, so we make sure to
+    %% process all the refc binaries first.
+    %%
+    %% The other lines can be processed in any order, but processing
+    %% them in the reverse order compared to how they are printed in
+    %% the crash dump seems to minimize the number of references to
+    %% terms that have not yet been built. That happens to be the
+    %% order of the line list as returned by read_heap_lines/0.
+
+    RefcBins = [Refc || {_,<<"Yc",_/binary>>}=Refc <- Lines0],
+    Lines = RefcBins ++ Lines0,
+
+    %% Second pass.
+
+    init_progress("Processing terms", map_size(LineMap)),
+    Dict = parse_heap_terms(Lines, DecodeOpts, Dict0),
+    erase(line_map),
+    end_progress(),
     Dict.
 
+read_heap_lines() ->
+    read_heap_lines_1(get(fd), []).
+
+read_heap_lines_1(Fd, Acc) ->
+    case bytes(Fd) of
+        "=" ++ _next_tag ->
+            end_progress(),
+            put(fd, end_of_heap),
+            Acc;
+        Line0 ->
+            update_progress(length(Line0)+1),
+            {Addr,":"++Line1} = get_hex(Line0),
+
+            %% Reduce the memory consumption by converting the
+            %% line to a binary. Measurements show that it may also
+            %% be benefical for performance, too, because it makes the
+            %% garbage collections cheaper.
+
+            Line = list_to_binary(Line1),
+            read_heap_lines_1(Fd, [{Addr,Line}|Acc])
+    end.
+
+parse_heap_terms([{Addr,Line0}|T], DecodeOpts, Dict0) ->
+    case gb_trees:is_defined(Addr, Dict0) of
+        true ->
+            %% Already parsed (by a recursive call from do_deref_ptr()
+            %% to parse_line()). Nothing to do.
+            parse_heap_terms(T, DecodeOpts, Dict0);
+        false ->
+            %% Parse this previously unparsed term.
+            Dict = parse_line(Addr, Line0, DecodeOpts, Dict0),
+            parse_heap_terms(T, DecodeOpts, Dict)
+    end;
+parse_heap_terms([], _DecodeOpts, Dict) ->
+    Dict.
+
+parse_line(Addr, Line0, DecodeOpts, Dict0) ->
+    update_progress(1),
+    Line1 = binary_to_list(Line0),
+    {_Term,Line,Dict} = parse_heap_term(Line1, Addr, DecodeOpts, Dict0),
+    [] = skip_blanks(Line),                     %Assertion.
+    Dict.
 
 %%-----------------------------------------------------------------
 %% Page with one port
@@ -2871,16 +2932,18 @@ parse_atom_translation_table(N, Line0, As) ->
 
 
 deref_ptr(Ptr, Line, DecodeOpts, D) ->
-    Lookup = fun(D0) ->
-                     gb_trees:lookup(Ptr, D0)
-             end,
+    Lookup0 = fun(D0) ->
+                      gb_trees:lookup(Ptr, D0)
+              end,
+    Lookup = wrap_line_map(Ptr, Lookup0),
     do_deref_ptr(Lookup, Line, DecodeOpts, D).
 
 deref_bin(Binp0, Offset, Sz, Line, DecodeOpts, D) ->
     Binp = Binp0 bor DecodeOpts#dec_opts.bin_addr_adj,
-    Lookup = fun(D0) ->
-                     lookup_binary(Binp, Offset, Sz, D0)
-             end,
+    Lookup0 = fun(D0) ->
+                      lookup_binary(Binp, Offset, Sz, D0)
+              end,
+    Lookup = wrap_line_map(Binp, Lookup0),
     do_deref_ptr(Lookup, Line, DecodeOpts, D).
 
 lookup_binary(Binp, Offset, Sz, D) ->
@@ -2899,26 +2962,36 @@ lookup_binary(Binp, Offset, Sz, D) ->
             end
     end.
 
+wrap_line_map(Ptr, Lookup) ->
+    wrap_line_map_1(get(line_map), Ptr, Lookup).
+
+wrap_line_map_1(#{}=LineMap, Ptr, Lookup) ->
+    fun(D) ->
+            case Lookup(D) of
+                {value,_}=Res ->
+                    Res;
+                none ->
+                    case LineMap of
+                        #{Ptr:=Line} ->
+                            {line,Ptr,Line};
+                        #{} ->
+                            none
+                    end
+            end
+    end;
+wrap_line_map_1(undefined, _Ptr, Lookup) ->
+    Lookup.
+
 do_deref_ptr(Lookup, Line, DecodeOpts, D0) ->
     case Lookup(D0) of
 	{value,Term} ->
 	    {Term,Line,D0};
 	none ->
-	    case get(fd) of
-		end_of_heap ->
-                    put(incomplete_heap,true),
-		    {['#CDVIncompleteHeap'],Line,D0};
-		Fd ->
-		    case bytes(Fd) of
-			"="++_ ->
-			    put(fd, end_of_heap),
-			    do_deref_ptr(Lookup, Line, DecodeOpts, D0);
-			L ->
-                            update_progress(length(L)+1),
-			    D = parse(L, DecodeOpts, D0),
-			    do_deref_ptr(Lookup, Line, DecodeOpts, D)
-		    end
-	    end
+            put(incomplete_heap, true),
+            {['#CDVIncompleteHeap'],Line,D0};
+        {line,Addr,NewLine} ->
+            D = parse_line(Addr, NewLine, DecodeOpts, D0),
+            do_deref_ptr(Lookup, Line, DecodeOpts, D)
     end.
 
 get_hex(L) ->
