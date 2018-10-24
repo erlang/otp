@@ -152,9 +152,10 @@ next_record(#state{protocol_buffers =
 		       #protocol_buffers{tls_packets = [], tls_cipher_texts = [CT | Rest]}
 		   = Buffers,
 		   connection_states = ConnStates0,
+                   negotiated_version = Version,
 		   ssl_options = #ssl_options{padding_check = Check}} = State) ->
 
-    case tls_record:decode_cipher_text(CT, ConnStates0, Check) of
+    case tls_record:decode_cipher_text(Version, CT, ConnStates0, Check) of
 	{Plain, ConnStates} ->		      
 	    {Plain, State#state{protocol_buffers =
 				    Buffers#protocol_buffers{tls_cipher_texts = Rest},
