@@ -1966,6 +1966,7 @@ api_to_maccept_tcp4(suite) ->
 api_to_maccept_tcp4(doc) ->
     [];
 api_to_maccept_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
     tc_try(api_to_maccept_tcp4,
            fun() ->
                    InitState = #{domain => inet, timeout => 5000},
@@ -1982,6 +1983,7 @@ api_to_maccept_tcp6(suite) ->
 api_to_maccept_tcp6(doc) ->
     [];
 api_to_maccept_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(20)),
     tc_try(api_to_maccept_tcp4,
            fun() ->
                    not_yet_implemented(),
@@ -1998,12 +2000,13 @@ api_to_maccept_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} ->
-                                   MRef = erlang:monitor(process, Tester),
-                                   {ok, State#{tester      => Tester,
-                                               tester_mref => MRef}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
                    end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -2033,26 +2036,18 @@ api_to_maccept_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock)
                    end},
-
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{lsock := LSock, tester := Tester}) ->
-                           ei("announcing port to tester (~p)", [Tester]),
-                           Tester ! {ready, self(), LSock},
+                           ev_ready(Tester, init, LSock),
                            ok
                    end},
-         #{desc => "await continue",
-           cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
-                   end},
 
-         %% *** The actual test part ***
+         %% *** The actual test ***
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ev_await_continue(Tester, tester, accept),
+                           ok
+                   end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
                            Start = t(),
@@ -2060,6 +2055,8 @@ api_to_maccept_tcp(InitState) ->
                                {error, timeout} ->
                                    {ok, State#{start => Start, stop => t()}};
                                {ok, Sock} ->
+                                   ee("Unexpected accept success: "
+                                      "~n   ~p", [Sock]),
                                    (catch socket:close(Sock)),
                                    {error, unexpected_success};
                                {error, _} = ERROR ->
@@ -2076,24 +2073,18 @@ api_to_maccept_tcp(InitState) ->
                                    {error, {unexpected_timeout, TDiff, To}}
                            end
                    end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (accept)",
            cmd  => fun(#{tester := Tester}) ->
-                           ei("announcing port to tester (~p)", [Tester]),
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, accept),
                            ok
                    end},
+
+         %% *** Terminate ***
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   ok
-                           end
+                           ev_await_terminate(Tester, tester),
+                           ok
                    end},
-
          %% *** Close (listen) socket ***
          #{desc => "close (listen) socket",
            cmd  => fun(#{lsock := LSock} = State) ->
@@ -2114,32 +2105,28 @@ api_to_maccept_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester, LSock} ->
-                                   MRef = erlang:monitor(process, Tester),
-                                   {ok, State#{tester      => Tester,
-                                               lsock       => LSock,
-                                               tester_mref => MRef}}
-                           end
+                           {Tester, LSock} = ev_await_start(),
+                           {ok, State#{tester => Tester,
+                                       lsock  => LSock}}
+                           
                    end},
-         #{desc => "announce ready (1)",
-           cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
-         #{desc => "await continue",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ev_ready(Tester, init),
+                           ok
                    end},
 
          %% *** The actual test part ***
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ev_await_continue(Tester, tester, accept),
+                           ok
+                   end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
                            Start = t(),
@@ -2154,29 +2141,31 @@ api_to_maccept_tcp(InitState) ->
                            end
                    end},
          #{desc => "validate timeout time",
-           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
+           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
                            TDiff  = tdiff(Start, Stop),
                            if
                                (TDiff >= To) ->
-                                   ok;
+                                   State1 = maps:remove(start, State),
+                                   State2 = maps:remove(stop,  State1),
+                                   {ok, State2};
                                true ->
                                    {error, {unexpected_timeout, TDiff, To}}
                            end
                    end},
-         #{desc => "announce ready (2)",
+         #{desc => "announce ready (accept)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, accept),
                            ok
                    end},
+
+         %% *** Terminate ***
          #{desc => "await terminate",
-           cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {terminate, Tester} ->
-                                   ok
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
 
@@ -2211,154 +2200,101 @@ api_to_maccept_tcp(InitState) ->
          %% Start the prim-acceptor
          #{desc => "start prim-acceptor",
            cmd  => fun(#{prim_acceptor := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
-         #{desc => "await prim-acceptor ready (1)",
+         #{desc => "await prim-acceptor ready (init)",
            cmd  => fun(#{prim_acceptor := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-acceptor ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_acceptor}};
-                               {ready, Pid, LSock} ->
-                                   {ok, State#{lsock => LSock}}
-                           end
+                           {ok, Sock} = ev_await_ready(Pid, prim_acceptor, init),
+                           {ok, State#{lsock => Sock}}
                    end},
 
          %% Start sec-acceptor-1
          #{desc => "start sec-acceptor 1",
            cmd  => fun(#{sec_acceptor1 := Pid, lsock := LSock} = _State) ->
-                           Pid ! {start, self(), LSock},
+                           ev_start(Pid, LSock),
                            ok
                    end},
-         #{desc => "await sec-acceptor 1 ready (1)",
+         #{desc => "await sec-acceptor 1 ready (init)",
            cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acceptor 1 ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acceptor_1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acceptor1, init)
                    end},
 
          %% Start sec-acceptor-2
          #{desc => "start sec-acceptor 2",
            cmd  => fun(#{sec_acceptor2 := Pid, lsock := LSock} = _State) ->
-                           Pid ! {start, self(), LSock},
+                           ev_start(Pid, LSock),
                            ok
                    end},
-         #{desc => "await sec-acceptor 2 ready (1)",
+         #{desc => "await sec-acceptor 2 ready (init)",
            cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acceptor 2 ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acceptor_2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acceptor2, init)
                    end},
 
          %% Activate the acceptor(s)
          #{desc => "active prim-acceptor",
            cmd  => fun(#{prim_acceptor := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
          #{desc => "active sec-acceptor 1",
            cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
          #{desc => "active sec-acceptor 2",
            cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
 
          %% Await acceptor(s) completions
-         #{desc => "await prim-acceptor ready (2)",
+         #{desc => "await prim-acceptor ready (accept)",
            cmd  => fun(#{prim_acceptor := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-acceptor ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_acceptor}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, prim_acceptor, accept)
                    end},
-         #{desc => "await sec-acceptor 1 ready (2)",
+         #{desc => "await sec-acceptor 1 ready (accept)",
            cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acceptor 1 ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acceptor_1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acceptor1, accept)
                    end},
-         #{desc => "await sec-acceptor 2 ready (2)",
+         #{desc => "await sec-acceptor 2 ready (accept)",
            cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acceptor 2 ~p:"
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acceptor_2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acceptor2, accept)
                    end},
 
-
-         %% Terminate the acceptor(s)
+         %% Terminate
          #{desc => "order prim-acceptor to terminate",
            cmd  => fun(#{prim_acceptor := Pid} = _State) ->
-                           ei("send terminate command to prim-acceptor (~p)", [Pid]),
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
+                   end},
+         #{desc => "await prim-acceptor termination",
+           cmd  => fun(#{prim_acceptor := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           State1 = maps:remove(prim_acceptor, State),
+                           {ok, State1}
                    end},
          #{desc => "order sec-acceptor 1 to terminate",
            cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
-                           ei("send terminate command to sec-acceptor-1 (~p)", [Pid]),
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
-                   end},
-         #{desc => "order sec-acceptor 2 to terminate",
-           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
-                           ei("send terminate command to sec-acceptor-2 (~p)", [Pid]),
-                           Pid ! {terminate, self()},
-                           ok
-                   end},
-
-         %% Await acceptor(s) termination
-         #{desc => "await prim-acceptor termination",
-           cmd  => fun(#{prim_acceptor := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(prim_acceptor, State),
-                                   {ok, State1}
-                           end
                    end},
          #{desc => "await sec-acceptor 1 termination",
            cmd  => fun(#{sec_acceptor1 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(sec_acceptor1, State),
-                                   {ok, State1}
-                           end
+                           ev_await_termination(Pid),
+                           State1 = maps:remove(sec_acceptor1, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order sec-acceptor 2 to terminate",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
                    end},
          #{desc => "await sec-acceptor 2 termination",
            cmd  => fun(#{sec_acceptor2 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(sec_acceptor2, State),
-                                   {ok, State1}
-                           end
+                           ev_await_termination(Pid),
+                           State1 = maps:remove(sec_acceptor2, State),
+                           {ok, State1}
                    end},
          
          %% *** We are done ***
@@ -2370,26 +2306,23 @@ api_to_maccept_tcp(InitState) ->
 
     i("create prim-acceptor evaluator"),
     PrimAInitState = InitState,
-    #ev{pid = PPid} = PrimAcceptor = evaluator_start("prim-acceptor", 
-                                                     PrimAcceptorSeq, 
-                                                     PrimAInitState),
+    PrimAcceptor = evaluator_start("prim-acceptor", 
+                                   PrimAcceptorSeq, PrimAInitState),
 
     i("create sec-acceptor 1 evaluator"),
     SecAInitState1 = maps:remove(domain, InitState),
-    #ev{pid = SPid1} = SecAcceptor1 = evaluator_start("sec-acceptor-1", 
-                                                      SecAcceptorSeq, 
-                                                      SecAInitState1),
+    SecAcceptor1 = evaluator_start("sec-acceptor-1", 
+                                   SecAcceptorSeq, SecAInitState1),
     
     i("create sec-acceptor 2 evaluator"),
     SecAInitState2 = SecAInitState1,
-    #ev{pid = SPid2} = SecAcceptor2 = evaluator_start("sec-acceptor-2", 
-                                                      SecAcceptorSeq, 
-                                                      SecAInitState2),
+    SecAcceptor2 = evaluator_start("sec-acceptor-2", 
+                                   SecAcceptorSeq, SecAInitState2),
 
     i("create tester evaluator"),
-    TesterInitState = #{prim_acceptor => PPid,
-                        sec_acceptor1 => SPid1,
-                        sec_acceptor2 => SPid2},
+    TesterInitState = #{prim_acceptor => PrimAcceptor#ev.pid,
+                        sec_acceptor1 => SecAcceptor1#ev.pid,
+                        sec_acceptor2 => SecAcceptor2#ev.pid},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
