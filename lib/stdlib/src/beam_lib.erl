@@ -53,7 +53,7 @@
 
 %%-------------------------------------------------------------------------
 
--type beam() :: module() | file:filename() | binary().
+-type beam() :: file:filename() | binary().
 -type debug_info() :: {DbgiVersion :: atom(), Backend :: module(), Data :: term()} | 'no_debug_info'.
 
 -type forms()     :: [erl_parse:abstract_form() | erl_parse:form_info()].

@@ -180,8 +180,8 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
       <name name="beam"/>
       <desc>
         <p>Each of the functions described below accept either the
-          module name, the filename, or a binary containing the BEAM
-          module.</p>
+        filename (as a string) or a binary containing the BEAM
+        module.</p>
       </desc>
     </datatype>
     <datatype>
