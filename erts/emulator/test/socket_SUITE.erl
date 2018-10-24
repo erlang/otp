@@ -615,6 +615,19 @@ api_b_send_and_recv_tcp(InitState) ->
     process_flag(trap_exit, true),
     ServerSeq = 
         [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
@@ -643,24 +656,34 @@ api_b_send_and_recv_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock)
                    end},
-         #{desc => "announce server port",
-           cmd  => fun(#{parent := Parent, lport := Port}) ->
-                           ei("announcing port to parent (~p)", [Parent]),
-                           Parent ! {server_port, self(), Port},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, lport := Port}) ->
+                           ev_ready(Tester, init, Port),
                            ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ok = ev_await_continue(Tester, tester, accept)
                    end},
          #{desc => "await connection",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
                                    ei("accepted: ~n   ~p", [Sock]),
-                                   {ok, State#{tsock => Sock}};
+                                   {ok, State#{csock => Sock}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-         #{desc => "await request",
-           cmd  => fun(#{tsock := Sock, recv := Recv}) ->
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, accept),
+                           ok
+                   end},
+         #{desc => "await (recv) request",
+           cmd  => fun(#{csock := Sock, recv := Recv}) ->
                            case Recv(Sock) of
                                {ok, ?BASIC_REQ} ->
                                    ok;
@@ -668,23 +691,47 @@ api_b_send_and_recv_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "send reply",
-           cmd  => fun(#{tsock := Sock, send := Send}) ->
-                           Send(Sock, ?BASIC_REP)
-                   end},
-         #{desc => "sleep some",
-           cmd  => fun(_) ->
-                           ?SLEEP(1000),
+         #{desc => "announce ready (recv request)",
+           cmd  => fun(#{tester := Tester}) ->
+                           %% Tester ! {ready, self(), Port},
+                           ev_ready(Tester, recv_req),
                            ok
                    end},
-         #{desc => "close traffic socket",
-           cmd  => fun(#{tsock := Sock}) ->
+         #{desc => "await continue (with send reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ok = ev_await_continue(Tester, tester, send_reply)
+                   end},
+         #{desc => "send reply",
+           cmd  => fun(#{csock := Sock, send := Send}) ->
+                           Send(Sock, ?BASIC_REP)
+                   end},
+         #{desc => "announce ready (send reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           %% Tester ! {ready, self(), Port},
+                           ev_ready(Tester, send_reply),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{csock := Sock}) ->
                            socket:close(Sock)
                    end},
          #{desc => "close listen socket",
            cmd  => fun(#{lsock := Sock}) ->
                            socket:close(Sock)
                    end},
+
+         %% *** We are done ***
          #{desc => "finish",
            cmd  => fun(_) ->
                            {ok, normal}
@@ -693,13 +740,26 @@ api_b_send_and_recv_tcp(InitState) ->
 
     ClientSeq = 
         [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           {Tester, Port} = ev_await_start(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The init part ***
          #{desc => "which server (local) address",
            cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, 
                                      addr   => LAddr},
                            SSA   = LSA#{port => Port},
-                           {ok, State#{lsa => LSA, ssa => SSA}}
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -711,31 +771,195 @@ api_b_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := Sock, lsa := LSA} = State) ->
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
-                               {ok, Port} ->
-                                   {ok, State#{port => Port}};
+                               {ok, _Port} ->
+                                   ok;
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ev_await_continue(Tester, tester, connect)
+                   end},
          #{desc => "connect to server",
-           cmd  => fun(#{sock := Sock, ssa := SSA}) ->
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
                            socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, connect),
+                           ok
+                   end},
+         #{desc => "await continue (send request)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ev_await_continue(Tester, tester, send_req)
                    end},
          #{desc => "send request (to server)",
            cmd  => fun(#{sock := Sock, send := Send}) ->
                            Send(Sock, ?BASIC_REQ)
                    end},
-         #{desc => "recv reply (from server)",
+         #{desc => "announce ready (send request)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, send_req),
+                           ok
+                   end},
+         #{desc => "await recv reply (from server)",
            cmd  => fun(#{sock := Sock, recv := Recv}) ->
                            {ok, ?BASIC_REP} = Recv(Sock),
                            ok
+                   end},
+         #{desc => "announce ready (recv reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, recv_reply),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
                    end},
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock}) ->
                            socket:close(Sock)
                    end},
+
+         %% *** We are done ***
+         #{desc => "finish",
+           cmd  => fun(_) ->
+                           {ok, normal}
+                   end}
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ev_start(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, Port} = ev_await_ready(Pid, server, init),
+                           {ok, State#{server_port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client := Pid, server_port := Port} = _State) ->
+                           ev_start(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ev_await_ready(Pid, client, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_continue(Server, accept),
+                           ok
+                   end},
+         #{desc => "sleep",
+           cmd  => fun(_) ->
+                           ?SLEEP(?SECS(1)),
+                           ok
+                   end},
+         #{desc => "order client to continue (with connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_continue(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_await_ready(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_await_ready(Server, server, accept)
+                   end},
+         #{desc => "order client to continue (with send request)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_continue(Client, send_req),
+                           ok
+                   end},
+         #{desc => "await client ready (with send request)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_await_ready(Client, client, send_req)
+                   end},
+         #{desc => "await server ready (request recv)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_await_ready(Server, server, recv_req)
+                   end},
+         #{desc => "order server to continue (with send reply)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_continue(Server, send_reply),
+                           ok
+                   end},
+         #{desc => "await server ready (with reply sent)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_await_ready(Server, server, send_reply)
+                   end},
+         #{desc => "await client ready (reply recv)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_await_ready(Client, client, recv_reply)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ev_terminate(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ev_await_termination(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ev_terminate(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ev_await_termination(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
          #{desc => "finish",
            cmd  => fun(_) ->
                            {ok, normal}
@@ -743,16 +967,18 @@ api_b_send_and_recv_tcp(InitState) ->
         ],
 
     i("start server evaluator"),
-    #ev{pid = Pid} = Server = evaluator_start("server", ServerSeq, InitState),
-    i("await server (~p) port", [Pid]),
-    SPort = receive
-                {server_port, Pid, Port} ->
-                    Port
-            end,
+    Server = evaluator_start("server", ServerSeq, InitState),
+
     i("start client evaluator"),
-    Client = evaluator_start("client", ClientSeq, InitState#{server_port => SPort}),
+    Client = evaluator_start("client", ClientSeq, InitState),
     i("await evaluator(s)"),
-    ok = await_evaluator_finish([Server, Client]).
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = evaluator_start("tester", TesterSeq, TesterInitState),
+
+    ok = await_evaluator_finish([Server, Client, Tester]).
 
 
 
@@ -2582,8 +2808,6 @@ api_to_receive_tcp(InitState) ->
          %% *** Termination ***
          #{desc => "order client to terminate",
            cmd  => fun(#{client := Client} = _State) ->
-                           %% Client ! {terminate, self()},
-                           %% ok
                            ev_terminate(Client),
                            ok
                    end},
