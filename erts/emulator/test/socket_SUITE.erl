@@ -1594,10 +1594,13 @@ api_to_connect_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
                    end},
 
          %% *** Init part ***
@@ -1605,7 +1608,7 @@ api_to_connect_tcp(InitState) ->
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -1617,7 +1620,7 @@ api_to_connect_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -1629,27 +1632,28 @@ api_to_connect_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock, 1)
                    end},
-         #{desc => "monitor server",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           MRef = erlang:monitor(process, Tester),
-                           {ok, State#{tester_mref => MRef}}
-                   end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
-                           ei("announcing ready to tester (~p)", [Tester]),
-                           Tester ! {ready, self(), Port},
+                           ev_ready(Tester, init, Port),
                            ok
                    end},
-         #{desc => "await terminate (from tester)",
+
+         %% Termination
+         #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{lsock := Sock} = State) ->
+                           sock_close(Sock),
+                           State1 = maps:remove(lport, State),
+                           State2 = maps:remove(sock,  State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -1662,11 +1666,16 @@ api_to_connect_tcp(InitState) ->
     TesterSeq =
         [
          %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Server} = _State) ->
+                           _MRef = erlang:monitor(process, Server),
+                           ok
+                   end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket 1",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -1696,7 +1705,7 @@ api_to_connect_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind socket 1 to local address",
-           cmd  => fun(#{sock1 := Sock, lsa := LSA} = _State) ->
+           cmd  => fun(#{sock1 := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -1705,7 +1714,7 @@ api_to_connect_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind socket 2 to local address",
-           cmd  => fun(#{sock2 := Sock, lsa := LSA} = _State) ->
+           cmd  => fun(#{sock2 := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -1714,7 +1723,7 @@ api_to_connect_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind socket 3 to local address",
-           cmd  => fun(#{sock3 := Sock, lsa := LSA} = _State) ->
+           cmd  => fun(#{sock3 := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -1724,52 +1733,42 @@ api_to_connect_tcp(InitState) ->
                    end},
 
          %% *** Synchronize with the server ***
-         #{desc => "order (server) start",
+         #{desc => "order server start",
            cmd  => fun(#{server := Server}) ->
-                           Server ! {start, self()},
+                           ev_start(Server),
                            ok
                    end},
-         #{desc => "await ready (from server)",
-           cmd  => fun(#{server := Server, lsa := LSA} = State) ->
-                           receive
-                               {ready, Server, Port} ->
-                                   {ok, State#{ssa => LSA#{port => Port}}}
-                           end
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Server, local_sa := LSA} = State) ->
+                           {ok, Port} = ev_await_ready(Server, server, init),
+                           ServerSA = LSA#{port => Port},
+                           {ok, State#{server_sa => ServerSA}}
                    end},
 
          %% *** Connect sequence ***
          #{desc => "order (server) start",
-           cmd  => fun(#{sock1   := Sock1,
-                         sock2   := Sock2,
-                         sock3   := Sock3,
-                         ssa     := SSA,
-                         timeout := To}) ->
+           cmd  => fun(#{sock1     := Sock1,
+                         sock2     := Sock2,
+                         sock3     := Sock3,
+                         server_sa := SSA,
+                         timeout   := To}) ->
                            Socks = [Sock1, Sock2, Sock3],
                            api_to_connect_tcp_await_timeout(Socks, To, SSA)
                    end},
 
          %% *** Terminate server ***
-         #{desc => "monitor server",
-           cmd  => fun(#{server := Server} = State) ->
-                           MRef = erlang:monitor(process, Server),
-                           {ok, State#{server_mref => MRef}}
-                   end},
          #{desc => "order (server) terminate",
            cmd  => fun(#{server := Server} = _State) ->
-                           Server ! {terminate, self()},
+                           ev_terminate(Server),
                            ok
                    end},
          #{desc => "await (server) down",
            cmd  => fun(#{server := Server} = State) ->
-                           receive
-                               {'DOWN', _, process, Server, _} ->
-                                   State1 = maps:remove(server, State),
-                                   State2 = maps:remove(ssa, State1),
-                                   {ok, State2}
-                           end
+                           ev_await_termination(Server),
+                           State1 = maps:remove(server,    State),
+                           State2 = maps:remove(server_sa, State1),
+                           {ok, State2}
                    end},
-
-         %% *** Close our sockets ***
          #{desc => "close socket 3",
            cmd  => fun(#{sock3 := Sock} = State) ->
                            sock_close(Sock),
