@@ -1276,12 +1276,22 @@ api_opt_simple_otp_controlling_process() ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester, Socket} ->
-                                   {ok, State#{tester => Tester,
-                                               sock   => Socket}}
-                           end
+                           %% receive
+                           %%     {start, Tester, Socket} ->
+                           %%         {ok, State#{tester => Tester,
+                           %%                     sock   => Socket}}
+                           %% end
+                           {Tester, Sock} = ev_await_start(),
+                           {ok, State#{tester => Tester,
+                                       sock   => Sock}}
                    end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The actual test ***
          #{desc => "verify tester as controlling-process",
            cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
                            case Get(Sock, controlling_process) of
@@ -1304,17 +1314,20 @@ api_opt_simple_otp_controlling_process() ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (1)",
+         #{desc => "announce ready (not owner)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, not_owner),
+                           %% Tester ! {ready, self()},
                            ok
                    end},
-         #{desc => "await continue",
+         #{desc => "await continue (owner)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           %% receive
+                           %%     {continue, Tester} ->
+                           %%         ok
+                           %% end
+                           ev_await_continue(Tester, tester, owner),
+                           ok
                    end},
          #{desc => "verify self as controlling-process",
            cmd  => fun(#{sock := Sock} = _State) ->
@@ -1343,19 +1356,27 @@ api_opt_simple_otp_controlling_process() ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (2)",
+         #{desc => "announce ready (owner)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           %% Tester ! {ready, self()},
+                           ev_ready(Tester, owner),
                            ok
+
                    end},
+         
+         %% *** Termination ***
          #{desc => "await termination",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {terminate, Tester} ->
-                                   State1 = maps:remove(tester, State),
-                                   State2 = maps:remove(sock, State1),
-                                   {ok, State2}
-                           end
+                           %% receive
+                           %%     {terminate, Tester} ->
+                           %%         State1 = maps:remove(tester, State),
+                           %%         State2 = maps:remove(sock, State1),
+                           %%         {ok, State2}
+                           %% end
+                           ev_await_terminate(Tester, tester),
+                           State1 = maps:remove(tester, State),
+                           State2 = maps:remove(sock, State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -1375,6 +1396,13 @@ api_opt_simple_otp_controlling_process() ->
                            Sock = sock_open(Domain, Type, Protocol),
                            {ok, State#{sock => Sock}}
                    end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Client} = _State) ->
+                           _MRef = erlang:monitor(process, Client),
+                           ok
+                   end},
+
+         %% *** The actual test ***
          #{desc => "verify self as controlling-process",
            cmd  => fun(#{sock := Sock} = _State) ->
                            Self = self(),
@@ -1389,15 +1417,17 @@ api_opt_simple_otp_controlling_process() ->
                    end},
          #{desc => "order (client) start",
            cmd  => fun(#{client := Client, sock := Sock} = _State) ->
-                           Client ! {start, self(), Sock},
+                           %% Client ! {start, self(), Sock},
+                           ev_start(Client, Sock),
                            ok
                    end},
-         #{desc => "await (client) ready (1)",
+         #{desc => "await (client) ready (not owner)",
            cmd  => fun(#{client := Client} = _State) ->
-                           receive
-                               {ready, Client} ->
-                                   ok
-                           end
+                           %% receive
+                           %%     {ready, Client} ->
+                           %%         ok
+                           %% end
+                           ev_await_ready(Client, client, not_owner)
                    end},
          #{desc => "attempt controlling-process transfer to client",
            cmd  => fun(#{client := Client, sock := Sock} = _State) ->
@@ -1425,17 +1455,20 @@ api_opt_simple_otp_controlling_process() ->
                                    ERROR
                            end
                    end},
-         #{desc => "order (client) continue",
+         #{desc => "order (client) continue (owner)",
            cmd  => fun(#{client := Client} = _State) ->
-                           Client ! {continue, self()},
+                           %% Client ! {continue, self()},
+                           ev_continue(Client, owner),
                            ok
                    end},
          #{desc => "await (client) ready (2)",
            cmd  => fun(#{client := Client} = _State) ->
-                           receive
-                               {ready, Client} ->
-                                   ok
-                           end
+                           %% receive
+                           %%     {ready, Client} ->
+                           %%         ok
+                           %% end
+                           ev_await_ready(Client, client, owner),
+                           ok
                    end},
          #{desc => "verify self as controlling-process",
            cmd  => fun(#{sock := Sock} = _State) ->
@@ -1449,22 +1482,22 @@ api_opt_simple_otp_controlling_process() ->
                                    ERROR
                            end
                    end},
-         #{desc => "monitor client",
-           cmd  => fun(#{client := Client} = State) ->
-                           MRef = erlang:monitor(process, Client),
-                           {ok, State#{client_mref => MRef}}
-                   end},
+
+         %% *** Termination ***
          #{desc => "order (client) terminate",
            cmd  => fun(#{client := Client} = _State) ->
-                           Client ! {terminate, self()},
+                           %% Client ! {terminate, self()},
+                           ev_terminate(Client),
                            ok
                    end},
-         #{desc => "await (client) down",
+         #{desc => "await client termination",
            cmd  => fun(#{client := Client} = State) ->
-                           receive
-                               {'DOWN', _, process, Client, _} ->
-                                   {ok, maps:remove(client, State)}
-                           end
+                           %% receive
+                           %%     {'DOWN', _, process, Client, _} ->
+                           %%         {ok, maps:remove(client, State)}
+                           %% end
+                           ev_await_termination(Client),
+                           {ok, maps:remove(client, State)}
                    end},
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = State) ->
