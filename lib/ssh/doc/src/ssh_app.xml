@@ -74,12 +74,17 @@
       <c>id_ecdsa_key</c>,
       <c>known_hosts</c>, and <c>authorized_keys</c> in ~/.ssh,
       and for the host key files in <c>/etc/ssh</c>. These locations can be changed
-      by the options <c>user_dir</c> and <c>system_dir</c>.
+      by the options
+      <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
+      <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
       </p>
       <p>Public key handling can also be customized through a callback module that
       implements the behaviors
       <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and
       <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+      </p>
+      <p>See also the default callback module documentation in
+      <seealso marker="ssh_file">ssh_file</seealso>.
       </p>
 
   </section>

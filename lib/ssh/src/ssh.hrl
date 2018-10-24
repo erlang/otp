@@ -173,7 +173,7 @@
 
 -type common_options() :: [ common_option() ].
 -type common_option() :: 
-        user_dir_common_option()
+        ssh_file:user_dir_common_option()
       | profile_common_option()
       | max_idle_time_common_option()
       | key_cb_common_option()
@@ -191,8 +191,6 @@
 
 -define(COMMON_OPTION, common_option()).
 
-
--type user_dir_common_option()      :: {user_dir,  false | string()}.
 -type profile_common_option()       :: {profile,   atom() }.
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
 -type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
@@ -223,14 +221,14 @@
         {transport, {atom(),atom(),atom()} }
       | {vsn, {non_neg_integer(),non_neg_integer()} }
       | {tstflg, list(term())}
-      | {user_dir_fun, fun()}
+      | ssh_file:user_dir_fun_common_option()
       | {max_random_length_padding, non_neg_integer()} .
 
 
 
 -type client_option()         ::
         pref_public_key_algs_client_option()
-      | pubkey_passphrase_client_options()
+      | ssh_file:pubkey_passphrase_client_options()
       | host_accepting_client_options()
       | authentication_client_options()
       | diffie_hellman_group_exchange_client_option()
@@ -245,10 +243,6 @@
         | opaque_common_options().
 
 -type pref_public_key_algs_client_option() :: {pref_public_key_algs, [pubkey_alg()] } .
-
--type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
-                                            | {rsa_pass_phrase,      string()}
-                                            | {ecdsa_pass_phrase,    string()} .
 
 -type host_accepting_client_options() ::
         {silently_accept_hosts, accept_hosts()}
@@ -311,7 +305,7 @@
 -type send_ext_info_daemon_option() :: {send_ext_info, boolean()} .
 
 -type authentication_daemon_options() ::
-        {system_dir, string()}
+        ssh_file:system_dir_daemon_option()
       | {auth_method_kb_interactive_data, prompt_texts() }
       | {user_passwords, [{UserName::string(),Pwd::string()}]}
       | {password, string()}
