@@ -2153,7 +2153,7 @@ check_otp_test_engine(LibDir) ->
     case filelib:wildcard("otp_test_engine*", LibDir) of
         [] ->
             {error, notexist};
-        [LibName] ->
+        [LibName|_] ->                          % In case of Valgrind there could be more than one
             LibPath = filename:join(LibDir,LibName),
             case filelib:is_file(LibPath) of
                 true ->
