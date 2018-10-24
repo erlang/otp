@@ -542,7 +542,7 @@ file(File) ->
 				|  {'error', term()}
 				     when Mod :: mod().
 file(File, Options) when is_atom(File) ->
-  case beam_lib:info(File) of
+  case beam_lib:info(atom_to_list(File)) of
     L when is_list(L) ->
       {module, Mod} = lists:keyfind(module, 1, L),
       case compile(Mod, File, Options) of

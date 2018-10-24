@@ -1133,8 +1133,27 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     reds = (Sint64) garbage_collect(p, ERTS_INVALID_HFRAG_PTR, 0,
 				    p->arg_reg, p->arity, fcalls,
 				    ygen_usage);
+    if (ERTS_PROC_IS_EXITING(p)) {
+        return 0;
+    }
 
     ASSERT(!(p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)));
+
+    if (MAX_HEAP_SIZE_GET(p)) {
+        Uint new_heap_size;
+        Uint old_heap_size;
+        Uint total_heap_size;
+
+        new_heap_size = HEAP_END(p) - HEAP_START(p);
+        old_heap_size = erts_next_heap_size(lit_size, 0);
+        total_heap_size = new_heap_size + old_heap_size;
+        if (MAX_HEAP_SIZE_GET(p) < total_heap_size &&
+            reached_max_heap_size(p, total_heap_size,
+                                  new_heap_size, old_heap_size)) {
+            erts_set_self_exiting(p, am_killed);
+            return 0;
+        }
+    }
 
     /*
      * Set GC state.
