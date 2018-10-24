@@ -775,7 +775,7 @@ gen_event:stop             ----->  Module:terminate/2
           <p>This callback is optional, so callback modules need not
             export it. The <c>gen_event</c> module provides a default
             implementation of this function that logs about the unexpected
-            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
+            <c>Info</c> message, drops it and returns <c>{ok, State}</c>.</p>
         </note>
         <p>This function is called for each installed event handler when
           an event manager receives any other message than an event or
