@@ -1205,7 +1205,7 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	thr->locked.last->next = new_ll;
 	thr->locked.last = new_ll;
     }
-    else if (thr->locked.last->id == lck->id && thr->locked.last->extra == lck->extra)
+    else if (order == 0)
 	lock_twice("Locking", thr, lck, options);
     else
 	lock_order_violation(thr, lck);
