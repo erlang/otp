@@ -476,23 +476,34 @@ traverse_commands(Fseq, Fpar, {Seq, ParLs}) -> lists:append([Fseq(Seq)|Fpar(ParL
 print_frequencies() -> print_frequencies(10).
 
 print_frequencies(Ngroups) -> fun([]) -> io:format('Empty list!~n',[]);
-                                 (L ) -> print_frequencies(L,Ngroups,0,element(1,lists:last(L)))
+                                 (L ) ->
+                                      try
+                                          M = lists:last(L),
+                                          Max = if is_integer(M) -> M;
+                                                   is_tuple(M) -> element(1,L)
+                                                end,
+                                          print_frequencies(L,Ngroups,0,Max)
+                                      catch
+                                          C:E:S ->
+                                              ct:pal("~p:~p ~p:~p~n~p~n~p",[?MODULE,?LINE,C,E,S,L])
+                                      end
                               end.
 
 print_frequencies(Ngroups, MaxValue) -> fun(L) -> print_frequencies(L,Ngroups,0,MaxValue) end.
 
 print_frequencies(L, N, Min, Max) when N>Max -> print_frequencies(L++[{N,0}], N, Min, N);
-print_frequencies(L, N, Min, Max) ->
-%%io:format('L=~p~n',[L]),
+print_frequencies(L, N, Min, Max0) ->
     try
+        Interval = round((Max0-Min)/N),
+        Max = Max0 + (Max0 rem Interval),
 	IntervalUpperLimits = 
 	    lists:reverse(
-	      [Max | tl(lists:reverse(lists:seq(Min,Max,round((Max-Min)/N))))]
+	      [Max | tl(lists:reverse(lists:seq(Min,Max,Interval)))]
 	     ),
 	{Acc0,_} = lists:mapfoldl(fun(Upper,Lower) -> 
 					  {{{Lower,Upper},0}, Upper+1}
 				  end, hd(IntervalUpperLimits), tl(IntervalUpperLimits)),
-	Fs0 = get_frequencies(L, Acc0),
+        Fs0 = get_frequencies(L, Acc0),
 	SumVal = lists:sum([V||{_,V}<-Fs0]),
 	Fs = with_percentage(Fs0, SumVal),
 	Mean = mean(L),
@@ -517,7 +528,6 @@ print_frequencies(L, N, Min, Max) ->
 	 || {Interval={Rlow,Rhigh},Val,Percent} <- Fs],
 	io:format('~*c    ~*c~n',[2*Npos_range,32,Npos_value+2,$-]),
 	io:format('~*c      ~*w~n',[2*Npos_range,32,Npos_value,SumVal])
-        %%,io:format('L=~p~n',[L])
     catch
 	C:E ->
 	    io:format('*** Faild printing (~p:~p) for~n~p~n',[C,E,L])
@@ -527,6 +537,8 @@ get_frequencies([{I,Num}|T], [{{Lower,Upper},Cnt}|Acc]) when Lower=<I,I=<Upper -
     get_frequencies(T,  [{{Lower,Upper},Cnt+Num}|Acc]);
 get_frequencies(L=[{I,_Num}|_], [Ah={{_Lower,Upper},_Cnt}|Acc]) when I>Upper ->
     [Ah | get_frequencies(L,Acc)];
+get_frequencies([I|T], Acc) when is_integer(I) ->
+    get_frequencies([{I,1}|T], Acc);
 get_frequencies([], Acc) -> 
     Acc.
 
