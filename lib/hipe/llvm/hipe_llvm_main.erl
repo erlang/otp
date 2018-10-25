@@ -526,8 +526,8 @@ unique_folder(FunName, Arity, Options) ->
     case proplists:get_bool(llvm_save_temps, Options) of
       true ->  %% Store folder in current directory
         DirName;
-      false -> %% Temporarily store folder in tempfs (/dev/shm/)
-        "/dev/shm/" ++ DirName
+      false -> %% Temporarily store folder in tempfs or tmp dir
+        tmpfs_folder() ++ DirName
     end,
   %% Make sure it does not exist
   case dir_exists(Dir) of
@@ -535,6 +535,14 @@ unique_folder(FunName, Arity, Options) ->
       unique_folder(FunName, Arity, Options);
     false ->
       Dir
+  end.
+
+tmpfs_folder() ->
+  case os:type() of
+    {unix, linux} ->
+      "/dev/shm/";
+    {unix, _} -> %% Fallback to tmp dir. e.g. FreeBSD
+      "/tmp/"
   end.
 
 %% @doc Function that checks that a given Filename is an existing Directory
