@@ -2521,13 +2521,18 @@ api_to_receive_tcp(InitState) ->
                            Tester = ev_await_start(),
                            {ok, State#{tester => Tester}}
                    end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
 
          %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create listen socket",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -2539,7 +2544,7 @@ api_to_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -2551,23 +2556,17 @@ api_to_receive_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock, 1)
                    end},
-         #{desc => "monitor tester",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           MRef = erlang:monitor(process, Tester),
-                           {ok, State#{tester_mref => MRef}}
-                   end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
-                           %% Tester ! {ready, self(), Port},
                            ev_ready(Tester, init, Port),
                            ok
                    end},
+
+         %% *** The actual test ***
          #{desc => "await continue (accept and recv)",
            cmd  => fun(#{tester := Tester}) ->
                            ok = ev_await_continue(Tester, tester, accept_recv)
                    end},
-
-         %% *** The actual test ***
          #{desc => "attempt accept",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
@@ -2590,18 +2589,19 @@ api_to_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "validate timeout time",
-           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = _State) ->
+           cmd  => fun(#{start := Start, stop := Stop, timeout := To} = State) ->
                            TDiff  = tdiff(Start, Stop),
                            if
                                (TDiff >= To) ->
-                                   ok;
+                                   State1 = maps:remove(start, State),
+                                   State2 = maps:remove(stop,  State1),
+                                   {ok, State2};
                                true ->
                                    {error, {unexpected_timeout, TDiff, To}}
                            end
                    end},
          #{desc => "announce ready (recv timeout success)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           %% Tester ! {ready, self()},
                            %% ok
                            ev_ready(Tester, accept_recv),
                            ok
@@ -2644,6 +2644,11 @@ api_to_receive_tcp(InitState) ->
                            {ok, State#{tester      => Tester,
                                        server_port => Port}}
                    end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
 
          %% *** Init part ***
          #{desc => "which local address",
@@ -2652,7 +2657,7 @@ api_to_receive_tcp(InitState) ->
                            LSA   = #{family => Domain,
                                      addr   => LAddr},
                            SSA   = LSA#{port => Port},
-                           {ok, State#{lsa => LSA, ssa => SSA}}
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -2664,18 +2669,13 @@ api_to_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
                            end
-                   end},
-         #{desc => "monitor tester",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           MRef = erlang:monitor(process, Tester),
-                           {ok, State#{tester_mref => MRef}}
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -2689,7 +2689,7 @@ api_to_receive_tcp(InitState) ->
                            ok = ev_await_continue(Tester, tester, connect)
                    end},
          #{desc => "connect",
-           cmd  => fun(#{sock := Sock, ssa := SSA}) ->
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
                            sock_connect(Sock, SSA),
                            ok
                    end},
@@ -2721,14 +2721,14 @@ api_to_receive_tcp(InitState) ->
         [
          %% *** Init part ***
          #{desc => "monitor server",
-           cmd  => fun(#{server := Server} = State) ->
-                           MRef = erlang:monitor(process, Server),
-                           {ok, State#{server_mref => MRef}}
+           cmd  => fun(#{server := Server} = _State) ->
+                           _MRef = erlang:monitor(process, Server),
+                           ok
                    end},
          #{desc => "monitor client",
-           cmd  => fun(#{client := Client} = State) ->
-                           MRef = erlang:monitor(process, Client),
-                           {ok, State#{client_mref => MRef}}
+           cmd  => fun(#{client := Client} = _State) ->
+                           _MRef = erlang:monitor(process, Client),
+                           ok
                    end},
 
          %% *** Activate server ***
@@ -2780,8 +2780,7 @@ api_to_receive_tcp(InitState) ->
            cmd  => fun(#{client := Client} = State) ->
                            ev_await_termination(Client),
                            State1 = maps:remove(client, State),
-                           State2 = maps:remove(client_mref, State1),
-                           {ok, State2}
+                           {ok, State1}
                    end},
          #{desc => "order server to terminate",
            cmd  => fun(#{server := Server} = _State) ->
@@ -2792,9 +2791,8 @@ api_to_receive_tcp(InitState) ->
            cmd  => fun(#{server := Server} = State) ->
                            ev_await_termination(Server),
                            State1 = maps:remove(server, State),
-                           State2 = maps:remove(server_mref, State1),
-                           State3 = maps:remove(server_port, State2),
-                           {ok, State3}
+                           State2 = maps:remove(server_port, State1),
+                           {ok, State2}
                    end},
 
          %% *** We are done ***
@@ -2807,18 +2805,15 @@ api_to_receive_tcp(InitState) ->
     
     i("start server evaluator"),
     ServerInitState = InitState,
-    #ev{pid = SPid} = Server = evaluator_start("server", 
-                                               ServerSeq, 
-                                               ServerInitState),
+    Server = evaluator_start("server", ServerSeq, ServerInitState),
 
     i("start client evaluator"),
     ClientInitState = InitState,
-    #ev{pid = CPid} = Client = evaluator_start("client", 
-                                               ClientSeq, 
-                                               ClientInitState),
+    Client = evaluator_start("client", ClientSeq, ClientInitState),
 
     i("start tester evaluator"),
-    TesterInitState = #{server => SPid, client => CPid},
+    TesterInitState = #{server => Server#ev.pid, 
+                        client => Client#ev.pid},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
@@ -3127,10 +3122,8 @@ sc_cpe_socket_cleanup(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
                    end},
 
          %% *** Init part ***
@@ -3150,29 +3143,23 @@ sc_cpe_socket_cleanup(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
-                           Tester ! {ready, self(), Sock},
+                           ev_ready(Tester, init, Sock),
                            ok
                    end},
 
          %% *** The actual test ***
-         %% We intentially leave the socket "as is", no explicit close
+         %% We *intentially* leave the socket "as is", no explicit close
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
-         %% #{desc => "enable (otp) debug",
-         %%   cmd  => fun(#{sock := Sock} = _State) ->
-         %%                   ok = socket:setopt(Sock, otp, debug, true)
-         %%           end},
 
          %% *** We are done ***
          #{desc => "finish",
@@ -3191,24 +3178,18 @@ sc_cpe_socket_cleanup(InitState) ->
                    end},
          #{desc => "order (owner) start",
            cmd  => fun(#{owner := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
          #{desc => "await (owner) ready",
-           cmd  => fun(#{owner := Owner} = State) ->
-                           receive
-                               {'DOWN', _, process, Owner, Reason} ->
-                                   ee("Unexpected DOWN regarding owner ~p: "
-                                      "~n   ~p", [Owner, Reason]),
-                                   {error, {unexpected_exit, owner}};
-                               {ready, Owner, Sock} ->
-                                   {ok, State#{sock => Sock}}
-                           end
+           cmd  => fun(#{owner := Pid} = State) ->
+                           {ok, Sock} = ev_await_ready(Pid, owner, init),
+                           {ok, State#{sock => Sock}}
                    end},
          #{desc => "verify owner as controlling-process",
-           cmd  => fun(#{owner := Owner, sock := Sock} = _State) ->
+           cmd  => fun(#{owner := Pid, sock := Sock} = _State) ->
                            case socket:getopt(Sock, otp, controlling_process) of
-                               {ok, Owner} ->
+                               {ok, Pid} ->
                                    ok;
                                {ok, Other} ->
                                    {error, {unexpected_owner, Other}};
@@ -3218,21 +3199,21 @@ sc_cpe_socket_cleanup(InitState) ->
                    end},
          #{desc => "order (owner) terminate",
            cmd  => fun(#{owner := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await (owner) termination",
-           cmd  => fun(#{owner := Owner} = _State) ->
-                           receive
-                               {'DOWN', _, process, Owner, _} ->
-                                   ok
-                           end
+           cmd  => fun(#{owner := Pid} = _State) ->
+                           ev_await_termination(Pid),
+                           ok
                    end},
+         %% The reason we get closed, is that as long as there is a ref to 
+         %% the resource (socket), then it will not be garbage collected.
          #{desc => "verify no socket (closed)",
-           cmd  => fun(#{owner := Owner, sock := Sock} = _State) ->
+           cmd  => fun(#{owner := Pid, sock := Sock} = _State) ->
                            case socket:getopt(Sock, otp, controlling_process) of
-                               {ok, Pid} ->
-                                   {error, {unexpected_success, Owner, Pid}};
+                               {ok, OtherPid} ->
+                                   {error, {unexpected_success, Pid, OtherPid}};
                                {error, closed} ->
                                    ok;
                                {error, Reason} ->
@@ -3257,6 +3238,7 @@ sc_cpe_socket_cleanup(InitState) ->
 
     i("await evaluator"),
     ok = await_evaluator_finish([Owner, Tester]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
