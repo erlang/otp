@@ -3891,10 +3891,9 @@ sc_lc_receive_response_udp(InitState) ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           ei("Tester: ~p", [Tester]),
+                           {ok, State#{tester => Tester}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -3905,7 +3904,7 @@ sc_lc_receive_response_udp(InitState) ->
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "open socket",
            cmd  => fun(#{domain := Domain} = State) ->
@@ -3914,29 +3913,23 @@ sc_lc_receive_response_udp(InitState) ->
                            {ok, State#{sock => Sock, sa => SA}}
                    end},
          #{desc => "bind socket",
-           cmd  => fun(#{sock := Sock, lsa := LSA}) ->
+           cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
                            sock_bind(Sock, LSA),
                            ok
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, sock := Sock}) ->
-                           Tester ! {ready, self(), Sock},
+                           ev_ready(Tester, init, Sock),
                            ok
                    end},
 
          %% The actual test
-         #{desc => "await continue (receive)",
+         #{desc => "await continue (recv, with timeout)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester, Timeout} ->
-                                   {ok, State#{timeout => Timeout}}
-                           end
+                           {ok, Timeout} = ev_await_continue(Tester, tester, recv),
+                           {ok, State#{timeout => Timeout}}
                    end},
-         #{desc => "receive with timeout",
+         #{desc => "receive, with timeout",
            cmd  => fun(#{sock := Sock, recv := Recv, timeout := Timeout}) ->
                            case Recv(Sock, Timeout) of
                                {error, timeout} ->
@@ -3947,21 +3940,14 @@ sc_lc_receive_response_udp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (timeout)",
+         #{desc => "announce ready (recv, with timeout)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, recv),
                            ok
                    end},
          #{desc => "await continue (close)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ok = ev_await_continue(Tester, tester, close)
                    end},
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = State) ->
@@ -3972,22 +3958,20 @@ sc_lc_receive_response_udp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (closed)",
+         #{desc => "announce ready (close)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, close),
                            ok
                    end},
 
          %% Termination
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, terminate) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
 
@@ -4003,10 +3987,8 @@ sc_lc_receive_response_udp(InitState) ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester, Sock} ->
-                                   {ok, State#{tester => Tester, sock => Sock}}
-                           end
+                           {Tester, Sock} = ev_await_start(),
+                           {ok, State#{tester => Tester, sock => Sock}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -4015,25 +3997,18 @@ sc_lc_receive_response_udp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, init),
                            ok
                    end},
 
          %% The actual test
-         #{desc => "await continue (receive)",
+         #{desc => "await continue (recv)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ok = ev_await_continue(Tester, tester, recv)
+                           
                    end},
          #{desc => "receive",
            cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case Recv(Sock, infinity) of
                                {error, closed} ->
                                    {ok, maps:remove(sock, State)};
@@ -4043,22 +4018,20 @@ sc_lc_receive_response_udp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (closed)",
+         #{desc => "announce ready (recv closed)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, recv_closed),
                            ok
                    end},
 
          %% Termination
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
 
@@ -4097,73 +4070,46 @@ sc_lc_receive_response_udp(InitState) ->
          %% Start the primary server
          #{desc => "order 'primary server' start",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
          #{desc => "await 'primary server' ready (init)",
            cmd  => fun(#{prim_server := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-server ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_server}};
-                               {ready, Pid, Sock} ->
-                                   {ok, State#{sock => Sock}}
-                           end
+                           {ok, Sock} = ev_await_ready(Pid, prim_server, init),
+                           {ok, State#{sock => Sock}}
                    end},
 
          %% Start the secondary server 1
          #{desc => "order 'secondary server 1' start",
            cmd  => fun(#{sec_server1 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary server 1' ready (init)",
            cmd  => fun(#{sec_server1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, sec_server1, init)
                    end},
 
          %% Start the secondary server 2
          #{desc => "order 'secondary server 2' start",
            cmd  => fun(#{sec_server2 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary server 2' ready (init)",
            cmd  => fun(#{sec_server2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server-2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, sec_server2, init)
                    end},
 
          %% Start the secondary server 3
          #{desc => "order 'secondary server 3' start",
            cmd  => fun(#{sec_server3 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary server 3' ready (init)",
            cmd  => fun(#{sec_server3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server-3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, sec_server3, init)
                    end},
 
 
@@ -4174,9 +4120,9 @@ sc_lc_receive_response_udp(InitState) ->
          %% to close the socket, which should cause the all the secondary 
          %% server to return with error-closed.
 
-         #{desc => "order 'secondary server 1' to continue",
+         #{desc => "order 'secondary server 1' to continue (recv)",
            cmd  => fun(#{sec_server1 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, recv),
                            ok
                    end},
          #{desc => "sleep",
@@ -4184,9 +4130,9 @@ sc_lc_receive_response_udp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order 'secondary server 2' to continue",
+         #{desc => "order 'secondary server 2' to continue (recv)",
            cmd  => fun(#{sec_server2 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, recv),
                            ok
                    end},
          #{desc => "sleep",
@@ -4194,9 +4140,9 @@ sc_lc_receive_response_udp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order 'secondary server 3' to continue",
+         #{desc => "order 'secondary server 3' to continue (recv)",
            cmd  => fun(#{sec_server3 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, recv),
                            ok
                    end},
          #{desc => "sleep",
@@ -4204,121 +4150,78 @@ sc_lc_receive_response_udp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order 'primary server' to continue (recvfrom)",
+         #{desc => "order 'primary server' to continue (recv, with timeout)",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           Pid ! {continue, self(), ?SECS(5)},
+                           ev_continue(Pid, recv, ?SECS(5)),
                            ok
                    end},
-         #{desc => "await 'primary server' ready (timeout)",
+         #{desc => "await 'primary server' ready (recv, with timeout)",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-server ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_server}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, prim_server, recv)
                    end},
          #{desc => "order 'primary server' to continue (close)",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           %% Pid ! {continue, self()},
+                           ev_continue(Pid, close),
                            ok
                    end},
-         #{desc => "await 'primary server' ready (closed)",
+         #{desc => "await 'primary server' ready (close)",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-server ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_server}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, prim_server, close)
                    end},
          #{desc => "await 'secondary server 1' ready (closed)",
            cmd  => fun(#{sec_server1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server-1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_server1, recv_closed)
                    end},
          #{desc => "await 'secondary server 2' ready (closed)",
            cmd  => fun(#{sec_server2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server-2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_server2, recv_closed)
                    end},
          #{desc => "await 'secondary server 3' ready (closed)",
            cmd  => fun(#{sec_server3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-server-3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_server3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_server3, recv_closed)
                    end},
-         
 
          %% Terminations
          #{desc => "order 'secondary server 3' to terminate",
            cmd  => fun(#{sec_server3 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary server 3' termination",
            cmd  => fun(#{sec_server3 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_server3, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_server3, State)}
                    end},
          #{desc => "order 'secondary server 2' to terminate",
            cmd  => fun(#{sec_server2 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary server 2' termination",
            cmd  => fun(#{sec_server2 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_server2, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_server2, State)}
                    end},
          #{desc => "order 'secondary server 1' to terminate",
            cmd  => fun(#{sec_server1 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary server 1' termination",
            cmd  => fun(#{sec_server1 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_server1, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_server1, State)}
                    end},
          #{desc => "order 'primary server' to terminate",
            cmd  => fun(#{prim_server := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'primary server' termination",
            cmd  => fun(#{prim_server := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(prim_server, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(prim_server, State)}
                    end},
 
 
