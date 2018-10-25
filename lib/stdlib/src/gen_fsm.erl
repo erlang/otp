@@ -411,7 +411,8 @@ decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTime
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout], Hib);
 	{'EXIT', Parent, Reason} ->
-	    terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug);
+	    terminate(
+              Reason, Name, undefined, Msg, Mod, StateName, StateData, Debug);
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout);
 	_Msg ->
@@ -431,7 +432,7 @@ system_continue(Parent, Debug, [Name, StateName, StateData, Mod, Time, Hibernate
 
 system_terminate(Reason, _Parent, Debug,
 		 [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]) ->
-    terminate(Reason, Name, [], Mod, StateName, StateData, Debug).
+    terminate(Reason, Name, undefined, [], Mod, StateName, StateData, Debug).
 
 system_code_change([Name, StateName, StateData, Mod, Time, HibernateAfterTimeout],
 		   _Module, OldVsn, Extra) ->
@@ -495,9 +496,9 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	    reply(From, Reply),
 	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, []);
 	{stop, Reason, NStateData} ->
-	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, []);
+	    terminate(Reason, Name, From, Msg, Mod, StateName, NStateData, []);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
-	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,
+	    {'EXIT', R} = (catch terminate(Reason, Name, From, Msg, Mod,
 					   StateName, NStateData, [])),
 	    reply(From, Reply),
 	    exit(R);
@@ -510,10 +511,10 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
                            error_logger=>#{tag=>warning_msg}}),
             loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
 	{'EXIT', What} ->
-	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
+	    terminate(What, Name, From, Msg, Mod, StateName, StateData, []);
 	Reply ->
 	    terminate({bad_return_value, Reply},
-		      Name, Msg, Mod, StateName, StateData, [])
+		      Name, From, Msg, Mod, StateName, StateData, [])
     end.
 
 handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout, Debug) ->
@@ -534,17 +535,18 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	    Debug1 = reply(Name, From, Reply, Debug, NStateName),
 	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, Debug1);
 	{stop, Reason, NStateData} ->
-	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, Debug);
+	    terminate(
+              Reason, Name, From, Msg, Mod, StateName, NStateData, Debug);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
-	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,
+	    {'EXIT', R} = (catch terminate(Reason, Name, From, Msg, Mod,
 					   StateName, NStateData, Debug)),
 	    _ = reply(Name, From, Reply, Debug, StateName),
 	    exit(R);
 	{'EXIT', What} ->
-	    terminate(What, Name, Msg, Mod, StateName, StateData, Debug);
+	    terminate(What, Name, From, Msg, Mod, StateName, StateData, Debug);
 	Reply ->
 	    terminate({bad_return_value, Reply},
-		      Name, Msg, Mod, StateName, StateData, Debug)
+		      Name, From, Msg, Mod, StateName, StateData, Debug)
     end.
 
 dispatch({'$gen_event', Event}, Mod, StateName, StateData) ->
@@ -580,15 +582,16 @@ reply(Name, {To, Tag}, Reply, Debug, StateName) ->
 %%% Terminate the server.
 %%% ---------------------------------------------------
 
--spec terminate(term(), _, _, atom(), _, _, _) -> no_return().
+-spec terminate(term(), _, _, _, atom(), _, _, _) -> no_return().
 
-terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
+terminate(Reason, Name, From, Msg, Mod, StateName, StateData, Debug) ->
     case erlang:function_exported(Mod, terminate, 3) of
 	true ->
 	    case catch Mod:terminate(Reason, StateName, StateData) of
 		{'EXIT', R} ->
 		    FmtStateData = format_status(terminate, Mod, get(), StateData),
-		    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
+		    error_info(
+                      R, Name, From, Msg, StateName, FmtStateData, Debug),
 		    exit(R);
 		_ ->
 		    ok
@@ -605,11 +608,12 @@ terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
  	    exit(Shutdown);
 	_ ->
 	    FmtStateData1 = format_status(terminate, Mod, get(), StateData),
-	    error_info(Reason,Name,Msg,StateName,FmtStateData1,Debug),
+	    error_info(
+              Reason, Name, From, Msg, StateName, FmtStateData1, Debug),
 	    exit(Reason)
     end.
 
-error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
+error_info(Reason, Name, From, Msg, StateName, StateData, Debug) ->
     Log = [{Event, State} || {Event, State, _FormFunc} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_fsm,terminate},
                  name=>Name,
@@ -617,11 +621,29 @@ error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
                  state_name=>StateName,
                  state_data=>StateData,
                  log=>Log,
-                 reason=>Reason},
+                 reason=>Reason,
+                 client_info=>client_stacktrace(From)},
                #{domain=>[otp],
                  report_cb=>fun gen_fsm:format_log/1,
                  error_logger=>#{tag=>error}}),
     ok.
+
+client_stacktrace(undefined) ->
+    undefined;
+client_stacktrace({Pid,_Tag}) ->
+    client_stacktrace(Pid);
+client_stacktrace(Pid) when is_pid(Pid), node(Pid) =:= node() ->
+    case process_info(Pid, [current_stacktrace, registered_name]) of
+        undefined ->
+            {Pid,dead};
+        [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
+            {Pid,{Pid,Stacktrace}};
+        [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
+            {Pid,{Name,Stacktrace}}
+    end;
+client_stacktrace(Pid) when is_pid(Pid) ->
+    {Pid,remote}.
+
 
 format_log(#{label:={gen_fsm,terminate},
              name:=Name,
@@ -629,7 +651,8 @@ format_log(#{label:={gen_fsm,terminate},
              state_name:=StateName,
              state_data:=StateData,
              log:=Log,
-             reason:=Reason}) ->
+             reason:=Reason,
+             client_info:=ClientInfo}) ->
     Reason1 = 
 	case Reason of
 	    {undef,[{M,F,A,L}|MFAs]} ->
@@ -647,6 +670,7 @@ format_log(#{label:={gen_fsm,terminate},
 	    _ ->
 		Reason
 	end,
+    {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
     LimitedLog = [error_logger:limit_term(D) || D <- Log],
     {"** State machine ~tp terminating \n" ++
          get_msg_str(Msg) ++
@@ -656,12 +680,13 @@ format_log(#{label:={gen_fsm,terminate},
          case LimitedLog of
              [] -> [];
              _ -> "** Log ==~n** ~tp~n"
-         end,
-     [Name, get_msg(Msg), StateName, StateData, Reason1 |
-      case LimitedLog of
-          [] -> [];
-          _ -> [LimitedLog]
-      end]};
+         end ++ ClientFmt,
+     [Name|get_msg(Msg)] ++
+         [StateName, StateData, Reason1 |
+          case LimitedLog of
+              [] -> [];
+              _ -> [LimitedLog]
+          end] ++ ClientArgs};
 format_log(#{label:={gen_fsm,no_handle_info},
              module:=Mod,
              message:=Msg}) ->
@@ -671,12 +696,12 @@ format_log(#{label:={gen_fsm,no_handle_info},
 
 get_msg_str({'$gen_event', _Event}) ->
     "** Last event in was ~tp~n";
-get_msg_str({'$gen_sync_event', _Event}) ->
-    "** Last sync event in was ~tp~n";
+get_msg_str({'$gen_sync_event', _From, _Event}) ->
+    "** Last sync event in was ~tp from ~p~n";
 get_msg_str({'$gen_all_state_event', _Event}) ->
     "** Last event in was ~tp (for all states)~n";
-get_msg_str({'$gen_sync_all_state_event', _Event}) ->
-    "** Last sync event in was ~tp (for all states)~n";
+get_msg_str({'$gen_sync_all_state_event', _From, _Event}) ->
+    "** Last sync event in was ~tp (for all states) from ~p~n";
 get_msg_str({timeout, _Ref, {'$gen_timer', _Msg}}) ->
     "** Last timer event in was ~tp~n";
 get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) ->
@@ -684,13 +709,24 @@ get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) ->
 get_msg_str(_Msg) ->
     "** Last message in was ~tp~n".
 
-get_msg({'$gen_event', Event}) -> Event;
-get_msg({'$gen_sync_event', Event}) -> Event;
-get_msg({'$gen_all_state_event', Event}) -> Event;
-get_msg({'$gen_sync_all_state_event', Event}) -> Event;
-get_msg({timeout, Ref, {'$gen_timer', Msg}}) -> {timeout, Ref, Msg};
-get_msg({timeout, _Ref, {'$gen_event', Event}}) -> Event;
-get_msg(Msg) -> Msg.
+get_msg({'$gen_event', Event}) -> [Event];
+get_msg({'$gen_sync_event', From, Event}) -> [Event,From];
+get_msg({'$gen_all_state_event', Event}) -> [Event];
+get_msg({'$gen_sync_all_state_event', From, Event}) -> [Event,From];
+get_msg({timeout, Ref, {'$gen_timer', Msg}}) -> [{timeout, Ref, Msg}];
+get_msg({timeout, _Ref, {'$gen_event', Event}}) -> [Event];
+get_msg(Msg) -> [Msg].
+
+format_client_log(undefined) ->
+    {"", []};
+format_client_log({From,dead}) ->
+    {"** Client ~p is dead~n", [From]};
+format_client_log({From,remote}) ->
+    {"** Client ~p is remote on node ~p~n", [From, node(From)]};
+format_client_log({_From,{Name,Stacktrace}}) ->
+    {"** Client ~tp stacktrace~n"
+     "** ~tp~n",
+     [Name, Stacktrace]}.
 
 %%-----------------------------------------------------------------
 %% Status information

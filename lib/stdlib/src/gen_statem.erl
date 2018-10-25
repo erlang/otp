@@ -1937,10 +1937,35 @@ error_info(
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), S),
                  log=>Log,
-                 reason=>{Class,Reason,Stacktrace}},
+                 reason=>{Class,Reason,Stacktrace},
+                 client_info=>client_stacktrace(Q)},
                #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/1,
                  error_logger=>#{tag=>error}}).
+
+client_stacktrace([]) ->
+    undefined;
+client_stacktrace([{{call,{Pid,_Tag}},_Req}|_]) when is_pid(Pid) ->
+    if
+        node(Pid) =:= node() ->
+            case
+                process_info(Pid, [current_stacktrace, registered_name])
+            of
+                undefined ->
+                    {Pid,dead};
+                [{current_stacktrace, Stacktrace},
+                 {registered_name, []}] ->
+                    {Pid,{Pid,Stacktrace}};
+                [{current_stacktrace, Stacktrace},
+                 {registered_name, Name}] ->
+                    {Pid,{Name,Stacktrace}}
+            end;
+        true ->
+            {Pid,remote}
+    end;
+client_stacktrace([_|_]) ->
+    undefined.
+
 
 format_log(#{label:={gen_statem,terminate},
              name:=Name,
@@ -1950,7 +1975,8 @@ format_log(#{label:={gen_statem,terminate},
              state_enter:=StateEnter,
              state:=FmtData,
              log:=Log,
-             reason:={Class,Reason,Stacktrace}}) ->
+             reason:={Class,Reason,Stacktrace},
+             client_info:=ClientInfo}) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1976,8 +2002,9 @@ format_log(#{label:={gen_statem,terminate},
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
-    [LimitedP, LimitedFmtData, LimitedFixedReason | LimitedLog] =
-        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason | Log]],
+    {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
+    [LimitedP,LimitedFmtData,LimitedFixedReason|LimitedLog] =
+        [error_logger:limit_term(D) || D <- [P,FmtData,FixedReason|Log]],
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -2008,7 +2035,7 @@ format_log(#{label:={gen_statem,terminate},
          case LimitedLog of
              [] -> "";
              _ -> "** Log =~n**  ~tp~n"
-         end,
+         end ++ ClientFmt,
      [Name |
       case Q of
           [] -> [];
@@ -2032,7 +2059,19 @@ format_log(#{label:={gen_statem,terminate},
          case LimitedLog of
              [] -> [];
              _ -> [LimitedLog]
-         end}.
+         end ++ ClientArgs}.
+
+format_client_log(undefined) ->
+    {"", []};
+format_client_log({Pid,dead}) ->
+    {"** Client ~p is dead~n", [Pid]};
+format_client_log({Pid,remote}) ->
+    {"** Client ~p is remote on node ~p~n", [Pid, node(Pid)]};
+format_client_log({_Pid,{Name,Stacktrace}}) ->
+    {"** Client ~tp stacktrace~n"
+     "** ~tp~n",
+     [Name, Stacktrace]}.
+
 
 %% Call Module:format_status/2 or return a default value
 format_status(
