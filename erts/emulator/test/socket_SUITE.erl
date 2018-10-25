@@ -5069,10 +5069,8 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -5113,21 +5111,16 @@ sc_lc_acceptor_response_tcp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, sock := Sock} = _State) ->
-                           Tester ! {ready, self(), Sock},
+                           ev_ready(Tester, init, Sock),
                            ok
                    end},
                            
          %% The actual test
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester, Timeout} ->
-                                   {ok, State#{timeout => Timeout}}
-                           end
+                           {ok, Timeout} = 
+                               ev_await_continue(Tester, tester, accept),
+                           {ok, State#{timeout => Timeout}}
                    end},
          #{desc => "await connection",
            cmd  => fun(#{sock := Sock, timeout := Timeout} = _State) ->
@@ -5145,18 +5138,12 @@ sc_lc_acceptor_response_tcp(InitState) ->
          #{desc => "announce ready (accept timeout)",
            cmd  => fun(#{tester := Tester}) ->
                            Tester ! {ready, self()},
+                           ev_ready(Tester, accept_timeout),
                            ok
                    end},
          #{desc => "await continue (close)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ok = ev_await_continue(Tester, tester, close)
                    end},
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = State) ->
@@ -5167,24 +5154,22 @@ sc_lc_acceptor_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (closed)",
+         #{desc => "announce ready (close)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, close),
                            ok
                    end},
 
          % Termination
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
-                   end},
+                    end},
 
          %% *** We are done ***
          #{desc => "finish",
@@ -5198,10 +5183,8 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% *** Init part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester, Sock} ->
-                                   {ok, State#{tester => Tester, sock => Sock}}
-                           end
+                           {Tester, Sock} = ev_await_start(),
+                           {ok, State#{tester => Tester, sock => Sock}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -5210,25 +5193,18 @@ sc_lc_acceptor_response_tcp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, init),
                            ok
                    end},
 
          %% The actual test
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ev_await_continue(Tester, tester, accept),
+                           ok
                    end},
          #{desc => "accept",
            cmd  => fun(#{sock := Sock} = State) ->
-                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case socket:accept(Sock) of
                                {error, closed} ->
                                    {ok, maps:remove(sock, State)};
@@ -5238,22 +5214,20 @@ sc_lc_acceptor_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (closed)",
+         #{desc => "announce ready (accept closed)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, accept_closed),
                            ok
                    end},
 
          %% Termination
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
 
@@ -5291,73 +5265,49 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% Start the primary server
          #{desc => "order 'primary acceptor' start",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
          #{desc => "await 'primary acceptor' ready (init)",
            cmd  => fun(#{prim_acc := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-acc ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_acc}};
-                               {ready, Pid, Sock} ->
-                                   {ok, State#{sock => Sock}}
-                           end
+                           {ok, Sock} = ev_await_ready(Pid, prim_acc, init),
+                           {ok, State#{sock => Sock}}
                    end},
 
          %% Start the secondary acceptor 1
          #{desc => "order 'secondary acceptor 1' start",
            cmd  => fun(#{sec_acc1 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 1' ready (init)",
            cmd  => fun(#{sec_acc1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc1, init),
+                           ok
                    end},
 
          %% Start the secondary acceptor 2
          #{desc => "order 'secondary acceptor 2' start",
            cmd  => fun(#{sec_acc2 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 2' ready (init)",
            cmd  => fun(#{sec_acc2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc2, init),
+                           ok
                    end},
 
          %% Start the secondary acceptor 3
          #{desc => "order 'secondary acceptor 3' start",
            cmd  => fun(#{sec_acc3 := Pid, sock := Sock} = _State) ->
-                           Pid ! {start, self(), Sock},
+                           ev_start(Pid, Sock),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 3' ready (init)",
            cmd  => fun(#{sec_acc3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc3, init),
+                           ok
                    end},
 
 
@@ -5368,9 +5318,9 @@ sc_lc_acceptor_response_tcp(InitState) ->
          %% to close the socket, which should cause the all the secondary 
          %% server to return with error-closed.
 
-         #{desc => "order 'secondary acceptor 1' to continue",
+         #{desc => "order 'secondary acceptor 1' to continue (accept)",
            cmd  => fun(#{sec_acc1 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
          #{desc => "sleep",
@@ -5378,9 +5328,9 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order 'secondary acceptor 2' to continue",
+         #{desc => "order 'secondary acceptor 2' to continue (accept)",
            cmd  => fun(#{sec_acc2 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
          #{desc => "sleep",
@@ -5388,9 +5338,9 @@ sc_lc_acceptor_response_tcp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order 'secondary acceptor 3' to continue",
+         #{desc => "order 'secondary acceptor 3' to continue (accept)",
            cmd  => fun(#{sec_acc3 := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, accept),
                            ok
                    end},
          #{desc => "sleep",
@@ -5400,119 +5350,81 @@ sc_lc_acceptor_response_tcp(InitState) ->
                    end},
          #{desc => "order 'primary acceptor' to continue",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           Pid ! {continue, self(), ?SECS(5)},
+                           ev_continue(Pid, accept, ?SECS(5)),
                            ok
                    end},
-         #{desc => "await 'primary acceptor' ready (timeout)",
+         #{desc => "await 'primary acceptor' ready (accept timeout)",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-acc ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_acc}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, prim_acc, accept_timeout),
+                           ok
                    end},
          #{desc => "order 'primary acceptor' to continue (close)",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, close),
                            ok
                    end},
-         #{desc => "await 'primary acceptor' ready (closed)",
+         #{desc => "await 'primary acceptor' ready (close)",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding prim-acc ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, prim_acc}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, prim_acc, close),
+                           ok
                    end},
-         #{desc => "await 'secondary acceptor 1' ready (closed)",
+         #{desc => "await 'secondary acceptor 1' ready (accept closed)",
            cmd  => fun(#{sec_acc1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc1, accept_closed),
+                           ok
                    end},
-         #{desc => "await 'secondary acceptor 2' ready (closed)",
+         #{desc => "await 'secondary acceptor 2' ready (accept closed)",
            cmd  => fun(#{sec_acc2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc2, accept_closed),
+                           ok
                    end},
-         #{desc => "await 'secondary acceptor 3' ready (closed)",
+         #{desc => "await 'secondary acceptor 3' ready (accept closed)",
            cmd  => fun(#{sec_acc3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding sec-acc-3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, sec_acc3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, sec_acc3, accept_closed),
+                           ok
                    end},
          
 
          %% Terminations
          #{desc => "order 'secondary acceptor 3' to terminate",
            cmd  => fun(#{sec_acc3 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 3' termination",
            cmd  => fun(#{sec_acc3 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_acc3, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_acc3, State)}
                    end},
          #{desc => "order 'secondary acceptor 2' to terminate",
            cmd  => fun(#{sec_acc2 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 2' termination",
            cmd  => fun(#{sec_acc2 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_acc2, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_acc2, State)}
                    end},
          #{desc => "order 'secondary acceptor 1' to terminate",
            cmd  => fun(#{sec_acc1 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'secondary acceptor 1' termination",
            cmd  => fun(#{sec_acc1 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(sec_acc1, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(sec_acc1, State)}
                    end},
          #{desc => "order 'primary acceptor' to terminate",
            cmd  => fun(#{prim_acc := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await 'primary acceptor' termination",
            cmd  => fun(#{prim_acc := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(prim_acc, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(prim_acc, State)}
                    end},
 
 
