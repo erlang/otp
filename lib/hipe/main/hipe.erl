@@ -196,7 +196,7 @@
  	 file/1,
 	 file/2,
 	 get_llvm_version/0,
-	 llvm_support_available/0,
+	 erllvm_is_supported/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
@@ -653,7 +653,7 @@ run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
 				   get(hipe_target_arch)),
 	    Opts =
 	      case proplists:get_bool(to_llvm, Opts0) andalso
-		not llvm_support_available() of
+		not llvm_version_is_OK() of
 		true ->
 		  ?error_msg("No LLVM version 3.9 or greater "
 			     "found in $PATH; aborting "
@@ -1607,9 +1607,15 @@ check_options(Opts) ->
       ok
   end.
 
--spec llvm_support_available() -> boolean().
+-spec erllvm_is_supported() -> boolean().
+erllvm_is_supported() ->
+  %% XXX: The test should really check the _target_ architecture,
+  %%      (hipe_target_arch), but there's no guarantee it's set.
+  Arch = erlang:system_info(hipe_architecture),
+  lists:member(Arch, [amd64, x86]) andalso llvm_version_is_OK().
 
-llvm_support_available() ->
+-spec llvm_version_is_OK() -> boolean().
+llvm_version_is_OK() ->
   get_llvm_version() >= {3,9}.
 
 -type llvm_version() :: {Major :: integer(), Minor :: integer()}.
