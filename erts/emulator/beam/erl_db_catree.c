@@ -703,20 +703,22 @@ void wunlock_base_node(DbTableCATreeNode *base_node)
 
 static ERTS_INLINE
 void wunlock_adapt_base_node(DbTableCATree* tb,
-                             DbTableCATreeNode* base_node,
+                             DbTableCATreeNode* node,
                              DbTableCATreeNode* parent,
                              int current_level)
 {
-    dbg_maybe_force_splitjoin(base_node);
-    if (base_node->u.base.lock_statistics > ERL_DB_CATREE_HIGH_CONTENTION_LIMIT
-        && current_level < ERL_DB_CATREE_MAX_ROUTE_NODE_LAYER_HEIGHT) {
-        split_catree(tb, base_node, parent);
+    dbg_maybe_force_splitjoin(node);
+    if ((!node->u.base.root && parent && !(tb->common.status
+                                           & DB_CATREE_FORCE_SPLIT))
+        || node->u.base.lock_statistics < ERL_DB_CATREE_LOW_CONTENTION_LIMIT) {
+        join_catree(tb, node, parent);
     }
-    else if (base_node->u.base.lock_statistics < ERL_DB_CATREE_LOW_CONTENTION_LIMIT) {
-        join_catree(tb, base_node, parent);
+    else if (node->u.base.lock_statistics > ERL_DB_CATREE_HIGH_CONTENTION_LIMIT
+        && current_level < ERL_DB_CATREE_MAX_ROUTE_NODE_LAYER_HEIGHT) {
+        split_catree(tb, node, parent);
     }
     else {
-        wunlock_base_node(base_node);
+        wunlock_base_node(node);
     }
 }
 

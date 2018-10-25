@@ -7393,13 +7393,14 @@ stimulate_contention(Tid) ->
     RState = unique_rand_start(KeyRange, Seed),
     stim_inserter_loop(T, RState, Num),
     Num = ets:info(T, size),
-    erts_debug:set_internal_state(ets_force_split, {T, false}),
     ets:match_delete(T, {'$1','$1','$1'}),
+    0 = ets:info(T, size),
+    erts_debug:set_internal_state(ets_force_split, {T, false}),
     case ets:info(T,stats) of
         {0, _, _} ->
-            io:format("Houston, we got a testability problem.\n"
-                      "Someone seems to have implemented join-on-delete\n", []),
-            ct:fail("Join on delete?");
+            io:format("No routing nodes in table?\n"
+                      "Debug feature 'ets_force_split' does not seem to work.\n", []),
+            ct:fail("No ets_force_split?");
         Stats ->
             io:format("stimulated ordered_set: ~p\n", [Stats])
     end.
