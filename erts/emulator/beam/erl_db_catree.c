@@ -894,27 +894,21 @@ void destroy_route_key(DbRouteKey* key)
 
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-#  define sizeof_base_node(KEY_SZ) \
-          (offsetof(DbTableCATreeNode, u.base.lc_key.heap) \
-           + (KEY_SZ)*sizeof(Eterm))
 #  define LC_ORDER(ORDER) ORDER
 #else
-#  define sizeof_base_node(KEY_SZ) \
-          offsetof(DbTableCATreeNode, u.base.end_of_struct__)
 #  define LC_ORDER(ORDER) NIL
 #endif
 
+#define sizeof_base_node() \
+          offsetof(DbTableCATreeNode, u.base.end_of_struct__)
+
 static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
-                                           TreeDbTerm* root,
-                                           Eterm lc_key)
+                                           TreeDbTerm* root)
 {
     DbTableCATreeNode *p;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    Eterm lc_key_size = size_object(lc_key);
-#endif
     p = erts_db_alloc(ERTS_ALC_T_DB_TABLE, (DbTable *) tb,
-                      sizeof_base_node(lc_key_size));
+                      sizeof_base_node());
 
     p->is_base_node = 1;
     p->u.base.root = root;
@@ -923,12 +917,9 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
     if (erts_ets_rwmtx_spin_count >= 0)
         rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    lc_key = copy_route_key(&p->u.base.lc_key, lc_key, lc_key_size);
-#endif
     erts_rwmtx_init_opt(&p->u.base.lock, &rwmtx_opt,
                         "erl_db_catree_base_node",
-                        lc_key,
+                        NIL,
                         ERTS_LOCK_FLAGS_CATEGORY_DB);
     p->u.base.lock_statistics = ((tb->common.status & DB_CATREE_FORCE_SPLIT)
                                  ? INT_MAX : 0);
@@ -982,16 +973,13 @@ static void do_free_base_node(void* vptr)
     DbTableCATreeNode *p = (DbTableCATreeNode *)vptr;
     ASSERT(p->is_base_node);
     erts_rwmtx_destroy(&p->u.base.lock);
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    destroy_route_key(&p->u.base.lc_key);
-#endif
     erts_free(ERTS_ALC_T_DB_TABLE, p);
 }
 
 static void free_catree_base_node(DbTableCATree* tb, DbTableCATreeNode* p)
 {
     ASSERT(p->is_base_node);
-    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(p->u.base.lc_key.size), 0);
+    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof_base_node(), 0);
     do_free_base_node(p);
 }
 
@@ -1150,8 +1138,7 @@ static void join_catree(DbTableCATree *tb,
             {
                 TreeDbTerm* new_root = join_trees(thiz->u.base.root,
                                                   neighbor->u.base.root);
-                new_neighbor = create_base_node(tb, new_root,
-                                                LC_ORDER(thiz->u.base.lc_key.term));
+                new_neighbor = create_base_node(tb, new_root);
             }
             if (GET_RIGHT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1203,8 +1190,7 @@ static void join_catree(DbTableCATree *tb,
             {
                 TreeDbTerm* new_root = join_trees(neighbor->u.base.root,
                                                   thiz->u.base.root);
-                new_neighbor = create_base_node(tb, new_root,
-                                                LC_ORDER(thiz->u.base.lc_key.term));
+                new_neighbor = create_base_node(tb, new_root);
             }
             if (GET_LEFT(parent) == neighbor) {
                 neighbor_parent = gparent;
@@ -1234,12 +1220,12 @@ static void join_catree(DbTableCATree *tb,
                           do_free_base_node,
                           thiz,
                           &thiz->u.base.free_item,
-                          sizeof_base_node(thiz->u.base.lc_key.size));
+                          sizeof_base_node());
     erts_schedule_db_free(&tb->common,
                           do_free_base_node,
                           neighbor,
                           &neighbor->u.base.free_item,
-                          sizeof_base_node(neighbor->u.base.lc_key.size));
+                          sizeof_base_node());
 }
 
 static void split_catree(DbTableCATree *tb,
@@ -1263,10 +1249,8 @@ static void split_catree(DbTableCATree *tb,
         split_tree(tb, base->u.base.root, &splitOutWriteBack,
                    &left_tree, &right_tree);
 
-        new_left = create_base_node(tb, left_tree,
-                                    LC_ORDER(GETKEY(tb, left_tree->dbterm.tpl)));
-        new_right = create_base_node(tb, right_tree,
-                                     LC_ORDER(GETKEY(tb, right_tree->dbterm.tpl)));
+        new_left = create_base_node(tb, left_tree);
+        new_right = create_base_node(tb, right_tree);
         new_route = create_route_node(tb,
                                       new_left,
                                       new_right,
@@ -1285,7 +1269,7 @@ static void split_catree(DbTableCATree *tb,
                               do_free_base_node,
                               base,
                               &base->u.base.free_item,
-                              sizeof_base_node(base->u.base.lc_key.size));
+                              sizeof_base_node());
     }
 }
 
@@ -1415,8 +1399,7 @@ int db_create_catree(Process *p, DbTable *tbl)
     DbTableCATree *tb = &tbl->catree;
     DbTableCATreeNode *root;
 
-    root = create_base_node(tb, NULL,
-                            NIL);/* lc_key of first base node does not matter */
+    root = create_base_node(tb, NULL);
     tb->deletion = 0;
     tb->base_nodes_to_free_list = NULL;
     erts_atomic_init_relb(&(tb->root), (erts_aint_t)root);

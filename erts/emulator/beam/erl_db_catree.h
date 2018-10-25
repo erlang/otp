@@ -48,9 +48,6 @@ typedef struct {
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    DbRouteKey lc_key;
-#endif
     char end_of_struct__;
 } DbTableCATreeBaseNode;
 
