@@ -665,7 +665,7 @@ api_b_send_and_recv_tcp(InitState) ->
          %% The actual test
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester}) ->
-                           ok = ev_await_continue(Tester, tester, accept)
+                           ev_await_continue(Tester, tester, accept)
                    end},
          #{desc => "await connection",
            cmd  => fun(#{lsock := LSock} = State) ->
@@ -699,7 +699,7 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "await continue (with send reply)",
            cmd  => fun(#{tester := Tester}) ->
-                           ok = ev_await_continue(Tester, tester, send_reply)
+                           ev_await_continue(Tester, tester, send_reply)
                    end},
          #{desc => "send reply",
            cmd  => fun(#{csock := Sock, send := Send}) ->
@@ -1322,12 +1322,7 @@ api_opt_simple_otp_controlling_process() ->
                    end},
          #{desc => "await continue (owner)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           %% receive
-                           %%     {continue, Tester} ->
-                           %%         ok
-                           %% end
-                           ev_await_continue(Tester, tester, owner),
-                           ok
+                           ev_await_continue(Tester, tester, owner)
                    end},
          #{desc => "verify self as controlling-process",
            cmd  => fun(#{sock := Sock} = _State) ->
@@ -2045,8 +2040,7 @@ api_to_maccept_tcp(InitState) ->
          %% *** The actual test ***
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           ev_await_continue(Tester, tester, accept),
-                           ok
+                           ev_await_continue(Tester, tester, accept)
                    end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
@@ -2124,8 +2118,7 @@ api_to_maccept_tcp(InitState) ->
          %% *** The actual test part ***
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           ev_await_continue(Tester, tester, accept),
-                           ok
+                           ev_await_continue(Tester, tester, accept)
                    end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
@@ -2565,7 +2558,7 @@ api_to_receive_tcp(InitState) ->
          %% *** The actual test ***
          #{desc => "await continue (accept and recv)",
            cmd  => fun(#{tester := Tester}) ->
-                           ok = ev_await_continue(Tester, tester, accept_recv)
+                           ev_await_continue(Tester, tester, accept_recv)
                    end},
          #{desc => "attempt accept",
            cmd  => fun(#{lsock := LSock} = State) ->
@@ -2686,7 +2679,7 @@ api_to_receive_tcp(InitState) ->
          %% *** The actual test ***
          #{desc => "await continue (with connect)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           ok = ev_await_continue(Tester, tester, connect)
+                           ev_await_continue(Tester, tester, connect)
                    end},
          #{desc => "connect",
            cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
@@ -3297,18 +3290,16 @@ sc_lc_recv_response_tcp6(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sc_lc_receive_response_tcp(InitState) ->
-    %% This is the server that accepts connections.
+    %% This (acceptor) is the server that accepts connections.
     %% But it is also suppose to close the connection socket, 
-    %% and trigger the read failure for the handler process.
+    %% and trigger the read failure (=closed) for the handler process.
     AcceptorSeq =
         [
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -3321,7 +3312,7 @@ sc_lc_receive_response_tcp(InitState) ->
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create (listen) socket",
            cmd  => fun(#{domain   := Domain, 
@@ -3335,7 +3326,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
                            case socket:bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -3349,25 +3340,20 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
-                           Tester ! {ready, self(), Port},
+                           ev_ready(Tester, init, Port),
                            ok
                    end},
                            
          %% The actual test
-         #{desc => "await continue (connection)",
+         #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester, {H1, H2, H3}} ->
-                                   {ok, State#{handler1 => H1,
-                                               handler2 => H2,
-                                               handler3 => H3}}
-                           end
+                           {ok, {H1, H2, H3}} = 
+                               ev_await_continue(Tester, tester, accept),
+                           {ok, State#{handler1 => H1,
+                                       handler2 => H2,
+                                       handler3 => H3}}
                    end},
-         #{desc => "await connection",
+         #{desc => "await accept",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
@@ -3377,69 +3363,66 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, accept),
+                           ok
+                   end},
          #{desc => "transfer connection to handler 1",
            cmd  => fun(#{handler1 := Handler, csock := Sock}) ->
-                           %% ok = socket:setopt(Sock, 
-                           %%                    otp, controlling_process, 
-                           %%                    Handler),
-                           Handler ! {connection, Sock},
+                           ev_continue(Handler, transfer, Sock),
                            ok
                    end},
          #{desc => "transfer connection to handler 2",
            cmd  => fun(#{handler2 := Handler, csock := Sock}) ->
-                           %% ok = socket:setopt(Sock, 
-                           %%                    otp, controlling_process, 
-                           %%                    Handler),
-                           Handler ! {connection, Sock},
+                           ev_continue(Handler, transfer, Sock),
                            ok
                    end},
          #{desc => "transfer connection to handler 3",
            cmd  => fun(#{handler3 := Handler, csock := Sock}) ->
-                           %% ok = socket:setopt(Sock, 
-                           %%                    otp, controlling_process, 
-                           %%                    Handler),
-                           Handler ! {connection, Sock},
-                           ok
-                   end},
-         #{desc => "announce ready (connection)",
-           cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_continue(Handler, transfer, Sock),
                            ok
                    end},
          #{desc => "await continue (close)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {continue, Tester} ->
-                                   ok
-                           end
+                           ev_await_continue(Tester, tester, close),
+                           ok
                    end},
          #{desc => "close the connection socket",
-           cmd  => fun(#{csock := Sock}) ->
-                           socket:close(Sock)
-                   end},
-
-         #{desc => "await terminate",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
+           cmd  => fun(#{csock := Sock} = State) ->
+                           case socket:close(Sock) of
+                               ok ->
+                                   {ok, maps:remove(csock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
-         #{desc => "socket cleanup",
+         #{desc => "announce ready (close)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ev_ready(Tester, close),
+                           ok
+                   end},
+
+         %% *** Terminate ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
            cmd  => fun(#{lsock := Sock} = State) ->
-                           ok = socket:close(Sock),
-                           State1 = maps:remove(csock, State),
-                           State2 = maps:remove(lsock, State1),
-                           State3 = maps:remove(lport, State2),
-                           {ok, State3}
+                           case socket:close(Sock) of
+                               ok ->
+                                   State1 = maps:remove(lsock, State),
+                                   State2 = maps:remove(lport, State1),
+                                   {ok, State2};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
                    end},
 
          %% *** We are done ***
@@ -3455,45 +3438,44 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           {Tester, Acceptor} = ev_await_start(),
+                           {ok, State#{tester  => Tester, 
+                                      acceptor => Acceptor}}
                    end},
-         #{desc => "monitor server",
+         #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
                            _MRef = erlang:monitor(process, Tester),
                            ok
                    end},
+         #{desc => "monitor acceptor",
+           cmd  => fun(#{acceptor := Acceptor} = _State) ->
+                           _MRef = erlang:monitor(process, Acceptor),
+                           ok
+                   end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, init),
                            ok
                    end},
 
          %% The actual test
-         #{desc => "await connection socket",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {connection, Sock} ->
-                                   {ok, State#{sock => Sock}}
-                           end
+         #{desc => "await continue (transfer)",
+           cmd  => fun(#{acceptor := Pid} = State) ->
+                           {ok, Sock} = 
+                               ev_await_continue(Pid, acceptor, transfer),
+                           {ok, State#{sock => Sock}}
                    end},
-         #{desc => "announce ready (connection)",
+         #{desc => "announce ready (transfer)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, transfer),
                            ok
                    end},
-         #{desc => "attempt recv",
+         #{desc => "attempt recv (=> closed)",
            cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
                            case Recv(Sock) of
                                {ok, _Data} ->
                                    ee("Unexpected data received"),
-                                   {error, unexpected_data};
+                                   {error, unexpected_success};
                                {error, closed} ->
                                    ei("received expected 'closed' result"),
                                    State1 = maps:remove(sock, State),
@@ -3504,20 +3486,20 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (close)",
+         #{desc => "announce ready (recv closed)",
            cmd  => fun(#{tester := Tester}) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, recv_closed),
                            ok
                    end},
+
+         %% *** Terminate ***
          #{desc => "await terminate",
-           cmd  => fun(#{tester := Tester} = _State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   ok
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
 
@@ -3535,18 +3517,21 @@ sc_lc_receive_response_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           receive
-                               {start, Tester} when is_pid(Tester) ->
-                                   {ok, State#{tester => Tester}}
-                           end
+                           Tester = ev_await_start(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
                    end},
 
-         %% Init
+         %% *** Init part ***
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
-                           {ok, State#{lsa => LSA}}
+                           {ok, State#{local_sa => LSA}}
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain   := Domain, 
@@ -3560,7 +3545,7 @@ sc_lc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind socket to local address",
-           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
                            case socket:bind(Sock, LSA) of
                                {ok, _} ->
                                    ok;
@@ -3568,50 +3553,38 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready",
+         #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, init),
                            ok
                    end},
 
          %% The actual test
-         #{desc => "await continue",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester, Reason}};
-                               {continue, Tester, Port} ->
-                                   {ok, State#{lport => Port}}
-                           end
-                   end},
-         #{desc => "sleep",
-           cmd  => fun(_) ->
-                           ?SLEEP(?SECS(1)),
-                           ok
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester, local_sa := LSA} = State) ->
+                           {ok, Port} = ev_await_continue(Tester, tester, connect),
+                           ServerSA = LSA#{port => Port},
+                           {ok, State#{server_sa => ServerSA}}
                    end},
          #{desc => "connect to server",
-           cmd  => fun(#{sock := Sock, lsa := LSA, lport := LPort}) ->
-                           socket:connect(Sock, LSA#{port => LPort})
+           cmd  => fun(#{sock := Sock, server_sa := ServerSA}) ->
+                           socket:connect(Sock, ServerSA)
                    end},
-         #{desc => "announce ready (connection)",
+         #{desc => "announce ready (connect)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           Tester ! {ready, self()},
+                           ev_ready(Tester, connect),
                            ok
                    end},
 
-         %% Cleaning up
+         %% *** Terminate ***
          #{desc => "await terminate (from tester)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           receive
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ee("Unexpected DOWN regarding tester ~p: "
-                                      "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {terminate, Tester} ->
-                                   {ok, maps:remove(tester, State)}
-                           end
+                           case ev_await_terminate(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end                           
                    end},
          #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = State) ->
@@ -3658,262 +3631,171 @@ sc_lc_receive_response_tcp(InitState) ->
          %% Start the acceptor
          #{desc => "order acceptor start",
            cmd  => fun(#{acceptor := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
          #{desc => "await acceptor ready (init)",
            cmd  => fun(#{acceptor := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding acceptor ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, acceptor}};
-                               {ready, Pid, Port} ->
-                                   {ok, State#{lport => Port}}
-                           end
+                           {ok, Port} = ev_await_ready(Pid, acceptor, init),
+                           {ok, State#{lport => Port}}
                    end},
 
          %% Start the handler(s)
          #{desc => "order handler 1 start",
-           cmd  => fun(#{handler1 := Pid} = _State) ->
-                           Pid ! {start, self()},
+           cmd  => fun(#{acceptor := Acceptor, handler1 := Pid} = _State) ->
+                           ev_start(Pid, Acceptor),
                            ok
                    end},
          #{desc => "await handler 1 ready (init)",
            cmd  => fun(#{handler1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, handler1, init)
                    end},
          #{desc => "order handler 2 start",
-           cmd  => fun(#{handler2 := Pid} = _State) ->
-                           Pid ! {start, self()},
+           cmd  => fun(#{acceptor := Acceptor, handler2 := Pid} = _State) ->
+                           ev_start(Pid, Acceptor),
                            ok
                    end},
          #{desc => "await handler 2 ready (init)",
            cmd  => fun(#{handler2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, handler2, init)
                    end},
          #{desc => "order handler 3 start",
-           cmd  => fun(#{handler3 := Pid} = _State) ->
-                           Pid ! {start, self()},
+           cmd  => fun(#{acceptor := Acceptor, handler3 := Pid} = _State) ->
+                           ev_start(Pid, Acceptor),
                            ok
                    end},
          #{desc => "await handler 3 ready (init)",
            cmd  => fun(#{handler3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, handler3, init)
                    end},
 
          %% Start the client
          #{desc => "order client start",
            cmd  => fun(#{client := Pid} = _State) ->
-                           Pid ! {start, self()},
+                           ev_start(Pid),
                            ok
                    end},
          #{desc => "await client ready (init)",
            cmd  => fun(#{client := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding cient ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, client}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ev_await_ready(Pid, client, init)
                    end},
 
          %% The actual test
-         #{desc => "order acceptor to continue",
+         #{desc => "order acceptor to continue (accept)",
            cmd  => fun(#{acceptor := Pid, 
                          handler1 := H1, 
                          handler2 := H2, 
                          handler3 := H3} = _State) ->
-                           Pid ! {continue, self(), {H1, H2, H3}},
+                           ev_continue(Pid, accept, {H1, H2, H3}),
                            ok
                    end},
-         #{desc => "order client to continue",
+         #{desc => "sleep",
+           cmd  => fun(_) ->
+                           ?SLEEP(?SECS(1)),
+                           ok
+                   end},
+         #{desc => "order client to continue (connect)",
            cmd  => fun(#{client := Pid, lport := Port} = _State) ->
-                           Pid ! {continue, self(), Port},
+                           ev_continue(Pid, connect, Port),
                            ok
                    end},
-         #{desc => "await acceptor ready (connection)",
+         #{desc => "await acceptor ready (accept)",
            cmd  => fun(#{acceptor := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding acceptor ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, acceptor}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, acceptor, accept)
                    end},
-         #{desc => "await client ready (connection)",
+         #{desc => "await client ready (connect)",
            cmd  => fun(#{client := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding client ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, client}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, client, connect)
                    end},
-         #{desc => "await handler 1 ready (connection)",
+         #{desc => "await handler 1 ready (transfer)",
            cmd  => fun(#{handler1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler1, transfer)
                    end},
-         #{desc => "await handler 2 ready (connection)",
+         #{desc => "await handler 2 ready (transfer)",
            cmd  => fun(#{handler2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler2, transfer)
                    end},
-         #{desc => "await handler 3 ready (connection)",
+         #{desc => "await handler 3 ready (transfer)",
            cmd  => fun(#{handler3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 3 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler3}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler3, transfer)
                    end},
          #{desc => "sleep",
            cmd  => fun(_State) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order acceptor to continue (close)",
+         #{desc => "order acceptor to continue (close connection socket)",
            cmd  => fun(#{acceptor := Pid} = _State) ->
-                           Pid ! {continue, self()},
+                           ev_continue(Pid, close),
                            ok
                    end},
-         #{desc => "await handler 1 ready (close)",
+         #{desc => "await acceptor ready (close)",
+           cmd  => fun(#{acceptor := Pid} = _State) ->
+                           ok = ev_await_ready(Pid, acceptor, close)
+                   end},
+         #{desc => "await handler 1 ready (recv closed)",
            cmd  => fun(#{handler1 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 1 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler1}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler1, recv_closed)
                    end},
-         #{desc => "await handler 2 ready (close)",
+         #{desc => "await handler 2 ready (recv closed)",
            cmd  => fun(#{handler2 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler2, recv_closed)
                    end},
-         #{desc => "await handler 3 ready (close)",
+         #{desc => "await handler 3 ready (recv closed)",
            cmd  => fun(#{handler3 := Pid} = _State) ->
-                           receive
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   ee("Unexpected DOWN regarding handler 2 ~p: "
-                                      "~n   ~p", [Pid, Reason]),
-                                   {error, {unexpected_exit, handler2}};
-                               {ready, Pid} ->
-                                   ok
-                           end
+                           ok = ev_await_ready(Pid, handler3, recv_closed)
                    end},
 
          %% Terminations
-         #{desc => "order handler 1 to terminate",
-           cmd  => fun(#{handler1 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
-                           ok
-                   end},
-         #{desc => "await handler 1 termination",
-           cmd  => fun(#{handler1 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(handler1, State)}
-                           end
-                   end},
-         #{desc => "order handler 2 to terminate",
-           cmd  => fun(#{handler2 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
-                           ok
-                   end},
-         #{desc => "await handler 2 termination",
-           cmd  => fun(#{handler2 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(handler2, State)}
-                           end
-                   end},
-         #{desc => "order handler 3 to terminate",
-           cmd  => fun(#{handler3 := Pid} = _State) ->
-                           Pid ! {terminate, self()},
-                           ok
-                   end},
-         #{desc => "await handler 3 termination",
-           cmd  => fun(#{handler3 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(handler3, State)}
-                           end
-                   end},
          #{desc => "order client to terminate",
            cmd  => fun(#{client := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await client termination",
            cmd  => fun(#{client := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(client, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(client, State)}
+                   end},
+         #{desc => "order handler 1 to terminate",
+           cmd  => fun(#{handler1 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
+                   end},
+         #{desc => "await handler 1 termination",
+           cmd  => fun(#{handler1 := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(handler1, State)}
+                   end},
+         #{desc => "order handler 2 to terminate",
+           cmd  => fun(#{handler2 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
+                   end},
+         #{desc => "await handler 2 termination",
+           cmd  => fun(#{handler2 := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(handler2, State)}
+                   end},
+         #{desc => "order handler 3 to terminate",
+           cmd  => fun(#{handler3 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
+                   end},
+         #{desc => "await handler 3 termination",
+           cmd  => fun(#{handler3 := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(handler3, State)}
                    end},
          #{desc => "order acceptor to terminate",
            cmd  => fun(#{acceptor := Pid} = _State) ->
-                           Pid ! {terminate, self()},
+                           ev_terminate(Pid),
                            ok
                    end},
          #{desc => "await acceptor termination",
            cmd  => fun(#{acceptor := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   {ok, maps:remove(acceptor, State)}
-                           end
+                           ev_await_termination(Pid),
+                           {ok, maps:remove(acceptor, State)}
                    end},
 
 
@@ -5978,8 +5860,8 @@ ev_start(Pid, Extra) ->
 ev_continue(Pid, Slogan) ->
     ev_announce(Pid, continue, Slogan).
 
-%% ev_continue(Pid, Slogan, Extra) ->
-%%     ev_announce(Pid, continue, Slogan, Extra).
+ev_continue(Pid, Slogan, Extra) ->
+    ev_announce(Pid, continue, Slogan, Extra).
 
 ev_ready(Pid, Slogan) ->
     ev_announce(Pid, ready, Slogan).
