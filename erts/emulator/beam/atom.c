@@ -174,7 +174,7 @@ atom_alloc(Atom* tmpl)
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by utils.c:erts_cmp_atoms().
+     * This is used by erl_utils.h:erts_cmp_atoms().
      * We cannot use the full 32 bits of the first 4 bytes,
      * since we use the sign of the difference between two
      * ordinal values to represent their relative order.
