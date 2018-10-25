@@ -1996,15 +1996,12 @@ format_log(#{label:={gen_statem,terminate},
 			    true ->
 				{Reason,Stacktrace};
 			    false ->
-				{{'function not exported',{M,F,Arity}},
-				 ST}
+				{{'function not exported',{M,F,Arity}},ST}
 			end
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
     {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
-    [LimitedP,LimitedFmtData,LimitedFixedReason|LimitedLog] =
-        [error_logger:limit_term(D) || D <- [P,FmtData,FixedReason|Log]],
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -2032,33 +2029,33 @@ format_log(#{label:={gen_statem,terminate},
              [] -> "";
              _ -> "** Stacktrace =~n**  ~tp~n"
          end ++
-         case LimitedLog of
+         case Log of
              [] -> "";
              _ -> "** Log =~n**  ~tp~n"
          end ++ ClientFmt,
      [Name |
       case Q of
           [] -> [];
-          [Event|_] -> [Event]
+          [Event|_] -> [error_logger:limit_term(Event)]
       end] ++
-         [LimitedFmtData,
-          Class,LimitedFixedReason,
+         [error_logger:limit_term(FmtData),
+          Class,error_logger:limit_term(FixedReason),
           CBMode] ++
          case Q of
-             [_|[_|_] = Events] -> [Events];
+             [_|[_|_] = Events] -> [error_logger:limit_term(Events)];
              _ -> []
          end ++
          case P of
              [] -> [];
-             _ -> [LimitedP]
+             _ -> [error_logger:limit_term(P)]
          end ++
          case FixedStacktrace of
              [] -> [];
-             _ -> [FixedStacktrace]
+             _ -> [error_logger:limit_term(FixedStacktrace)]
          end ++
-         case LimitedLog of
+         case Log of
              [] -> [];
-             _ -> [LimitedLog]
+             _ -> [[error_logger:limit_term(T) || T <- Log]]
          end ++ ClientArgs}.
 
 format_client_log(undefined) ->
@@ -2070,7 +2067,7 @@ format_client_log({Pid,remote}) ->
 format_client_log({_Pid,{Name,Stacktrace}}) ->
     {"** Client ~tp stacktrace~n"
      "** ~tp~n",
-     [Name, Stacktrace]}.
+     [Name, error_logger:limit_term(Stacktrace)]}.
 
 
 %% Call Module:format_status/2 or return a default value

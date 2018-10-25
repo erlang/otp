@@ -936,11 +936,11 @@ format_log(#{label:={gen_server,terminate},
 			end
 		end;
 	    _ ->
-		error_logger:limit_term(Reason)
+		Reason
 	end,    
     {ClientFmt,ClientArgs} = format_client_log(Client),
-    [LimitedState|LimitedLog] =
-        [error_logger:limit_term(D) || D <- [State|Log]],
+    [LimitedMsg,LimitedState,LimitedReason|LimitedLog] =
+        [error_logger:limit_term(D) || D <- [Msg,State,Reason1|Log]],
     {"** Generic server ~tp terminating \n"
      "** Last message in was ~tp~n"
      "** When Server state == ~tp~n"
@@ -949,7 +949,7 @@ format_log(#{label:={gen_server,terminate},
              [] -> [];
              _ -> "** Log ==~n** ~tp~n"
          end ++ ClientFmt,
-     [Name, Msg, LimitedState, Reason1] ++
+     [Name, LimitedMsg, LimitedState, LimitedReason] ++
          case LimitedLog of
              [] -> [];
              _ -> [LimitedLog]
@@ -959,7 +959,7 @@ format_log(#{label:={gen_server,no_handle_info},
              message:=Msg}) ->
     {"** Undefined handle_info in ~p~n"
      "** Unhandled message: ~tp~n",
-     [Mod, Msg]}.
+     [Mod, error_logger:limit_term(Msg)]}.
 
 format_client_log(undefined) ->
     {"", []};
@@ -970,7 +970,7 @@ format_client_log({From,remote}) ->
 format_client_log({_From,{Name,Stacktrace}}) ->
     {"** Client ~tp stacktrace~n"
      "** ~tp~n",
-     [Name, Stacktrace]}.
+     [Name, error_logger:limit_term(Stacktrace)]}.
 
 %%-----------------------------------------------------------------
 %% Status information

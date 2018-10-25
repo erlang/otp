@@ -671,28 +671,29 @@ format_log(#{label:={gen_fsm,terminate},
 		Reason
 	end,
     {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
-    LimitedLog = [error_logger:limit_term(D) || D <- Log],
     {"** State machine ~tp terminating \n" ++
          get_msg_str(Msg) ++
      "** When State == ~tp~n"
      "**      Data  == ~tp~n"
      "** Reason for termination ==~n** ~tp~n" ++
-         case LimitedLog of
+         case Log of
              [] -> [];
              _ -> "** Log ==~n** ~tp~n"
          end ++ ClientFmt,
-     [Name|get_msg(Msg)] ++
-         [StateName, StateData, Reason1 |
-          case LimitedLog of
+     [Name|error_logger:limit_term(get_msg(Msg))] ++
+         [StateName,
+          error_logger:limit_term(StateData),
+          error_logger:limit_term(Reason1) |
+          case Log of
               [] -> [];
-              _ -> [LimitedLog]
+              _ -> [[error_logger:limit_term(D) || D <- Log]]
           end] ++ ClientArgs};
 format_log(#{label:={gen_fsm,no_handle_info},
              module:=Mod,
              message:=Msg}) ->
     {"** Undefined handle_info in ~p~n"
      "** Unhandled message: ~tp~n",
-     [Mod, Msg]}.
+     [Mod, error_logger:limit_term(Msg)]}.
 
 get_msg_str({'$gen_event', _Event}) ->
     "** Last event in was ~tp~n";
@@ -726,7 +727,7 @@ format_client_log({From,remote}) ->
 format_client_log({_From,{Name,Stacktrace}}) ->
     {"** Client ~tp stacktrace~n"
      "** ~tp~n",
-     [Name, Stacktrace]}.
+     [Name, error_logger:limit_term(Stacktrace)]}.
 
 %%-----------------------------------------------------------------
 %% Status information
