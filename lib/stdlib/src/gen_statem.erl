@@ -827,29 +827,37 @@ format_status(
 sys_debug(Debug, NameState, Entry) ->
   sys:handle_debug(Debug, fun print_event/3, NameState, Entry).
 
-print_event(Dev, {in,Event}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
-      [Name,event_string(Event),State]);
-print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp send ~tp to ~p from state ~tp~n",
-      [Name,Reply,To,State]);
-print_event(Dev, {terminate,Reason}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
-      [Name,Reason,State]);
-print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
-    StateString =
-	case NextState of
-	    State ->
-		io_lib:format("~tp", [State]);
-	    _ ->
-		io_lib:format("~tp => ~tp", [State,NextState])
-	end,
-    io:format(
-      Dev, "*DBG* ~tp ~tw ~ts in state ~ts~n",
-      [Name,Tag,event_string(Event),StateString]).
+print_event(Dev, SystemEvent, {Name,State}) ->
+    case SystemEvent of
+        {in,Event} ->
+            io:format(
+              Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
+              [Name,event_string(Event),State]);
+        {in,Event,code_change} ->
+            io:format(
+              Dev, "*DBG* ~tp receive ~ts after code change in state ~tp~n",
+              [Name,event_string(Event),State]);
+        {out,Reply,{To,_Tag}} ->
+            io:format(
+              Dev, "*DBG* ~tp send ~tp to ~p in state ~tp~n",
+              [Name,Reply,To,State]);
+        {terminate,Reason} ->
+            io:format(
+              Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
+              [Name,Reason,State]);
+        {Tag,Event,NextState}
+          when Tag =:= enter; Tag =:= postpone; Tag =:= consume ->
+            StateString =
+                case NextState of
+                    State ->
+                        io_lib:format("~tp", [State]);
+                    _ ->
+                        io_lib:format("~tp => ~tp", [State,NextState])
+                end,
+            io:format(
+              Dev, "*DBG* ~tp ~tw ~ts in state ~ts~n",
+              [Name,Tag,event_string(Event),StateString])
+    end.
 
 event_string(Event) ->
     case Event of
@@ -996,7 +1004,14 @@ loop_receive_result(Parent, ?not_sys_debug, S, Type, Content) ->
     loop_event(Parent, ?not_sys_debug, S, Events, Type, Content);
 loop_receive_result(
   Parent, Debug, #state{name = Name, state = State} = S, Type, Content) ->
-    NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+    NewDebug =
+        case S#state.callback_mode of
+            undefined ->
+                sys_debug(
+                  Debug, {Name,State}, {in,{Type,Content},code_change});
+            _ ->
+                sys_debug(Debug, {Name,State}, {in,{Type,Content}})
+        end,
     %% Here is the queue of not yet handled events created
     Events = [],
     loop_event(Parent, NewDebug, S, Events, Type, Content).
