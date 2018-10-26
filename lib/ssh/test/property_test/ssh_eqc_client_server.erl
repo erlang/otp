@@ -80,9 +80,8 @@
 
 -define(SUBSYSTEMS, ["echo1", "echo2", "echo3", "echo4"]).
 
--define(SERVER_ADDRESS,   { {127,1,0,choose(1,254)},  % IP
-			    choose(1024,65535)        % Port
-			  }).
+-define(SERVER_ADDRESS,   {127,0,0,1}). % Server listening IP. Darwin, Solaris & FreeBSD
+                                        % dislikes all other in 127.0.0.0/24
 
 -define(SERVER_EXTRA_OPTIONS,  [{parallel_login,bool()}] ).
 		
