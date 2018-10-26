@@ -66,6 +66,7 @@
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
 -export([smp_insert/1, smp_fixed_delete/1, smp_unfix_fix/1, smp_select_delete/1,
+         smp_ordered_iteration/1,
          smp_select_replace/1, otp_8166/1, otp_8732/1, delete_unfix_race/1]).
 -export([throughput_benchmark/0, test_throughput_benchmark/1]).
 -export([exit_large_table_owner/1,
@@ -133,7 +134,8 @@ all() ->
      otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
      otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
      shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
-     smp_fixed_delete, smp_unfix_fix, smp_select_replace, 
+     smp_fixed_delete, smp_unfix_fix, smp_select_replace,
+     smp_ordered_iteration,
      smp_select_delete, otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
      exit_many_many_tables_owner, write_concurrency, heir,
@@ -6040,6 +6042,123 @@ smp_select_replace_do(Opts) ->
     true = ets:delete(T),
     ok.
 
+%% Iterate ordered_set with write_concurrency
+%% and make sure we hit all "stable" long lived keys
+%% while "volatile" objects are randomly inserted and deleted.
+smp_ordered_iteration(Config) when is_list(Config) ->
+    repeat_for_opts(fun smp_ordered_iteration_do/1,
+                    [[cat_ord_set,stim_cat_ord_set]]).
+
+
+smp_ordered_iteration_do(Opts) ->
+    KeyRange = 1000,
+    KeyFun = fun(K, Type) ->
+                         {K div 10, K rem 10, Type}
+             end,
+    StimKeyFun = fun(K) ->
+                         KeyFun(K, element(rand:uniform(3),
+                                           {stable, other, volatile}))
+                 end,
+    T = ets_new(smp_ordered_iteration, [public, {write_concurrency,true} | Opts],
+                KeyRange, StimKeyFun),
+    NStable = KeyRange div 4,
+    prefill_table(T, KeyRange, NStable, fun(K) -> {KeyFun(K, stable), 0} end),
+    NStable = ets:info(T, size),
+    NVolatile = KeyRange div 2,
+    prefill_table(T, KeyRange, NVolatile, fun(K) -> {KeyFun(K, volatile), 0} end),
+
+    InitF = fun (_) -> #{} end,
+    ExecF = fun (Counters) ->
+                    K = rand:uniform(KeyRange),
+                    Key = KeyFun(K, volatile),
+                    Acc = case rand:uniform(22) of
+                              R when R =< 10 ->
+                                  ets:insert(T, {Key}),
+                                  incr_counter(insert, Counters);
+                              R when R =< 15 ->
+                                  ets:delete(T, Key),
+                                  incr_counter(delete, Counters);
+                              R when R =< 19 ->
+                                  %% Delete bound key
+                                  ets:select_delete(T, [{{Key, '_'}, [], [true]}]),
+                                  incr_counter(select_delete_bk, Counters);
+                              R when R =< 20 ->
+                                  %% Delete partially bound key
+                                  ets:select_delete(T, [{{{K div 10, '_', volatile}, '_'}, [], [true]}]),
+                                  incr_counter(select_delete_pbk, Counters);
+                              R when R =< 21 ->
+                                  %% Replace bound key
+                                  ets:select_replace(T, [{{Key, '$1'}, [],
+                                                          [{{{const,Key}, {'+','$1',1}}}]}]),
+                                  incr_counter(select_replace_bk, Counters);
+                              _ ->
+                                  %% Replace partially bound key
+                                  ets:select_replace(T, [{{{K div 10, '_', volatile}, '$1'}, [],
+                                                          [{{{element,1,'$_'}, {'+','$1',1}}}]}]),
+                                  incr_counter(select_replace_pbk, Counters)
+                    end,
+                    receive stop ->
+                            [end_of_work | Acc]
+                    after 0 ->
+                            Acc
+                    end
+            end,
+    FiniF = fun (Acc) -> Acc end,
+    Pids = run_sched_workers(InitF, ExecF, FiniF, infinite),
+    timer:send_after(1000, stop),
+    Rounds = fun Loop(N) ->
+                     NStable = ets:select_count(T, [{{{'_', '_', stable}, '_'}, [], [true]}]),
+                     NStable = count_stable(T, next, ets:first(T), 0),
+                     NStable = count_stable(T, prev, ets:last(T), 0),
+                     NStable = length(ets:select(T, [{{{'_', '_', stable}, '_'}, [], [true]}])),
+                     NStable = length(ets:select_reverse(T, [{{{'_', '_', stable}, '_'}, [], [true]}])),
+                     NStable = ets_select_chunks_count(T, [{{{'_', '_', stable}, '_'}, [], [true]}],
+                                                       rand:uniform(5)),
+                     receive stop -> N
+                     after 0 -> Loop(N+1)
+                     end
+             end (1),
+    [P ! stop || P <- Pids],
+    Results = wait_pids(Pids),
+    io:format("Ops = ~p\n", [maps_sum(Results)]),
+    io:format("Diff = ~p\n", [ets:info(T,size) - NStable - NVolatile]),
+    io:format("Stats = ~p\n", [ets:info(T,stats)]),
+    io:format("Rounds = ~p\n", [Rounds]),
+    true = ets:delete(T),
+    ok.
+
+incr_counter(Name, Counters) ->
+    Counters#{Name => maps:get(Name, Counters, 0) + 1}.
+
+count_stable(T, Next, {_, _, stable}=Key, N) ->
+    count_stable(T, Next, ets:Next(T, Key), N+1);
+count_stable(T, Next, {_, _, volatile}=Key, N) ->
+    count_stable(T, Next, ets:Next(T, Key), N);
+count_stable(_, _, '$end_of_table', N) ->
+    N.
+
+ets_select_chunks_count(T, MS, Chunk) ->
+    ets_select_chunks_count(ets:select(T, MS, Chunk), 0).
+
+ets_select_chunks_count('$end_of_table', N) ->
+    N;
+ets_select_chunks_count({List, Continuation}, N) ->
+    ets_select_chunks_count(ets:select(Continuation),
+                           length(List) + N).
+
+maps_sum([Ma | Tail]) when is_map(Ma) ->
+    maps_sum([lists:sort(maps:to_list(Ma)) | Tail]);
+maps_sum([La, Mb | Tail]) ->
+    Lab = lists:zipwith(fun({K,Va}, {K,Vb}) -> {K,Va+Vb} end,
+                        La,
+                        lists:sort(maps:to_list(Mb))),
+    maps_sum([Lab | Tail]);
+maps_sum([L]) ->
+    L.
+
+
+
+
 %% Test different types.
 types(Config) when is_list(Config) ->
     init_externals(),
@@ -6309,19 +6428,18 @@ do_work(WorksDoneSoFar, Table, ProbHelpTab, Range, Operations) ->
              do_work(WorksDoneSoFar + 1, Table, ProbHelpTab, Range, Operations)
     end.
 
-prefill_table(T, KeyRange, Num) ->
+prefill_table(T, KeyRange, Num, ObjFun) ->
     Seed = rand:uniform(KeyRange),
     %%io:format("prefill_table: Seed = ~p\n", [Seed]),
     RState = unique_rand_start(KeyRange, Seed),
-    prefill_table_loop(T, RState, Num),
-    Num = ets:info(T, size).
+    prefill_table_loop(T, RState, Num, ObjFun).
 
-prefill_table_loop(_, _, 0) ->
+prefill_table_loop(_, _, 0, _) ->
     ok;
-prefill_table_loop(T, RS0, N) ->
+prefill_table_loop(T, RS0, N, ObjFun) ->
     {Key, RS1} = unique_rand_next(RS0),
-    ets:insert(T, {Key}),
-    prefill_table_loop(T, RS1, N-1).
+    ets:insert(T, ObjFun(Key)),
+    prefill_table_loop(T, RS1, N-1, ObjFun).
 
 throughput_benchmark() -> 
     throughput_benchmark(false, not_set, not_set).
@@ -6447,7 +6565,9 @@ throughput_benchmark(TestMode, BenchmarkRunMs, RecoverTimeMs) ->
             Range, Duration, RecoverTime) ->
                 ProbHelpTab = CalculateOpsProbHelpTab(Scenario, 0),
                 Table = ets:new(t, TableConfig),
-                prefill_table(Table, Range, Range div 2),
+                Nobj = Range div 2,
+                prefill_table(Table, Range, Nobj, fun(K) -> {K} end),
+                Nobj = ets:info(Table, size),
                 SafeFixTableIfRequired(Table, Scenario, true),
                 ParentPid = self(),
                 ChildPids =
