@@ -4399,6 +4399,9 @@ sc_rc_recv_response_tcp6(_Config) when is_list(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 sc_rc_receive_response_tcp(InitState) ->
+    %% Each connection are handled by handler processes.
+    %% These are created (on the fly) and handled internally 
+    %% by the server!
     ServerSeq =
         [
          %% *** Init part ***
@@ -4447,21 +4450,57 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok
                    end},
 
-         %% The actual test
-         #{desc => "await continue (accept)",
+         %% The actual test (we expect three connections)
+         #{desc => "await continue (accept all three connections)",
            cmd  => fun(#{tester := Tester} = _State) ->
                            ev_await_continue(Tester, tester, accept)
                    end},
-         #{desc => "accept",
-           cmd  => fun(#{lsock := LSock} = State) ->
+         #{desc => "accept 1",
+           cmd  => fun(#{lsock := LSock, recv := Recv} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-                                   {ok, State#{csock => Sock}};
+                                   ei("accepted: try start handler"),
+                                   {ok, Handler} = sc_rc_tcp_handler_start(1,
+                                                                           Recv,
+                                                                           Sock),
+                                   ei("handler started"),
+                                   {ok, State#{csock1   => Sock,
+                                               handler1 => Handler}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (accept)",
+         #{desc => "accept 2",
+           cmd  => fun(#{lsock := LSock, recv := Recv} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ei("accepted: try start handler"),
+                                   {ok, Handler} = sc_rc_tcp_handler_start(2,
+                                                                           Recv,
+                                                                           Sock),
+                                   ei("handler started"),
+                                   {ok, State#{csock2   => Sock,
+                                               handler2 => Handler}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "accept 3",
+           cmd  => fun(#{lsock := LSock, recv := Recv} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ei("accepted: try start handler"),
+                                   {ok, Handler} = sc_rc_tcp_handler_start(3,
+                                                                           Recv,
+                                                                           Sock),
+                                   ei("handler started"),
+                                   {ok, State#{csock3   => Sock,
+                                               handler3 => Handler}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept all three connections)",
            cmd  => fun(#{tester := Tester}) ->
                            ev_ready(Tester, accept),
                            ok
@@ -4470,18 +4509,55 @@ sc_rc_receive_response_tcp(InitState) ->
            cmd  => fun(#{tester := Tester} = _State) ->
                            ev_await_continue(Tester, tester, recv)
                    end},
-         #{desc => "receive",
-           cmd  => fun(#{csock := Sock, recv := Recv} = State) ->
-                           case Recv(Sock) of
-                               {error, closed} ->
-                                   {ok, maps:remove(csock, State)};
-                               {ok, _} ->
-                                   {error, unexpected_success};
-                               {error, _} = ERROR ->
-                                   ERROR
+         #{desc => "order handler 1 to receive",
+           cmd  => fun(#{handler1 := Pid} = _State) ->
+                           Pid ! {recv, self()},
+                           ok
+                   end},
+         #{desc => "order handler 2 to receive",
+           cmd  => fun(#{handler2 := Pid} = _State) ->
+                           Pid ! {recv, self()},
+                           ok
+                   end},
+         #{desc => "order handler 3 to receive",
+           cmd  => fun(#{handler3 := Pid} = _State) ->
+                           Pid ! {recv, self()},
+                           ok
+                   end},
+         #{desc => "await ready from handler 1 (recv)",
+           cmd  => fun(#{handler1 := Pid} = _State) ->
+                           receive
+                               {ready, Pid, ok} ->
+                                   ok;
+                               {ready, Pid, Result} ->
+                                   Result;
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   {error, {handler1_exit, Reason}}
                            end
                    end},
-         #{desc => "announce ready (recv closed)",
+         #{desc => "await ready from handler 2 (recv)",
+           cmd  => fun(#{handler2 := Pid} = _State) ->
+                           receive
+                               {ready, Pid, ok} ->
+                                   ok;
+                               {ready, Pid, Result} ->
+                                   Result;
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   {error, {handler2_exit, Reason}}
+                           end
+                   end},
+         #{desc => "await ready from handler 3 (recv)",
+           cmd  => fun(#{handler3 := Pid} = _State) ->
+                           receive
+                               {ready, Pid, ok} ->
+                                   ok;
+                               {ready, Pid, Result} ->
+                                   Result;
+                               {'DOWN', _, process, Pid, Reason} ->
+                                   {error, {handler3_exit, Reason}}
+                           end
+                   end},
+         #{desc => "announce ready (recv closed from all handlers)",
            cmd  => fun(#{tester := Tester}) ->
                            ev_ready(Tester, recv_closed),
                            ok
@@ -4495,6 +4571,48 @@ sc_rc_receive_response_tcp(InitState) ->
                                    {ok, maps:remove(tester, State)};
                                {error, _} = ERROR ->
                                    ERROR
+                           end
+                   end},
+         #{desc => "order handler 1 to terminate",
+           cmd  => fun(#{handler1 := Pid} = _State) ->
+                           Pid ! {terminate, self(), ok},
+                           ok
+                   end},
+         #{desc => "await handler 1 termination",
+           cmd  => fun(#{handler1 := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   State1 = maps:remove(csock1,   State),
+                                   State2 = maps:remove(handler1, State1),
+                                   {ok, State2}
+                           end
+                   end},
+         #{desc => "order handler 2 to terminate",
+           cmd  => fun(#{handler2 := Pid} = _State) ->
+                           Pid ! {terminate, self(), ok},
+                           ok
+                   end},
+         #{desc => "await handler 2 termination",
+           cmd  => fun(#{handler2 := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   State1 = maps:remove(csock2,   State),
+                                   State2 = maps:remove(handler2, State1),
+                                   {ok, State2}
+                           end
+                   end},
+         #{desc => "order handler 3 to terminate",
+           cmd  => fun(#{handler3 := Pid} = _State) ->
+                           Pid ! {terminate, self(), ok},
+                           ok
+                   end},
+         #{desc => "await handler 3 termination",
+           cmd  => fun(#{handler3 := Pid} = State) ->
+                           receive
+                               {'DOWN', _, process, Pid, _} ->
+                                   State1 = maps:remove(csock3,   State),
+                                   State2 = maps:remove(handler3, State1),
+                                   {ok, State2}
                            end
                    end},
          #{desc => "close listen socket",
@@ -4664,18 +4782,48 @@ sc_rc_receive_response_tcp(InitState) ->
     TesterSeq =
         [
          %% *** Init part ***
-         #{desc => "create client node",
+         #{desc => "create client node 1",
            cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client) of
+                           case start_node(Host, client_1) of
                                {ok, Node} ->
-                                   ei("client node ~p started", [Node]),
-                                   {ok, State#{client_node => Node}};
+                                   ei("client node (1) ~p started", [Node]),
+                                   {ok, State#{client_node1 => Node}};
                                {error, Reason, _} ->
                                    {error, Reason}
                            end
                    end},
-         #{desc => "monitor client node",
-           cmd  => fun(#{client_node := Node} = _State) ->
+         #{desc => "monitor client node 1",
+           cmd  => fun(#{client_node1 := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "create client node 2",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client_2) of
+                               {ok, Node} ->
+                                   ei("client node (2) ~p started", [Node]),
+                                   {ok, State#{client_node2 => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node 2",
+           cmd  => fun(#{client_node2 := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "create client node 3",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client_3) of
+                               {ok, Node} ->
+                                   ei("client node (3) ~p started", [Node]),
+                                   {ok, State#{client_node3 => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node 3",
+           cmd  => fun(#{client_node3 := Node} = _State) ->
                            true = erlang:monitor_node(Node, true),
                            ok
                    end},
@@ -4684,8 +4832,18 @@ sc_rc_receive_response_tcp(InitState) ->
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
-         #{desc => "monitor client",
-           cmd  => fun(#{client := Pid} = _State) ->
+         #{desc => "monitor client 1",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client 2",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client 3",
+           cmd  => fun(#{client3 := Pid} = _State) ->
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
@@ -4702,16 +4860,38 @@ sc_rc_receive_response_tcp(InitState) ->
                            {ok, State#{server_sa => ServerSA}}
                    end},
 
-         %% Start the client
-         #{desc => "order client start",
-           cmd  => fun(#{client      := Pid, 
-                         client_node := Node,
-                         server_sa   := ServerSA} = _State) ->
+         %% Start the client(s)
+         #{desc => "order client 1 start",
+           cmd  => fun(#{client1      := Pid, 
+                         client_node1 := Node,
+                         server_sa    := ServerSA} = _State) ->
                            ev_start(Pid, {Node, ServerSA}),
                            ok
                    end},
-         #{desc => "await client ready (init)",
-           cmd  => fun(#{client := Pid} = _State) ->
+         #{desc => "await client 1 ready (init)",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ok = ev_await_ready(Pid, client, init)
+                   end},
+         #{desc => "order client 2 start",
+           cmd  => fun(#{client2      := Pid, 
+                         client_node2 := Node,
+                         server_sa    := ServerSA} = _State) ->
+                           ev_start(Pid, {Node, ServerSA}),
+                           ok
+                   end},
+         #{desc => "await client 2 ready (init)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ok = ev_await_ready(Pid, client, init)
+                   end},
+         #{desc => "order client 3 start",
+           cmd  => fun(#{client3      := Pid, 
+                         client_node3 := Node,
+                         server_sa    := ServerSA} = _State) ->
+                           ev_start(Pid, {Node, ServerSA}),
+                           ok
+                   end},
+         #{desc => "await client 3 ready (init)",
+           cmd  => fun(#{client3 := Pid} = _State) ->
                            ok = ev_await_ready(Pid, client, init)
                    end},
 
@@ -4726,26 +4906,66 @@ sc_rc_receive_response_tcp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order client continue (connect)",
-           cmd  => fun(#{client := Pid} = _State) ->
+         #{desc => "order client 1 continue (connect)",
+           cmd  => fun(#{client1 := Pid} = _State) ->
                            ev_continue(Pid, connect),
                            ok
                    end},
-         #{desc => "await server ready (accept)",
-           cmd  => fun(#{server := Server,
-                         client := Client} = _State) ->
+         #{desc => "await client 1 ready (connect)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client1, client1, connect, 
+                                          [{server,  Server},
+                                           {client2, Client2},
+                                           {client3, Client3}]),
+                           ok
+                   end},
+         #{desc => "order client 2 continue (connect)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ev_continue(Pid, connect),
+                           ok
+                   end},
+         #{desc => "await client 2 ready (connect)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client2, client2, connect, 
+                                          [{server,  Server},
+                                           {client1, Client1},
+                                           {client3, Client3}]),
+                           ok
+                   end},
+         #{desc => "order client 3 continue (connect)",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ev_continue(Pid, connect),
+                           ok
+                   end},
+         #{desc => "await client 3 ready (connect)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client3, client3, connect, 
+                                          [{server,  Server},
+                                           {client1, Client1},
+                                           {client2, Client2}]),
+                           ok
+                   end},
+         #{desc => "await server ready (accept from all connections)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
                            ev_await_ready(Server, server, accept,
-                                          [{client, Client}]),
+                                          [{client1, Client1},
+                                           {client2, Client2},
+                                           {client3, Client3}]),
                            ok
                    end},
-         #{desc => "await client ready (connect)",
-           cmd  => fun(#{server := Server,
-                         client := Client} = _State) ->
-                           ev_await_ready(Client, client, connect, 
-                                          [{server, Server}]),
-                           ok
-                   end},
-         #{desc => "order server continue (recv)",
+         #{desc => "order server continue (recv for all connections)",
            cmd  => fun(#{server := Pid} = _State) ->
                            ev_continue(Pid, recv),
                            ok
@@ -4755,36 +4975,98 @@ sc_rc_receive_response_tcp(InitState) ->
                            ?SLEEP(?SECS(1)),
                            ok
                    end},
-         #{desc => "order client continue (close)",
-           cmd  => fun(#{client := Pid} = _State) ->
+         #{desc => "order client 1 continue (close)",
+           cmd  => fun(#{client1 := Pid} = _State) ->
                            ev_continue(Pid, close),
                            ok
                    end},
-         #{desc => "await client ready (close)",
-           cmd  => fun(#{server := Server,
-                         client := Client} = _State) ->
-                           ev_await_ready(Client, client, close, 
-                                          [{server, Server}]),
+         #{desc => "await client 1 ready (close)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client1, client1, close, 
+                                          [{server,  Server},
+                                           {client2, Client2},
+                                           {client3, Client3}]),
                            ok
                    end},
-         #{desc => "await server ready (closed)",
-           cmd  => fun(#{server := Server,
-                         client := Client} = _State) ->
+         #{desc => "order client 2 continue (close)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ev_continue(Pid, close),
+                           ok
+                   end},
+         #{desc => "await client 2 ready (close)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client2, client2, close, 
+                                          [{server,  Server},
+                                           {client1, Client1},
+                                           {client3, Client3}]),
+                           ok
+                   end},
+         #{desc => "order client 3 continue (close)",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ev_continue(Pid, close),
+                           ok
+                   end},
+         #{desc => "await client 3 ready (close)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
+                           ev_await_ready(Client3, client1, close, 
+                                          [{server,  Server},
+                                           {client1, Client1},
+                                           {client2, Client2}]),
+                           ok
+                   end},
+         #{desc => "await server ready (close for all connections)",
+           cmd  => fun(#{server  := Server,
+                         client1 := Client1,
+                         client2 := Client2,
+                         client3 := Client3} = _State) ->
                            ev_await_ready(Server, server, recv_closed,
-                                          [{client, Client}]),
+                                          [{client1, Client1},
+                                           {client2, Client2},
+                                           {client3, Client3}]),
                            ok
                    end},
 
          %% Terminations
-         #{desc => "order client to terminate",
-           cmd  => fun(#{client := Pid} = _State) ->
+         #{desc => "order client 1 to terminate",
+           cmd  => fun(#{client1 := Pid} = _State) ->
                            ev_terminate(Pid),
                            ok
                    end},
-         #{desc => "await client termination",
-           cmd  => fun(#{client := Pid} = State) ->
+         #{desc => "await client 1 termination",
+           cmd  => fun(#{client1 := Pid} = State) ->
                            ev_await_termination(Pid),
-                           State1 = maps:remove(client, State),
+                           State1 = maps:remove(client1, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order client 2 to terminate",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
+                   end},
+         #{desc => "await client 2 termination",
+           cmd  => fun(#{client2 := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           State1 = maps:remove(client2, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order client 3 to terminate",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ev_terminate(Pid),
+                           ok
+                   end},
+         #{desc => "await client 3 termination",
+           cmd  => fun(#{client3 := Pid} = State) ->
+                           ev_await_termination(Pid),
+                           State1 = maps:remove(client3, State),
                            {ok, State1}
                    end},
          #{desc => "order server to terminate",
@@ -4798,15 +5080,37 @@ sc_rc_receive_response_tcp(InitState) ->
                            State1 = maps:remove(server, State),
                            {ok, State1}
                    end},
-         #{desc => "stop client node",
-           cmd  => fun(#{client_node := Node} = _State) ->
+         #{desc => "stop client node 1",
+           cmd  => fun(#{client_node1 := Node} = _State) ->
                            stop_node(Node)
                    end},
-         #{desc => "await client node termination",
-           cmd  => fun(#{client_node := Node} = State) ->
+         #{desc => "await client node 1 termination",
+           cmd  => fun(#{client_node1 := Node} = State) ->
                            receive
                                {nodedown, Node} ->
-                                   {ok, maps:remove(client_node, State)}
+                                   {ok, maps:remove(client_node1, State)}
+                           end
+                   end},
+         #{desc => "stop client node 2",
+           cmd  => fun(#{client_node2 := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node 2 termination",
+           cmd  => fun(#{client_node2 := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(client_node2, State)}
+                           end
+                   end},
+         #{desc => "stop client node 3",
+           cmd  => fun(#{client_node3 := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node 3 termination",
+           cmd  => fun(#{client_node3 := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(client_node3, State)}
                            end
                    end},
 
@@ -4821,32 +5125,38 @@ sc_rc_receive_response_tcp(InitState) ->
     ServerInitState = InitState,
     Server = evaluator_start("server", ServerSeq, ServerInitState),
 
-    i("start client evaluator"),
+    i("start client evaluator(s)"),
     ClientInitState = InitState,
-    Client = evaluator_start("client", ClientSeq, ClientInitState),
+    Client1 = evaluator_start("client-1", ClientSeq, ClientInitState),
+    Client2 = evaluator_start("client-2", ClientSeq, ClientInitState),
+    Client3 = evaluator_start("client-3", ClientSeq, ClientInitState),
 
     i("start 'tester' evaluator"),
-    TesterInitState = #{host   => local_host(),
-                        server => Server#ev.pid,
-                        client => Client#ev.pid},
+    TesterInitState = #{host    => local_host(),
+                        server  => Server#ev.pid,
+                        client1 => Client1#ev.pid,
+                        client2 => Client2#ev.pid,
+                        client3 => Client3#ev.pid},
     Tester = evaluator_start("tester", TesterSeq, TesterInitState),
 
     i("await evaluator"),
-    ok = await_evaluator_finish([Server, Client, Tester]).
+    ok = await_evaluator_finish([Server,
+                                 Client1, Client2, Client3,
+                                 Tester]).
 
 
 start_node(Host, NodeName) ->
-    case do_start_node(Host, NodeName) of
+    UniqueNodeName = f("~w_~w", [NodeName, erlang:unique_integer([positive])]),
+    case do_start_node(Host, UniqueNodeName) of
         {ok, _} = OK ->
             OK;
-        {error, already_started, Node} ->
-            stop_node(Node), % We don't know in what state it is, so kill i t
-            do_start_node(Host, NodeName);
-        ERROR ->
-            ERROR
+        {error, Reason, _} ->
+            {error, Reason}
     end.
 
-do_start_node(Host, NodeName) ->
+do_start_node(Host, NodeName) when is_list(NodeName) ->
+    do_start_node(Host, list_to_atom(NodeName));
+do_start_node(Host, NodeName) when is_atom(NodeName) ->
     Dir   = filename:dirname(code:which(?MODULE)),
     Flags = "-pa " ++ Dir,
     Opts  = [{monitor_master, true}, {erl_flags, Flags}],
@@ -4870,7 +5180,6 @@ local_host() ->
             erlang:raise(C, E, S)
     end.
 
-    
 sc_rc_tcp_client_start(Node) ->
     Self = self(),
     GL   = group_leader(),
@@ -4968,6 +5277,83 @@ sc_rc_tcp_client_await_terminate(Parent) ->
             Reason;
         {'DOWN', _, process, Parent, _Reason} ->
             init:stop()
+    end.
+
+
+%% The handlers run on the same node as the server (the local node).
+
+sc_rc_tcp_handler_start(ID, Recv, Sock) ->
+    Self     = self(),
+    Fun      = fun() -> sc_rc_tcp_handler(ID, Self, Recv, Sock) end,
+    {Pid, _} = erlang:spawn_monitor(Fun),
+    receive
+        {started, Pid} ->
+            {ok, Pid};
+        {'DOWN', _, process, Pid, Reason} ->
+            {error, Reason}
+    end.
+
+sc_rc_tcp_handler(ID, Parent, Recv, Sock) ->
+    sc_rc_tcp_handler_init(ID, Parent),
+    sc_rc_tcp_handler_await_recv(Parent),
+    RecvRes = sc_rc_tcp_handler_recv(Recv, Sock),
+    sc_rc_tcp_handler_announce_ready(Parent, RecvRes),
+    Reason = sc_rc_tcp_handler_await_terminate(Parent),
+    exit(Reason).
+
+sc_rc_tcp_handler_init(ID, Parent) ->
+    put(sname, f("handler-~w", [ID])),
+    _MRef = erlang:monitor(process, Parent),
+    Parent ! {started, self()},
+    ei("started"),
+    ok.
+
+sc_rc_tcp_handler_await_recv(Parent) ->
+    ei("await recv"),
+    receive
+        {recv, Parent} ->
+            ok;
+        {'DOWN', _, process, Parent, Reason} ->
+            ee("received DOWN regarding parent: "
+               "~n   ~p", [Reason]),
+            exit({parent, Reason})
+    end.
+
+sc_rc_tcp_handler_recv(Recv, Sock) ->
+    ei("recv"),
+    try Recv(Sock) of
+        {error, closed} ->
+            ok;
+        {ok, _} ->
+            ei("unexpected success"),
+            {error, unexpected_success};
+        {error, Reason} = ERROR ->
+            ei("receive error: "
+               "~n   ~p", [Reason]),
+            ERROR
+    catch
+        C:E:S ->
+            ei("receive failure: "
+               "~n   Class: ~p"
+               "~n   Error: ~p"
+               "~n   Stack: ~p", [C, E, S]),
+            {error, {recv, C, E, S}}
+    end.
+    
+sc_rc_tcp_handler_announce_ready(Parent, Result) ->
+    ei("announce ready"),
+    Parent ! {ready, self(), Result},
+    ok.
+
+sc_rc_tcp_handler_await_terminate(Parent) ->
+    ei("await terminate"),
+    receive
+        {terminate, Parent, Reason} ->
+            Reason;
+        {'DOWN', _, process, Parent, Reason} ->
+            ee("received DOWN regarding parent: "
+               "~n   ~p", [Reason]),
+            {parent, Reason}
     end.
 
 
