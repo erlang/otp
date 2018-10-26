@@ -93,23 +93,26 @@
          %% Tickets
         ]).
 
+
+-include("socket_test_evaluator.hrl").
+
 %% Internal exports
 %% -export([]).
 
--record(ev, {name :: string(),
-             pid  :: pid(),
-             mref :: reference()}).
--type ev() :: #ev{}.
+%% -record(ev, {name :: string(),
+%%              pid  :: pid(),
+%%              mref :: reference()}).
+%% -type ev() :: #ev{}.
 -define(MKEV(N,P,R), #ev{name = N, pid = P, mref = R}).
--type initial_evaluator_state() :: map().
--type evaluator_state() :: term().
--type command_fun() :: 
-        fun((State :: evaluator_state()) -> ok) |
-        fun((State :: evaluator_state()) -> {ok, evaluator_state()}) |
-        fun((State :: evaluator_state()) -> {error, term()}).
+%% -type initial_evaluator_state() :: map().
+%% -type evaluator_state() :: map().
+%% -type command_fun() :: 
+%%         fun((State :: evaluator_state()) -> ok) |
+%%         fun((State :: evaluator_state()) -> {ok, evaluator_state()}) |
+%%         fun((State :: evaluator_state()) -> {error, term()}).
 
--type command() :: #{desc  := string(),
-                     cmd   := command_fun()}.
+%% -type command() :: #{desc  := string(),
+%%                      cmd   := command_fun()}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -125,6 +128,7 @@
 -define(SECS(S), timer:seconds(S)).
 
 -define(TT(T),   ct:timetrap(T)).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -403,12 +407,16 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "validate socket close",
            cmd  => fun({_, ok}) ->
-                           {ok, normal};
+                           ok;
                       ({_, {error, _} = ERROR}) ->
                            ERROR
-                   end}],
-    Evaluator = evaluator_start("tester", Seq, InitState),
-    ok = await_evaluator_finish([Evaluator]).
+                   end},
+
+         %% *** We are done ***
+         ?FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
 
 
 
@@ -543,12 +551,14 @@ api_b_send_and_recv_udp(InitState) ->
                    end},
          #{desc => "close dst socket",
            cmd  => fun(#{sock_dst := Sock}) ->
-                           ok = socket:close(Sock),
-                           {ok, normal}
-                   end}
+                           ok = socket:close(Sock)
+                   end},
+
+         %% *** We are done ***
+         ?FINISH_NORMAL
         ],
-    Evaluator = evaluator_start("tester", Seq, InitState),
-    ok = await_evaluator_finish([Evaluator]).
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
 
 
 
@@ -618,7 +628,7 @@ api_b_send_and_recv_tcp(InitState) ->
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           Tester = ev_await_start(),
+                           Tester = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester}}
                    end},
          #{desc => "monitor tester",
@@ -658,14 +668,14 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
-                           ev_ready(Tester, init, Port),
+                           ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
                    end},
 
          %% The actual test
          #{desc => "await continue (accept)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_await_continue(Tester, tester, accept)
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
                    end},
          #{desc => "await connection",
            cmd  => fun(#{lsock := LSock} = State) ->
@@ -679,7 +689,7 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (accept)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_ready(Tester, accept),
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
                            ok
                    end},
          #{desc => "await (recv) request",
@@ -693,13 +703,12 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (recv request)",
            cmd  => fun(#{tester := Tester}) ->
-                           %% Tester ! {ready, self(), Port},
-                           ev_ready(Tester, recv_req),
+                           ?SEV_ANNOUNCE_READY(Tester, recv_req),
                            ok
                    end},
          #{desc => "await continue (with send reply)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_await_continue(Tester, tester, send_reply)
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_reply)
                    end},
          #{desc => "send reply",
            cmd  => fun(#{csock := Sock, send := Send}) ->
@@ -707,15 +716,14 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (send reply)",
            cmd  => fun(#{tester := Tester}) ->
-                           %% Tester ! {ready, self(), Port},
-                           ev_ready(Tester, send_reply),
+                           ?SEV_ANNOUNCE_READY(Tester, send_reply),
                            ok
                    end},
 
          %% *** Termination ***
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           case ev_await_terminate(Tester, tester) of
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
                                ok ->
                                    {ok, maps:remove(tester, State)};
                                {error, _} = ERROR ->
@@ -732,10 +740,7 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
 
          %% *** We are done ***
-         #{desc => "finish",
-           cmd  => fun(_) ->
-                           {ok, normal}
-                   end}
+         ?FINISH_NORMAL
         ],
 
     ClientSeq = 
@@ -743,7 +748,7 @@ api_b_send_and_recv_tcp(InitState) ->
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           {Tester, Port} = ev_await_start(),
+                           {Tester, Port} = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester, server_port => Port}}
                    end},
          #{desc => "monitor tester",
@@ -781,14 +786,14 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_ready(Tester, init),
+                           ?SEV_ANNOUNCE_READY(Tester, init),
                            ok
                    end},
 
          %% *** The actual test ***
          #{desc => "await continue (connect)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           ev_await_continue(Tester, tester, connect)
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect)
                    end},
          #{desc => "connect to server",
            cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
@@ -796,12 +801,12 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (connect)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_ready(Tester, connect),
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
                            ok
                    end},
          #{desc => "await continue (send request)",
            cmd  => fun(#{tester := Tester} = _State) ->
-                           ev_await_continue(Tester, tester, send_req)
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_req)
                    end},
          #{desc => "send request (to server)",
            cmd  => fun(#{sock := Sock, send := Send}) ->
@@ -809,7 +814,7 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (send request)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_ready(Tester, send_req),
+                           ?SEV_ANNOUNCE_READY(Tester, send_req),
                            ok
                    end},
          #{desc => "await recv reply (from server)",
@@ -819,14 +824,14 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "announce ready (recv reply)",
            cmd  => fun(#{tester := Tester}) ->
-                           ev_ready(Tester, recv_reply),
+                           ?SEV_ANNOUNCE_READY(Tester, recv_reply),
                            ok
                    end},
 
          %% *** Termination ***
          #{desc => "await terminate",
            cmd  => fun(#{tester := Tester} = State) ->
-                           case ev_await_terminate(Tester, tester) of
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
                                ok ->
                                    {ok, maps:remove(tester, State)};
                                {error, _} = ERROR ->
@@ -839,10 +844,7 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
 
          %% *** We are done ***
-         #{desc => "finish",
-           cmd  => fun(_) ->
-                           {ok, normal}
-                   end}
+         ?FINISH_NORMAL
         ],
 
     TesterSeq =
@@ -862,31 +864,31 @@ api_b_send_and_recv_tcp(InitState) ->
          %% Start the server
          #{desc => "order server start",
            cmd  => fun(#{server := Pid} = _State) ->
-                           ev_start(Pid),
+                           ?SEV_ANNOUNCE_START(Pid),
                            ok
                    end},
          #{desc => "await server ready (init)",
            cmd  => fun(#{server := Pid} = State) ->
-                           {ok, Port} = ev_await_ready(Pid, server, init),
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
                            {ok, State#{server_port => Port}}
                    end},
 
          %% Start the client
          #{desc => "order client start",
            cmd  => fun(#{client := Pid, server_port := Port} = _State) ->
-                           ev_start(Pid, Port),
+                           ?SEV_ANNOUNCE_START(Pid, Port),
                            ok
                    end},
          #{desc => "await client ready (init)",
            cmd  => fun(#{client := Pid} = _State) ->
-                           ev_await_ready(Pid, client, init),
+                           ?SEV_AWAIT_READY(Pid, client, init),
                            ok
                    end},
 
          %% *** The actual test ***
          #{desc => "order server to continue (with accept)",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_continue(Server, accept),
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
                            ok
                    end},
          #{desc => "sleep",
@@ -896,89 +898,86 @@ api_b_send_and_recv_tcp(InitState) ->
                    end},
          #{desc => "order client to continue (with connect)",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_continue(Client, connect),
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
                            ok
                    end},
          #{desc => "await client ready (connect)",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_await_ready(Client, client, connect)
+                           ?SEV_AWAIT_READY(Client, client, connect)
                    end},
          #{desc => "await server ready (accept)",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_await_ready(Server, server, accept)
+                           ?SEV_AWAIT_READY(Server, server, accept)
                    end},
          #{desc => "order client to continue (with send request)",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_continue(Client, send_req),
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_req),
                            ok
                    end},
          #{desc => "await client ready (with send request)",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_await_ready(Client, client, send_req)
+                           ?SEV_AWAIT_READY(Client, client, send_req)
                    end},
          #{desc => "await server ready (request recv)",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_await_ready(Server, server, recv_req)
+                           ?SEV_AWAIT_READY(Server, server, recv_req)
                    end},
          #{desc => "order server to continue (with send reply)",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_continue(Server, send_reply),
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_reply),
                            ok
                    end},
          #{desc => "await server ready (with reply sent)",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_await_ready(Server, server, send_reply)
+                           ?SEV_AWAIT_READY(Server, server, send_reply)
                    end},
          #{desc => "await client ready (reply recv)",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_await_ready(Client, client, recv_reply)
+                           ?SEV_AWAIT_READY(Client, client, recv_reply)
                    end},
 
 
          %% *** Termination ***
          #{desc => "order client to terminate",
            cmd  => fun(#{client := Client} = _State) ->
-                           ev_terminate(Client),
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
                            ok
                    end},
          #{desc => "await client termination",
            cmd  => fun(#{client := Client} = State) ->
-                           ev_await_termination(Client),
+                           ?SEV_AWAIT_TERMINATION(Client),
                            State1 = maps:remove(client, State),
                            {ok, State1}
                    end},
          #{desc => "order server to terminate",
            cmd  => fun(#{server := Server} = _State) ->
-                           ev_terminate(Server),
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
                            ok
                    end},
          #{desc => "await server termination",
            cmd  => fun(#{server := Server} = State) ->
-                           ev_await_termination(Server),
+                           ?SEV_AWAIT_TERMINATION(Server),
                            State1 = maps:remove(server, State),
                            {ok, State1}
                    end},
 
          %% *** We are done ***
-         #{desc => "finish",
-           cmd  => fun(_) ->
-                           {ok, normal}
-                   end}
+         ?FINISH_NORMAL
         ],
 
     i("start server evaluator"),
-    Server = evaluator_start("server", ServerSeq, InitState),
+    Server = ?SEV_START("server", ServerSeq, InitState),
 
     i("start client evaluator"),
-    Client = evaluator_start("client", ClientSeq, InitState),
+    Client = ?SEV_START("client", ClientSeq, InitState),
     i("await evaluator(s)"),
 
     i("start tester evaluator"),
     TesterInitState = #{server => Server#ev.pid,
                         client => Client#ev.pid},
-    Tester = evaluator_start("tester", TesterSeq, TesterInitState),
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
-    ok = await_evaluator_finish([Server, Client, Tester]).
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
 
 
@@ -5891,10 +5890,10 @@ which_addr2(Domain, [_|IFO]) ->
 %% will be used as exit reason.
 %% A successful command shall evaluate to ok | {ok, NewState} 
 
--spec evaluator_start(Name, Seq, Init) -> ev() when
+-spec evaluator_start(Name, Seq, Init) -> socket_test_evaluator:ev() when
       Name :: string(),
-      Seq  :: [command()],
-      Init :: initial_evaluator_state().
+      Seq  :: [socket_test_evaluator:command()],
+      Init :: socket_test_evaluator:initial_evaluator_state().
                              
 evaluator_start(Name, Seq, Init) 
   when is_list(Name) andalso is_list(Seq) andalso (Seq =/= []) ->
