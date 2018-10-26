@@ -1861,18 +1861,24 @@ do_reply_then_terminate(
 do_reply_then_terminate(
   Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
     case R of
-	{reply,{_To,_Tag}=From,Reply} ->
-            reply(From, Reply),
-            NewDebug =
-                ?sys_debug(
-                   Debug,
-                   begin
-                       #state{name = Name, state = State} = S,
-                       {Name,State}
-                   end,
-                   {out,Reply,From}),
-	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
+        {reply,From,Reply} ->
+            case from(From) of
+                true ->
+                    reply(From, Reply),
+                    NewDebug =
+                        ?sys_debug(
+                           Debug,
+                           {S#state.name,S#state.state},
+                           {out,Reply,From}),
+                    do_reply_then_terminate(
+                      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
+                false ->
+                    terminate(
+                      error,
+                      {bad_reply_action_from_state_function,R},
+                      ?STACKTRACE(),
+                      Debug, S, Q)
+            end;
 	_ ->
 	    terminate(
 	      error,
