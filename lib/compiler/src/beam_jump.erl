@@ -411,12 +411,18 @@ opt_useless_loads([{test,_,{f,L},_}=I|Is], L, St) ->
 opt_useless_loads(Is, _L, St) ->
     {Is,St}.
 
-opt_useless_block_loads([{set,[Dst],_,_}=I|Is], L, Index) ->
+opt_useless_block_loads([{set,[Dst],_,Op}=I|Is], L, Index) ->
     BlockJump = [{block,Is},{jump,{f,L}}],
     case beam_utils:is_killed(Dst, BlockJump, Index) of
         true ->
             %% The register is killed and not used, we can remove the load
-            opt_useless_block_loads(Is, L, Index);
+           case Op of
+               {put_tuple, Arity} ->
+                   Is1 = opt_discard_puts(Is, Arity);
+               _ ->
+                   Is1 = Is
+           end,
+            opt_useless_block_loads(Is1, L, Index);
         false ->
             [I|opt_useless_block_loads(Is, L, Index)]
     end;
@@ -424,6 +430,11 @@ opt_useless_block_loads([I|Is], L, Index) ->
     [I|opt_useless_block_loads(Is, L, Index)];
 opt_useless_block_loads([], _L, _Index) ->
     [].
+
+opt_discard_puts(Is, 0) ->
+    Is;
+opt_discard_puts([{set,_,_,put}|Is], N) ->
+    opt_discard_puts(Is, N-1).
 
 collect_labels(Is, Label, #st{entry=Entry,replace=Replace} = St) ->
     collect_labels_1(Is, Label, Entry, Replace, St).
