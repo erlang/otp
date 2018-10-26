@@ -75,7 +75,7 @@
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
-	 select_hashsign_algs/3
+	 select_hashsign_algs/3, empty_extensions/2
 	]).
 
 %%====================================================================
@@ -646,7 +646,15 @@ encode_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Ac
     Len = ListLen + 2,
     encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
 				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>);
-encode_extensions([#signature_scheme_list{
+encode_extensions([#signature_algorithms{
+                            signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
+    SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
+		       SignatureScheme <- SignatureSchemes >>,
+    ListLen = byte_size(SignSchemeList),
+    Len = ListLen + 2,
+    encode_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT),
+				 ?UINT16(Len), ?UINT16(ListLen), SignSchemeList/binary, Acc/binary>>);
+encode_extensions([#signature_algorithms_cert{
                             signature_scheme_list = SignatureSchemes} | Rest], Acc) ->
     SignSchemeList = << <<(ssl_cipher:signature_scheme(SignatureScheme)):16 >> ||
 		       SignatureScheme <- SignatureSchemes >>,
@@ -711,7 +719,7 @@ decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
        compression_method = Comp_method,
-       extensions = empty_hello_extensions(Version, server)};
+       extensions = empty_extensions(Version, server_hello)};
 
 decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
@@ -780,7 +788,12 @@ decode_vector(<<?UINT16(Len), Vector:Len/binary>>) ->
 %% Description: Decodes TLS hello extensions
 %%--------------------------------------------------------------------
 decode_hello_extensions(Extensions, Version, Role) ->
-    decode_extensions(Extensions, Version, empty_hello_extensions(Version, Role)).
+    MessageType =
+        case Role of
+            client -> client_hello;
+            server -> server_hello
+        end,
+    decode_extensions(Extensions, Version, empty_extensions(Version, MessageType)).
 
 %%--------------------------------------------------------------------
 -spec decode_extensions(binary(),tuple()) -> map().
@@ -1049,14 +1062,14 @@ maybe_add_tls13_extensions({3,4},
     HelloExtensions#{client_hello_versions => 
                          #client_hello_versions{versions = SupportedVersions},
                      signature_algs_cert =>
-                         signature_scheme_list(SignatureSchemes)};
+                         signature_algs_cert(SignatureSchemes)};
 maybe_add_tls13_extensions(_, HelloExtensions, _) ->
     HelloExtensions.
 
-signature_scheme_list(undefined) ->
+signature_algs_cert(undefined) ->
     undefined;
-signature_scheme_list(SignatureSchemes) ->
-    #signature_scheme_list{signature_scheme_list = SignatureSchemes}.
+signature_algs_cert(SignatureSchemes) ->
+    #signature_algorithms_cert{signature_scheme_list = SignatureSchemes}.
 
 handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                Exts, Version,
@@ -1071,7 +1084,7 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
 						      ClientCipherSuites, Compression,
 						      ConnectionStates0, Renegotiation, SecureRenegotation),
 
-    Empty = empty_hello_extensions(Version, client),
+    Empty = empty_extensions(Version, server_hello),
     ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
                                                                             ConnectionStates, Renegotiation),
                                    ec_point_formats => server_ecc_extension(Version, maps:get(ec_point_formats, Exts, undefined))
@@ -1279,7 +1292,7 @@ get_cert_params(Cert) ->
 
 get_signature_scheme(undefined) ->
     undefined;
-get_signature_scheme(#signature_scheme_list{
+get_signature_scheme(#signature_algorithms_cert{
                         signature_scheme_list = ClientSignatureSchemes}) ->
     ClientSignatureSchemes.
 
@@ -2101,7 +2114,8 @@ decode_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen),
     decode_extensions(Rest, Version, Acc#{srp => #srp{username = SRP}});
 
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
-		       ExtData:Len/binary, Rest/binary>>, Version, Acc) ->
+		       ExtData:Len/binary, Rest/binary>>, Version, Acc)
+  when Version < {3,4} ->
     SignAlgoListLen = Len - 2,
     <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
     HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
@@ -2110,6 +2124,17 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
                                               #hash_sign_algos{hash_sign_algos =
                                                                    HashSignAlgos}});
 
+decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Version, Acc)
+  when Version =:= {3,4} ->
+    SignSchemeListLen = Len - 2,
+    <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
+    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
+			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    decode_extensions(Rest, Version, Acc#{signature_algs =>
+                                              #signature_algorithms{
+                                                 signature_scheme_list = SignSchemes}});
+
 decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, Acc) ->
     SignSchemeListLen = Len - 2,
@@ -2117,7 +2142,7 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
     SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
 			<<?UINT16(SignScheme)>> <= SignSchemeList],
     decode_extensions(Rest, Version, Acc#{signature_algs_cert =>
-                                              #signature_scheme_list{
+                                              #signature_algorithms_cert{
                                                  signature_scheme_list = SignSchemes}});
 
 decode_extensions(<<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len),
@@ -2756,27 +2781,37 @@ cert_curve(Cert, ECCCurve0, CipherSuite) ->
             {ECCCurve0, CipherSuite}
     end.
 
-empty_hello_extensions({3, 4}, server) ->
-    #{server_hello_selected_version => undefined,
+empty_extensions() ->
+     #{}.
+
+empty_extensions({3,4}, client_hello) ->
+    #{
+      sni => undefined,
+      %% max_fragment_length => undefined,
+      %% status_request => undefined,
+      elliptic_curves => undefined,
+      signature_algs => undefined,
+      %% use_srtp => undefined,
+      %% heartbeat => undefined,
+      alpn => undefined,
+      %% signed_cert_timestamp => undefined,
+      %% client_cert_type => undefined,
+      %% server_cert_type => undefined,
+      %% padding => undefined,
       key_share => undefined,
       pre_shared_key => undefined,
-      sni => undefined
+      %% psk_key_exhange_modes => undefined,
+      %% early_data => undefined,
+      %% cookie => undefined,
+      client_hello_versions => undefined,
+      %% cert_authorities => undefined,
+      %% post_handshake_auth => undefined,
+      signature_algs_cert => undefined
      };
-empty_hello_extensions({3, 4}, client) -> 
-    #{client_hello_versions => undefined,
-      signature_algs => undefined,
-      signature_algs_cert => undefined,
-      sni => undefined,
-      alpn => undefined,
-      key_share => undefined,
-      pre_shared_key => undefined
-     };
-empty_hello_extensions({3, 3}, client) -> 
-    Ext = empty_hello_extensions({3,2}, client),
-    Ext#{client_hello_versions => undefined,
-         signature_algs => undefined,
-         signature_algs_cert => undefined};
-empty_hello_extensions(_, client) ->
+empty_extensions({3, 3}, client_hello) ->
+    Ext = empty_extensions({3,2}, client_hello),
+    Ext#{signature_algs => undefined};
+empty_extensions(_, client_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,
       next_protocol_negotiation => undefined,
@@ -2784,11 +2819,13 @@ empty_hello_extensions(_, client) ->
       ec_point_formats => undefined,
       elliptic_curves => undefined,
       sni => undefined};
-empty_hello_extensions(_, server) ->
+empty_extensions({3,4}, server_hello) ->
+    #{server_hello_selected_version => undefined,
+      key_share => undefined,
+      pre_shared_key => undefined
+     };
+empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,
       next_protocol_negotiation => undefined,
-      ec_point_formats => undefined,
-      sni => undefined}.
-empty_extensions() ->
-     #{}.
+      ec_point_formats => undefined}.

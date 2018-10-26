@@ -85,17 +85,14 @@ prop_tls_hs_encode_decode() ->
 	   ).
 
 %%--------------------------------------------------------------------
-%% Message Generators  --------------------------------------------------
+%% Message Generators  -----------------------------------------------
 %%--------------------------------------------------------------------
-
-tls_version() ->
-    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1', ?'SSL_v3']). 
 
 tls_msg(?'TLS_v1.3'= Version) ->
     oneof([client_hello(Version),
            server_hello(Version),
            %%new_session_ticket()
-           #end_of_early_data{},
+          #end_of_early_data{},
            encrypted_extensions(),
            certificate_1_3(),
            %%certificate_request_1_3,
@@ -104,7 +101,8 @@ tls_msg(?'TLS_v1.3'= Version) ->
            key_update()
           ]);
 tls_msg(Version) ->
-    oneof([#hello_request{},
+    oneof([
+           #hello_request{},
            client_hello(Version),
            server_hello(Version),
            certificate(),
@@ -116,6 +114,9 @@ tls_msg(Version) ->
            finished()
           ]).
 
+%%
+%% Shared messages
+%%
 client_hello(?'TLS_v1.3' = Version) ->
     #client_hello{session_id = session_id(),
 		  client_version = ?'TLS_v1.2',
@@ -150,10 +151,6 @@ server_hello(Version) ->
 		  extensions = server_hello_extensions(Version)    
                  }.
 
-encrypted_extensions() ->
-    ?LET(Exts, extensions(?'TLS_v1.3'),
-         #encrypted_extensions{extensions = Exts}).
-        
 certificate() ->
     #certificate{
        asn1_certificates = certificate_chain()
@@ -166,17 +163,35 @@ certificate_1_3() ->
              entries = certificate_entries(Certs, [])  
             }).
 
-key_update() ->
-    #key_update{request_update = request_update()}.
-
 finished() ->
     ?LET(Size, digest_size(),
          #finished{verify_data = crypto:strong_rand_bytes(Size)}).
+
+%%
+%% TLS 1.0-1.2 messages
+%%
+
+
+
+%%
+%% TLS 1.3 messages
+%%
+
+encrypted_extensions() ->
+    ?LET(Exts, extensions(?'TLS_v1.3', encrypted_extensions),
+         #encrypted_extensions{extensions = Exts}).
+
+
+key_update() ->
+    #key_update{request_update = request_update()}.
+
 
 %%--------------------------------------------------------------------
 %% Messge Data Generators  -------------------------------------------
 %%--------------------------------------------------------------------
 
+tls_version() ->
+    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1', ?'SSL_v3']).
 
 cipher_suite(Version) ->
     oneof(cipher_suites(Version)).
@@ -200,52 +215,14 @@ server_random(_) ->
     crypto:strong_rand_bytes(32).
 
 
-client_hello_extensions(?'TLS_v1.3' = Version) ->
-    ?LET({Versions, Ext}, {supported_versions(Version), c_hello_extensions(Version)},
-         maps:merge(Ext, #{client_hello_versions => client_hello_versions(Versions)})
-        );
-client_hello_extensions(?'TLS_v1.2' = Version) ->
-    ?LET({Versions, Exts}, {supported_versions(Version),  c_hello_extensions(Version)}, 
-         maps:merge(Exts, #{client_hello_versions => client_hello_versions(Versions)})
-        );
 client_hello_extensions(Version) ->
-    ?LET(Exts,
-         c_hello_extensions(Version),
-         maps:merge(empty_hello_extensions(Version, client), Exts)).
-
-server_hello_extensions(?'TLS_v1.3' = Version) ->
-    ?LET(Exts,       
-         s_hello_extensions(Version),
-         maps:merge(Exts, #{server_hello_selected_version => server_hello_selected_version(Version)}));
-server_hello_extensions(Version) ->
-    ?LET(Exts,    
-         s_hello_extensions(Version),
-         Exts).
-
-c_hello_extensions(?'TLS_v1.3'= Version) ->
-    ?LET({KeyShare, PreShare}, {key_share_client_hello(),
-                                pre_shared_keyextension()},
-         maps:merge(empty_hello_extensions(Version, client),
-                    #{key_share => KeyShare,
-                      pre_shared_key => PreShare
-                     })
-        );
-c_hello_extensions(Version) ->
-    ?LET(Exts, extensions(Version),
-         maps:merge(empty_hello_extensions(Version, client),
+    ?LET(Exts, extensions(Version, client_hello),
+         maps:merge(ssl_handshake:empty_extensions(Version, client_hello),
                     Exts)).
 
-s_hello_extensions(?'TLS_v1.3'= Version) ->
-    ?LET({KeyShare, PreShare}, {key_share_server_hello(),
-                                pre_shared_keyextension()},
-         maps:merge(empty_hello_extensions(Version, server),
-                    #{key_share => KeyShare,
-                      pre_shared_key => PreShare
-                     })
-        );
-s_hello_extensions(Version) ->
-    ?LET(Exts, extensions(Version),
-         maps:merge(empty_hello_extensions(Version, server),
+server_hello_extensions(Version) ->
+    ?LET(Exts, extensions(Version, server_hello),
+         maps:merge(ssl_handshake:empty_extensions(Version, server_hello),
                     Exts)).
 
 key_share_client_hello() ->
@@ -260,83 +237,260 @@ pre_shared_keyextension() ->
      oneof([undefined]).
      %%oneof([#pre_shared_keyextension{},undefined]).
 
-extensions(?'TLS_v1.3') ->
-    ?LET({Ext_1_3, Exts}, {extensions_1_3(), extensions(?'TLS_v1.2')}, maps:merge(Ext_1_3, Exts));
-extensions(?'SSL_v3') ->
+%% +--------------------------------------------------+-------------+
+%% | Extension                                        |     TLS 1.3 |
+%% +--------------------------------------------------+-------------+
+%% | server_name [RFC6066]                            |      CH, EE |
+%% |                                                  |             |
+%% | max_fragment_length [RFC6066]                    |      CH, EE |
+%% |                                                  |             |
+%% | status_request [RFC6066]                         |  CH, CR, CT |
+%% |                                                  |             |
+%% | supported_groups [RFC7919]                       |      CH, EE |
+%% |                                                  |             |
+%% | signature_algorithms (RFC 8446)                  |      CH, CR |
+%% |                                                  |             |
+%% | use_srtp [RFC5764]                               |      CH, EE |
+%% |                                                  |             |
+%% | heartbeat [RFC6520]                              |      CH, EE |
+%% |                                                  |             |
+%% | application_layer_protocol_negotiation [RFC7301] |      CH, EE |
+%% |                                                  |             |
+%% | signed_certificate_timestamp [RFC6962]           |  CH, CR, CT |
+%% |                                                  |             |
+%% | client_certificate_type [RFC7250]                |      CH, EE |
+%% |                                                  |             |
+%% | server_certificate_type [RFC7250]                |      CH, EE |
+%% |                                                  |             |
+%% | padding [RFC7685]                                |          CH |
+%% |                                                  |             |
+%% | key_share (RFC 8446)                             | CH, SH, HRR |
+%% |                                                  |             |
+%% | pre_shared_key (RFC 8446)                        |      CH, SH |
+%% |                                                  |             |
+%% | psk_key_exchange_modes (RFC 8446)                |          CH |
+%% |                                                  |             |
+%% | early_data (RFC 8446)                            | CH, EE, NST |
+%% |                                                  |             |
+%% | cookie (RFC 8446)                                |     CH, HRR |
+%% |                                                  |             |
+%% | supported_versions (RFC 8446)                    | CH, SH, HRR |
+%% |                                                  |             |
+%% | certificate_authorities (RFC 8446)               |      CH, CR |
+%% |                                                  |             |
+%% | oid_filters (RFC 8446)                           |          CR |
+%% |                                                  |             |
+%% | post_handshake_auth (RFC 8446)                   |          CH |
+%% |                                                  |             |
+%% | signature_algorithms_cert (RFC 8446)             |      CH, CR |
+%% +--------------------------------------------------+-------------+
+extensions(?'TLS_v1.3' = Version, client_hello) ->
+     ?LET({
+           ServerName,
+           %% MaxFragmentLength,
+           %% StatusRequest,
+           SupportedGroups,
+           SignatureAlgorithms,
+           %% UseSrtp,
+           %% Heartbeat,
+           ALPN,
+           %% SignedCertTimestamp,
+           %% ClientCertiticateType,
+           %% ServerCertificateType,
+           %% Padding,
+           %% KeyShare,
+           %% PreSharedKey,
+           %% PSKKeyExchangeModes,
+           %% EarlyData,
+           %% Cookie,
+           SupportedVersions,
+           %% CertAuthorities,
+           %% PostHandshakeAuth,
+           SignatureAlgorithmsCert
+          },
+          {
+           oneof([server_name(), undefined]),
+           %% oneof([max_fragment_length(), undefined]),
+           %% oneof([status_request(), undefined]),
+           oneof([supported_groups(Version), undefined]),
+           oneof([signature_algs(Version), undefined]),
+           %% oneof([use_srtp(), undefined]),
+           %% oneof([heartbeat(), undefined]),
+           oneof([alpn(), undefined]),
+           %% oneof([signed_cert_timestamp(), undefined]),
+           %% oneof([client_cert_type(), undefined]),
+           %% oneof([server_cert_type(), undefined]),
+           %% oneof([padding(), undefined]),
+           %% oneof([key_share(), undefined]),
+           %% oneof([pre_shared_key(), undefined]),
+           %% oneof([psk_key_exchange_modes(), undefined]),
+           %% oneof([early_data(), undefined]),
+           %% oneof([cookie(), undefined]),
+           oneof([client_hello_versions(Version), undefined]),
+           %% oneof([cert_authorities(), undefined]),
+           %% oneof([post_handshake_auth(), undefined]),
+           oneof([signature_algs_cert(), undefined])
+          },
+          maps:filter(fun(_, undefined) ->
+                              false;
+                         (_,_) ->
+                              true
+                      end,
+                      #{
+                        sni => ServerName,
+                        %% max_fragment_length => MaxFragmentLength,
+                        %% status_request => StatusRequest,
+                        elliptic_curves => SupportedGroups,
+                        signature_algs => SignatureAlgorithms,
+                        %% use_srtp => UseSrtp,
+                        %% heartbeat => Heartbeat,
+                        alpn => ALPN,
+                        %% signed_cert_timestamp => SignedCertTimestamp,
+                        %% client_cert_type => ClientCertificateType,
+                        %% server_cert_type => ServerCertificateType,
+                        %% padding => Padding,
+                        %% key_share => KeyShare,
+                        %% pre_shared_key => PreSharedKey,
+                        %% psk_key_exhange_modes => PSKKeyExchangeModes,
+                        %% early_data => EarlyData,
+                        %% cookie => Cookie,
+                        client_hello_versions => SupportedVersions,
+                        %% cert_authorities => CertAuthorities,
+                        %% post_handshake_auth => PostHandshakeAuth,
+                        signature_algs_cert => SignatureAlgorithmsCert
+                       }));
+extensions(?'SSL_v3', client_hello) ->
     #{};
-extensions(Version) ->
-    ?LET({SNI, ECPoitF, ECCurves, ALPN, NextP, SRP}, 
-         {oneof([sni(), undefined]),
-          oneof([ec_poit_formats(), undefined]),
+extensions(Version, client_hello) ->
+    ?LET({
+          SNI,
+          ECPoitF,
+          ECCurves,
+          ALPN,
+          NextP,
+          SRP
+          %% RenegotiationInfo
+         },
+         {
+          oneof([sni(), undefined]),
+          oneof([ec_point_formats(), undefined]),
           oneof([elliptic_curves(Version), undefined]), 
           oneof([alpn(),  undefined]), 
           oneof([next_protocol_negotiation(), undefined]),
-          oneof([srp(), undefined])},  
+          oneof([srp(), undefined])
+          %% oneof([renegotiation_info(), undefined])
+         },
          maps:filter(fun(_, undefined) -> 
                              false;
                         (_,_) -> 
                              true 
                      end, 
-                     #{sni => SNI,
+                     #{
+                       sni => SNI,
                        ec_point_formats => ECPoitF,
                        elliptic_curves => ECCurves,
                        alpn => ALPN,
                        next_protocol_negotiation => NextP,
-                       srp => SRP})).  
+                       srp => SRP
+                       %% renegotiation_info => RenegotiationInfo
+                      }));
+extensions(?'TLS_v1.3' = Version, server_hello) ->
+    ?LET({
+          %% KeyShare,
+          %% PreSharedKeys,
+          SupportedVersions
+         },
+         {
+          %% oneof([key_share(), undefined]),
+          %% oneof([pre_shared_keys(),  undefined]),
+          oneof([server_hello_selected_version(), undefined])
+         },
+         maps:filter(fun(_, undefined) ->
+                             false;
+                        (_,_) ->
+                             true
+                     end,
+                     #{
+                       %% key_share => KeyShare,
+                       %% pre_shared_keys => PreSharedKeys,
+                       server_hello_selected_version => SupportedVersions
+                      }));
+extensions(Version, server_hello) ->
+    ?LET({
+          ECPoitF,
+          ALPN,
+          NextP
+          %% RenegotiationInfo,
+         },
+         {
+          oneof([ec_point_formats(), undefined]),
+          oneof([alpn(),  undefined]),
+          oneof([next_protocol_negotiation(), undefined])
+          %% oneof([renegotiation_info(), undefined]),
+         },
+         maps:filter(fun(_, undefined) ->
+                             false;
+                        (_,_) ->
+                             true
+                     end,
+                     #{
+                       ec_point_formats => ECPoitF,
+                       alpn => ALPN,
+                       next_protocol_negotiation => NextP
+                       %% renegotiation_info => RenegotiationInfo
+                      }));
+extensions(?'TLS_v1.3' = Version, encrypted_extensions) ->
+     ?LET({
+           ServerName,
+           %% MaxFragmentLength,
+           SupportedGroups,
+           %% UseSrtp,
+           %% Heartbeat,
+           ALPN
+           %% ClientCertiticateType,
+           %% ServerCertificateType,
+           %% EarlyData
+          },
+          {
+           oneof([server_name(), undefined]),
+           %% oneof([max_fragment_length(), undefined]),
+           oneof([supported_groups(Version), undefined]),
+           %% oneof([use_srtp(), undefined]),
+           %% oneof([heartbeat(), undefined]),
+           oneof([alpn(), undefined])
+           %% oneof([client_cert_type(), undefined]),
+           %% oneof([server_cert_type(), undefined]),
+           %% oneof([early_data(), undefined])
+          },
+          maps:filter(fun(_, undefined) ->
+                              false;
+                         (_,_) ->
+                              true
+                      end,
+                      #{
+                        sni => ServerName,
+                        %% max_fragment_length => MaxFragmentLength,
+                        elliptic_curves => SupportedGroups,
+                        %% use_srtp => UseSrtp,
+                        %% heartbeat => Heartbeat,
+                        alpn => ALPN
+                        %% client_cert_type => ClientCertificateType,
+                        %% server_cert_type => ServerCertificateType,
+                        %% early_data => EarlyData
+                       })).
 
-extensions_1_3() ->
-    %% ?LET(Entry, key_share_entry(), 
-    %%          maps:filter(fun(_, undefined) -> 
-    %%                              false;
-    %%                         (_,_) -> 
-    %%                              true 
-    %%                      end, #{key_share_entry => Entry})).
-    ?LET({HashSign, SigAlgCert}, {oneof([hash_sign_algos(?'TLS_v1.2')]),  oneof([signature_scheme_list()])},  
-         #{signature_algs => HashSign,
-           signature_algs_cert => SigAlgCert}).      
-
-empty_hello_extensions({3, 4}, server) ->
-    #{server_hello_selected_version => undefined,
-      key_share => undefined,
-      pre_shared_key => undefined,
-      sni => undefined
-     };
-empty_hello_extensions({3, 4}, client) -> 
-    #{client_hello_versions => undefined,
-      signature_algs => undefined,
-      signature_algs_cert => undefined,
-      sni => undefined,
-      alpn => undefined,
-      key_share => undefined,
-      pre_shared_key => undefined      
-     };
-empty_hello_extensions({3, 3}, client) -> 
-    Ext = empty_hello_extensions({3,2}, client),
-    Ext#{client_hello_versions => undefined,
-         signature_algs => undefined,
-         signature_algs_cert => undefined};
-empty_hello_extensions(_, client) ->
-    #{renegotiation_info => undefined,
-      alpn => undefined,
-      next_protocol_negotiation => undefined,
-      srp => undefined,
-      ec_point_formats => undefined,
-      elliptic_curves => undefined,
-      sni => undefined};
-empty_hello_extensions(_, server) ->
-    #{renegotiation_info => undefined,
-      alpn => undefined,
-      next_protocol_negotiation => undefined,
-      ec_point_formats => undefined,
-      sni => undefined}.
+server_name() ->
+  ?LET(ServerName, sni(),
+       ServerName).
+    %% sni().
 
 signature_algs_cert() ->
-    ?LET(Algs, signature_scheme_list(),
-         Algs).
+    ?LET(List,  sig_scheme_list(),
+         #signature_algorithms_cert{signature_scheme_list = List}).
 
-signature_scheme_list() ->
+signature_algorithms() ->
     ?LET(List,  sig_scheme_list(), 
-         #signature_scheme_list{signature_scheme_list = List}).
+         #signature_algorithms{signature_scheme_list = List}).
 
 sig_scheme_list() ->
     oneof([[rsa_pkcs1_sha256],
@@ -357,16 +511,23 @@ sig_scheme_list() ->
             ecdsa_sha1]
           ]).
 
-supported_versions(?'TLS_v1.3') ->
-    oneof([[{3,4}],
-           [{3,3},{3,4}],
-           [{3,4},{3,3},{3,2},{3,1},{3,0}]
-          ]);
-supported_versions(_) ->
-    oneof([[{3,3}],
-           [{3,3},{3,2}],
-           [{3,3},{3,2},{3,1},{3,0}]
-          ]).
+client_hello_versions(?'TLS_v1.3') ->
+    ?LET(SupportedVersions,
+         oneof([[{3,4}],
+                [{3,3},{3,4}],
+                [{3,4},{3,3},{3,2},{3,1},{3,0}]
+               ]),
+        #client_hello_versions{versions = SupportedVersions});
+client_hello_versions(_) ->
+    ?LET(SupportedVersions,
+         oneof([[{3,3}],
+                [{3,3},{3,2}],
+                [{3,3},{3,2},{3,1},{3,0}]
+               ]),
+        #client_hello_versions{versions = SupportedVersions}).
+
+server_hello_selected_version() ->
+    #server_hello_selected_version{selected_version = {3,4}}.
 
 request_update() ->
      oneof([?UPDATE_NOT_REQUESTED, ?UPDATE_REQUESTED]).
@@ -431,13 +592,25 @@ certificate_types(?'TLS_v1.2') ->
 certificate_types(_) ->
     iolist_to_binary([<<?BYTE(?ECDSA_SIGN)>>, <<?BYTE(?RSA_SIGN)>>, <<?BYTE(?DSS_SIGN)>>]).
 
+
+
+signature_algs({3,4}) ->
+    ?LET(Algs, signature_algorithms(),
+         Algs);
+signature_algs({3,3} = Version) ->
+        #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
+signature_algs(Version) when Version < {3,3} ->
+    undefined.
+
+
+
 hashsign_algorithms({_, N} = Version) when N >= 3 ->                                 
     #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)};
 hashsign_algorithms(_) -> 
     undefined.
 
 hash_alg_list(Version) ->
-    ?LET(NumOf, choose(0,15),
+    ?LET(NumOf, choose(1,15),
 	 ?LET(List, [hash_alg(Version) || _ <- lists:seq(1,NumOf)],
 	      lists:usort(List)
              )).
@@ -481,27 +654,27 @@ key_share_entry() ->
     undefined.
     %%#key_share_entry{}.
 
-client_hello_versions(Versions) ->
-    #client_hello_versions{versions = Versions}. 
-
 server_hello_selected_version(Version) ->
     #server_hello_selected_version{selected_version = Version}.
 
 sni() ->
     #sni{hostname = net_adm:localhost()}.
 
-ec_poit_formats() ->
+ec_point_formats() ->
     #ec_point_formats{ec_point_format_list = ec_point_format_list()}.
  
 ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
-elliptic_curves({_, Minor}) ->
+elliptic_curves({_, Minor}) when Minor < 4 ->
     Curves = tls_v1:ecc_curves(Minor),
     #elliptic_curves{elliptic_curve_list = Curves}.
 
-hash_sign_algos(Version) ->
-    #hash_sign_algos{hash_sign_algos = hash_alg_list(Version)}.
+%% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
+supported_groups({_, Minor}) when Minor >= 4 ->
+    SupportedGroups = tls_v1:groups(Minor),
+    #supported_groups{supported_groups = SupportedGroups}.
+
 
 alpn() ->
     ?LET(ExtD,  alpn_protocols(), #alpn{extension_data = ExtD}).
@@ -520,7 +693,7 @@ renegotiation_info() ->
     #renegotiation_info{renegotiated_connection = 0}.
 
 gen_name() -> 
-    ?LET(Size, choose(0,10), gen_string(Size)).
+    ?LET(Size, choose(1,10), gen_string(Size)).
 
 gen_char() -> 
     choose($a,$z).

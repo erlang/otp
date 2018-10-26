@@ -315,9 +315,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(SIGNATURE_ALGORITHMS_EXT, 13).
 
--record(hash_sign_algos, {
-	  hash_sign_algos
-	 }).
+-record(hash_sign_algos, {hash_sign_algos}).
+%% RFC 8446 (TLS 1.3)
+-record(signature_algorithms, {signature_scheme_list}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RFC 7301 Application-Layer Protocol Negotiation  
@@ -436,6 +436,6 @@
 
 -define(SIGNATURE_ALGORITHMS_CERT_EXT, 50).
 
--record(signature_scheme_list, {signature_scheme_list}).
+-record(signature_algorithms_cert, {signature_scheme_list}).
 
 -endif. % -ifdef(ssl_handshake).
