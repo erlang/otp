@@ -47,6 +47,9 @@
 
 	 call/2, cast/2, reply/3]).
 
+%% For testing
+-export([erl_libs/2]).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").
 -include("reltool.hrl").
@@ -55,7 +58,15 @@ root_dir() ->
     code:root_dir().
 
 erl_libs() ->
-    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
+    erl_libs(os:getenv("ERL_LIBS", ""), os:type()).
+
+erl_libs(ErlLibs, OsType) when is_list(ErlLibs) ->
+  Sep =
+    case OsType of
+      {win32, _} -> ";";
+      _          -> ":"
+    end,
+  string:lexemes(ErlLibs, Sep).
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
