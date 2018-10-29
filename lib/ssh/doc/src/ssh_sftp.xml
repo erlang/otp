@@ -425,7 +425,6 @@
       <type>
         <v>ChannelPid = pid()</v>
         <v>Handle = term()</v>
-        <v>Position = integer()</v>
         <v>Len = integer()</v>
 	<v>Timeout = timeout()</v>
         <v>Data = string() | binary()</v>
