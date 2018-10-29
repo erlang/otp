@@ -152,6 +152,8 @@ static void util_measure(unsigned int **result_vec, int *result_sz);
 
 #if defined(__sun__)
 static unsigned int misc_measure(char* name);
+#elif defined(__linux__)
+static unsigned int misc_measure(char cmd);
 #endif
 static void sendi(unsigned int data);
 static void sendv(unsigned int data[], int ints);
@@ -231,6 +233,11 @@ int main(int argc, char** argv) {
     case AVG1:		sendi(misc_measure("avenrun_1min"));		break;
     case AVG5:		sendi(misc_measure("avenrun_5min"));		break;
     case AVG15:		sendi(misc_measure("avenrun_15min"));		break;
+#elif defined(__linux__)
+    case NPROCS:
+    case AVG1:
+    case AVG5:
+    case AVG15:		sendi(misc_measure(cmd));			break;
 #elif defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
     case NPROCS:	bsd_count_procs();				break;
     case AVG1:		bsd_loadavg(0);					break;
@@ -238,7 +245,7 @@ int main(int argc, char** argv) {
     case AVG15:		bsd_loadavg(2);					break;
 #endif
 #if defined(__sun__) || defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
-    case UTIL:		util_measure(&rv,&sz); 	sendv(rv, sz);		break;
+    case UTIL:		util_measure(&rv,&sz); sendv(rv, sz);		break;
 #endif
     case QUIT:		free((void*)rv); return 0;
     default:		error("Bad command");				break;
@@ -329,6 +336,22 @@ static void bsd_count_procs(void) {
 
 #if defined(__linux__)
 
+static unsigned int misc_measure(char cmd) {
+    struct sysinfo info;
+
+    if (sysinfo(&info))
+        error(strerror(errno));
+
+    switch (cmd) {
+    case AVG1:	 	return (unsigned int)(info.loads[0] / 256);
+    case AVG5:	 	return (unsigned int)(info.loads[1] / 256);
+    case AVG15: 	return (unsigned int)(info.loads[2] / 256);
+    case NPROCS:	return info.procs;
+    }
+
+    return -1;
+}
+
 static cpu_t *read_procstat(FILE *fp, cpu_t *cpu) {
     char buffer[BUFFERSIZE];
 
@@ -357,8 +380,24 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
     FILE *fp;
     unsigned int *rv = NULL;
     cpu_t cpu;
- 
+
+    rv = *result_vec;
+    rv[0] = no_of_cpus;
+
     if ( (fp = fopen(PROCSTAT,"r")) == NULL) {
+        if (errno == EACCES) { /* SELinux */
+            rv[1] = 1; /* just the cpu id */
+            ++rv; /* first value is number of cpus */
+            ++rv; /* second value is number of entries */
+            for (i = 0; i < no_of_cpus; ++i) {
+                rv[0] = CU_CPU_ID;
+                rv[1] = i;
+	        rv += 1*2;
+            }
+            *result_sz = 2 + 2*1 * no_of_cpus;
+            return;
+        }
+
 	/* Check if procfs is mounted,
 	 *  otherwise:
 	 *  try and try again, bad procsfs.
@@ -367,20 +406,19 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 	return;
     }
 
-	/*ignore read*/
+    /*ignore read*/
     if (fgets(buffer, BUFFERSIZE, fp) == NULL) {
 	*result_sz = 0;
 	return;
     }
-    rv = *result_vec; 
-    rv[0] = no_of_cpus;
+
     rv[1] = CU_VALUES;
     ++rv; /* first value is number of cpus */
     ++rv; /* second value is number of entries */
 
     for (i = 0; i < no_of_cpus; ++i) {
 	read_procstat(fp, &cpu);
-	      
+
 	rv[ 0] = CU_CPU_ID;    rv[ 1] = cpu.id;
 	rv[ 2] = CU_USER;      rv[ 3] = cpu.user;
 	rv[ 4] = CU_NICE_USER; rv[ 5] = cpu.nice_user;

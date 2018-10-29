@@ -88,8 +88,9 @@ sys_uds_readv(int fd, struct iovec *iov, size_t iov_len,
     if((msg.msg_flags & MSG_CTRUNC) == MSG_CTRUNC)
     {
         /* We assume that we have given enough space for any header
-           that are sent to us. So the only remaining reason to get
-           this flag set is if the caller has run out of file descriptors.
+           that are sent to us. So the only remaining reasons to get
+           this flag set is if the caller has run out of file descriptors
+           or an SELinux policy prunes the response (eg. O_APPEND on STDERR).
         */
         errno = EMFILE;
         return -1;
