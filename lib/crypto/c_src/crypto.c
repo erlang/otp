@@ -4524,7 +4524,7 @@ static int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, E
 static char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
     ERL_NIF_TERM tmp_term;
     ErlNifBinary pwd_bin;
-    char *pwd;
+    char *pwd = NULL;
     if (enif_get_map_value(env, key, atom_password, &tmp_term) &&
         enif_inspect_binary(env, tmp_term, &pwd_bin) &&
         zero_terminate(pwd_bin, &pwd)
@@ -4549,16 +4549,17 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 #ifdef HAS_ENGINE_SUPPORT
         /* Use key stored in engine */
         ENGINE *e;
-        char *id;
+        char *id = NULL;
         char *password;
 
         if (!get_engine_and_key_id(env, key, &id, &e))
             return PKEY_BADARG;
         password = get_key_password(env, key);
         *pkey = ENGINE_load_private_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
         if (!*pkey)
             return PKEY_BADARG;
-        enif_free(id);
 #else
         return PKEY_BADARG;
 #endif
@@ -4636,16 +4637,17 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 #ifdef HAS_ENGINE_SUPPORT
         /* Use key stored in engine */
         ENGINE *e;
-        char *id;
+        char *id = NULL;
         char *password;
 
         if (!get_engine_and_key_id(env, key, &id, &e))
             return PKEY_BADARG;
         password = get_key_password(env, key);
         *pkey = ENGINE_load_public_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
         if (!pkey)
             return PKEY_BADARG;
-        enif_free(id);
 #else
         return PKEY_BADARG;
 #endif
