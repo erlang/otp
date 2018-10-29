@@ -450,7 +450,7 @@ get_tcp_address(Driver, Socket) ->
 get_address_resolver(EpmdModule) ->
     case erlang:function_exported(EpmdModule, address_please, 3) of
         true -> {EpmdModule, address_please};
-        _    -> {inet, getaddr}
+        _    -> {erl_epmd, address_please}
     end.
 
 %% ------------------------------------------------------------
