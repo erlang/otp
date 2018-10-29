@@ -4775,6 +4775,22 @@
 
 </section>
 
+<section><title>Erts 7.3.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed small memory leak that could occur when sending to
+	    a terminating port.</p>
+          <p>
+	    Own Id: OTP-14609 Aux Id: ERIERL-238 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 7.3.1.4</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
