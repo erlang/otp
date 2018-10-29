@@ -3139,6 +3139,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	DECL_AM(tag);
 	BIF_RET(AM_tag);
 #endif
+    } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
+        BIF_RET(erts_get_system_logger());
     }
 
     BIF_ERROR(BIF_P, BADARG);
