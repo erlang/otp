@@ -21,6 +21,10 @@
 -ifndef(socket_test_evaluator).
 -define(socket_test_evaluator, true).
 
+-record(ev, {name :: string(),
+             pid  :: pid(),
+             mref :: reference()}).
+
 -define(SEV,                              socket_test_evaluator).
 
 -define(SEV_START(N, S, IS),              ?SEV:start(N, S, IS)).
@@ -44,14 +48,20 @@
 -define(SEV_AWAIT_TERMINATION(P),         ?SEV:await_termination(P)).
 -define(SEV_AWAIT_TERMINATION(P, R),      ?SEV:await_termination(P, R)).
 
--record(ev, {name :: string(),
-             pid  :: pid(),
-             mref :: reference()}).
+-define(SEV_IPRINT(F, A),                 ?SEV:iprint(F, A)).
+-define(SEV_IPRINT(F),                    ?SEV_IPRINT(F, [])).
+-define(SEV_EPRINT(F, A),                 ?SEV:eprint(F, A)).
+-define(SEV_EPRINT(F),                    ?SEV_EPRINT(F, [])).
 
--define(FINISH_NORMAL, #{desc => "finish",
-                         cmd  => fun(_) ->
-                                         {ok, normal}
-                                 end}).
+-define(SEV_SLEEP(T), #{desc => "sleep",
+                        cmd  => fun(_) ->
+                                        ?SLEEP(T),
+                                        ok
+                                end}).
+-define(SEV_FINISH_NORMAL, #{desc => "finish",
+                             cmd  => fun(_) ->
+                                             {ok, normal}
+                                     end}).
 
 -endif. % -ifdef(socket_test_evaluator).
 

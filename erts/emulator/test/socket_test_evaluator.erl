@@ -44,6 +44,12 @@
          await_termination/1,  await_termination/2
         ]).
 
+%% Utility functions
+-export([
+         iprint/2, % Info  printouts
+         eprint/2  % Error printouts
+        ]).
+
 -export_type([
               ev/0,
               initial_evaluator_state/0,
@@ -110,22 +116,22 @@ loop(_ID, [], FinalState) ->
     exit(FinalState);
 loop(ID, [#{desc := Desc,
             cmd  := Cmd}|Cmds], State) when is_function(Cmd, 1) ->
-    i("evaluate command ~2w: ~s", [ID, Desc]),
+    iprint("evaluate command ~2w: ~s", [ID, Desc]),
     try Cmd(State) of
         ok ->
             loop(ID + 1, Cmds, State);
         {ok, NewState} ->
             loop(ID + 1, Cmds, NewState);
         {error, Reason} ->
-            e("command ~w failed: "
-              "~n   Reason: ~p", [ID, Reason]),
+            eprint("command ~w failed: "
+                   "~n   Reason: ~p", [ID, Reason]),
             exit({command_failed, ID, Reason, State})
     catch
         C:E:S ->
-            e("command ~w crashed: "
-              "~n   Class:      ~p"
-              "~n   Error:      ~p"
-              "~n   Call Stack: ~p", [ID, C, E, S]),
+            eprint("command ~w crashed: "
+                   "~n   Class:      ~p"
+                   "~n   Error:      ~p"
+                   "~n   Call Stack: ~p", [ID, C, E, S]),
             exit({command_crashed, ID, {C,E,S}, State})
     end.
 
@@ -147,28 +153,22 @@ await_finish(Evs, Fails) ->
         {'DOWN', _MRef, process, Pid, normal} ->
             case lists:keysearch(Pid, #ev.pid, Evs) of
                 {value, #ev{name = Name}} ->
-
-
-                    i("evaluator '~s' (~p) success", [Name, Pid]),
-
-
-
-
+                    iprint("evaluator '~s' (~p) success", [Name, Pid]),
                     NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
                     await_finish(NewEvs, Fails);
                 false ->
-                    i("unknown process ~p died (normal)", [Pid]),
+                    iprint("unknown process ~p died (normal)", [Pid]),
                     await_finish(Evs, Fails)
                 end;
         {'DOWN', _MRef, process, Pid, Reason} ->
             case lists:keysearch(Pid, #ev.pid, Evs) of
                 {value, #ev{name = Name}} ->
-                    i("evaluator '~s' (~p) failed", [Name, Pid]),
+                    iprint("evaluator '~s' (~p) failed", [Name, Pid]),
                     NewEvs = lists:keydelete(Pid, #ev.pid, Evs),
                     await_finish(NewEvs, [{Pid, Reason}|Fails]);
                 false ->
-                    i("unknown process ~p died: "
-                      "~n   ~p", [Pid, Reason]),
+                    iprint("unknown process ~p died: "
+                           "~n   ~p", [Pid, Reason]),
                     await_finish(Evs, Fails)
                 end
     end.
@@ -412,25 +412,25 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
         {Announcement, Pid, Slogan, Extra} when (Pid =:= ExpPid) ->
             {ok, Extra};
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
-            e("Unexpected DOWN regarding ~w ~p: "
-              "~n   ~p", [Name, Pid, Reason]),
+            eprint("Unexpected DOWN regarding ~w ~p: "
+                   "~n   ~p", [Name, Pid, Reason]),
             {error, {unexpected_exit, Name}};
         {'DOWN', _, process, OtherPid, Reason} ->
             case check_down(OtherPid, Reason, OtherPids) of
                 ok ->
-                    i("DOWN from unknown process ~p: "
-                      "~n   ~p", [OtherPid, Reason]),
+                    iprint("DOWN from unknown process ~p: "
+                           "~n   ~p", [OtherPid, Reason]),
                     await(ExpPid, Name, Announcement, Slogan, OtherPids);
                 {error, _} = ERROR ->
                     ERROR
             end
     after infinity -> % For easy debugging, just change to some valid time (5000)
-            i("await -> timeout for msg from ~p (~w): "
-              "~n   Announcement: ~p"
-              "~n   Slogan:       ~p"
-              "~nwhen"
-              "~n   Messages: ~p", 
-              [ExpPid, Name, Announcement, Slogan, pi(messages)]),
+            iprint("await -> timeout for msg from ~p (~w): "
+                   "~n   Announcement: ~p"
+                   "~n   Slogan:       ~p"
+                   "~nwhen"
+                   "~n   Messages: ~p", 
+                   [ExpPid, Name, Announcement, Slogan, pi(messages)]),
             await(ExpPid, Name, Announcement, Slogan, OtherPids)
     end.
 
@@ -444,8 +444,8 @@ pi(Pid, Item) ->
 check_down(Pid, DownReason, Pids) ->
     case lists:keymember(Pid, 1, Pids) of
         {value, {_, Name}} ->
-            e("Unexpected DOWN regarding ~w ~p: "
-              "~n   ~p", [Name, Pid, DownReason]),
+            eprint("Unexpected DOWN regarding ~w ~p: "
+                   "~n   ~p", [Name, Pid, DownReason]),
             {error, {unexpected_exit, Name}};
         false ->
             ok
@@ -458,14 +458,10 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 
-%% i(F) ->
-%%     i(F, []).
-i(F, A) ->
+iprint(F, A) ->
     print("", F, A).
 
-%% e(F) ->
-%%     e(F, []).
-e(F, A) ->
+eprint(F, A) ->
     print("<ERROR> ", F, A).
 
 print(Prefix, F, A) ->
