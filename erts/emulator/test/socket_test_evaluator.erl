@@ -37,7 +37,7 @@
 
          %% Await functions
          %% (Wait for an announcement from another evaluator)
-         await_start/0,
+         await_start/0,        await_start/1,
          await_continue/3,     await_continue/4,
          await_ready/3,        await_ready/4,
          await_terminate/2,    await_terminate/3,
@@ -267,13 +267,21 @@ announce(To, Announcement, Slogan, Extra)
       Extra :: term().
 
 await_start() ->
-    case await(any, ?START_NAME_NONE, ?ANNOUNCEMENT_START, ?START_SLOGAN, []) of
-        {ok, Pid} when is_pid(Pid) ->
+    await_start(any).
+
+-spec await_start(Pid) -> Pid | {Pid, Extra} when
+      Pid   :: pid(),
+      Extra :: term().
+
+await_start(P) when is_pid(P) orelse (P =:= any) ->
+    case await(P, ?START_NAME_NONE, ?ANNOUNCEMENT_START, ?START_SLOGAN, []) of
+        {ok, Any} when is_pid(P) ->
+            Any;
+        {ok, Pid} when is_pid(Pid) andalso (P =:= any) ->
             Pid;
-        {ok, {Pid, _} = OK} when is_pid(Pid) ->
+        {ok, {Pid, _} = OK} when is_pid(Pid) andalso (P =:= any) ->
             OK
     end.
-
 
 
 %% ============================================================================

@@ -4605,9 +4605,9 @@ sc_rc_receive_response_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start",
            cmd  => fun(State) ->
-                           {Tester, {Node, ServerSA}} = ?SEV_AWAIT_START(),
+                           {Tester, {NodeID, ServerSA}} = ?SEV_AWAIT_START(),
                            {ok, State#{tester    => Tester, 
-                                       node      => Node, 
+                                       node_id   => NodeID, 
                                        server_sa => ServerSA}}
                    end},
          #{desc => "monitor tester",
@@ -4617,39 +4617,42 @@ sc_rc_receive_response_tcp(InitState) ->
                    end},
 
          %% *** Init part ***
+         #{desc => "create node",
+           cmd  => fun(#{host := Host, node_id := NodeID} = State) ->
+                           case start_node(Host, l2a(f("client_~w", [NodeID]))) of
+                               {ok, Node} ->
+                                   ?SEV_IPRINT("client node ~p started", [Node]),
+                                   {ok, State#{node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node 1",
+           cmd  => fun(#{node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
          #{desc => "start remote client on client node",
            cmd  => fun(#{node := Node} = State) ->
                            Pid = sc_rc_tcp_client_start(Node),
                            ?SEV_IPRINT("client ~p started", [Pid]),
-                           {ok, State#{client => Pid}}
+                           {ok, State#{rclient => Pid}}
                    end},
          #{desc => "monitor remote client",
-           cmd  => fun(#{client := Pid}) ->
+           cmd  => fun(#{rclient := Pid}) ->
                            _MRef = erlang:monitor(process, Pid),
                            ok
                    end},
          #{desc => "order remote client to start",
-           cmd  => fun(#{client := Client, server_sa := ServerSA}) ->
-                           Client ! {start, self(), ServerSA},
+           cmd  => fun(#{rclient := Client, server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, ServerSA),
                            ok
                    end},
          #{desc => "await remote client ready",
-           cmd  => fun(#{tester := Tester,
-                         client := Client} = _State) ->
-                           receive
-                               {ready, Client} ->
-                                   ok;
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "tester ~p: "
-                                               "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {'DOWN', _, process, Client, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "client ~p: "
-                                               "~n   ~p", [Client, Reason]),
-                                   {error, {unexpected_exit, client}}
-                           end
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, rclient, init, 
+                                            [{tester, Tester}])
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4659,34 +4662,22 @@ sc_rc_receive_response_tcp(InitState) ->
 
          %% The actual test
          #{desc => "await continue (connect)",
-           cmd  => fun(#{tester := Tester,
-                         client := Client} = _State) ->
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, connect, 
                                                [{rclient, Client}]),
                            ok
                    end},
          #{desc => "order remote client to continue (connect)",
-           cmd  => fun(#{client := Client}) ->
-                           Client ! {continue, self()},
+           cmd  => fun(#{rclient := Client}) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
                            ok
                    end},
          #{desc => "await client process ready (connect)",
-           cmd  => fun(#{tester := Tester,
-                         client := Client} = _State) ->
-                           receive
-                               {ready, Client} ->
-                                   ok;
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "tester ~p: "
-                                               "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {'DOWN', _, process, Client, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "client ~p: "
-                                               "~n   ~p", [Client, Reason]),
-                                   {error, {unexpected_exit, client}}
-                           end
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, rclient, connect, 
+                                            [{tester, Tester}])
                    end},
          #{desc => "announce ready (connected)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4694,34 +4685,22 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await continue (close)",
-           cmd  => fun(#{tester := Tester,
-                         client := Client} = _State) ->
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, close, 
                                                [{rclient, Client}]),
                            ok
                    end},
          #{desc => "order remote client to close",
-           cmd  => fun(#{client := Client}) ->
-                           Client ! {continue, self()},
+           cmd  => fun(#{rclient := Client}) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, close),
                            ok
                    end},
          #{desc => "await remote client ready (closed)",
-           cmd  => fun(#{tester := Tester,
-                         client := Client} = _State) ->
-                           receive
-                               {ready, Client} ->
-                                   ok;
-                               {'DOWN', _, process, Tester, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "tester ~p: "
-                                               "~n   ~p", [Tester, Reason]),
-                                   {error, {unexpected_exit, tester}};
-                               {'DOWN', _, process, Client, Reason} ->
-                                   ?SEV_EPRINT("Unexpected DOWN regarding "
-                                               "client ~p: "
-                                               "~n   ~p", [Client, Reason]),
-                                   {error, {unexpected_exit, client}}
-                           end
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, rclient, close, 
+                                            [{tester, Tester}])
                    end},
          #{desc => "announce ready (close)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4731,7 +4710,8 @@ sc_rc_receive_response_tcp(InitState) ->
 
          %% Termination
          #{desc => "await terminate (from tester)",
-           cmd  => fun(#{tester := Tester, client := Client} = State) ->
+           cmd  => fun(#{tester  := Tester, 
+                         rclient := Client} = State) ->
                            case ?SEV_AWAIT_TERMINATE(Tester, tester,
                                                      [{rclient, Client}]) of
                                ok ->
@@ -4741,15 +4721,27 @@ sc_rc_receive_response_tcp(InitState) ->
                            end
                    end},
          #{desc => "kill remote client",
-           cmd  => fun(#{client := Client}) ->
-                           Client ! {terminate, self(), normal},
+           cmd  => fun(#{rclient := Client}) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
                            ok
                    end},
          #{desc => "await remote client termination",
-           cmd  => fun(#{client := Client} = State) ->
+           cmd  => fun(#{rclient := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(rclient, State),
+                           {ok, State1}
+                   end},
+         #{desc => "stop client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node termination",
+           cmd  => fun(#{node := Node} = State) ->
                            receive
-                               {'DOWN', _, process, Client, _} ->
-                                   {ok, maps:remove(client, State)}
+                               {nodedown, Node} ->
+                                   State1 = maps:remove(node_id, State),
+                                   State2 = maps:remove(node,    State1),
+                                   {ok, State2}
                            end
                    end},
 
@@ -4760,54 +4752,6 @@ sc_rc_receive_response_tcp(InitState) ->
     TesterSeq =
         [
          %% *** Init part ***
-         #{desc => "create client node 1",
-           cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client_1) of
-                               {ok, Node} ->
-                                   ?SEV_IPRINT("client node (1) ~p started", 
-                                               [Node]),
-                                   {ok, State#{client_node1 => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
-                           end
-                   end},
-         #{desc => "monitor client node 1",
-           cmd  => fun(#{client_node1 := Node} = _State) ->
-                           true = erlang:monitor_node(Node, true),
-                           ok
-                   end},
-         #{desc => "create client node 2",
-           cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client_2) of
-                               {ok, Node} ->
-                                   ?SEV_IPRINT("client node (2) ~p started", 
-                                               [Node]),
-                                   {ok, State#{client_node2 => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
-                           end
-                   end},
-         #{desc => "monitor client node 2",
-           cmd  => fun(#{client_node2 := Node} = _State) ->
-                           true = erlang:monitor_node(Node, true),
-                           ok
-                   end},
-         #{desc => "create client node 3",
-           cmd  => fun(#{host := Host} = State) ->
-                           case start_node(Host, client_3) of
-                               {ok, Node} ->
-                                   ?SEV_IPRINT("client node (3) ~p started", 
-                                               [Node]),
-                                   {ok, State#{client_node3 => Node}};
-                               {error, Reason, _} ->
-                                   {error, Reason}
-                           end
-                   end},
-         #{desc => "monitor client node 3",
-           cmd  => fun(#{client_node3 := Node} = _State) ->
-                           true = erlang:monitor_node(Node, true),
-                           ok
-                   end},
          #{desc => "monitor server",
            cmd  => fun(#{server := Pid} = _State) ->
                            _MRef = erlang:monitor(process, Pid),
@@ -4843,10 +4787,9 @@ sc_rc_receive_response_tcp(InitState) ->
 
          %% Start the client(s)
          #{desc => "order client 1 start",
-           cmd  => fun(#{client1      := Pid, 
-                         client_node1 := Node,
-                         server_sa    := ServerSA} = _State) ->
-                           ?SEV_ANNOUNCE_START(Pid, {Node, ServerSA}),
+           cmd  => fun(#{client1   := Pid, 
+                         server_sa := ServerSA} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, {1, ServerSA}),
                            ok
                    end},
          #{desc => "await client 1 ready (init)",
@@ -4854,10 +4797,9 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok = ?SEV_AWAIT_READY(Pid, client1, init)
                    end},
          #{desc => "order client 2 start",
-           cmd  => fun(#{client2      := Pid, 
-                         client_node2 := Node,
-                         server_sa    := ServerSA} = _State) ->
-                           ?SEV_ANNOUNCE_START(Pid, {Node, ServerSA}),
+           cmd  => fun(#{client2   := Pid, 
+                         server_sa := ServerSA} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, {2, ServerSA}),
                            ok
                    end},
          #{desc => "await client 2 ready (init)",
@@ -4865,10 +4807,9 @@ sc_rc_receive_response_tcp(InitState) ->
                            ok = ?SEV_AWAIT_READY(Pid, client2, init)
                    end},
          #{desc => "order client 3 start",
-           cmd  => fun(#{client3      := Pid, 
-                         client_node3 := Node,
-                         server_sa    := ServerSA} = _State) ->
-                           ?SEV_ANNOUNCE_START(Pid, {Node, ServerSA}),
+           cmd  => fun(#{client3   := Pid, 
+                         server_sa := ServerSA} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, {3, ServerSA}),
                            ok
                    end},
          #{desc => "await client 3 ready (init)",
@@ -5069,39 +5010,6 @@ sc_rc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
-         #{desc => "stop client node 1",
-           cmd  => fun(#{client_node1 := Node} = _State) ->
-                           stop_node(Node)
-                   end},
-         #{desc => "await client node 1 termination",
-           cmd  => fun(#{client_node1 := Node} = State) ->
-                           receive
-                               {nodedown, Node} ->
-                                   {ok, maps:remove(client_node1, State)}
-                           end
-                   end},
-         #{desc => "stop client node 2",
-           cmd  => fun(#{client_node2 := Node} = _State) ->
-                           stop_node(Node)
-                   end},
-         #{desc => "await client node 2 termination",
-           cmd  => fun(#{client_node2 := Node} = State) ->
-                           receive
-                               {nodedown, Node} ->
-                                   {ok, maps:remove(client_node2, State)}
-                           end
-                   end},
-         #{desc => "stop client node 3",
-           cmd  => fun(#{client_node3 := Node} = _State) ->
-                           stop_node(Node)
-                   end},
-         #{desc => "await client node 3 termination",
-           cmd  => fun(#{client_node3 := Node} = State) ->
-                           receive
-                               {nodedown, Node} ->
-                                   {ok, maps:remove(client_node3, State)}
-                           end
-                   end},
 
          %% *** We are done ***
          ?SEV_FINISH_NORMAL
@@ -5112,14 +5020,13 @@ sc_rc_receive_response_tcp(InitState) ->
     Server = ?SEV_START("server", ServerSeq, ServerInitState),
 
     i("start client evaluator(s)"),
-    ClientInitState = InitState,
+    ClientInitState = InitState#{host => local_host()},
     Client1 = ?SEV_START("client-1", ClientSeq, ClientInitState),
     Client2 = ?SEV_START("client-2", ClientSeq, ClientInitState),
     Client3 = ?SEV_START("client-3", ClientSeq, ClientInitState),
 
     i("start 'tester' evaluator"),
-    TesterInitState = #{host    => local_host(),
-                        server  => Server#ev.pid,
+    TesterInitState = #{server  => Server#ev.pid,
                         client1 => Client1#ev.pid,
                         client2 => Client2#ev.pid,
                         client3 => Client3#ev.pid},
@@ -5179,13 +5086,13 @@ sc_rc_tcp_client(Parent, GL) ->
     Domain   = maps:get(family, ServerSA),
     Sock     = sc_rc_tcp_client_create(Domain),
     sc_rc_tcp_client_bind(Sock, Domain),
-    sc_rc_tcp_client_announce_ready(Parent),
-    sc_rc_tcp_client_await_continue(Parent),
+    sc_rc_tcp_client_announce_ready(Parent, init),
+    sc_rc_tcp_client_await_continue(Parent, connect),
     sc_rc_tcp_client_connect(Sock, ServerSA),
-    sc_rc_tcp_client_announce_ready(Parent),
-    sc_rc_tcp_client_await_continue(Parent),
+    sc_rc_tcp_client_announce_ready(Parent, connect),
+    sc_rc_tcp_client_await_continue(Parent, close),
     sc_rc_tcp_client_close(Sock),
-    sc_rc_tcp_client_announce_ready(Parent),
+    sc_rc_tcp_client_announce_ready(Parent, close),
     Reason = sc_rc_tcp_client_await_terminate(Parent),
     exit(Reason).
 
@@ -5197,12 +5104,7 @@ sc_rc_tcp_client_init(Parent, GL) ->
 
 sc_rc_tcp_client_await_start(Parent) ->
     i("sc_rc_tcp_client_await_start -> entry"),
-    receive
-        {start, Parent, ServerSA} ->
-            ServerSA;
-        {'DOWN', _, process, Parent, _Reason} ->
-            init:stop()
-    end.
+    ?SEV_AWAIT_START(Parent).
 
 sc_rc_tcp_client_create(Domain) ->
     i("sc_rc_tcp_client_create -> entry"),
@@ -5225,18 +5127,12 @@ sc_rc_tcp_client_bind(Sock, Domain) ->
             exit({bind, Reason})
     end.
 
-sc_rc_tcp_client_announce_ready(Parent) ->
-    Parent ! {ready, self()},
-    ok.
+sc_rc_tcp_client_announce_ready(Parent, Slogan) ->
+    ?SEV_ANNOUNCE_READY(Parent, Slogan).
 
-sc_rc_tcp_client_await_continue(Parent) ->
+sc_rc_tcp_client_await_continue(Parent, Slogan) ->
     i("sc_rc_tcp_client_await_continue -> entry"),
-    receive
-        {continue, Parent} ->
-            ok;
-        {'DOWN', _, process, Parent, _Reason} ->
-            init:stop()
-    end.
+    ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan).
 
 sc_rc_tcp_client_connect(Sock, ServerSA) ->
     i("sc_rc_tcp_client_connect -> entry"),
@@ -5258,11 +5154,11 @@ sc_rc_tcp_client_close(Sock) ->
 
 sc_rc_tcp_client_await_terminate(Parent) ->
     i("sc_rc_tcp_client_await_terminate -> entry"),
-    receive
-        {terminate, Parent, Reason} ->
-            Reason;
-        {'DOWN', _, process, Parent, _Reason} ->
-            init:stop()
+    case ?SEV_AWAIT_TERMINATE(Parent, parent) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            Reason
     end.
 
 
@@ -6046,6 +5942,9 @@ tc_which_name() ->
     
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+l2a(S) when is_list(S) ->
+    list_to_atom(S).
 
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).

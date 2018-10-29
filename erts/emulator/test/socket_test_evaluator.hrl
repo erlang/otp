@@ -39,6 +39,7 @@
 -define(SEV_ANNOUNCE_TERMINATE(To),       ?SEV:announce_terminate(To)).
 
 -define(SEV_AWAIT_START(),                ?SEV:await_start()).
+-define(SEV_AWAIT_START(P),               ?SEV:await_start(P)).
 -define(SEV_AWAIT_CONTINUE(F, N, S),      ?SEV:await_continue(F, N, S)).
 -define(SEV_AWAIT_CONTINUE(F, N, S, Ps),  ?SEV:await_continue(F, N, S, Ps)).
 -define(SEV_AWAIT_READY(F, N, S),         ?SEV:await_ready(F, N, S)).
