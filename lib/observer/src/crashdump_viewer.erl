@@ -2802,12 +2802,12 @@ parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
             SymbolicBin = {'#CDVBin',Start},
             Term = cdvbin(Offset, Sz, SymbolicBin),
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, SymbolicBin, D1),
+            D = gb_trees:enter(Binp, SymbolicBin, D1),
             {Term,Line,D};
         [] ->
             Term = '#CDVNonexistingBinary',
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, Term, D1),
+            D = gb_trees:enter(Binp, Term, D1),
             {Term,Line,D}
     end;
 parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
