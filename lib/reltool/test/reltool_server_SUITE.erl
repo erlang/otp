@@ -2551,9 +2551,9 @@ undefined_regexp(_Config) ->
 
 windows_erl_libs(_Config) ->
     WinErlLibs =
-        "C:\Program Files\Erlang Libs;C:\Program Files\More Erlang Libs",
+        "C:\\Program Files\\Erlang Libs;C:\\Program Files\\More Erlang Libs",
     Ret = reltool_utils:erl_libs(WinErlLibs, {win32, nt}),
-    ?m(["C:\Program Files\Erlang Libs","C:\Program Files\More Erlang Libs"],
+    ?m(["C:\\Program Files\\Erlang Libs","C:\\Program Files\\More Erlang Libs"],
        Ret),
     ok.
 
