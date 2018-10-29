@@ -595,9 +595,6 @@ stat({out, _Msg, _To}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat({out, _Msg, _To, _State}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat(_, StatData) -> StatData.
 
-trim(N, LogData) ->
-    lists:sublist(LogData, 1, N-1).
-
 %%-----------------------------------------------------------------
 %% Debug structure manipulating functions
 %%-----------------------------------------------------------------
@@ -640,22 +637,69 @@ close_log_file(Debug) ->
 %%-----------------------------------------------------------------
 %% Keep the last N Log functions
 %%-----------------------------------------------------------------
+%%
+%% Streamlined Okasaki queue as base for "keep the last N" log.
+%%
+%% To the reverse list head we cons new items.
+%% The forward list contains elements in insertion order,
+%% so the head is the oldest and the one to drop off
+%% when the log is full.
+%%
+%% Here is how we can get away with only using one cons cell
+%% to wrap the forward and reverse list, and the log size:
+%%
+%% A full log does not need a counter; we just cons one
+%% and drop one:
+%%
+%%     [ReverseList|ForwardList]
+%%
+%% A non-full log is filling up to N elements;
+%% use a down counter instead of a list as first element:
+%%
+%%     [RemainingToFullCount|ReverseList]
 
 nlog_new() ->
     nlog_new(10).
 %%
-nlog_new(N) when is_integer(N) ->
-    {N, []};
-nlog_new(NLog) ->
-    nlog_new(10, NLog).
+nlog_new([_|_] = NLog) ->
+    nlog_new(10, NLog);
+nlog_new(N) ->
+    [N]. % Empty log size N >= 1
 %%
-nlog_new(NewN, {_N, R}) ->
-    {NewN, trim(NewN, R)}.
+nlog_new(N, NLog) ->
+    lists:foldl(
+      fun (Item, NL) -> nlog_put(Item, NL) end,
+      nlog_new(N),
+      nlog_get(NLog)).
 
-nlog_put(Item, {N, R}) ->
-    {N, [Item | trim(N, R)]}.
+%%
+nlog_put(Item, NLog) ->
+    case NLog of
+        [R|FF] when is_list(R) ->
+            %% Full log
+            case FF of
+                [_|F] ->
+                    %% Cons to reverse list, drop from forward list
+                    [[Item|R]|F];
+                [] ->
+                    %% Create new forward list from reverse list,
+                    %% create new empty reverse list
+                    [_|F] = lists:reverse(R, [Item]),
+                    [[]|F]
+            end;
+        [1|R] ->
+            %% Log now gets full
+            [[Item|R]];
+        [J|R] ->
+            %% Filling up to N elements
+            [J - 1,Item|R]
+    end.
 
-nlog_get({_N, R}) ->
+nlog_get([[]|F]) ->
+    F;
+nlog_get([[_|_] = R|F]) ->
+    F ++ lists:reverse(R);
+nlog_get([_J|R]) ->
     lists:reverse(R).
 
 %%-----------------------------------------------------------------
