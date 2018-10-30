@@ -32,6 +32,8 @@ SOCKET_MODULES = \
 	socket_lib \
 	socket_server \
 	socket_client \
+	socket_test_lib \
+	socket_test_evaluator \
 	socket_SUITE
 
 MODULES= \
@@ -156,6 +158,7 @@ NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
 NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
+HRL_FILES= socket_test_evaluator.hrl
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
@@ -228,7 +231,7 @@ release_spec:
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
-		$(ERL_FILES) "$(RELSYSDIR)"
+		$(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
