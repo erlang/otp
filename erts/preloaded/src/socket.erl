@@ -1716,10 +1716,14 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
        (is_integer(Timeout) andalso (Timeout > 0)) ->
     TS      = timestamp(Timeout),
     RecvRef = make_ref(),
+    %% p("do_recv -> try read with"
+    %%   "~n   Length: ~p", [Length]),
     case nif_recv(SockRef, RecvRef, Length, EFlags) of
         {ok, true = _Complete, Bin} when (size(Acc) =:= 0) ->
+            %% p("do_recv -> complete success: ~w", [size(Bin)]),
             {ok, Bin};
         {ok, true = _Complete, Bin} ->
+            %% p("do_recv -> completed success: ~w (~w)", [size(Bin), size(Acc)]),
             {ok, <<Acc/binary, Bin/binary>>};
 
         %% It depends on the amount of bytes we tried to read:
@@ -1728,6 +1732,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
         {ok, false = _Complete, Bin} when (Length =:= 0) ->
+            %% p("do_recv -> partial success: ~w", [size(Bin)]),
             do_recv(SockRef, RecvRef,
                     Length, EFlags,
                     <<Acc/binary, Bin/binary>>,
@@ -1737,6 +1742,8 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             %% We got the first chunk of it.
             %% We will be notified (select message) when there
             %% is more to read.
+            %% p("do_recv -> partial success(~w): ~w"
+            %%   "~n   ~p", [Length, size(Bin), Bin]),
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
@@ -1756,6 +1763,8 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
 
         {ok, false = _Completed, Bin} ->
             %% We got a chunk of it!
+            %% p("do_recv -> partial success(~w): ~w (~w)", 
+            %%   [Length, size(Bin), size(Acc)]),
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
@@ -1780,6 +1789,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
+            %% p("do_recv -> eagain(~w): ~w", [Length, size(Acc)]),
             NewTimeout = next_timeout(TS, Timeout),
             receive
                 {select, SockRef, RecvRef, ready_input} ->
@@ -3473,6 +3483,7 @@ tdiff(T1, T2) ->
 %% p(undefined, F, A) ->
 %%     p("***", F, A);
 %% p(SName, F, A) ->
+%%     io:format(user,"[~s,~p] " ++ F ++ "~n", [SName, self()|A]),
 %%     io:format("[~s,~p] " ++ F ++ "~n", [SName, self()|A]).
 
 

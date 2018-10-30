@@ -13479,7 +13479,7 @@ ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*        env,
                    descP->currentReader.ref);
             
         } else {
-            descP->currentWriterP = NULL;
+            descP->currentReaderP = NULL;
         }
     }
 
@@ -13744,14 +13744,23 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
         } else {
 
             /* +++ We got only a part of what was expected +++
-             * +++ => receive more later.                  +++ */
+             * +++ => select for more more later and       +++
+             * +++    deliver what we got.                 +++ */
 
             SSDBG( descP, ("SOCKET", "recv_check_result -> [%d] "
                            "only part of message - expect more\r\n", toRead) );
 
+            /* SELECT for more data */
+
+            SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
+                   descP, NULL, recvRef);
+            
             cnt_inc(&descP->readByteCnt, read);
 
-            return esock_make_ok3(env, atom_false, MKBIN(env, bufP));
+            data = MKBIN(env, bufP);
+            data = MKSBIN(env, data, 0, read);
+
+            return esock_make_ok3(env, atom_false, data);
         }
     }
 }
@@ -16709,7 +16718,7 @@ int esock_monitor(const char*       slogan,
     int res;
 
     SSDBG( descP, ("SOCKET", "[%d] %s: try monitor", descP->sock, slogan) );
-    // esock_dbg_printf("MONP", "[%d] %s\r\n", descP->sock, slogan);
+    /* esock_dbg_printf("MONP", "[%d] %s\r\n", descP->sock, slogan); */
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
@@ -16722,7 +16731,7 @@ int esock_monitor(const char*       slogan,
                          descP->sock,
                          monP->raw[0], monP->raw[1],
                          monP->raw[2], monP->raw[3]);
-    } */
+                         } */
 
     return res;
 }
@@ -16737,6 +16746,7 @@ int esock_demonitor(const char*       slogan,
     int res;
 
     SSDBG( descP, ("SOCKET", "[%d] %s: try demonitor\r\n", descP->sock, slogan) );
+
     /*
     esock_dbg_printf("DEMONP", "[%d] %s: %u,%u,%u,%u\r\n",
                      descP->sock, slogan,
