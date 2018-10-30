@@ -167,12 +167,12 @@ NOTE!!!! Sending a "char" to macros like isupper(), isalpha() where
 the character is > 127 will cause serios problems on some
 machines/OS. The reason is that
 
-   'char' may be unsigned, i.e. the Swedish char '�' will 
+   'char' may be unsigned, i.e. the Swedish char 'ä' will 
    as a number be negativ.
 
    The implementation of isupper() and others will on some
    machines use an array that is indexed with the incoming
-   character code. The Swedish '�' will then create an access
+   character code. The Swedish 'ä' will then create an access
    on memory outside the array!
 
 This may give a random value as a result or a segmentation
