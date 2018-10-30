@@ -4431,9 +4431,7 @@ sc_rc_receive_response_tcp(InitState) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
                                    ?SEV_IPRINT("accepted: try start handler"),
-                                   {ok, Handler} = sc_rc_tcp_handler_start(1,
-                                                                           Recv,
-                                                                           Sock),
+                                   Handler = sc_rc_tcp_handler_start(1, Recv, Sock),
                                    ?SEV_IPRINT("handler started"),
                                    {ok, State#{csock1   => Sock,
                                                handler1 => Handler}};
@@ -4441,14 +4439,18 @@ sc_rc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
+         #{desc => "await handle 1 ready (init)",
+           cmd  => fun(#{tester   := Tester, 
+                         handler1 := Handler1} = _State) ->
+                           ?SEV_AWAIT_READY(Handler1, handler1, init, 
+                                            [{tester, Tester}])
+                   end},
          #{desc => "accept 2",
            cmd  => fun(#{lsock := LSock, recv := Recv} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
                                    ?SEV_IPRINT("accepted: try start handler"),
-                                   {ok, Handler} = sc_rc_tcp_handler_start(2,
-                                                                           Recv,
-                                                                           Sock),
+                                   Handler = sc_rc_tcp_handler_start(2, Recv, Sock),
                                    ?SEV_IPRINT("handler started"),
                                    {ok, State#{csock2   => Sock,
                                                handler2 => Handler}};
@@ -4456,20 +4458,36 @@ sc_rc_receive_response_tcp(InitState) ->
                                    ERROR
                            end
                    end},
+         #{desc => "await handle 2 ready (init)",
+           cmd  => fun(#{tester   := Tester, 
+                         handler1 := Handler1, 
+                         handler2 := Handler2} = _State) ->
+                           ?SEV_AWAIT_READY(Handler2, handler2, init, 
+                                            [{tester,   Tester},
+                                             {handler1, Handler1}])
+                   end},
          #{desc => "accept 3",
            cmd  => fun(#{lsock := LSock, recv := Recv} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
                                    ?SEV_IPRINT("accepted: try start handler"),
-                                   {ok, Handler} = sc_rc_tcp_handler_start(3,
-                                                                           Recv,
-                                                                           Sock),
+                                   Handler = sc_rc_tcp_handler_start(3, Recv, Sock),
                                    ?SEV_IPRINT("handler started"),
                                    {ok, State#{csock3   => Sock,
                                                handler3 => Handler}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
+                   end},
+         #{desc => "await handle 3 ready (init)",
+           cmd  => fun(#{tester   := Tester, 
+                         handler1 := Handler1, 
+                         handler2 := Handler2, 
+                         handler3 := Handler3} = _State) ->
+                           ?SEV_AWAIT_READY(Handler3, handler3, init, 
+                                            [{tester,   Tester},
+                                             {handler1, Handler1},
+                                             {handler2, Handler2}])
                    end},
          #{desc => "announce ready (accept all three connections)",
            cmd  => fun(#{tester := Tester}) ->
@@ -4482,50 +4500,47 @@ sc_rc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "order handler 1 to receive",
            cmd  => fun(#{handler1 := Pid} = _State) ->
-                           Pid ! {recv, self()},
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, recv),
                            ok
                    end},
          #{desc => "order handler 2 to receive",
            cmd  => fun(#{handler2 := Pid} = _State) ->
-                           Pid ! {recv, self()},
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, recv),
                            ok
                    end},
          #{desc => "order handler 3 to receive",
            cmd  => fun(#{handler3 := Pid} = _State) ->
-                           Pid ! {recv, self()},
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, recv),
                            ok
                    end},
          #{desc => "await ready from handler 1 (recv)",
-           cmd  => fun(#{handler1 := Pid} = _State) ->
-                           receive
-                               {ready, Pid, ok} ->
-                                   ok;
-                               {ready, Pid, Result} ->
+           cmd  => fun(#{tester := Tester, handler1 := Pid} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid, handler1, recv, 
+                                                 [{tester, Tester}]) of
+                               {ok, Result} ->
                                    Result;
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   {error, {handler1_exit, Reason}}
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
          #{desc => "await ready from handler 2 (recv)",
-           cmd  => fun(#{handler2 := Pid} = _State) ->
-                           receive
-                               {ready, Pid, ok} ->
-                                   ok;
-                               {ready, Pid, Result} ->
+           cmd  => fun(#{tester := Tester, handler2 := Pid} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid, handler2, recv, 
+                                                 [{tester, Tester}]) of
+                               {ok, Result} ->
                                    Result;
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   {error, {handler2_exit, Reason}}
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
          #{desc => "await ready from handler 3 (recv)",
-           cmd  => fun(#{handler3 := Pid} = _State) ->
-                           receive
-                               {ready, Pid, ok} ->
-                                   ok;
-                               {ready, Pid, Result} ->
+           cmd  => fun(#{tester := Tester, handler3 := Pid} = _State) ->
+                           case ?SEV_AWAIT_READY(Pid, handler3, recv, 
+                                                 [{tester, Tester}]) of
+                               {ok, Result} ->
                                    Result;
-                               {'DOWN', _, process, Pid, Reason} ->
-                                   {error, {handler3_exit, Reason}}
+                               {error, _} = ERROR ->
+                                   ERROR
                            end
                    end},
          #{desc => "announce ready (recv closed from all handlers)",
@@ -4546,45 +4561,40 @@ sc_rc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "order handler 1 to terminate",
            cmd  => fun(#{handler1 := Pid} = _State) ->
-                           Pid ! {terminate, self(), ok},
+                           %% Pid ! {terminate, self(), ok},
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
                            ok
                    end},
          #{desc => "await handler 1 termination",
            cmd  => fun(#{handler1 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(csock1,   State),
-                                   State2 = maps:remove(handler1, State1),
-                                   {ok, State2}
-                           end
+                           ?SEV_AWAIT_TERMINATION(Pid),
+                           State1 = maps:remove(csock1,   State),
+                           State2 = maps:remove(handler1, State1),
+                           {ok, State2}
                    end},
          #{desc => "order handler 2 to terminate",
            cmd  => fun(#{handler2 := Pid} = _State) ->
-                           Pid ! {terminate, self(), ok},
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
                            ok
                    end},
          #{desc => "await handler 2 termination",
            cmd  => fun(#{handler2 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(csock2,   State),
-                                   State2 = maps:remove(handler2, State1),
-                                   {ok, State2}
-                           end
+                           ?SEV_AWAIT_TERMINATION(Pid),
+                           State1 = maps:remove(csock2,   State),
+                           State2 = maps:remove(handler2, State1),
+                           {ok, State2}
                    end},
          #{desc => "order handler 3 to terminate",
            cmd  => fun(#{handler3 := Pid} = _State) ->
-                           Pid ! {terminate, self(), ok},
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
                            ok
                    end},
          #{desc => "await handler 3 termination",
            cmd  => fun(#{handler3 := Pid} = State) ->
-                           receive
-                               {'DOWN', _, process, Pid, _} ->
-                                   State1 = maps:remove(csock3,   State),
-                                   State2 = maps:remove(handler3, State1),
-                                   {ok, State2}
-                           end
+                           ?SEV_AWAIT_TERMINATION(Pid),
+                           State1 = maps:remove(csock3,   State),
+                           State2 = maps:remove(handler3, State1),
+                           {ok, State2}
                    end},
          #{desc => "close listen socket",
            cmd  => fun(#{lsock := LSock} = State) ->
@@ -5168,38 +5178,29 @@ sc_rc_tcp_handler_start(ID, Recv, Sock) ->
     Self     = self(),
     Fun      = fun() -> sc_rc_tcp_handler(ID, Self, Recv, Sock) end,
     {Pid, _} = erlang:spawn_monitor(Fun),
-    receive
-        {started, Pid} ->
-            {ok, Pid};
-        {'DOWN', _, process, Pid, Reason} ->
-            {error, Reason}
-    end.
+    Pid.
 
 sc_rc_tcp_handler(ID, Parent, Recv, Sock) ->
     sc_rc_tcp_handler_init(ID, Parent),
-    sc_rc_tcp_handler_await_recv(Parent),
+    sc_rc_tcp_handler_await(Parent, recv),
     RecvRes = sc_rc_tcp_handler_recv(Recv, Sock),
-    sc_rc_tcp_handler_announce_ready(Parent, RecvRes),
-    Reason = sc_rc_tcp_handler_await_terminate(Parent),
+    sc_rc_tcp_handler_announce_ready(Parent, recv, RecvRes),
+    Reason = sc_rc_tcp_handler_await(Parent, terminate),
     exit(Reason).
 
 sc_rc_tcp_handler_init(ID, Parent) ->
     put(sname, f("handler-~w", [ID])),
     _MRef = erlang:monitor(process, Parent),
-    Parent ! {started, self()},
     ?SEV_IPRINT("started"),
+    ?SEV_ANNOUNCE_READY(Parent, init),
     ok.
 
-sc_rc_tcp_handler_await_recv(Parent) ->
-    ?SEV_IPRINT("await recv"),
-    receive
-        {recv, Parent} ->
-            ok;
-        {'DOWN', _, process, Parent, Reason} ->
-            ?SEV_EPRINT("received DOWN regarding parent: "
-               "~n   ~p", [Reason]),
-            exit({parent, Reason})
-    end.
+sc_rc_tcp_handler_await(Parent, terminate) ->
+    ?SEV_IPRINT("await terminate"),
+    ?SEV_AWAIT_TERMINATE(Parent, tester);
+sc_rc_tcp_handler_await(Parent, Slogan) ->
+    ?SEV_IPRINT("await ~w", [Slogan]),
+    ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan).
 
 sc_rc_tcp_handler_recv(Recv, Sock) ->
     ?SEV_IPRINT("recv"),
@@ -5222,21 +5223,10 @@ sc_rc_tcp_handler_recv(Recv, Sock) ->
             {error, {recv, C, E, S}}
     end.
     
-sc_rc_tcp_handler_announce_ready(Parent, Result) ->
+sc_rc_tcp_handler_announce_ready(Parent, Slogan, Result) ->
     ?SEV_IPRINT("announce ready"),
-    Parent ! {ready, self(), Result},
+    ?SEV_ANNOUNCE_READY(Parent, Slogan, Result),
     ok.
-
-sc_rc_tcp_handler_await_terminate(Parent) ->
-    ?SEV_IPRINT("await terminate"),
-    receive
-        {terminate, Parent, Reason} ->
-            Reason;
-        {'DOWN', _, process, Parent, Reason} ->
-            ?SEV_EPRINT("received DOWN regarding parent: "
-                        "~n   ~p", [Reason]),
-            {parent, Reason}
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
