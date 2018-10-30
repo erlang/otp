@@ -83,6 +83,11 @@ coverage(_) ->
 	(catch bar(x)),
     {'EXIT',{{case_clause,{1}},[{?MODULE,bar,1,[File,{line,9}]}|_]}} =
 	(catch bar(0)),
+
+    Self = self(),
+    {'EXIT',{{strange,Self},[{?MODULE,foo,[any],[File,{line,14}]}|_]}} =
+        (catch foo(any)),
+
     ok.
 
 -file("fake.erl", 1).
@@ -96,3 +101,6 @@ bar(X) ->					%Line 8
     case {X+1} of				%Line 9
 	1 -> ok					%Line 10
     end.					%Line 11
+%% Cover collection code for function_clause exceptions.
+foo(A) ->                                       %Line 13
+    error({strange,self()}, [A]).               %Line 14
