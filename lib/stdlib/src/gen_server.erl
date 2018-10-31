@@ -773,10 +773,10 @@ handle_common_reply(Reply, Parent, Name, From, Msg, Mod, HibernateAfterTimeout, 
 	    terminate({bad_return_value, BadReply}, ?STACKTRACE(), Name, From, Msg, Mod, State, Debug)
     end.
 
-reply(Name, {To, Tag}, Reply, State, Debug) ->
-    reply({To, Tag}, Reply),
+reply(Name, From, Reply, State, Debug) ->
+    reply(From, Reply),
     sys:handle_debug(Debug, fun print_event/3, Name,
-		     {out, Reply, To, State} ).
+		     {out, Reply, From, State} ).
 
 
 %%-----------------------------------------------------------------
@@ -810,7 +810,7 @@ system_replace_state(StateFun, [Name, State, Mod, Time, HibernateAfterTimeout]) 
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{'$gen_call', {From, _Tag}, Call} ->
-	    io:format(Dev, "*DBG* ~tp got call ~tp from ~w~n",
+	    io:format(Dev, "*DBG* ~tp got call ~tp from ~tw~n",
 		      [Name, Call, From]);
 	{'$gen_cast', Cast} ->
 	    io:format(Dev, "*DBG* ~tp got cast ~tp~n",
@@ -818,8 +818,8 @@ print_event(Dev, {in, Msg}, Name) ->
 	_ ->
 	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
-print_event(Dev, {out, Msg, To, State}, Name) ->
-    io:format(Dev, "*DBG* ~tp sent ~tp to ~w, new state ~tp~n",
+print_event(Dev, {out, Msg, {To,_Tag}, State}, Name) ->
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~tw, new state ~tp~n",
 	      [Name, Msg, To, State]);
 print_event(Dev, {noreply, State}, Name) ->
     io:format(Dev, "*DBG* ~tp new state ~tp~n", [Name, State]);
@@ -885,7 +885,7 @@ error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) -
     %% of it instead
     ok;
 error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
-    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
+    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
                  last_message=>Msg,

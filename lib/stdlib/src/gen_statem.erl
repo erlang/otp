@@ -680,7 +680,7 @@ enter(
            data = Data,
            hibernate_after = HibernateAfterTimeout},
     CallEnter = true,
-    NewDebug = ?sys_debug(Debug, {Name,State}, {enter,Event,State}),
+    NewDebug = ?sys_debug(Debug, Name, {enter,State}),
     case call_callback_mode(S) of
 	#state{} = NewS ->
 	    loop_event_actions_list(
@@ -827,26 +827,30 @@ format_status(
 sys_debug(Debug, NameState, Entry) ->
   sys:handle_debug(Debug, fun print_event/3, NameState, Entry).
 
-print_event(Dev, SystemEvent, {Name,State}) ->
+print_event(Dev, SystemEvent, Name) ->
     case SystemEvent of
-        {in,Event} ->
+        {in,Event,State} ->
             io:format(
               Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
               [Name,event_string(Event),State]);
-        {in,Event,code_change} ->
+        {code_change,Event,State} ->
             io:format(
               Dev, "*DBG* ~tp receive ~ts after code change in state ~tp~n",
               [Name,event_string(Event),State]);
         {out,Reply,{To,_Tag}} ->
             io:format(
-              Dev, "*DBG* ~tp send ~tp to ~p in state ~tp~n",
-              [Name,Reply,To,State]);
-        {terminate,Reason} ->
+              Dev, "*DBG* ~tp send ~tp to ~tw~n",
+              [Name,Reply,To]);
+        {enter,State} ->
+            io:format(
+              Dev, "*DBG* ~tp enter in state ~tp~n",
+              [Name,State]);
+        {terminate,Reason,State} ->
             io:format(
               Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
               [Name,Reason,State]);
-        {Tag,Event,NextState}
-          when Tag =:= enter; Tag =:= postpone; Tag =:= consume ->
+        {Tag,Event,State,NextState}
+          when Tag =:= postpone; Tag =:= consume ->
             StateString =
                 case NextState of
                     State ->
@@ -862,7 +866,7 @@ print_event(Dev, SystemEvent, {Name,State}) ->
 event_string(Event) ->
     case Event of
 	{{call,{Pid,_Tag}},Request} ->
-	    io_lib:format("call ~tp from ~w", [Request,Pid]);
+	    io_lib:format("call ~tp from ~tw", [Request,Pid]);
 	{EventType,EventContent} ->
 	    io_lib:format("~tw ~tp", [EventType,EventContent])
     end.
@@ -1004,13 +1008,13 @@ loop_receive_result(Parent, ?not_sys_debug, S, Type, Content) ->
     loop_event(Parent, ?not_sys_debug, S, Events, Type, Content);
 loop_receive_result(
   Parent, Debug, #state{name = Name, state = State} = S, Type, Content) ->
+    Event = {Type,Content},
     NewDebug =
         case S#state.callback_mode of
             undefined ->
-                sys_debug(
-                  Debug, {Name,State}, {in,{Type,Content},code_change});
+                sys_debug(Debug, Name, {code_change,Event,State});
             _ ->
-                sys_debug(Debug, {Name,State}, {in,{Type,Content}})
+                sys_debug(Debug, Name, {in,Event,State})
         end,
     %% Here is the queue of not yet handled events created
     Events = [],
@@ -1321,13 +1325,13 @@ parse_actions_reply(
              ?STACKTRACE(), Debug]
     end;
 parse_actions_reply(
-  StateCall, Debug, #state{name = Name, state = State} = S,
+  StateCall, Debug, #state{name = Name} = S,
   Actions, TransOpts, From, Reply) ->
     %%
     case from(From) of
         true ->
             reply(From, Reply),
-            NewDebug = sys_debug(Debug, {Name,State}, {out,Reply,From}),
+            NewDebug = sys_debug(Debug, Name, {out,Reply,From}),
             parse_actions(StateCall, NewDebug, S, Actions, TransOpts);
         false ->
             [error,
@@ -1356,7 +1360,7 @@ parse_actions_next_event(
   Actions, TransOpts, Type, Content) ->
     case event_type(Type) of
         true when StateCall ->
-            NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+            NewDebug = sys_debug(Debug, Name, {in,{Type,Content},State}),
             NextEventsR = TransOpts#trans_opts.next_events_r,
             parse_actions(
               StateCall, NewDebug, S, Actions,
@@ -1473,14 +1477,14 @@ loop_event_done(
 	    true ->
 		[?sys_debug(
                     Debug_0,
-                    {S#state.name,State},
-                    {postpone,Event_0,NextState}),
+                    S#state.name,
+                    {postpone,Event_0,State,NextState}),
 		 Event_0|P_0];
 	    false ->
 		[?sys_debug(
                     Debug_0,
-                    {S#state.name,State},
-                    {consume,Event_0,NextState})|P_0]
+                    S#state.name,
+                    {consume,Event_0,State,NextState})|P_0]
 	end,
     {Events_2,P_2,
      Timers_2} =
@@ -1883,7 +1887,7 @@ do_reply_then_terminate(
                     NewDebug =
                         ?sys_debug(
                            Debug,
-                           {S#state.name,S#state.state},
+                           S#state.name,
                            {out,Reply,From}),
                     do_reply_then_terminate(
                       Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
@@ -1938,7 +1942,7 @@ terminate(
     end.
 
 terminate_sys_debug(Debug, S, State, Reason) ->
-    ?sys_debug(Debug, {S#state.name,State}, {terminate,Reason}).
+    ?sys_debug(Debug, S#state.name, {terminate,Reason,State}).
 
 
 error_info(
@@ -1949,7 +1953,7 @@ error_info(
      state_enter = StateEnter,
      postponed = P} = S,
   Q) ->
-    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
+    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
                  name=>Name,
                  queue=>Q,

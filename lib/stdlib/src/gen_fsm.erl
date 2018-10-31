@@ -417,7 +417,7 @@ decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTime
 	    handle_msg(Msg, Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout);
 	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
-				      {Name, StateName}, {in, Msg}),
+				      Name, {in, Msg, StateName}),
 	    handle_msg(Msg, Parent, Name, StateName, StateData,
 		       Mod, Time, HibernateAfterTimeout, Debug1)
     end.
@@ -453,7 +453,7 @@ system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time, Hibernate
 %% Format debug messages.  Print them as the call-back module sees
 %% them, not as the real erlang messages.  Use trace for that.
 %%-----------------------------------------------------------------
-print_event(Dev, {in, Msg}, {Name, StateName}) ->
+print_event(Dev, {in, Msg, StateName}, Name) ->
     case Msg of
 	{'$gen_event', Event} ->
 	    io:format(Dev, "*DBG* ~tp got event ~tp in state ~tw~n",
@@ -462,6 +462,16 @@ print_event(Dev, {in, Msg}, {Name, StateName}) ->
 	    io:format(Dev,
 		      "*DBG* ~tp got all_state_event ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
+	{'$gen_sync_event', {From,_Tag}, Event} ->
+	    io:format(Dev,
+                      "*DBG* ~tp got sync_event ~tp "
+                      "from ~tw in state ~tw~n",
+		      [Name, Event, From, StateName]);
+	{'$gen_sync_all_state_event', {From,_Tag}, Event} ->
+	    io:format(Dev,
+		      "*DBG* ~tp got sync_all_state_event ~tp "
+                      "from ~tw in state ~tw~n",
+		      [Name, Event, From, StateName]);
 	{timeout, Ref, {'$gen_timer', Message}} ->
 	    io:format(Dev,
 		      "*DBG* ~tp got timer ~tp in state ~tw~n",
@@ -474,11 +484,11 @@ print_event(Dev, {in, Msg}, {Name, StateName}) ->
 	    io:format(Dev, "*DBG* ~tp got ~tp in state ~tw~n",
 		      [Name, Msg, StateName])
     end;
-print_event(Dev, {out, Msg, To, StateName}, Name) ->
+print_event(Dev, {out, Msg, {To,_Tag}, StateName}, Name) ->
     io:format(Dev, "*DBG* ~tp sent ~tp to ~tw~n"
 	           "      and switched to state ~tw~n",
 	      [Name, Msg, To, StateName]);
-print_event(Dev, return, {Name, StateName}) ->
+print_event(Dev, {noreply, StateName}, Name) ->
     io:format(Dev, "*DBG* ~tp switched to state ~tw~n",
 	      [Name, StateName]).
 
@@ -522,11 +532,11 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
     case catch dispatch(Msg, Mod, StateName, StateData) of
 	{next_state, NStateName, NStateData} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
-				      {Name, NStateName}, return),
+				      Name, {noreply, NStateName}),
 	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, Debug1);
 	{next_state, NStateName, NStateData, Time1} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
-				      {Name, NStateName}, return),
+				      Name, {noreply, NStateName}),
 	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, Debug1);
         {reply, Reply, NStateName, NStateData} when From =/= undefined ->
 	    Debug1 = reply(Name, From, Reply, Debug, NStateName),
@@ -573,10 +583,10 @@ from(_) -> undefined.
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
 
-reply(Name, {To, Tag}, Reply, Debug, StateName) ->
-    reply({To, Tag}, Reply),
+reply(Name, From, Reply, Debug, StateName) ->
+    reply(From, Reply),
     sys:handle_debug(Debug, fun print_event/3, Name,
-		     {out, Reply, To, StateName}).
+		     {out, Reply, From, StateName}).
 
 %%% ---------------------------------------------------
 %%% Terminate the server.
@@ -698,11 +708,11 @@ format_log(#{label:={gen_fsm,no_handle_info},
 get_msg_str({'$gen_event', _Event}) ->
     "** Last event in was ~tp~n";
 get_msg_str({'$gen_sync_event', _From, _Event}) ->
-    "** Last sync event in was ~tp from ~p~n";
+    "** Last sync event in was ~tp from ~tw~n";
 get_msg_str({'$gen_all_state_event', _Event}) ->
     "** Last event in was ~tp (for all states)~n";
 get_msg_str({'$gen_sync_all_state_event', _From, _Event}) ->
-    "** Last sync event in was ~tp (for all states) from ~p~n";
+    "** Last sync event in was ~tp (for all states) from ~tw~n";
 get_msg_str({timeout, _Ref, {'$gen_timer', _Msg}}) ->
     "** Last timer event in was ~tp~n";
 get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) ->
@@ -711,9 +721,9 @@ get_msg_str(_Msg) ->
     "** Last message in was ~tp~n".
 
 get_msg({'$gen_event', Event}) -> [Event];
-get_msg({'$gen_sync_event', From, Event}) -> [Event,From];
+get_msg({'$gen_sync_event', {From,_Tag}, Event}) -> [Event,From];
 get_msg({'$gen_all_state_event', Event}) -> [Event];
-get_msg({'$gen_sync_all_state_event', From, Event}) -> [Event,From];
+get_msg({'$gen_sync_all_state_event', {From,_Tag}, Event}) -> [Event,From];
 get_msg({timeout, Ref, {'$gen_timer', Msg}}) -> [{timeout, Ref, Msg}];
 get_msg({timeout, _Ref, {'$gen_event', Event}}) -> [Event];
 get_msg(Msg) -> [Msg].
@@ -737,7 +747,7 @@ format_status(Opt, StatusData) ->
 	StatusData,
     Header = gen:format_status_header("Status for state machine",
                                       Name),
-    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
+    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
     Specfic = format_status(Opt, Mod, PDict, StateData),
     Specfic = case format_status(Opt, Mod, PDict, StateData) of
 		  S when is_list(S) -> S;

@@ -527,7 +527,7 @@ error_format_status(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** State machine "++_,
-			     [Pid,badreturn,{Parent,_},idle,{formatted,StateData},
+			     [Pid,badreturn,Parent,idle,{formatted,StateData},
                               {bad_return_value,badreturn}|_]}} ->
 	    ok;
 	Other ->
@@ -547,7 +547,7 @@ terminate_crash_format(Config) when is_list(Config) ->
     receive
 	{error,_GroupLeader,{Pid,
 			     "** State machine "++_,
-			     [Pid,stop,{Parent,_},idle,{formatted, StateData},
+			     [Pid,stop,Parent,idle,{formatted, StateData},
                               {crash,terminate}|_]}} ->
 	    ok;
 	Other ->
