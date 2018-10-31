@@ -885,7 +885,7 @@ error_info(_Reason, application_controller, _From, _Msg, _Mod, _State, _Debug) -
     %% of it instead
     ok;
 error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
-    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_server,terminate},
                  name=>Name,
                  last_message=>Msg,
@@ -978,7 +978,7 @@ format_client_log({_From,{Name,Stacktrace}}) ->
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
-    Log = [{Ev, St} || {Ev, St, _FormFunc} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     Specfic = case format_status(Opt, Mod, PDict, State) of
 		  S when is_list(S) -> S;
 		  S -> [S]

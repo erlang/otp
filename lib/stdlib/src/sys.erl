@@ -548,7 +548,7 @@ debug_cmd({log, print}, Debug) ->
     {ok, Debug};
 debug_cmd({log, get}, Debug) ->
     NLog = get_debug(log, Debug, nlog_new()),
-    {{ok, nlog_get(NLog)}, Debug};
+    {{ok, [Event || {Event, _State, _FormFunc} <- nlog_get(NLog)]}, Debug};
 debug_cmd({log_to_file, false}, Debug) ->
     NDebug = close_log_file(Debug),
     {ok, NDebug};
@@ -639,7 +639,7 @@ print_log(Debug) ->
       Debug :: [dbg_opt()].
 get_log(Debug) ->
     NLog = get_debug(log, Debug, nlog_new()),
-    nlog_get(NLog).
+    [Event || {Event, _State, _FormFunc} <- nlog_get(NLog)].
     
 close_log_file(Debug) ->
     case get_debug2(log_to_file, Debug, []) of

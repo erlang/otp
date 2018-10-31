@@ -624,7 +624,7 @@ terminate(Reason, Name, From, Msg, Mod, StateName, StateData, Debug) ->
     end.
 
 error_info(Reason, Name, From, Msg, StateName, StateData, Debug) ->
-    Log = [{Event, State} || {Event, State, _FormFunc} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_fsm,terminate},
                  name=>Name,
                  last_message=>Msg,
@@ -747,7 +747,7 @@ format_status(Opt, StatusData) ->
 	StatusData,
     Header = gen:format_status_header("Status for state machine",
                                       Name),
-    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     Specfic = format_status(Opt, Mod, PDict, StateData),
     Specfic = case format_status(Opt, Mod, PDict, StateData) of
 		  S when is_list(S) -> S;

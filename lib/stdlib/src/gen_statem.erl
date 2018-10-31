@@ -807,7 +807,7 @@ format_status(
   [PDict,SysState,Parent,Debug,
    #state{name = Name, postponed = P} = S]) ->
     Header = gen:format_status_header("Status for state machine", Name),
-    Log = [{Event, State} || {Event, State, _FormFunc} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     [{header,Header},
      {data,
       [{"Status",SysState},
@@ -1953,7 +1953,7 @@ error_info(
      state_enter = StateEnter,
      postponed = P} = S,
   Q) ->
-    Log = [SysEvent || {SysEvent,_,_} <- sys:get_log(Debug)],
+    Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
                  name=>Name,
                  queue=>Q,
