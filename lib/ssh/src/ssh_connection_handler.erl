@@ -471,10 +471,11 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
             S1 =
                 S0#ssh{c_vsn = Vsn,
                        c_version = Version,
-                       io_cb = case ?GET_OPT(user_interaction, Opts) of
-                                   true ->  ssh_io;
-                                   false -> ssh_no_io
-                               end,
+                       opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
+                                                            true ->  ssh_io;
+                                                            false -> ssh_no_io
+                                                        end},
+                                                Opts),
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
                        local = LocalName
@@ -487,7 +488,6 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 	server ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
-		   io_cb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
 		   userauth_methods = string:tokens(AuthMethods, ","),
 		   kb_tries_left = 3,
 		   peer = {undefined, PeerAddr},

@@ -861,8 +861,9 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
     end.
 
 
-yes_no(Ssh, Prompt)  ->
-    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh#ssh.opts).
+yes_no(#ssh{opts=Opts}, Prompt)  ->
+    IoCb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
+    IoCb:yes_no(Prompt, Opts).
 
 
 fmt_hostkey('ssh-rsa') -> "RSA";

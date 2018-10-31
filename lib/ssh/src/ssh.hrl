@@ -380,8 +380,6 @@
 
 	  algorithms,   %% #alg{}
 	  
-	  io_cb,        %% Interaction callback module
-
 	  send_mac = none, %% send MAC algorithm
 	  send_mac_key,  %% key used in send MAC algorithm
 	  send_mac_size = 0,
