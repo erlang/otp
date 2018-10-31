@@ -48,9 +48,6 @@ typedef struct {
     ErtsThrPrgrLaterOp free_item; /* Used when freeing using thread progress */
     struct DbTableCATreeNode * next; /* Used when gradually deleting */
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    DbRouteKey lc_key;
-#endif
     char end_of_struct__;
 } DbTableCATreeBaseNode;
 
@@ -92,13 +89,45 @@ typedef struct db_table_catree {
     int is_routing_nodes_freed;
 } DbTableCATree;
 
+typedef struct {
+    DbTableCATree* tb;
+    Eterm next_route_key;
+    DbTableCATreeNode* locked_bnode;
+    DbTableCATreeNode* bnode_parent;
+    int bnode_level;
+    int read_only;
+    DbRouteKey* search_key;
+} CATreeRootIterator;
+
+
 void db_initialize_catree(void);
 
 int db_create_catree(Process *p, DbTable *tbl);
 
 
+TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator*);
+
+TreeDbTerm** catree_find_next_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key, CATreeRootIterator*);
+TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator*, int next, Eterm* keyp);
+TreeDbTerm** catree_find_next_root(CATreeRootIterator*, Eterm* keyp);
+TreeDbTerm** catree_find_prev_root(CATreeRootIterator*, Eterm* keyp);
+TreeDbTerm** catree_find_first_root(CATreeRootIterator*);
+TreeDbTerm** catree_find_last_root(CATreeRootIterator*);
+
+
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_db_catree_lock_count(DbTableCATree *tb, int enable);
 #endif
+
+void db_catree_force_split(DbTableCATree*, int on);
+
+typedef struct {
+    Uint route_nodes;
+    Uint base_nodes;
+    Uint max_depth;
+} DbCATreeStats;
+void db_calc_stats_catree(DbTableCATree*, DbCATreeStats*);
+
 
 #endif /* _DB_CATREE_H */

@@ -92,7 +92,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
     {	"db_hash_slot",				"address"		},
-    {	"erl_db_catree_base_node",		"term"		        },
+    {	"erl_db_catree_base_node",		NULL		        },
     {	"erl_db_catree_route_node",		"index"		        },
     {	"resource_monitors",			"address"	        },
     {   "driver_list",                          NULL                    },
@@ -194,6 +194,12 @@ struct lc_locked_lock_t_ {
     unsigned int line;
     erts_lock_flags_t flags;
     erts_lock_options_t taken_options;
+    /*
+     * Pointer back to the lock instance if it exists or NULL for proc locks.
+     * If set, we use it to allow trylock of other lock instance
+     * but with identical lock order as an already locked lock.
+     */
+    erts_lc_lock_t *lck;
 };
 
 typedef struct {
@@ -407,6 +413,10 @@ new_locked_lock(lc_thread_t* thr,
     ll->line = line;
     ll->flags = lck->flags;
     ll->taken_options = options;
+    if ((lck->flags & ERTS_LOCK_FLAGS_MASK_TYPE) == ERTS_LOCK_FLAGS_TYPE_PROCLOCK)
+        ll->lck = NULL;
+    else
+        ll->lck = lck;
     return ll;
 }
 
@@ -1005,17 +1015,14 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 	 */
 
         /* Check that we are not trying to lock this lock twice */
-        while (1) {
-            if (order <= 0) {
-                if (order == 0)
-                    lock_twice("Trylocking", thr, lck, options);
-                break;
-            }
+        do {
+            if (order == 0 && (ll->lck == lck || !ll->lck))
+                lock_twice("Trylocking", thr, lck, options);
             ll = ll->prev;
             if (!ll)
                 break;
             order = compare_locked_by_id_extra(ll, lck);
-        }
+        } while (order >= 0);
 
 #ifndef ERTS_LC_ALLWAYS_FORCE_BUSY_TRYLOCK_ON_LOCK_ORDER_VIOLATION
 	/* We only force busy if a lock order violation would occur
@@ -1034,11 +1041,6 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, erts_lock_options_t options)
 #endif
 }
 
-/*
- * locked = 0    trylock failed
- * locked > 0    trylock succeeded
- * locked < 0    prelocking of newly created lock (no lock order check)
- */
 void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t options,
 			   char *file, unsigned int line)
 {
@@ -1069,8 +1071,8 @@ void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, erts_lock_options_t 
 	for (tl_lck = thr->locked.last; tl_lck; tl_lck = tl_lck->prev) {
             int order = compare_locked_by_id_extra(tl_lck, lck);
 	    if (order <= 0) {
-		if (order == 0 && locked >= 0)
-		    lock_twice("Trylocking", thr, lck, options);
+                if (order == 0 && (tl_lck->lck == lck || !tl_lck->lck))
+                    lock_twice("Trylocking", thr, lck, options);
 		if (locked) {
 		    ll->next = tl_lck->next;
 		    ll->prev = tl_lck;
@@ -1210,7 +1212,7 @@ void erts_lc_lock_flg_x(erts_lc_lock_t *lck, erts_lock_options_t options,
 	thr->locked.last->next = new_ll;
 	thr->locked.last = new_ll;
     }
-    else if (thr->locked.last->id == lck->id && thr->locked.last->extra == lck->extra)
+    else if (order == 0)
 	lock_twice("Locking", thr, lck, options);
     else
 	lock_order_violation(thr, lck);

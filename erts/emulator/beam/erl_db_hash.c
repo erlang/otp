@@ -3103,7 +3103,7 @@ Ldone:
     handle->dbterm = &b->dbterm;
     handle->flags = flags;
     handle->new_size = b->dbterm.size;
-    handle->lck = lck;
+    handle->u.hash.lck = lck;
     return 1;
 }
 
@@ -3116,7 +3116,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp = (HashDbTerm **) handle->bp;
     HashDbTerm *b = *bp;
-    erts_rwmtx_t* lck = (erts_rwmtx_t*) handle->lck;
+    erts_rwmtx_t* lck = handle->u.hash.lck;
     HashDbTerm* free_me = NULL;
 
     ERTS_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */

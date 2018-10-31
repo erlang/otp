@@ -4669,6 +4669,14 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             BIF_RET(am_notsup);
 #endif
         }
+        else if (ERTS_IS_ATOM_STR("ets_force_split", BIF_ARG_1)) {
+            if (is_tuple(BIF_ARG_2)) {
+                Eterm* tpl = tuple_val(BIF_ARG_2);
+
+                if (erts_ets_force_split(tpl[1], tpl[2] == am_true))
+                    BIF_RET(am_ok);
+            }
+        }
     }
 
     BIF_ERROR(BIF_P, BADARG);

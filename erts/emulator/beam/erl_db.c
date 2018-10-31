@@ -4247,9 +4247,20 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 			 make_small(stats.max_chain_len),
 			 make_small(stats.kept_items));
 	}
-	else {
+	else if (IS_CATREE_TABLE(tb->common.status)) {
+            DbCATreeStats stats;
+            Eterm* hp;
+
+            db_calc_stats_catree(&tb->catree, &stats);
+            hp = HAlloc(p, 4);
+            ret = TUPLE3(hp,
+                         make_small(stats.route_nodes),
+                         make_small(stats.base_nodes),
+                         make_small(stats.max_depth));
+
+        }
+        else
 	    ret = am_false;
-	}
     }
     return ret;
 }
@@ -4454,3 +4465,16 @@ void erts_lcnt_update_db_locks(int enable) {
 #ifdef ETS_DBG_FORCE_TRAP
 erts_aint_t erts_ets_dbg_force_trap = 0;
 #endif
+
+int erts_ets_force_split(Eterm tid, int on)
+{
+    DbTable* tb = tid2tab(tid);
+    if (!tb || !IS_CATREE_TABLE(tb->common.type))
+        return 0;
+
+    db_lock(tb, LCK_WRITE);
+    if (!(tb->common.status & DB_DELETE))
+        db_catree_force_split(&tb->catree, on);
+    db_unlock(tb, LCK_WRITE);
+    return 1;
+}

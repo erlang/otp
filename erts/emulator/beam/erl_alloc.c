@@ -4041,7 +4041,7 @@ debug_realloc(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
     erts_hdbg_chk_blks();
 #endif
 
-    if (old_size > size)
+    if (ptr && old_size > size)
 	sys_memset((void *) (((char *) ptr) + size),
 		   0xf,
 		   sizeof(Uint) + old_size - size);

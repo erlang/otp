@@ -611,9 +611,8 @@ Error: fun containing local Erlang function calls
           </item>
           <item>
             <p><c>Item=stats, Value=tuple()</c></p>
-            <p>Returns internal statistics about <c>set</c>, <c>bag</c>, and
-              <c>duplicate_bag</c> tables on an internal format used by OTP
-              test suites. Not for production use.</p></item>
+            <p>Returns internal statistics about tables on an internal format
+	    used by OTP test suites. Not for production use.</p></item>
         </list>
       </desc>
     </func>
@@ -1140,16 +1139,11 @@ ets:select(Table, MatchSpec),</code>
 	      <c>set</c>, <c>bag</c> and <c>duplicate_bag</c>. For
 	      <c>ordered_set</c> the memory overhead depends on the number
 	      of inserted objects and the amount of actual detected
-	      concurrency. The memory overhead can be especially large when both
-	      options are combined.</p>
+	      concurrency in runtime. The memory overhead can be especially
+	      large when both options are combined.</p>
 	    <note>
               <p>Prior to stdlib-3.7 (OTP-22.0) <c>write_concurrency</c> had no
 	      effect on <c>ordered_set</c>.</p>
-	      <p>The current implementation of <c>write_concurrency</c> for
-	      <c>ordered_set</c> does only improve explicit single key
-	      operations. Mixing single key operations with operations
-	      potentially accessing multiple keys may even yield worse
-	      performance with <c>write_concurrency</c> on <c>ordered_set</c>.</p>
             </note>
             <marker id="new_2_read_concurrency"></marker>
           </item>
