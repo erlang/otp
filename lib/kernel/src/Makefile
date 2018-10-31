@@ -118,6 +118,7 @@ MODULES = \
 	logger_h_common \
 	logger_filters \
         logger_formatter \
+	logger_olp \
         logger_server \
         logger_simple_h \
         logger_sup \
