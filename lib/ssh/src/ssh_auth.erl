@@ -137,9 +137,7 @@ keyboard_interactive_msg([#ssh{user = User,
 
 get_public_key(SigAlg, #ssh{opts = Opts}) ->
     KeyAlg = key_alg(SigAlg),
-    {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:user_key(KeyAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+    case ssh_transport:call_KeyCb(user_key, [KeyAlg], Opts) of
         {ok, PrivKey} ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
@@ -498,9 +496,7 @@ get_password_option(Opts, User) ->
 pre_verify_sig(User, KeyBlob, Opts) ->
     try
 	Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
-        {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
-        UserOpts = ?GET_OPT(user_options, Opts),
-        KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts])
+        ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts)
     catch
 	_:_ ->
 	    false
@@ -509,10 +505,8 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts = Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
-        {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
-        UserOpts = ?GET_OPT(user_options, Opts),
         Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
-        true = KeyCb:is_auth_key(Key, User, [{key_cb_private,KeyCbOpts}|UserOpts]),
+        true = ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts),
         PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
         <<?UINT32(AlgLen), _Alg:AlgLen/binary,

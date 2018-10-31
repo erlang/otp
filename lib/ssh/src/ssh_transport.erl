@@ -51,7 +51,8 @@
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/2,
-	 sha/1, sign/3, verify/5]).
+	 sha/1, sign/3, verify/5,
+         call_KeyCb/3]).
 
 -export([dbg_trace/3]).
 
@@ -777,10 +778,8 @@ sid(#ssh{session_id = Id},        _) -> Id.
 %%
 %% The host key should be read from storage
 %%
-get_host_key(SSH, SignAlg) ->
-    #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts} = SSH,
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:host_key(SignAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+get_host_key(#ssh{opts=Opts}, SignAlg) ->
+    case call_KeyCb(host_key, [SignAlg], Opts) of
 	{ok, PrivHostKey} ->
             %% Check the key - the KeyCb may be a buggy plugin
             case valid_key_sha_alg(PrivHostKey, SignAlg) of
@@ -790,6 +789,11 @@ get_host_key(SSH, SignAlg) ->
 	Result ->
             exit({error, {Result, unsupported_key_type}})
     end.
+
+call_KeyCb(F, Args, Opts) ->
+    {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+    UserOpts = ?GET_OPT(user_options, Opts),
+    apply(KeyCb, F, Args ++ [[{key_cb_private,KeyCbOpts}|UserOpts]]).
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
     #'RSAPublicKey'{modulus = N, publicExponent = E};
@@ -868,18 +872,16 @@ fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
 
 
-known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case is_host_key(KeyCb, Public, PeerName, Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	{_,true} ->
+    case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
+	true ->
 	    ok;
-	{_,false} ->
+	false ->
             DoAdd = ?GET_OPT(save_accepted_host, Opts),
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
 		true when DoAdd == true ->
-		    {_,R} = add_host_key(KeyCb, PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]),
-                    R;
+		    call_KeyCb(add_host_key, [PeerName, Public], Opts);
 		true when DoAdd == false ->
                     ok;
 		false ->
@@ -889,13 +891,6 @@ known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}
 	    end
     end.
 	    
-is_host_key(KeyCb, Public, PeerName, Alg, Data) ->
-    {KeyCb, KeyCb:is_host_key(Public, PeerName, Alg, Data)}.
-
-add_host_key(KeyCb, PeerName, Public, Data) ->
-    {KeyCb, KeyCb:add_host_key(PeerName, Public, Data)}.
-    
-
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
 %%   supported (allowed) algorithm MUST be listed in order of preference.

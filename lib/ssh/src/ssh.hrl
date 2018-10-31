@@ -380,7 +380,6 @@
 
 	  algorithms,   %% #alg{}
 	  
-	  key_cb,       %% Private/Public key callback module
 	  io_cb,        %% Interaction callback module
 
 	  send_mac = none, %% send MAC algorithm
