@@ -54,10 +54,16 @@
 ** 2.13: 20.1 add enif_ioq
 ** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
+** 2.15: 22.0 ERL_NIF_SELECT_CANCEL
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 14
-#define ERL_NIF_MIN_ERTS_VERSION "erts-10.0 (OTP-21)"
+#define ERL_NIF_MINOR_VERSION 15
+/*
+ * WHEN CHANGING INTERFACE VERSION, also replace erts version below
+ * with ticket syntax like "erts-@OTP-12345@", or a temporary placeholder
+ * between two @ like "erts-@MyName@", if you don't know what a ticket is.
+ */
+#define ERL_NIF_MIN_ERTS_VERSION "erts-@OTP-15095@ (OTP-22)"
 
 /*
  * The emulator will refuse to load a nif-lib with a major version
