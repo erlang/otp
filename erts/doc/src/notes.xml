@@ -1355,6 +1355,30 @@
 
 </section>
 
+<section><title>Erts 9.3.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ERTS internal trees of monitor structures could get into
+	    an inconsistent state. This could cause <c>'DOWN'</c>
+	    messages not to be delivered when they should, as well as
+	    delivery of <c>'DOWN'</c> messages that should not be
+	    delivered.</p>
+          <p>
+	    This bug was introduced in ERTS version 9.0 (OTP 20.0)
+	    and was fixed in ERTS version 10.0 (OTP 21.0) due to a
+	    rewrite of the monitor code. That is, this bug only exist
+	    in the OTP 20 release.</p>
+          <p>
+	    Own Id: OTP-15399 Aux Id: ERL-751, ERIERL-262, OTP-14205 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
