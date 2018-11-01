@@ -144,13 +144,19 @@ module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
 %%
 %%  NOTE: This function assumes that there are no labels inside blocks.
 function({function,Name,Arity,CLabel,Asm0}, Lc0) ->
-    Asm1 = eliminate_moves(Asm0),
-    {Asm2,Lc} = insert_labels(Asm1, Lc0, []),
-    Asm3 = share(Asm2),
-    Asm4 = move(Asm3),
-    Asm5 = opt(Asm4, CLabel),
-    Asm = remove_unused_labels(Asm5),
-    {{function,Name,Arity,CLabel,Asm},Lc}.
+    try
+        Asm1 = eliminate_moves(Asm0),
+        {Asm2,Lc} = insert_labels(Asm1, Lc0, []),
+        Asm3 = share(Asm2),
+        Asm4 = move(Asm3),
+        Asm5 = opt(Asm4, CLabel),
+        Asm = remove_unused_labels(Asm5),
+        {{function,Name,Arity,CLabel,Asm},Lc}
+    catch
+        Class:Error:Stack ->
+	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
+	    erlang:raise(Class, Error, Stack)
+    end.
 
 %%%
 %%% Scan instructions in execution order and remove redundant 'move'
