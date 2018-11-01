@@ -868,7 +868,9 @@ asm_passes() ->
        %% need to do a few clean-ups to code.
        {iff,no_postopt,[{pass,beam_clean}]},
 
+       {iff,diffable,?pass(diffable)},
        {pass,beam_z},
+       {iff,diffable,{listing,"S"}},
        {iff,dz,{listing,"z"}},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
@@ -1926,6 +1928,39 @@ restore_expand_module([F|Fs]) ->
     [F|restore_expand_module(Fs)];
 restore_expand_module([]) -> [].
 
+%%%
+%%% Transform the BEAM code to make it more friendly for
+%%% diffing: using function names instead of labels for
+%%% local calls and number labels relative to each function.
+%%%
+
+diffable(Code0, St) ->
+    {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
+    EntryLabels0 = [{Entry,{Name,Arity}} ||
+                       {function,Name,Arity,Entry,_} <- Fs0],
+    EntryLabels = maps:from_list(EntryLabels0),
+    Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
+    Code = {Mod,Exp,Attr,Fs,NumLabels},
+    {ok,Code,St}.
+
+diffable_fix_function({function,Name,Arity,Entry0,Is0}, LabelMap0) ->
+    Entry = maps:get(Entry0, LabelMap0),
+    {Is1,LabelMap} = diffable_label_map(Is0, 1, LabelMap0, []),
+    Fb = fun(Old) -> error({no_fb,Old}) end,
+    Is = beam_utils:replace_labels(Is1, [], LabelMap, Fb),
+    {function,Name,Arity,Entry,Is}.
+
+diffable_label_map([{label,Old}|Is], New, Map, Acc) ->
+    case Map of
+        #{Old:=NewLabel} ->
+            diffable_label_map(Is, New, Map, [{label,NewLabel}|Acc]);
+        #{} ->
+            diffable_label_map(Is, New+1, Map#{Old=>New}, [{label,New}|Acc])
+    end;
+diffable_label_map([I|Is], New, Map, Acc) ->
+    diffable_label_map(Is, New, Map, [I|Acc]);
+diffable_label_map([], _New, Map, Acc) ->
+    {Acc,Map}.
 
 -spec options() -> 'ok'.
 
