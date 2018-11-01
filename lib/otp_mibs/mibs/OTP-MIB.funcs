@@ -1,2 +1,0 @@
-{erlNodeTable, {otp_mib, erl_node_table, []}}.
-{applTable, {otp_mib, appl_table, []}}.

@@ -19,6 +19,6 @@
 # %CopyrightEnd%
 
 APPLICATION = snmp
-SNMP_VSN    = 5.2.12
+SNMP_VSN    = 5.3
 PRE_VSN     =
 APP_VSN     = "$(APPLICATION)-$(SNMP_VSN)$(PRE_VSN)"

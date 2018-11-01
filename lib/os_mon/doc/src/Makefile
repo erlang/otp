@@ -39,7 +39,6 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = cpu_sup.xml \
 	disksup.xml \
 	memsup.xml \
-	os_mon_mib.xml \
 	os_sup.xml \
 	nteventlog.xml
 
