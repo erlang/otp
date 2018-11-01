@@ -24,7 +24,7 @@
 -import(lists, [reverse/1,reverse/2,splitwith/2,sort/1]).
 
 -record(st,
-	{safe :: gb_sets:set(beam_asm:label()), %Safe labels.
+	{safe :: cerl_sets:set(beam_asm:label()), %Safe labels.
 	 lbl :: beam_utils:code_index()         %Code at each label.
 	 }).
 
@@ -132,16 +132,16 @@ create_map(Trim, []) ->
        (Any) -> Any
     end;
 create_map(Trim, Moves) ->
-    GbTree0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
-    GbTree = gb_trees:from_orddict(sort(GbTree0)),
-    IllegalTargets = gb_sets:from_list([Dst || {move,_,{y,Dst}} <- Moves]),
+    Map0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
+    Map = maps:from_list(Map0),
+    IllegalTargets = cerl_sets:from_list([Dst || {move,_,{y,Dst}} <- Moves]),
     fun({y,Y0}) when Y0 < Trim ->
-	    case gb_trees:lookup(Y0, GbTree) of
-		{value,Y} -> {y,Y};
-		none -> throw(not_possible)
-	    end;
+            case Map of
+                #{Y0:=Y} -> {y,Y};
+                #{} -> throw(not_possible)
+            end;
        ({y,Y}) ->
-	    case gb_sets:is_element(Y, IllegalTargets) of
+	    case cerl_sets:is_element(Y, IllegalTargets) of
 		true -> throw(not_possible);
 		false -> {y,Y-Trim}
 	    end;
@@ -225,7 +225,7 @@ safe_labels([{label,L},
     safe_labels(Is, [L|Acc]);
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> gb_sets:from_list(Acc).
+safe_labels([], Acc) -> cerl_sets:from_list(Acc).
 
 %% frame_layout([Instruction], [{kill,_}], St) ->
 %%      [{kill,Reg} | {live,Reg} | {dead,Reg}]
@@ -293,7 +293,7 @@ frame_size(_, _) -> throw(not_possible).
 frame_size_branch(0, Is, Safe) ->
     frame_size(Is, Safe);
 frame_size_branch(L, Is, Safe) ->
-    case gb_sets:is_member(L, Safe) of
+    case cerl_sets:is_element(L, Safe) of
 	false -> throw(not_possible);
 	true -> frame_size(Is, Safe)
     end.
