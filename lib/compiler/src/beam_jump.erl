@@ -128,7 +128,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [dropwhile/2,foldl/3,mapfoldl/3,reverse/1,reverse/2]).
+-import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
@@ -410,7 +410,7 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc0, St0) ->
+opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
     %% We have
     %%    Test Label Ops
     %%    jump Label
@@ -419,23 +419,20 @@ opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc0, St0) ->
     case beam_utils:is_pure_test(I) of
 	false ->
 	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc0], label_used(Lbl, St0));
+	    opt(Is, [I|Acc], label_used(Lbl, St));
 	true ->
 	    %% The test is pure and its failure label is the same
 	    %% as in the jump that follows -- thus it is not needed.
-            %% Check if any of the previous instructions could also be eliminated.
-            {Acc,St} = opt_useless_loads(Acc0, L, St0),
 	    opt(Is, Acc, St)
     end;
-opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc0, St0) ->
+opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc, St) ->
     %% Similar to the above, except we have a fall-through rather than jump
     %%    Test Label Ops
     %%    label Label
     case beam_utils:is_pure_test(I) of
 	false ->
-	    opt(Is, [I|Acc0], label_used(Lbl, St0));
+	    opt(Is, [I|Acc], label_used(Lbl, St));
 	true ->
-            {Acc,St} = opt_useless_loads(Acc0, L, St0),
 	    opt(Is, Acc, St)
     end;
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
@@ -501,51 +498,6 @@ normalize_replace([{From,To0}|Rest], Replace, Acc) ->
     end;
 normalize_replace([], _Replace, Acc) ->
     maps:from_list(Acc).
-
-%% After eliminating a test, it might happen, that a register was only used
-%% in this test. Let's check if that was the case and if it was so, we can
-%% eliminate the load into the register completely.
-opt_useless_loads([{block,_}|_]=Is, L, #st{index={lazy,FIs}}=St) ->
-    opt_useless_loads(Is, L, St#st{index=beam_utils:index_labels(FIs)});
-opt_useless_loads([{block,Block0}|Is], L, #st{index=Index}=St) ->
-    case opt_useless_block_loads(Block0, L, Index) of
-        [] ->
-            opt_useless_loads(Is, L, St);
-        [_|_]=Block ->
-            {[{block,Block}|Is],St}
-    end;
-%% After eliminating the test and useless blocks, it might happen,
-%% that the previous test could also be eliminated.
-%% It might be that the label was already marked as used, even if ultimately,
-%% it never will be - we can't do much about it at that point, though
-opt_useless_loads([{test,_,{f,L},_}=I|Is], L, St) ->
-    case beam_utils:is_pure_test(I) of
-        false ->
-            {[I|Is],St};
-        true ->
-            opt_useless_loads(Is, L, St)
-    end;
-opt_useless_loads(Is, _L, St) ->
-    {Is,St}.
-
-opt_useless_block_loads([{set,[Dst],_,_}=I|Is0], L, Index) ->
-    BlockJump = [{block,Is0},{jump,{f,L}}],
-    case beam_utils:is_killed(Dst, BlockJump, Index) of
-        true ->
-            %% The register is killed and not used, we can remove the load.
-            %% Remove any `put` instructions in case we just
-            %% removed a `put_tuple` instruction.
-            Is = dropwhile(fun({set,_,_,put}) -> true;
-                              (_) -> false
-                           end, Is0),
-            opt_useless_block_loads(Is, L, Index);
-        false ->
-            [I|opt_useless_block_loads(Is0, L, Index)]
-    end;
-opt_useless_block_loads([I|Is], L, Index) ->
-    [I|opt_useless_block_loads(Is, L, Index)];
-opt_useless_block_loads([], _L, _Index) ->
-    [].
 
 collect_labels(Is, Label, #st{entry=Entry,replace=Replace} = St) ->
     collect_labels_1(Is, Label, Entry, Replace, St).
