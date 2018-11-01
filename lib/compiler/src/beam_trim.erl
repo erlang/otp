@@ -21,7 +21,7 @@
 -module(beam_trim).
 -export([module/2]).
 
--import(lists, [member/2,reverse/1,reverse/2,splitwith/2,sort/1]).
+-import(lists, [any/2,member/2,reverse/1,reverse/2,splitwith/2,sort/1]).
 
 -record(st,
 	{safe :: cerl_sets:set(beam_asm:label()) %Safe labels.
@@ -221,21 +221,52 @@ remap_block([{set,Ds0,Ss0,Info}|Is], Map, Acc) ->
     Ss = [Map(S) || S <- Ss0],
     remap_block(Is, Map, [{set,Ds,Ss,Info}|Acc]);
 remap_block([], _, Acc) -> reverse(Acc).
-    
-safe_labels([{label,L},{line,_},{badmatch,{Tag,_}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},{line,_},{case_end,{Tag,_}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},{line,_},if_end|Is], Acc) ->
-    safe_labels(Is, [L|Acc]);
-safe_labels([{label,L},
-	     {block,[{set,[{x,0}],[{Tag,_}],move}]},
-	     {line,_},
-	     {call_ext,1,{extfunc,erlang,error,1}}|Is], Acc) when Tag =/= y ->
-    safe_labels(Is, [L|Acc]);
+
+%% safe_labels([Instruction], Accumulator) -> gb_set()
+%%  Build a gb_set of safe labels. The code at a safe
+%%  label does not depend on the values in a specific
+%%  Y register, only that all Y registers are initialized
+%%  so that it safe to scan the stack when an exception
+%%  is generated.
+%%
+%%  In other words, code at a safe label will continue
+%%  to work if Y registers have been renumbered and
+%%  the size of the stack frame has changed.
+
+safe_labels([{label,L}|Is], Acc) ->
+    case is_safe_label(Is) of
+        true -> safe_labels(Is, [L|Acc]);
+        false -> safe_labels(Is, Acc)
+    end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
 safe_labels([], Acc) -> cerl_sets:from_list(Acc).
+
+is_safe_label([{line,_}|Is]) ->
+    is_safe_label(Is);
+is_safe_label([{badmatch,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([{case_end,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([{try_case_end,{Tag,_}}|_]) ->
+    Tag =/= y;
+is_safe_label([if_end|_]) ->
+    true;
+is_safe_label([{block,Bl}|Is]) ->
+    is_safe_label_block(Bl) andalso is_safe_label(Is);
+is_safe_label([{call_ext,_,{extfunc,M,F,A}}|_]) ->
+    erl_bifs:is_exit_bif(M, F, A);
+is_safe_label(_) -> false.
+
+is_safe_label_block([{set,Ds,Ss,_}|Is]) ->
+    IsYreg = fun({y,_}) -> true;
+                (_) -> false
+             end,
+    %% This instruction is safe if the instruction
+    %% neither reads or writes Y registers.
+    not (any(IsYreg, Ss) orelse any(IsYreg, Ds)) andalso
+        is_safe_label_block(Is);
+is_safe_label_block([]) -> true.
 
 %% frame_layout([Instruction], [{kill,_}], St) ->
 %%      [{kill,Reg} | {live,Reg} | {dead,Reg}]
