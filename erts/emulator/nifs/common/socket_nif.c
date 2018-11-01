@@ -13314,12 +13314,6 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
 
-            /* <KOLLA>
-             * SHOULD RESULT IN {error, eagain}!!!!
-             * </KOLLA>
-             */
-            written = 0;
-
         }
     }
 
@@ -13349,7 +13343,8 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
            descP, NULL, sendRef);
 
     SSDBG( descP,
-           ("SOCKET", "send_check_result -> not entire package written\r\n") );
+           ("SOCKET", "send_check_result -> "
+            "not entire package written (%d of %d)\r\n", written, dataSize) );
 
     return esock_make_ok2(env, MKI(env, written));
 
@@ -13687,15 +13682,26 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
+            int sres;
+
             SSDBG( descP, ("SOCKET",
                            "recv_check_result -> [%d] eagain\r\n", toRead) );
 
             if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
                 return esock_make_error_str(env, xres);
             
+            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT for more\r\n") );
+
+            /*
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
+            */
 
+            sres = enif_select(env, descP->sock, (ERL_NIF_SELECT_READ),
+                               descP, NULL, recvRef);
+
+            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT res: %d\r\n", sres) );
+            
             return esock_make_error(env, esock_atom_eagain);
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
