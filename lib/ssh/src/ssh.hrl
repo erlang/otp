@@ -240,7 +240,12 @@
       | ?COMMON_OPTION .
 
 -type opaque_client_options() ::
-        {keyboard_interact_fun, fun((term(),term(),term()) -> term())}
+        {keyboard_interact_fun, fun((Name::iodata(),
+                                     Instruction::iodata(),
+                                     Prompts::[{Prompt::iodata(),Echo::boolean()}]
+                                    ) ->
+                                      [Response::iodata()]
+                                   )} 
         | opaque_common_options().
 
 -type host_accepting_client_options() ::

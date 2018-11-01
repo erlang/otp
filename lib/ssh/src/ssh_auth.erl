@@ -592,11 +592,11 @@ prompt_user_for_passwords(Name, Instr, PromptInfos, Opts) ->
 	      PromptInfos).
 
 keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos) ->
-    Prompts = lists:map(fun({Prompt,_Echo}) -> Prompt end,  PromptInfos),
-    case KbdInteractFun(Name, Instr, Prompts) of
-	Rs when length(Rs) == length(PromptInfos) ->
-	    Rs;
-	_Rs ->
+    case KbdInteractFun(Name, Instr, PromptInfos) of
+	Responses when is_list(Responses),
+                     length(Responses) == length(PromptInfos) ->
+	    Responses;
+	_ ->
             nok
     end.
 
