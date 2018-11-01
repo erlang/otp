@@ -59,7 +59,7 @@
           key_exchange %key_exchange<1..2^16-1>;
          }).
 -record(key_share_client_hello, {
-          entries  %% KeyShareEntry client_shares<0..2^16-1>;
+          client_shares   %% KeyShareEntry client_shares<0..2^16-1>;
          }).
 -record(key_share_hello_retry_request, {
           selected_group  %%  NamedGroup

@@ -107,7 +107,8 @@
 	  sni,
           client_hello_versions,
           server_hello_selected_version,
-          signature_algs_cert
+          signature_algs_cert,
+          key_share
 	 }).
 
 -record(server_hello, {

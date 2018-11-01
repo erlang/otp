@@ -20,12 +20,15 @@
 
 -module(ssl_dh_groups).
 
+-include_lib("public_key/include/public_key.hrl").
+
 -export([modp2048_generator/0, modp2048_prime/0,
          ffdhe2048_generator/0, ffdhe2048_prime/0,
          ffdhe3072_generator/0, ffdhe3072_prime/0,
          ffdhe4096_generator/0, ffdhe4096_prime/0,
          ffdhe6144_generator/0, ffdhe6144_prime/0,
-         ffdhe8192_generator/0, ffdhe8192_prime/0]).
+         ffdhe8192_generator/0, ffdhe8192_prime/0,
+         dh_params/1]).
 
 %% RFC3526 - 2048-bit MODP Group
 %% This group is assigned id 14.
@@ -441,3 +444,24 @@ ffdhe8192_prime() ->
         "97D11D49" "F7A8443D" "0822E506" "A9F4614E" "011E2A94" "838FF88C"
         "D68C8BB7" "C5C6424C" "FFFFFFFF" "FFFFFFFF",
     list_to_integer(P, 16).
+
+dh_params(ffdhe2048) ->
+    #'DHParameter'{
+       prime = ffdhe2048_prime(),
+       base = ffdhe2048_generator()};
+dh_params(ffdhe3072) ->
+    #'DHParameter'{
+       prime = ffdhe3072_prime(),
+       base = ffdhe3072_generator()};
+dh_params(ffdhe4096) ->
+    #'DHParameter'{
+       prime = ffdhe4096_prime(),
+       base = ffdhe4096_generator()};
+dh_params(ffdhe6144) ->
+    #'DHParameter'{
+       prime = ffdhe6144_prime(),
+       base = ffdhe6144_generator()};
+dh_params(ffdhe8192) ->
+    #'DHParameter'{
+       prime = ffdhe8192_prime(),
+       base = ffdhe8192_generator()}.

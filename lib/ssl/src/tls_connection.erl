@@ -498,9 +498,10 @@ init({call, From}, {start, Timeout},
 	    session_cache = Cache,
 	    session_cache_cb = CacheCb
 	   } = State0) ->
+    KeyShare = maybe_generate_key_share(SslOpts),
     Timer = ssl_connection:start_or_recv_cancel_timer(Timeout, From),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-				       Cache, CacheCb, Renegotiation, Cert),
+				       Cache, CacheCb, Renegotiation, Cert, KeyShare),
     
     Version = Hello#client_hello.client_version,
     HelloVersion = tls_record:hello_version(Version, SslOpts#ssl_options.versions),
@@ -522,7 +523,8 @@ init({call, From}, {start, Timeout},
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  tls_handshake_history = Handshake,
 			  start_or_recv_from = From,
-			  timer = Timer},
+			  timer = Timer,
+                          key_share = KeyShare},
     {Record, State} = next_record(State1),
     next_event(hello, Record, State);
 init(Type, Event, State) ->
@@ -674,7 +676,7 @@ connection(internal, #hello_request{},
 		  ssl_options = SslOpts,                
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-				       Cache, CacheCb, Renegotiation, Cert),
+				       Cache, CacheCb, Renegotiation, Cert, undefined),
     {State1, Actions} = send_handshake(Hello, State0),
     {Record, State} =
 	next_record(
@@ -1101,3 +1103,13 @@ ensure_sender_terminate(_,  #state{protocol_specific = #{sender := Sender}}) ->
                    end
            end,
     spawn(Kill).
+
+maybe_generate_key_share(#ssl_options{
+                            versions = [Version|_],
+                            supported_groups =
+                                #supported_groups{
+                                  supported_groups = Groups}})
+  when Version =:= {3,4} ->
+    ssl_cipher:generate_client_shares(Groups);
+maybe_generate_key_share(_) ->
+    undefined.

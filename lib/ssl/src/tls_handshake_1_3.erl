@@ -69,13 +69,13 @@ encode_handshake(HandshakeMsg) ->
     ssl_handshake:encode_handshake(HandshakeMsg, {3,4}).
 
 decode_handshake(?CERTIFICATE_REQUEST, <<?BYTE(0), ?UINT16(Size), EncExts:Size/binary>>) ->
-    Exts = decode_extensions(EncExts),
+    Exts = decode_extensions(EncExts, certificate_request),
     #certificate_request_1_3{
        certificate_request_context = <<>>,
        extensions = Exts};
 decode_handshake(?CERTIFICATE_REQUEST, <<?BYTE(CSize), Context:CSize/binary,
                                          ?UINT16(Size), EncExts:Size/binary>>) ->
-    Exts = decode_extensions(EncExts),
+    Exts = decode_extensions(EncExts, certificate_request),
     #certificate_request_1_3{
        certificate_request_context = Context,
        extensions = Exts};
@@ -94,12 +94,12 @@ decode_handshake(?CERTIFICATE, <<?BYTE(CSize), Context:CSize/binary,
       };
 decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) ->
     #encrypted_extensions{
-       extensions = decode_extensions(EncExts)
+       extensions = decode_extensions(EncExts, encrypted_extensions)
       };
 decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
                                         ?BYTE(Nonce), ?UINT16(TicketSize), Ticket:TicketSize/binary,
                                         BinExts/binary>>) ->
-    Exts = decode_extensions(BinExts),
+    Exts = decode_extensions(BinExts, encrypted_extensions),
     #new_session_ticket{ticket_lifetime = LifeTime,  
                         ticket_age_add = Age,   
                         ticket_nonce = Nonce,     
@@ -143,14 +143,14 @@ decode_cert_entries(<<>>, Acc) ->
     lists:reverse(Acc);
 decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary,
                       Rest/binary>>, Acc) ->
-    Exts = decode_extensions(BinExts),
+    Exts = decode_extensions(BinExts, certificate_request),
     decode_cert_entries(Rest, [#certificate_entry{data = Data,
                                                   extensions = Exts} | Acc]).
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
-decode_extensions(Exts) ->
-    ssl_handshake:decode_extensions(Exts, {3,4}).
+decode_extensions(Exts, MessageType) ->
+    ssl_handshake:decode_extensions(Exts, {3,4}, MessageType).
 
 extensions_list(HelloExtensions) ->
     [Ext || {_, Ext} <- maps:to_list(HelloExtensions)].
@@ -171,7 +171,7 @@ handle_client_hello(Version,
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
             %% Get supported_groups
-            %% SupportedGroups = maps:get(elliptic_curves, HelloExt, undefined),
+            SupportedGroups = maps:get(elliptic_curves, HelloExt, undefined),
             %% Get KeyShareClientHello
 
             %% Validate supported_groups + KeyShareClientHello

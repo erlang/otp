@@ -46,6 +46,9 @@
          is_stream_ciphersuite/1, signature_scheme/1,
          scheme_to_components/1, hash_size/1]).
 
+%% RFC 8446 TLS 1.3
+-export([generate_client_shares/1]).
+
 -compile(inline).
 
 -type cipher_enum()        :: integer().
@@ -1188,3 +1191,29 @@ filter_keyuse_suites(Use, KeyUse, CipherSuits, Suites) ->
 	false ->
 	    CipherSuits -- Suites
     end.
+
+
+generate_client_shares([]) ->
+    #key_share_client_hello{client_shares = []};
+generate_client_shares(Groups) ->
+    generate_client_shares(Groups, []).
+%%
+generate_client_shares([], Acc) ->
+    #key_share_client_hello{client_shares = lists:reverse(Acc)};
+generate_client_shares([Group|Groups], Acc) ->
+    Key = generate_key_exchange(Group),
+    KeyShareEntry = #key_share_entry{
+                       group = Group,
+                       key_exchange = Key
+                      },
+    generate_client_shares(Groups, [KeyShareEntry|Acc]).
+
+
+generate_key_exchange(secp256r1) ->
+    public_key:generate_key({namedCurve, secp256r1});
+generate_key_exchange(secp384r1) ->
+    public_key:generate_key({namedCurve, secp384r1});
+generate_key_exchange(secp521r1) ->
+    public_key:generate_key({namedCurve, secp521r1});
+generate_key_exchange(FFDHE) ->
+    public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
