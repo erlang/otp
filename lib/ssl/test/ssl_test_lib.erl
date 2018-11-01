@@ -196,6 +196,30 @@ connect(ListenSocket, Node, _, _, Timeout, Opts, _) ->
     rpc:call(Node, ssl, ssl_accept, [AcceptSocket, Opts, Timeout]),
     AcceptSocket.
 
+
+start_server_transport_abuse_socket(Args) ->
+    Result = spawn_link(?MODULE, transport_accept_abuse, [Args]),
+    receive
+	{listen, up} ->
+	    Result
+    end.
+
+transport_accept_abuse(Opts) ->
+    Node = proplists:get_value(node, Opts),
+    Port = proplists:get_value(port, Opts),
+    Options = proplists:get_value(options, Opts),
+    Pid = proplists:get_value(from, Opts),
+    Transport =  proplists:get_value(transport, Opts, ssl),
+    ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
+    {ok, ListenSocket} = rpc:call(Node, Transport, listen, [Port, Options]),
+    Pid ! {listen, up},
+    send_selected_port(Pid, Port, ListenSocket),
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
+                                  [ListenSocket]),    
+    {error, _} = rpc:call(Node, ssl, connection_information, [AcceptSocket]),
+    _ = rpc:call(Node, ssl, handshake, [AcceptSocket, infinity]),
+    Pid ! {self(), ok}.
+
 remove_close_msg(0) ->
     ok;
 remove_close_msg(ReconnectTimes) ->
