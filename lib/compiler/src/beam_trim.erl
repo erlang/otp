@@ -51,14 +51,33 @@ trim([{kill,_}|_]=Is0, St, Acc) ->
 			    end, Is0),
     Kills = sort(Kills0),
     try
-	{FrameSize,Layout} = frame_layout(Is1, Kills, St),
-	Configs = trim_instructions(Layout),
-	try_remap(Configs, Is1, FrameSize)
-	of
+        %% Find out the size and layout of the stack frame.
+        %% Example of a layout:
+        %%
+        %%    [{kill,{y,0}},{dead,{y,1},{live,{y,2}},{kill,{y,3}}]
+        %%
+        %% That means that y0 and y3 are to be killed, that y1
+        %% has been killed previously, and that y2 is live.
+        {FrameSize,Layout} = frame_layout(Is1, Kills, St),
+
+        %% Calculate all recipes that are not worse in terms
+        %% of estimated execution time. The recipes are ordered
+        %% in descending order from how much they trim.
+        Recipes = trim_recipes(Layout),
+
+        %% Try the recipes in order. A recipe may not work out because
+        %% a register that was previously killed may be
+        %% resurrected. If that happens, the next recipe, which trims
+        %% less, will be tried.
+        try_remap(Recipes, Is1, FrameSize)
+    of
 	{Is,TrimInstr} ->
+            %% One of the recipes was applied.
 	    trim(Is, St, reverse(TrimInstr)++Acc)
     catch
 	not_possible ->
+            %% No recipe worked out. Use the original kill
+            %% instructions.
 	    trim(Is1, St, reverse(Kills, Acc))
     end;
 trim([I|Is], St, Acc) ->
@@ -66,34 +85,42 @@ trim([I|Is], St, Acc) ->
 trim([], _, Acc) ->
     reverse(Acc).
 
-%% trim_instructions([{kill,R}|{live,R}|{dead,R}]) -> {[Instruction],MapFun}
-%%  Figure out the sequence of moves and trim to use.
+%% trim_recipes([{kill,R}|{live,R}|{dead,R}]) -> [Recipe].
+%%      Recipe = {Kills,NumberToTrim,Moves}
+%%      Kills = [{kill,Y}]
+%%      Moves = [{move,SrcY,DstY}]
+%%
+%%  Calculate how to best trim the stack and kill the correct
+%%  Y registers. Return a list of possible recipes. The best
+%%  recipe (the one that trims the most) is first in the list.
+%%  All of the recipes are no worse in estimated execution time
+%%  than the original sequences of kill instructions.
 
-trim_instructions(Layout) ->
+trim_recipes(Layout) ->
     Cost = length([I || {kill,_}=I <- Layout]),
-    trim_instructions_1(Layout, 0, [], {Cost,[]}).
+    trim_recipes_1(Layout, 0, [], {Cost,[]}).
 
-trim_instructions_1([{kill,{y,Trim0}}|Ks], Trim0, Moves, Config0) ->
+trim_recipes_1([{kill,{y,Trim0}}|Ks], Trim0, Moves, Recipes0) ->
     Trim = Trim0 + 1,
-    Config = save_config(Ks, Trim, Moves, Config0),
-    trim_instructions_1(Ks, Trim, Moves, Config);
-trim_instructions_1([{dead,{y,Trim0}}|Ks], Trim0, Moves, Config0) ->
+    Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
+    trim_recipes_1(Ks, Trim, Moves, Recipes);
+trim_recipes_1([{dead,{y,Trim0}}|Ks], Trim0, Moves, Recipes0) ->
     Trim = Trim0 + 1,
-    Config = save_config(Ks, Trim, Moves, Config0),
-    trim_instructions_1(Ks, Trim, Moves, Config);
-trim_instructions_1([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Config0) ->
+    Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
+    trim_recipes_1(Ks, Trim, Moves, Recipes);
+trim_recipes_1([{live,{y,Trim0}=Src}|Ks0], Trim0, Moves0, Recipes0) ->
     case take_last_dead(Ks0) of
 	none ->
-	    {_,ConfigList} = Config0,
-	    ConfigList;
+            {_,RecipesList} = Recipes0,
+            RecipesList;
 	{Dst,Ks} ->
 	    Trim = Trim0 + 1,
 	    Moves = [{move,Src,Dst}|Moves0],
-	    Config = save_config(Ks, Trim, Moves, Config0),
-	    trim_instructions_1(Ks, Trim, Moves, Config)
+            Recipes = save_recipe(Ks, Trim, Moves, Recipes0),
+            trim_recipes_1(Ks, Trim, Moves, Recipes)
     end;
-trim_instructions_1([], _, _, {_,ConfigList}) ->
-    ConfigList.
+trim_recipes_1([], _, _, {_,RecipesList}) ->
+    RecipesList.
 
 take_last_dead(L) ->
     take_last_dead_1(reverse(L)).
@@ -104,28 +131,48 @@ take_last_dead_1([{dead,Reg}|Is]) ->
     {Reg,reverse(Is)};
 take_last_dead_1(_) -> none.
 
-save_config(Ks, Trim, Moves, {MaxCost,Acc}=Config) ->
-    case config_cost(Ks, Moves) of
-	Cost when Cost =< MaxCost ->
-	    {MaxCost,[{Ks,Trim,Moves}|Acc]};
+save_recipe(Ks, Trim, Moves, {MaxCost,Acc}=Recipes) ->
+    case recipe_cost(Ks, Moves) of
+        Cost when Cost =< MaxCost ->
+            %% The price is right.
+            {MaxCost,[{Ks,Trim,Moves}|Acc]};
 	_Cost ->
-	    Config
+            %% Too expensive.
+            Recipes
     end.
 
-config_cost(Ks, Moves) ->
+recipe_cost(Ks, Moves) ->
     %% We estimate that a {move,{y,_},{y,_}} instruction is roughly twice as
     %% expensive as a {kill,{y,_}} instruction. A {trim,_} instruction is
     %% roughly as expensive as a {kill,{y,_}} instruction.
 
-    config_cost_1(Ks, 1+2*length(Moves)).
+    recipe_cost_1(Ks, 1+2*length(Moves)).
 
-config_cost_1([{kill,_}|Ks], Cost) ->
-    config_cost_1(Ks, Cost+1);
-config_cost_1([_|Ks], Cost) ->
-    config_cost_1(Ks, Cost);
-config_cost_1([], Cost) -> Cost.
+recipe_cost_1([{kill,_}|Ks], Cost) ->
+    recipe_cost_1(Ks, Cost+1);
+recipe_cost_1([_|Ks], Cost) ->
+    recipe_cost_1(Ks, Cost);
+recipe_cost_1([], Cost) -> Cost.
 
-expand_config({Layout,Trim,Moves}, FrameSize) ->
+%% try_remap([Recipe], [Instruction], FrameSize) ->
+%%           {[Instruction],[TrimInstruction]}.
+%%  Try to renumber Y registers in the instruction stream. The
+%%  first rececipe that works will be used.
+%%
+%%  This function will issue a `not_possible` exception if none
+%%  of the recipes were possible to apply.
+
+try_remap([R|Rs], Is, FrameSize) ->
+    {TrimInstr,Map} = expand_recipe(R, FrameSize),
+    try
+	{remap(Is, Map, []),TrimInstr}
+    catch
+	throw:not_possible ->
+	    try_remap(Rs, Is, FrameSize)
+    end;
+try_remap([], _, _) -> throw(not_possible).
+
+expand_recipe({Layout,Trim,Moves}, FrameSize) ->
     Kills = [Kill || {kill,_}=Kill <- Layout],
     {Kills++reverse(Moves, [{trim,Trim,FrameSize-Trim}]),create_map(Trim, Moves)}.
 
@@ -152,16 +199,6 @@ create_map(Trim, Moves) ->
        ({frame_size,N}) -> N - Trim;
        (Any) -> Any
     end.
-
-try_remap([C|Cs], Is, FrameSize) ->
-    {TrimInstr,Map} = expand_config(C, FrameSize),
-    try
-	{remap(Is, Map, []),TrimInstr}
-    catch
-	throw:not_possible ->
-	    try_remap(Cs, Is, FrameSize)
-    end;
-try_remap([], _, _) -> throw(not_possible).
 
 remap([{block,Bl0}|Is], Map, Acc) ->
     Bl = remap_block(Bl0, Map, []),
@@ -215,7 +252,7 @@ remap([return|_]=Is, _, Acc) ->
     reverse(Acc, Is);
 remap([{line,_}=I|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]).
-    
+
 remap_block([{set,Ds0,Ss0,Info}|Is], Map, Acc) ->
     Ds = [Map(D) || D <- Ds0],
     Ss = [Map(S) || S <- Ss0],
@@ -294,6 +331,11 @@ frame_layout_2(Is) -> reverse(Is).
 
 %% frame_size([Instruction], SafeLabels) -> FrameSize
 %%  Find out the frame size by looking at the code that follows.
+%%
+%%  Implicitly, also check that the instructions are a straight
+%%  sequence of code that ends in a return. Any branches are
+%%  to safe labels (i.e., the code at those labels don't depend
+%%  on the contents of any Y register).
 
 frame_size([{block,_}|Is], Safe) ->
     frame_size(Is, Safe);
