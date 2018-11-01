@@ -242,11 +242,11 @@ erts_internal_ref_number_cmp(Uint32 num1[ERTS_REF_NUMBERS],
 			     Uint32 num2[ERTS_REF_NUMBERS])
 {
     if (num1[2] != num2[2])
-	return (int) ((Sint64) num1[2] - (Sint64) num2[2]);
+	return num1[2] > num2[2] ? 1 : -1;
     if (num1[1] != num2[1])
-	return (int) ((Sint64) num1[1] - (Sint64) num2[1]);
+	return num1[1] > num2[1] ? 1 : -1;
     if (num1[0] != num2[0])
-	return (int) ((Sint64) num1[0] - (Sint64) num2[0]);
+	return num1[0] > num2[0] ? 1 : -1;
     return 0;
 }
 
