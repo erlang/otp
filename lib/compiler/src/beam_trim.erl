@@ -21,12 +21,11 @@
 -module(beam_trim).
 -export([module/2]).
 
--import(lists, [reverse/1,reverse/2,splitwith/2,sort/1]).
+-import(lists, [member/2,reverse/1,reverse/2,splitwith/2,sort/1]).
 
 -record(st,
-	{safe :: cerl_sets:set(beam_asm:label()), %Safe labels.
-	 lbl :: beam_utils:code_index()         %Code at each label.
-	 }).
+	{safe :: cerl_sets:set(beam_asm:label()) %Safe labels.
+        }).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -37,7 +36,7 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
 
 function({function,Name,Arity,CLabel,Is0}) ->
     try
-        St = #st{safe=safe_labels(Is0, []),lbl=beam_utils:index_labels(Is0)},
+        St = #st{safe=safe_labels(Is0, [])},
         Is = trim(Is0, St, []),
         {function,Name,Arity,CLabel,Is}
     catch
@@ -236,9 +235,9 @@ safe_labels([], Acc) -> cerl_sets:from_list(Acc).
 %%      [{kill,Reg} | {live,Reg} | {dead,Reg}]
 %%  Figure out the layout of the stack frame.
 
-frame_layout(Is, Kills, #st{safe=Safe,lbl=D}) ->
+frame_layout(Is, Kills, #st{safe=Safe}) ->
     N = frame_size(Is, Safe),
-    IsKilled = fun(R) -> beam_utils:is_not_used(R, Is, D) end,
+    IsKilled = fun(R) -> is_not_used(R, Is) end,
     {N,frame_layout_1(Kills, 0, N, IsKilled, [])}.
 
 frame_layout_1([{kill,{y,Y}}=I|Ks], Y, N, IsKilled, Acc) ->
@@ -290,7 +289,8 @@ frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{get_map_elements,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{deallocate,N}|_], _) -> N;
+frame_size([{deallocate,N}|_], _) ->
+    N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size(_, _) -> throw(not_possible).
@@ -302,3 +302,70 @@ frame_size_branch(L, Is, Safe) ->
 	false -> throw(not_possible);
 	true -> frame_size(Is, Safe)
     end.
+
+%% is_not_used(Y, [Instruction]) -> true|false.
+%%  Test whether the value of Y is unused in the instruction sequence.
+%%  Return true if the value of Y is not used, and false if it is used.
+%%
+%%  This function handles the same instructions as frame_size/2. It
+%%  assumes that any labels in the instructions are safe labels.
+
+is_not_used(Y, [{apply,_}|Is]) ->
+    is_not_used(Y, Is);
+is_not_used(Y, [{bif,_,{f,_},Ss,Dst}|Is]) ->
+    is_not_used_ss_dst(Y, Ss, Dst, Is);
+is_not_used(Y, [{block,Bl}|Is]) ->
+    case is_not_used_block(Y, Bl) of
+        used -> false;
+        killed -> true;
+        transparent -> is_not_used(Y, Is)
+    end;
+is_not_used(Y, [{bs_init,_,_,_,Ss,Dst}|Is]) ->
+    is_not_used_ss_dst(Y, Ss, Dst, Is);
+is_not_used(Y, [{bs_put,{f,_},_,Ss}|Is]) ->
+    not member(Y, Ss) andalso is_not_used(Y, Is);
+is_not_used(Y, [{call,_,_}|Is]) ->
+    is_not_used(Y, Is);
+is_not_used(Y, [{call_ext,_,_}=I|Is]) ->
+    beam_jump:is_exit_instruction(I) orelse is_not_used(Y, Is);
+is_not_used(Y, [{call_fun,_}|Is]) ->
+    is_not_used(Y, Is);
+is_not_used(_Y, [{deallocate,_}|_]) ->
+    true;
+is_not_used(Y, [{gc_bif,_,{f,_},_Live,Ss,Dst}|Is]) ->
+    is_not_used_ss_dst(Y, Ss, Dst, Is);
+is_not_used(Y, [{get_map_elements,{f,_},S,{list,List}}|Is]) ->
+    {Ss,Ds} = beam_utils:split_even(List),
+    case member(Y, [S|Ss]) of
+	true ->
+	    false;
+	false ->
+            member(Y, Ds) orelse is_not_used(Y, Is)
+    end;
+is_not_used(Y, [{kill,Yreg}|Is]) ->
+    Y =:= Yreg orelse is_not_used(Y, Is);
+is_not_used(Y, [{line,_}|Is]) ->
+    is_not_used(Y, Is);
+is_not_used(Y, [{make_fun2,_,_,_,_}|Is]) ->
+    is_not_used(Y, Is);
+is_not_used(Y, [{test,_,_,Ss}|Is]) ->
+    not member(Y, Ss) andalso is_not_used(Y, Is);
+is_not_used(Y, [{test,_Op,{f,_},_Live,Ss,Dst}|Is]) ->
+    is_not_used_ss_dst(Y, Ss, Dst, Is).
+
+is_not_used_block(Y, [{set,Ds,Ss,_}|Is]) ->
+    case member(Y, Ss) of
+        true ->
+            used;
+        false ->
+            case member(Y, Ds) of
+                true ->
+                    killed;
+                false ->
+                    is_not_used_block(Y, Is)
+            end
+    end;
+is_not_used_block(_Y, []) -> transparent.
+
+is_not_used_ss_dst(Y, Ss, Dst, Is) ->
+    not member(Y, Ss) andalso (Y =:= Dst orelse is_not_used(Y, Is)).
