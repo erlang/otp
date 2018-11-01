@@ -1585,7 +1585,8 @@ static Eterm copy_iter_search_key(CATreeRootIterator* iter, Eterm key)
         return key;
 
     if (iter->search_key) {
-        ASSERT(key != iter->search_key->term);
+        if (key == iter->search_key->term)
+            return key; /* already saved */
         destroy_route_key(iter->search_key);
     }
     key_size = size_object(key);

@@ -6052,8 +6052,9 @@ smp_ordered_iteration(Config) when is_list(Config) ->
 
 smp_ordered_iteration_do(Opts) ->
     KeyRange = 1000,
+    OffHeap = fun() -> dummy end, % To exercise key copy/destroy code.
     KeyFun = fun(K, Type) ->
-                         {K div 10, K rem 10, Type}
+                     {K div 10, K rem 10, Type, OffHeap}
              end,
     StimKeyFun = fun(K) ->
                          KeyFun(K, element(rand:uniform(3),
@@ -6084,7 +6085,7 @@ smp_ordered_iteration_do(Opts) ->
                                   incr_counter(select_delete_bk, Counters);
                               R when R =< 20 ->
                                   %% Delete partially bound key
-                                  ets:select_delete(T, [{{{K div 10, '_', volatile}, '_'}, [], [true]}]),
+                                  ets:select_delete(T, [{{{K div 10, '_', volatile, '_'}, '_'}, [], [true]}]),
                                   incr_counter(select_delete_pbk, Counters);
                               R when R =< 21 ->
                                   %% Replace bound key
@@ -6093,7 +6094,7 @@ smp_ordered_iteration_do(Opts) ->
                                   incr_counter(select_replace_bk, Counters);
                               _ ->
                                   %% Replace partially bound key
-                                  ets:select_replace(T, [{{{K div 10, '_', volatile}, '$1'}, [],
+                                  ets:select_replace(T, [{{{K div 10, '_', volatile, '_'}, '$1'}, [],
                                                           [{{{element,1,'$_'}, {'+','$1',1}}}]}]),
                                   incr_counter(select_replace_pbk, Counters)
                     end,
@@ -6106,14 +6107,17 @@ smp_ordered_iteration_do(Opts) ->
     FiniF = fun (Acc) -> Acc end,
     Pids = run_sched_workers(InitF, ExecF, FiniF, infinite),
     timer:send_after(1000, stop),
+
+    Log2ChunkMax = math:log2(NStable*2),
     Rounds = fun Loop(N) ->
-                     NStable = ets:select_count(T, [{{{'_', '_', stable}, '_'}, [], [true]}]),
+                     MS = [{{{'_', '_', stable, '_'}, '_'}, [], [true]}],
+                     NStable = ets:select_count(T, MS),
                      NStable = count_stable(T, next, ets:first(T), 0),
                      NStable = count_stable(T, prev, ets:last(T), 0),
-                     NStable = length(ets:select(T, [{{{'_', '_', stable}, '_'}, [], [true]}])),
-                     NStable = length(ets:select_reverse(T, [{{{'_', '_', stable}, '_'}, [], [true]}])),
-                     NStable = ets_select_chunks_count(T, [{{{'_', '_', stable}, '_'}, [], [true]}],
-                                                       rand:uniform(5)),
+                     NStable = length(ets:select(T, MS)),
+                     NStable = length(ets:select_reverse(T, MS)),
+                     Chunk = round(math:pow(2, rand:uniform()*Log2ChunkMax)),
+                     NStable = ets_select_chunks_count(T, MS, Chunk),
                      receive stop -> N
                      after 0 -> Loop(N+1)
                      end
@@ -6130,9 +6134,9 @@ smp_ordered_iteration_do(Opts) ->
 incr_counter(Name, Counters) ->
     Counters#{Name => maps:get(Name, Counters, 0) + 1}.
 
-count_stable(T, Next, {_, _, stable}=Key, N) ->
+count_stable(T, Next, {_, _, stable, _}=Key, N) ->
     count_stable(T, Next, ets:Next(T, Key), N+1);
-count_stable(T, Next, {_, _, volatile}=Key, N) ->
+count_stable(T, Next, {_, _, volatile, _}=Key, N) ->
     count_stable(T, Next, ets:Next(T, Key), N);
 count_stable(_, _, '$end_of_table', N) ->
     N.
