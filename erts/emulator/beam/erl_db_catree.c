@@ -1532,7 +1532,174 @@ TreeDbTerm** catree_find_root(Eterm key, CATreeRootIterator* iter)
     return &base_node->u.base.root;
 }
 
+static Eterm save_iter_search_key(CATreeRootIterator* iter, Eterm key)
+{
+    Uint key_size;
 
+    if (is_immed(key))
+        return key;
+
+    if (iter->search_key) {
+        if (key == iter->search_key->term)
+            return key; /* already saved */
+        destroy_route_key(iter->search_key);
+    }
+    key_size = size_object(key);
+    if (!iter->search_key || key_size > iter->search_key->size) {
+        iter->search_key = erts_realloc(ERTS_ALC_T_DB_TMP,
+                                        iter->search_key,
+                                        (offsetof(DbRouteKey, heap)
+                                         + key_size*sizeof(Eterm)));
+    }
+    return copy_route_key(iter->search_key, key, key_size);
+}
+
+TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter,
+                                       int forward,
+                                       Eterm *search_keyp)
+{
+#ifdef DEBUG
+    DbTableCATreeNode *rejected_invalid = NULL;
+    DbTableCATreeNode *rejected_empty = NULL;
+#endif
+    DbTableCATreeNode *node;
+    DbTableCATreeNode *parent;
+    DbTableCATreeNode* next_route_node;
+    Eterm route_key = iter->next_route_key;
+    int current_level;
+
+    if (iter->locked_bnode) {
+        if (search_keyp)
+            *search_keyp = save_iter_search_key(iter, *search_keyp);
+        unlock_iter_base_node(iter);
+    }
+
+    if (is_non_value(route_key))
+        return NULL;
+
+    while (1) {
+        node = GET_ROOT_ACQB(iter->tb);
+        current_level = 0;
+        parent = NULL;
+        next_route_node = NULL;
+        while (!node->is_base_node) {
+            current_level++;
+            parent = node;
+            if (forward) {
+                if (cmp_key_route(route_key,node) < 0) {
+                    next_route_node = node;
+                    node = GET_LEFT_ACQB(node);
+                } else {
+                    node = GET_RIGHT_ACQB(node);
+                }
+            }
+            else {
+                if (cmp_key_route(route_key,node) > 0) {
+                    next_route_node = node;
+                    node = GET_RIGHT_ACQB(node);
+                } else {
+                    node = GET_LEFT_ACQB(node);
+                }
+            }
+        }
+        ASSERT(node != rejected_invalid);
+        lock_iter_base_node(iter, node, parent, current_level);
+        if (node->u.base.is_valid) {
+            ASSERT(node != rejected_empty);
+            if (node->u.base.root) {
+                iter->next_route_key = (next_route_node ?
+                                        next_route_node->u.route.key.term :
+                                        THE_NON_VALUE);
+                iter->locked_bnode = node;
+                return &node->u.base.root;
+            }
+            if (!next_route_node) {
+                unlock_iter_base_node(iter);
+                return NULL;
+            }
+            route_key = next_route_node->u.route.key.term;
+            IF_DEBUG(rejected_empty = node);
+        }
+        else
+            IF_DEBUG(rejected_invalid = node);
+
+        /* Retry */
+        unlock_iter_base_node(iter);
+    }
+}
+
+TreeDbTerm** catree_find_next_root(CATreeRootIterator *iter, Eterm* keyp)
+{
+    return catree_find_nextprev_root(iter, 1, keyp);
+}
+
+TreeDbTerm** catree_find_prev_root(CATreeRootIterator *iter, Eterm* keyp)
+{
+    return catree_find_nextprev_root(iter, 0, keyp);
+}
+
+/* @brief Find root of tree where object with smallest key of all larger than
+ * partially bound key may reside. Can be used as a starting point for
+ * a reverse iteration with pb_key.
+ *
+ * @param pb_key The partially bound key. Example {42, '$1'}
+ * @param iter An initialized root iterator.
+ *
+ * @return Pointer to found root pointer. May not be NULL.
+ */
+TreeDbTerm** catree_find_next_from_pb_key_root(Eterm pb_key,
+                                               CATreeRootIterator* iter)
+{
+#ifdef DEBUG
+    DbTableCATreeNode *rejected_base = NULL;
+#endif
+    DbTableCATreeNode *node;
+    DbTableCATreeNode *parent;
+    DbTableCATreeNode* next_route_node;
+    int current_level;
+
+    ASSERT(!iter->locked_bnode);
+
+    while (1) {
+        node = GET_ROOT_ACQB(iter->tb);
+        current_level = 0;
+        parent = NULL;
+        next_route_node = NULL;
+        while (!node->is_base_node) {
+            current_level++;
+            parent = node;
+            if (cmp_partly_bound(pb_key, GET_ROUTE_NODE_KEY(node)) >= 0) {
+                next_route_node = node;
+                node = GET_RIGHT_ACQB(node);
+            } else {
+                node = GET_LEFT_ACQB(node);
+            }
+        }
+        ASSERT(node != rejected_base);
+        lock_iter_base_node(iter, node, parent, current_level);
+        if (node->u.base.is_valid) {
+            iter->next_route_key = (next_route_node ?
+                                    next_route_node->u.route.key.term :
+                                    THE_NON_VALUE);
+            return &node->u.base.root;
+        }
+        /* Retry */
+        unlock_iter_base_node(iter);
+#ifdef DEBUG
+        rejected_base = node;
+#endif
+    }
+}
+
+/* @brief Find root of tree where object with largest key of all smaller than
+ * partially bound key may reside. Can be used as a starting point for
+ * a forward iteration with pb_key.
+ *
+ * @param pb_key The partially bound key. Example {42, '$1'}
+ * @param iter An initialized root iterator.
+ *
+ * @return Pointer to found root pointer. May not be NULL.
+ */
 TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key,
                                                CATreeRootIterator* iter)
 {
@@ -1559,156 +1726,6 @@ TreeDbTerm** catree_find_prev_from_pb_key_root(Eterm key,
                 node = GET_LEFT_ACQB(node);
             } else {
                 node = GET_RIGHT_ACQB(node);
-            }
-        }
-        ASSERT(node != rejected_base);
-        lock_iter_base_node(iter, node, parent, current_level);
-        if (node->u.base.is_valid) {
-            iter->next_route_key = (next_route_node ?
-                                    next_route_node->u.route.key.term :
-                                    THE_NON_VALUE);
-            return &node->u.base.root;
-        }
-        /* Retry */
-        unlock_iter_base_node(iter);
-#ifdef DEBUG
-        rejected_base = node;
-#endif
-    }
-}
-
-static Eterm copy_iter_search_key(CATreeRootIterator* iter, Eterm key)
-{
-    Uint key_size;
-
-    if (is_immed(key))
-        return key;
-
-    if (iter->search_key) {
-        if (key == iter->search_key->term)
-            return key; /* already saved */
-        destroy_route_key(iter->search_key);
-    }
-    key_size = size_object(key);
-    if (!iter->search_key || key_size > iter->search_key->size) {
-        iter->search_key = erts_realloc(ERTS_ALC_T_DB_TMP,
-                                        iter->search_key,
-                                        (offsetof(DbRouteKey, heap)
-                                         + key_size*sizeof(Eterm)));
-    }
-    return copy_route_key(iter->search_key, key, key_size);
-}
-
-TreeDbTerm** catree_find_nextprev_root(CATreeRootIterator *iter, int next,
-                                       Eterm *keyp)
-{
-#ifdef DEBUG
-    DbTableCATreeNode *rejected_invalid = NULL;
-    DbTableCATreeNode *rejected_empty = NULL;
-#endif
-    DbTableCATreeNode *node;
-    DbTableCATreeNode *parent;
-    DbTableCATreeNode* next_route_node;
-    Eterm key = iter->next_route_key;
-    int current_level;
-
-    if (iter->locked_bnode) {
-        if (keyp)
-            *keyp = copy_iter_search_key(iter, *keyp);
-        unlock_iter_base_node(iter);
-    }
-
-    if (is_non_value(key))
-        return NULL;
-
-    while (1) {
-        node = GET_ROOT_ACQB(iter->tb);
-        current_level = 0;
-        parent = NULL;
-        next_route_node = NULL;
-        while (!node->is_base_node) {
-            current_level++;
-            parent = node;
-            if (next) {
-                if (cmp_key_route(key,node) < 0) {
-                    next_route_node = node;
-                    node = GET_LEFT_ACQB(node);
-                } else {
-                    node = GET_RIGHT_ACQB(node);
-                }
-            }
-            else {
-                if (cmp_key_route(key,node) > 0) {
-                    next_route_node = node;
-                    node = GET_RIGHT_ACQB(node);
-                } else {
-                    node = GET_LEFT_ACQB(node);
-                }
-            }
-        }
-        ASSERT(node != rejected_invalid);
-        lock_iter_base_node(iter, node, parent, current_level);
-        if (node->u.base.is_valid) {
-            ASSERT(node != rejected_empty);
-            if (node->u.base.root) {
-                iter->next_route_key = (next_route_node ?
-                                        next_route_node->u.route.key.term :
-                                        THE_NON_VALUE);
-                iter->locked_bnode = node;
-                return &node->u.base.root;
-            }
-            if (!next_route_node) {
-                unlock_iter_base_node(iter);
-                return NULL;
-            }
-            key = next_route_node->u.route.key.term;
-            IF_DEBUG(rejected_empty = node);
-        }
-        else
-            IF_DEBUG(rejected_invalid = node);
-
-        /* Retry */
-        unlock_iter_base_node(iter);
-    }
-}
-
-TreeDbTerm** catree_find_next_root(CATreeRootIterator *iter, Eterm* keyp)
-{
-    return catree_find_nextprev_root(iter, 1, keyp);
-}
-
-TreeDbTerm** catree_find_prev_root(CATreeRootIterator *iter, Eterm* keyp)
-{
-    return catree_find_nextprev_root(iter, 0, keyp);
-}
-
-
-TreeDbTerm** catree_find_next_from_pb_key_root(Eterm key,
-                                               CATreeRootIterator* iter)
-{
-#ifdef DEBUG
-    DbTableCATreeNode *rejected_base = NULL;
-#endif
-    DbTableCATreeNode *node;
-    DbTableCATreeNode *parent;
-    DbTableCATreeNode* next_route_node;
-    int current_level;
-
-    ASSERT(!iter->locked_bnode);
-
-    while (1) {
-        node = GET_ROOT_ACQB(iter->tb);
-        current_level = 0;
-        parent = NULL;
-        next_route_node = NULL;
-        while (!node->is_base_node) {
-            current_level++;
-            parent = node;
-            if (cmp_partly_bound(key, GET_ROUTE_NODE_KEY(node)) >= 0) {
-                next_route_node = node;
-                node = GET_RIGHT_ACQB(node);
-            } else {
-                node = GET_LEFT_ACQB(node);
             }
         }
         ASSERT(node != rejected_base);

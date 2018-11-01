@@ -2963,8 +2963,18 @@ found_prev:
 }
 
 
+/* @brief Find object with smallest key of all larger than partially bound key.
+ * Can be used as a starting point for a reverse iteration with pb_key.
+ *
+ * @param pb_key The partially bound key. Example {42, '$1'}
+ * @param *rootpp Will return pointer to root pointer of tree with found object.
+ * @param iter Root iterator or NULL for plain DbTableTree.
+ * @param stack A stack to use. Will be cleared.
+ *
+ * @return found object or NULL if no such key exists.
+ */
 static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
-                                         DbTreeStack* stack, Eterm key,
+                                         DbTreeStack* stack, Eterm pb_key,
                                          CATreeRootIterator* iter)
 {
     TreeDbTerm* root;
@@ -2973,7 +2983,7 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
     Sint c;
 
     if (iter) {
-        *rootpp = catree_find_next_from_pb_key_root(key, iter);
+        *rootpp = catree_find_next_from_pb_key_root(pb_key, iter);
         ASSERT(*rootpp);
         root = **rootpp;
     }
@@ -2988,7 +2998,7 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
 	return NULL;
     for (;;) {
 	PUSH_NODE(stack, this);
-	if (( c = cmp_partly_bound(key,GETKEY(tbl, this->dbterm.tpl))) >= 0) {
+	if (( c = cmp_partly_bound(pb_key,GETKEY(tbl, this->dbterm.tpl))) >= 0) {
 	    if (this->right == NULL) {
                 stack->pos = candidate;
                 return TOP_NODE(stack);
@@ -3003,8 +3013,18 @@ static TreeDbTerm *find_next_from_pb_key(DbTable *tbl,  TreeDbTerm*** rootpp,
     }
 }
 
+/* @brief Find object with largest key of all smaller than partially bound key.
+ * Can be used as a starting point for a forward iteration with pb_key.
+ *
+ * @param pb_key The partially bound key. Example {42, '$1'}
+ * @param *rootpp Will return pointer to root pointer of found object.
+ * @param iter Root iterator or NULL for plain DbTableTree.
+ * @param stack A stack to use. Will be cleared.
+ *
+ * @return found object or NULL if no such key exists.
+ */
 static TreeDbTerm *find_prev_from_pb_key(DbTable *tbl, TreeDbTerm*** rootpp,
-                                         DbTreeStack* stack, Eterm key,
+                                         DbTreeStack* stack, Eterm pb_key,
                                          CATreeRootIterator* iter)
 {
     TreeDbTerm* root;
@@ -3013,7 +3033,7 @@ static TreeDbTerm *find_prev_from_pb_key(DbTable *tbl, TreeDbTerm*** rootpp,
     Sint c;
 
     if (iter) {
-        *rootpp = catree_find_prev_from_pb_key_root(key, iter);
+        *rootpp = catree_find_prev_from_pb_key_root(pb_key, iter);
         ASSERT(*rootpp);
         root = **rootpp;
     }
@@ -3028,7 +3048,7 @@ static TreeDbTerm *find_prev_from_pb_key(DbTable *tbl, TreeDbTerm*** rootpp,
 	return NULL;
     for (;;) {
 	PUSH_NODE(stack, this);
-	if (( c = cmp_partly_bound(key,GETKEY(tbl, this->dbterm.tpl))) <= 0) {
+	if (( c = cmp_partly_bound(pb_key,GETKEY(tbl, this->dbterm.tpl))) <= 0) {
 	    if (this->left == NULL) {
                 stack->pos = candidate;
                 return TOP_NODE(stack);
