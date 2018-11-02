@@ -244,7 +244,8 @@ error_handling_tests()->
      recv_active_once,
      recv_error_handling,
      call_in_error_state,
-     close_in_error_state
+     close_in_error_state,
+     abuse_transport_accept_socket
     ].
 
 error_handling_tests_tls()->
@@ -4054,7 +4055,29 @@ close_in_error_state(Config) when is_list(Config) ->
         Other ->
             ct:fail(Other)
     end.
+%%--------------------------------------------------------------------
+abuse_transport_accept_socket() ->
+    [{doc,"Only ssl:handshake is allowed for transport_accept:sockets"}].
+abuse_transport_accept_socket(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
+    Server = ssl_test_lib:start_server_transport_abuse_socket([{node, ServerNode}, 
+                                                               {port, 0},
+                                                               {from, self()},
+                                                               {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+    
+%%--------------------------------------------------------------------
 run_error_server_close([Pid | Opts]) ->
     {ok, Listen} = ssl:listen(0, Opts),
     {ok,{_, Port}} = ssl:sockname(Listen),
