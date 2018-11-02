@@ -2615,27 +2615,6 @@ not_equal:
 }
 
 
-/* 
- * Lexically compare two strings of bytes (string s1 length l1 and s2 l2).
- *
- *	s1 < s2	return -1
- *	s1 = s2	return  0
- *	s1 > s2 return +1
- */
-static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
-{
-    int i;
-    i = 0;
-    while((i < l1) && (i < l2)) {
-	if (s1[i] < s2[i]) return(-1);
-	if (s1[i] > s2[i]) return(1);
-	i++;
-    }
-    if (l1 < l2) return(-1);
-    if (l1 > l2) return(1);
-    return(0);
-}
-
 
 /*
  * Compare objects.
@@ -2649,20 +2628,6 @@ static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
  *
  */
 
-
-#define float_comp(x,y)    (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
-
-int erts_cmp_atoms(Eterm a, Eterm b)
-{
-    Atom *aa = atom_tab(atom_val(a));
-    Atom *bb = atom_tab(atom_val(b));
-    int diff = aa->ord0 - bb->ord0;
-    if (diff)
-	return diff;
-    return cmpbytes(aa->name+3, aa->len-3,
-		    bb->name+3, bb->len-3);
-}
-
 /* cmp(Eterm a, Eterm b)
  *  For compatibility with HiPE - arith-based compare.
  */
@@ -2672,22 +2637,6 @@ Sint cmp(Eterm a, Eterm b)
 }
 
 Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
-
-Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
-{
-    if (is_atom(a) && is_atom(b)) {
-        return erts_cmp_atoms(a, b);
-    } else if (is_both_small(a, b)) {
-        return (signed_val(a) - signed_val(b));
-    } else if (is_float(a) && is_float(b)) {
-        FloatDef af, bf;
-        GET_DOUBLE(a, af);
-        GET_DOUBLE(b, bf);
-        return float_comp(af.fd, bf.fd);
-    }
-    return erts_cmp_compound(a,b,exact,eq_only);
-}
-
 
 /* erts_cmp(Eterm a, Eterm b, int exact)
  * exact = 1 -> term-based compare
@@ -2985,7 +2934,7 @@ tailrecur_ne:
 
 		    GET_DOUBLE(a, af);
 		    GET_DOUBLE(b, bf);
-		    ON_CMP_GOTO(float_comp(af.fd, bf.fd));
+		    ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -3022,10 +2971,7 @@ tailrecur_ne:
 		    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 		    Sint diff;
 
-		    diff = cmpbytes(atom_tab(atom_val(f1->fe->module))->name,
-				    atom_tab(atom_val(f1->fe->module))->len,
-				    atom_tab(atom_val(f2->fe->module))->name,
-				    atom_tab(atom_val(f2->fe->module))->len);
+                    diff = erts_cmp_atoms((f1->fe)->module, (f2->fe)->module);
 		    if (diff != 0) {
 			RETURN_NEQ(diff);
 		    }
@@ -3219,7 +3165,7 @@ tailrecur_ne:
 	    if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
 		f1.fd = signed_val(aw);
-		j = float_comp(f1.fd, f2.fd);
+		j = erts_float_comp(f1.fd, f2.fd);
 	    }
 #if ERTS_SIZEOF_ETERM == 8
 	    else if (f2.fd > (double) (MAX_SMALL + 1)) {
@@ -3266,7 +3212,7 @@ tailrecur_ne:
 		if (big_to_double(aw, &f1.fd) < 0) {
 		    j = big_sign(aw) ? -1 : 1;
 		} else {
-		    j = float_comp(f1.fd, f2.fd);
+		    j = erts_float_comp(f1.fd, f2.fd);
 		}
 	    } else {
 		big = double_to_big(f2.fd, big_buf, sizeof(big_buf)/sizeof(Eterm));
@@ -3282,7 +3228,7 @@ tailrecur_ne:
 	    if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
 		f2.fd = signed_val(bw);
-		j = float_comp(f1.fd, f2.fd);
+		j = erts_float_comp(f1.fd, f2.fd);
 	    }
 #if ERTS_SIZEOF_ETERM == 8
 	    else if (f1.fd > (double) (MAX_SMALL + 1)) {
