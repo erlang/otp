@@ -1953,7 +1953,8 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 
 #define RETURN_STATE()							\
     do {								\
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE+3);                    \
+	static const int TUPLE2_SIZE = 2 + 1;				\
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + TUPLE2_SIZE);        \
 	c_term = erts_mk_magic_ref(&hp, &MSO(p), context_b);            \
 	res = TUPLE2(hp, Term, c_term);					\
 	BUMP_ALL_REDS(p);                                               \

@@ -850,14 +850,6 @@ splitwith(Pred, List) ->
 > <input>lists:subtract("123212", "212").</input>
 "312".</pre>
         <p><c>lists:subtract(A, B)</c> is equivalent to <c>A -- B</c>.</p>
-        <warning>
-          <p>The complexity of <c>lists:subtract(A, B)</c> is proportional to
-            <c>length(A)*length(B)</c>, meaning that it is very slow if both
-            <c>A</c> and <c>B</c> are long lists. (If both lists are long, it
-            is a much better choice to use ordered lists and
-            <seealso marker="ordsets#subtract/2">
-            <c>ordsets:subtract/2</c></seealso>.</p>
-        </warning>
       </desc>
     </func>
 
