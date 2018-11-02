@@ -676,6 +676,7 @@ handle_info({CloseTag, Socket}, StateName,
             #state{socket = Socket, close_tag = CloseTag,
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
+                   user_data_buffer = Buffer,
 		   negotiated_version = Version} = State) ->
 
     %% Note that as of TLS 1.1,
@@ -683,7 +684,7 @@ handle_info({CloseTag, Socket}, StateName,
     %% session not be resumed.  This is a change from TLS 1.0 to conform
     %% with widespread implementation practice.
 
-    case (Active == false) andalso (CTs =/= []) of
+    case (Active == false) andalso ((CTs =/= []) or (Buffer =/= <<>>)) of
         false ->
             case Version of
                 {1, N} when N >= 1 ->
