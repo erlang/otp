@@ -4919,6 +4919,9 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
         accDescP->domain   = descP->domain;
         accDescP->type     = descP->type;
         accDescP->protocol = descP->protocol;
+        accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+        accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer siez
+        accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
 
         accRef = enif_make_resource(env, accDescP);
         enif_release_resource(accDescP); // We should really store a reference ...
@@ -9549,7 +9552,17 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
     int          val;
 
     if (GET_INT(env, eVal, &val)) {
-        int res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
+        int res;
+
+        /*
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_int_opt -> set option"
+                "\r\n   opt: %d"
+                "\r\n   val: %d"
+                "\r\n", opt, val) );
+        */
+
+        res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
 
         if (res != 0)
             result = esock_make_error_errno(env, sock_errno());
