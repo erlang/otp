@@ -128,7 +128,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2]).
+-import(lists, [dropwhile/2,foldl/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
@@ -522,14 +522,19 @@ opt_useless_loads([{test,_,{f,L},_}=I|Is], L, St) ->
 opt_useless_loads(Is, _L, St) ->
     {Is,St}.
 
-opt_useless_block_loads([{set,[Dst],_,_}=I|Is], L, Index) ->
-    BlockJump = [{block,Is},{jump,{f,L}}],
+opt_useless_block_loads([{set,[Dst],_,_}=I|Is0], L, Index) ->
+    BlockJump = [{block,Is0},{jump,{f,L}}],
     case beam_utils:is_killed(Dst, BlockJump, Index) of
         true ->
-            %% The register is killed and not used, we can remove the load
+            %% The register is killed and not used, we can remove the load.
+            %% Remove any `put` instructions in case we just
+            %% removed a `put_tuple` instruction.
+            Is = dropwhile(fun({set,_,_,put}) -> true;
+                              (_) -> false
+                           end, Is0),
             opt_useless_block_loads(Is, L, Index);
         false ->
-            [I|opt_useless_block_loads(Is, L, Index)]
+            [I|opt_useless_block_loads(Is0, L, Index)]
     end;
 opt_useless_block_loads([I|Is], L, Index) ->
     [I|opt_useless_block_loads(Is, L, Index)];

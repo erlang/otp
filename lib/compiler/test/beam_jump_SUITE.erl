@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 undefined_label/1,ambiguous_catch_try_state/1,
-         unsafe_move_elimination/1]).
+         unsafe_move_elimination/1,build_tuple/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -34,7 +34,8 @@ groups() ->
     [{p,[parallel],
       [undefined_label,
        ambiguous_catch_try_state,
-       unsafe_move_elimination
+       unsafe_move_elimination,
+       build_tuple
       ]}].
 
 init_per_suite(Config) ->
@@ -111,6 +112,19 @@ unsafe_move_elimination(Left, Right, Simple0) ->
                      id(Right)
              end,
     {id({Left,Right,Simple}),Simple}.
+
+-record(message2, {id, p1}).
+-record(message3, {id, p1, p2}).
+
+build_tuple(_Config) ->
+    {'EXIT',{{badrecord,message3},_}} = (catch do_build_tuple(#message2{})),
+    ok.
+
+do_build_tuple(Message) ->
+    if is_record(Message, message2) ->
+	    Res = {res, rand:uniform(100)},
+	    {Message#message3.id, Res}
+    end.
 
 
 id(I) ->
