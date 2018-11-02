@@ -112,7 +112,7 @@ decode_hello_handshake(_Config) ->
 
 decode_single_hello_extension_correctly(_Config) -> 
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_extensions(Renegotiation),
+    Extensions = ssl_handshake:decode_extensions(Renegotiation, {3,3}),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
@@ -200,7 +200,7 @@ signature_algorithms(Config) ->
                    hash_sign_algos = [{sha512, rsa},
                                       {sha, dsa},
                                       {sha, rsa}]},
-    Schemes0 = #signature_scheme_list{
+    Schemes0 = #signature_algorithms_cert{
                  signature_scheme_list = [rsa_pkcs1_sha1,
                                           ecdsa_sha1]},
     {sha512, rsa} = ssl_handshake:select_hashsign(
@@ -216,7 +216,7 @@ signature_algorithms(Config) ->
                       Cert, ecdhe_rsa,
                       tls_v1:default_signature_algs({3,3}),
                    {3,3}),
-    Schemes1 = #signature_scheme_list{
+    Schemes1 = #signature_algorithms_cert{
                   signature_scheme_list = [rsa_pkcs1_sha256,
                                            ecdsa_sha1]},
     %% Signature not supported

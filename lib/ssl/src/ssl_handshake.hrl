@@ -52,9 +52,8 @@
 
 -define(NUM_OF_SESSION_ID_BYTES, 32).  % TSL 1.1 & SSL 3
 -define(NUM_OF_PREMASTERSECRET_BYTES, 48).
--define(DEFAULT_DIFFIE_HELLMAN_GENERATOR, 2).
--define(DEFAULT_DIFFIE_HELLMAN_PRIME,
-	16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF).
+-define(DEFAULT_DIFFIE_HELLMAN_GENERATOR, ssl_dh_groups:modp2048_generator()).
+-define(DEFAULT_DIFFIE_HELLMAN_PRIME, ssl_dh_groups:modp2048_prime()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Handsake protocol - RFC 4346 section 7.4
@@ -316,9 +315,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(SIGNATURE_ALGORITHMS_EXT, 13).
 
--record(hash_sign_algos, {
-	  hash_sign_algos
-	 }).
+-record(hash_sign_algos, {hash_sign_algos}).
+%% RFC 8446 (TLS 1.3)
+-record(signature_algorithms, {signature_scheme_list}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RFC 7301 Application-Layer Protocol Negotiation  
@@ -341,9 +340,8 @@
 -record(next_protocol, {selected_protocol}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ECC Extensions RFC 8422  section 4 and 5 (RFC 7919 not supported)
+%% ECC Extensions RFC 8422  section 4 and 5
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 -define(ELLIPTIC_CURVES_EXT, 10).
 -define(EC_POINT_FORMATS_EXT, 11).
 
@@ -351,11 +349,18 @@
 	  elliptic_curve_list
 	 }).
 
+%% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
+-record(supported_groups, {
+	  supported_groups
+	 }).
+
 -record(ec_point_formats, {
 	  ec_point_format_list
 	 }).
 
 -define(ECPOINT_UNCOMPRESSED, 0).
+%% Defined in RFC 4492, deprecated by RFC 8422
+%% RFC 8422 compliant implementations MUST not support the two formats below
 -define(ECPOINT_ANSIX962_COMPRESSED_PRIME, 1).
 -define(ECPOINT_ANSIX962_COMPRESSED_CHAR2, 2).
 
@@ -431,6 +436,6 @@
 
 -define(SIGNATURE_ALGORITHMS_CERT_EXT, 50).
 
--record(signature_scheme_list, {signature_scheme_list}).
+-record(signature_algorithms_cert, {signature_scheme_list}).
 
 -endif. % -ifdef(ssl_handshake).

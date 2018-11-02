@@ -170,6 +170,7 @@
 	  signature_algs,
 	  signature_algs_cert,
 	  eccs,
+	  supported_groups,  %% RFC 8422, RFC 8446
 	  honor_ecc_order            :: boolean(),
           max_handshake_size         :: integer(),
           handshake,
