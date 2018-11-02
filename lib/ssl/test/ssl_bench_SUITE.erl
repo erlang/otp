@@ -44,6 +44,7 @@ init_per_suite(Config) ->
         nonode@nohost ->
             {skipped, "Node not distributed"};
         _ ->
+            ssl_test_lib:clean_start(),
             [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
     end.
 
