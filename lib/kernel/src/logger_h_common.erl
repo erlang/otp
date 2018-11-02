@@ -178,7 +178,7 @@ changing_config(SetOrUpdate,
 log(LogEvent, Config = #{config := #{olp:=Olp}}) ->
     %% if the handler has crashed, we must drop this event
     %% and hope the handler restarts so we can try again
-    true = logger_olp:is_alive(Olp),
+    true = is_process_alive(logger_olp:get_pid(Olp)),
     Bin = log_to_binary(LogEvent, Config),
     logger_olp:load(Olp,Bin).
 
@@ -206,8 +206,9 @@ start(OlpOpts0, #{id := Name, module:=Module, config:=HConfig} = Config0) ->
           type     => worker,
           modules  => [?MODULE]},
     case supervisor:start_child(logger_sup, ChildSpec) of
-        {ok,Pid,{Olp,OlpOpts}} ->
+        {ok,Pid,Olp} ->
             ok = logger_handler_watcher:register_handler(Name,Pid),
+            OlpOpts = logger_olp:get_opts(Olp),
             {ok,Config0#{config=>(maps:merge(HConfig,OlpOpts))#{olp=>Olp}}};
         {error,{Reason,Ch}} when is_tuple(Ch), element(1,Ch)==child ->
             {error,Reason};
@@ -246,14 +247,14 @@ handle_load(Bin, #{id:=Name,
                    ctrl_sync_count := CtrlSync}=State) ->
     if CtrlSync==0 ->
             {_,HS1} = Module:write(Name, sync, Bin, HandlerState),
-            {ok,State#{handler_state => HS1,
-                       ctrl_sync_count => ?CONTROLLER_SYNC_INTERVAL,
-                       last_op=>write}};
+            State#{handler_state => HS1,
+                   ctrl_sync_count => ?CONTROLLER_SYNC_INTERVAL,
+                   last_op=>write};
        true ->
             {_,HS1} = Module:write(Name, async, Bin, HandlerState),
-            {ok,State#{handler_state => HS1,
-                       ctrl_sync_count => CtrlSync-1,
-                       last_op=>write}}
+            State#{handler_state => HS1,
+                   ctrl_sync_count => CtrlSync-1,
+                   last_op=>write}
     end.
 
 handle_call(filesync, _From, State = #{id := Name,
@@ -295,7 +296,7 @@ handle_info(Info, #{id := Name, module := Module,
     {noreply,State#{handler_state => Module:handle_info(Name,Info,HandlerState)}}.
 
 terminate(overloaded=Reason, #{id:=Name}=State) ->
-    log_handler_info(Name, "Handler ~p overloaded and stopping", [Name], State),
+    _ = log_handler_info(Name,"Handler ~p overloaded and stopping",[Name],State),
     do_terminate(Reason,State),
     ConfigResult = logger:get_handler_config(Name),
     case ConfigResult of

@@ -672,6 +672,17 @@ init_kernel_handlers(Env) ->
 %% This function is responsible for resolving the handler config
 %% and then starting the correct handlers. This is done after the
 %% kernel supervisor tree has been started as it needs the logger_sup.
+add_handlers(kernel) ->
+    Env = get_logger_env(kernel),
+    case get_proxy_opts(Env) of
+        undefined ->
+            add_handlers(kernel,Env);
+        Opts ->
+            case logger_olp:set_opts(logger_proxy,Opts) of
+                ok -> add_handlers(kernel,Env);
+                {error, Reason} -> {error,{bad_proxy_config,Reason}}
+            end
+    end;
 add_handlers(App) when is_atom(App) ->
     add_handlers(App,get_logger_env(App));
 add_handlers(HandlerConfig) ->
@@ -729,6 +740,8 @@ check_logger_config(kernel,[{filters,_,_}|Env]) ->
     check_logger_config(kernel,Env);
 check_logger_config(kernel,[{module_level,_,_}|Env]) ->
     check_logger_config(kernel,Env);
+check_logger_config(kernel,[{proxy,_}|Env]) ->
+    check_logger_config(kernel,Env);
 check_logger_config(_,Bad) ->
     throw(Bad).
 
@@ -782,6 +795,13 @@ get_primary_filters(Env) ->
             end;
         [] -> [];
         _ -> throw({multiple_filters,Env})
+    end.
+
+get_proxy_opts(Env) ->
+    case [P || P={proxy,_} <- Env] of
+        [{proxy,Opts}] -> Opts;
+        [] -> undefined;
+        _ -> throw({multiple_proxies,Env})
     end.
 
 %% This function looks at the kernel logger environment
@@ -878,42 +898,43 @@ log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
     %% (function or macro).
     Meta = add_default_metadata(
              maps:merge(Location,maps:merge(proc_meta(),Meta0))),
+    Tid = tid(),
     case node(maps:get(gl,Meta)) of
         Node when Node=/=node() ->
-            log_remote(Node,Level,Msg,Meta),
-            do_log_allowed(Level,Msg,Meta);
+            log_remote(Node,Level,Msg,Meta,Tid),
+            do_log_allowed(Level,Msg,Meta,Tid);
         _ ->
-            do_log_allowed(Level,Msg,Meta)
+            do_log_allowed(Level,Msg,Meta,Tid)
     end.
 
-do_log_allowed(Level,{Format,Args}=Msg,Meta)
+do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
   when ?IS_LEVEL(Level),
        is_list(Format),
        is_list(Args),
        is_map(Meta) ->
-    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},tid());
-do_log_allowed(Level,Report,Meta)
+    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid);
+do_log_allowed(Level,Report,Meta,Tid)
   when ?IS_LEVEL(Level),
        ?IS_REPORT(Report),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{report,Report},meta=>Meta},
-                               tid());
-do_log_allowed(Level,String,Meta)
+                               Tid);
+do_log_allowed(Level,String,Meta,Tid)
   when ?IS_LEVEL(Level),
        ?IS_STRING(String),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{string,String},meta=>Meta},
-                               tid()).
+                               Tid).
 tid() ->
     ets:whereis(?LOGGER_TABLE).
 
-log_remote(Node,Level,{Format,Args},Meta) ->
-    log_remote(Node,{log,Level,Format,Args,Meta});
-log_remote(Node,Level,Msg,Meta) ->
-    log_remote(Node,{log,Level,Msg,Meta}).
+log_remote(Node,Level,{Format,Args},Meta,Tid) ->
+    log_remote(Node,{log,Level,Format,Args,Meta},Tid);
+log_remote(Node,Level,Msg,Meta,Tid) ->
+    log_remote(Node,{log,Level,Msg,Meta},Tid).
 
-log_remote(Node,Request) ->
-    {logger,Node} ! Request,
+log_remote(Node,Request,Tid) ->
+    logger_proxy:log(logger_server:get_proxy_ref(Tid),{remote,Node,Request}),
     ok.
 
 add_default_metadata(Meta) ->

@@ -22,7 +22,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
+-export([start_link/0, set_proxy_ref/1, get_proxy_ref/1,
          add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
          set_module_level/2, unset_module_level/0,
@@ -43,7 +43,7 @@
 -define(SERVER, logger).
 -define(LOGGER_SERVER_TAG, '$logger_cb_process').
 
--record(state, {tid, async_req, async_req_queue}).
+-record(state, {tid, async_req, async_req_queue, remote_logger}).
 
 %%%===================================================================
 %%% API
@@ -51,6 +51,14 @@
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+-spec set_proxy_ref(logger_olp:olp_ref()) -> ok.
+set_proxy_ref(ProxyRef) ->
+    call({set_proxy_ref,ProxyRef}).
+
+-spec get_proxy_ref(ets:tid()) -> logger_olp:olp_ref().
+get_proxy_ref(Tid) ->
+    ets:lookup_element(Tid,proxy_ref,2).
 
 add_handler(Id,Module,Config0) ->
     try {check_id(Id),check_mod(Module)} of
@@ -311,7 +319,10 @@ handle_call({set_module_level,Modules,Level}, _From, #state{tid=Tid}=State) ->
     {reply,Reply,State};
 handle_call({unset_module_level,Modules}, _From, #state{tid=Tid}=State) ->
     Reply = logger_config:unset_module_level(Tid,Modules),
-    {reply,Reply,State}.
+    {reply,Reply,State};
+handle_call({set_proxy_ref,ProxyRef},_From,#state{tid=Tid}=State) ->
+    true = ets:insert(Tid,{proxy_ref,ProxyRef}),
+    {reply,ok,State}.
 
 handle_cast({async_req_reply,_Ref,_Reply} = Reply,State) ->
     call_h_reply(Reply,State);
@@ -357,7 +368,7 @@ terminate(_Reason, _State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-call(Request) ->
+call(Request) when is_tuple(Request) ->
     Action = element(1,Request),
     case get(?LOGGER_SERVER_TAG) of
         true when
@@ -368,6 +379,7 @@ call(Request) ->
         _ ->
             gen_server:call(?SERVER,Request,?DEFAULT_LOGGER_CALL_TIMEOUT)
     end.
+
 
 do_add_filter(Tid,Id,{FId,_} = Filter) ->
     case logger_config:get(Tid,Id) of

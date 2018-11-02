@@ -206,12 +206,16 @@
 %%% officially released (as some counters will grow very large
 %%% over time).
 
-%%-define(SAVE_STATS, true).
+%% -define(SAVE_STATS, true).
 -ifdef(SAVE_STATS).
   -define(merge_with_stats(STATE),
-          STATE#{flushes => 0, flushed => 0, drops => 0,
-                 burst_drops => 0, casts => 0, calls => 0,
-                 max_qlen => 0, max_time => 0}).
+          begin
+              TIME = ?timestamp(),
+              STATE#{start => TIME, time => {TIME,0},
+                     flushes => 0, flushed => 0, drops => 0,
+                     burst_drops => 0, casts => 0, calls => 0,
+                     writes => 0, max_qlen => 0, max_time => 0,
+                     freq => {TIME,0,0}} end).
 
   -define(update_max_qlen(QLEN, STATE),
           begin #{max_qlen := QLEN0} = STATE,
@@ -234,13 +238,28 @@
   -define(update_other(OTHER, VAR, INCVAL, STATE),
           begin #{OTHER := VAR} = STATE,
                 STATE#{OTHER => VAR+INCVAL} end).
-          
+
+  -define(update_freq(TIME,STATE),
+          begin
+              case STATE of
+                  #{freq := {START, 49, _}} ->
+                      STATE#{freq => {TIME, 0, trunc(1000000*50/(?diff_time(TIME,START)))}};
+                  #{freq := {START, N, FREQ}} ->
+                      STATE#{freq => {START, N+1, FREQ}}
+              end end).
+
+  -define(update_time(TIME,STATE),
+          begin #{start := START} = STATE,
+                STATE#{time => {TIME,trunc((?diff_time(TIME,START))/1000000)}} end).
+
 -else.                                          % DEFAULT!
   -define(merge_with_stats(STATE), STATE).
   -define(update_max_qlen(_QLEN, STATE), STATE).
   -define(update_calls_or_casts(_CALL_OR_CAST, _INC, STATE), STATE).
   -define(update_max_time(_TIME, STATE), STATE).
   -define(update_other(_OTHER, _VAR, _INCVAL, STATE), STATE).
+  -define(update_freq(_TIME, STATE), STATE).
+  -define(update_time(_TIME, STATE), STATE).
 -endif.
 
 %%%-----------------------------------------------------------------

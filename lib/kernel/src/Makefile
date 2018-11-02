@@ -119,6 +119,7 @@ MODULES = \
 	logger_filters \
         logger_formatter \
 	logger_olp \
+	logger_proxy \
         logger_server \
         logger_simple_h \
         logger_sup \
@@ -280,6 +281,8 @@ $(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_olp.beam: logger_h_common.hrl logger_internal.hrl
+$(EBIN)/logger_proxy.beam: logger_internal.hrl
 $(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_simple_h.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
