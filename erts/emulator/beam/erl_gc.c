@@ -681,7 +681,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ErtsMonotonicTime start_time;
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
     erts_aint32_t state;
-    ERTS_MSACC_PUSH_STATE_M();
+    ERTS_MSACC_PUSH_STATE();
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 #endif
@@ -711,7 +711,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     else if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR)
 	live_hf_end = p->live_hf_end;
 
-    ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_GC);
+    ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_GC);
 
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0)
@@ -759,7 +759,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
         gc_trace_end_tag = am_gc_minor_end;
     } else {
 do_major_collection:
-        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC_FULL);
+        ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC_FULL);
         if (IS_TRACED_FL(p, F_TRACE_GC)) {
             trace_gc(p, am_gc_major_start, need, THE_NON_VALUE);
         }
@@ -770,7 +770,7 @@ do_major_collection:
             p->flags &= ~(F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
         DTRACE2(gc_major_end, pidbuf, reclaimed_now);
         gc_trace_end_tag = am_gc_major_end;
-        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_GC);
+        ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC);
     }
 
     reset_active_writer(p);
@@ -800,7 +800,7 @@ do_major_collection:
 
         /* We have to make sure that we have space for need on the heap */
         res = delay_garbage_collection(p, live_hf_end, need, fcalls);
-        ERTS_MSACC_POP_STATE_M();
+        ERTS_MSACC_POP_STATE();
         return res;
     }
 
@@ -843,7 +843,7 @@ do_major_collection:
     FLAGS(p) &= ~(F_FORCE_GC|F_HIBERNATED);
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
 
-    ERTS_MSACC_POP_STATE_M();
+    ERTS_MSACC_POP_STATE();
 
 #ifdef CHECK_FOR_HOLES
     /*
