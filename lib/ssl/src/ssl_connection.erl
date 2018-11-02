@@ -627,8 +627,8 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
     catch throw:Error ->
 	    stop_and_reply(normal, {reply, From, {error, Error}}, State0)
     end;
-init({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
+init({call, From}, _Msg, _State, _Connection) ->
+    {keep_state_and_data, [{reply, From, {error, notsup_on_transport_accept_socket}}]}; 
 init(_Type, _Event, _State, _Connection) ->
     {keep_state_and_data, [postpone]}.
 	
