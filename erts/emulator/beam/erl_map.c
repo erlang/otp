@@ -125,15 +125,20 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
 	flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
 	BIF_RET(make_small(flatmap_get_size(mp)));
     } else if (is_hashmap(BIF_ARG_1)) {
-	Eterm *head, *hp, res;
-	Uint size, hsz=0;
+#ifdef ARCH_64
+        BIF_RET(make_small(hashmap_size(BIF_ARG_1)));
+#else
+	Eterm *hp;
+	Uint size;
 
-	head = hashmap_val(BIF_ARG_1);
-	size = head[1];
-	(void) erts_bld_uint(NULL, &hsz, size);
-	hp = HAlloc(BIF_P, hsz);
-	res = erts_bld_uint(&hp, NULL, size);
-	BIF_RET(res);
+        size = hashmap_size(BIF_ARG_1);
+        if (IS_USMALL(0, size)) {
+            BIF_RET(make_small(size));
+        } else {
+	    hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
+            BIF_RET(uint_to_big(size, hp));
+        }
+#endif
     }
 
     BIF_P->fvalue = BIF_ARG_1;

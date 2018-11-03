@@ -608,8 +608,12 @@ $(TTF_DIR)/erl_dirty_bif_wrap.c \
 $(HIPE_NBIF_FILES) \
 	: $(TTF_DIR)/TABLES-GENERATED
 $(TTF_DIR)/TABLES-GENERATED: $(ATOMS) $(DIRTY_BIFS) $(BIFS) utils/make_tables
-	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TTF_DIR) -include $(TTF_DIR)\
-		-dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
+	$(gen_verbose)LANG=C $(PERL) utils/make_tables \
+		-wordsize @EXTERNAL_WORD_SIZE@ \
+		-src $(TTF_DIR) \
+		-include $(TTF_DIR) \
+		-dst $(DS_TEST) \
+		-hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
 GENERATE += $(TTF_DIR)/TABLES-GENERATED
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types

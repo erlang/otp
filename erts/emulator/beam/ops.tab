@@ -1002,7 +1002,18 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
 
-bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
+#
+# Old guard BIFs that creates heap fragments are no longer allowed.
+#
+bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
+bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
+
+bif1 p Bif S1 Dst => i_bif1_body Bif S1 Dst
+bif1 Fail Bif Src Dst => i_bif1 Fail Bif Src Dst
 
 bif2 p Bif S1 S2 Dst => i_bif2_body Bif S1 S2 Dst
 bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
@@ -1023,8 +1034,8 @@ i_fast_element xy j? I d
 
 i_element xy j? s d
 
-bif1 f? b s d
-bif1_body b s d
+i_bif1 f? b s d
+i_bif1_body b s d
 i_bif2 f? b s s d
 i_bif2_body b s s d
 
@@ -1575,17 +1586,22 @@ i_int_bnot Fail Src=c Live Dst => move Src x | i_int_bnot Fail x Live Dst
 i_int_bnot j? S t d
 
 #
-# Old guard BIFs that creates heap fragments are no longer allowed.
+# 64bit assumes map and binary size fit in small
 #
-bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
+%if ARCH_64
+gc_bif1 Fail I Bif=u$bif:erlang:map_size/1 Src Dst => \
+    bif1 Fail Bif Src Dst
+gc_bif1 Fail I Bif=u$bif:erlang:byte_size/1 Src Dst => \
+    bif1 Fail Bif Src Dst
+gc_bif1 p I Bif=u$bif:erlang:size/1 Src Dst => \
+    i_bif1_body Bif Src Dst
+gc_bif1 Fail I Bif=u$bif:erlang:size/1 Src Dst => \
+    i_bif1 Fail Bif Src Dst
+%endif
+
 
 #
-# Guard BIFs.
+# GC Guard BIFs.
 #
 gc_bif1 Fail I Bif Src Dst => \
 	gen_guard_bif1(Fail, I, Bif, Src, Dst)

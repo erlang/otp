@@ -55,7 +55,7 @@ CALL_GUARD_BIF(BF, TmpReg, Dst) {
 // to the code for the next clause.  We don't support tracing
 // of guard BIFs.
 
-bif1(Fail, Bif, Src, Dst) {
+i_bif1(Fail, Bif, Src, Dst) {
     ErtsBifFunc bf;
     Eterm tmp_reg[1];
 
@@ -70,7 +70,7 @@ bif1(Fail, Bif, Src, Dst) {
 // Guard BIF in body.  It can fail like any BIF.  No trace support.
 //
 
-bif1_body(Bif, Src, Dst) {
+i_bif1_body(Bif, Src, Dst) {
     ErtsBifFunc bf;
     Eterm tmp_reg[1];
 

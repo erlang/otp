@@ -31,6 +31,7 @@ use File::Basename;
 # Options:
 #    -src directory	Where to write generated C source files (default ".").
 #    -include directory Where to generate generated C header files (default ".").
+#    -DVAR_NAME=VAR_VALUE
 #
 # Output:
 #    <-src>/erl_am.c
@@ -61,6 +62,14 @@ my @bif;
 my @bif_info;
 my $dirty_schedulers_test = 'no';
 my $hipe = 'no';
+my $wordsize = 32;
+
+#
+# Pre-processor.
+#
+my @if_val;
+my @if_line;
+my %defs;
 
 while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
     my $opt = shift;
@@ -80,15 +89,65 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$hipe = shift;
 	die "No -hipe argument specified"
 	    unless defined $hipe;
+    } elsif($opt eq '-wordsize') {
+        $wordsize = shift;
+        die "No -wordsize argument specified"
+            unless defined $wordsize;
+    } elsif($opt =~ /^D(\w+)=(\w+)/) {
+        $defs{$1} = $2;
     } else {
 	usage("bad option: $opt");
     }
 }
 
+if ($wordsize == 32) {
+    $defs{'ARCH_32'} = 1;
+    $defs{'ARCH_64'} = 0;
+} elsif ($wordsize == 64) {
+    $defs{'ARCH_32'} = 0;
+    $defs{'ARCH_64'} = 1;
+}
 
 while (<>) {
     next if /^#/;
     next if /^\s*$/;
+
+    #
+    # Handle %if
+    #
+    if (/^\%if (\w+)/) {
+        my $name = $1;
+        my $val = $defs{$name};
+        defined $val or error("'$name' is undefined");
+        push @if_val, $val;
+        push @if_line, $.;
+        next;
+    } elsif (/^\%unless (\w+)/) {
+        my $name = $1;
+        my $val = $defs{$name};
+        defined $val or error("'$name' is undefined");
+        push @if_val, !$val;
+        push @if_line, $.;
+        next;
+    } elsif (/^\%else$/) {
+        unless (@if_line) {
+            error("%else without a preceding %if/%unless");
+        }
+        $if_line[$#if_line] = $.;
+        $if_val[$#if_val] = !$if_val[$#if_val];
+        next;
+    } elsif (/^\%endif$/) {
+        unless (@if_line) {
+            error("%endif without a preceding %if/%unless/%else");
+        }
+        pop @if_val;
+        pop @if_line;
+        next;
+    }
+    if (@if_val and not $if_val[$#if_val]) {
+        next;
+    }
+
     my($type, @args) = split;
     if ($type eq 'atom') {
 	save_atoms(@args);
@@ -302,7 +361,7 @@ for ($i = 0; $i < @bif; $i++) {
 }
 
 #
-# Generate erl_gc_bifs.c.
+# Generate erl_guard_bifs.c.
 #
 
 open_file("$src/erl_guard_bifs.c");

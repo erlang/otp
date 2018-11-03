@@ -135,7 +135,11 @@ bif erlang:registered/0
 gcbif erlang:round/1
 ubif erlang:self/0
 bif erlang:setelement/3
+%if ARCH_64
+ubif erlang:size/1
+%else
 gcbif erlang:size/1
+%endif
 bif erlang:spawn/3
 bif erlang:spawn_link/3
 bif erlang:split_binary/2
@@ -480,7 +484,11 @@ bif erlang:list_to_existing_atom/1
 #
 ubif erlang:is_bitstring/1
 ubif erlang:tuple_size/1
+%if ARCH_64
+ubif erlang:byte_size/1
+%else
 gcbif erlang:byte_size/1
+%endif
 gcbif erlang:bit_size/1
 bif erlang:list_to_bitstring/1
 bif erlang:bitstring_to_list/1
@@ -622,7 +630,11 @@ bif io:printable_range/0
 bif re:inspect/2
 
 ubif erlang:is_map/1
+%if ARCH_64
+ubif erlang:map_size/1
+%else
 gcbif erlang:map_size/1
+%endif
 bif maps:find/2
 bif maps:get/2
 bif maps:from_list/1

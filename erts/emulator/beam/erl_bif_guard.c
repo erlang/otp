@@ -226,12 +226,16 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
 	BIF_RET(make_small(arityval(*tupleptr)));
     } else if (is_binary(BIF_ARG_1)) {
 	Uint sz = binary_size(BIF_ARG_1);
+#ifdef ARCH_64
+        BIF_RET(make_small(sz));
+#else
 	if (IS_USMALL(0, sz)) {
 	    return make_small(sz);
 	} else {
 	    Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(sz, hp));
 	}
+#endif
     }
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -278,12 +282,16 @@ BIF_RETTYPE byte_size_1(BIF_ALIST_1)
 	if (binary_bitsize(BIF_ARG_1) > 0) {
 	    bytesize++;
 	}
+#ifdef ARCH_64
+	BIF_RET(make_small(bytesize));
+#else
 	if (IS_USMALL(0, bytesize)) {
 	    BIF_RET(make_small(bytesize));
 	} else {
 	    Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
 	    BIF_RET(uint_to_big(bytesize, hp));
 	}
+#endif
     } else {
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -403,29 +411,6 @@ Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live)
     return make_small(i);
 }
 
-Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live)
-{
-    Eterm arg = reg[live];
-    if (is_tuple(arg)) {
-	Eterm* tupleptr = tuple_val(arg);
-	return make_small(arityval(*tupleptr));
-    } else if (is_binary(arg)) {
-	Uint sz = binary_size(arg);
-	if (IS_USMALL(0, sz)) {
-	    return make_small(sz);
-	} else {
-	    Eterm* hp;
-	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
-		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
-	    }
-	    hp = p->htop;
-	    p->htop += BIG_UINT_HEAP_SIZE;
-	    return uint_to_big(sz, hp);
-	}
-    }
-    BIF_ERROR(p, BADARG);
-}
-
 Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg = reg[live];
@@ -466,6 +451,10 @@ Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live)
     }
 }
 
+#ifndef ARCH_64
+/* On 64bit byte_size/1, map_size/1 and size/1 cannot GC and
+ * don't need those wrapper functions.
+ */
 Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live)
 {
     Eterm arg = reg[live];
@@ -513,6 +502,31 @@ Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live)
     p->fvalue = arg;
     BIF_ERROR(p, BADMAP);
 }
+
+Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live)
+{
+    Eterm arg = reg[live];
+    if (is_tuple(arg)) {
+	Eterm* tupleptr = tuple_val(arg);
+	return make_small(arityval(*tupleptr));
+    } else if (is_binary(arg)) {
+	Uint sz = binary_size(arg);
+	if (IS_USMALL(0, sz)) {
+	    return make_small(sz);
+	} else {
+	    Eterm* hp;
+	    if (ERTS_NEED_GC(p, BIG_UINT_HEAP_SIZE)) {
+		erts_garbage_collect(p, BIG_UINT_HEAP_SIZE, reg, live);
+	    }
+	    hp = p->htop;
+	    p->htop += BIG_UINT_HEAP_SIZE;
+	    return uint_to_big(sz, hp);
+	}
+    }
+    BIF_ERROR(p, BADARG);
+}
+
+#endif /* ARCH_64 */
 
 Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live)
 {
