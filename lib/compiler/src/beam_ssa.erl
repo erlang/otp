@@ -194,6 +194,7 @@ no_side_effect(#b_set{op=Op}) ->
         extract -> true;
         get_hd -> true;
         get_tl -> true;
+        get_map_element -> true;
         get_tuple_element -> true;
         has_map_field -> true;
         is_nonempty_list -> true;
