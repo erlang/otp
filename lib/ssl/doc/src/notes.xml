@@ -27,6 +27,23 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Extend check for undelivered data at closing, could under
+	    some circumstances fail to deliverd all data that was
+	    acctualy recivied.</p>
+          <p>
+	    Own Id: OTP-15412</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
