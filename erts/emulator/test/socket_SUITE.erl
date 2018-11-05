@@ -18,6 +18,8 @@
 %% %CopyrightEnd%
 %%
 
+%% ts:run(emulator, socket_SUITE, [batch]).
+
 -module(socket_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -91,16 +93,16 @@
          traffic_send_and_recv_chunks_tcp6/1,
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
-         %% traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
-         %% traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
          traffic_ping_pong_medium_send_and_recv_tcp4/1,
          traffic_ping_pong_medium_send_and_recv_tcp6/1,
-         %% traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4/1,
-         %% traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6/1,
          traffic_ping_pong_large_send_and_recv_tcp4/1,
-         traffic_ping_pong_large_send_and_recv_tcp6/1%,
-         %% traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
-         %% traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1
+         traffic_ping_pong_large_send_and_recv_tcp6/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1
 
 
          %% Tickets
@@ -261,16 +263,16 @@ traffic_cases() ->
 
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
-     %% traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
-     %% traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_medium_send_and_recv_tcp4,
      traffic_ping_pong_medium_send_and_recv_tcp6,
-     %% traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
-     %% traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_large_send_and_recv_tcp4,
-     traffic_ping_pong_large_send_and_recv_tcp6%% ,
-     %% traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
-     %% traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6
+     traffic_ping_pong_large_send_and_recv_tcp6,
+     traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
+     traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6
     ].
 
 
@@ -6750,6 +6752,83 @@ traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv4.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv6.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case is intended to test that the send and recv functions
 %% by repeatedly sending a meassage between two entities.
 %% The same basic test case is used for three different message sizes; 
@@ -6765,7 +6844,6 @@ traffic_ping_pong_medium_send_and_recv_tcp4(doc) ->
 traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp4,
            fun() ->
-                   %% not_yet_implemented(),
                    ?TT(?SECS(30)),
                    Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
                    Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
@@ -6804,6 +6882,83 @@ traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
                    ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
            end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv4.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv6.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet6,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6854,6 +7009,87 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
                    ?TT(?MINS(5)),
                    Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
                    Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
+                   InitState = #{domain => inet6,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case, for IPv4.
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   Send = fun(Sock, Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
+                   InitState = #{domain => inet,
+                                 send   => Send, % Send function
+                                 recv   => Recv  % Receive function
+                                },
+                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case, for IPv6.
+
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(30)),
+                   Send = fun(Sock, Data) when is_binary(Data) ->
+                                  MsgHdr = #{iov => [Data]},
+                                  socket:sendmsg(Sock, MsgHdr);
+                             (Sock, Data) when is_list(Data) ->
+                                  MsgHdr = #{iov => Data},
+                                  socket:sendmsg(Sock, MsgHdr)
+                          end,
+                   Recv = fun(Sock, Sz)   -> 
+                                  case socket:recvmsg(Sock, Sz, 0) of
+                                      {ok, #{addr  := undefined,
+                                             iov   := [Data]}} ->
+                                          {ok, Data};
+                                      {error, _} = ERROR ->
+                                          ERROR
+                                  end
+                          end,
                    InitState = #{domain => inet6,
                                  send   => Send, % Send function
                                  recv   => Recv  % Receive function
@@ -6959,7 +7195,7 @@ traffic_ping_pong_send_and_receive_tcp(InitState) ->
                            end
                    end},
          #{desc => "maybe init buffers",
-           cmd  => fun(#{lsock := LSock, buf_init := BufInit} = State) ->
+           cmd  => fun(#{lsock := LSock, buf_init := BufInit} = _State) ->
                            BufInit(LSock)
                    end},
          #{desc => "make listen socket",
@@ -7510,11 +7746,9 @@ tpp_tcp_handler_await_terminate(Parent) ->
     end.
 
 tpp_tcp_handler_msg_exchange(Sock, Send, Recv) ->
-    %% socket:setopt(Sock, otp, debug, true),
     tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, 0, 0, 0, undefined).
 
 tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
-    %% if (N =:= 1000) -> socket:setopt(Sock, otp, debug, true); true -> ok end,
     %% ?SEV_IPRINT("[~w] try receive", [N]),
     case tpp_tcp_recv_req(Sock, Recv) of
         {ok, Msg, RecvSz} ->
@@ -7633,10 +7867,11 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
     end;
 tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data, 
                                  Num, N, Sent, Received, Start) ->
-    %% d("[~w,~w] try send", [Num,N]),
+    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send", [Num,N]),
     case tpp_tcp_send_req(Sock, Send, Data) of
         {ok, SendSz} ->
-            %% d("[~w,~w] sent - no try recv", [Num,N]),
+            %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
+            %%   "now try recv", [Num,N]),
             case tpp_tcp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz} ->
                     tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv,
@@ -7737,13 +7972,29 @@ tpp_tcp_send_rep(Sock, Send, Data) ->
 tpp_tcp_send(Sock, Send, Tag, Data) ->
     DataSz = size(Data),
     Msg    = <<Tag:32/integer, DataSz:32/integer, Data/binary>>,
+    tpp_tcp_send_msg(Sock, Send, Msg, 0).
+
+tpp_tcp_send_msg(Sock, Send, Msg, AccSz) when is_binary(Msg) ->
     case Send(Sock, Msg) of
         ok ->
-            {ok, size(Msg)};
+            {ok, AccSz+size(Msg)};
+        {ok, Rest} -> % This is an IOVec
+            RestBin = list_to_binary(Rest),
+            tpp_tcp_send_msg(Sock, Send, RestBin, AccSz+(size(Msg)-size(RestBin)));
         {error, _} = ERROR ->
             ERROR
     end.
+    
 
+%% size_of_data(Data) when is_binary(Data) ->
+%%     size(Data);
+%% size_of_data(Data) when is_list(Data) ->
+%%     size_of_iovec(Data, 0).
+
+%% size_of_iovec([], Sz) ->
+%%     Sz;
+%% size_of_iovec([B|IOVec], Sz) ->
+%%     size_of_iovec(IOVec, Sz+size(B)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
