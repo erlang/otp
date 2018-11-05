@@ -31,6 +31,7 @@
 	 install/2, install/3, remove/2, remove/3]).
 -export([handle_system_msg/6, handle_system_msg/7, handle_debug/4,
 	 print_log/1, get_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
+-deprecated([{get_debug,3,eventually}]).
 
 %%-----------------------------------------------------------------
 %% Types
@@ -42,10 +43,17 @@
                       | {'global', term()}
                       | {'via', module(), term()}.
 -type system_event() :: {'in', Msg :: _}
-                      | {'in', Msg :: _, From :: _}
+                      | {'in', Msg :: _, State :: _}
                       | {'out', Msg :: _, To :: _}
                       | {'out', Msg :: _, To :: _, State :: _}
-                        | term().
+                      | {'noreply', State :: _}
+                      | {'continue', Continuation :: _}
+                      | {'code_change', Event :: _, State :: _}
+                      | {'postpone', Event :: _, State :: _, NextState :: _}
+                      | {'consume', Event :: _, State :: _, NextState :: _}
+                      | {'enter', State :: _}
+                      | {'terminate', Reason :: _, State :: _}
+                      | term().
 -opaque dbg_opt()    :: {'trace', 'true'}
                       | {'log',
                          {N :: non_neg_integer(),
