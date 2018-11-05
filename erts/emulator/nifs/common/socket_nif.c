@@ -5583,7 +5583,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     if (IS_SOCKET_ERROR(written))
         save_errno = sock_errno();
     else
-        save_errno = -1; // The value does not actually matter in this case
+        save_errno = -1; // OK or not complete: this value should not matter in this case
 
     res = send_check_result(env, descP, written, dataSize, save_errno, sendRef);
 
@@ -13327,7 +13327,12 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
 
+            SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
+
+            return esock_make_error(env, esock_atom_eagain);
+
         }
+
     }
 
     /* We failed to write the *entire* packet (anything less then size
@@ -13352,8 +13357,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
     cnt_inc(&descP->writeWaits, 1);
 
-    SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE),
-           descP, NULL, sendRef);
+    SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
 
     SSDBG( descP,
            ("SOCKET", "send_check_result -> "
@@ -16736,12 +16740,12 @@ int esock_monitor(const char*       slogan,
 {
     int res;
 
-    SSDBG( descP, ("SOCKET", "[%d] %s: try monitor", descP->sock, slogan) );
+    SSDBG( descP, ("SOCKET", "[%d] %s: try monitor\r\n", descP->sock, slogan) );
     /* esock_dbg_printf("MONP", "[%d] %s\r\n", descP->sock, slogan); */
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
-        SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d", descP->sock, res) );
+        SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d\r\n", descP->sock, res) );
         // esock_dbg_printf("MONP", "[%d] failed: %d\r\n", descP->sock, res);
     } /* else {
         esock_dbg_printf("MONP",
@@ -17595,6 +17599,9 @@ BOOLEAN_T extract_iow(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    esock_dbg_init(ESOCK_DBGOUT_DEFAULT);
+    // esock_dbg_init(ESOCK_DBGOUT_UNIQUE);
+
     data.dbg = extract_debug(env, load_info);
     data.iow = extract_iow(env, load_info);
 
