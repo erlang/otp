@@ -890,7 +890,7 @@ error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
                  name=>Name,
                  last_message=>Msg,
                  state=>format_status(terminate, Mod, get(), State),
-                 log=>Log,
+                 log=>format_log_state(Mod, Log),
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
                #{domain=>[otp],
@@ -979,15 +979,24 @@ format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time, _HibernateAfterTimeout]] = StatusData,
     Header = gen:format_status_header("Status for generic server", Name),
     Log = sys:get_log(Debug),
-    Specfic = case format_status(Opt, Mod, PDict, State) of
+    Specific = case format_status(Opt, Mod, PDict, State) of
 		  S when is_list(S) -> S;
 		  S -> [S]
 	      end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", Log}]} |
-     Specfic].
+	     {"Logged events", format_log_state(Mod, Log)}]} |
+     Specific].
+
+format_log_state(Mod, Log) ->
+    [case Event of
+         {out,Msg,From,State} ->
+             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+         {noreply,State} ->
+             {noreply,format_status(terminate, Mod, get(), State)};
+         _ -> Event
+     end || Event <- Log].
 
 format_status(Opt, Mod, PDict, State) ->
     DefStatus = case Opt of
