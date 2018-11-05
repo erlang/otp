@@ -157,21 +157,21 @@ extensions_list(HelloExtensions) ->
 
 
 handle_client_hello(Version,
-                    #client_hello{session_id = SugesstedId,
-                                  cipher_suites = CipherSuites,
-                                  compression_methods = Compressions,
-                                  random = Random,
-                                  extensions = HelloExt},
+                    #client_hello{session_id = _SugesstedId,
+                                  cipher_suites = _CipherSuites,
+                                  compression_methods = _Compressions,
+                                  random = _Random,
+                                  extensions = _HelloExt},
 		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns,
-				 eccs = SupportedECCs,
-				 honor_ecc_order = ECCOrder} = SslOpts,
-		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _},
-                    Renegotiation) ->
+				 signature_algs = _SupportedHashSigns,
+				 eccs = _SupportedECCs,
+				 honor_ecc_order = _ECCOrder} = _SslOpts,
+		    {_Port, _Session0, _Cache, _CacheCb, _ConnectionStates0, _Cert, _},
+                    _Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
             %% Get supported_groups
-            SupportedGroups = maps:get(elliptic_curves, HelloExt, undefined),
+            %% SupportedGroups = maps:get(elliptic_curves, HelloExt, undefined),
             %% Get KeyShareClientHello
 
             %% Validate supported_groups + KeyShareClientHello
