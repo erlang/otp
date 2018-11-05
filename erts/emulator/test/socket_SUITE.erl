@@ -131,6 +131,10 @@
 
 -define(LIB,     socket_test_lib).
 
+-define(PP_SMALL,  lists:seq(1, 8)).
+-define(PP_MEDIUM, lists:flatten(lists:duplicate(1024, ?PP_SMALL))).
+-define(PP_LARGE,  lists:flatten(lists:duplicate(1024, ?PP_MEDIUM))).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -6709,17 +6713,15 @@ traffic_ping_pong_small_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_SMALL),
+    Num = 100000,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(15)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   %% Recv = fun(Sock)       -> socket:recv(Sock, 0, 5000) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -6737,17 +6739,16 @@ traffic_ping_pong_small_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_SMALL),
+    Num = 100000,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
-                   ?TT(?SECS(30)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
+                   ?TT(?SECS(15)),
                    InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -6765,27 +6766,15 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(suite) ->
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_SMALL),
+    Num = 100000,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
            fun() ->
                    ?TT(?SECS(20)),
-                   Send = fun(Sock, Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -6803,28 +6792,16 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(suite) ->
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_SMALL),
+    Num = 100000,
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(20)),
-                   Send = fun(Sock, Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
-                   InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_small_send_and_receive_tcp(InitState)
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -6842,16 +6819,15 @@ traffic_ping_pong_medium_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_medium_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_MEDIUM),
+    Num = 100000,
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -6869,17 +6845,16 @@ traffic_ping_pong_medium_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_medium_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_MEDIUM),
+    Num = 100000,
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(30)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
                    InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -6898,27 +6873,15 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(suite) ->
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_MEDIUM),
+    Num = 100000,
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
            fun() ->
-                   ?TT(?SECS(20)),
-                   Send = fun(Sock, Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
+                   ?TT(?SECS(30)),
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -6936,28 +6899,16 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(suite) ->
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_MEDIUM),
+    Num = 100000,
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(20)),
-                   Send = fun(Sock, Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
-                   InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_medium_send_and_receive_tcp(InitState)
+                   InitState = #{domain => ine6,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -6975,17 +6926,15 @@ traffic_ping_pong_large_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_LARGE),
+    Num = 1000,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
            fun() ->
-                   %% not_yet_implemented(),
-                   ?TT(?MINS(5)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
+                   ?TT(?SECS(45)),
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -7003,17 +6952,16 @@ traffic_ping_pong_large_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_LARGE),
+    Num = 1000,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
-                   ?TT(?MINS(5)),
-                   Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
-                   Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
+                   ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
 
@@ -7032,27 +6980,15 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(suite) ->
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_LARGE),
+    Num = 1000,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
-                   Send = fun(Sock, Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
                    InitState = #{domain => inet,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -7070,66 +7006,55 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(suite) ->
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?PP_LARGE),
+    Num = 1000,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(30)),
-                   Send = fun(Sock, Data) when is_binary(Data) ->
-                                  MsgHdr = #{iov => [Data]},
-                                  socket:sendmsg(Sock, MsgHdr);
-                             (Sock, Data) when is_list(Data) ->
-                                  MsgHdr = #{iov => Data},
-                                  socket:sendmsg(Sock, MsgHdr)
-                          end,
-                   Recv = fun(Sock, Sz)   -> 
-                                  case socket:recvmsg(Sock, Sz, 0) of
-                                      {ok, #{addr  := undefined,
-                                             iov   := [Data]}} ->
-                                          {ok, Data};
-                                      {error, _} = ERROR ->
-                                          ERROR
-                                  end
-                          end,
                    InitState = #{domain => inet6,
-                                 send   => Send, % Send function
-                                 recv   => Recv  % Receive function
-                                },
-                   ok = traffic_ping_pong_large_send_and_receive_tcp(InitState)
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(SMALL,  lists:seq(1, 8)).
--define(MEDIUM, lists:flatten(lists:duplicate(1024, ?SMALL))).
--define(LARGE,  lists:flatten(lists:duplicate(1024, ?MEDIUM))).
+traffic_ping_pong_send_and_recv_tcp(InitState) ->
+    Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
+    Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
+    InitState2 = InitState#{send => Send, % Send function
+                            recv => Recv  % Receive function
+                           },
+    traffic_ping_pong_send_and_receive_tcp(InitState2).
 
-traffic_ping_pong_small_send_and_receive_tcp(InitState) ->
-    Msg = l2b(?SMALL),
-    Num = 100000,
-    Fun = fun(_) -> ok end, %% Fun to update the buffers: Not needed here
-    traffic_ping_pong_send_and_receive_tcp(InitState#{msg      => Msg,
-                                                      num      => Num,
-                                                      buf_init => Fun}).
+traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
+    Send = fun(Sock, Data) when is_binary(Data) ->
+                   MsgHdr = #{iov => [Data]},
+                   socket:sendmsg(Sock, MsgHdr);
+              (Sock, Data) when is_list(Data) -> %% We assume iovec...
+                   MsgHdr = #{iov => Data},
+                   socket:sendmsg(Sock, MsgHdr)
+           end,
+    Recv = fun(Sock, Sz)   -> 
+                   case socket:recvmsg(Sock, Sz, 0) of
+                       {ok, #{addr  := undefined,
+                              iov   := [Data]}} ->
+                           {ok, Data};
+                       {error, _} = ERROR ->
+                           ERROR
+                   end
+           end,
+    InitState2 = InitState#{send => Send, % Send function
+                            recv => Recv  % Receive function
+                           },
+    traffic_ping_pong_send_and_receive_tcp(InitState2).
 
-traffic_ping_pong_medium_send_and_receive_tcp(InitState) ->
-    Msg = l2b(?MEDIUM),
-    Num = 100000,
-    Fun = fun(_) -> ok end, %% Fun to update the buffers: MAYBE needed here
-    traffic_ping_pong_send_and_receive_tcp(InitState#{msg      => Msg,
-                                                      num      => Num,
-                                                      buf_init => Fun}).
 
-traffic_ping_pong_large_send_and_receive_tcp(InitState) ->
-    Msg = l2b(?LARGE),
-    Num = 1000,
+traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
     Fun = fun(Sock) -> 
-                  %% ?SEV_IPRINT("Socket buffers (before): "
-                  %%             "~n   Rcv: ~p"
-                  %%             "~n   Snd: ~p",
-                  %%             [socket:getopt(Sock, socket, rcvbuf),
-                  %%              socket:getopt(Sock, socket, sndbuf)]),
                   {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
                   if (RcvSz < size(Msg)) ->
                           ok = socket:setopt(Sock, socket, rcvbuf, 1024+size(Msg));
@@ -7142,19 +7067,11 @@ traffic_ping_pong_large_send_and_receive_tcp(InitState) ->
                      true ->
                           ok
                   end,
-                  ok = socket:setopt(Sock, otp, rcvbuf, 8*1024),
-                  %% ?SEV_IPRINT("Socket buffers (after): "
-                  %%             "~n   Rcv: ~p"
-                  %%             "~n   Snd: ~p",
-                  %%             [socket:getopt(Sock, socket, rcvbuf),
-                  %%              socket:getopt(Sock, socket, sndbuf)]),
-                  ok 
-          end, %% Fun to update the buffers: NEEDED here!!!
-    traffic_ping_pong_send_and_receive_tcp(InitState#{msg      => Msg,
-                                                      num      => Num,
-                                                      buf_init => Fun}).
+                  ok = socket:setopt(Sock, otp, rcvbuf, 8*1024)
+          end,
+    traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
 
-traffic_ping_pong_send_and_receive_tcp(InitState) ->
+traffic_ping_pong_send_and_receive_tcp2(InitState) ->
     ServerSeq =
         [
          %% *** Wait for start order part ***
@@ -7705,6 +7622,7 @@ tpp_tcp_handler(Parent) ->
     Result = tpp_tcp_handler_msg_exchange(Sock, Send, Recv),
     tpp_tcp_handler_announce_ready(Parent, recv, Result),
     Reason = tpp_tcp_handler_await_terminate(Parent),
+    ?SEV_IPRINT("terminating"),
     exit(Reason).
 
 tpp_tcp_handler_init(Parent) ->
@@ -7806,6 +7724,7 @@ tpp_tcp_client(Parent, GL) ->
     tpp_tcp_client_announce_ready(Parent, send, Result),
     Reason = tpp_tcp_client_await_terminate(Parent),
     tpp_tcp_client_sock_close(Sock),
+    ?SEV_IPRINT("terminating"),
     exit(Reason).
 
 tpp_tcp_client_init(Parent, GL) ->
