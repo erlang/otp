@@ -27,6 +27,10 @@
 #ifndef SOCKET_DBG_H__
 #define SOCKET_DBG_H__
 
+/* Used when calling the init function */
+#define ESOCK_DBGOUT_DEFAULT "stdout"
+#define ESOCK_DBGOUT_UNIQUE  "unique"
+
 
 /* Used in debug printouts */
 #ifdef __WIN32__
@@ -45,7 +49,7 @@ typedef unsigned long long llu_t;
     }
 
 
-extern
-void esock_dbg_printf( const char* prefix, const char* format, ... );
+extern void esock_dbg_init(char* filename);
+extern void esock_dbg_printf( const char* prefix, const char* format, ... );
 
 #endif // SOCKET_DBG_H__

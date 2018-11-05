@@ -36,8 +36,30 @@
 #define TNAME(__T__)       enif_thread_name( __T__ )
 #define TSNAME()           TNAME(TSELF())
 
+static FILE* dbgout = NULL;
+
 static int realtime(struct timespec* tsP);
 static int timespec2str(char *buf, unsigned int len, struct timespec *ts);
+
+
+extern
+void esock_dbg_init(char* filename)
+{
+  if (filename != NULL) {
+    if (strcmp(filename, ESOCK_DBGOUT_DEFAULT) == 0) {
+      dbgout = stdout;
+    } else if (strcmp(filename, ESOCK_DBGOUT_UNIQUE) == 0) {
+      char template[] = "/tmp/esock-dbg-XXXXXX";
+      dbgout = fdopen(mkstemp(template), "w+");
+    } else {
+      dbgout = fopen(filename, "w+");
+    }
+  } else {
+    char template[] = "/tmp/esock-dbg-XXXXXX";
+    dbgout = fdopen(mkstemp(template), "w+");
+  }
+}
+
 
 
 /*
@@ -70,7 +92,7 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
 
     if (res > 0) {
       va_start (args, format);
-      enif_vfprintf (stdout, f, args);
+      enif_vfprintf (dbgout, f, args);
       va_end (args);
       fflush(stdout);
     }
