@@ -36,6 +36,8 @@
          default_signature_schemes/1, signature_schemes/2,
          groups/1, groups/2, group_to_enum/1, enum_to_group/1]).
 
+-export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4]).
+
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
                        sect283k1 | sect283r1 | brainpoolP256r1 | secp256k1 | secp256r1 |
@@ -52,6 +54,44 @@
 %% Internal application API
 %%====================================================================
 
+%% TLS 1.3 ---------------------------------------------------
+-spec derive_secret(Secret::binary(), Label::binary(),
+                    Messages::binary(), Algo::ssl_cipher_format:hash()) -> Key::binary().
+derive_secret(Secret, Label, Messages, Algo) ->
+    Hash = crypto:hash(mac_algo(Algo), Messages),
+    hkdf_expand_label(Secret, Label,
+                      Hash, ssl_cipher:hash_size(Algo), Algo).
+
+-spec hkdf_expand_label(Secret::binary(), Label0::binary(),
+                        Context::binary(), Length::integer(),  
+                        Algo::ssl_cipher_format:hash()) -> KeyingMaterial::binary().
+hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
+    %% struct {
+    %%     uint16 length = Length;
+    %%     opaque label<7..255> = "tls13 " + Label;
+    %%     opaque context<0..255> = Context;
+    %% } HkdfLabel;
+    Content = << <<"tls13">>/binary, Label0/binary, Context/binary>>,
+    Len = size(Content),
+    HkdfLabel = <<?UINT16(Len), Content/binary>>,
+    hkdf_expand(Secret, HkdfLabel, Length, Algo).
+    
+-spec hkdf_extract(MacAlg::ssl_cipher_format:hash(), Salt::binary(), 
+                   KeyingMaterial::binary()) -> PseudoRandKey::binary().
+
+hkdf_extract(MacAlg, Salt, KeyingMaterial) -> 
+    hmac_hash(MacAlg, Salt, KeyingMaterial).
+
+
+-spec hkdf_expand(PseudoRandKey::binary(), ContextInfo::binary(),
+                  Length::integer(), Algo::ssl_cipher_format:hash()) -> KeyingMaterial::binary().
+                     
+hkdf_expand(PseudoRandKey, ContextInfo, Length, Algo) -> 
+    Iterations = erlang:ceil(Length / ssl_cipher:hash_size(Algo)),
+    hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, 1, Iterations, <<>>, <<>>).
+%% TLS 1.3 ---------------------------------------------------
+
+%% TLS 1.0 -1.2  ---------------------------------------------------
 -spec master_secret(integer(), binary(), binary(), binary()) -> binary().
 
 master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
@@ -61,9 +101,10 @@ master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
 
     prf(PrfAlgo, PreMasterSecret, <<"master secret">>,
 	[ClientRandom, ServerRandom], 48).
+%% TLS 1.0 -1.2  ---------------------------------------------------
 
 -spec finished(client | server, integer(), integer(), binary(), [binary()]) -> binary().
-
+%% TLS 1.0 -1.1  ---------------------------------------------------
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
   when Version == 1; Version == 2; PrfAlgo == ?MD5SHA ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
@@ -77,9 +118,11 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     MD5 = crypto:hash(md5, Handshake),
     SHA = crypto:hash(sha, Handshake),
     prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
+%% TLS 1.0 -1.1  ---------------------------------------------------
 
+%% TLS 1.2 ---------------------------------------------------
 finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
-  when Version == 3; Version == 4 ->
+  when Version == 3 ->
     %% RFC 5246 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -89,22 +132,28 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     %%          PRF(master_secret, finished_label, Hash(handshake_messages)) [0..11];
     Hash = crypto:hash(mac_algo(PrfAlgo), Handshake),
     prf(PrfAlgo, MasterSecret, finished_label(Role), Hash, 12).
+%% TLS 1.2 ---------------------------------------------------
 
+%% TODO 1.3 finished
 
 -spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
+%% TLS 1.0 -1.1  ---------------------------------------------------
 certificate_verify(md5sha, _Version, Handshake) ->
     MD5 = crypto:hash(md5, Handshake),
     SHA = crypto:hash(sha, Handshake),
     <<MD5/binary, SHA/binary>>;
+%% TLS 1.0 -1.1  ---------------------------------------------------
 
+%% TLS 1.2 ---------------------------------------------------
 certificate_verify(HashAlgo, _Version, Handshake) ->
     crypto:hash(HashAlgo, Handshake).
+%% TLS 1.2 ---------------------------------------------------
 
 -spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(),
 					  binary(), binary(), binary()}.
-
+%% TLS v1.0  ---------------------------------------------------
 setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
   when Version == 1 ->
@@ -129,8 +178,9 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
      ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV};
+%% TLS v1.0  ---------------------------------------------------
 
-%% TLS v1.1
+%% TLS v1.1 ---------------------------------------------------
 setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
   when Version == 2 ->
@@ -156,8 +206,9 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
      ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV};
+%% TLS v1.1 ---------------------------------------------------
 
-%% TLS v1.2
+%% TLS v1.2  ---------------------------------------------------
 setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize)
   when Version == 3; Version == 4 ->
@@ -182,8 +233,10 @@ setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
      ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
+%% TLS v1.2  ---------------------------------------------------
 
--spec mac_hash(integer(), binary(), integer(), integer(), tls_record:tls_version(),
+%% TLS 1.0 -1.2  ---------------------------------------------------
+-spec mac_hash(integer() | atom(), binary(), integer(), integer(), tls_record:tls_version(),
 	       integer(), binary()) -> binary().
 
 mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
@@ -197,6 +250,9 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>,
 		     Fragment]),
     Mac.
+%% TLS 1.0 -1.2  ---------------------------------------------------
+
+%% TODO 1.3 same as above?
 
 -spec suites(1|2|3|4) -> [ssl_cipher_format:cipher_suite()].
 
@@ -345,7 +401,6 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
 signature_schemes(_, _) ->
     [].
 
-
 default_signature_schemes(Version) ->
     Default = [
                rsa_pkcs1_sha256,
@@ -371,12 +426,21 @@ default_signature_schemes(Version) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, N, N, Prev, Acc) ->
+    Keyingmaterial = hmac_hash(Algo, PseudoRandKey, <<Prev/binary, ContextInfo/binary, ?BYTE(N)>>),
+    binary:part(<<Acc/binary, Keyingmaterial/binary>>, {0, Length});
+hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M, N, Prev, Acc) ->
+    Keyingmaterial = hmac_hash(Algo, PseudoRandKey, <<Prev/binary, ContextInfo/binary, ?BYTE(M)>>),
+    hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M + 1, N, Keyingmaterial, <<Acc/binary, Keyingmaterial/binary>>).
+
 %%%% HMAC and the Pseudorandom Functions RFC 2246 & 4346 - 5.%%%%
 hmac_hash(?NULL, _, _) ->
     <<>>;
 hmac_hash(Alg, Key, Value) ->
     crypto:hmac(mac_algo(Alg), Key, Value).
 
+mac_algo(Alg) when is_atom(Alg) -> 
+    Alg;
 mac_algo(?MD5)    -> md5;
 mac_algo(?SHA)    -> sha;
 mac_algo(?SHA256) -> sha256;
