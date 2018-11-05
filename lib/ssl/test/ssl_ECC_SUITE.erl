@@ -395,10 +395,25 @@ client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom(Config) ->
     end.
 
 mix_sign(Config) ->
-    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert(Config),
+    mix_sign_rsa_peer(Config),
+    mix_sign_ecdsa_peer(Config).
+ 
+mix_sign_ecdsa_peer(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert([{mix, peer_ecc} |Config]),
     COpts = ssl_test_lib:ssl_options(COpts0, Config), 
     SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
     ECDHE_ECDSA =
         ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
                                  [{key_exchange, fun(ecdhe_ecdsa) -> true; (_) -> false end}]),
     ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_ECDSA} | SOpts], Config).
+ 
+
+mix_sign_rsa_peer(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert([{mix, peer_rsa} |Config]),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECDHE_RSA =
+        ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
+                                 [{key_exchange, fun(ecdhe_rsa) -> true; (_) -> false end}]),
+    ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_RSA} | SOpts], Config).
+    

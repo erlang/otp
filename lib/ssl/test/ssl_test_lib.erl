@@ -717,8 +717,21 @@ make_mix_cert(Config) ->
     Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Digest = {digest, appropriate_sha(crypto:supports())},
     CurveOid = hd(tls_v1:ecc_curves(0)),
-    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
-    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix"]),
+    Mix = proplists:get_value(mix, Config, peer_ecc),
+    ClientChainType =ServerChainType = mix,
+    {ClientChain, ServerChain} = mix(Mix, Digest, CurveOid, Ext),
+    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix" ++ atom_to_list(Mix)]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "mix" ++ atom_to_list(Mix)]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    [{server_config, ServerConf}, 
+     {client_config, ClientConf}] = 
+        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    {[{verify, verify_peer} | ClientConf],
+     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
+    }.
+
+mix(peer_ecc, Digest, CurveOid, Ext) ->
     ClientChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
                     [Digest, {key, hardcode_rsa_key(1)}], 
                     [Digest, {key, {namedCurve, CurveOid}}, {extensions, Ext}]
@@ -727,17 +740,18 @@ make_mix_cert(Config) ->
                     [Digest, {key,  hardcode_rsa_key(2)}], 
                     [Digest, {key, {namedCurve, CurveOid}},{extensions, Ext}]
                    ],
-    ClientChainType =ServerChainType = mix,
-    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain),
-    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
-    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
-    GenCertData = public_key:pkix_test_data(CertChainConf),
-    [{server_config, ServerConf}, 
-     {client_config, ClientConf}] = 
-        x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-    {[{verify, verify_peer} | ClientConf],
-     [{reuseaddr, true}, {verify, verify_peer} | ServerConf]
-    }.
+    {ClientChain, ServerChain};
+
+mix(peer_rsa, Digest, CurveOid, Ext) ->
+    ClientChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key, hardcode_rsa_key(1)}, {extensions, Ext}]
+                   ],
+    ServerChain =  [[Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key, {namedCurve, CurveOid}}], 
+                    [Digest, {key,  hardcode_rsa_key(2)},{extensions, Ext}]
+                   ],
+    {ClientChain, ServerChain}.
 
 make_ecdsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
