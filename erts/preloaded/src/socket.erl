@@ -1573,12 +1573,13 @@ sendmsg(Socket, MsgHdr, Timeout)
     sendmsg(Socket, MsgHdr, ?SOCKET_SENDMSG_FLAGS_DEFAULT, Timeout).
 
 
--spec sendmsg(Socket, MsgHdr, Flags, Timeout) -> ok | {error, Reason} when
-      Socket  :: socket(),
-      MsgHdr  :: msghdr(),
-      Flags   :: send_flags(),
-      Timeout :: timeout(),
-      Reason  :: term().
+-spec sendmsg(Socket, MsgHdr, Flags, Timeout) -> ok | {ok, Remaining} | {error, Reason} when
+      Socket    :: socket(),
+      MsgHdr    :: msghdr(),
+      Flags     :: send_flags(),
+      Timeout   :: timeout(),
+      Remaining :: erlang:iovec(),
+      Reason    :: term().
 
 sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
   when is_list(IOV) andalso 
@@ -1603,6 +1604,18 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             %% We are done
             ok;
 
+        {ok, Written} when is_integer(Written) andalso (Written > 0) ->
+
+            %% We should not retry here since the protocol may not
+            %% be able to handle a message being split. Leave it to
+            %% the caller to figure out (call again with the rest).
+            %%
+            %% We should really not need to cancel, since this is
+            %% accepted for sendmsg!
+            %%
+            cancel(SockRef, sendmsg, SendRef),
+            {ok, do_sendmsg_rest(maps:get(iov, MsgHdr), Written)};
+
         {error, eagain} ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
@@ -1617,12 +1630,20 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             ERROR
     end.
 
+do_sendmsg_rest([B|IOVec], Written) when (Written >= size(B)) ->
+    do_sendmsg_rest(IOVec, Written - size(B));
+do_sendmsg_rest([B|IOVec], Written) ->
+    <<_:Written/binary, Rest/binary>> = B,
+    [Rest|IOVec].
+
 ensure_msghdr(#{ctrl := []} = M) ->
     ensure_msghdr(maps:remove(ctrl, M));
 ensure_msghdr(#{iov := IOV} = M) when is_list(IOV) andalso (IOV =/= []) ->
     M#{iov := erlang:iolist_to_iovec(IOV)};
 ensure_msghdr(_) ->
     einval().
+
+
 
 
 %% ===========================================================================
@@ -1983,10 +2004,20 @@ recvmsg(Socket, Timeout) ->
       Flags   :: recv_flags(),
       Timeout :: timeout(),
       MsgHdr  :: msghdr(),
+      Reason  :: term()
+                 ; (Socket, BufSz, CtrlSz) -> {ok, MsgHdr} | {error, Reason} when
+      Socket  :: socket(),
+      BufSz   :: non_neg_integer(),
+      CtrlSz  :: non_neg_integer(),
+      MsgHdr  :: msghdr(),
       Reason  :: term().
 
-recvmsg(Socket, Flags, Timeout) ->
-    recvmsg(Socket, 0, 0, Flags, Timeout).
+recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
+    recvmsg(Socket, 0, 0, Flags, Timeout);
+recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz) ->
+    recvmsg(Socket, BufSz, CtrlSz,
+            ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+
 
 -spec recvmsg(Socket, 
               BufSz, CtrlSz,
