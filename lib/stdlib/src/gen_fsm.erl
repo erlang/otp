@@ -748,17 +748,17 @@ format_status(Opt, StatusData) ->
     Header = gen:format_status_header("Status for state machine",
                                       Name),
     Log = sys:get_log(Debug),
-    Specfic = format_status(Opt, Mod, PDict, StateData),
-    Specfic = case format_status(Opt, Mod, PDict, StateData) of
-		  S when is_list(S) -> S;
-		  S -> [S]
-	      end,
+    Specific =
+        case format_status(Opt, Mod, PDict, StateData) of
+            S when is_list(S) -> S;
+            S -> [S]
+        end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
 	     {"Logged events", Log},
 	     {"StateName", StateName}]} |
-     Specfic].
+     Specific].
 
 format_status(Opt, Mod, PDict, State) ->
     DefStatus = case Opt of
