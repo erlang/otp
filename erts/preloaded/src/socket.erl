@@ -1958,6 +1958,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
                                 next_timeout(TS, Timeout));
 
                 {nif_abort, RecvRef, Reason} ->
+                    %% p("received nif-abort: ~p", [Reason]),
                     {error, Reason}
 
             after NewTimeout ->
@@ -1969,6 +1970,13 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
             ERROR
 
     end.
+
+%% pi(Item) ->
+%%     pi(self(), Item).
+
+%% pi(Pid, Item) ->
+%%     {Item, Info} = process_info(Pid, Item),
+%%     Info.
 
 
 %% ---------------------------------------------------------------------------

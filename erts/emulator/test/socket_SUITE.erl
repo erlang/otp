@@ -91,19 +91,30 @@
          %% Traffic
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
+
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
-         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
-         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
          traffic_ping_pong_medium_send_and_recv_tcp4/1,
          traffic_ping_pong_medium_send_and_recv_tcp6/1,
-         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4/1,
-         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6/1,
          traffic_ping_pong_large_send_and_recv_tcp4/1,
          traffic_ping_pong_large_send_and_recv_tcp6/1,
-         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
-         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1
 
+         traffic_ping_pong_small_sendto_and_recvfrom_udp4/1,
+         traffic_ping_pong_small_sendto_and_recvfrom_udp6/1,
+         traffic_ping_pong_medium_sendto_and_recvfrom_udp4/1,
+         traffic_ping_pong_medium_sendto_and_recvfrom_udp6/1,
+
+         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4/1,
+         traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6/1,
+
+         traffic_ping_pong_small_sendmsg_and_recvmsg_udp4/1,
+         traffic_ping_pong_small_sendmsg_and_recvmsg_udp6/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4/1,
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1
 
          %% Tickets
         ]).
@@ -131,9 +142,13 @@
 
 -define(LIB,     socket_test_lib).
 
--define(PP_SMALL,  lists:seq(1, 8)).
--define(PP_MEDIUM, lists:flatten(lists:duplicate(1024, ?PP_SMALL))).
--define(PP_LARGE,  lists:flatten(lists:duplicate(1024, ?PP_MEDIUM))).
+-define(TPP_SMALL,  lists:seq(1, 8)).
+-define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
+-define(TPP_LARGE,  lists:flatten(lists:duplicate(1024, ?TPP_MEDIUM))).
+
+-define(TPP_SMALL_NUM,  100000).
+-define(TPP_MEDIUM_NUM, 100000).
+-define(TPP_LARGE_NUM,  1000).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -267,16 +282,27 @@ traffic_cases() ->
 
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
-     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
-     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_medium_send_and_recv_tcp4,
      traffic_ping_pong_medium_send_and_recv_tcp6,
-     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
-     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_large_send_and_recv_tcp4,
      traffic_ping_pong_large_send_and_recv_tcp6,
+
+     traffic_ping_pong_small_sendto_and_recvfrom_udp4,
+     traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+     traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
+     traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
+
+     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
      traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
-     traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6
+     traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
+
+     traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
+     traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
+     traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6
     ].
 
 
@@ -6713,8 +6739,8 @@ traffic_ping_pong_small_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_SMALL),
-    Num = 100000,
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(15)),
@@ -6739,8 +6765,8 @@ traffic_ping_pong_small_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_small_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_SMALL),
-    Num = 100000,
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
@@ -6749,59 +6775,6 @@ traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test that the sendmsg and recvmsg 
-%% functions by repeatedly sending a meassage between two entities.
-%% The same basic test case is used for three different message sizes; 
-%% small (8 bytes), medium (8K) and large (8M).
-%% The message is sent from A to B and then back again. This is 
-%% repeated a set number of times (more times the small the message).
-%% This is the 'small' message test case, for IPv4.
-
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(suite) ->
-    [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(doc) ->
-    [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_SMALL),
-    Num = 100000,
-    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
-           fun() ->
-                   ?TT(?SECS(20)),
-                   InitState = #{domain => inet,
-                                 msg    => Msg,
-                                 num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test that the sendmsg and recvmsg functions
-%% by repeatedly sending a meassage between two entities.
-%% The same basic test case is used for three different message sizes; 
-%% small (8 bytes), medium (8K) and large (8M).
-%% The message is sent from A to B and then back again. This is 
-%% repeated a set number of times (more times the small the message).
-%% This is the 'small' message test case, for IPv6.
-
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(suite) ->
-    [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(doc) ->
-    [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_SMALL),
-    Num = 100000,
-    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
-           fun() ->
-                   not_yet_implemented(),
-                   ?TT(?SECS(20)),
-                   InitState = #{domain => inet,
-                                 msg    => Msg,
-                                 num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
            end).
 
 
@@ -6819,8 +6792,8 @@ traffic_ping_pong_medium_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_medium_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_MEDIUM),
-    Num = 100000,
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
@@ -6845,8 +6818,8 @@ traffic_ping_pong_medium_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_medium_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_MEDIUM),
-    Num = 100000,
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
@@ -6857,59 +6830,6 @@ traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test that the sendmsg and recvmsg 
-%% functions by repeatedly sending a meassage between two entities.
-%% The same basic test case is used for three different message sizes; 
-%% small (8 bytes), medium (8K) and large (8M).
-%% The message is sent from A to B and then back again. This is 
-%% repeated a set number of times (more times the small the message).
-%% This is the 'medium' message test case, for IPv4.
-
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(suite) ->
-    [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(doc) ->
-    [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_MEDIUM),
-    Num = 100000,
-    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
-           fun() ->
-                   ?TT(?SECS(30)),
-                   InitState = #{domain => inet,
-                                 msg    => Msg,
-                                 num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
-           end).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to test that the sendmsg and recvmsg functions
-%% by repeatedly sending a meassage between two entities.
-%% The same basic test case is used for three different message sizes; 
-%% small (8 bytes), medium (8K) and large (8M).
-%% The message is sent from A to B and then back again. This is 
-%% repeated a set number of times (more times the small the message).
-%% This is the 'medium' message test case, for IPv6.
-
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(suite) ->
-    [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(doc) ->
-    [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_MEDIUM),
-    Num = 100000,
-    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
-           fun() ->
-                   not_yet_implemented(),
-                   ?TT(?SECS(20)),
-                   InitState = #{domain => ine6,
-                                 msg    => Msg,
-                                 num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
-           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6926,8 +6846,8 @@ traffic_ping_pong_large_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_LARGE),
-    Num = 1000,
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(45)),
@@ -6952,8 +6872,8 @@ traffic_ping_pong_large_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_LARGE),
-    Num = 1000,
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
            fun() ->
                    not_yet_implemented(),
@@ -6964,6 +6884,218 @@ traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
                    ok = traffic_ping_pong_send_and_recv_tcp(InitState)
            end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv4.
+
+traffic_ping_pong_small_sendto_and_recvfrom_udp4(suite) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udp4(doc) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp4,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv6.
+
+traffic_ping_pong_small_sendto_and_recvfrom_udp6(suite) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udp6(doc) ->
+    [];
+traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp6,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv4.
+
+traffic_ping_pong_medium_sendto_and_recvfrom_udp4(suite) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udp4(doc) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendto and recvfrom 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for two different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv6.
+
+traffic_ping_pong_medium_sendto_and_recvfrom_udp6(suite) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udp6(doc) ->
+    [];
+traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
+           fun() ->
+                   ?TT(?SECS(45)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv4.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv6.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv4.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv6.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => ine6,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+           end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6980,8 +7112,8 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(suite) ->
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_LARGE),
-    Num = 1000,
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
@@ -7006,8 +7138,8 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(suite) ->
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
-    Msg = l2b(?PP_LARGE),
-    Num = 1000,
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
            fun() ->
                    not_yet_implemented(),
@@ -7021,6 +7153,115 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv4.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
+           fun() ->
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case, for IPv6.
+
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(suite) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(doc) ->
+    [];
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_SMALL_NUM,
+    tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv4.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => inet,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the sendmsg and recvmsg 
+%% functions by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes) and medium (8K).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case, for IPv6.
+
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(suite) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(doc) ->
+    [];
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_MEDIUM_NUM,
+    tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
+           fun() ->
+                   not_yet_implemented(),
+                   ?TT(?SECS(20)),
+                   InitState = #{domain => ine6,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Ping-Pong for TCP
 
 traffic_ping_pong_send_and_recv_tcp(InitState) ->
     Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
@@ -7918,6 +8159,842 @@ tpp_tcp_send_msg(Sock, Send, Msg, AccSz) when is_binary(Msg) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Ping-Pong for UDP
+
+traffic_ping_pong_sendto_and_recvfrom_udp(InitState) ->
+    Send = fun(Sock, Data, Dest) ->
+                   socket:sendto(Sock, Data, Dest)
+           end,
+    Recv = fun(Sock, Sz)         ->
+                   socket:recvfrom(Sock, Sz)
+           end,
+    InitState2 = InitState#{send => Send, % Send function
+                            recv => Recv  % Receive function
+                           },
+    traffic_ping_pong_send_and_receive_udp(InitState2).
+
+traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState) ->
+    Send = fun(Sock, Data, Dest) when is_binary(Data) ->
+                   MsgHdr = #{addr => Dest, iov => [Data]},
+                   socket:sendmsg(Sock, MsgHdr);
+              (Sock, Data, Dest) when is_list(Data) -> %% We assume iovec...
+                   MsgHdr = #{addr => Dest, iov => Data},
+                   socket:sendmsg(Sock, MsgHdr)
+           end,
+    Recv = fun(Sock, Sz)   -> 
+                   case socket:recvmsg(Sock, Sz, 0) of
+                       {ok, #{addr  := Source,
+                              iov   := [Data]}} ->
+                           {ok, {Source, Data}};
+                       {error, _} = ERROR ->
+                           ERROR
+                   end
+           end,
+    InitState2 = InitState#{send => Send, % Send function
+                            recv => Recv  % Receive function
+                           },
+    traffic_ping_pong_send_and_receive_udp(InitState2).
+
+
+traffic_ping_pong_send_and_receive_udp(#{msg := Msg} = InitState) ->
+    Fun = fun(Sock) -> 
+                  {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
+                  if (RcvSz < size(Msg)) ->
+                          ok = socket:setopt(Sock, socket, rcvbuf, 1024+size(Msg));
+                     true ->
+                          ok
+                  end,
+                  {ok, SndSz} = socket:getopt(Sock, socket, sndbuf),
+                  if (SndSz < size(Msg)) ->
+                          ok = socket:setopt(Sock, socket, sndbuf, 1024+size(Msg));
+                     true ->
+                          ok
+                  end,
+                  {ok, OtpRcvBuf} = socket:getopt(Sock, otp, rcvbuf),
+                  if
+                      (OtpRcvBuf < size(Msg)) ->
+                          ok = socket:setopt(Sock, otp, rcvbuf, 1024+size(Msg));
+                      true ->
+                          ok
+                  end
+          end,
+    traffic_ping_pong_send_and_receive_udp2(InitState#{buf_init => Fun}).
+
+traffic_ping_pong_send_and_receive_udp2(InitState) ->
+    ServerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{port => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "maybe init buffers",
+           cmd  => fun(#{sock := Sock, buf_init := BufInit} = _State) ->
+                           BufInit(Sock)
+                   end},
+         #{desc => "create handler",
+           cmd  => fun(State) ->
+                           Handler = tpp_udp_server_handler_create(),
+                           ?SEV_IPRINT("handler created: ~p", [Handler]),
+                           {ok, State#{handler => Handler}}
+                   end},
+         #{desc => "monitor handler",
+           cmd  => fun(#{handler := Handler} = _State) ->
+                           _MRef = erlang:monitor(process, Handler),
+                           ok
+                   end},
+         #{desc => "start handler",
+           cmd  => fun(#{handler := Handler,
+                         sock    := Sock,
+                         send    := Send,
+                         recv    := Recv} = _State) ->
+                           ?SEV_ANNOUNCE_START(Handler, {Sock, Send, Recv}),
+                           ok
+                   end},
+         #{desc => "await handler ready (init)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = State) ->
+                           case ?SEV_AWAIT_READY(Handler, handler, init, 
+                                                 [{tester, Tester}]) of
+                               ok ->
+                                   {ok, maps:remove(csock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, local_sa := LSA, port := Port}) ->
+                           ServerSA = LSA#{port => Port},
+                           ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (recv)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, recv, 
+                                               [{handler, Handler}])
+                   end},
+         #{desc => "order handler to recv",
+           cmd  => fun(#{handler := Handler} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Handler, recv),
+                           ok
+                   end},
+         #{desc => "await continue (close)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, close, 
+                                               [{handler, Handler}])
+                   end},
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
+                           case socket:close(Sock) of
+                               ok ->
+                                   {ok, maps:remove(sock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (close)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, close),
+                           ok
+                   end},
+         #{desc => "await handler ready (recv)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = State) ->
+                           case ?SEV_AWAIT_READY(Handler, handler, recv, 
+                                                 [{tester, Tester}]) of
+                               {ok, Result} ->
+                                   %% ?SEV_IPRINT("Result: ~p", [Result]),
+                                   {ok, State#{result => Result}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv)",
+           cmd  => fun(#{tester := Tester, 
+                         result := Result} = State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv, Result),
+                           {ok, maps:remove(result, State)}
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "stop handler",
+           cmd  => fun(#{handler := Handler}) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Handler),
+                           ok
+                   end},
+         #{desc => "await handler termination",
+           cmd  => fun(#{handler := Handler} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Handler),
+                           State1 = maps:remove(handler, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, ServerSA} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester    => Tester, 
+                                       server_sa => ServerSA}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "create node",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client) of
+                               {ok, Node} ->
+                                   ?SEV_IPRINT("(remote) client node ~p started", 
+                                               [Node]),
+                                   {ok, State#{node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "create (remote) handler",
+           cmd  => fun(#{node := Node} = State) ->
+                           Pid = tpp_udp_client_handler_create(Node),
+                           ?SEV_IPRINT("handler created: ~p", [Pid]),
+                           {ok, State#{handler => Pid}}
+                   end},
+         #{desc => "monitor remote handler",
+           cmd  => fun(#{handler := Pid}) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "order remote handler to start",
+           cmd  => fun(#{handler   := Handler,
+                         server_sa := ServerSA,
+                         buf_init  := BufInit,
+                         send      := Send,
+                         recv      := Recv}) ->
+                           ?SEV_ANNOUNCE_START(Handler, 
+                                               {ServerSA, BufInit, Send, Recv}),
+                           ok
+                   end},
+         #{desc => "await (remote) handler ready",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = _State) ->
+                           ?SEV_AWAIT_READY(Handler, handler, init, 
+                                            [{tester, Tester}])
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (send)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, 
+                                               send, 
+                                               [{handler, Handler}])
+                   end},
+         #{desc => "order handler to continue (send)",
+           cmd  => fun(#{handler := Handler,
+                         msg     := Msg,
+                         num     := Num} = State) ->
+                           Data = {Msg, Num},
+                           ?SEV_ANNOUNCE_CONTINUE(Handler, send, Data),
+                           {ok, maps:remove(data, State)}
+                   end},
+         #{desc => "await remote handler ready (send)",
+           cmd  => fun(#{tester  := Tester,
+                         handler := Handler} = State) ->
+                           case ?SEV_AWAIT_READY(Handler, handler, send, 
+                                                 [{tester, Tester}]) of
+                               {ok, Result} ->
+                                   %% ?SEV_IPRINT("remote client result: "
+                                   %%             "~n   ~p", [Result]),
+                                   {ok, State#{result => Result}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (send)",
+           cmd  => fun(#{tester := Tester, result := Result} = State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send, Result),
+                           {ok, maps:remove(result, State)}
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester  := Tester, 
+                         handler := Handler} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester,
+                                                     [{handler, Handler}]) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "stop (remote) handler",
+           cmd  => fun(#{handler := Handler}) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Handler),
+                           ok
+                   end},
+         #{desc => "await (remote) handler termination",
+           cmd  => fun(#{handler := Handler} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Handler),
+                           State1 = maps:remove(handler, State),
+                           {ok, State1}
+                   end},
+         #{desc => "stop client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node termination",
+           cmd  => fun(#{node := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(node, State)}
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, ServerSA} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_sa => ServerSA}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client    := Pid, 
+                         server_sa := ServerSA} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, ServerSA),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+ 
+         %% The actual test
+         #{desc => "order server continue (recv)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, recv),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order client continue (send)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, send),
+                           ok
+                   end},
+         #{desc => "await client ready (send)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = State) ->
+                           case ?SEV_AWAIT_READY(Client, client, send, 
+                                                 [{server, Server}]) of
+                               {ok, {_, _, _, _} = Result} ->
+                                   ?SEV_IPRINT("client result: "
+                                               "~n   ~p", [Result]),
+                                   {ok, State#{client_result => Result}};
+                               {ok, BadResult} ->
+                                   ?SEV_EPRINT("client result: "
+                                               "~n   ~p", [BadResult]),
+                                   {error, {invalid_client_result, BadResult}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order server continue (close)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, close),
+                           ok
+                   end},
+         #{desc => "await server ready (close)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, server, close)
+                   end},
+         %% Because of the way we control the server, there is no real 
+         %% point in collecting statistics from it (the time will include
+         %% our communication with it).
+         #{desc => "await server ready (recv)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Server, server, recv,
+                                                 [{client, Client}]) of
+                               {ok, _Result} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "present result",
+           cmd  => fun(#{client_result := CRes,
+                         num           := Num} = State) ->
+                           {CSent, CReceived, CStart, CStop} = CRes,
+                           CTime = tdiff(CStart, CStop),
+                           %% Note that the sizes we are counting is only 
+                           %% the "data" part of the messages. There is also
+                           %% fixed header for each message, which of cource
+                           %% is small for the large messages, but comparatively
+                           %% big for the small messages!
+                           ?SEV_IPRINT("Results: ~w messages exchanged"
+                                       "~n   Client: ~w msec"
+                                       "~n      ~.2f msec/message (roundtrip)"
+                                       "~n      ~.2f messages/msec (roundtrip)"
+                                       "~n      ~w bytes/msec sent"
+                                       "~n      ~w bytes/msec received",
+                                       [Num,
+                                        CTime,
+                                        CTime / Num,
+                                        Num / CTime,
+                                        CSent div CTime,
+                                        CReceived div CTime]),
+                           State1 = maps:remove(client_result, State),
+                           {ok, State1}
+                   end},
+
+         %% Terminations
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(client, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(server, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    ServerInitState = #{domain   => maps:get(domain,   InitState),
+                        recv     => maps:get(recv,     InitState),
+                        send     => maps:get(send,     InitState),
+                        buf_init => maps:get(buf_init, InitState)},
+    Server = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("start client evaluator(s)"),
+    ClientInitState = InitState#{host => local_host()},
+    Client = ?SEV_START("client", ClientSeq, ClientInitState),
+
+    i("start 'tester' evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid,
+                        num    => maps:get(num, InitState)},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator"),
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+%% Server side handler process
+%% We don't actually need a separate process for this socket, 
+%% but we do it anyway to simplify the sequence.
+tpp_udp_server_handler_create() ->
+    Self = self(),
+    erlang:spawn(fun() -> tpp_udp_server_handler(Self) end).
+
+tpp_udp_server_handler(Parent) ->
+    tpp_udp_server_handler_init(Parent),
+    {Sock, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    tpp_udp_handler_announce_ready(Parent, init),
+    tpp_udp_handler_await_continue(Parent, recv),
+    Result = tpp_udp_server_handler_msg_exchange(Sock, Send, Recv),
+    tpp_udp_handler_announce_ready(Parent, recv, Result),
+    Reason = tpp_udp_handler_await_terminate(Parent),
+    ?SEV_IPRINT("terminating"),
+    exit(Reason).
+
+tpp_udp_server_handler_init(Parent) ->
+    put(sname, "shandler"),
+    ?SEV_IPRINT("init"),
+    _MRef = erlang:monitor(process, Parent),
+    ok.
+
+tpp_udp_server_handler_msg_exchange(Sock, Send, Recv) ->
+    tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv, 0, 0, 0, undefined).
+
+tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv, 
+                                         N, Sent, Received, Start) ->
+    %% ?SEV_IPRINT("[~w] try receive", [N]),
+    %% if 
+    %%     (N =:= (?TPP_SMALL_NUM-2)) -> 
+    %%         ?SEV_IPRINT("[~w] try receive", [N]),
+    %%         socket:setopt(Sock, otp, debug, true); 
+    %%     true -> ok
+    %% end,
+    case tpp_udp_recv_req(Sock, Recv) of
+        {ok, Msg, RecvSz, From} ->
+            NewStart = if (Start =:= undefined) -> ?LIB:timestamp(); 
+                          true -> Start end,
+            %% ?SEV_IPRINT("[~w] received - now try send", [N]),
+            case tpp_udp_send_rep(Sock, Send, Msg, From) of
+                {ok, SendSz} ->
+                    tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
+                                                             N+1,
+                                                             Sent+SendSz,
+                                                             Received+RecvSz,
+                                                             NewStart);
+                {error, SReason} ->
+                    ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
+                    exit({send, SReason, N})
+            end;
+        %% {error, timeout} ->
+        %%     ?SEV_IPRINT("timeout(~w) - try again", [N]),
+        %%     case Send(Sock, list_to_binary("ping")) of
+        %%         ok ->
+        %%             exit({'ping-send', ok, N});
+        %%         {error, Reason} ->
+        %%             exit({'ping-send', Reason, N})
+        %%     end;
+        {error, closed} ->
+            ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
+            Stop = ?LIB:timestamp(),
+            {N, Sent, Received, Start, Stop};
+        {error, RReason} ->
+            ?SEV_EPRINT("recv (~w): ~p", [N, RReason]),
+            exit({recv, RReason, N})
+    end.
+  
+
+%% The (remote) client side handler process
+
+tpp_udp_client_handler_create(Node) ->
+    Self = self(),
+    GL   = group_leader(),
+    Fun  = fun() -> tpp_udp_client_handler(Self, GL) end,
+    erlang:spawn(Node, Fun).
+
+tpp_udp_client_handler(Parent, GL) ->
+    tpp_udp_client_handler_init(Parent, GL),
+    {ServerSA, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    Domain   = maps:get(family, ServerSA),
+    Sock     = tpp_udp_sock_open(Domain, BufInit),
+    tpp_udp_sock_bind(Sock, Domain),
+    tpp_udp_handler_announce_ready(Parent, init),
+    {InitMsg, Num} = tpp_udp_handler_await_continue(Parent, send),
+    Result = tpp_udp_client_handler_msg_exchange(Sock, ServerSA, 
+                                                 Send, Recv, InitMsg, Num),
+    tpp_udp_handler_announce_ready(Parent, send, Result),
+    Reason = tpp_udp_handler_await_terminate(Parent),
+    tpp_udp_sock_close(Sock),
+    ?SEV_IPRINT("terminating"),
+    exit(Reason).
+
+tpp_udp_client_handler_init(Parent, GL) ->
+    put(sname, "chandler"),
+    ?SEV_IPRINT("init"),
+    _MRef = erlang:monitor(process, Parent),
+    group_leader(self(), GL),
+    ok.
+
+tpp_udp_client_handler_msg_exchange(Sock, ServerSA, Send, Recv, InitMsg, Num) ->
+    Start = ?LIB:timestamp(),
+    tpp_udp_client_handler_msg_exchange_loop(Sock, ServerSA, Send, Recv, InitMsg, 
+                                             Num, 0, 0, 0, Start).
+
+tpp_udp_client_handler_msg_exchange_loop(_Sock, _Dest, _Send, _Recv, _Msg,
+                                         Num, Num, Sent, Received,
+                                         Start) ->
+    Stop = ?LIB:timestamp(),
+    {Sent, Received, Start, Stop};
+tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv, Data, 
+                                         Num, N, Sent, Received, Start) ->
+    %% d("tpp_udp_client_handler_msg_exchange_loop(~w,~w) try send", [Num,N]),
+    case tpp_udp_send_req(Sock, Send, Data, Dest) of
+        {ok, SendSz} ->
+            %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
+            %%   "now try recv", [Num,N]),
+            case tpp_udp_recv_rep(Sock, Recv) of
+                {ok, NewData, RecvSz, Dest} ->
+                    tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv,
+                                                             NewData, Num, N+1,
+                                                             Sent+SendSz, 
+                                                             Received+RecvSz, 
+                                                             Start);
+                {error, RReason} ->
+                    ?SEV_EPRINT("recv (~w of ~w): ~p", [N, Num, RReason]),
+                    exit({recv, RReason, N})
+            end;
+        {error, SReason} ->
+            ?SEV_EPRINT("send (~w of ~w): ~p", [N, Num, SReason]),
+            exit({send, SReason, N})
+    end.
+
+
+tpp_udp_recv_req(Sock, Recv) ->
+    tpp_udp_recv(Sock, Recv, ?TPP_REQUEST).
+
+tpp_udp_recv_rep(Sock, Recv) ->
+    tpp_udp_recv(Sock, Recv, ?TPP_REPLY).
+
+tpp_udp_recv(Sock, Recv, Tag) ->
+    case Recv(Sock, 0) of
+        {ok, {Source, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg}} 
+          when (Sz =:= size(Data)) ->
+            %% We got it all
+            %% ?SEV_IPRINT("tpp_udp_recv -> got all: "
+            %%             "~n   Source:     ~p"
+            %%             "~n   Tag:        ~p"
+            %%             "~n   Sz:         ~p"
+            %%             "~n   size(Data): ~p", [Source, Tag, Sz, size(Data)]),
+            {ok, Data, size(Msg), Source};
+        {ok, {Source, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg}} ->
+            %% ?SEV_IPRINT("tpp_udp_recv -> got part: "
+            %%             "~n   Source:     ~p"
+            %%             "~n   Tag:        ~p"
+            %%             "~n   Sz:         ~p"
+            %%             "~n   size(Data): ~p", [Source, Tag, Sz, size(Data)]),
+            Remains = Sz - size(Data),
+            tpp_tcp_recv(Sock, Source, Recv, Tag, Remains, size(Msg), [Data]);
+        {ok, {_, <<Tag:32/integer, _/binary>>}} ->
+            {error, {invalid_msg_tag, Tag}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+%% We match against Source since we only communicate with one peer
+tpp_tcp_recv(Sock, Source, Recv, Tag, Remaining, AccSz, Acc) ->
+    %% ?SEV_IPRINT("tpp_tcp_recv -> entry with"
+    %%             "~n   Tag:       ~p"
+    %%             "~n   Remaining: ~p"
+    %%             "~n   AccSz:     ~p"
+    %%             "~n   RcvBuf:    ~p"
+    %%             "~n   SndBuf:    ~p", 
+    %%             [Tag, Remaining, AccSz, 
+    %%              socket:getopt(Sock, socket, rcvbuf),
+    %%              socket:getopt(Sock, socket, sndbuf)]),
+    case Recv(Sock, Remaining) of
+        {ok, {Source, Data}} when (Remaining =:= size(Data)) ->
+            %% ?SEV_IPRINT("tpp_udp_recv -> got rest: "
+            %%             "~n   Source:     ~p"
+            %%             "~n   size(Data): ~p", [Source, size(Data)]),
+            %% We got the rest
+            TotSz = AccSz + size(Data),
+            {ok, 
+             erlang:iolist_to_binary(lists:reverse([Data | Acc])), 
+             TotSz, Source};
+        {ok, {Source, Data}} when (Remaining > size(Data)) ->
+            %% ?SEV_IPRINT("tpp_udp_recv -> got part of rest: "
+            %%             "~n   Source:     ~p"
+            %%             "~n   size(Data): ~p", [Source, size(Data)]),
+            tpp_tcp_recv(Sock, Source, Recv, Tag, 
+                         Remaining - size(Data), AccSz + size(Data),     
+                         [Data | Acc]);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+tpp_udp_send_req(Sock, Send, Data, Dest) ->
+    tpp_udp_send(Sock, Send, ?TPP_REQUEST, Data, Dest).
+
+tpp_udp_send_rep(Sock, Send, Data, Dest) ->
+    tpp_udp_send(Sock, Send, ?TPP_REPLY, Data, Dest).
+
+tpp_udp_send(Sock, Send, Tag, Data, Dest) ->
+    DataSz = size(Data),
+    Msg    = <<Tag:32/integer, DataSz:32/integer, Data/binary>>,
+    tpp_udp_send_msg(Sock, Send, Msg, Dest, 0).
+
+tpp_udp_send_msg(Sock, Send, Msg, Dest, AccSz) when is_binary(Msg) ->
+    %% d("tpp_udp_send_msg -> entry with"
+    %%   "~n   size(Msg): ~p"
+    %%   "~n   Dest:      ~p"
+    %%   "~n   AccSz:     ~p"
+    %%   "~n   RcvBuf:    ~p"
+    %%   "~n   SndBuf:    ~p", 
+    %%   [size(Msg), Dest, AccSz, 
+    %%    socket:getopt(Sock, socket, rcvbuf),
+    %%    socket:getopt(Sock, socket, sndbuf)]),
+    case Send(Sock, Msg, Dest) of
+        ok ->
+            {ok, AccSz+size(Msg)};
+        {ok, Rest} -> % This is an IOVec
+            RestBin = list_to_binary(Rest),
+            tpp_udp_send_msg(Sock, Send, RestBin, Dest,
+                             AccSz+(size(Msg)-size(RestBin)));
+        {error, _} = ERROR ->
+            ERROR
+    end.
+    
+
+tpp_udp_handler_await_start(Parent) ->
+    ?SEV_IPRINT("await start"),
+    ?SEV_AWAIT_START(Parent).
+
+tpp_udp_handler_announce_ready(Parent, Slogan) ->
+    ?SEV_IPRINT("announce ready (~p)", [Slogan]),
+    ?SEV_ANNOUNCE_READY(Parent, Slogan).
+tpp_udp_handler_announce_ready(Parent, Slogan, Extra) ->
+    ?SEV_IPRINT("announce ready (~p)", [Slogan]),
+    ?SEV_ANNOUNCE_READY(Parent, Slogan, Extra).
+
+tpp_udp_handler_await_continue(Parent, Slogan) ->
+    ?SEV_IPRINT("await continue (~p)", [Slogan]),
+    case ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan) of
+        ok ->
+            ?SEV_IPRINT("continue (~p): ok", [Slogan]),
+            ok;
+        {ok, Data} ->
+            ?SEV_IPRINT("continue (~p): ok with data", [Slogan]),
+            Data;
+        {error, Reason} ->
+            ?SEV_EPRINT("continue (~p): error"
+                        "~n   ~p", [Slogan, Reason]),
+            exit({continue, Slogan, Reason})
+    end.
+
+tpp_udp_handler_await_terminate(Parent) ->
+    ?SEV_IPRINT("await terminate"),
+    case ?SEV_AWAIT_TERMINATE(Parent, parent) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            Reason
+    end.
+
+
+tpp_udp_sock_open(Domain, BufInit) ->
+    case socket:open(Domain, dgram, udp) of
+        {ok, Sock} ->
+            ok = BufInit(Sock),
+            Sock;
+        {error, Reason} ->
+            exit({open_failed, Reason})
+    end.
+
+tpp_udp_sock_bind(Sock, Domain) ->
+    LAddr = which_local_addr(Domain),
+    LSA   = #{family => Domain, 
+              addr   => LAddr},
+    case socket:bind(Sock, LSA) of
+        {ok, _} ->
+            ok;
+        {error, Reason} ->
+            exit({bind, Reason})
+    end.
+
+tpp_udp_sock_close(Sock) ->
+    case socket:close(Sock) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            exit({close, Reason})
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% This gets the local address (not 127.0...)
 %% We should really implement this using the (new) net module,
 %% but until that gets the necessary functionality...
@@ -8208,21 +9285,21 @@ f(F, A) ->
 %%     i(Before ++ FStr ++ After, []).
 
 
-%% d(F, A) ->
-%%     d(get(dbg_fd), F, A).
+d(F, A) ->
+    d(get(dbg_fd), F, A).
 
-%% d(undefined, F, A) ->
-%%     [NodeNameStr|_] = string:split(atom_to_list(node()), [$@]),
-%%     DbgFileName = f("~s-dbg.txt", [NodeNameStr]),
-%%     case file:open(DbgFileName, [write]) of
-%%         {ok, FD} ->
-%%             put(dbg_fd, FD),
-%%             d(FD, F, A);
-%%         {error, Reason} ->
-%%             exit({failed_open_dbg_file, Reason})
-%%     end;
-%% d(FD, F, A) ->
-%%     io:format(FD, "~s~n", [f("[~s] " ++ F, [formated_timestamp()|A])]).
+d(undefined, F, A) ->
+    [NodeNameStr|_] = string:split(atom_to_list(node()), [$@]),
+    DbgFileName = f("~s-dbg.txt", [NodeNameStr]),
+    case file:open(DbgFileName, [write]) of
+        {ok, FD} ->
+            put(dbg_fd, FD),
+            d(FD, F, A);
+        {error, Reason} ->
+            exit({failed_open_dbg_file, Reason})
+    end;
+d(FD, F, A) ->
+    io:format(FD, "~s~n", [f("[~s] " ++ F, [formated_timestamp()|A])]).
 
 i(F) ->
     i(F, []).
