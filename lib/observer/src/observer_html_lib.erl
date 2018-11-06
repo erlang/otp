@@ -62,7 +62,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
 			     " system messages may not be handled by this process.";
-         "SaslLog"    -> "No log entry was found"
+         "SaslLog"    -> "No log entry was found";
+         "Persistent Terms" -> "No persistent terms were found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",

@@ -182,6 +182,7 @@ atom control
 atom copy
 atom copy_literals
 atom counters
+atom count
 atom cpu
 atom cpu_timestamp
 atom cr
@@ -287,6 +288,7 @@ atom gc_minor_end
 atom gc_minor_start
 atom Ge='>='
 atom generational
+atom get_all_trap
 atom get_seq_token
 atom get_tcw
 atom gather_gc_info_result
@@ -325,6 +327,7 @@ atom index
 atom infinity
 atom info
 atom info_msg
+atom info_trap
 atom init
 atom initial_call
 atom input
