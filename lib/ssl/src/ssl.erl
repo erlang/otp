@@ -51,7 +51,7 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, cipher_suites/2, filter_cipher_suites/2,
          prepend_cipher_suites/2, append_cipher_suites/2,
-         eccs/0, eccs/1, versions/0, groups/0,
+         eccs/0, eccs/1, versions/0, groups/0, groups/1,
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
@@ -585,6 +585,13 @@ groups() ->
     tls_v1:groups(4).
 
 %%--------------------------------------------------------------------
+-spec groups(default) -> tls_v1:supported_groups().
+%% Description: returns the default groups (TLS 1.3 and later)
+%%--------------------------------------------------------------------
+groups(default) ->
+    tls_v1:default_groups(4).
+
+%%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
 %%
@@ -988,7 +995,7 @@ handle_options(Opts0, Role, Host) ->
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
                                                     HighestVersion),
                     supported_groups = handle_supported_groups_option(
-                                         proplists:get_value(supported_groups, Opts, groups()),
+                                         proplists:get_value(supported_groups, Opts, groups(default)),
                                          HighestVersion),
 		    signature_algs =
                          handle_hashsigns_option(
