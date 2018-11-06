@@ -90,6 +90,8 @@
 
 -export([create_dist_channel/4]).
 
+-export([erase_persistent_terms/0]).
+
 %%
 %% Await result of send to port
 %%
@@ -690,4 +692,8 @@ process_flag(_Pid, _Flag, _Value) ->
               | 'system_limit'.
                                  
 create_dist_channel(_Node, _DistCtrlr, _Flags, _Ver) ->
+    erlang:nif_error(undefined).
+
+-spec erase_persistent_terms() -> 'ok'.
+erase_persistent_terms() ->
     erlang:nif_error(undefined).

@@ -50,6 +50,7 @@ MODULES= \
 	cdv_mem_cb \
 	cdv_mod_cb \
 	cdv_multi_wx \
+	cdv_persistent_cb \
 	cdv_port_cb \
 	cdv_proc_cb \
 	cdv_sched_cb \

@@ -906,6 +906,8 @@ typedef struct ErtsLiteralArea_ {
     Eterm start[1]; /* beginning of area */
 } ErtsLiteralArea;
 
+void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
+
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
@@ -1001,6 +1003,7 @@ typedef struct {
     Uint literal_size;
     Eterm *lit_purge_ptr;
     Uint lit_purge_sz;
+    int copy_literals;
 } erts_shcopy_t;
 
 #define INITIALIZE_SHCOPY(info)						\
@@ -1010,6 +1013,7 @@ typedef struct {
 	info.bitstore_start = info.bitstore_default;			\
 	info.shtable_start = info.shtable_default;			\
 	info.literal_size = 0;						\
+	info.copy_literals = 0;						\
 	if (larea__) {							\
 	    info.lit_purge_ptr = &larea__->start[0];			\
 	    info.lit_purge_sz = larea__->end - info.lit_purge_ptr;	\
@@ -1237,6 +1241,13 @@ Sint erts_re_set_loop_limit(Sint limit);
 /* erl_bif_binary.c */
 void erts_init_bif_binary(void);
 Sint erts_binary_set_loop_limit(Sint limit);
+
+/* erl_bif_persistent.c */
+void erts_init_bif_persistent_term(void);
+Uint erts_persistent_term_count(void);
+void erts_init_persistent_dumping(void);
+extern ErtsLiteralArea** erts_persistent_areas;
+extern Uint erts_num_persistent_areas;
 
 /* external.c */
 void erts_init_external(void);

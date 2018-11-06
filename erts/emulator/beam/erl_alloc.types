@@ -278,6 +278,9 @@ type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
+
 #
 # Types used for special emulators
 #

@@ -47,7 +47,8 @@ PRE_LOADED_ERL_MODULES = \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
-	erts_dirty_process_signal_handler
+	erts_dirty_process_signal_handler \
+        persistent_term
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval
