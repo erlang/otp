@@ -925,6 +925,13 @@ premaster_secret(EncSecret, #'RSAPrivateKey'{} = RSAPrivateKey) ->
     catch
 	_:_ ->
 	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
+    end;
+premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
+    try crypto:private_decrypt(rsa, EncSecret, maps:remove(algorithm, Engine),
+				   [{rsa_pad, rsa_pkcs1_padding}])
+    catch
+	_:_ ->
+	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
     end.
 %%====================================================================
 %% Extensions handling
