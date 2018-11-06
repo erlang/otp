@@ -245,7 +245,8 @@ error_handling_tests()->
      recv_error_handling,
      call_in_error_state,
      close_in_error_state,
-     abuse_transport_accept_socket
+     abuse_transport_accept_socket,
+     controlling_process_transport_accept_socket
     ].
 
 error_handling_tests_tls()->
@@ -4057,7 +4058,7 @@ close_in_error_state(Config) when is_list(Config) ->
     end.
 %%--------------------------------------------------------------------
 abuse_transport_accept_socket() ->
-    [{doc,"Only ssl:handshake is allowed for transport_accept:sockets"}].
+    [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].
 abuse_transport_accept_socket(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
@@ -4077,6 +4078,28 @@ abuse_transport_accept_socket(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
     
+
+%%--------------------------------------------------------------------
+controlling_process_transport_accept_socket() ->
+    [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].
+controlling_process_transport_accept_socket(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_transport_control([{node, ServerNode}, 
+                                                          {port, 0},
+                                                          {from, self()},
+                                                          {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    _Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()},
+                                              {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server).
+
 %%--------------------------------------------------------------------
 run_error_server_close([Pid | Opts]) ->
     {ok, Listen} = ssl:listen(0, Opts),
