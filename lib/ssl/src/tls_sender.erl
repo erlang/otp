@@ -49,7 +49,8 @@
                negotiated_version,
                renegotiate_at,
                connection_monitor,
-               dist_handle
+               dist_handle,
+               log_level
               }).
 
 %%%===================================================================
@@ -171,7 +172,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            protocol_cb := Connection,
                            transport_cb := Transport,
                            negotiated_version := Version,
-                           renegotiate_at := RenegotiateAt}}, 
+                           renegotiate_at := RenegotiateAt,
+                           log_level := LogLevel}},
      #data{connection_states = ConnectionStates} = StateData0) ->    
     Monitor = erlang:monitor(process, Pid),
     StateData = 
@@ -186,7 +188,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                         protocol_cb = Connection,
                         transport_cb = Transport,
                         negotiated_version = Version,
-                        renegotiate_at = RenegotiateAt},          
+                        renegotiate_at = RenegotiateAt,
+                        log_level = LogLevel},
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info, Msg, StateData) -> 
     handle_info(Msg, ?FUNCTION_NAME, StateData).
@@ -325,15 +328,15 @@ send_tls_alert(Alert, #data{negotiated_version = Version,
                             socket = Socket,
                             protocol_cb = Connection, 
                             transport_cb = Transport,
-                            connection_states = ConnectionStates0} = StateData0) ->
+                            connection_states = ConnectionStates0,
+                            log_level = LogLevel} = StateData0) ->
     {BinMsg, ConnectionStates} =
 	Connection:encode_alert(Alert, Version, ConnectionStates0),
     Connection:send(Transport, Socket, BinMsg),
-    %% TODO: fix ssl_options for this process
-    %% Report = #{direction => outbound,
-    %%            protocol => 'tls_record',
-    %%            message => BinMsg},
-    %% ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinMsg},
+    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
@@ -344,7 +347,8 @@ send_application_data(Data, From, StateName,
                              protocol_cb = Connection,
                              transport_cb = Transport,
                              connection_states = ConnectionStates0,
-                             renegotiate_at = RenegotiateAt} = StateData0) ->
+                             renegotiate_at = RenegotiateAt,
+                             log_level = LogLevel} = StateData0) ->
     case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
 	true ->
 	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0), 
@@ -356,10 +360,18 @@ send_application_data(Data, From, StateName,
             StateData = StateData0#data{connection_states = ConnectionStates},
 	    case Connection:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
+                    Report = #{direction => outbound,
+                               protocol => 'tls_record',
+                               message => Msgs},
+                    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
                     {next_state, StateName, StateData, []};
                 Reason when DistHandle =/= undefined ->
                     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
                 ok ->
+                    Report = #{direction => outbound,
+                               protocol => 'tls_record',
+                               message => Msgs},
+                    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
                     {next_state, StateName, StateData,  [{reply, From, ok}]};
                 Result ->
                     {next_state, StateName, StateData,  [{reply, From, Result}]}
