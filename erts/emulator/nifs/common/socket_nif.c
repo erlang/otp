@@ -4919,6 +4919,9 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
         accDescP->domain   = descP->domain;
         accDescP->type     = descP->type;
         accDescP->protocol = descP->protocol;
+        accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
+        accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer siez
+        accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
 
         accRef = enif_make_resource(env, accDescP);
         enif_release_resource(accDescP); // We should really store a reference ...
@@ -5580,7 +5583,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     if (IS_SOCKET_ERROR(written))
         save_errno = sock_errno();
     else
-        save_errno = -1; // The value does not actually matter in this case
+        save_errno = -1; // OK or not complete: this value should not matter in this case
 
     res = send_check_result(env, descP, written, dataSize, save_errno, sendRef);
 
@@ -9549,7 +9552,17 @@ ERL_NIF_TERM nsetopt_int_opt(ErlNifEnv*        env,
     int          val;
 
     if (GET_INT(env, eVal, &val)) {
-        int res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
+        int res;
+
+        /*
+        SSDBG( descP,
+               ("SOCKET", "nsetopt_int_opt -> set option"
+                "\r\n   opt: %d"
+                "\r\n   val: %d"
+                "\r\n", opt, val) );
+        */
+
+        res = socket_setopt(descP->sock, level, opt, &val, sizeof(val));
 
         if (res != 0)
             result = esock_make_error_errno(env, sock_errno());
@@ -13314,13 +13327,12 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
 
-            /* <KOLLA>
-             * SHOULD RESULT IN {error, eagain}!!!!
-             * </KOLLA>
-             */
-            written = 0;
+            SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
+
+            return esock_make_error(env, esock_atom_eagain);
 
         }
+
     }
 
     /* We failed to write the *entire* packet (anything less then size
@@ -13345,11 +13357,11 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
     cnt_inc(&descP->writeWaits, 1);
 
-    SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE),
-           descP, NULL, sendRef);
+    SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
 
     SSDBG( descP,
-           ("SOCKET", "send_check_result -> not entire package written\r\n") );
+           ("SOCKET", "send_check_result -> "
+            "not entire package written (%d of %d)\r\n", written, dataSize) );
 
     return esock_make_ok2(env, MKI(env, written));
 
@@ -13687,15 +13699,26 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
+            int sres;
+
             SSDBG( descP, ("SOCKET",
                            "recv_check_result -> [%d] eagain\r\n", toRead) );
 
             if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
                 return esock_make_error_str(env, xres);
             
+            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT for more\r\n") );
+
+            /*
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
+            */
 
+            sres = enif_select(env, descP->sock, (ERL_NIF_SELECT_READ),
+                               descP, NULL, recvRef);
+
+            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT res: %d\r\n", sres) );
+            
             return esock_make_error(env, esock_atom_eagain);
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
@@ -13802,6 +13825,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
         /* +++ Error handling +++ */
 
         if (saveErrno == ECONNRESET)  {
+            ERL_NIF_TERM res = esock_make_error(env, atom_closed);
 
             /* +++ Oups - closed +++ */
 
@@ -13819,12 +13843,14 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             descP->closeLocal = FALSE;
             descP->state      = SOCKET_STATE_CLOSING;
 
+            recv_error_current_reader(env, descP, res);
+
             SELECT(env,
                    descP->sock,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
-            return esock_make_error(env, atom_closed);
+            return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
@@ -13839,12 +13865,15 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
             return esock_make_error(env, esock_atom_eagain);
         } else {
+            ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
             SSDBG( descP,
                    ("SOCKET",
                     "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
             
-            return esock_make_error_errno(env, saveErrno);
+            recv_error_current_reader(env, descP, res);
+
+            return res;
         }
 
     } else {
@@ -13871,6 +13900,8 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             data = MKSBIN(env, data, 0, read);
         }
 
+        recv_update_current_reader(env, descP);
+        
         return esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     }
@@ -13934,6 +13965,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
         /* +++ Error handling +++ */
 
         if (saveErrno == ECONNRESET)  {
+            ERL_NIF_TERM res = esock_make_error(env, atom_closed);
 
             /* +++ Oups - closed +++ */
 
@@ -13951,12 +13983,14 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
             descP->closeLocal = FALSE;
             descP->state      = SOCKET_STATE_CLOSING;
 
+            recv_error_current_reader(env, descP, res);
+
             SELECT(env,
                    descP->sock,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
-            return esock_make_error(env, atom_closed);
+            return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
@@ -13972,12 +14006,15 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
             return esock_make_error(env, esock_atom_eagain);
         } else {
+            ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
             SSDBG( descP,
                    ("SOCKET",
                     "recvmsg_check_result -> errno: %d\r\n", saveErrno) );
             
-            return esock_make_error_errno(env, saveErrno);
+            recv_error_current_reader(env, descP, res);
+
+            return res;
         }
 
     } else {
@@ -14006,6 +14043,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                     "recvmsg_check_result -> "
                     "(msghdr) encode failed: %s\r\n", xres) );
             
+            recv_update_current_reader(env, descP);
+        
             return esock_make_error_str(env, xres);
         } else {
 
@@ -14014,6 +14053,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                     "recvmsg_check_result -> "
                     "(msghdr) encode ok: %T\r\n", eMsgHdr) );
             
+            recv_update_current_reader(env, descP);
+
             return esock_make_ok2(env, eMsgHdr);
         }
 
@@ -16717,12 +16758,12 @@ int esock_monitor(const char*       slogan,
 {
     int res;
 
-    SSDBG( descP, ("SOCKET", "[%d] %s: try monitor", descP->sock, slogan) );
+    SSDBG( descP, ("SOCKET", "[%d] %s: try monitor\r\n", descP->sock, slogan) );
     /* esock_dbg_printf("MONP", "[%d] %s\r\n", descP->sock, slogan); */
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
-        SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d", descP->sock, res) );
+        SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d\r\n", descP->sock, res) );
         // esock_dbg_printf("MONP", "[%d] failed: %d\r\n", descP->sock, res);
     } /* else {
         esock_dbg_printf("MONP",
@@ -16890,18 +16931,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current writer\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentWriter.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentWriter.ref,
-                               atom_closed,
-                               &descP->currentWriter.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current writer %T\r\n",
-                              descP->currentWriter.ref,
-                              descP->currentWriter.pid);
+                          &descP->currentWriter.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current writer %T\r\n",
+                           descP->currentWriter.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentWriter.ref,
+                                   atom_closed,
+                                   &descP->currentWriter.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current writer %T\r\n",
+                                  descP->currentWriter.ref,
+                                  descP->currentWriter.pid);
+            }
         }
         
         /* And also deal with the waiting writers (in the same way) */
@@ -16925,18 +16970,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current reader\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentReader.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentReader.ref,
-                               atom_closed,
-                               &descP->currentReader.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current reader %T\r\n",
-                              descP->currentReader.ref,
-                              descP->currentReader.pid);
+                          &descP->currentReader.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current reader %T\r\n",
+                           descP->currentReader.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentReader.ref,
+                                   atom_closed,
+                                   &descP->currentReader.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current reader %T\r\n",
+                                  descP->currentReader.ref,
+                                  descP->currentReader.pid);
+            }
         }
         
         /* And also deal with the waiting readers (in the same way) */
@@ -16959,18 +17008,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current acceptor\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentAcceptor.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentAcceptor.ref,
-                               atom_closed,
-                               &descP->currentAcceptor.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current acceptor %T\r\n",
-                              descP->currentAcceptor.ref,
-                              descP->currentAcceptor.pid);
+                          &descP->currentAcceptor.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current acceptor %T\r\n",
+                           descP->currentWriter.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentAcceptor.ref,
+                                   atom_closed,
+                                   &descP->currentAcceptor.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current acceptor %T\r\n",
+                                  descP->currentAcceptor.ref,
+                                  descP->currentAcceptor.pid);
+            }
         }
         
         /* And also deal with the waiting acceptors (in the same way) */
@@ -17082,6 +17135,7 @@ void inform_waiting_procs(ErlNifEnv*          env,
                                                   currentP->data.ref,
                                                   reason,
                                                   &currentP->data.pid)) );
+
         DEMONP("inform_waiting_procs -> current 'request'",
                env, descP, &currentP->data.mon);
         nextP = currentP->nextP;
@@ -17576,6 +17630,9 @@ BOOLEAN_T extract_iow(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    esock_dbg_init(ESOCK_DBGOUT_DEFAULT);
+    // esock_dbg_init(ESOCK_DBGOUT_UNIQUE);
+
     data.dbg = extract_debug(env, load_info);
     data.iow = extract_iow(env, load_info);
 

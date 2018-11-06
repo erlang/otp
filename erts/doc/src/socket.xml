@@ -405,7 +405,8 @@
       <name name="recvmsg" arity="1"/>
       <name name="recvmsg" arity="2" clause_i="1"/>
       <name name="recvmsg" arity="2" clause_i="2"/>
-      <name name="recvmsg" arity="3"/>
+      <name name="recvmsg" arity="3" clause_i="1"/>
+      <name name="recvmsg" arity="3" clause_i="2"/>
       <name name="recvmsg" arity="5"/>
       <fsummary>Receive a message from a socket.</fsummary>
       <desc>
@@ -416,7 +417,7 @@
 	which may contain the source address (if socket not connected),
 	a list of <c>cmsghdr_recv()</c> (depends on what socket options have
 	been set and what the protocol and platform supports) and
-	also a set of flags, providing further info about the read . </p>
+	also a set of flags, providing further info about the read. </p>
 	
         <p>The <c>BufSz</c> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
@@ -458,6 +459,15 @@
 	which also contains the message to send,
 	The <c>MsgHdr</c> may also contain an list of optional <c>cmsghdr_send()</c>
 	(depends on what the protocol and platform supports).</p>
+
+	<p>Unlike the <seealso marker="#send"><c>send</c></seealso> function,
+	this one sends <em>one message</em>.
+	This means that if, for whatever reason, its not possible to send the
+	message in one go, the function will instead return with the
+	<em>remaining</em> data (<c>{ok, Remaining}</c>). Thereby leaving it
+	up to the caller to decide what to do (retry with the remaining data
+	of give up). </p>
+
       </desc>
     </func>
 
