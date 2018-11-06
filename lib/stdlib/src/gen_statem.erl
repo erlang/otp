@@ -1509,9 +1509,11 @@ loop_event_done(
     %% Place next events last in reversed queue
     Events_3R = lists:reverse(Events_2, NextEventsR),
     %% Enqueue immediate timeout events
-    Events_4R =	prepend_timeout_events(TimeoutEvents, Events_3R),
+    [Debug_2|Events_4R] =
+        prepend_timeout_events(
+          NextState, Debug_1, S, TimeoutEvents, Events_3R),
     loop_event_done(
-      Parent, Debug_1,
+      Parent, Debug_2,
       S#state{
         state = NextState,
         data = NewData,
@@ -1848,22 +1850,31 @@ parse_timers(
 %% so if there are enqueued events before the event timer
 %% timeout 0 event - the event timer is cancelled hence no event.
 %%
-%% Other (state_timeout) timeout 0 events that are after
-%% the event timer timeout 0 events are considered to
+%% Other (state_timeout and {timeout,Name}) timeout 0 events
+%% that are after an event timer timeout 0 event are considered to
 %% belong to timers that were started after the event timer
 %% timeout 0 event fired, so they do not cancel the event timer.
 %%
-prepend_timeout_events([], EventsR) ->
-    EventsR;
-prepend_timeout_events([{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
-    prepend_timeout_events(TimeoutEvents, [TimeoutEvent]);
-prepend_timeout_events([{timeout,_}|TimeoutEvents], EventsR) ->
+prepend_timeout_events(_NextState, Debug, _S, [], EventsR) ->
+    [Debug|EventsR];
+prepend_timeout_events(
+  NextState, Debug, S, [{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
+    prepend_timeout_events(
+      NextState,
+      sys_debug(Debug, S#state.name, {in,TimeoutEvent,NextState}),
+      S, TimeoutEvents, [TimeoutEvent]);
+prepend_timeout_events(
+  NextState, Debug, S, [{timeout,_}|TimeoutEvents], EventsR) ->
     %% Ignore since there are other events in queue
     %% so they have cancelled the event timeout 0.
-    prepend_timeout_events(TimeoutEvents, EventsR);
-prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
+    prepend_timeout_events(NextState, Debug, S, TimeoutEvents, EventsR);
+prepend_timeout_events(
+  NextState, Debug, S, [TimeoutEvent|TimeoutEvents], EventsR) ->
     %% Just prepend all others
-    prepend_timeout_events(TimeoutEvents, [TimeoutEvent|EventsR]).
+    prepend_timeout_events(
+      NextState,
+      sys_debug(Debug, S#state.name, {in,TimeoutEvent,NextState}),
+      S, TimeoutEvents, [TimeoutEvent|EventsR]).
 
 
 
