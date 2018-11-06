@@ -13825,6 +13825,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
         /* +++ Error handling +++ */
 
         if (saveErrno == ECONNRESET)  {
+            ERL_NIF_TERM res = esock_make_error(env, atom_closed);
 
             /* +++ Oups - closed +++ */
 
@@ -13842,12 +13843,14 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             descP->closeLocal = FALSE;
             descP->state      = SOCKET_STATE_CLOSING;
 
+            recv_error_current_reader(env, descP, res);
+
             SELECT(env,
                    descP->sock,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
-            return esock_make_error(env, atom_closed);
+            return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
@@ -13862,12 +13865,15 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
 
             return esock_make_error(env, esock_atom_eagain);
         } else {
+            ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
             SSDBG( descP,
                    ("SOCKET",
                     "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
             
-            return esock_make_error_errno(env, saveErrno);
+            recv_error_current_reader(env, descP, res);
+
+            return res;
         }
 
     } else {
@@ -13894,6 +13900,8 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             data = MKSBIN(env, data, 0, read);
         }
 
+        recv_update_current_reader(env, descP);
+        
         return esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     }
@@ -13957,6 +13965,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
         /* +++ Error handling +++ */
 
         if (saveErrno == ECONNRESET)  {
+            ERL_NIF_TERM res = esock_make_error(env, atom_closed);
 
             /* +++ Oups - closed +++ */
 
@@ -13974,12 +13983,14 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
             descP->closeLocal = FALSE;
             descP->state      = SOCKET_STATE_CLOSING;
 
+            recv_error_current_reader(env, descP, res);
+
             SELECT(env,
                    descP->sock,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
-            return esock_make_error(env, atom_closed);
+            return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
                    (saveErrno == EAGAIN)) {
@@ -13995,12 +14006,15 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
 
             return esock_make_error(env, esock_atom_eagain);
         } else {
+            ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
             SSDBG( descP,
                    ("SOCKET",
                     "recvmsg_check_result -> errno: %d\r\n", saveErrno) );
             
-            return esock_make_error_errno(env, saveErrno);
+            recv_error_current_reader(env, descP, res);
+
+            return res;
         }
 
     } else {
@@ -14029,6 +14043,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                     "recvmsg_check_result -> "
                     "(msghdr) encode failed: %s\r\n", xres) );
             
+            recv_update_current_reader(env, descP);
+        
             return esock_make_error_str(env, xres);
         } else {
 
@@ -14037,6 +14053,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                     "recvmsg_check_result -> "
                     "(msghdr) encode ok: %T\r\n", eMsgHdr) );
             
+            recv_update_current_reader(env, descP);
+
             return esock_make_ok2(env, eMsgHdr);
         }
 
@@ -16913,18 +16931,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current writer\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentWriter.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentWriter.ref,
-                               atom_closed,
-                               &descP->currentWriter.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current writer %T\r\n",
-                              descP->currentWriter.ref,
-                              descP->currentWriter.pid);
+                          &descP->currentWriter.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current writer %T\r\n",
+                           descP->currentWriter.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentWriter.ref,
+                                   atom_closed,
+                                   &descP->currentWriter.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current writer %T\r\n",
+                                  descP->currentWriter.ref,
+                                  descP->currentWriter.pid);
+            }
         }
         
         /* And also deal with the waiting writers (in the same way) */
@@ -16948,18 +16970,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current reader\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentReader.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentReader.ref,
-                               atom_closed,
-                               &descP->currentReader.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current reader %T\r\n",
-                              descP->currentReader.ref,
-                              descP->currentReader.pid);
+                          &descP->currentReader.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current reader %T\r\n",
+                           descP->currentReader.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentReader.ref,
+                                   atom_closed,
+                                   &descP->currentReader.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current reader %T\r\n",
+                                  descP->currentReader.ref,
+                                  descP->currentReader.pid);
+            }
         }
         
         /* And also deal with the waiting readers (in the same way) */
@@ -16982,18 +17008,22 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         SSDBG( descP, ("SOCKET", "socket_stop -> handle current acceptor\r\n") );
         if (!compare_pids(env,
                           &descP->closerPid,
-                          &descP->currentAcceptor.pid) &&
-            send_msg_nif_abort(env,
-                               descP->currentAcceptor.ref,
-                               atom_closed,
-                               &descP->currentAcceptor.pid) != NULL) {
-            /* Shall we really do this? 
-             * This happens if the controlling process has been killed!
-             */
-            esock_warning_msg("Failed sending abort (%T) message to "
-                              "current acceptor %T\r\n",
-                              descP->currentAcceptor.ref,
-                              descP->currentAcceptor.pid);
+                          &descP->currentAcceptor.pid)) {
+            SSDBG( descP, ("SOCKET", "socket_stop -> "
+                           "send abort message to current acceptor %T\r\n",
+                           descP->currentWriter.pid) );
+            if (send_msg_nif_abort(env,
+                                   descP->currentAcceptor.ref,
+                                   atom_closed,
+                                   &descP->currentAcceptor.pid) != NULL) {
+                /* Shall we really do this? 
+                 * This happens if the controlling process has been killed!
+                 */
+                esock_warning_msg("Failed sending abort (%T) message to "
+                                  "current acceptor %T\r\n",
+                                  descP->currentAcceptor.ref,
+                                  descP->currentAcceptor.pid);
+            }
         }
         
         /* And also deal with the waiting acceptors (in the same way) */
@@ -17105,6 +17135,7 @@ void inform_waiting_procs(ErlNifEnv*          env,
                                                   currentP->data.ref,
                                                   reason,
                                                   &currentP->data.pid)) );
+
         DEMONP("inform_waiting_procs -> current 'request'",
                env, descP, &currentP->data.mon);
         nextP = currentP->nextP;
