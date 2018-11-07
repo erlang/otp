@@ -900,7 +900,8 @@ initialize_tls_sender(#state{role = Role,
                              protocol_cb = Connection,
                              transport_cb = Transport,
                              negotiated_version = Version,
-                             ssl_options = #ssl_options{renegotiate_at = RenegotiateAt},
+                             ssl_options = #ssl_options{renegotiate_at = RenegotiateAt,
+                                                        log_level = LogLevel},
                              connection_states = #{current_write := ConnectionWriteState},
                              protocol_specific = #{sender := Sender}}) ->
     Init = #{current_write => ConnectionWriteState,
@@ -911,7 +912,8 @@ initialize_tls_sender(#state{role = Role,
              protocol_cb => Connection,
              transport_cb => Transport,
              negotiated_version => Version,
-             renegotiate_at => RenegotiateAt},
+             renegotiate_at => RenegotiateAt,
+             log_level => LogLevel},
     tls_sender:initialize(Sender, Init).
     
 next_tls_record(Data, StateName, #state{protocol_buffers = 
