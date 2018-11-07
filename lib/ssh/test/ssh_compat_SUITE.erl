@@ -648,6 +648,7 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
                                                    {silently_accept_hosts,true},
                                                    {user_interaction,false}
                                                   ]),
+    rm_id_in_remote_dir(Ch, ".ssh"),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
     DstFile = filename:join(".ssh", dst_filename(user,KeyAlg)),
     ok = ssh_sftp:write_file(Ch, DstFile, Priv),
@@ -657,6 +658,18 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
     ok = ssh_sftp:stop_channel(Ch),
     ok = ssh:close(Cc),
     UserDir.
+
+rm_id_in_remote_dir(Ch, Dir) ->
+    case ssh_sftp:list_dir(Ch, Dir) of
+        {error,_Error} ->
+            ok;
+        {ok,FileNames} ->
+            lists:foreach(fun("id_"++_ = F) ->
+                                  ok = ssh_sftp:delete(Ch, filename:join(Dir,F));
+                             (_) ->
+                                  leave
+                          end, FileNames)
+    end.
 
 user_priv_pub_keys(Config, KeyAlg) -> priv_pub_keys("users_keys", user, Config, KeyAlg).
 host_priv_pub_keys(Config, KeyAlg) -> priv_pub_keys("host_keys",  host, Config, KeyAlg).
