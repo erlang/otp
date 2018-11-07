@@ -551,7 +551,7 @@ ecc_curves(_Minor, TLSCurves) ->
 			end
 		end, [], TLSCurves).
 
--spec groups(4 | all) -> [group()].
+-spec groups(4 | all | default) -> [group()].
 groups(all) ->
     [secp256r1,
      secp384r1,

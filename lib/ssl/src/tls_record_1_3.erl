@@ -111,21 +111,32 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 				  cipher_type = ?AEAD,
                                   bulk_cipher_algorithm =
                                       BulkCipherAlgo}
-			  } = ReadState0} = ConnnectionStates0) ->
+			  } = ReadState0} = ConnectionStates0) ->
     AAD = start_additional_data(),
     CipherS1 = ssl_cipher:nonce_seed(<<?UINT64(Seq)>>, CipherS0),
     case decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherFragment) of
 	{PlainFragment, CipherS1} ->
-	    ConnnectionStates = 
-                ConnnectionStates0#{current_read => 
+	    ConnectionStates =
+                ConnectionStates0#{current_read =>
                                         ReadState0#{cipher_state => CipherS1,
                                                     sequence_number => Seq + 1}},
-	    decode_inner_plaintext(PlainFragment, ConnnectionStates);
+	    decode_inner_plaintext(PlainFragment, ConnectionStates);
 	#alert{} = Alert ->
 	    Alert
     end;
+decode_cipher_text(#ssl_tls{type = Type,
+                            version = ?LEGACY_VERSION,
+                            fragment = CipherFragment},
+		   #{current_read :=
+			 #{security_parameters :=
+			       #security_parameters{
+                                  cipher_suite = ?TLS_NULL_WITH_NULL_NULL}
+			  }} = ConnnectionStates0) ->
+    {#ssl_tls{type = Type,
+              version = {3,4}, %% Internally use real version
+              fragment = CipherFragment}, ConnnectionStates0};
 decode_cipher_text(#ssl_tls{type = Type}, _) ->
-    %% Version mismatch is already asserted  
+    %% Version mismatch is already asserted
     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {record_typ_mismatch, Type}).
 
 %%--------------------------------------------------------------------
@@ -169,7 +180,23 @@ encode_plain_text(#inner_plaintext{
     AAD = start_additional_data(),
     CipherS1 = ssl_cipher:nonce_seed(<<?UINT64(Seq)>>, CipherS0),
     {Encoded, WriteState} = cipher_aead(PlainText, WriteState0#{cipher_state => CipherS1}, AAD),
-    {#tls_cipher_text{encoded_record = Encoded}, WriteState};
+    {#tls_cipher_text{opaque_type = Type,
+                      legacy_version = {3,3},
+                      encoded_record = Encoded}, WriteState};
+encode_plain_text(#inner_plaintext{
+                     content = Data,
+                     type = Type
+                    }, #{security_parameters :=
+                             #security_parameters{
+                                cipher_suite = ?TLS_NULL_WITH_NULL_NULL}
+                        } = WriteState0) ->
+    %% RFC8446 - 5.1.  Record Layer
+    %% When record protection has not yet been engaged, TLSPlaintext
+    %% structures are written directly onto the wire.
+    {#tls_cipher_text{opaque_type = Type,
+                      legacy_version = {3,3},
+                      encoded_record = Data}, WriteState0};
+
 encode_plain_text(_, CS) ->
     exit({cs, CS}).
 

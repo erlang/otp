@@ -502,9 +502,8 @@ init({call, From}, {start, Timeout},
     Timer = ssl_connection:start_or_recv_cancel_timer(Timeout, From),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert, KeyShare),
-    
-    Version = Hello#client_hello.client_version,
-    HelloVersion = tls_record:hello_version(Version, SslOpts#ssl_options.versions),
+
+    HelloVersion = tls_record:hello_version(SslOpts#ssl_options.versions),
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
@@ -518,7 +517,7 @@ init({call, From}, {start, Timeout},
     ssl_logger:debug(SslOpts#ssl_options.log_level, HelloMsg, #{domain => [otp,ssl,handshake]}),
     ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
     State1 = State0#state{connection_states = ConnectionStates,
-			  negotiated_version = Version, %% Requested version
+			  negotiated_version = HelloVersion, %% Requested version
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  tls_handshake_history = Handshake,
