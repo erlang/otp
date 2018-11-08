@@ -397,9 +397,20 @@
 
     <datatype>
       <name name="exec_daemon_option"/>
+      <name name="exec_spec"/>
+      <desc/>
+    </datatype>
+    <datatype>
+      <name name="exec_fun"/>
+      <desc/>
+    </datatype>
+    <datatype>
       <name name="'exec_fun/1'"/>
       <name name="'exec_fun/2'"/>
       <name name="'exec_fun/3'"/>
+      <desc/>
+    </datatype>
+    <datatype>
       <name name="exec_result"/>
       <desc>
 	<p>This option changes how the daemon execute exec-requests from clients. The term in the return value
