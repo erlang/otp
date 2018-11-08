@@ -234,6 +234,10 @@ silly_coverage(Config) when is_list(Config) ->
 		      {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_except:module(ExceptInput, []) end),
 
+    %% beam_jump
+    JumpInput = BlockInput,
+    expect_error(fun() -> beam_jump:module(JumpInput, []) end),
+
     %% beam_clean
     CleanInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,
@@ -242,6 +246,10 @@ silly_coverage(Config) when is_list(Config) ->
 		     {label,2},
 		     {jump,{f,42}}]}],99},
     expect_error(fun() -> beam_clean:module(CleanInput, []) end),
+
+    %% beam_jump
+    TrimInput = BlockInput,
+    expect_error(fun() -> beam_trim:module(TrimInput, []) end),
 
     %% beam_peep. This is tricky. Use a select instruction with
     %% an odd number of elements in the list to crash

@@ -742,6 +742,10 @@ coverage(Config) when is_list(Config) ->
     binary = coverage_bitstring(<<7>>),
     bitstring = coverage_bitstring(<<7:4>>),
     other = coverage_bitstring([a]),
+
+    {done,<<17,53>>,[253,155,200]} =
+        coverage_trim(<<253,155,200,17,53>>, e0, e1, e2, e3, []),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -835,6 +839,14 @@ coverage_per_key(<<BinSize:32,Bin/binary>> = B) ->
 coverage_bitstring(Bin) when is_binary(Bin) -> binary;
 coverage_bitstring(<<_/bitstring>>) -> bitstring;
 coverage_bitstring(_) -> other.
+
+coverage_trim(<<C:8,T/binary>> = Bin, E0, E1, E2, E3, Acc) ->
+    case id(C > 128) of
+        true ->
+            coverage_trim(T, E0, E1, E2, E3, [C|Acc]);
+        false ->
+            {done,Bin,lists:reverse(Acc)}
+    end.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
