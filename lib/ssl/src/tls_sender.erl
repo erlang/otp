@@ -319,7 +319,7 @@ handle_info({'DOWN', Monitor, _, _, _}, _,
             #data{connection_monitor = Monitor} = StateData) ->
     {stop, normal, StateData};
 handle_info(_,_,_) ->
-    {keep_state_and_data}.
+    keep_state_and_data.
 
 send_tls_alert(Alert, #data{negotiated_version = Version,
                             socket = Socket,
