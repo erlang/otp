@@ -293,8 +293,9 @@
 -type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
 -type 'shell_fun/2'() :: fun((User::string(),  PeerAddr::inet:ip_address()) -> pid()).
 
--type exec_daemon_option()      :: {exec, 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'() }.
-
+-type exec_daemon_option()      :: {exec, exec_spec()} .
+-type exec_spec()               :: {direct, exec_fun()} .
+-type exec_fun()                :: 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'().
 -type 'exec_fun/1'() :: fun((Cmd::string()) -> exec_result()) .
 -type 'exec_fun/2'() :: fun((Cmd::string(), User::string()) -> exec_result()) .
 -type 'exec_fun/3'() :: fun((Cmd::string(), User::string(), ClientAddr::ip_port()) -> exec_result()) .
