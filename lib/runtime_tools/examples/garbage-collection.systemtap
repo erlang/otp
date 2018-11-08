@@ -18,33 +18,33 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("gc_major-start")
+probe process("beam.smp").mark("gc_major-start")
 {
     printf("GC major start pid %s need %d words\n", user_string($arg1), $arg2);
 }
 
-probe process("beam").mark("gc_minor-start")
+probe process("beam.smp").mark("gc_minor-start")
 {
     printf("GC minor start pid %s need %d words\n", user_string($arg1), $arg2);
 }
 
-probe process("beam").mark("gc_major-end")
+probe process("beam.smp").mark("gc_major-end")
 {
     printf("GC major end pid %s reclaimed %d words\n", user_string($arg1), $arg2);
 }
 
-probe process("beam").mark("gc_minor-start")
+probe process("beam.smp").mark("gc_minor-start")
 {
     printf("GC minor end pid %s reclaimed %d words\n", user_string($arg1), $arg2);
 }

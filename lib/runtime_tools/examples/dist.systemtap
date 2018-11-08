@@ -19,18 +19,18 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("dist-monitor")
+probe process("beam.smp").mark("dist-monitor")
 {
     printf("monitor: pid %d, who %s, what %s, node %s, type %s, reason %s\n",
            pid(),
@@ -38,38 +38,38 @@ probe process("beam").mark("dist-monitor")
            user_string($arg5));
 }
 
-probe process("beam").mark("dist-port_busy")
+probe process("beam.smp").mark("dist-port_busy")
 {
     printf("dist port_busy: node %s, port %s, remote_node %s, blocked pid %s\n",
            user_string($arg1), user_string($arg2), user_string($arg3), user_string($arg4));
-    blocked_procs[user_string($arg4)] = timestamp;
+    blocked_procs[user_string($arg4)] = local_clock_ns();
 }
 
-probe process("beam").mark("dist-port_busy")
+probe process("beam.smp").mark("dist-port_busy")
 {
     printf("dist port_busy: node %s, port %s, remote_node %s, blocked pid %s\n",
            user_string($arg1), user_string($arg2), user_string($arg3), user_string($arg4));
-    blocked_procs[user_string($arg4)] = timestamp;
+    blocked_procs[user_string($arg4)] = local_clock_ns();
 }
 
-probe process("beam").mark("dist-output")
+probe process("beam.smp").mark("dist-output")
 {
     printf("dist output: node %s, port %s, remote_node %s bytes %d\n",
            user_string($arg1), user_string($arg2), user_string($arg3), $arg4);
 }
 
-probe process("beam").mark("dist-outputv")
+probe process("beam.smp").mark("dist-outputv")
 {
     printf("port outputv: node %s, port %s, remote_node %s bytes %d\n",
            user_string($arg1), user_string($arg2), user_string($arg3), $arg4);
 }
 
-probe process("beam").mark("process-scheduled")
+probe process("beam.smp").mark("process-scheduled")
 {
     pidstr = user_string($arg1);
     if (pidstr in blocked_procs) {
 	printf("blocked pid %s scheduled now, waited %d microseconds\n",
-		pidstr, (timestamp - blocked_procs[pidstr]) / 1000);
+		pidstr, (local_clock_ns() - blocked_procs[pidstr]) / 1000);
 	delete blocked_procs[pidstr];
     }
 }

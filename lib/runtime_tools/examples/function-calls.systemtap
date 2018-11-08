@@ -18,51 +18,51 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("local-function-entry")
+probe process("beam.smp").mark("local-function-entry")
 {
     printf("pid %s enter (local) %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
-probe process("beam").mark("global-function-entry")
+probe process("beam.smp").mark("global-function-entry")
 {
     printf("pid %s enter (global)  %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
-probe process("beam").mark("function-return")
+probe process("beam.smp").mark("function-return")
 {
     printf("pid %s return %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 
-probe process("beam").mark("bif-entry")
+probe process("beam.smp").mark("bif-entry")
 {
     printf("pid %s BIF entry  mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
-probe process("beam").mark("bif-return")
+probe process("beam.smp").mark("bif-return")
 {
     printf("pid %s BIF return mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
-probe process("beam").mark("nif-entry")
+probe process("beam.smp").mark("nif-entry")
 {
     printf("pid %s NIF entry  mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
-probe process("beam").mark("nif-return")
+probe process("beam.smp").mark("nif-return")
 {
     printf("pid %s NIF return mfa %s\n", user_string($arg1), user_string($arg2));
 }

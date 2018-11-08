@@ -18,34 +18,34 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("copy-struct")
+probe process("beam.smp").mark("copy-struct")
 {
     printf("copy_struct %d bytes\n", $arg1);
 }
 
-probe process("beam").mark("copy-object")
+probe process("beam.smp").mark("copy-object")
 {
     printf("copy_object pid %s %d bytes\n", user_string($arg1), $arg2);
 }
 
-probe process("beam").mark("process-heap_grow")
+probe process("beam.smp").mark("process-heap_grow")
 {
     printf("proc heap grow pid %s %d -> %d bytes\n", user_string($arg1),
 	   $arg2, $arg3);
 }
 
-probe process("beam").mark("process-heap_shrink")
+probe process("beam.smp").mark("process-heap_shrink")
 {
     printf("proc heap shrink pid %s %d -> %d bytes\n", user_string($arg1),
 	   $arg2, $arg3);
