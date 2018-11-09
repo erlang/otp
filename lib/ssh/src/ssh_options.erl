@@ -452,12 +452,6 @@ default(client) ->
             class => user_options
            },
 
-      {pref_public_key_algs, def} =>
-          #{default => ssh_transport:default_algorithms(public_key),
-            chk => fun check_pref_public_key_algs/1,
-            class => user_options
-           },
-
       {dh_gex_limits, def} =>
           #{default => {1024, 6144, 8192},      % FIXME: Is this true nowadays?
             chk => fun({Min,I,Max}) ->
@@ -522,6 +516,12 @@ default(common) ->
              chk => fun(V) -> check_string(V) andalso check_dir(V) end,
              class => user_options
             },
+
+      {pref_public_key_algs, def} =>
+          #{default => ssh_transport:default_algorithms(public_key),
+            chk => fun check_pref_public_key_algs/1,
+            class => user_options
+           },
 
        {preferred_algorithms, def} =>
            #{default => ssh:default_algorithms(),
