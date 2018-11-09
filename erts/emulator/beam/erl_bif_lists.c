@@ -1082,7 +1082,7 @@ static BIF_RETTYPE lists_reverse_alloc(Process *c_p,
     list = list_in;
     tail = tail_in;
 
-    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(c_p);
     lookahead = list;
 
     while (cells_left != 0 && is_list(lookahead)) {
@@ -1131,7 +1131,7 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     list = list_in;
     tail = tail_in;
 
-    cells_left = max_cells = CELLS_PER_RED * (1 + ERTS_BIF_REDS_LEFT(c_p));
+    cells_left = max_cells = CELLS_PER_RED * ERTS_BIF_REDS_LEFT(c_p);
 
     ASSERT(HEAP_LIMIT(c_p) >= HEAP_TOP(c_p) + 2);
     alloc_start = HEAP_TOP(c_p);
