@@ -90,12 +90,14 @@ end_per_testcase(_TestCase, Config) ->
 private_key(Config) when is_list(Config) ->
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "client_engine"]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "server_engine"]),
+    Ext = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
     #{server_config := ServerConf,
       client_config := ClientConf} = GenCertData =
         public_key:pkix_test_data(#{server_chain => 
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}
+                                          peer => [{extensions, Ext},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}
                                                   ]},
                                     client_chain => 
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
@@ -131,6 +133,12 @@ private_key(Config) when is_list(Config) ->
     %% Test with engine
     test_tls_connection(EngineServerConf, EngineClientConf, Config),
     
+    %% Test with engine and rsa keyexchange
+    RSASuites = all_kex_rsa_suites([{tls_version, 'tlsv1.2'} | Config]),
+    
+    test_tls_connection([{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineServerConf], 
+                        [{ciphers, RSASuites}, {versions, ['tlsv1.2']} | EngineClientConf], Config),
+    
     %% Test with engine and present file arugments
     test_tls_connection(EngineFileServerConf, EngineFileClientConf, Config),
     
@@ -160,3 +168,8 @@ test_tls_connection(ServerConf, ClientConf, Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+all_kex_rsa_suites(Config) ->
+    Version = proplists:get_value(tls_version, Config),
+    All = ssl:cipher_suites(all, Version),
+    ssl:filter_cipher_suites(All,[{key_exchange, fun(rsa) -> true;(_) -> false end}]).
