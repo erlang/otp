@@ -182,6 +182,7 @@
       | ssh_msg_debug_fun_common_option()
       | rekey_limit_common_option()
       | id_string_common_option()
+      | pref_public_key_algs_common_option()
       | preferred_algorithms_common_option()
       | modify_algorithms_common_option()
       | auth_methods_common_option()
@@ -209,6 +210,7 @@
         {ssh_msg_debug_fun, fun((ssh:connection_ref(),AlwaysDisplay::boolean(),Msg::binary(),LanguageTag::binary()) -> any()) } .
 
 -type id_string_common_option()           :: {id_string,  string() | random | {random,Nmin::pos_integer(),Nmax::pos_integer()} }.
+-type pref_public_key_algs_common_option() :: {pref_public_key_algs, [pubkey_alg()] } .
 -type preferred_algorithms_common_option():: {preferred_algorithms, algs_list()}.
 -type modify_algorithms_common_option()   :: {modify_algorithms,    modify_algs_list()}.
 -type auth_methods_common_option()        :: {auth_methods,         string() }.
@@ -227,8 +229,7 @@
 
 
 -type client_option()         ::
-        pref_public_key_algs_client_option()
-      | ssh_file:pubkey_passphrase_client_options()
+        ssh_file:pubkey_passphrase_client_options()
       | host_accepting_client_options()
       | authentication_client_options()
       | diffie_hellman_group_exchange_client_option()
@@ -241,8 +242,6 @@
 -type opaque_client_options() ::
         {keyboard_interact_fun, fun((term(),term(),term()) -> term())}
         | opaque_common_options().
-
--type pref_public_key_algs_client_option() :: {pref_public_key_algs, [pubkey_alg()] } .
 
 -type host_accepting_client_options() ::
         {silently_accept_hosts, accept_hosts()}
