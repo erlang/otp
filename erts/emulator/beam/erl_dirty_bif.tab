@@ -59,8 +59,6 @@ dirty-cpu erts_debug:lcnt_clear/0
 
 dirty-cpu-test erlang:'++'/2
 dirty-cpu-test erlang:append/2
-dirty-cpu-test erlang:'--'/2
-dirty-cpu-test erlang:subtract/2
 dirty-cpu-test erlang:iolist_size/1
 dirty-cpu-test erlang:make_tuple/2
 dirty-cpu-test erlang:make_tuple/3
