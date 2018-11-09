@@ -1,1 +1,1 @@
-STDLIB_VSN = 2.8
+STDLIB_VSN = 2.8.0.1
