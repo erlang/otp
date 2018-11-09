@@ -183,22 +183,6 @@
     </datatype>
 
     <datatype>
-      <name name="pref_public_key_algs_client_option"/>
-      <desc>
-        <p>List of user (client) public key algorithms to try to use.</p>
-	<p>The default value is the <c>public_key</c> entry in the list returned by
-	<seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
-	</p>
-	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
-	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
-	</p>
-        <p>See also the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
-        for specifying the path to the user's keys.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
       <name name="host_accepting_client_options"/>
       <name name="accept_hosts"/>
       <name name="fp_digest_alg"/>
@@ -790,6 +774,22 @@
 	<seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso>.
 	</p>
 
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="pref_public_key_algs_common_option"/>
+      <desc>
+        <p>List of user (client) public key algorithms to try to use.</p>
+	<p>The default value is the <c>public_key</c> entry in the list returned by
+	<seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
+	</p>
+	<p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	</p>
+        <p>See also the option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+        for specifying the path to the user's keys.
+	</p>
       </desc>
     </datatype>
 

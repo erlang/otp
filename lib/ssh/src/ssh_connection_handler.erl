@@ -983,6 +983,10 @@ handle_event(_, #ssh_msg_userauth_info_request{}, {userauth_keyboard_interactive
 
 %%% ######## {connected, client|server} ####
 
+%% Skip ext_info messages in connected state (for example from OpenSSH >= 7.7)
+handle_event(_, #ssh_msg_ext_info{}, {connected,_Role}, D) ->
+    {keep_state, D};
+
 handle_event(_, {#ssh_msg_kexinit{},_}, {connected,Role}, D0) ->
     {KeyInitMsg, SshPacket, Ssh} = ssh_transport:key_exchange_init_msg(D0#data.ssh_params),
     D = D0#data{ssh_params = Ssh,
