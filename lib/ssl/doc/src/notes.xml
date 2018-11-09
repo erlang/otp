@@ -27,6 +27,21 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 8.2.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add engine support for RSA key exchange</p>
+          <p>
+	    Own Id: OTP-15420</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
