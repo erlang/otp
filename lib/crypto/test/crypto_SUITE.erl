@@ -38,6 +38,7 @@ all() ->
      mod_pow,
      exor,
      rand_uniform,
+     rand_threads,
      rand_plugin,
      rand_plugin_s
     ].
@@ -603,6 +604,25 @@ rand_uniform() ->
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
     10 = byte_size(crypto:strong_rand_bytes(10)).
+
+%%--------------------------------------------------------------------
+rand_threads() ->
+    [{doc, "strong_rand_bytes in parallel threads"}].
+rand_threads(Config) when is_list(Config) ->
+    %% This will crash the emulator on at least one version of libcrypto
+    %% with buggy multithreading in RAND_bytes().
+    %% The test needs to run at least a few minutes...
+    NofThreads = 4,
+    Fun = fun F() -> crypto:strong_rand_bytes(16), F() end,
+    PidRefs = [spawn_monitor(Fun) || _ <- lists:seq(1, NofThreads)],
+%%% The test case takes too much time to run.
+%%% Keep it around for reference by setting it down to just 10 seconds.
+%%%    receive after 10 * 60 * 1000 -> ok end, % 10 minutes
+    receive after 10 * 1000 -> ok end, % 10 seconds
+    spawn_link(fun () -> receive after 5000 -> exit(timeout) end end),
+    [exit(Pid, stop) || {Pid,_Ref} <- PidRefs],
+    [receive {'DOWN',Ref,_,_,stop} -> ok end || {_Pid,Ref} <- PidRefs],
+    ok.
 
 %%--------------------------------------------------------------------
 rand_plugin() ->
