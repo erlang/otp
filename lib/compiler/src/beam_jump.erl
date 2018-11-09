@@ -101,6 +101,10 @@
 %%%      always keep the label. (beam_clean will remove any unused
 %%%      labels.)
 %%%
+%%% (7)  Replace a jump to a return instruction with a return instruction.
+%%%      Similarly, replace a jump to deallocate + return with those
+%%%      instructions.
+%%%
 %%% Note: This modules depends on (almost) all branches and jumps only
 %%% going forward, so that we can remove instructions (including definition
 %%% of labels) after any label that has not been referenced by the code
@@ -150,7 +154,8 @@ function({function,Name,Arity,CLabel,Asm0}, Lc0) ->
         Asm3 = share(Asm2),
         Asm4 = move(Asm3),
         Asm5 = opt(Asm4, CLabel),
-        Asm = remove_unused_labels(Asm5),
+        Asm6 = unshare(Asm5),
+        Asm = remove_unused_labels(Asm6),
         {{function,Name,Arity,CLabel,Asm},Lc}
     catch
         Class:Error:Stack ->
@@ -623,6 +628,39 @@ initial_labels([{func_info,_,_,_},{label,Lbl}|_], Acc) ->
 drop_upto_label([{label,_}|_]=Is) -> Is;
 drop_upto_label([_|Is]) -> drop_upto_label(Is);
 drop_upto_label([]) -> [].
+
+%% unshare([Instruction]) -> [Instruction].
+%%  Replace a jump to a return sequence (a `return` instruction
+%%  optionally preced by a `deallocate` instruction) with the return
+%%  sequence. This always saves execution time and may also save code
+%%  space (depending on the architecture). Eliminating `jump`
+%%  instructions also gives beam_trim more opportunities to trim the
+%%  stack.
+
+unshare(Is) ->
+    Short = unshare_collect_short(Is, #{}),
+    unshare_short(Is, Short).
+
+unshare_collect_short([{label,L},return|Is], Map) ->
+    unshare_collect_short(Is, Map#{L=>[return]});
+unshare_collect_short([{label,L},{deallocate,_}=D,return|Is], Map) ->
+    %% `deallocate` and `return` are combined into one instruction by
+    %% the loader.
+    unshare_collect_short(Is, Map#{L=>[D,return]});
+unshare_collect_short([_|Is], Map) ->
+    unshare_collect_short(Is, Map);
+unshare_collect_short([], Map) -> Map.
+
+unshare_short([{jump,{f,F}}=I|Is], Map) ->
+    case Map of
+        #{F:=Seq} ->
+            Seq ++ unshare_short(Is, Map);
+        #{} ->
+            [I|unshare_short(Is, Map)]
+    end;
+unshare_short([I|Is], Map) ->
+    [I|unshare_short(Is, Map)];
+unshare_short([], _Map) -> [].
 
 %% ulbl(Instruction, UsedCerlSet) -> UsedCerlSet'
 %%  Update the cerl_set UsedCerlSet with any function-local labels
