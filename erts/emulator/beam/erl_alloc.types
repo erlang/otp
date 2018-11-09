@@ -308,7 +308,10 @@ type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
 type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
+
 +endif
+
+type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 
 #
 # Types used for special emulators
