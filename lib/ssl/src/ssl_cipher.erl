@@ -44,7 +44,7 @@
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1, signature_scheme/1,
-         scheme_to_components/1]).
+         scheme_to_components/1, hash_size/1]).
 
 -compile(inline).
 
@@ -651,6 +651,29 @@ is_stream_ciphersuite(#{cipher := rc4_128}) ->
     true;
 is_stream_ciphersuite(_) ->
     false.
+
+-spec  hash_size(atom()) -> integer().
+hash_size(null) ->
+    0;
+%% The AEAD MAC hash size is not used in the context 
+%% of calculating the master secret. See RFC 5246 Section 6.2.3.3.
+hash_size(aead) ->
+    0;
+hash_size(md5) ->
+    16;
+hash_size(sha) ->
+    20;
+%% Uncomment when adding cipher suite that needs it
+%hash_size(sha224) ->
+%    28;
+hash_size(sha256) ->
+    32;
+hash_size(sha384) ->
+    48.
+%% Uncomment when adding cipher suite that needs it
+%hash_size(sha512) ->
+%    64.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -860,29 +883,6 @@ scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pkcs1_sha1) -> {sha1, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined}.
-
-
-
-hash_size(null) ->
-    0;
-%% The AEAD MAC hash size is not used in the context 
-%% of calculating the master secret. See RFC 5246 Section 6.2.3.3.
-hash_size(aead) ->
-    0;
-hash_size(md5) ->
-    16;
-hash_size(sha) ->
-    20;
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha224) ->
-%    28;
-hash_size(sha256) ->
-    32;
-hash_size(sha384) ->
-    48.
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha512) ->
-%    64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

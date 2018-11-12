@@ -62,6 +62,7 @@ MODULES = \
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
 	ssl_eqc_SUITE \
+	ssl_rfc_5869_SUITE \
 	make_certs\
         x509_test
 
