@@ -93,6 +93,8 @@
 	  <item><marker id="SYSDIR-ssh_host_dsa_key"/><c>ssh_host_dsa_key</c> - private dss host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_rsa_key"/><c>ssh_host_rsa_key</c> - private rsa host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_ecdsa_key"/><c>ssh_host_ecdsa_key</c> - private ecdsa host key (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed25519_key"/><c>ssh_host_ed25519_key</c> - private ecdsa host key for curve 25519 (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed448_key"/><c>ssh_host_ed448_key</c> - private ecdsa host key for curve 448 (optional)</item>
 	</list>
 	<p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
 	</p>
@@ -115,6 +117,8 @@
 	  <item><marker id="USERDIR-id_dsa"/><c>id_dsa</c> - private dss user key (optional)</item>
 	  <item><marker id="USERDIR-id_rsa"/><c>id_rsa</c> - private rsa user key (optional)</item>
 	  <item><marker id="USERDIR-id_ecdsa"/><c>id_ecdsa</c> - private ecdsa user key (optional)</item>
+	  <item><marker id="USERDIR-id_ed25519"/><c>id_ed25519</c> - private eddsa user key for curve 25519 (optional)</item>
+	  <item><marker id="USERDIR-id_ed448"/><c>id_ed448</c> - private eddsa user key for curve 448 (optional)</item>
 	</list>
 	<p>The default value of USERDIR is <c>/home/</c><seealso marker="#LOCALUSER"><c>LOCALUSER</c></seealso><c>/.ssh</c>.
 	</p>
@@ -157,6 +161,7 @@
 	<p>If the user's DSA, RSA or ECDSA key is protected by a passphrase, it can be
 	supplied with thoose options.
 	</p>
+	<p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p>
       </desc>
     </datatype>
 
@@ -261,11 +266,14 @@
 	  <item><seealso marker="#type-pubkey_passphrase_client_options">rsa_pass_phrase</seealso></item>
 	  <item><seealso marker="#type-pubkey_passphrase_client_options">ecdsa_pass_phrase</seealso></item>
 	</list>
+	<p>Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.</p>
 	<p><strong>Files</strong></p>
 	<list>
 	  <item><seealso marker="#USERDIR-id_dsa"><c>USERDIR/id_dsa</c></seealso></item>
 	  <item><seealso marker="#USERDIR-id_rsa"><c>USERDIR/id_rsa</c></seealso></item>
 	  <item><seealso marker="#USERDIR-id_ecdsa"><c>USERDIR/id_ecdsa</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_ed25519"><c>USERDIR/id_ed25519</c></seealso></item>
+	  <item><seealso marker="#USERDIR-id_ed448"><c>USERDIR/id_ed448</c></seealso></item>
 	</list>
       </desc>
     </func>
