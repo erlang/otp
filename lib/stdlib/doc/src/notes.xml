@@ -1673,6 +1673,21 @@
 
 </section>
 
+<section><title>STDLIB 2.8.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

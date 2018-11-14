@@ -2604,6 +2604,13 @@ subtract(Config) when is_list(Config) ->
     %% certain thresholds, and we need proper coverage for all corner cases.
     [sub_thresholds(N) || N <- lists:seq(0, 32)],
 
+    %% Trapping, both crashing and otherwise.
+    [sub_trapping(N) || N <- lists:seq(0, 18)],
+
+    %% The current implementation chooses which algorithm to use based on
+    %% certain thresholds, and we need proper coverage for all corner cases.
+    [sub_thresholds(N) || N <- lists:seq(0, 32)],
+
     ok.
 
 sub_non_matching(A, B) ->
