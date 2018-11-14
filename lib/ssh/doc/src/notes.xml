@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Incompatibility with newer OpenSSH fixed. Previously
+	    versions 7.8 and later could cause Erlang SSH to exit.</p>
+          <p>
+	    Own Id: OTP-15413</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
