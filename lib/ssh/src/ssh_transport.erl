@@ -52,6 +52,7 @@
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/2,
 	 sha/1, sign/3, verify/5,
+         get_host_key/2,
          call_KeyCb/3]).
 
 -export([dbg_trace/3]).
@@ -432,7 +433,8 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 %%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
 		  Ssh0 = #ssh{algorithms = #alg{kex=Kex,
-                                                hkey=SignAlg} = Algs}) ->
+                                                hkey=SignAlg} = Algs,
+                              opts = Opts}) ->
     %% server
     {G, P} = dh_group(Kex),
     if
@@ -440,7 +442,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
             Sz = dh_bits(Algs),
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
-	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -579,14 +581,15 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
 			    keyex_info = {Min, Max, NBits},
                             algorithms = #alg{kex=Kex,
-                                              hkey=SignAlg}} = Ssh0) ->
+                                              hkey=SignAlg},
+                            opts = Opts} = Ssh0) ->
     %% server
     if
 	1=<E, E=<(P-1) ->
 	    K = compute_key(dh, E, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
-		    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+		    MyPrivHostKey = get_host_key(SignAlg, Opts),
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
                     H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
                     H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -654,7 +657,8 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 %%% 
 handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 		     Ssh0 = #ssh{algorithms = #alg{kex=Kex,
-                                                   hkey=SignAlg}}) ->
+                                                   hkey=SignAlg},
+                                 opts = Opts}) ->
     %% at server
     Curve = ecdh_curve(Kex),
     {MyPublic, MyPrivate} = generate_key(ecdh, Curve),
@@ -662,7 +666,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Curve), {PeerPublic, MyPublic, K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -778,7 +782,7 @@ sid(#ssh{session_id = Id},        _) -> Id.
 %%
 %% The host key should be read from storage
 %%
-get_host_key(#ssh{opts=Opts}, SignAlg) ->
+get_host_key(SignAlg, Opts) ->
     case call_KeyCb(host_key, [SignAlg], Opts) of
 	{ok, PrivHostKey} ->
             %% Check the key - the KeyCb may be a buggy plugin
