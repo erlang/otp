@@ -359,7 +359,8 @@ erlang_inst_libdir_configured:
 bootstrap: depend all_bootstraps
 
 check_dev_rt_dep:
-	@if `grep DEVELOPMENT "$(ERL_TOP)/make/otp_version_tickets" 1>/dev/null 2>&1`; then \
+	@if `grep DEVELOPMENT "$(ERL_TOP)/make/otp_version_tickets" 1>/dev/null 2>&1 \
+	  || grep TESTING "$(ERL_TOP)/make/otp_version_tickets" 1>/dev/null 2>&1`; then \
 	  LANG=C "$(PERL)" "$(ERL_TOP)/make/fixup_development_runtime_dependencies" "$(ERL_TOP)"; \
 	fi
 
