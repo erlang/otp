@@ -1532,7 +1532,10 @@ api_to_connect_tcp4(_Config) when is_list(_Config) ->
     tc_try(api_to_connect_tcp4,
            fun() ->
                    ?TT(?SECS(10)),
-                   InitState = #{domain => inet, timeout => 5000},
+                   InitState = #{domain        => inet,
+                                 backlog       => 1,
+                                 timeout       => 5000,
+                                 connect_limit => 3},
                    ok = api_to_connect_tcp(InitState)
            end).
 
@@ -1550,7 +1553,10 @@ api_to_connect_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(10)),
-                   InitState = #{domain => inet6, timeout => 5000},
+                   InitState = #{domain        => inet6,
+                                 backlog       => 1,
+                                 timeout       => 5000,
+                                 connect_limit => 3},
                    ok = api_to_connect_tcp(InitState)
            end).
 
@@ -1570,8 +1576,9 @@ api_to_connect_tcp(InitState) ->
          %% *** Wait for start order part ***
          #{desc => "await start (from tester)",
            cmd  => fun(State) ->
-                           Tester = ?SEV_AWAIT_START(),
-                           {ok, State#{tester => Tester}}
+                           {Tester, Backlog} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester  => Tester,
+                                       backlog => Backlog}}
                    end},
          #{desc => "monitor tester",
            cmd  => fun(#{tester := Tester} = _State) ->
@@ -1605,8 +1612,8 @@ api_to_connect_tcp(InitState) ->
                            end
                    end},
          #{desc => "make listen socket (with backlog = 1)",
-           cmd  => fun(#{lsock := LSock}) ->
-                           socket:listen(LSock, 1)
+           cmd  => fun(#{lsock := LSock, backlog := Backlog}) ->
+                           socket:listen(LSock, Backlog)
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester, lport := Port}) ->
@@ -1636,6 +1643,155 @@ api_to_connect_tcp(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, ServerSA} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester    => Tester,
+                                       server_sa => ServerSA}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create node",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client) of
+                               {ok, Node} ->
+                                   ?SEV_IPRINT("client node ~p started",
+                                               [Node]),
+                                   {ok, State#{node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "start remote client on client node",
+           cmd  => fun(#{node := Node} = State) ->
+                           Pid = api_toc_tcp_client_start(Node),
+                           ?SEV_IPRINT("remote client ~p started", [Pid]),
+                           {ok, State#{rclient => Pid}}
+                   end},
+         #{desc => "monitor remote client",
+           cmd  => fun(#{rclient := Pid}) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "order remote client to start",
+           cmd  => fun(#{rclient   := Client,
+                         server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+                           ok
+                   end},
+         #{desc => "await remote client ready",
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, rclient, init,
+                                            [{tester, Tester}])
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester  := Tester,
+                         rclient := Client} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, connect,
+                                                    [{rclient, Client}]) of
+                               {ok, {ConTimeout, ConLimit}} ->
+                                   {ok, State#{connect_timeout => ConTimeout,
+                                               connect_limit   => ConLimit}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order remote client to continue (connect)",
+           cmd  => fun(#{rclient         := RClient,
+                         connect_timeout := ConTimeout,
+                         connect_limit   := ConLimit}) ->
+                           ?SEV_ANNOUNCE_CONTINUE(RClient, connect,
+                                                  {ConTimeout, ConLimit}),
+                           ok
+                   end},
+         #{desc => "await remote client ready (connect)",
+           cmd  => fun(#{tester  := Tester,
+                         rclient := RClient} = State) ->
+                           case ?SEV_AWAIT_READY(RClient, rclient, connect,
+                                                 [{tester, Tester}]) of
+                               {ok, ok = _Result} ->
+                                   {ok, maps:remove(connect_limit, State)};
+                               {ok, Result} ->
+                                   Result;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+
+         %% Termination
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester  := Tester,
+                         rclient := RClient} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester,
+                                                     [{rclient, RClient}]) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "kill remote client",
+           cmd  => fun(#{rclient := Client}) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await remote client termination",
+           cmd  => fun(#{rclient := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(rclient, State),
+                           {ok, State1}
+                   end},
+         #{desc => "stop client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await client node termination",
+           cmd  => fun(#{node := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   State1 = maps:remove(node_id, State),
+                                   State2 = maps:remove(node,    State1),
+                                   {ok, State2}
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
     TesterSeq =
         [
          %% *** Init part ***
@@ -1644,71 +1800,21 @@ api_to_connect_tcp(InitState) ->
                            _MRef = erlang:monitor(process, Server),
                            ok
                    end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Client} = _State) ->
+                           _MRef = erlang:monitor(process, Client),
+                           ok
+                   end},
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LAddr = which_local_addr(Domain),
                            LSA   = #{family => Domain, addr => LAddr},
                            {ok, State#{local_sa => LSA}}
                    end},
-         #{desc => "create socket 1",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
-                               {ok, Sock} ->
-                                   {ok, State#{sock1 => Sock}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "create socket 2",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
-                               {ok, Sock} ->
-                                   {ok, State#{sock2 => Sock}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "create socket 3",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
-                               {ok, Sock} ->
-                                   {ok, State#{sock3 => Sock}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "bind socket 1 to local address",
-           cmd  => fun(#{sock1 := Sock, local_sa := LSA} = _State) ->
-                           case socket:bind(Sock, LSA) of
-                               {ok, _} ->
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "bind socket 2 to local address",
-           cmd  => fun(#{sock2 := Sock, local_sa := LSA} = _State) ->
-                           case socket:bind(Sock, LSA) of
-                               {ok, _} ->
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "bind socket 3 to local address",
-           cmd  => fun(#{sock3 := Sock, local_sa := LSA} = _State) ->
-                           case socket:bind(Sock, LSA) of
-                               {ok, _} ->
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-
-         %% *** Synchronize with the server ***
          #{desc => "order server start",
-           cmd  => fun(#{server := Server}) ->
-                           ?SEV_ANNOUNCE_START(Server),
+           cmd  => fun(#{server  := Server,
+                         backlog := Backlog}) ->
+                           ?SEV_ANNOUNCE_START(Server, Backlog),
                            ok
                    end},
          #{desc => "await server ready (init)",
@@ -1717,48 +1823,65 @@ api_to_connect_tcp(InitState) ->
                            ServerSA = LSA#{port => Port},
                            {ok, State#{server_sa => ServerSA}}
                    end},
-
-         %% *** Connect sequence ***
-         #{desc => "order (server) start",
-           cmd  => fun(#{sock1     := Sock1,
-                         sock2     := Sock2,
-                         sock3     := Sock3,
-                         server_sa := SSA,
-                         timeout   := To}) ->
-                           Socks = [Sock1, Sock2, Sock3],
-                           api_to_connect_tcp_await_timeout(Socks, To, SSA)
+         #{desc => "order client start",
+           cmd  => fun(#{client    := Client,
+                         server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, init),
+                           ok
                    end},
 
+         %% The actual test
+         %% The server does nothing (this is the point), no accept,
+         %% the client tries to connect.
+         #{desc => "order client continue (connect)",
+           cmd  => fun(#{client        := Client,
+                         timeout       := Timeout,
+                         connect_limit := ConLimit} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect,
+                                                  {Timeout, ConLimit}),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Client, client, connect,
+                                                 [{server, Server}]) of
+                               {ok, _} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
          %% *** Terminate server ***
-         #{desc => "order (server) terminate",
+         #{desc => "order client terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client down",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client,    State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server terminate",
            cmd  => fun(#{server := Server} = _State) ->
                            ?SEV_ANNOUNCE_TERMINATE(Server),
                            ok
                    end},
-         #{desc => "await (server) down",
+         #{desc => "await server down",
            cmd  => fun(#{server := Server} = State) ->
                            ?SEV_AWAIT_TERMINATION(Server),
                            State1 = maps:remove(server,    State),
                            State2 = maps:remove(server_sa, State1),
                            {ok, State2}
-                   end},
-         #{desc => "close socket 3",
-           cmd  => fun(#{sock3 := Sock} = State) ->
-                           sock_close(Sock),
-                           {ok, maps:remove(sock3, State)}
-
-                   end},
-         #{desc => "close socket 2",
-           cmd  => fun(#{sock2 := Sock} = State) ->
-                           sock_close(Sock),
-                           {ok, maps:remove(sock2, State)}
-
-                   end},
-         #{desc => "close socket 1",
-           cmd  => fun(#{sock1 := Sock} = State) ->
-                           sock_close(Sock),
-                           {ok, maps:remove(sock1, State)}
-
                    end},
 
          %% *** We are done ***
@@ -1766,46 +1889,175 @@ api_to_connect_tcp(InitState) ->
         ],
 
     i("create server evaluator"),
-    ServerInitState = InitState,
+    ServerInitState = #{domain => maps:get(domain, InitState)},
     Server          = ?SEV_START("server", ServerSeq, ServerInitState),
 
+    i("create client evaluator"),
+    ClientInitState = #{host   => local_host(),
+                        domain => maps:get(domain, InitState)},
+    Client          = ?SEV_START("client", ClientSeq, ClientInitState),
+
     i("create tester evaluator"),
-    TesterInitState = InitState#{server => Server#ev.pid},
+    TesterInitState = InitState#{server => Server#ev.pid,
+                                 client => Client#ev.pid},
     Tester          = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     i("await evaluator(s)"),
-    ok = ?SEV_AWAIT_FINISH([Server, Tester]).
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
 
-api_to_connect_tcp_await_timeout(Socks, To, ServerSA) ->
-    api_to_connect_tcp_await_timeout(Socks, To, ServerSA, 1).
+api_toc_tcp_client_start(Node) ->
+    Self = self(),
+    GL   = group_leader(),
+    Fun  = fun() -> api_toc_tcp_client(Self, GL) end,
+    erlang:spawn(Node, Fun).
 
-api_to_connect_tcp_await_timeout([], _To, _ServerSA, _ID) ->
-    ?FAIL(unexpected_success);
-api_to_connect_tcp_await_timeout([Sock|Socks], To, ServerSA, ID) ->
-    ?SEV_IPRINT("~w: try connect", [ID]),
+api_toc_tcp_client(Parent, GL) ->
+    api_toc_tcp_client_init(Parent, GL),
+    ServerSA = api_toc_tcp_client_await_start(Parent),
+    Domain   = maps:get(family, ServerSA),
+    api_toc_tcp_client_announce_ready(Parent, init),
+    {To, ConLimit} = api_toc_tcp_client_await_continue(Parent, connect),
+    Result = api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit),
+    api_toc_tcp_client_announce_ready(Parent, connect, Result),
+    Reason = sc_rs_tcp_client_await_terminate(Parent),
+    exit(Reason).
+
+api_toc_tcp_client_init(Parent, GL) ->
+    %% i("api_toc_tcp_client_init -> entry"),
+    _MRef = erlang:monitor(process, Parent),
+    group_leader(self(), GL),
+    ok.
+
+api_toc_tcp_client_await_start(Parent) ->
+    %% i("api_toc_tcp_client_await_start -> entry"),
+    ?SEV_AWAIT_START(Parent).
+
+api_toc_tcp_client_announce_ready(Parent, Slogan) ->
+    ?SEV_ANNOUNCE_READY(Parent, Slogan).
+api_toc_tcp_client_announce_ready(Parent, Slogan, Result) ->
+    ?SEV_ANNOUNCE_READY(Parent, Slogan, Result).
+
+api_toc_tcp_client_await_continue(Parent, Slogan) ->
+    %% i("api_toc_tcp_client_await_continue -> entry"),
+    case ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan) of
+        ok ->
+            ok;
+        {ok, Extra} ->
+            Extra;
+        {error, Reason} ->
+            exit({await_continue, Slogan, Reason})
+    end.
+
+api_toc_tcp_client_await_terminate(Parent) ->
+    %% i("api_toc_tcp_client_await_terminate -> entry"),
+    case ?SEV_AWAIT_TERMINATE(Parent, parent) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            Reason
+    end.
+
+api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit) ->
+    LAddr = which_local_addr(Domain),
+    LSA   = #{family => Domain,
+              addr   => LAddr},
+    NewSock = fun() ->
+                      S = case socket:open(Domain, stream, tcp) of
+                              {ok, Sock} ->
+                                  Sock;
+                              {error, OReason} ->
+                                  ?FAIL({open, OReason})
+                          end,
+                      case socket:bind(S, LSA) of
+                          {ok, _} ->
+                              S;
+                          {error, BReason} ->
+                              ?FAIL({bind, BReason})
+                      end
+              end,
+    api_to_connect_tcp_await_timeout(1, ConLimit, To, ServerSA, NewSock, []).
+
+api_to_connect_tcp_await_timeout(ID, ConLimit, _To, _ServerSA, _NewSock, Acc)
+  when (ID > ConLimit) ->
+    api_to_connect_tcp_await_timeout3(Acc),
+    {error, {connect_limit_reached, ID, ConLimit}};
+api_to_connect_tcp_await_timeout(ID, ConLimit, To, ServerSA, NewSock, Acc) ->
+    case api_to_connect_tcp_await_timeout2(ID, To, ServerSA, NewSock) of
+        ok ->
+            %% ?SEV_IPRINT("success when number of socks: ~w", [length(Acc)]),
+            api_to_connect_tcp_await_timeout3(Acc),
+            ok;
+        {ok, Sock} ->
+            %% ?SEV_IPRINT("~w: unexpected success (connect)", [ID]),
+            api_to_connect_tcp_await_timeout(ID+1, ConLimit,
+                                             To, ServerSA, NewSock,
+                                             [Sock|Acc]);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+api_to_connect_tcp_await_timeout2(ID, To, ServerSA, NewSock) ->
+    Sock = NewSock(),
+    %% ?SEV_IPRINT("~w: try connect", [ID]),
     Start = t(),
     case socket:connect(Sock, ServerSA, To) of
         {error, timeout} ->
-            ?SEV_IPRINT("expected timeout (~w)", [ID]),
             Stop  = t(),
             TDiff = tdiff(Start, Stop),
             if
                 (TDiff >= To) ->
+                    (catch socket:close(Sock)),
                     ok;
                 true ->
-                    {error, {unexpected_timeout, TDiff, To}}
+                    (catch socket:close(Sock)),
+                    ?FAIL({unexpected_timeout, TDiff, To})
             end;
-        {error, econnreset = Reason} ->
-            ?SEV_IPRINT("failed connecting: ~p - giving up", [Reason]),
+        {error, econnreset = _Reason} ->
+            (catch socket:close(Sock)),
             ok;
         {error, Reason} ->
-            ?SEV_EPRINT("failed connecting: ~p", [Reason]),
+            (catch socket:close(Sock)),
             ?FAIL({connect, Reason});
         ok ->
-            ?SEV_IPRINT("unexpected success (~w) - try next", [ID]),
-            api_to_connect_tcp_await_timeout(Socks, To, ServerSA, ID+1)
+            {ok, Sock}
     end.
+
+api_to_connect_tcp_await_timeout3([]) ->
+    ok;
+api_to_connect_tcp_await_timeout3([Sock|Socka]) ->
+    (catch socket:close(Sock)),
+    api_to_connect_tcp_await_timeout3(Socka).
+
+%% api_to_connect_tcp_await_timeout(Socks, To, ServerSA) ->
+%%     api_to_connect_tcp_await_timeout(Socks, To, ServerSA, 1).
+
+%% api_to_connect_tcp_await_timeout([], _To, _ServerSA, _ID) ->
+%%     ?FAIL(unexpected_success);
+%% api_to_connect_tcp_await_timeout([Sock|Socks], To, ServerSA, ID) ->
+%%     ?SEV_IPRINT("~w: try connect", [ID]),
+%%     Start = t(),
+%%     case socket:connect(Sock, ServerSA, To) of
+%%         {error, timeout} ->
+%%             ?SEV_IPRINT("expected timeout (~w)", [ID]),
+%%             Stop  = t(),
+%%             TDiff = tdiff(Start, Stop),
+%%             if
+%%                 (TDiff >= To) ->
+%%                     ok;
+%%                 true ->
+%%                     {error, {unexpected_timeout, TDiff, To}}
+%%             end;
+%%         {error, econnreset = Reason} ->
+%%             ?SEV_IPRINT("failed connecting: ~p - giving up", [Reason]),
+%%             ok;
+%%         {error, Reason} ->
+%%             ?SEV_EPRINT("failed connecting: ~p", [Reason]),
+%%             ?FAIL({connect, Reason});
+%%         ok ->
+%%             ?SEV_IPRINT("unexpected success (~w) - try next", [ID]),
+%%             api_to_connect_tcp_await_timeout(Socks, To, ServerSA, ID+1)
+%%     end.
         
 
 
