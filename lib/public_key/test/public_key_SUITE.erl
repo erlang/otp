@@ -44,7 +44,9 @@ all() ->
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
-     pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
+     pkix_iso_rsa_oid, pkix_iso_dsa_oid, 
+     pkix_dsa_sha2_oid,
+     pkix_crl, general_name,
      pkix_verify_hostname_cn,
      pkix_verify_hostname_subjAltName,
      pkix_verify_hostname_subjAltName_IP,
@@ -1113,6 +1115,13 @@ pkix_iso_dsa_oid(Config) when is_list(Config) ->
     SigAlg = OTPCert#'OTPCertificate'.signatureAlgorithm,
     {_, dsa} = public_key:pkix_sign_types(SigAlg#'SignatureAlgorithm'.algorithm).
 
+%%--------------------------------------------------------------------
+pkix_dsa_sha2_oid() ->
+ [{doc, "Test support dsa_sha2 oid"}].
+pkix_dsa_sha2_oid(Config) when is_list(Config) ->
+    {sha224, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha224'),
+    {sha256, dsa} = public_key:pkix_sign_types(?'id-dsa-with-sha256').
+    
 %%--------------------------------------------------------------------
 
 pkix_crl() ->

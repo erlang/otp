@@ -326,8 +326,13 @@ PublicKeyAlgorithm ::=  SEQUENCE  {
 		   OPTIONAL } 
 
 SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= { 
-		    dsa-with-sha1 | dsaWithSHA1 |  md2-with-rsa-encryption |
-		    md5-with-rsa-encryption | sha1-with-rsa-encryption | sha-1with-rsa-encryption |
+		    dsa-with-sha1 | dsaWithSHA1 |
+		    dsa-with-sha224 |
+		    dsa-with-sha256 |
+		    md2-with-rsa-encryption |
+		    md5-with-rsa-encryption |
+		    sha1-with-rsa-encryption |
+		    sha-1with-rsa-encryption |
 		    sha224-with-rsa-encryption |
 		    sha256-with-rsa-encryption |
 		    sha384-with-rsa-encryption |
@@ -368,6 +373,21 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 		 ID id-dsaWithSHA1
 		 TYPE  DSAParams }
 
+   dsa-with-sha224 SIGNATURE-ALGORITHM-CLASS ::= {
+		 ID id-dsa-with-sha224
+		 TYPE  DSAParams }
+	 
+   dsa-with-sha256 SIGNATURE-ALGORITHM-CLASS ::= {
+		 ID id-dsa-with-sha256
+		 TYPE  DSAParams }
+
+   id-dsa-with-sha224 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 1 }
+
+    id-dsa-with-sha256 OBJECT IDENTIFIER ::=  {
+        joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+        csor(3) algorithms(4) id-dsa-with-sha2(3) 2 }
 				  --
    --   RSA Keys and Signatures
    --
