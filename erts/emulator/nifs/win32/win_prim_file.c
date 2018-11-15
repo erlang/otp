@@ -466,18 +466,21 @@ posix_errno_t efile_open(const efile_path_t *path, enum efile_modes_t modes,
     }
 }
 
-int efile_close(efile_data_t *d) {
+int efile_close(efile_data_t *d, posix_errno_t *error) {
     efile_win_t *w = (efile_win_t*)d;
     HANDLE handle;
 
+    ASSERT(enif_thread_type() == ERL_NIF_THR_DIRTY_IO_SCHEDULER);
     ASSERT(erts_atomic32_read_nob(&d->state) == EFILE_STATE_CLOSED);
     ASSERT(w->handle != INVALID_HANDLE_VALUE);
 
     handle = w->handle;
     w->handle = INVALID_HANDLE_VALUE;
 
+    enif_release_resource(d);
+
     if(!CloseHandle(handle)) {
-        w->common.posix_errno = windows_to_posix_errno(GetLastError());
+        *error = windows_to_posix_errno(GetLastError());
         return 0;
     }
 
