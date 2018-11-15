@@ -2211,7 +2211,13 @@ linear_scan(#st{intervals=Intervals0,res=Res}=St0) ->
     Free = init_free(maps:to_list(Res)),
     Intervals1 = [init_interval(Int, Res) || Int <- Intervals0],
     Intervals = sort(Intervals1),
-    IsReserved = fun (#i{reg=Reg}) -> Reg =/= none end,
+    IsReserved = fun(#i{reg=Reg}) ->
+                         case Reg of
+                             none -> false;
+                             {prefer,{_,_}} -> false;
+                             {_,_} -> true
+                         end
+                 end,
     {UnhandledRes,Unhandled} = partition(IsReserved, Intervals),
     L = #l{unhandled_res=UnhandledRes,
            unhandled_any=Unhandled,free=Free},
