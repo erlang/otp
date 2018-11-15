@@ -338,6 +338,8 @@ type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
 type    MSACC           DRIVER          SYSTEM          microstate_accounting
 type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
+type	ATOMICS		STANDARD	SYSTEM		erl_bif_atomics
+type	COUNTERS	STANDARD	SYSTEM		erl_bif_counters
 
 #
 # Types used by system specific code

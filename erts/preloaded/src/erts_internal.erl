@@ -92,6 +92,11 @@
 
 -export([erase_persistent_terms/0]).
 
+-export([atomics_new/2]).
+
+-export([counters_new/1, counters_get/2, counters_add/3,
+         counters_info/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -697,3 +702,23 @@ create_dist_channel(_Node, _DistCtrlr, _Flags, _Ver) ->
 -spec erase_persistent_terms() -> 'ok'.
 erase_persistent_terms() ->
     erlang:nif_error(undefined).
+
+-spec atomics_new(pos_integer(), pos_integer()) -> reference().
+atomics_new(_Arity, _EncOpts) ->
+    erlang:nif_error(undef).
+
+-spec counters_new(pos_integer()) -> reference().
+counters_new(_Size) ->
+    erlang:nif_error(undef).
+
+-spec counters_get(reference(), pos_integer()) -> integer().
+counters_get(_Ref, _Ix) ->
+    erlang:nif_error(undef).
+
+-spec counters_add(reference(), pos_integer(), integer()) -> ok.
+counters_add(_Ref, _Ix, _Incr) ->
+    erlang:nif_error(undef).
+
+-spec counters_info(reference()) -> #{}.
+counters_info(_Ref) ->
+    erlang:nif_error(undef).

@@ -33,12 +33,14 @@
 		prim_file,
 		prim_inet,
 		prim_zip,
+                atomics,
+                counters,
 		zlib
 	    ]},
 	{registered, []},
 	{applications, []},
 	{env, []},
-	{runtime_dependencies, ["stdlib-3.5", "kernel-6.1", "sasl-3.0.1"]}
+	{runtime_dependencies, ["stdlib-3.5", "kernel-6.1", "sasl-@OTP-13468@"]}
     ]}.
 
 %% vim: ft=erlang
