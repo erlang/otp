@@ -35,6 +35,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DSA SHA2 oids in public_keys ASN1-spec and
+	    public_key:pkix_sign_types/1</p>
+          <p>
+	    Own Id: OTP-15367</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
