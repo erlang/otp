@@ -135,7 +135,8 @@ shortcut_terminator(Last, _Is, _Bs, _St) ->
     Last.
 
 shortcut_switch([{Lit,L0}|T], Bool, Bs, St0) ->
-    St = St0#st{rel_op=normalize_op({bif,'=:='}, [Bool,Lit])},
+    RelOp = {'=:=',Bool,Lit},
+    St = St0#st{rel_op=RelOp},
     #b_br{bool=#b_literal{val=true},succ=L} =
         shortcut(L0, bind_var(Bool, Lit, Bs), St#st{target=one_way}),
     [{Lit,L}|shortcut_switch(T, Bool, Bs, St0)];
@@ -388,41 +389,43 @@ eval_terminator(#b_switch{arg=Arg,fail=Fail,list=List}=Sw, Bs, St) ->
             %% Literal argument. Simplify to a `br`.
             beam_ssa:normalize(Sw#b_switch{arg=Val});
         #b_var{} ->
-            case St of
-                #st{rel_op=none} ->
-                    %% No previous relational operator is stored.
-                    %% Give up.
+            %% Try optimizing the switch.
+            case eval_switch(List, Arg, St, Fail) of
+                none ->
                     none;
-                #st{} ->
-                    %% There is a previous relational operator stored.
-                    %% Try optimizing the switch.
-                    case eval_switch(List, Arg, St, Fail) of
-                        none ->
-                            none;
-                        To when is_integer(To) ->
-                            %% Either one of the values in the switch
-                            %% matched a previous value in a '=:=' test, or
-                            %% none of the values matched a previous test.
-                            #b_br{bool=#b_literal{val=true},succ=To,fail=To}
-                    end
+                To when is_integer(To) ->
+                    %% Either one of the values in the switch
+                    %% matched a previous value in a '=:=' test, or
+                    %% none of the values matched a previous test.
+                    #b_br{bool=#b_literal{val=true},succ=To,fail=To}
             end
     end;
 eval_terminator(#b_ret{}, _Bs, _St) ->
     none.
 
-eval_switch([{Lit,Lbl}|T], Arg, St, Fail) ->
-    case eval_rel_op({bif,'=:='}, [Arg,Lit], St) of
-        none ->
-            %% This label could be reached.
-            eval_switch(T, Arg, St, none);
-        #b_literal{val=false} ->
-            %% This branch will never be taken.
-            eval_switch(T, Arg, St, Fail);
-        #b_literal{val=true} ->
+eval_switch(List, Arg, #st{rel_op={_,Arg,_}=PrevOp}, Fail) ->
+    %% There is a previous relational operator testing the same variable.
+    %% Optimization may be possible.
+    eval_switch_1(List, Arg, PrevOp, Fail);
+eval_switch(_, _, _, _) ->
+    %% There is either no previous relational operator, or it tests
+    %% a different variable. Nothing to optimize.
+    none.
+
+eval_switch_1([{Lit,Lbl}|T], Arg, PrevOp, Fail) ->
+    RelOp = {'=:=',Arg,Lit},
+    case will_succeed(PrevOp, RelOp) of
+        yes ->
             %% Success. This branch will always be taken.
-            Lbl
+            Lbl;
+        no ->
+            %% This branch will never be taken.
+            eval_switch_1(T, Arg, PrevOp, Fail);
+        maybe ->
+            %% This label could be reached.
+            eval_switch_1(T, Arg, PrevOp, none)
     end;
-eval_switch([], _Arg, _St, Fail) ->
+eval_switch_1([], _Arg, _PrevOp, Fail) ->
     %% Fail is now either the failure label or 'none'.
     Fail.
 
