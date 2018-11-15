@@ -92,6 +92,8 @@
 
 -export([erase_persistent_terms/0]).
 
+-export([atomics_new/2]).
+
 %%
 %% Await result of send to port
 %%
@@ -697,3 +699,7 @@ create_dist_channel(_Node, _DistCtrlr, _Flags, _Ver) ->
 -spec erase_persistent_terms() -> 'ok'.
 erase_persistent_terms() ->
     erlang:nif_error(undefined).
+
+-spec atomics_new(pos_integer(), pos_integer()) -> reference().
+atomics_new(_Arity, _EncOpts) ->
+    erlang:nif_error(undef).

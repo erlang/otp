@@ -1562,7 +1562,7 @@ mandatory_modules() ->
 
 preloaded() ->
     %% Sorted
-    [erl_prim_loader,erl_tracer,erlang,
+    [atomics, erl_prim_loader,erl_tracer,erlang,
      erts_code_purger,erts_dirty_process_signal_handler,
      erts_internal,erts_literal_area_collector,
      init,otp_ring0,persistent_term,prim_buffer,prim_eval,prim_file,

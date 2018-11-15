@@ -48,6 +48,7 @@ PRE_LOADED_ERL_MODULES = \
 	erl_tracer \
 	erts_literal_area_collector \
 	erts_dirty_process_signal_handler \
+	atomics \
         persistent_term
 
 PRE_LOADED_BEAM_MODULES = \

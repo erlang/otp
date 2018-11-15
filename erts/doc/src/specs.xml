@@ -6,4 +6,5 @@
   <xi:include href="../specs/specs_init.xml"/>
   <xi:include href="../specs/specs_persistent_term.xml"/>
   <xi:include href="../specs/specs_zlib.xml"/>
+  <xi:include href="../specs/specs_atomics.xml"/>
 </specs>

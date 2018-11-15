@@ -53,19 +53,15 @@ XML_REF3_EFILES = \
 	erl_tracer.xml \
 	init.xml \
 	persistent_term.xml \
+	atomics.xml \
 	zlib.xml
 
 XML_REF3_FILES = \
+	$(XML_REF3_EFILES) \
 	driver_entry.xml \
 	erl_nif.xml \
-	erl_tracer.xml \
 	erl_driver.xml \
-	erl_prim_loader.xml \
-	erlang.xml \
-	erts_alloc.xml  \
-	init.xml \
-	persistent_term.xml \
-	zlib.xml
+	erts_alloc.xml
 
 XML_PART_FILES = \
 	part.xml
