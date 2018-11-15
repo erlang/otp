@@ -5434,6 +5434,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
             RSA_get0_key(rsa, &n, &e, &d);
             result[0] = bin_from_bn(env, e);  // Exponent E
             result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+            RSA_free(rsa);
             EVP_PKEY_free(pkey);
             return enif_make_list_from_array(env, result, 2);
         }
@@ -5448,6 +5449,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
             result[1] = bin_from_bn(env, q);
             result[2] = bin_from_bn(env, g);
             result[3] = bin_from_bn(env, pub_key);
+	    DSA_free(dsa);
             EVP_PKEY_free(pkey);
             return enif_make_list_from_array(env, result, 4);
         }
