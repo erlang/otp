@@ -1115,6 +1115,10 @@ defs([{bs_init,{f,L},_,Live,_,Dst}=I|Is], Regs0, D) ->
             end,
     Regs = def_regs([Dst], Regs1),
     [I|defs(Is, Regs, update_regs(L, Regs, D))];
+defs([{test,bs_start_match2,{f,L},Live,_,Dst}=I|Is], _Regs, D) ->
+    Regs0 = init_def_regs(Live),
+    Regs = def_regs([Dst], Regs0),
+    [I|defs(Is, Regs, update_regs(L, Regs0, D))];
 defs([{bs_put,{f,L},_,_}=I|Is], Regs, D) ->
     [I|defs(Is, Regs, update_regs(L, Regs, D))];
 defs([build_stacktrace=I|Is], _Regs, D) ->
