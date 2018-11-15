@@ -396,6 +396,7 @@ atom microsecond
 atom microstate_accounting
 atom milli_seconds
 atom millisecond
+atom min
 atom min_heap_size
 atom min_bin_vheap_size
 atom minor

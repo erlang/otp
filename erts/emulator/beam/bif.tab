@@ -710,3 +710,17 @@ bif persistent_term:get/0
 bif persistent_term:erase/1
 bif persistent_term:info/0
 bif erts_internal:erase_persistent_terms/0
+
+bif erts_internal:atomics_new/2
+bif atomics:get/2
+bif atomics:put/3
+bif atomics:add/3
+bif atomics:add_get/3
+bif atomics:exchange/3
+bif atomics:compare_exchange/4
+bif atomics:info/1
+
+bif erts_internal:counters_new/1
+bif erts_internal:counters_get/2
+bif erts_internal:counters_add/3
+bif erts_internal:counters_info/1
