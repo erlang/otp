@@ -1010,9 +1010,9 @@ get_tcpi_sacked(Sock) ->
           <item>
             <p>Determines the time-out, in seconds, for flushing unsent data
               in the <c>close/1</c> socket call. If the first component of
-              the value tuple is <c>false</c>, the second is ignored. This
-              means that <c>close/1</c> returns immediately, not waiting
-              for data to be flushed. Otherwise, the second component is
+	      the value tuple is <c>true</c> and the second is 0,
+	      <c>close/1</c> returns immediately, not waiting for data
+	      to be flushed. Otherwise, the second component is
               the flushing time-out, in seconds.</p>
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
