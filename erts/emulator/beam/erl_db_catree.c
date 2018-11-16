@@ -811,10 +811,11 @@ void destroy_root_iterator(CATreeRootIterator* iter)
 {
     if (iter->locked_bnode)
         unlock_iter_base_node(iter);
-    if (iter->search_key)
+    if (iter->search_key) {
+        destroy_route_key(iter->search_key);
         erts_free(ERTS_ALC_T_DB_TMP, iter->search_key);
+    }
 }
-
 
 typedef struct
 {
@@ -2069,6 +2070,23 @@ static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
 }
 
 
+static void do_for_route_nodes(DbTableCATreeNode* node,
+                               void (*func)(ErlOffHeap *, void *),
+                               void *arg)
+{
+    ErlOffHeap tmp_offheap;
+
+    if (!GET_LEFT(node)->is_base_node)
+        do_for_route_nodes(GET_LEFT(node), func, arg);
+
+    tmp_offheap.first = node->u.route.key.oh;
+    tmp_offheap.overhead = 0;
+    (*func)(&tmp_offheap, arg);
+
+    if (!GET_RIGHT(node)->is_base_node)
+        do_for_route_nodes(GET_RIGHT(node), func, arg);
+}
+
 static void db_foreach_offheap_catree(DbTable *tbl,
                                       void (*func)(ErlOffHeap *, void *),
                                       void *arg)
@@ -2083,6 +2101,8 @@ static void db_foreach_offheap_catree(DbTable *tbl,
         root = catree_find_next_root(&iter, NULL);
     } while (root);
     destroy_root_iterator(&iter);
+
+    do_for_route_nodes(GET_ROOT(&tbl->catree), func, arg);
 }
 
 static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
