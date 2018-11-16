@@ -38,6 +38,9 @@ static void unload(ErlNifEnv *env, void* priv_data);
 
 static ErlNifResourceType *efile_resource_type;
 
+static ERL_NIF_TERM am_erts_prim_file;
+static ERL_NIF_TERM am_close;
+
 static ERL_NIF_TERM am_ok;
 static ERL_NIF_TERM am_error;
 static ERL_NIF_TERM am_continue;
@@ -96,10 +99,13 @@ static ERL_NIF_TERM set_cwd_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
 
 static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
+/* Internal ops */
+static ERL_NIF_TERM delayed_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM get_handle_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM altname_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-
-static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 /* All file handle operations are passed through a wrapper that handles state
  * transitions, marking it as busy during the course of the operation, and
@@ -128,7 +134,11 @@ static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
  *
  * CLOSE_PENDING ->
  *      CLOSED (file_handle_wrapper)
- */
+ *
+ * Should the owner of a file die, we can't close it immediately as that could
+ * potentially block a normal scheduler. When entering the CLOSED state from
+ * owner_death_callback, we will instead send a message to the erts_prim_file
+ * process that will then close the file through delayed_close_nif. */
 
 typedef ERL_NIF_TERM (*file_op_impl_t)(efile_data_t *d, ErlNifEnv *env,
     int argc, const ERL_NIF_TERM argv[]);
@@ -142,7 +152,6 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
         return file_handle_wrapper( name ## _impl , env, argc, argv); \
     }
 
-WRAP_FILE_HANDLE_EXPORT(close_nif)
 WRAP_FILE_HANDLE_EXPORT(read_nif)
 WRAP_FILE_HANDLE_EXPORT(write_nif)
 WRAP_FILE_HANDLE_EXPORT(pread_nif)
@@ -193,17 +202,26 @@ static ErlNifFunc nif_funcs[] = {
 
     /* Internal ops. */
     {"get_handle_nif", 1, get_handle_nif},
+    {"delayed_close_nif", 1, delayed_close_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"altname_nif", 1, altname_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
 };
 
 ERL_NIF_INIT(prim_file, nif_funcs, load, NULL, upgrade, unload)
 
-static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);
-static void gc_callback(ErlNifEnv *env, void* data);
+static ErlNifPid erts_prim_file_pid;
 
-static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM load_info)
+static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);
+
+static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
 {
     ErlNifResourceTypeInit callbacks;
+
+    if(!enif_get_local_pid(env, prim_file_pid, &erts_prim_file_pid)) {
+        ASSERT(!"bad pid passed to prim_file_nif");
+    }
+
+    am_erts_prim_file = enif_make_atom(env, "erts_prim_file");
+    am_close = enif_make_atom(env, "close");
 
     am_ok = enif_make_atom(env, "ok");
     am_error = enif_make_atom(env, "error");
@@ -239,7 +257,7 @@ static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM load_info)
     am_eof = enif_make_atom(env, "eof");
 
     callbacks.down = owner_death_callback;
-    callbacks.dtor = gc_callback;
+    callbacks.dtor = NULL;
     callbacks.stop = NULL;
 
     efile_resource_type = enif_open_resource_type_x(env, "efile", &callbacks,
@@ -305,8 +323,10 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
             /* This is the only point where a change from CLOSE_PENDING is
              * possible, and we're running synchronously, so we can't race with
              * anything else here. */
+            posix_errno_t ignored;
+
             erts_atomic32_set_acqb(&d->state, EFILE_STATE_CLOSED);
-            efile_close(d);
+            efile_close(d, &ignored);
         }
     } else {
         /* CLOSE_PENDING should be impossible at this point since it requires
@@ -317,6 +337,24 @@ static ERL_NIF_TERM file_handle_wrapper(file_op_impl_t operation, ErlNifEnv *env
     }
 
     return result;
+}
+
+/* This is a special close operation used by the erts_prim_file process for
+ * cleaning up orphaned files. It differs from the ordinary close_nif in that
+ * it only works for files that have already entered the CLOSED state. */
+static ERL_NIF_TERM delayed_close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    posix_errno_t ignored;
+    efile_data_t *d;
+
+    ASSERT(argc == 1);
+    if(!get_file_data(env, argv[0], &d)) {
+        return enif_make_badarg(env);
+    }
+
+    ASSERT(erts_atomic32_read_acqb(&d->state) == EFILE_STATE_CLOSED);
+    efile_close(d, &ignored);
+
+    return am_ok;
 }
 
 static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon) {
@@ -334,8 +372,24 @@ static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlN
 
         switch(previous_state) {
         case EFILE_STATE_IDLE:
-            efile_close(d);
-            return;
+            {
+                /* We cannot close the file here as that could block a normal
+                 * scheduler, so we tell erts_prim_file to do it for us.
+                 *
+                 * This can in turn become a bottleneck (especially in cases
+                 * like NFS failure), but it's less problematic than blocking
+                 * thread progress. */
+                ERL_NIF_TERM message, file_ref;
+
+                file_ref = enif_make_resource(env, d);
+                message = enif_make_tuple2(env, am_close, file_ref);
+
+                if(!enif_send(env, &erts_prim_file_pid, NULL, message)) {
+                    ERTS_INTERNAL_ERROR("Failed to defer prim_file close.");
+                }
+
+                return;
+            }
         case EFILE_STATE_CLOSE_PENDING:
         case EFILE_STATE_CLOSED:
             /* We're either already closed or managed to mark ourselves for
@@ -349,24 +403,6 @@ static void owner_death_callback(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlN
                 EFILE_STATE_CLOSE_PENDING, EFILE_STATE_BUSY);
             break;
         }
-    }
-}
-
-static void gc_callback(ErlNifEnv *env, void* data) {
-    efile_data_t *d = (efile_data_t*)data;
-
-    enum efile_state_t previous_state;
-
-    (void)env;
-
-    previous_state = erts_atomic32_cmpxchg_acqb(&d->state,
-        EFILE_STATE_CLOSED, EFILE_STATE_IDLE);
-
-    ASSERT(previous_state != EFILE_STATE_CLOSE_PENDING &&
-        previous_state != EFILE_STATE_BUSY);
-
-    if(previous_state == EFILE_STATE_IDLE) {
-        efile_close(d);
     }
 }
 
@@ -454,40 +490,62 @@ static ERL_NIF_TERM open_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         return posix_error_to_tuple(env, posix_errno);
     }
 
-    result = enif_make_resource(env, d);
-    enif_release_resource(d);
-
     enif_self(env, &controlling_process);
 
     if(enif_monitor_process(env, d, &controlling_process, &d->monitor)) {
+        /* We need to close the file manually as we haven't registered a
+         * destructor. */
+        posix_errno_t ignored;
+
+        erts_atomic32_set_acqb(&d->state, EFILE_STATE_CLOSED);
+        efile_close(d, &ignored);
+
         return posix_error_to_tuple(env, EINVAL);
     }
+
+    /* Note that we do not call enif_release_resource at this point. While it's
+     * normally safe to leave resource management to the GC, efile_close is a
+     * blocking operation which must not be done in the GC callback, and we
+     * can't defer it as the resource is gone as soon as it returns.
+     *
+     * We instead keep the resource alive until efile_close is called, after
+     * which it's safe to leave things to the GC. If the controlling process
+     * were to die before the user had a chance to close their file, the above
+     * monitor will tell the erts_prim_file process to close it for them. */
+    result = enif_make_resource(env, d);
 
     return enif_make_tuple2(env, am_ok, result);
 }
 
-static ERL_NIF_TERM close_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM close_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     enum efile_state_t previous_state;
+    efile_data_t *d;
 
-    if(argc != 0) {
+    ASSERT(argc == 1);
+    if(!get_file_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
     }
 
     previous_state = erts_atomic32_cmpxchg_acqb(&d->state,
-        EFILE_STATE_CLOSED, EFILE_STATE_BUSY);
+        EFILE_STATE_CLOSED, EFILE_STATE_IDLE);
 
-    ASSERT(previous_state == EFILE_STATE_CLOSE_PENDING ||
-        previous_state == EFILE_STATE_BUSY);
+    if(previous_state == EFILE_STATE_IDLE) {
+        posix_errno_t error;
 
-    if(previous_state == EFILE_STATE_BUSY) {
         enif_demonitor_process(env, d, &d->monitor);
 
-        if(!efile_close(d)) {
-            return posix_error_to_tuple(env, d->posix_errno);
+        if(!efile_close(d, &error)) {
+            return posix_error_to_tuple(env, error);
         }
-    }
 
-    return am_ok;
+        return am_ok;
+    } else {
+        /* CLOSE_PENDING should be impossible at this point since it requires
+         * a transition from BUSY; the only valid state here is CLOSED. */
+        ASSERT(previous_state == EFILE_STATE_CLOSED);
+
+        return posix_error_to_tuple(env, EINVAL);
+    }
 }
 
 static ERL_NIF_TERM read_nif_impl(efile_data_t *d, ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -1190,7 +1248,7 @@ static posix_errno_t read_file(efile_data_t *d, size_t size, ErlNifBinary *resul
 }
 
 static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    posix_errno_t posix_errno;
+    posix_errno_t posix_errno, ignored;
 
     efile_fileinfo_t info = {0};
     efile_path_t path;
@@ -1211,7 +1269,9 @@ static ERL_NIF_TERM read_file_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     }
 
     posix_errno = read_file(d, info.size, &result);
-    enif_release_resource(d);
+
+    erts_atomic32_set_acqb(&d->state, EFILE_STATE_CLOSED);
+    efile_close(d, &ignored);
 
     if(posix_errno) {
         return posix_error_to_tuple(env, posix_errno);

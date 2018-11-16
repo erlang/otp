@@ -83,6 +83,15 @@ internal_normalize_utf8(_) ->
 is_translatable(_) ->
     erlang:nif_error(undefined).
 
+%% This is a janitor process used to close files whose controlling process has
+%% died. The emulator will be torn down if this is killed.
+delayed_close_loop() ->
+    receive
+        {close, FRef} when is_reference(FRef) -> delayed_close_nif(FRef);
+        _ -> ok
+    end,
+    delayed_close_loop().
+
 %%
 
 %% Returns {error, Reason} | {ok, BytesCopied}
@@ -95,7 +104,12 @@ copy(#file_descriptor{module = ?MODULE} = Source,
     file:copy_opened(Source, Dest, Length).
 
 on_load() ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), 0).
+    Pid = spawn(fun() ->
+                    process_flag(trap_exit, true),
+                    delayed_close_loop()
+                end),
+    true = register(erts_prim_file, Pid),
+    ok = erlang:load_nif(atom_to_list(?MODULE), Pid).
 
 open(Name, Modes) ->
     %% The try/catch pattern seen here is used throughout the file to adhere to
@@ -481,6 +495,8 @@ allocate_nif(_FileRef, _Offset, _Length) ->
 truncate_nif(_FileRef) ->
     erlang:nif_error(undef).
 get_handle_nif(_FileRef) ->
+    erlang:nif_error(undef).
+delayed_close_nif(_FileRef) ->
     erlang:nif_error(undef).
 
 %%
