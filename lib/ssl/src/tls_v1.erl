@@ -346,8 +346,8 @@ signature_algs({3, 3}, HashSigns) ->
 			    end, [], HashSigns),
     lists:reverse(Supported).
 
-default_signature_algs({3, 4}) ->
-    default_signature_algs({3, 3});
+default_signature_algs({3, 4} = Version) ->
+    default_signature_schemes(Version);
 default_signature_algs({3, 3} = Version) ->
     Default = [%% SHA2
 	       {sha512, ecdsa},

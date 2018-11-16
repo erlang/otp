@@ -1002,9 +1002,10 @@ handle_options(Opts0, Role, Host) ->
                            proplists:get_value(
                              signature_algs,
                              Opts,
-                             default_option_role(server,
+                             default_option_role_sign_algs(server,
                                                  tls_v1:default_signature_algs(HighestVersion),
-                                                 Role)),
+                                                 Role,
+                                                 HighestVersion)),
                            tls_version(HighestVersion)),
                     signature_algs_cert =
                          handle_signature_algorithms_option(
@@ -1337,15 +1338,25 @@ validate_option(customize_hostname_check, Value) when is_list(Value) ->
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
+handle_hashsigns_option(Value, Version) when is_list(Value)
+                                             andalso Version >= {3, 4} ->
+    case tls_v1:signature_schemes(Version, Value) of
+	[] ->
+	    throw({error, {options,
+                           no_supported_signature_schemes,
+                           {signature_algs, Value}}});
+	_ ->
+	    Value
+    end;
 handle_hashsigns_option(Value, Version) when is_list(Value) 
-                                             andalso Version >= {3, 3} ->
+                                             andalso Version =:= {3, 3} ->
     case tls_v1:signature_algs(Version, Value) of
 	[] ->
 	    throw({error, {options, no_supported_algorithms, {signature_algs, Value}}});
 	_ ->	
 	    Value
     end;
-handle_hashsigns_option(_, Version) when Version >= {3, 3} ->
+handle_hashsigns_option(_, Version) when Version =:= {3, 3} ->
     handle_hashsigns_option(tls_v1:default_signature_algs(Version), Version);
 handle_hashsigns_option(_, _Version) ->
     undefined.
@@ -1762,10 +1773,19 @@ handle_verify_options(Opts, CaCerts) ->
 	    throw({error, {options, {verify, Value}}})
     end.
 
+%% Added to handle default values for signature_algs in TLS 1.3
+default_option_role_sign_algs(_, Value, _, Version) when Version >= {3,4} ->
+    Value;
+default_option_role_sign_algs(Role, Value, Role, _) ->
+    Value;
+default_option_role_sign_algs(_, _, _, _) ->
+    undefined.
+
 default_option_role(Role, Value, Role) ->
     Value;
 default_option_role(_,_,_) ->
     undefined.
+
 
 default_cb_info(tls) ->
     {gen_tcp, tcp, tcp_closed, tcp_error};
