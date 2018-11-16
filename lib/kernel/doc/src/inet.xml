@@ -1009,11 +1009,16 @@ get_tcpi_sacked(Sock) ->
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
           <item>
             <p>Determines the time-out, in seconds, for flushing unsent data
-              in the <c>close/1</c> socket call. If the first component of
-	      the value tuple is <c>true</c> and the second is 0,
-	      <c>close/1</c> returns immediately, not waiting for data
-	      to be flushed. Otherwise, the second component is
-              the flushing time-out, in seconds.</p>
+	      in the <c>close/1</c> socket call. The first component is
+	      if linger is enabled, the second component is the flushing 
+	      time-out, in seconds.</p> If the first component of
+	      the value tuple is <c>false</c>, the second is ignored. This
+	      means that <c>close/1</c> returns immediately, not waiting for
+	      data to be flushed with closing happening in the background.
+	      If the first component is <c>true</c> and the second is <c>0</c>,
+	      <c>close/1</c> also returns immediately, with the close happening
+	      immediately, avoiding a TIME_WAIT state. Otherwise, the second 
+	      component is the flushing time-out, in seconds.</p>
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
