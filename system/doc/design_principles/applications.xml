@@ -185,7 +185,7 @@ ch_app:stop([])</code>
           the directory with the highest version number, if more than one
           version of an application is present.</p>
       <section>
-          <title>Directory Structure guidelines for a Development Environment</title>
+          <title>Directory Structure Guidelines for a Development Environment</title>
           <p>Any directory structure for development will suffice as long as the released directory structure
               adhere to the <seealso marker="#app_dir_released">description below</seealso>,
               but it is encouraged that the same directory structure
