@@ -104,56 +104,97 @@
 
 -include("ssl_alert.hrl").
 -include("ssl_connection.hrl").
+-include("tls_handshake.hrl").
+-include("tls_handshake_1_3.hrl").
 
--export([hello/4]).
--export([gen_handshake/4]).
+%% gen_statem helper functions
+-export([start/4,
+         negotiated/4
+        ]).
 
-hello(internal, {common_client_hello, Type, ServerHelloExt}, State, Connection) ->
-    do_server_hello(Type, ServerHelloExt, State, Connection).
+start(internal,
+      #client_hello{} = Hello,
+      #state{connection_states = _ConnectionStates0,
+	     ssl_options = #ssl_options{ciphers = _ServerCiphers,
+                                        signature_algs = _ServerSignAlgs,
+                                        signature_algs_cert = _SignatureSchemes, %% TODO: Check??
+                                        supported_groups = _ServerGroups0,
+                                        versions = _Versions} = SslOpts,
+             session = #session{own_certificate = Cert}} = State0,
+      _Module) ->
 
-do_server_hello(Type, #{next_protocol_negotiation := _NextProtocols} =
-                    _ServerHelloExt,
-		#state{negotiated_version = _Version,
-		       session = #session{session_id = _SessId},
-		       connection_states = _ConnectionStates0,
-                       ssl_options = #ssl_options{versions = [_HighestVersion|_]}}
-		= State0, _Connection) when is_atom(Type) ->
-%%                              NEGOTIATED
-%%                                 | Send ServerHello
-%%                                 | K_send = handshake
-%%                                 | Send EncryptedExtensions
-%%                                 | [Send CertificateRequest]
-%%  Can send                       | [Send Certificate + CertificateVerify]
-%%  app data                       | Send Finished
-%%  after   -->                    | K_send = application
-%%  here                  +--------+--------+
-%%               No 0-RTT |                 | 0-RTT
-%%                        |                 |
-%%    K_recv = handshake  |                 | K_recv = early data
-%%  [Skip decrypt errors] |    +------> WAIT_EOED -+
-%%                        |    |       Recv |      | Recv EndOfEarlyData
-%%                        |    | early data |      | K_recv = handshake
-%%                        |    +------------+      |
-%%                        |                        |
-%%                        +> WAIT_FLIGHT2 <--------+
+    Env = #{cert => Cert},
+    case tls_handshake_1_3:handle_client_hello(Hello, SslOpts, Env) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, start, State0);
+        M ->
+            %% update connection_states with cipher
+            State = update_state(State0, M),
+            {next_state, negotiated, State, [{next_event, internal, M}]}
+
+    end.
+
+%% TODO: move these functions
+update_state(#state{connection_states = ConnectionStates0,
+                    session = Session} = State,
+             #{client_random := ClientRandom,
+               cipher := Cipher,
+               key_share := KeyShare,
+               session_id := SessionId}) ->
+    #{security_parameters := SecParamsR0} = PendingRead =
+        maps:get(pending_read, ConnectionStates0),
+    #{security_parameters := SecParamsW0} = PendingWrite =
+        maps:get(pending_write, ConnectionStates0),
+    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, ClientRandom, Cipher),
+    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, ClientRandom, Cipher),
+    ConnectionStates =
+        ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
+                           pending_write => PendingWrite#{security_parameters => SecParamsW}},
+    State#state{connection_states = ConnectionStates,
+                key_share = KeyShare,
+                session = Session#session{session_id = SessionId}}.
+
+
+negotiated(internal,
+           Map,
+           #state{connection_states = ConnectionStates0,
+                  session = #session{session_id = SessionId},
+                  ssl_options = #ssl_options{} = SslOpts,
+                  key_share = KeyShare,
+                  tls_handshake_history = HHistory0,
+                  transport_cb = Transport,
+                  socket = Socket}, _Module) ->
+
+    %% Create server_hello
+    %% Extensions: supported_versions, key_share, (pre_shared_key)
+    ServerHello = tls_handshake_1_3:server_hello(SessionId, KeyShare,
+                                                 ConnectionStates0, Map),
+
+    %% Update handshake_history (done in encode!)
+    %% Encode handshake
+    {BinMsg, _ConnectionStates, _HHistory} =
+        tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates0, HHistory0),
+    %% Send server_hello
+    tls_connection:send(Transport, Socket, BinMsg),
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinMsg},
+    Msg = #{direction => outbound,
+            protocol => 'handshake',
+            message => ServerHello},
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Msg, #{domain => [otp,ssl,handshake]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ok.
+
+    %% K_send = handshake ???
+    %% (Send EncryptedExtensions)
+    %% ([Send CertificateRequest])
+    %% [Send Certificate + CertificateVerify]
+    %% Send Finished
+    %% K_send = application ???
+
     %% Will be called implicitly
     %% {Record, State} = Connection:next_record(State2#state{session = Session}),
     %% Connection:next_event(wait_flight2, Record, State, Actions),
     %% OR
     %% Connection:next_event(WAIT_EOED, Record, State, Actions)
-    {next_state, wait_flight2, State0, []}.
-    %% TODO: Add new states to tls_connection!
-    %% State0.
-
-
-gen_handshake(StateName, Type, Event,
-	      #state{negotiated_version = Version} = State) ->
-    try tls_connection_1_3:StateName(Type, Event, State, ?MODULE) of
-	Result ->
-	    Result
-    catch
-	_:_ ->
-            ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-						       malformed_handshake_data),
-					    Version, StateName, State)
-    end.

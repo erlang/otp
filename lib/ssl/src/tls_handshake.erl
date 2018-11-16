@@ -263,8 +263,6 @@ get_tls_handshake(Version, Data, Buffer, Options) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-handle_client_hello(Version = {3,4}, ClientHello, SslOpts, Info, Renegotiation) ->
-    tls_handshake_1_3:handle_client_hello(Version, ClientHello, SslOpts, Info, Renegotiation);
 handle_client_hello(Version, 
                     #client_hello{session_id = SugesstedId,
                                   cipher_suites = CipherSuites,

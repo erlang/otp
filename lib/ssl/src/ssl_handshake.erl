@@ -76,8 +76,10 @@
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
 	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
-	 select_hashsign_algs/3, empty_extensions/2
+	 select_hashsign_algs/3, empty_extensions/2, add_server_share/2
 	]).
+
+-export([get_cert_params/1]).
 
 %%====================================================================
 %% Create handshake messages 
@@ -1137,25 +1139,31 @@ maybe_add_key_share(HelloExtensions, undefined) ->
 maybe_add_key_share(HelloExtensions, KeyShare) ->
     #key_share_client_hello{client_shares = ClientShares0} = KeyShare,
     %% Keep only public keys
-    Fun = fun(#key_share_entry{
-                group = Group,
-                key_exchange =
-                     #'ECPrivateKey'{publicKey = PublicKey}}) ->
-                  #key_share_entry{
-                    group = Group,
-                     key_exchange = PublicKey};
-             (#key_share_entry{
-                 group = Group,
-                 key_exchange =
-                     {PublicKey, _}}) ->
-                  #key_share_entry{
-                     group = Group,
-                     key_exchange = PublicKey}
-          end,
-    ClientShares = lists:map(Fun, ClientShares0),
+    ClientShares = lists:map(fun kse_remove_private_key/1, ClientShares0),
     HelloExtensions#{key_share => #key_share_client_hello{
                                      client_shares = ClientShares}}.
 
+add_server_share(Extensions, KeyShare) ->
+    #key_share_server_hello{server_share = ServerShare0} = KeyShare,
+    %% Keep only public keys
+    ServerShare = kse_remove_private_key(ServerShare0),
+    Extensions#{key_share => #key_share_server_hello{
+                                server_share = ServerShare}}.
+
+kse_remove_private_key(#key_share_entry{
+                      group = Group,
+                      key_exchange =
+                          #'ECPrivateKey'{publicKey = PublicKey}}) ->
+    #key_share_entry{
+       group = Group,
+       key_exchange = PublicKey};
+kse_remove_private_key(#key_share_entry{
+                      group = Group,
+                      key_exchange =
+                          {PublicKey, _}}) ->
+    #key_share_entry{
+       group = Group,
+       key_exchange = PublicKey}.
 
 signature_algs_ext(undefined) ->
     undefined;

@@ -88,6 +88,7 @@
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
+-export([encode_handshake/4]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
