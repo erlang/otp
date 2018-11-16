@@ -27,9 +27,10 @@
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
--record(d, {ds :: #{beam_ssa:var_name():=beam_ssa:b_set()},
+-record(d, {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
             ls :: #{beam_ssa:label():=type_db()},
-            sub :: #{beam_ssa:var_name():=beam_ssa:value()}
+            once :: cerl_sets:set(beam_ssa:b_var()),
+            sub :: #{beam_ssa:b_var():=beam_ssa:value()}
            }).
 
 -define(ATOM_SET_SIZE, 5).
@@ -56,13 +57,15 @@
       Block :: beam_ssa:b_blk().
 
 opt(Linear, Args) ->
+    UsedOnce = used_once(Linear, Args),
     Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
     Defs = maps:from_list([{Var,FakeCall#b_set{dst=Var}} ||
                               #b_var{}=Var <- Args]),
-    D = #d{ds=Defs,ls=#{0=>Ts},sub=#{}},
+    D = #d{ds=Defs,ls=#{0=>Ts,?BADARG_BLOCK=>#{}},
+           once=UsedOnce,sub=#{}},
     opt_1(Linear, D).
 
 opt_1([{L,Blk}|Bs], #d{ls=Ls}=D) ->
@@ -425,16 +428,43 @@ opt_terminator(#b_ret{}=Ret, _Ts, _Ds) -> Ret.
 
 update_successors(#b_br{bool=#b_literal{val=true},succ=S}, Ts, D) ->
     update_successor(S, Ts, D);
-update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts, D0) ->
-    D = update_successor_bool(Bool, false, Fail, Ts, D0),
-    SuccTs = infer_types(Bool, Ts, D0),
-    update_successor_bool(Bool, true, Succ, SuccTs, D);
-update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts, D0) ->
-    D = update_successor(Fail, Ts, D0),
-    foldl(fun({Val,S}, A) ->
-                  T = get_type(Val, Ts),
-                  update_successor(S, Ts#{V=>T}, A)
-          end, D, List);
+update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts0, D0) ->
+    case cerl_sets:is_element(Bool, D0#d.once) of
+        true ->
+            %% This variable is defined in this block and is only
+            %% referenced by this br terminator. Therefore, there is
+            %% no need to include the type database passed on to the
+            %% successors of this block.
+            Ts = maps:remove(Bool, Ts0),
+            D = update_successor(Fail, Ts, D0),
+            SuccTs = infer_types(Bool, Ts, D0),
+            update_successor(Succ, SuccTs, D);
+        false ->
+            D = update_successor_bool(Bool, false, Fail, Ts0, D0),
+            SuccTs = infer_types(Bool, Ts0, D0),
+            update_successor_bool(Bool, true, Succ, SuccTs, D)
+    end;
+update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
+    case cerl_sets:is_element(V, D0#d.once) of
+        true ->
+            %% This variable is defined in this block and is only
+            %% referenced by this switch terminator. Therefore, there is
+            %% no need to include the type database passed on to the
+            %% successors of this block.
+            Ts = maps:remove(V, Ts0),
+            D = update_successor(Fail, Ts, D0),
+            F = fun({_Val,S}, A) ->
+                        update_successor(S, Ts, A)
+                end,
+            foldl(F, D, List);
+        false ->
+            D = update_successor(Fail, Ts0, D0),
+            F = fun({Val,S}, A) ->
+                        T = get_type(Val, Ts0),
+                        update_successor(S, Ts0#{V=>T}, A)
+                end,
+            foldl(F, D, List)
+        end;
 update_successors(#b_ret{}, _Ts, D) -> D.
 
 update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
@@ -447,6 +477,11 @@ update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
             update_successor(S, Ts, D)
     end.
 
+update_successor(?BADARG_BLOCK, _Ts, #d{}=D) ->
+    %% We KNOW that no variables are used in the ?BADARG_BLOCK,
+    %% so there is no need to update the type information. That
+    %% can be a huge timesaver for huge functions.
+    D;
 update_successor(S, Ts0, #d{ls=Ls}=D) ->
     case Ls of
         #{S:=Ts1} ->
@@ -765,6 +800,48 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
         #{} ->
             Br0
     end.
+
+%%%
+%%% Calculate the set of variables that are only used once in the
+%%% block that they are defined in. That will allow us to discard type
+%%% information for variables that will never be referenced by the
+%%% successor blocks, potentially improving compilation times.
+%%%
+
+used_once(Linear, Args) ->
+    Map0 = used_once_1(reverse(Linear), #{}),
+    Map = maps:without(Args, Map0),
+    cerl_sets:from_list(maps:keys(Map)).
+
+used_once_1([{L,#b_blk{is=Is,last=Last}}|Bs], Uses0) ->
+    Uses = used_once_2([Last|reverse(Is)], L, Uses0),
+    used_once_1(Bs, Uses);
+used_once_1([], Uses) -> Uses.
+
+used_once_2([I|Is], L, Uses0) ->
+    Uses = used_once_uses(beam_ssa:used(I), L, Uses0),
+    case I of
+        #b_set{dst=Dst} ->
+            case Uses of
+                #{Dst:=[L]} ->
+                    used_once_2(Is, L, Uses);
+                #{} ->
+                    used_once_2(Is, L, maps:remove(Dst, Uses))
+            end;
+        _ ->
+            used_once_2(Is, L, Uses)
+    end;
+used_once_2([], _, Uses) -> Uses.
+
+used_once_uses([V|Vs], L, Uses) ->
+    case Uses of
+        #{V:=Us} ->
+            used_once_uses(Vs, L, Uses#{V:=[L|Us]});
+        #{} ->
+            used_once_uses(Vs, L, Uses#{V=>[L]})
+    end;
+used_once_uses([], _, Uses) -> Uses.
+
 
 get_types(Values, Ts) ->
     [get_type(Val, Ts) || Val <- Values].
