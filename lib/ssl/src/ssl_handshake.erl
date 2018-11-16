@@ -1037,15 +1037,14 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
     maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts, KeyShare).
 
 
-add_tls12_extensions(Version,
-                     #ssl_options{signature_algs = SupportedHashSigns} = SslOpts,
+add_tls12_extensions(_Version,
+                     SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
     SRP = srp_user(SslOpts),
     #{renegotiation_info => renegotiation_info(tls_record, client,
                                                ConnectionStates, Renegotiation),
       srp => SRP,
-      signature_algs => available_signature_algs(SupportedHashSigns, Version),
       alpn => encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
       next_protocol_negotiation =>
           encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
@@ -1058,16 +1057,19 @@ add_common_extensions({3,4},
                       HelloExtensions,
                       _CipherSuites,
                       #ssl_options{eccs = SupportedECCs,
-                                   supported_groups = Groups}) ->
+                                   supported_groups = Groups,
+                                   signature_algs = SignatureSchemes}) ->
     {EcPointFormats, _} =
         client_ecc_extensions(SupportedECCs),
     HelloExtensions#{ec_point_formats => EcPointFormats,
-                     elliptic_curves => Groups};
+                     elliptic_curves => Groups,
+                     signature_algs => signature_algs_ext(SignatureSchemes)};
 
-add_common_extensions(_Version,
+add_common_extensions(Version,
                       HelloExtensions,
                       CipherSuites,
-                      #ssl_options{eccs = SupportedECCs}) ->
+                      #ssl_options{eccs = SupportedECCs,
+                                   signature_algs = SupportedHashSigns}) ->
 
     {EcPointFormats, EllipticCurves} =
         case advertises_ec_ciphers(
@@ -1079,7 +1081,8 @@ add_common_extensions(_Version,
                 {undefined, undefined}
         end,
     HelloExtensions#{ec_point_formats => EcPointFormats,
-                     elliptic_curves => EllipticCurves}.
+                     elliptic_curves => EllipticCurves,
+                     signature_algs => available_signature_algs(SupportedHashSigns, Version)}.
 
 
 maybe_add_tls13_extensions({3,4},
@@ -1153,6 +1156,11 @@ maybe_add_key_share(HelloExtensions, KeyShare) ->
     HelloExtensions#{key_share => #key_share_client_hello{
                                      client_shares = ClientShares}}.
 
+
+signature_algs_ext(undefined) ->
+    undefined;
+signature_algs_ext(SignatureSchemes) ->
+    #signature_algorithms{signature_scheme_list = SignatureSchemes}.
 
 signature_algs_cert(undefined) ->
     undefined;
