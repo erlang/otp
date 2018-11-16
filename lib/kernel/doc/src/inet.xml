@@ -1017,8 +1017,7 @@ get_tcpi_sacked(Sock) ->
 	      data to be flushed with closing happening in the background.
 	      If the first component is <c>true</c> and the second is <c>0</c>,
 	      <c>close/1</c> also returns immediately, with the close happening
-	      immediately, avoiding a TIME_WAIT state. Otherwise, the second 
-	      component is the flushing time-out, in seconds.</p>
+	      immediately, avoiding a TIME_WAIT state.
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
