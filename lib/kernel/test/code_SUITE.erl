@@ -1021,6 +1021,13 @@ mult_lib_remove_prefix([H|T1], [H|T2]) ->
 mult_lib_remove_prefix([$/|T], []) -> T.
 
 bad_erl_libs(Config) when is_list(Config) ->
+    %% Preserve ERL_LIBS if set.
+    BadLibs0 = "/no/such/dir",
+    BadLibs =
+         case os:getenv("ERL_LIBS") of
+             false -> BadLibs0;
+             Libs -> BadLibs0 ++ ":" ++ Libs
+         end,
     {ok,Node} =
 	test_server:start_node(bad_erl_libs, slave, []),
     Code = rpc:call(Node,code,get_path,[]),
@@ -1028,10 +1035,9 @@ bad_erl_libs(Config) when is_list(Config) ->
 
     {ok,Node2} =
 	test_server:start_node(bad_erl_libs, slave,
-			       [{args,"-env ERL_LIBS /no/such/dir"}]),
+			       [{args,"-env ERL_LIBS " ++ BadLibs}]),
     Code2 = rpc:call(Node,code,get_path,[]),
     test_server:stop_node(Node2),
-
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
 
