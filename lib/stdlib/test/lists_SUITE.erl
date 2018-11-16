@@ -158,6 +158,20 @@ append_2(Config) when is_list(Config) ->
     "abcdef"=lists:append("abc", "def"),
     [hej, du]=lists:append([hej], [du]),
     [10, [elem]]=lists:append([10], [[elem]]),
+
+    %% Trapping, both crashing and otherwise.
+    [append_trapping_1(N) || N <- lists:seq(0, 20)],
+
+    ok.
+
+append_trapping_1(N) ->
+    List = lists:duplicate(N + (1 bsl N), gurka),
+    ImproperList = List ++ crash,
+
+    {'EXIT',_} = (catch (ImproperList ++ [])),
+
+    [3, 2, 1 | List] = lists:reverse(List ++ [1, 2, 3]),
+
     ok.
 
 %% Tests the lists:reverse() implementation. The function is
