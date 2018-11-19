@@ -268,7 +268,8 @@
     <datatype_title>Elliptic Curves</datatype_title>
     <datatype>
       <name name="ec_named_curve"/>
-      <name name="edwards_curve"/>
+      <name name="edwards_curve_dh"/>
+      <name name="edwards_curve_ed"/>
       <desc>
 	<p>Note that some curves are disabled if FIPS is enabled.</p>
       </desc>
@@ -343,6 +344,14 @@
       <name name="ecdsa_public"/>
       <name name="ecdsa_private"/>
       <name name="ecdsa_params"/>
+      <desc>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="eddsa_public"/>
+      <name name="eddsa_private"/>
+      <name name="eddsa_params"/>
       <desc>
       </desc>
     </datatype>

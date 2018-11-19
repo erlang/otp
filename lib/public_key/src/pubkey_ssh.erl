@@ -25,7 +25,8 @@
 
 -export([decode/2, encode/2,
 	 dh_gex_group/4, 
-	 dh_gex_group_sizes/0
+	 dh_gex_group_sizes/0,
+pad/2,         new_openssh_encode/1, new_openssh_decode/1  % For test and experiments
 	]).
 
 -define(UINT32(X), X:32/unsigned-big-integer).
@@ -67,6 +68,8 @@ decode(Bin, rfc4716_public_key) ->
     rfc4716_decode(Bin);
 decode(Bin, ssh2_pubkey) ->
     ssh2_pubkey_decode(Bin);
+decode(Bin, new_openssh) ->
+    new_openssh_decode(Bin);
 decode(Bin, Type) ->
     openssh_decode(Bin, Type).
 
@@ -177,6 +180,70 @@ join_entry([Line | Lines], Entry) ->
 rfc4716_pubkey_decode(BinKey) -> ssh2_pubkey_decode(BinKey).
 
 
+%% From https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
+new_openssh_decode(<<"openssh-key-v1",0,
+                     ?DEC_BIN(CipherName, _L1),
+                     ?DEC_BIN(KdfName, _L2),
+                     ?DEC_BIN(KdfOptions, _L3),
+                     ?UINT32(N),      % number of keys
+                     ?DEC_BIN(PublicKey, _L4),
+                     ?DEC_BIN(Encrypted, _L5),
+                     _Rest/binary
+                   >>) ->
+    %%io:format("CipherName = ~p~nKdfName = ~p~nKdfOptions = ~p~nPublicKey = ~p~nN = ~p~nEncrypted = ~p~nRest = ~p~n", [CipherName, KdfName, KdfOptions, PublicKey, N, Encrypted, _Rest]),
+    new_openssh_decode(CipherName, KdfName, KdfOptions, PublicKey, N, Encrypted).
+
+new_openssh_decode(<<"none">>, <<"none">>, <<"">>, _PublicKey, 1,
+                   <<?UINT32(CheckInt),
+                     ?UINT32(CheckInt),
+                     ?DEC_BIN(Type, _Lt),
+                     ?DEC_BIN(PubKey, _Lpu),
+                     ?DEC_BIN(PrivPubKey, _Lpripub),
+                     ?DEC_BIN(_Comment,    _C1),
+                     _Pad/binary>>) ->
+    case {Type,PrivPubKey} of
+        {<<"ssh-ed25519">>,
+         <<PrivKey:32/binary, PubKey:32/binary>>} ->
+            {ed_pri, ed25519, PubKey, PrivKey}; 
+
+        {<<"ssh-ed448">>,
+         <<PrivKey:57/binary, PubKey/binary>>} -> % "Intelligent" guess from
+                                                % https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448
+            {ed_pri, ed448, PubKey, PrivKey}
+    end.
+
+
+new_openssh_encode({ed_pri,_,PubKey,PrivKey}=Key) ->
+    Type = key_type(Key),
+    CheckInt = 17*256+17, %crypto:strong_rand_bytes(4),
+    Comment = <<>>,
+    PublicKey = <<?STRING(Type),?STRING(PubKey)>>,
+    CipherName = <<"none">>,
+    KdfName = <<"none">>,
+    KdfOptions = <<>>,
+    BlockSize = 8, % Crypto dependent
+    NumKeys = 1,
+    Encrypted0 = <<?UINT32(CheckInt),
+                   ?UINT32(CheckInt),
+                   ?STRING(Type),
+                   ?STRING(PubKey),
+                   ?STRING(<<PrivKey/binary,PubKey/binary>>),
+                   ?STRING(Comment)
+                >>,
+    Pad = pad(size(Encrypted0), BlockSize),
+    Encrypted = <<Encrypted0/binary, Pad/binary>>,
+    <<"openssh-key-v1",0,
+      ?STRING(CipherName),
+      ?STRING(KdfName),
+      ?STRING(KdfOptions),
+      ?UINT32(NumKeys),
+      ?STRING(PublicKey),
+      ?STRING(Encrypted)>>.
+
+pad(N, BlockSize) when N>BlockSize -> pad(N rem BlockSize, BlockSize);
+pad(N, BlockSize) -> list_to_binary(lists:seq(1,BlockSize-N)).
+
+
 openssh_decode(Bin, FileType) ->
     Lines = binary:split(Bin, <<"\n">>, [global]),
     do_openssh_decode(FileType, Lines, []).
@@ -235,6 +302,8 @@ do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
 	    <<"ssh-rsa">> -> true;
 	    <<"ssh-dss">> -> true;
 	    <<"ecdsa-sha2-",Curve/binary>> -> is_ssh_curvename(Curve);
+            <<"ssh-ed25519">> -> true;
+            <<"ssh-ed448">> -> true;
 	    _ -> false
 	end,
 
@@ -247,7 +316,9 @@ do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
 	    Comment = string:strip(string_decode(iolist_to_binary(Comment0)), right, $\n),
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
-				[{comment, Comment}]} | Acc])
+				[{comment, Comment}]} | Acc]);
+        _ when KnownKeyType==false ->
+                  do_openssh_decode(FileType, Lines,  Acc)
     end.
 
 
@@ -386,6 +457,10 @@ line_end(Comment) ->
 
 key_type(#'RSAPublicKey'{})   -> <<"ssh-rsa">>;
 key_type({_, #'Dss-Parms'{}}) -> <<"ssh-dss">>;
+key_type({ed_pub,ed25519,_}) -> <<"ssh-ed25519">>;
+key_type({ed_pub,ed448,_}) -> <<"ssh-ed448">>;
+key_type({ed_pri,ed25519,_,_}) -> <<"ssh-ed25519">>;
+key_type({ed_pri,ed448,_,_}) -> <<"ssh-ed448">>;
 key_type({#'ECPoint'{}, {namedCurve,Curve}}) -> <<"ecdsa-sha2-", (public_key:oid2ssh_curvename(Curve))/binary>>.
 
 comma_list_encode([Option], [])  ->
@@ -404,7 +479,12 @@ ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     <<?STRING(<<"ssh-dss">>), ?Empint(P), ?Empint(Q), ?Empint(G), ?Empint(Y)>>;
 ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
     Curve = public_key:oid2ssh_curvename(OID),
-    <<?STRING(key_type(Key)), ?Estring(Curve), ?Estring(Q)>>.
+    <<?STRING(key_type(Key)), ?Estring(Curve), ?Estring(Q)>>;
+ssh2_pubkey_encode({ed_pub, ed25519, Key}) ->
+    <<?STRING(<<"ssh-ed25519">>), ?Estring(Key)>>;
+ssh2_pubkey_encode({ed_pub, ed448, Key}) ->
+    <<?STRING(<<"ssh-ed448">>), ?Estring(Key)>>.
+
 
 
 ssh2_pubkey_decode(<<?DEC_BIN(Type,_TL), Bin/binary>>) ->
@@ -430,12 +510,23 @@ ssh2_pubkey_decode(<<"ssh-dss">>,
 ssh2_pubkey_decode(<<"ecdsa-sha2-",Id/binary>>,
                    <<?DEC_BIN(Id, _IL),
                      ?DEC_BIN(Q, _QL)>>) ->
-    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}}.
+    {#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}};
+
+ssh2_pubkey_decode(<<"ssh-ed25519">>,
+                   <<?DEC_BIN(Key, _L)>>) ->
+    {ed_pub, ed25519, Key};
+
+ssh2_pubkey_decode(<<"ssh-ed448">>,
+                   <<?DEC_BIN(Key, _L)>>) ->
+    {ed_pub, ed448, Key}.
+
 
 
 
 is_key_field(<<"ssh-dss">>) ->  true;
 is_key_field(<<"ssh-rsa">>) ->  true;
+is_key_field(<<"ssh-ed25519">>) -> true;
+is_key_field(<<"ssh-ed448">>) -> true;
 is_key_field(<<"ecdsa-sha2-",Id/binary>>) -> is_ssh_curvename(Id);
 is_key_field(_) -> false.
 
