@@ -12717,6 +12717,30 @@ erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp)
     }
     erts_print(to, to_arg, "\n");
 
+    if (esdp->type == ERTS_SCHED_DIRTY_CPU) {
+	ErtsRunQueue *rq;
+	ErtsSchedulerSleepInfo *ssi;
+	ErtsSchedulerSleepList *sl;
+	int max = erts_no_dirty_cpu_schedulers + 3;
+	int i = 0;
+	rq = ERTS_DIRTY_CPU_RUNQ;
+	sl = &rq->sleepers;
+	erts_spin_lock(&sl->lock);
+	ssi = sl->list;
+	erts_print(to, to_arg, "Scheduler Run Queue Len: %d\n", rq->len);
+	erts_print(to, to_arg, "Scheduler Sleeper List: ");
+	while(ssi) {
+	    erts_print(to, to_arg, "%x ", ssi);
+	    ssi = ssi->next;
+	    if(i++ > max) {
+		erts_print(to, to_arg, "hit max; stopping");
+		break;
+	    }
+	}
+	erts_spin_unlock(&sl->lock);
+	erts_print(to, to_arg, "\n");
+    }
+
     if (esdp->type == ERTS_SCHED_NORMAL) {
         erts_print(to, to_arg, "Current Port: ");
         if (esdp->current_port)

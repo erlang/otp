@@ -517,7 +517,8 @@ do_break(void)
 
     erts_printf("\n"
 		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
-		"       (v)ersion (k)ill (D)b-tables (d)istribution\n");
+		"       (v)ersion (k)ill (D)b-tables (d)istribution\n"
+		"       (s)cheduler info (dirty cpu)\n");
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
@@ -538,6 +539,18 @@ do_break(void)
 	    return;
 	case 'p':
 	    process_info(ERTS_PRINT_STDOUT, NULL);
+	    return;
+	case 's':
+	    for (i = 0; i < erts_no_dirty_cpu_schedulers; i++) {
+#if defined(ERTS_HAVE_TRY_CATCH)
+		ERTS_SYS_TRY_CATCH(
+		    erts_print_scheduler_info(ERTS_PRINT_STDOUT, NULL, ERTS_DIRTY_CPU_SCHEDULER_IX(i)),
+		    erts_cbprintf(ERTS_PRINT_STDOUT, NULL, "** crashed **\n"));
+#else	    /* take the risk for testing on macosx */
+		erts_print_scheduler_info(ERTS_PRINT_STDOUT, NULL, ERTS_DIRTY_CPU_SCHEDULER_IX(i));
+#endif
+
+	    }
 	    return;
 	case 'm':
 	    return;
