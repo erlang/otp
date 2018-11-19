@@ -184,12 +184,15 @@ init_per_testcase(TC, {public_key,Alg}, Config) ->
                                 | ExtraOpts],
                                 [{extra_daemon,true}|Config]);
         {{ok,_}, {error,Err}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No host key: ~p",[Err])};
         
         {{error,Err}, {ok,_}} ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, io_lib:format("No user key: ~p",[Err])};
         
         _ ->
+            ct:log("Alg = ~p~nOpts = ~p",[Alg,Opts]),
             {skip, "Neither host nor user key"}
     end;
 
@@ -470,7 +473,9 @@ setup_pubkey(Alg, Config) ->
         'rsa-sha2-512' -> ssh_test_lib:setup_rsa(DataDir, UserDir);
         'ecdsa-sha2-nistp256' -> ssh_test_lib:setup_ecdsa("256", DataDir, UserDir);
         'ecdsa-sha2-nistp384' -> ssh_test_lib:setup_ecdsa("384", DataDir, UserDir);
-        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir)
+        'ecdsa-sha2-nistp521' -> ssh_test_lib:setup_ecdsa("521", DataDir, UserDir);
+        'ssh-ed25519' -> ssh_test_lib:setup_eddsa(ed25519, DataDir, UserDir);
+        'ssh-ed448'   -> ssh_test_lib:setup_eddsa(ed448, DataDir, UserDir)
     end,
     Config.
 

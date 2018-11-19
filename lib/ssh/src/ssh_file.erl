@@ -52,8 +52,9 @@
 
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
+%% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
+%% Not yet implemented:                     | {ed448_pass_phrase,    string()}
                                             | {ecdsa_pass_phrase,    string()} .
-
 
 
 -define(PERM_700, 8#700).
@@ -120,6 +121,8 @@ file_base_name('ssh-dss'            ) -> "ssh_host_dsa_key";
 file_base_name('ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
 file_base_name('ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
 file_base_name('ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name('ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+file_base_name('ssh-ed448'          ) -> "ssh_host_ed448_key";
 file_base_name(_                    ) -> "ssh_host_key".
 
 decode(File, Password) ->
@@ -257,6 +260,8 @@ identity_key_filename('ssh-rsa'            ) -> "id_rsa";
 identity_key_filename('rsa-sha2-256'       ) -> "id_rsa";
 identity_key_filename('rsa-sha2-384'       ) -> "id_rsa";
 identity_key_filename('rsa-sha2-512'       ) -> "id_rsa";
+identity_key_filename('ssh-ed25519'        ) -> "id_ed25519";
+identity_key_filename('ssh-ed448'          ) -> "id_ed448";
 identity_key_filename('ecdsa-sha2-nistp256') -> "id_ecdsa";
 identity_key_filename('ecdsa-sha2-nistp384') -> "id_ecdsa";
 identity_key_filename('ecdsa-sha2-nistp521') -> "id_ecdsa".
@@ -266,6 +271,8 @@ identity_pass_phrase("ssh-rsa"       ) -> rsa_pass_phrase;
 identity_pass_phrase("rsa-sha2-256"  ) -> rsa_pass_phrase;
 identity_pass_phrase("rsa-sha2-384"  ) -> rsa_pass_phrase;
 identity_pass_phrase("rsa-sha2-512"  ) -> rsa_pass_phrase;
+%% Not yet implemented: identity_pass_phrase("ssh-ed25519"   ) -> ed25519_pass_phrase;
+%% Not yet implemented: identity_pass_phrase("ssh-ed448"     ) -> ed448_pass_phrase;
 identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
 identity_pass_phrase(P) when is_atom(P) -> 
     identity_pass_phrase(atom_to_list(P));
@@ -319,6 +326,10 @@ key_match({#'ECPoint'{},{namedCurve,Curve}}, Alg) ->
 	_ ->
 	    false
     end;
+key_match({ed_pub,ed25519,_}, 'ssh-ed25519') ->
+    true;
+key_match({ed_pub,ed448,_}, 'ssh-ed448') ->
+    true;
 key_match(_, _) ->
     false.
 

@@ -175,6 +175,8 @@
 	  <item>ecdsa-sha2-nistp384</item>
 	  <item>ecdsa-sha2-nistp521</item>
 	  <item>ecdsa-sha2-nistp256</item>
+	  <item>ssh-ed25519</item>
+	  <item>ssh-ed448</item>
 	  <item>ssh-rsa</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
@@ -378,7 +380,11 @@
       <item>
 	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
       </item>
-      
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448">Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol (work in progress)</url>
+      </item>
+
     </list>
 
   </section>

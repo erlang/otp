@@ -149,6 +149,8 @@ supported_algorithms(public_key) ->
        {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {curves,secp384r1}]},
        {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {curves,secp521r1}]},
        {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
+       {'ssh-ed25519',          [{public_keys,eddsa}, {curves,ed25519}                    ]},
+       {'ssh-ed448',            [{public_keys,eddsa}, {curves,ed448}                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
@@ -806,6 +808,8 @@ extract_public_key(#'DSAPrivateKey'{y = Y, p = P, q = Q, g = G}) ->
 extract_public_key(#'ECPrivateKey'{parameters = {namedCurve,OID},
 				   publicKey = Q}) ->
     {#'ECPoint'{point=Q}, {namedCurve,OID}};
+extract_public_key({ed_pri, Alg, Pub, _Priv}) ->
+    {ed_pub, Alg, Pub};
 extract_public_key(#{engine:=_, key_id:=_, algorithm:=Alg} = M) ->
     case {Alg, crypto:privkey_to_pubkey(Alg, M)} of
         {rsa, [E,N]} ->
@@ -872,6 +876,8 @@ yes_no(#ssh{opts=Opts}, Prompt)  ->
 
 fmt_hostkey('ssh-rsa') -> "RSA";
 fmt_hostkey('ssh-dss') -> "DSA";
+fmt_hostkey('ssh-ed25519') -> "ED25519";
+fmt_hostkey('ssh-ed448') -> "ED448";
 fmt_hostkey(A) when is_atom(A) -> fmt_hostkey(atom_to_list(A));
 fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
@@ -1936,6 +1942,11 @@ valid_key_sha_alg(#'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 valid_key_sha_alg({_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
 valid_key_sha_alg(#'DSAPrivateKey'{},  'ssh-dss') -> true;
 
+valid_key_sha_alg({ed_pub, ed25519,_},  'ssh-ed25519') -> true;
+valid_key_sha_alg({ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
+valid_key_sha_alg({ed_pub, ed448,_},    'ssh-ed448') -> true;
+valid_key_sha_alg({ed_pri, ed448,_,_},  'ssh-ed448') -> true;
+
 valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> valid_key_sha_alg_ec(OID, Alg);
 valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> valid_key_sha_alg_ec(OID, Alg);
 valid_key_sha_alg(_, _) -> false.
@@ -1945,11 +1956,16 @@ valid_key_sha_alg_ec(OID, Alg) ->
     Alg == list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
     
 
+-dialyzer({no_match, public_algo/1}).
+
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
+public_algo({ed_pub, ed25519,_}) -> 'ssh-ed25519';
+public_algo({ed_pub, ed448,_}) -> 'ssh-ed448';
 public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
     Curve = public_key:oid2ssh_curvename(OID),
     list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+
 
 sha('ssh-rsa') -> sha;
 sha('rsa-sha2-256') -> sha256;
@@ -1959,6 +1975,8 @@ sha('ssh-dss') -> sha;
 sha('ecdsa-sha2-nistp256') -> sha(secp256r1);
 sha('ecdsa-sha2-nistp384') -> sha(secp384r1);
 sha('ecdsa-sha2-nistp521') -> sha(secp521r1);
+sha('ssh-ed25519') -> undefined; % Included in the spec of ed25519
+sha('ssh-ed448') -> undefined; % Included in the spec of ed448
 sha(secp256r1) -> sha256;
 sha(secp384r1) -> sha384;
 sha(secp521r1) -> sha512;
@@ -2052,7 +2070,6 @@ ecdh_curve('ecdh-sha2-nistp521') -> secp521r1;
 ecdh_curve('curve448-sha512'   ) -> x448;
 ecdh_curve('curve25519-sha256' ) -> x25519;
 ecdh_curve('curve25519-sha256@libssh.org' ) -> x25519.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

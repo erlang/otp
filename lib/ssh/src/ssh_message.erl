@@ -611,7 +611,13 @@ encode_signature({_, #'Dss-Parms'{}}, _SigAlg, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
 encode_signature({#'ECPoint'{}, {namedCurve,OID}}, _SigAlg, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
-    <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
+    <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>;
+encode_signature({ed_pub, ed25519,_}, _SigAlg, Signature) ->
+    <<?Ebinary(<<"ssh-ed25519">>), ?Ebinary(Signature)>>;
+encode_signature({ed_pub, ed448,_}, _SigAlg, Signature) ->
+    <<?Ebinary(<<"ssh-ed448">>), ?Ebinary(Signature)>>.
+    
+
 
 %%%################################################################
 %%%#
