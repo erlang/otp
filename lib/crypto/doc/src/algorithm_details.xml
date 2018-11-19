@@ -303,6 +303,20 @@
     </section>
 
     <section>
+      <title>EdDSA</title>
+      <p>EdDSA is available with OpenSSL 1.1.1 or later if not disabled by configuration.
+      To dynamically check availability, check that the atom <c>eddsa</c> is present in the
+      list with the <c>public_keys</c> tag in the return value of
+      <seealso marker="crypto#supports-0">crypto:supports()</seealso>.
+      </p>
+      <p>Support for the curves ed25519 and ed448 is implemented.
+      The actual supported named curves could be checked by examining the list with the
+      <c>curves</c> tag in the return value of
+      <seealso marker="crypto#supports-0">crypto:supports()</seealso>.
+      </p>
+    </section>
+
+    <section>
       <title>Diffie-Hellman</title>
       <p>Diffie-Hellman computations are available with OpenSSL versions compatible with Erlang CRYPTO
       if not disabled by configuration.

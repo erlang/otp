@@ -68,8 +68,8 @@
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
               key_params/0, digest_type/0]).
 
--type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key().
--type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key().
+-type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
+-type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
 
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}.
@@ -79,6 +79,9 @@
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
+-type ed_public_key()        :: {ed_pub, ed25519|ed448, Key::binary()}.
+-type ed_private_key()       :: {ed_pri, ed25519|ed448, Pub::binary(), Priv::binary()}.
+
 -type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
                                 {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
@@ -166,6 +169,8 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
 	    ECCParams = der_decode('EcpkParameters', Params),
             {#'ECPoint'{point = Key0}, ECCParams}
     end;
+pem_entry_decode({{no_asn1,new_openssh}, Special, not_encrypted}) ->
+    ssh_decode(Special, new_openssh);
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
@@ -1070,8 +1075,9 @@ pkix_verify_hostname_match_fun(https) ->
 -spec ssh_decode(SshBin, Type) ->
                         Decoded
                             when SshBin :: binary(),
-                                 Type :: ssh2_pubkey | OtherType,
+                                 Type :: ssh2_pubkey | OtherType | InternalType,
                                  OtherType :: public_key | ssh_file(),
+                                 InternalType :: new_openssh,
                                  Decoded :: Decoded_ssh2_pubkey
                                           | Decoded_OtherType,
                                  Decoded_ssh2_pubkey :: public_key(),
@@ -1090,7 +1096,8 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 			      Type == openssh_public_key;
 			      Type == auth_keys;
 			      Type == known_hosts;
-			      Type == ssh2_pubkey ->
+			      Type == ssh2_pubkey;
+                              Type == new_openssh ->
     pubkey_ssh:decode(SshBin, Type).
 
 %%--------------------------------------------------------------------
@@ -1233,6 +1240,8 @@ format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     {dss, [P, Q, G, X]};
 format_sign_key(#'ECPrivateKey'{privateKey = PrivKey, parameters = Param}) ->
     {ecdsa, [PrivKey, ec_curve_spec(Param)]};
+format_sign_key({ed_pri, Curve, _Pub, Priv}) ->
+    {eddsa, [Priv,Curve]};
 format_sign_key(_) ->
     badarg.
 
@@ -1242,6 +1251,8 @@ format_verify_key({#'ECPoint'{point = Point}, Param}) ->
     {ecdsa, [Point, ec_curve_spec(Param)]};
 format_verify_key({Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     {dss, [P, Q, G, Key]};
+format_verify_key({ed_pub, Curve, Key}) ->
+    {eddsa, [Key,Curve]};
 %% Convert private keys to public keys
 format_verify_key(#'RSAPrivateKey'{modulus = Mod, publicExponent = Exp}) ->
     format_verify_key(#'RSAPublicKey'{modulus = Mod, publicExponent = Exp});

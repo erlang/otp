@@ -109,6 +109,13 @@
     </datatype>
 
     <datatype>
+      <name name="ed_public_key"/>
+      <desc>
+	<warning><p>This format of the EdDSA curves is temporary and may change without prior notice!</p></warning>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="private_key"/>
       <name name="rsa_private_key"/>
       <name name="dsa_private_key"/>
@@ -116,6 +123,14 @@
       <desc>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="ed_private_key"/>
+      <desc>
+	<warning><p>This format of the EdDSA curves is temporary and may change without prior notice!</p></warning>
+      </desc>
+    </datatype>
+
 
     <datatype>
       <name name="key_params"/>
