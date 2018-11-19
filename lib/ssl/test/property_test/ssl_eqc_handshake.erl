@@ -716,7 +716,8 @@ key_share(server_hello) ->
           server_share = ServerShare}).
 
 key_share_entry_list() ->
-    ?LET(Size, choose(1,8), key_share_entry_list(Size)).
+    Max = length(ssl:groups()),
+    ?LET(Size, choose(1,Max), key_share_entry_list(Size)).
 %%
 key_share_entry_list(N) ->
     key_share_entry_list(N, ssl:groups(), []).
@@ -746,7 +747,8 @@ generate_public_key(Group) ->
     PublicKey.
 
 groups() ->
-    ?LET(Size, choose(1,8), group_list(Size)).
+    Max = length(ssl:groups()),
+    ?LET(Size, choose(1,Max), group_list(Size)).
 
 group_list(N) ->
     group_list(N, ssl:groups(), []).
