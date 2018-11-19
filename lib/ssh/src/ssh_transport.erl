@@ -51,7 +51,9 @@
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/2,
-	 sha/1, sign/3, verify/5]).
+	 sha/1, sign/3, verify/5,
+         get_host_key/2,
+         call_KeyCb/3]).
 
 -export([dbg_trace/3]).
 
@@ -431,7 +433,8 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
 %%% 
 handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, 
 		  Ssh0 = #ssh{algorithms = #alg{kex=Kex,
-                                                hkey=SignAlg} = Algs}) ->
+                                                hkey=SignAlg} = Algs,
+                              opts = Opts}) ->
     %% server
     {G, P} = dh_group(Kex),
     if
@@ -439,7 +442,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
             Sz = dh_bits(Algs),
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
-	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -578,14 +581,15 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
 			    keyex_info = {Min, Max, NBits},
                             algorithms = #alg{kex=Kex,
-                                              hkey=SignAlg}} = Ssh0) ->
+                                              hkey=SignAlg},
+                            opts = Opts} = Ssh0) ->
     %% server
     if
 	1=<E, E=<(P-1) ->
 	    K = compute_key(dh, E, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
-		    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+		    MyPrivHostKey = get_host_key(SignAlg, Opts),
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
                     H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
                     H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -653,7 +657,8 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 %%% 
 handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 		     Ssh0 = #ssh{algorithms = #alg{kex=Kex,
-                                                   hkey=SignAlg}}) ->
+                                                   hkey=SignAlg},
+                                 opts = Opts}) ->
     %% at server
     Curve = ecdh_curve(Kex),
     {MyPublic, MyPrivate} = generate_key(ecdh, Curve),
@@ -661,7 +666,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
+	    MyPrivHostKey = get_host_key(SignAlg, Opts),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
             H = kex_hash(Ssh0, MyPubHostKey, sha(Curve), {PeerPublic, MyPublic, K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
@@ -777,10 +782,8 @@ sid(#ssh{session_id = Id},        _) -> Id.
 %%
 %% The host key should be read from storage
 %%
-get_host_key(SSH, SignAlg) ->
-    #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts} = SSH,
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:host_key(SignAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+get_host_key(SignAlg, Opts) ->
+    case call_KeyCb(host_key, [SignAlg], Opts) of
 	{ok, PrivHostKey} ->
             %% Check the key - the KeyCb may be a buggy plugin
             case valid_key_sha_alg(PrivHostKey, SignAlg) of
@@ -790,6 +793,11 @@ get_host_key(SSH, SignAlg) ->
 	Result ->
             exit({error, {Result, unsupported_key_type}})
     end.
+
+call_KeyCb(F, Args, Opts) ->
+    {KeyCb,KeyCbOpts} = ?GET_OPT(key_cb, Opts),
+    UserOpts = ?GET_OPT(user_options, Opts),
+    apply(KeyCb, F, Args ++ [[{key_cb_private,KeyCbOpts}|UserOpts]]).
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
     #'RSAPublicKey'{modulus = N, publicExponent = E};
@@ -857,8 +865,9 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
     end.
 
 
-yes_no(Ssh, Prompt)  ->
-    (Ssh#ssh.io_cb):yes_no(Prompt, Ssh#ssh.opts).
+yes_no(#ssh{opts=Opts}, Prompt)  ->
+    IoCb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
+    IoCb:yes_no(Prompt, Opts).
 
 
 fmt_hostkey('ssh-rsa') -> "RSA";
@@ -868,18 +877,16 @@ fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
 
 
-known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case is_host_key(KeyCb, Public, PeerName, Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	{_,true} ->
+    case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
+	true ->
 	    ok;
-	{_,false} ->
+	false ->
             DoAdd = ?GET_OPT(save_accepted_host, Opts),
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
 		true when DoAdd == true ->
-		    {_,R} = add_host_key(KeyCb, PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]),
-                    R;
+		    call_KeyCb(add_host_key, [PeerName, Public], Opts);
 		true when DoAdd == false ->
                     ok;
 		false ->
@@ -889,13 +896,6 @@ known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}
 	    end
     end.
 	    
-is_host_key(KeyCb, Public, PeerName, Alg, Data) ->
-    {KeyCb, KeyCb:is_host_key(Public, PeerName, Alg, Data)}.
-
-add_host_key(KeyCb, PeerName, Public, Data) ->
-    {KeyCb, KeyCb:add_host_key(PeerName, Public, Data)}.
-    
-
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
 %%   supported (allowed) algorithm MUST be listed in order of preference.
