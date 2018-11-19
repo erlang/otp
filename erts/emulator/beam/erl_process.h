@@ -363,7 +363,7 @@ typedef struct {
 struct ErtsSchedulerSleepInfo_ {
     struct ErtsSchedulerData_ *esdp;
     ErtsSchedulerSleepInfo *next;
-    ErtsSchedulerSleepInfo *prev;
+    erts_atomic32_t in_sleepers_list;
     erts_atomic32_t flags;
     erts_tse_t *event;
     struct erts_poll_thread *psi;

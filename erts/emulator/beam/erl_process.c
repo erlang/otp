@@ -3237,6 +3237,34 @@ poll_thread(void *arg)
 }
 
 static void
+dirty_remove_from_sleepers(ErtsRunQueue *rq, ErtsSchedulerSleepInfo *ssi) {
+    ErtsSchedulerSleepInfo *trav_ssi;
+
+    if (!erts_atomic32_read_acqb(&ssi->in_sleepers_list))
+	return;
+
+    erts_spin_lock(&rq->sleepers.lock);
+    trav_ssi = rq->sleepers.list;
+    if(trav_ssi == ssi) {
+	rq->sleepers.list = trav_ssi->next;
+	erts_atomic32_set_acqb(&ssi->in_sleepers_list, 0);
+	erts_spin_unlock(&rq->sleepers.lock);
+	return;
+    }
+
+    /* traverse sleepers list */
+    while(trav_ssi) {
+	if (trav_ssi->next == ssi) {
+	    trav_ssi->next = ssi->next;
+	    erts_atomic32_set_acqb(&ssi->in_sleepers_list, 0);
+	    break;
+	}
+	trav_ssi = trav_ssi->next;
+    }
+    erts_spin_unlock(&rq->sleepers.lock);
+}
+
+static void
 scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 {
     int working = 1;
@@ -3249,24 +3277,24 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
 
-    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	erts_spin_lock(&rq->sleepers.lock);
     flgs = sched_prep_spin_wait(ssi);
     if (flgs & ERTS_SSI_FLG_SUSPENDED) {
 	/* Go suspend instead... */
-	if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	    erts_spin_unlock(&rq->sleepers.lock);
 	return;
     }
 
     if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
-	ssi->prev = NULL;
+	if (erts_atomic32_read_acqb(&ssi->in_sleepers_list)) {
+	    /* already in sleepers list */
+	    goto do_not_add_to_sleepers;
+	}
+	erts_spin_lock(&rq->sleepers.lock);
 	ssi->next = rq->sleepers.list;
-	if (rq->sleepers.list)
-	    rq->sleepers.list->prev = ssi;
+	erts_atomic32_set_acqb(&ssi->in_sleepers_list, 1);
 	rq->sleepers.list = ssi;
 	erts_spin_unlock(&rq->sleepers.lock);
-        dirty_active(esdp, -1);
+	do_not_add_to_sleepers:
+	dirty_active(esdp, -1);
     }
 
     sched_waiting(esdp->no, rq);
@@ -3494,17 +3522,11 @@ wake_dirty_schedulers(ErtsRunQueue *rq, int one)
 	    wake_scheduler(rq);
     } else if (one) {
 	erts_aint32_t flgs;
-	if (ssi->prev)
-	    ssi->prev->next = ssi->next;
-	else {
-	    ASSERT(sl->list == ssi);
-	    sl->list = ssi->next;
-	}
-	if (ssi->next)
-	    ssi->next->prev = ssi->prev;
-
+	ASSERT(sl->list == ssi);
+	sl->list = ssi->next;
+	ssi->next = NULL;
 	erts_spin_unlock(&sl->lock);
-
+	erts_atomic32_set_acqb(&ssi->in_sleepers_list, 0);
 	ERTS_THR_MEMORY_BARRIER;
 	flgs = ssi_flags_set_wake(ssi);
 	erts_sched_finish_poke(ssi, flgs);
@@ -3516,6 +3538,8 @@ wake_dirty_schedulers(ErtsRunQueue *rq, int one)
 	do {
 	    ErtsSchedulerSleepInfo *wake_ssi = ssi;
 	    ssi = ssi->next;
+	    wake_ssi->next = NULL;
+	    erts_atomic32_set_acqb(&wake_ssi->in_sleepers_list, 0);
 	    erts_sched_finish_poke(wake_ssi, ssi_flags_set_wake(wake_ssi));
 	} while (ssi);
     }
@@ -5858,7 +5882,6 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	ErtsSchedulerSleepInfo *ssi = &aligned_sched_sleep_info[ix].ssi;
 #if 0 /* no need to initialize these... */
 	ssi->next = NULL;
-	ssi->prev = NULL;
 #endif
         ssi->esdp = NULL;
 	erts_atomic32_init_nob(&ssi->flags, 0);
@@ -5875,6 +5898,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     for (ix = 0; ix < no_dirty_cpu_schedulers; ix++) {
 	ErtsSchedulerSleepInfo *ssi = &aligned_dirty_cpu_sched_sleep_info[ix].ssi;
 	erts_atomic32_init_nob(&ssi->flags, 0);
+	ssi->next = NULL;
+	erts_atomic32_init_nob(&ssi->in_sleepers_list, 0);
 	ssi->event = NULL; /* initialized in sched_dirty_cpu_thread_func */
 	erts_atomic32_init_nob(&ssi->aux_work, 0);
     }
@@ -5884,6 +5909,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	    no_dirty_io_schedulers*sizeof(ErtsAlignedSchedulerSleepInfo));
     for (ix = 0; ix < no_dirty_io_schedulers; ix++) {
 	ErtsSchedulerSleepInfo *ssi = &aligned_dirty_io_sched_sleep_info[ix].ssi;
+	ssi->next = NULL;
+	erts_atomic32_init_nob(&ssi->in_sleepers_list, 0);
 	erts_atomic32_init_nob(&ssi->flags, 0);
 	ssi->event = NULL; /* initialized in sched_dirty_io_thread_func */
 	erts_atomic32_init_nob(&ssi->aux_work, 0);
@@ -9268,6 +9295,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	if (!is_normal_sched) {
 	    if (erts_atomic32_read_acqb(&esdp->ssi->flags)
 		& (ERTS_SSI_FLG_SUSPENDED|ERTS_SSI_FLG_MSB_EXEC)) {
+		dirty_remove_from_sleepers(rq, esdp->ssi);
 		suspend_scheduler(esdp);
 	    }
 	}
