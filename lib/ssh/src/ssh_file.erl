@@ -268,7 +268,8 @@ identity_pass_phrase("rsa-sha2-384"  ) -> rsa_pass_phrase;
 identity_pass_phrase("rsa-sha2-512"  ) -> rsa_pass_phrase;
 identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
 identity_pass_phrase(P) when is_atom(P) -> 
-    identity_pass_phrase(atom_to_list(P)).
+    identity_pass_phrase(atom_to_list(P));
+identity_pass_phrase(_) -> undefined.
     
 lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of

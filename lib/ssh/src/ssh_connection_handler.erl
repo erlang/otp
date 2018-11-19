@@ -447,7 +447,6 @@ init_ssh_record(Role, Socket, Opts) ->
 init_ssh_record(Role, Socket, PeerAddr, Opts) ->
     AuthMethods = ?GET_OPT(auth_methods, Opts),
     S0 = #ssh{role = Role,
-	      key_cb = ?GET_OPT(key_cb, Opts),
 	      opts = Opts,
 	      userauth_supported_methods = AuthMethods,
 	      available_host_keys = available_hkey_algorithms(Role, Opts),
@@ -472,10 +471,11 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
             S1 =
                 S0#ssh{c_vsn = Vsn,
                        c_version = Version,
-                       io_cb = case ?GET_OPT(user_interaction, Opts) of
-                                   true ->  ssh_io;
-                                   false -> ssh_no_io
-                               end,
+                       opts = ?PUT_INTERNAL_OPT({io_cb, case ?GET_OPT(user_interaction, Opts) of
+                                                            true ->  ssh_io;
+                                                            false -> ssh_no_io
+                                                        end},
+                                                Opts),
                        userauth_quiet_mode = ?GET_OPT(quiet_mode, Opts),
                        peer = {PeerName, PeerAddr},
                        local = LocalName
@@ -488,7 +488,6 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 	server ->
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
-		   io_cb = ?GET_INTERNAL_OPT(io_cb, Opts, ssh_io),
 		   userauth_methods = string:tokens(AuthMethods, ","),
 		   kb_tries_left = 3,
 		   peer = {undefined, PeerAddr},
@@ -1686,18 +1685,19 @@ peer_role(client) -> server;
 peer_role(server) -> client.
 
 %%--------------------------------------------------------------------
-available_hkey_algorithms(Role, Options) ->
-    KeyCb = ?GET_OPT(key_cb, Options),
+available_hkey_algorithms(client, Options) ->
+    case available_hkey_algos(Options) of
+        [] ->
+            error({shutdown, "No public key algs"});
+        Algs ->
+	    [atom_to_list(A) || A<-Algs]
+    end;
+
+available_hkey_algorithms(server, Options) ->
     case [A || A <- available_hkey_algos(Options),
-               (Role==client) orelse available_host_key(KeyCb, A, Options)
-         ] of
-        
-        [] when Role==client ->
-	    error({shutdown, "No public key algs"});
-
-        [] when Role==server ->
-	    error({shutdown, "No host key available"});
-
+               is_usable_host_key(A, Options)] of
+        [] ->
+            error({shutdown, "No host key available"});
 	Algs ->
 	    [atom_to_list(A) || A<-Algs]
     end.
@@ -1711,18 +1711,6 @@ available_hkey_algos(Options) ->
     NonSupported =  HKeys -- SupAlgos,
     AvailableAndSupported = HKeys -- NonSupported,
     AvailableAndSupported.
-
-
-%% Alg :: atom()
-available_host_key({KeyCb,KeyCbOpts}, Alg, Opts) ->
-    UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-        {ok,Key} ->
-            %% Check the key - the KeyCb may be a buggy plugin
-            ssh_transport:valid_key_sha_alg(Key, Alg);
-        _ ->
-            false
-    end.
 
 
 send_msg(Msg, State=#data{ssh_params=Ssh0}) when is_tuple(Msg) ->
@@ -1844,10 +1832,21 @@ ext_info(_, D0) ->
     D0.
 
 %%%----------------------------------------------------------------
-is_usable_user_pubkey(A, Ssh) ->
-    case ssh_auth:get_public_key(A, Ssh) of
+is_usable_user_pubkey(Alg, Ssh) ->
+    try ssh_auth:get_public_key(Alg, Ssh) of
         {ok,_} -> true;
         _ -> false
+    catch
+        _:_ -> false
+    end.
+
+%%%----------------------------------------------------------------
+is_usable_host_key(Alg, Opts) ->
+    try ssh_transport:get_host_key(Alg, Opts)
+    of
+        _PrivHostKey -> true
+    catch
+        _:_ -> false
     end.
 
 %%%----------------------------------------------------------------
