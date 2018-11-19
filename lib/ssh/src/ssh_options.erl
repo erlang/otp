@@ -434,6 +434,18 @@ default(client) ->
             class => user_options
            },
 
+%%% Not yet implemented      {ed25519_pass_phrase, def} =>
+%%% Not yet implemented          #{default => undefined,
+%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            class => user_options
+%%% Not yet implemented           },
+%%% Not yet implemented
+%%% Not yet implemented      {ed448_pass_phrase, def} =>
+%%% Not yet implemented          #{default => undefined,
+%%% Not yet implemented            chk => fun check_string/1,
+%%% Not yet implemented            class => user_options
+%%% Not yet implemented           },
+%%% Not yet implemented
       {silently_accept_hosts, def} =>
           #{default => false,
             chk => fun check_silently_accept_hosts/1,
