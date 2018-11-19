@@ -5122,6 +5122,15 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
     return PKEY_OK;
 }
 
+static size_t size_of_RSA(EVP_PKEY *pkey) {
+    size_t tmplen;
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+    if (rsa == NULL) return 0;
+    tmplen = RSA_size(rsa);
+    RSA_free(rsa);
+    return tmplen;
+}
+
 static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
     int i;
@@ -5219,9 +5228,8 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 #ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
 	    if (is_encrypt) {
-		RSA *rsa = EVP_PKEY_get1_RSA(pkey);
-		if (rsa == NULL) goto badarg;
-		tmplen = RSA_size(rsa);
+                tmplen = size_of_RSA(pkey);
+                if (tmplen == 0) goto badarg;
 		if (!enif_alloc_binary(tmplen, &tmp_bin)) goto badarg;
 		if (RSA_padding_add_SSLv23(tmp_bin.data, tmplen, in_bin.data, in_bin.size) <= 0)
 		    goto badarg;
@@ -5241,7 +5249,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 	    if (crypt_opt.rsa_mgf1_md != NULL
 		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, crypt_opt.rsa_mgf1_md) <= 0) goto badarg;
 	    if (crypt_opt.rsa_oaep_label.data != NULL && crypt_opt.rsa_oaep_label.size > 0) {
-		unsigned char *label_copy;
+		unsigned char *label_copy = NULL;
 		label_copy = OPENSSL_malloc(crypt_opt.rsa_oaep_label.size);
 		if (label_copy == NULL) goto badarg;
 		memcpy((void *)(label_copy), (const void *)(crypt_opt.rsa_oaep_label.data),
@@ -5353,14 +5361,11 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
 #ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
-	    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
 	    unsigned char *p;
-	    if (rsa == NULL) goto badarg;
-	    tmplen = RSA_size(rsa);
-	    if (!enif_alloc_binary(tmplen, &tmp_bin)) {
-                RSA_free(rsa);
+            tmplen = size_of_RSA(pkey);
+	    if (tmplen == 0) goto badarg;
+	    if (!enif_alloc_binary(tmplen, &tmp_bin))
                 goto badarg;
-            }
 	    p = out_bin.data;
 	    p++;
 	    i = RSA_padding_check_SSLv23(tmp_bin.data, tmplen, p, out_bin.size - 1, tmplen);
@@ -5371,7 +5376,6 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 		tmp_bin = in_bin;
 		i = 1;
 	    }
-            RSA_free(rsa);
 	}
 #endif
     }
