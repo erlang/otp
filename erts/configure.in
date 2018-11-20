@@ -422,6 +422,56 @@ if test X"$with_ets_write_concurrency_locks" != X""; then
 		      [Define to override the default number of write_concurrency locks])
 fi
 
+AC_ARG_WITH(spectre-mitigation,
+    AS_HELP_STRING([--with-spectre-mitigation={yes|incomplete}],
+                   [enable spectre mitigation, either fully or with mitigations
+                    disabled in a handful places like the interpreter])
+    AS_HELP_STRING([--without-spectre-mitigation],
+                   [build without spectre mitigation]),
+    [],[with_spectre_mitigation=no])
+
+case "$with_spectre_mitigation" in
+    no) ;;
+    yes) ;;
+    incomplete) ;;
+    *) AC_MSG_ERROR([Invalid spectre mitigation setting]) ;;
+esac
+
+i_noretpoline_attr=""
+
+if test X"$with_spectre_mitigation" != X"no"; then
+    CFLAGS="$CFLAGS -mindirect-branch=thunk"
+
+    AC_MSG_CHECKING([for spectre mitigation])
+    AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM([],[return 0;])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_ERROR([no])])
+
+    if test X"$with_spectre_mitigation" = X"incomplete"; then
+        # gcc and clang support this attribute if they're recent enough. Note
+        # that we must compile with -Werror to check for actual support as they
+        # warn rather than error out on unsupported attributes.
+
+        i_noretpoline_attr='__attribute__((__indirect_branch__("keep")))'
+        i_preserve_cflags="$CFLAGS"
+        CFLAGS="$CFLAGS -Werror"
+
+        AC_MSG_CHECKING([whether spectre mitigation can be disabled on a per-function basis])
+        AC_COMPILE_IFELSE(
+            [AC_LANG_PROGRAM([$i_noretpoline_attr],[return 0;])],
+            [AC_MSG_RESULT([yes])],
+            [AC_MSG_ERROR([no])])
+
+        CFLAGS="$i_preserve_cflags"
+    fi
+fi
+
+AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
+                   [Per-function attribute for disabling retpoline. This is
+                    *only* defined when --with-spectre-mitigation=incomplete
+                    and has no effects otherwise])
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
