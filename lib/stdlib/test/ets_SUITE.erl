@@ -6068,7 +6068,10 @@ smp_ordered_iteration_do(Opts) ->
     NVolatile = KeyRange div 2,
     prefill_table(T, KeyRange, NVolatile, fun(K) -> {KeyFun(K, volatile), 0} end),
 
-    InitF = fun (_) -> #{} end,
+    InitF = fun (_) -> #{insert => 0, delete => 0,
+                         select_delete_bk => 0, select_delete_pbk => 0,
+                         select_replace_bk => 0, select_replace_pbk => 0}
+            end,
     ExecF = fun (Counters) ->
                     K = rand:uniform(KeyRange),
                     Key = KeyFun(K, volatile),
