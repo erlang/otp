@@ -3980,8 +3980,8 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    Socket = element(11, State),
-
+    StaticEnv = element(2, State),
+    Socket = element(10, StaticEnv),
     %% Fake tcp error
     Pid ! {tcp_error, Socket, etimedout},
 
