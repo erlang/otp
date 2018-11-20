@@ -93,8 +93,8 @@
 	  <item><marker id="SYSDIR-ssh_host_dsa_key"/><c>ssh_host_dsa_key</c> - private dss host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_rsa_key"/><c>ssh_host_rsa_key</c> - private rsa host key (optional)</item>
 	  <item><marker id="SYSDIR-ssh_host_ecdsa_key"/><c>ssh_host_ecdsa_key</c> - private ecdsa host key (optional)</item>
-	  <item><marker id="SYSDIR-ssh_host_ed25519_key"/><c>ssh_host_ed25519_key</c> - private ecdsa host key for curve 25519 (optional)</item>
-	  <item><marker id="SYSDIR-ssh_host_ed448_key"/><c>ssh_host_ed448_key</c> - private ecdsa host key for curve 448 (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed25519_key"/><c>ssh_host_ed25519_key</c> - private eddsa host key for curve 25519 (optional)</item>
+	  <item><marker id="SYSDIR-ssh_host_ed448_key"/><c>ssh_host_ed448_key</c> - private eddsa host key for curve 448 (optional)</item>
 	</list>
 	<p>At least one host key must be defined. The default value of SYSDIR is <marker id="#/etc/ssh"/><c>/etc/ssh</c>.
 	</p>
@@ -188,6 +188,8 @@
 	  <item><seealso marker="#SYSDIR-ssh_host_rsa_key"><c>SYSDIR/ssh_host_rsa_key</c></seealso></item>
 	  <item><seealso marker="#SYSDIR-ssh_host_dsa_key"><c>SYSDIR/ssh_host_dsa_key</c></seealso></item>
 	  <item><seealso marker="#SYSDIR-ssh_host_ecdsa_key"><c>SYSDIR/ssh_host_ecdsa_key</c></seealso></item>
+          <item><seealso marker="#SYSDIR-ssh_host_ed25519_key"><c>SYSDIR/ssh_host_ed25519_key</c></seealso></item>
+          <item><seealso marker="#SYSDIR-ssh_host_ed448_key"><c>SYSDIR/ssh_host_ed448_key</c>c></seealso></item>
 	</list>
       </desc>
     </func>
