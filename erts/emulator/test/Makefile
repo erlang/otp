@@ -130,6 +130,7 @@ MODULES= \
 	ignore_cores \
 	dgawd_handler \
 	random_iolist \
+	erts_test_utils \
 	crypto_reference
 
 NO_OPT= bs_bincomp \

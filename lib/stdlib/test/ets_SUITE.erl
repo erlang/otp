@@ -6052,7 +6052,7 @@ smp_ordered_iteration(Config) when is_list(Config) ->
 
 smp_ordered_iteration_do(Opts) ->
     KeyRange = 1000,
-    OffHeap = fun() -> dummy end, % To exercise key copy/destroy code.
+    OffHeap = erts_test_utils:mk_ext_pid({a@b,1}, 4711, 1),
     KeyFun = fun(K, Type) ->
                      {K div 10, K rem 10, Type, OffHeap}
              end,
@@ -6068,7 +6068,10 @@ smp_ordered_iteration_do(Opts) ->
     NVolatile = KeyRange div 2,
     prefill_table(T, KeyRange, NVolatile, fun(K) -> {KeyFun(K, volatile), 0} end),
 
-    InitF = fun (_) -> #{} end,
+    InitF = fun (_) -> #{insert => 0, delete => 0,
+                         select_delete_bk => 0, select_delete_pbk => 0,
+                         select_replace_bk => 0, select_replace_pbk => 0}
+            end,
     ExecF = fun (Counters) ->
                     K = rand:uniform(KeyRange),
                     Key = KeyFun(K, volatile),
@@ -6129,6 +6132,9 @@ smp_ordered_iteration_do(Opts) ->
     io:format("Stats = ~p\n", [ets:info(T,stats)]),
     io:format("Rounds = ~p\n", [Rounds]),
     true = ets:delete(T),
+
+    %% Verify no leakage of offheap key data
+    ok = erts_test_utils:check_node_dist(),
     ok.
 
 incr_counter(Name, Counters) ->
@@ -7455,9 +7461,6 @@ is_redundant_opts_combo(Opts) ->
 key_range(Opts, KeyRange) ->
     [{key_range, KeyRange} | Opts].
 
-key_range_fun(Opts, KeyRange, KeyFun) ->
-    [{key_range, KeyRange}, {key_fun, KeyFun} | Opts].
-
 ets_new(Name, Opts0) ->
     {KeyRange, Opts1} = case lists:keytake(key_range, 1, Opts0) of
                             {value, {key_range, KR}, Rest1} ->
@@ -7467,14 +7470,8 @@ ets_new(Name, Opts0) ->
                         end,
     ets_new(Name, Opts1, KeyRange).
 
-ets_new(Name, Opts1, KeyRange) ->
-    {KeyFun, Opts2} = case lists:keytake(key_fun, 1, Opts1) of
-                            {value, {key_fun, KF}, Rest2} ->
-                                {KF, Rest2};
-                            false ->
-                                {fun id/1, Opts1}
-                        end,
-    ets_new(Name, Opts2, KeyRange, KeyFun).
+ets_new(Name, Opts, KeyRange) ->
+    ets_new(Name, Opts, KeyRange, fun id/1).
 
 ets_new(Name, Opts0, KeyRange, KeyFun) ->
     {CATree, Stimulate, RevOpts} =

@@ -48,24 +48,8 @@
  * activated when the options {write_concurrency, true}, public and
  * ordered_set are passed to the ets:new/2 function. This
  * implementation is expected to scale better than the default
- * implementation (located in "erl_db_tree.c") when concurrent
- * processes use the following ETS operations to operate on a table:
+ * implementation located in "erl_db_tree.c".
  * 
- * delete/2, delete_object/2, first/1, insert/2 (single object),
- * insert_new/2 (single object), lookup/2, lookup_element/2, member/2,
- * next/2, take/2 and update_element/3 (single object).
- *
- * Currently, the implementation does not have scalable support for
- * the other operations (e.g., select/2). These operations are handled
- * by merging all locks so that all terms get protected by a single
- * lock. This implementation may thus perform worse than the default
- * implementation in some scenarios. For example, when concurrent
- * processes access a table with the operations insert/2, delete/2 and
- * select/2, the insert/2 and delete/2 operations will trigger splits
- * of locks (to get more fine-grained synchronization) but this will
- * quickly be undone by the select/2 operation if this operation is
- * also called frequently.
- *
  * The default implementation has a static stack optimization (see
  * get_static_stack in erl_db_tree.c). This implementation does not
  * have such an optimization as it induces bad scalability when
@@ -232,7 +216,7 @@ DbTableMethod db_catree =
 /* Helpers for reading and writing shared atomic variables */
 
 /* No memory barrier */
-#define GET_ROOT(tb) ((DbTableCATreeNode*)erts_atomic_read_nob(&(tb->root)))
+#define GET_ROOT(tb) ((DbTableCATreeNode*)erts_atomic_read_nob(&((tb)->root)))
 #define GET_LEFT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->u.route.left)))
 #define GET_RIGHT(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_nob(&(ca_tree_route_node->u.route.right)))
 #define SET_ROOT(tb, v) erts_atomic_set_nob(&((tb)->root), (erts_aint_t)(v))
@@ -241,7 +225,7 @@ DbTableMethod db_catree =
 
 
 /* Release or acquire barriers */
-#define GET_ROOT_ACQB(tb) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(tb->root)))
+#define GET_ROOT_ACQB(tb) ((DbTableCATreeNode*)erts_atomic_read_acqb(&((tb)->root)))
 #define GET_LEFT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->u.route.left)))
 #define GET_RIGHT_ACQB(ca_tree_route_node) ((DbTableCATreeNode*)erts_atomic_read_acqb(&(ca_tree_route_node->u.route.right)))
 #define SET_ROOT_RELB(tb, v) erts_atomic_set_relb(&((tb)->root), (erts_aint_t)(v))
@@ -751,6 +735,35 @@ void unlock_route_node(DbTableCATreeNode *route_node)
 }
 
 static ERTS_INLINE
+Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
+{
+    dst->size = key_size;
+    if (key_size != 0) {
+        Eterm* hp = &dst->heap[0];
+        ErlOffHeap tmp_offheap;
+        tmp_offheap.first  = NULL;
+        dst->term = copy_struct(key, key_size, &hp, &tmp_offheap);
+        dst->oh = tmp_offheap.first;
+    }
+    else {
+        ASSERT(is_immed(key));
+        dst->term = key;
+        dst->oh = NULL;
+    }
+    return dst->term;
+}
+
+static ERTS_INLINE
+void destroy_route_key(DbRouteKey* key)
+{
+    if (key->oh) {
+        ErlOffHeap oh;
+        oh.first = key->oh;
+        erts_cleanup_offheap(&oh);
+    }
+}
+
+static ERTS_INLINE
 void init_root_iterator(DbTableCATree* tb, CATreeRootIterator* iter,
                         int read_only)
 {
@@ -798,10 +811,11 @@ void destroy_root_iterator(CATreeRootIterator* iter)
 {
     if (iter->locked_bnode)
         unlock_iter_base_node(iter);
-    if (iter->search_key)
+    if (iter->search_key) {
+        destroy_route_key(iter->search_key);
         erts_free(ERTS_ALC_T_DB_TMP, iter->search_key);
+    }
 }
-
 
 typedef struct
 {
@@ -862,36 +876,6 @@ DbTableCATreeNode* find_wlock_valid_base_node(DbTableCATree* tb, Eterm key,
     }
     return base_node;
 }
-
-static ERTS_INLINE
-Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
-{
-    dst->size = key_size;
-    if (key_size != 0) {
-        Eterm* hp = &dst->heap[0];
-        ErlOffHeap tmp_offheap;
-        tmp_offheap.first  = NULL;
-        dst->term = copy_struct(key, key_size, &hp, &tmp_offheap);
-        dst->oh = tmp_offheap.first;
-    }
-    else {
-        ASSERT(is_immed(key));
-        dst->term = key;
-        dst->oh = NULL;
-    }
-    return dst->term;
-}
-
-static ERTS_INLINE
-void destroy_route_key(DbRouteKey* key)
-{
-    if (key->oh) {
-        ErlOffHeap oh;
-        oh.first = key->oh;
-        erts_cleanup_offheap(&oh);
-    }
-}
-
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #  define LC_ORDER(ORDER) ORDER
@@ -2086,6 +2070,23 @@ static SWord db_delete_all_objects_catree(Process* p, DbTable* tbl, SWord reds)
 }
 
 
+static void do_for_route_nodes(DbTableCATreeNode* node,
+                               void (*func)(ErlOffHeap *, void *),
+                               void *arg)
+{
+    ErlOffHeap tmp_offheap;
+
+    if (!GET_LEFT(node)->is_base_node)
+        do_for_route_nodes(GET_LEFT(node), func, arg);
+
+    tmp_offheap.first = node->u.route.key.oh;
+    tmp_offheap.overhead = 0;
+    (*func)(&tmp_offheap, arg);
+
+    if (!GET_RIGHT(node)->is_base_node)
+        do_for_route_nodes(GET_RIGHT(node), func, arg);
+}
+
 static void db_foreach_offheap_catree(DbTable *tbl,
                                       void (*func)(ErlOffHeap *, void *),
                                       void *arg)
@@ -2100,6 +2101,8 @@ static void db_foreach_offheap_catree(DbTable *tbl,
         root = catree_find_next_root(&iter, NULL);
     } while (root);
     destroy_root_iterator(&iter);
+
+    do_for_route_nodes(GET_ROOT(&tbl->catree), func, arg);
 }
 
 static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,

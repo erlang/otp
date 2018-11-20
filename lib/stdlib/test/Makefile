@@ -99,11 +99,9 @@ MODULES= \
 	maps_SUITE \
 	zzz_SUITE
 
-ERL_FILES= $(MODULES:%=%.erl)
+ERTS_MODULES= erts_test_utils
 
-TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-INSTALL_PROGS= $(TARGET_FILES)
+ERL_FILES= $(MODULES:%=%.erl) $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -128,7 +126,7 @@ COVERFILE=stdlib.cover
 # ----------------------------------------------------
 
 make_emakefile:
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERTS_MODULES) \
 	> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
