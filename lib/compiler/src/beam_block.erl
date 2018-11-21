@@ -22,7 +22,7 @@
 -module(beam_block).
 
 -export([module/2]).
--import(lists, [reverse/1,splitwith/2]).
+-import(lists, [keysort/2,reverse/1,splitwith/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -53,7 +53,8 @@ blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
 	Instr when is_tuple(Instr) ->
-	    {Block,Is} = collect_block(IsAll),
+            {Block0,Is} = collect_block(IsAll),
+            Block = sort_moves(Block0),
 	    blockify(Is, [{block,Block}|Acc])
     end;
 blockify([], Acc) -> reverse(Acc).
@@ -117,3 +118,36 @@ embed_lines([{block,B1},{line,_}=Line|T], Acc) ->
 embed_lines([I|Is], Acc) ->
     embed_lines(Is, [I|Acc]);
 embed_lines([], Acc) -> Acc.
+
+%% sort_moves([Instruction]) -> [Instruction].
+%%  Sort move instructions on the Y register to give the loader
+%%  more opportunities for combining instructions.
+
+sort_moves([{set,[{x,_}],[{y,_}],move}=I|Is0]) ->
+    {Moves,Is} = sort_moves_1(Is0, x, y, [I]),
+    Moves ++ sort_moves(Is);
+sort_moves([{set,[{y,_}],[{x,_}],move}=I|Is0]) ->
+    {Moves,Is} = sort_moves_1(Is0, y, x, [I]),
+    Moves ++ sort_moves(Is);
+sort_moves([I|Is]) ->
+    [I|sort_moves(Is)];
+sort_moves([]) -> [].
+
+sort_moves_1([{set,[{x,0}],[_],move}=I|Is], _DTag, _STag, Acc) ->
+    %% The loader sometimes combines a move to x0 with the
+    %% instruction that follows, producing, for example, a move_call
+    %% instruction. Therefore, we don't want include this move
+    %% instruction in the sorting.
+    {sort_on_yreg(Acc)++[I],Is};
+sort_moves_1([{set,[{DTag,_}],[{STag,_}],move}=I|Is], DTag, STag, Acc) ->
+    sort_moves_1(Is, DTag, STag, [I|Acc]);
+sort_moves_1(Is, _DTag, _STag, Acc) ->
+    {sort_on_yreg(Acc),Is}.
+
+sort_on_yreg([{set,[Dst],[Src],move}|_]=Moves) ->
+    case {Dst,Src} of
+        {{y,_},{x,_}} ->
+            keysort(2, Moves);
+        {{x,_},{y,_}} ->
+            keysort(3, Moves)
+    end.

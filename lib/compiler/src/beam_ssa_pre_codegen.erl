@@ -1478,6 +1478,10 @@ copy_retval_is([#b_set{op=put_tuple_elements,args=Args0}=I0], false, _Yregs,
            Copy, Count, Acc) ->
     I = I0#b_set{args=copy_sub_args(Args0, Copy)},
     {reverse(Acc, [I|acc_copy([], Copy)]),Count};
+copy_retval_is([#b_set{op=Op}=I0], false, Yregs, Copy, Count0, Acc0)
+  when Op =:= call; Op =:= make_fun ->
+    {I,Count,Acc} = place_retval_copy(I0, Yregs, Copy, Count0, Acc0),
+    {reverse(Acc, [I]),Count};
 copy_retval_is([#b_set{}]=Is, false, _Yregs, Copy, Count, Acc) ->
     {reverse(Acc, acc_copy(Is, Copy)),Count};
 copy_retval_is([#b_set{},#b_set{op=succeeded}]=Is, false, _Yregs, Copy, Count, Acc) ->

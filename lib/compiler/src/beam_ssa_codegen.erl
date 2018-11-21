@@ -747,7 +747,16 @@ need_live_anno(Op) ->
     end.
 
 %%%
-%%% Add annotations for defined Y registers.
+%%% Add the following annotations for Y registers:
+%%%
+%%%   def_yregs   An ordset with variables that refer to live Y registers.
+%%%               That is, Y registers that that have been killed
+%%%               are not included. This annotation is added to all
+%%%               instructions that require Y registers to be initialized.
+%%%
+%%%   kill_yregs  This annotation is added to call instructions. It is
+%%%               an ordset containing variables referring to Y registers
+%%%               that will no longer be used after the call instruction.
 %%%
 
 defined(Linear, #cg{regs=Regs}) ->
@@ -863,12 +872,34 @@ opt_allocate(Linear, #cg{regs=Regs}) ->
 
 opt_allocate_1([{L,#cg_blk{is=[#cg_alloc{stack=Stk}=I0|Is]}=Blk0}|Bs]=Bs0, Regs)
   when is_integer(Stk) ->
-    Yregs = opt_alloc_def(Bs0, gb_sets:singleton(L), []),
-    I = I0#cg_alloc{def_yregs=Yregs},
-    [{L,Blk0#cg_blk{is=[I|Is]}}|opt_allocate_1(Bs, Regs)];
+    %% Collect the variables that are initialized by copy
+    %% instruction in this block.
+    case ordsets:from_list(opt_allocate_defs(Is, Regs)) of
+        Yregs when length(Yregs) =:= Stk ->
+            %% Those copy instructions are sufficient to fully
+            %% initialize the stack frame.
+            I = I0#cg_alloc{def_yregs=Yregs},
+            [{L,Blk0#cg_blk{is=[I|Is]}}|opt_allocate_1(Bs, Regs)];
+        Yregs0 ->
+            %% Determine a conservative approximation of the Y
+            %% registers that are guaranteed to be initialized by all
+            %% successors of this block, and to it add the variables
+            %% initialized by copy instructions in this block.
+            Yregs1 = opt_alloc_def(Bs0, gb_sets:singleton(L), []),
+            Yregs = ordsets:union(Yregs0, Yregs1),
+            I = I0#cg_alloc{def_yregs=Yregs},
+            [{L,Blk0#cg_blk{is=[I|Is]}}|opt_allocate_1(Bs, Regs)]
+    end;
 opt_allocate_1([B|Bs], Regs) ->
     [B|opt_allocate_1(Bs, Regs)];
 opt_allocate_1([], _) -> [].
+
+opt_allocate_defs([#cg_set{op=copy,dst=Dst}|Is], Regs) ->
+    case is_yreg(Dst, Regs) of
+        true -> [Dst|opt_allocate_defs(Is, Regs)];
+        false -> []
+    end;
+opt_allocate_defs(_, _Regs) -> [].
 
 opt_alloc_def([{L,#cg_blk{is=Is,last=Last}}|Bs], Ws0, Def0) ->
     case gb_sets:is_member(L, Ws0) of
