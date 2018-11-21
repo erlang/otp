@@ -95,7 +95,7 @@
 -export([atomics_new/2]).
 
 -export([counters_new/1, counters_get/2, counters_add/3,
-         counters_info/1]).
+         counters_put/3, counters_info/1]).
 
 %%
 %% Await result of send to port
@@ -717,6 +717,10 @@ counters_get(_Ref, _Ix) ->
 
 -spec counters_add(reference(), pos_integer(), integer()) -> ok.
 counters_add(_Ref, _Ix, _Incr) ->
+    erlang:nif_error(undef).
+
+-spec counters_put(reference(), pos_integer(), integer()) -> ok.
+counters_put(_Ref, _Ix, _Value) ->
     erlang:nif_error(undef).
 
 -spec counters_info(reference()) -> #{}.
