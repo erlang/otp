@@ -71,11 +71,14 @@ hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
     %%     opaque label<7..255> = "tls13 " + Label;
     %%     opaque context<0..255> = Context;
     %% } HkdfLabel;
-    Content = << <<"tls13">>/binary, Label0/binary, Context/binary>>,
+    Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
+    LLen = size(Label1),
+    Label = <<?BYTE(LLen), Label1>>,
+    Content = <<Label/binary, Context/binary>>,
     Len = size(Content),
     HkdfLabel = <<?UINT16(Len), Content/binary>>,
     hkdf_expand(Secret, HkdfLabel, Length, Algo).
-    
+
 -spec hkdf_extract(MacAlg::ssl_cipher_format:hash(), Salt::binary(), 
                    KeyingMaterial::binary()) -> PseudoRandKey::binary().
 
