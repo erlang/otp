@@ -293,7 +293,7 @@ return term;</code>
           arguments. When you write to a shared state either through
           static variables or <seealso marker="#enif_priv_data">
           <c>enif_priv_data</c></seealso>, you need to supply your own explicit
-          synchronization. This includes terms in process-independent
+          synchronization. This includes terms in process independent
           environments that are shared between threads. Resource objects also
           require synchronization if you treat them as mutable.</p>
         <p>The library initialization callbacks <c>load</c> and
@@ -596,7 +596,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
            before the <c>ERL_NIF_INIT</c> declaration.</p>
       </item>
-      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* env, void** priv_data,
+      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* caller_env, void** priv_data,
         ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>load</c> is called when the NIF library is loaded
@@ -612,7 +612,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
           anything other than <c>0</c>. <c>load</c> can be <c>NULL</c> if
           initialization is not needed.</p> 
       </item>
-      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* env, void**
+      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* caller_env, void**
         priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>upgrade</c> is called when the NIF library is loaded
@@ -626,7 +626,7 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
         <p>The library fails to load if <c>upgrade</c> returns
            anything other than <c>0</c> or if <c>upgrade</c> is <c>NULL</c>.</p>
       </item>
-      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* env, void*
+      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* caller_env, void*
         priv_data)</c></tag>
       <item>
         <p><c>unload</c> is called when the module code that
@@ -654,27 +654,41 @@ int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
         <p><c>ErlNifEnv</c> represents an environment that can host Erlang
           terms. All terms in an environment are valid as long as the
           environment is valid. <c>ErlNifEnv</c> is an opaque type; pointers to
-          it can only be passed on to API functions. Two types of environments
+          it can only be passed on to API functions. Three types of environments
           exist:</p>
         <taglist>
-          <tag>Process-bound environment</tag>
+          <tag>Process bound environment</tag>
           <item>
             <p>Passed as the first argument to all NIFs. All function arguments
               passed to a NIF belong to that environment. The return value from
               a NIF must also be a term belonging to the same environment.</p>
-            <p>A process-bound environment contains transient information
+            <p>A process bound environment contains transient information
               about the calling Erlang process. The environment is only valid
               in the thread where it was supplied as argument until the NIF
               returns. It is thus useless and dangerous to store pointers to
-              process-bound environments between NIF calls.</p>
+              process bound environments between NIF calls.</p>
           </item>
-          <tag>Process-independent environment</tag>
+	  <tag>Callback environment</tag>
+          <item>
+            <p>Passed as the first argument to all the non-NIF callback functions
+	    (<seealso marker="#load"><c>load</c></seealso>,
+	    <seealso marker="#upgrade"><c>upgrade</c></seealso>,
+	    <seealso marker="#unload"><c>unload</c></seealso>,
+	    <seealso marker="#ErlNifResourceDtor"><c>dtor</c></seealso>,
+	    <seealso marker="#ErlNifResourceDown"><c>down</c></seealso> and
+	    <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso>).
+	    Works like a process bound environment but with a temporary
+	    pseudo process that "terminates" when the callback has
+	    returned. Terms may be created in this environment but they will
+	    only be accessible during the callback.</p>
+          </item>
+          <tag>Process independent environment</tag>
           <item>
             <p>Created by calling <seealso marker="#enif_alloc_env">
               <c>enif_alloc_env</c></seealso>. This environment can be
               used to store terms between NIF calls and to send terms with
               <seealso marker="#enif_send"><c>enif_send</c></seealso>. A
-              process-independent environment with all its terms is valid until
+              process independent environment with all its terms is valid until
               you explicitly invalidate it with
               <seealso marker="#enif_free_env"><c>enif_free_env</c></seealso>
               or <c>enif_send</c>.</p>
@@ -799,7 +813,7 @@ typedef struct {
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
+typedef void ErlNifResourceDtor(ErlNifEnv* caller_env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
 	<p>The <c>obj</c> argument is a pointer to the resource. The only
 	allowed use for the resource in the destructor is to access its
@@ -809,7 +823,7 @@ typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
       <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
+typedef void ErlNifResourceDown(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
         <p>The function prototype of a resource down function,
 	  called on the behalf of <seealso marker="#enif_monitor_process">
 	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
@@ -820,7 +834,7 @@ typedef void ErlNifResourceDown(ErlNifEnv* env, void* obj, ErlNifPid* pid, ErlNi
       <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceStop(ErlNifEnv* env, void* obj, ErlNifEvent event, int is_direct_call);</code>
+typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event, int is_direct_call);</code>
         <p>The function prototype of a resource stop function,
 	  called on the behalf of <seealso marker="#enif_select">
 	  enif_select</seealso>. <c>obj</c> is the resource, <c>event</c> is OS event,
@@ -987,7 +1001,7 @@ typedef struct {
       <name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment.</fsummary>
       <desc>
-        <p>Allocates a new process-independent environment. The environment can
+        <p>Allocates a new process independent environment. The environment can
           be used to hold terms that are not bound to any process. Such terms
           can later be copied to a process environment with
           <seealso marker="#enif_make_copy"><c>enif_make_copy</c></seealso> or
@@ -1211,14 +1225,17 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* env, void* obj,
+      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* caller_env, void* obj,
       const ErlNifMonitor* mon)</nametext></name>
       <fsummary>Cancel a process monitor.</fsummary>
       <desc>
         <marker id="enif_demonitor_process"></marker>
         <p>Cancels a monitor created earlier with <seealso marker="#enif_monitor_process">
 	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
-	to the resource holding the monitor and	<c>*mon</c> identifies the monitor.</p>
+	to the resource holding the monitor and	<c>*mon</c> identifies the
+	monitor.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
         <p>Returns <c>0</c> if the monitor was successfully identified and removed.
 	Returns	a non-zero value if the monitor could not be identified, which means
 	it was either</p>
@@ -2572,7 +2589,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* env, void* obj,
+      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* caller_env, void* obj,
       const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
       <fsummary>Monitor a process from a resource.</fsummary>
       <desc>
@@ -2593,6 +2610,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<seealso marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seealso>.
 	A monitor is automatically removed when it triggers or when
 	the resource is deallocated.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
         <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
           provided, and &gt; 0 if the process is no longer alive.</p>
         <p>This function is only thread-safe when the emulator with SMP support
@@ -2768,7 +2787,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
          <item>The port ID of the receiving port. The port ID is to refer to a
            port on the local node.</item>
          <tag><c>msg_env</c></tag>
-         <item>The environment of the message term. Can be a process-independent
+         <item>The environment of the message term. Can be a process independent
            environment allocated with <seealso marker="#enif_alloc_env">
            <c>enif_alloc_env</c></seealso> or <c>NULL</c>.</item>
          <tag><c>msg</c></tag>
@@ -3124,26 +3143,26 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
         <p>Initializes the <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
 	variable at <c>*pid</c> to represent the calling process.</p>
         <p>Returns <c>pid</c> if successful, or NULL if <c>caller_env</c> is not
-	a <seealso marker="#ErlNifEnv">process-bound environment</seealso>.</p>
+	a <seealso marker="#ErlNifEnv">process bound environment</seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid,
+      <name><ret>int</ret><nametext>enif_send(ErlNifEnv* caller_env, ErlNifPid* to_pid,
         ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a message to a process.</fsummary>
       <desc>
         <p>Sends a message to a process.</p>
         <taglist>
-          <tag><c>env</c></tag>
-          <item>The environment of the calling process. Must be <c>NULL</c>
-            only if calling from a created thread.</item>
+          <tag><c>caller_env</c></tag>
+          <item>The environment of the calling process or callback. Must be <c>NULL</c>
+            only if calling from a custom thread not spawned by ERTS.</item>
           <tag><c>*to_pid</c></tag>
           <item>The pid of the receiving process. The pid is to refer to a
             process on the local node.</item>
           <tag><c>msg_env</c></tag>
           <item>The environment of the message term. Must be a
-            process-independent environment allocated with
+            process independent environment allocated with
             <seealso marker="#enif_alloc_env"><c>enif_alloc_env</c></seealso>
             or NULL.</item>
           <tag><c>msg</c></tag>
