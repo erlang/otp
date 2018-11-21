@@ -26,7 +26,7 @@
 	 select/1,y_catch/1,otp_8949_b/1,liveopt/1,coverage/1,
          y_registers/1,user_predef/1,scan_f/1,cafu/1,
          receive_label/1,read_size_file_version/1,not_used/1,
-         is_used_fr/1]).
+         is_used_fr/1,unsafe_is_function/1]).
 -export([id/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +53,8 @@ groups() ->
        cafu,
        read_size_file_version,
        not_used,
-       is_used_fr
+       is_used_fr,
+       unsafe_is_function
       ]}].
 
 init_per_suite(Config) ->
@@ -569,6 +570,24 @@ is_used_fr(X, Y) ->
             _ -> error
         end,
     X ! 1.
+
+%% ERL-778.
+unsafe_is_function(Config) ->
+    {undefined,any} = unsafe_is_function(undefined, any),
+    {ok,any} = unsafe_is_function(fun() -> ok end, any),
+    {'EXIT',{{case_clause,_},_}} = (catch unsafe_is_function(fun(_) -> ok end, any)),
+    ok.
+
+unsafe_is_function(F, M) ->
+    %% There would be an internal consistency failure:
+    %%   Instruction: {bif,is_function,{f,0},[{x,0},{integer,0}],{x,2}}
+    %%   Error:       {uninitialized_reg,{y,0}}:
+
+    NewValue = case is_function(F, 0) of
+                true -> F();
+                false when F =:= undefined -> undefined
+            end,
+    {NewValue,M}.
 
 
 %% The identity function.

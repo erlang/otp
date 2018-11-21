@@ -745,8 +745,11 @@ check_liveness_block_2(R, {gc_bif,Op,{f,Lbl}}, Ss, St) ->
     check_liveness_block_3(R, Lbl, {Op,length(Ss)}, St);
 check_liveness_block_2(R, {bif,Op,{f,Lbl}}, Ss, St) ->
     Arity = length(Ss),
+
+    %% Note that is_function/2 is a type test but is not safe.
     case erl_internal:comp_op(Op, Arity) orelse
-	erl_internal:new_type_test(Op, Arity) of
+	(erl_internal:new_type_test(Op, Arity) andalso
+         erl_bifs:is_safe(erlang, Op, Arity)) of
 	true ->
 	    {killed,St};
 	false ->
