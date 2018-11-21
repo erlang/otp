@@ -34,7 +34,7 @@
 	 ecc_curves/1, ecc_curves/2, oid_to_enum/1, enum_to_oid/1, 
 	 default_signature_algs/1, signature_algs/2,
          default_signature_schemes/1, signature_schemes/2,
-         groups/1, groups/2, group_to_enum/1, enum_to_group/1]).
+         groups/1, groups/2, group_to_enum/1, enum_to_group/1, default_groups/1]).
 
 -export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4]).
 
@@ -346,8 +346,8 @@ signature_algs({3, 3}, HashSigns) ->
 			    end, [], HashSigns),
     lists:reverse(Supported).
 
-default_signature_algs({3, 4}) ->
-    default_signature_algs({3, 3});
+default_signature_algs({3, 4} = Version) ->
+    default_signature_schemes(Version);
 default_signature_algs({3, 3} = Version) ->
     Default = [%% SHA2
 	       {sha512, ecdsa},
@@ -551,7 +551,7 @@ ecc_curves(_Minor, TLSCurves) ->
 			end
 		end, [], TLSCurves).
 
--spec groups(4 | all) -> [group()].
+-spec groups(4 | all | default) -> [group()].
 groups(all) ->
     [secp256r1,
      secp384r1,
@@ -561,6 +561,11 @@ groups(all) ->
      ffdhe4096,
      ffdhe6144,
      ffdhe8192];
+groups(default) ->
+    [secp256r1,
+     secp384r1,
+     secp521r1,
+     ffdhe2048];
 groups(Minor) ->
     TLSGroups = groups(all),
     groups(Minor, TLSGroups).
@@ -570,6 +575,10 @@ groups(_Minor, TLSGroups) ->
     %% TODO: Adding FFDHE groups to crypto?
     CryptoGroups = crypto:ec_curves() ++ [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192],
     lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
+
+default_groups(Minor) ->
+    TLSGroups = groups(default),
+    groups(Minor, TLSGroups).
 
 group_to_enum(secp256r1) -> 23;
 group_to_enum(secp384r1) -> 24;

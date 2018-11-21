@@ -39,66 +39,80 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
 # ----------------------------------------------------
 
 BEHAVIOUR_MODULES= \
-        ssl_session_cache_api \
-	ssl_crl_cache_api
+	ssl_crl_cache_api \
+	ssl_session_cache_api
+
 
 MODULES= \
-	ssl \
-	ssl_alert \
-	ssl_app \
-	ssl_sup \
-	ssl_admin_sup\
-	tls_connection_sup \
-        ssl_connection_sup \
-        ssl_listen_tracker_sup\
+	dtls_connection \
 	dtls_connection_sup \
-	dtls_packet_demux \
+	dtls_handshake \
 	dtls_listener_sup \
-	ssl_dist_sup\
-        ssl_dist_admin_sup\
-        ssl_dist_connection_sup\
+	dtls_packet_demux \
+	dtls_record \
+	dtls_socket \
+	dtls_v1 \
 	inet_tls_dist \
 	inet6_tls_dist \
-	ssl_certificate\
-	ssl_pkix_db\
+	ssl \
+	ssl_admin_sup \
+	ssl_alert \
+	ssl_app \
+	ssl_certificate \
 	ssl_cipher \
 	ssl_cipher_format \
-	ssl_srp_primes \
-	tls_connection \
-	tls_connection_1_3 \
-	dtls_connection \
-	tls_sender\
 	ssl_config \
 	ssl_connection \
-	tls_handshake \
-	tls_handshake_1_3\
-	dtls_handshake\
-	ssl_handshake\
-	ssl_manager \
-	ssl_session \
-	ssl_session_cache \
-	ssl_pem_cache \
-	ssl_crl\
+	ssl_connection_sup \
+	ssl_crl \
 	ssl_crl_cache \
 	ssl_crl_hash_dir \
-	tls_socket \
-	dtls_socket \
-	tls_record \
-	tls_record_1_3\
-	dtls_record \
-	ssl_record \
-	ssl_v3 \
-	tls_v1 \
-	dtls_v1 \
+	ssl_dh_groups \
+	ssl_dist_admin_sup \
+	ssl_dist_connection_sup \
+	ssl_dist_sup \
+	ssl_handshake \
+	ssl_listen_tracker_sup \
 	ssl_logger \
-	ssl_dh_groups
+	ssl_manager \
+	ssl_pem_cache \
+	ssl_pkix_db \
+	ssl_record \
+	ssl_session \
+	ssl_session_cache \
+	ssl_srp_primes \
+	ssl_sup \
+	ssl_v3 \
+	tls_connection \
+	tls_connection_sup \
+	tls_connection_1_3 \
+	tls_handshake \
+	tls_handshake_1_3 \
+	tls_record \
+	tls_record_1_3 \
+	tls_sender \
+	tls_socket \
+	tls_v1
+
 
 INTERNAL_HRL_FILES = \
-	ssl_alert.hrl ssl_cipher.hrl \
-	tls_connection.hrl dtls_connection.hrl ssl_connection.hrl \
-        ssl_handshake.hrl tls_handshake.hrl tls_handshake_1_3.hrl  dtls_handshake.hrl \
-	ssl_api.hrl ssl_internal.hrl \
-        ssl_record.hrl tls_record.hrl tls_record_1_3.hrl dtls_record.hrl ssl_srp.hrl 
+	dtls_connection.hrl \
+	dtls_handshake.hrl \
+	dtls_record.hrl \
+	ssl_alert.hrl \
+	ssl_api.hrl \
+	ssl_cipher.hrl \
+	ssl_connection.hrl \
+	ssl_handshake.hrl \
+	ssl_internal.hrl \
+	ssl_record.hrl \
+	ssl_srp.hrl \
+	tls_connection.hrl \
+	tls_handshake.hrl \
+	tls_handshake_1_3.hrl \
+	tls_record.hrl \
+	tls_record_1_3.hrl
+
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
@@ -117,6 +131,10 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
+DEPDIR=$(ERL_TOP)/lib/ssl/src/deps
+DEP_FILE=$(DEPDIR)/ssl.d
+$(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -133,11 +151,22 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) 
+$(DEP_FILE): $(ERL_FILES)
+	$(gen_verbose)erlc -M $(ERL_FILES) \
+	| sed "s@$(ERL_TOP)@../../..@g" \
+	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
+	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
+	| sed 's@^inet_@$$(EBIN)/inet_@' \
+	| sed 's@^ssl_@$$(EBIN)/ssl_@' \
+	| sed 's@^tls_@$$(EBIN)/tls_@' \
+	> $(DEP_FILE)
+
+debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(DEP_FILE)
 
 clean:
 	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(BEHAVIOUR_TARGET_FILES) 
 	rm -f errs core *~
+	rm -rf $(DEPDIR)
 
 $(APP_TARGET):	$(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
@@ -146,7 +175,6 @@ $(APPUP_TARGET):	$(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 docs:
-
 
 # ----------------------------------------------------
 # Release Target
@@ -165,24 +193,4 @@ release_docs_spec:
 # ----------------------------------------------------
 # Dependencies
 # ----------------------------------------------------
-$(EBIN)/inet_tls_dist.$(EMULATOR): ../../kernel/include/net_address.hrl  ../../kernel/include/dist.hrl  ../../kernel/include/dist_util.hrl
-$(EBIN)/tls.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/ssl_alert.$(EMULATOR): ssl_alert.hrl ssl_record.hrl  
-$(EBIN)/ssl_certificate.$(EMULATOR): ssl_internal.hrl ssl_alert.hrl ssl_handshake.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/ssl_certificate_db.$(EMULATOR): ssl_internal.hrl ../../public_key/include/public_key.hrl ../../kernel/include/file.hrl
-$(EBIN)/ssl_cipher.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_connection.$(EMULATOR): ssl_internal.hrl tls_connection.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_connection_1_3.$(EMULATOR): ssl_internal.hrl tls_connection.hrl
-$(EBIN)/dtls_connection.$(EMULATOR): ssl_internal.hrl dtls_connection.hrl dtls_record.hrl ssl_cipher.hrl dtls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl tls_record.hrl ssl_cipher.hrl tls_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_handshake.$(EMULATOR): ssl_internal.hrl ssl_connection.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl ../../public_key/include/public_key.hrl
-$(EBIN)/tls_handshake_1_3.$(EMULATOR): tls_handshake_1_3.hrl tls_handshake.hrl ssl_internal.hrl
-$(EBIN)/ssl_manager.$(EMULATOR): ssl_internal.hrl ssl_handshake.hrl ../../kernel/include/file.hrl
-$(EBIN)/ssl_record.$(EMULATOR):  ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl ssl_handshake.hrl ssl_alert.hrl
-$(EBIN)/ssl_session.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
-$(EBIN)/ssl_session_cache.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
-$(EBIN)/ssl_session_cache_api.$(EMULATOR):  ssl_internal.hrl ssl_handshake.hrl
-$(EBIN)/ssl_ssl3.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl
-$(EBIN)/ssl_tls1.$(EMULATOR): ssl_internal.hrl ssl_record.hrl ssl_cipher.hrl
-$(EBIN)/ssl_cache.$(EMULATOR): ssl_cache.erl ssl_internal.hrl ../../public_key/include/public_key.hrl
-
+-include $(DEP_FILE)

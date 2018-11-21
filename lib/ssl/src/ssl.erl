@@ -51,7 +51,7 @@
 %% SSL/TLS protocol handling
 -export([cipher_suites/0, cipher_suites/1, cipher_suites/2, filter_cipher_suites/2,
          prepend_cipher_suites/2, append_cipher_suites/2,
-         eccs/0, eccs/1, versions/0, groups/0,
+         eccs/0, eccs/1, versions/0, groups/0, groups/1,
          format_error/1, renegotiate/1, prf/5, negotiated_protocol/1, 
 	 connection_information/1, connection_information/2]).
 %% Misc
@@ -585,6 +585,13 @@ groups() ->
     tls_v1:groups(4).
 
 %%--------------------------------------------------------------------
+-spec groups(default) -> tls_v1:supported_groups().
+%% Description: returns the default groups (TLS 1.3 and later)
+%%--------------------------------------------------------------------
+groups(default) ->
+    tls_v1:default_groups(4).
+
+%%--------------------------------------------------------------------
 -spec getopts(#sslsocket{}, [gen_tcp:option_name()]) ->
 		     {ok, [gen_tcp:option()]} | {error, reason()}.
 %%
@@ -988,16 +995,17 @@ handle_options(Opts0, Role, Host) ->
 		    eccs       = handle_eccs_option(proplists:get_value(eccs, Opts, eccs()),
                                                     HighestVersion),
                     supported_groups = handle_supported_groups_option(
-                                         proplists:get_value(supported_groups, Opts, groups()),
+                                         proplists:get_value(supported_groups, Opts, groups(default)),
                                          HighestVersion),
 		    signature_algs =
                          handle_hashsigns_option(
                            proplists:get_value(
                              signature_algs,
                              Opts,
-                             default_option_role(server,
+                             default_option_role_sign_algs(server,
                                                  tls_v1:default_signature_algs(HighestVersion),
-                                                 Role)),
+                                                 Role,
+                                                 HighestVersion)),
                            tls_version(HighestVersion)),
                     signature_algs_cert =
                          handle_signature_algorithms_option(
@@ -1330,15 +1338,25 @@ validate_option(customize_hostname_check, Value) when is_list(Value) ->
 validate_option(Opt, Value) ->
     throw({error, {options, {Opt, Value}}}).
 
+handle_hashsigns_option(Value, Version) when is_list(Value)
+                                             andalso Version >= {3, 4} ->
+    case tls_v1:signature_schemes(Version, Value) of
+	[] ->
+	    throw({error, {options,
+                           no_supported_signature_schemes,
+                           {signature_algs, Value}}});
+	_ ->
+	    Value
+    end;
 handle_hashsigns_option(Value, Version) when is_list(Value) 
-                                             andalso Version >= {3, 3} ->
+                                             andalso Version =:= {3, 3} ->
     case tls_v1:signature_algs(Version, Value) of
 	[] ->
 	    throw({error, {options, no_supported_algorithms, {signature_algs, Value}}});
 	_ ->	
 	    Value
     end;
-handle_hashsigns_option(_, Version) when Version >= {3, 3} ->
+handle_hashsigns_option(_, Version) when Version =:= {3, 3} ->
     handle_hashsigns_option(tls_v1:default_signature_algs(Version), Version);
 handle_hashsigns_option(_, _Version) ->
     undefined.
@@ -1755,10 +1773,19 @@ handle_verify_options(Opts, CaCerts) ->
 	    throw({error, {options, {verify, Value}}})
     end.
 
+%% Added to handle default values for signature_algs in TLS 1.3
+default_option_role_sign_algs(_, Value, _, Version) when Version >= {3,4} ->
+    Value;
+default_option_role_sign_algs(Role, Value, Role, _) ->
+    Value;
+default_option_role_sign_algs(_, _, _, _) ->
+    undefined.
+
 default_option_role(Role, Value, Role) ->
     Value;
 default_option_role(_,_,_) ->
     undefined.
+
 
 default_cb_info(tls) ->
     {gen_tcp, tcp, tcp_closed, tcp_error};

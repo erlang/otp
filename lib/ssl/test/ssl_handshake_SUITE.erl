@@ -112,7 +112,7 @@ decode_hello_handshake(_Config) ->
 
 decode_single_hello_extension_correctly(_Config) -> 
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_extensions(Renegotiation, {3,3}),
+    Extensions = ssl_handshake:decode_extensions(Renegotiation, {3,3}, undefined),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->

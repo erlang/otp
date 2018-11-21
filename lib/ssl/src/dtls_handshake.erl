@@ -79,7 +79,7 @@ client_hello(Host, Port, Cookie, ConnectionStates,
 
     Extensions = ssl_handshake:client_hello_extensions(TLSVersion, CipherSuites,
                                                        SslOpts, ConnectionStates, 
-                                                       Renegotiation),
+                                                       Renegotiation, undefined),
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
     #client_hello{session_id = Id,

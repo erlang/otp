@@ -298,7 +298,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
            %% ClientCertiticateType,
            %% ServerCertificateType,
            %% Padding,
-           %% KeyShare,
+           KeyShare,
            %% PreSharedKey,
            %% PSKKeyExchangeModes,
            %% EarlyData,
@@ -321,7 +321,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
            %% oneof([client_cert_type(), undefined]),
            %% oneof([server_cert_type(), undefined]),
            %% oneof([padding(), undefined]),
-           %% oneof([key_share(), undefined]),
+           oneof([key_share(client_hello), undefined]),
            %% oneof([pre_shared_key(), undefined]),
            %% oneof([psk_key_exchange_modes(), undefined]),
            %% oneof([early_data(), undefined]),
@@ -349,7 +349,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
                         %% client_cert_type => ClientCertificateType,
                         %% server_cert_type => ServerCertificateType,
                         %% padding => Padding,
-                        %% key_share => KeyShare,
+                        key_share => KeyShare,
                         %% pre_shared_key => PreSharedKey,
                         %% psk_key_exhange_modes => PSKKeyExchangeModes,
                         %% early_data => EarlyData,
@@ -396,12 +396,12 @@ extensions(Version, client_hello) ->
                       }));
 extensions(?'TLS_v1.3' = Version, server_hello) ->
     ?LET({
-          %% KeyShare,
+          KeyShare,
           %% PreSharedKeys,
           SupportedVersions
          },
          {
-          %% oneof([key_share(), undefined]),
+          oneof([key_share(server_hello), undefined]),
           %% oneof([pre_shared_keys(),  undefined]),
           oneof([server_hello_selected_version(), undefined])
          },
@@ -411,7 +411,7 @@ extensions(?'TLS_v1.3' = Version, server_hello) ->
                              true
                      end,
                      #{
-                       %% key_share => KeyShare,
+                       key_share => KeyShare,
                        %% pre_shared_keys => PreSharedKeys,
                        server_hello_selected_version => SupportedVersions
                       }));
@@ -705,3 +705,57 @@ gen_string(0, Acc) ->
     Acc;
 gen_string(N, Acc) ->
     ?LET(Char, gen_char(), gen_string(N-1, [Char | Acc])).
+
+key_share(client_hello) ->
+    ?LET(ClientShares, key_share_entry_list(),
+        #key_share_client_hello{
+          client_shares = ClientShares});
+key_share(server_hello) ->
+    ?LET([ServerShare], key_share_entry_list(1),
+        #key_share_server_hello{
+          server_share = ServerShare}).
+
+key_share_entry_list() ->
+    Max = length(ssl:groups()),
+    ?LET(Size, choose(1,Max), key_share_entry_list(Size)).
+%%
+key_share_entry_list(N) ->
+    key_share_entry_list(N, ssl:groups(), []).
+%%
+key_share_entry_list(0, _Pool, Acc) ->
+    Acc;
+key_share_entry_list(N, Pool, Acc) ->
+    R = rand:uniform(length(Pool)),
+    G = lists:nth(R, Pool),
+    P = generate_public_key(G),
+    KeyShareEntry =
+        #key_share_entry{
+          group = G,
+          key_exchange = P},
+    key_share_entry_list(N - 1, Pool -- [G], [KeyShareEntry|Acc]).
+
+generate_public_key(Group)
+  when Group =:= secp256r1 orelse
+       Group =:= secp384r1 orelse
+       Group =:= secp521r1 ->
+    #'ECPrivateKey'{publicKey = PublicKey} =
+        public_key:generate_key({namedCurve, secp256r1}),
+    PublicKey;
+generate_public_key(Group) ->
+    {PublicKey, _} =
+        public_key:generate_key(ssl_dh_groups:dh_params(Group)),
+    PublicKey.
+
+groups() ->
+    Max = length(ssl:groups()),
+    ?LET(Size, choose(1,Max), group_list(Size)).
+
+group_list(N) ->
+    group_list(N, ssl:groups(), []).
+%%
+group_list(0, _Pool, Acc) ->
+    Acc;
+group_list(N, Pool, Acc) ->
+    R = rand:uniform(length(Pool)),
+    G = lists:nth(R, Pool),
+    group_list(N - 1, Pool -- [G], [G|Acc]).
