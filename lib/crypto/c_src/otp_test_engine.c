@@ -75,8 +75,11 @@ static int test_rsa_verify(int dtype, const unsigned char *m,
 static int test_rsa_free(RSA *rsa);
 #endif /* if defined(FAKE_RSA_IMPL) */
 
-/* The callback that does the job of fetching keys on demand by the Engine */
-EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data);
+/* The callbacks that does the job of fetching keys on demand by the Engine */
+EVP_PKEY* test_privkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data);
+EVP_PKEY* test_pubkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data);
+
+EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data, int priv);
 
 /*----------------------------------------------------------------*/
 
@@ -269,24 +272,29 @@ IMPLEMENT_DYNAMIC_BIND_FN(bind_helper);
  */
 int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password);
 
-EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data)
+EVP_PKEY* test_privkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data) {
+    return test_key_load(eng, id, ui_method, callback_data, 1);
+}
+
+EVP_PKEY* test_pubkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data) {
+    return test_key_load(eng, id, ui_method, callback_data, 0);
+}
+
+EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data, int priv)
 {
     EVP_PKEY *pkey = NULL;
     FILE *f = fopen(id, "r");
 
     if (!f) {
-            fprintf(stderr, "%s:%d fopen(%s) failed\r\n", __FILE__,__LINE__,id);
-            return NULL;
+        fprintf(stderr, "%s:%d fopen(%s) failed\r\n", __FILE__,__LINE__,id);
+        return NULL;
     }
 
-    /* First try to read as a private key. If that fails, try to read as a public key: */
-    pkey = PEM_read_PrivateKey(f, NULL, pem_passwd_cb_fun, callback_data);
-    if (!pkey) {
-        /* ERR_print_errors_fp (stderr); */
-        fclose(f);
-        f = fopen(id, "r");
-        pkey = PEM_read_PUBKEY(f, NULL, NULL, NULL);
-    }
+    pkey =
+        priv
+        ? PEM_read_PrivateKey(f, NULL, pem_passwd_cb_fun, callback_data)
+        : PEM_read_PUBKEY(f, NULL, NULL, NULL);
+
     fclose(f);
     
     if (!pkey) {
