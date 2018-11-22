@@ -67,7 +67,8 @@
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, otp_14323/1,
          stacktrace_syntax/1,
-         otp_14285/1, otp_14378/1]).
+         otp_14285/1, otp_14378/1,
+         external_funs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -88,7 +89,7 @@ all() ->
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
-     stacktrace_syntax, otp_14285, otp_14378].
+     stacktrace_syntax, otp_14285, otp_14378, external_funs].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4131,6 +4132,21 @@ otp_14285(Config) ->
            {errors,
             [{1,erl_lint,E4}],
             []}}],
+    run(Config, Ts),
+    ok.
+
+external_funs(Config) when is_list(Config) ->
+    Ts = [{external_funs_1,
+           %% ERL-762: Unused variable warning not being emitted.
+           <<"f() ->
+                BugVar = process_info(self()),
+                if true -> fun m:f/1 end.
+              f(M, F) ->
+                BugVar = process_info(self()),
+                if true -> fun M:F/1 end.">>,
+           [],
+           {warnings,[{2,erl_lint,{unused_var,'BugVar'}},
+                      {5,erl_lint,{unused_var,'BugVar'}}]}}],
     run(Config, Ts),
     ok.
 

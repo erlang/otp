@@ -2262,8 +2262,7 @@ expr({'fun',Line,Body}, Vt, St) ->
 	    {[],St};
 	{function,M,F,A} ->
 	    %% New in R15.
-	    {Bvt, St1} = expr_list([M,F,A], Vt, St),
-	    {vtupdate(Bvt, Vt),St1}
+	    expr_list([M,F,A], Vt, St)
     end;
 expr({named_fun,_,'_',Cs}, Vt, St) ->
     fun_clauses(Cs, Vt, St);
