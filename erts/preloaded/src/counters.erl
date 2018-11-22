@@ -26,6 +26,7 @@
          get/2,
          add/3,
          sub/3,
+         put/3,
          info/1]).
 
 -export_type([counters_ref/0]).
@@ -75,6 +76,19 @@ add(_, _, _) ->
       Decr :: integer().
 sub(Ref, Ix, Decr) ->
     add(Ref, Ix, -Decr).
+
+
+-spec put(Ref, Ix, Value) -> ok when
+      Ref  :: counters_ref(),
+      Ix :: integer(),
+      Value :: integer().
+put({atomics, Ref}, Ix, Value) ->
+    atomics:put(Ref, Ix, Value);
+put({write_concurrency, Ref}, Ix, Value) ->
+    erts_internal:counters_put(Ref, Ix, Value);
+put(_, _, _) ->
+    erlang:error(badarg).
+
 
 -spec info(Ref) -> Info when
       Ref  :: counters_ref(),
