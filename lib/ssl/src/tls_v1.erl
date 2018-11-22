@@ -36,7 +36,14 @@
          default_signature_schemes/1, signature_schemes/2,
          groups/1, groups/2, group_to_enum/1, enum_to_group/1, default_groups/1]).
 
--export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4]).
+-export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4,
+         key_schedule/3, key_schedule/4,
+         external_binder_key/2, resumption_binder_key/2,
+         client_early_traffic_secret/3, early_exporter_master_secret/3,
+         client_handshake_traffic_secret/3, server_handshake_traffic_secret/3,
+         client_application_traffic_secret_0/3, server_application_traffic_secret_0/3,
+         exporter_master_secret/3, resumption_master_secret/3,
+         update_traffic_secret/2, calculate_traffic_keys/3]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -56,7 +63,7 @@
 
 %% TLS 1.3 ---------------------------------------------------
 -spec derive_secret(Secret::binary(), Label::binary(),
-                    Messages::binary(), Algo::ssl_cipher_format:hash()) -> Key::binary().
+                    Messages::iodata(), Algo::ssl_cipher_format:hash()) -> Key::binary().
 derive_secret(Secret, Label, Messages, Algo) ->
     Hash = crypto:hash(mac_algo(Algo), Messages),
     hkdf_expand_label(Secret, Label,
@@ -73,7 +80,7 @@ hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
     %% } HkdfLabel;
     Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
     LLen = size(Label1),
-    Label = <<?BYTE(LLen), Label1>>,
+    Label = <<?BYTE(LLen), Label1/binary>>,
     Content = <<Label/binary, Context/binary>>,
     Len = size(Content),
     HkdfLabel = <<?UINT16(Len), Content/binary>>,
@@ -237,6 +244,153 @@ setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 %% TLS v1.2  ---------------------------------------------------
+
+%% TLS v1.3  ---------------------------------------------------
+%% RFC 8446  -  7.1.  Key Schedule
+%%
+%%             0
+%%             |
+%%             v
+%%   PSK ->  HKDF-Extract = Early Secret
+%%             |
+%%             +-----> Derive-Secret(., "ext binder" | "res binder", "")
+%%             |                     = binder_key
+%%             |
+%%             +-----> Derive-Secret(., "c e traffic", ClientHello)
+%%             |                     = client_early_traffic_secret
+%%             |
+%%             +-----> Derive-Secret(., "e exp master", ClientHello)
+%%             |                     = early_exporter_master_secret
+%%             v
+%%       Derive-Secret(., "derived", "")
+%%             |
+%%             v
+%%   (EC)DHE -> HKDF-Extract = Handshake Secret
+%%             |
+%%             +-----> Derive-Secret(., "c hs traffic",
+%%             |                     ClientHello...ServerHello)
+%%             |                     = client_handshake_traffic_secret
+%%             |
+%%             +-----> Derive-Secret(., "s hs traffic",
+%%             |                     ClientHello...ServerHello)
+%%             |                     = server_handshake_traffic_secret
+%%             v
+%%       Derive-Secret(., "derived", "")
+%%             |
+%%             v
+%%   0 -> HKDF-Extract = Master Secret
+%%             |
+%%             +-----> Derive-Secret(., "c ap traffic",
+%%             |                     ClientHello...server Finished)
+%%             |                     = client_application_traffic_secret_0
+%%             |
+%%             +-----> Derive-Secret(., "s ap traffic",
+%%             |                     ClientHello...server Finished)
+%%             |                     = server_application_traffic_secret_0
+%%             |
+%%             +-----> Derive-Secret(., "exp master",
+%%             |                     ClientHello...server Finished)
+%%             |                     = exporter_master_secret
+%%             |
+%%             +-----> Derive-Secret(., "res master",
+%%                                   ClientHello...client Finished)
+%%                                   = resumption_master_secret
+-spec key_schedule(early_secret | handshake_secret | master_secret,
+                   atom(), {psk | early_secret | handshake_secret, binary()}) ->
+                          {early_secret | handshake_secret | master_secret, binary()}.
+
+key_schedule(early_secret, Algo, {psk, PSK}) ->
+    Len = ssl_cipher:hash_size(Algo),
+    Salt = binary:copy(<<?BYTE(0)>>, Len),
+    {early_secret, hkdf_extract(Algo, Salt, PSK)};
+key_schedule(master_secret, Algo, {handshake_secret, Secret}) ->
+    Len = ssl_cipher:hash_size(Algo),
+    IKM = binary:copy(<<?BYTE(0)>>, Len),
+    Salt = derive_secret(Secret, <<"derived">>, <<>>, Algo),
+    {master_secret, hkdf_extract(Algo, Salt, IKM)}.
+%%
+key_schedule(handshake_secret, Algo, IKM, {early_secret, Secret}) ->
+    Salt = derive_secret(Secret, <<"derived">>, <<>>, Algo),
+    {handshake_secret, hkdf_extract(Algo, Salt, IKM)}.
+
+-spec external_binder_key(atom(), {early_secret, binary()}) -> binary().
+external_binder_key(Algo, {early_secret, Secret}) ->
+    derive_secret(Secret, <<"ext binder">>, <<>>, Algo).
+
+-spec resumption_binder_key(atom(), {early_secret, binary()}) -> binary().
+resumption_binder_key(Algo, {early_secret, Secret}) ->
+    derive_secret(Secret, <<"res binder">>, <<>>, Algo).
+
+-spec client_early_traffic_secret(atom(), {early_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello
+client_early_traffic_secret(Algo, {early_secret, Secret}, M) ->
+    derive_secret(Secret, <<"c e traffic">>, M, Algo).
+
+-spec early_exporter_master_secret(atom(), {early_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello
+early_exporter_master_secret(Algo, {early_secret, Secret}, M) ->
+    derive_secret(Secret, <<"e exp master">>, M, Algo).
+
+-spec client_handshake_traffic_secret(atom(), {handshake_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...ServerHello
+client_handshake_traffic_secret(Algo, {handshake_secret, Secret}, M) ->
+    derive_secret(Secret, <<"c hs traffic">>, M, Algo).
+
+-spec server_handshake_traffic_secret(atom(), {handshake_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...ServerHello
+server_handshake_traffic_secret(Algo, {handshake_secret, Secret}, M) ->
+    derive_secret(Secret, <<"s hs traffic">>, M, Algo).
+
+-spec client_application_traffic_secret_0(atom(), {master_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...server Finished
+client_application_traffic_secret_0(Algo, {master_secret, Secret}, M) ->
+    derive_secret(Secret, <<"c ap traffic">>, M, Algo).
+
+-spec server_application_traffic_secret_0(atom(), {master_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...server Finished
+server_application_traffic_secret_0(Algo, {master_secret, Secret}, M) ->
+    derive_secret(Secret, <<"s ap traffic">>, M, Algo).
+
+-spec exporter_master_secret(atom(), {master_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...server Finished
+exporter_master_secret(Algo, {master_secret, Secret}, M) ->
+    derive_secret(Secret, <<"exp master">>, M, Algo).
+
+-spec resumption_master_secret(atom(), {master_secret, binary()}, iodata()) -> binary().
+%% M = ClientHello...client Finished
+resumption_master_secret(Algo, {master_secret, Secret}, M) ->
+    derive_secret(Secret, <<"res master">>, M, Algo).
+
+%% The next-generation application_traffic_secret is computed as:
+%%
+%%        application_traffic_secret_N+1 =
+%%            HKDF-Expand-Label(application_traffic_secret_N,
+%%                              "traffic upd", "", Hash.length)
+-spec update_traffic_secret(atom(), binary()) -> binary().
+update_traffic_secret(Algo, Secret) ->
+    hkdf_expand_label(Secret, <<"traffic upd">>, <<>>, ssl_cipher:hash_size(Algo), Algo).
+
+%% The traffic keying material is generated from the following input
+%%    values:
+%%
+%%    -  A secret value
+%%
+%%    -  A purpose value indicating the specific value being generated
+%%
+%%    -  The length of the key being generated
+%%
+%%    The traffic keying material is generated from an input traffic secret
+%%    value using:
+%%
+%%    [sender]_write_key = HKDF-Expand-Label(Secret, "key", "", key_length)
+%%    [sender]_write_iv  = HKDF-Expand-Label(Secret, "iv", "", iv_length)
+-spec calculate_traffic_keys(atom(), atom(), binary()) -> {binary(), binary()}.
+calculate_traffic_keys(HKDFAlgo, Cipher, Secret) ->
+    Key = hkdf_expand_label(Secret, <<"key">>, <<>>, ssl_cipher:key_material(Cipher), HKDFAlgo),
+    IV = hkdf_expand_label(Secret, <<"iv">>, <<>>, ssl_cipher:key_material(Cipher), HKDFAlgo),
+    {Key, IV}.
+
+%% TLS v1.3  ---------------------------------------------------
 
 %% TLS 1.0 -1.2  ---------------------------------------------------
 -spec mac_hash(integer() | atom(), binary(), integer(), integer(), tls_record:tls_version(),
