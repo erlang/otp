@@ -387,6 +387,9 @@ chkio_drv_start(ErlDrvPort port, char *command)
     cddp->id = driver_mk_port(port);
     cddp->test = CHKIO_STOP;
     cddp->test_data = NULL;
+
+    drv_use_singleton.fd_stop_select = -2; /* disable stop_select asserts */
+
     return (ErlDrvData) cddp;
 #endif
 }
@@ -1041,7 +1044,6 @@ chkio_drv_control(ErlDrvData drv_data,
 		if (pip->wasSelected && (op & 1)) {
 		    TRACEF(("%T: Close pipe [%d->%d]\n", cddp->id, pip->write_fd,
                             pip->read_fd));
-                    drv_use_singleton.fd_stop_select = -2; /* disable stop_select asserts */
 		    if (driver_select(cddp->port, (ErlDrvEvent)(ErlDrvSInt)pip->read_fd,
                                       DO_READ|ERL_DRV_USE, 0)
                         || close(pip->write_fd)) {
