@@ -130,7 +130,7 @@ static ERTS_INLINE int get_ref_cnt(Eterm ref, Eterm index,
     UWord ix, ui, vi;
     if (!get_ref(ref, &p) || !term_to_UWord(index, &ix) || --ix >= p->arity)
         return 0;
-    ui = (ix / ATOMICS_PER_CACHE_LINE) * ATOMICS_PER_COUNTER;
+    ui = (ix / ATOMICS_PER_CACHE_LINE) * ATOMICS_PER_COUNTER + sched_ix;
     vi = ix % ATOMICS_PER_CACHE_LINE;
     ASSERT(ui < p->ulen);
     *pp = p;
