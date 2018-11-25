@@ -393,14 +393,13 @@ extract_seq_1(_, _) -> no.
 	{
 	  entry :: beam_asm:label(), %Entry label (must not be moved).
 	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: cerl_sets:set(),         %Set of referenced labels.
-          index :: beam_utils:code_index() | {lazy,[beam_utils:instruction()]} %Index built lazily only if needed
+	  labels :: cerl_sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->
 			  Lbls = initial_labels(Is),
-			  St = #st{entry=CLabel,replace=#{},labels=Lbls,index={lazy,Is}},
+			  St = #st{entry=CLabel,replace=#{},labels=Lbls},
 			  opt(Is, [], St)
 		  end, Is0).
 
