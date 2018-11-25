@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 undefined_label/1,ambiguous_catch_try_state/1,
-         unsafe_move_elimination/1,build_tuple/1]).
+         unsafe_move_elimination/1,build_tuple/1,
+         coverage/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -35,7 +36,8 @@ groups() ->
       [undefined_label,
        ambiguous_catch_try_state,
        unsafe_move_elimination,
-       build_tuple
+       build_tuple,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -124,6 +126,44 @@ do_build_tuple(Message) ->
     if is_record(Message, message2) ->
 	    Res = {res, rand:uniform(100)},
 	    {Message#message3.id, Res}
+    end.
+
+coverage(_Config) ->
+    ok = coverage_1(ok),
+    {error,badarg} = coverage_1({error,badarg}),
+
+    gt = coverage_2(100, 42),
+    le = coverage_2(100, 999),
+    le = coverage_2([], []),
+    gt = coverage_2([], xxx),
+
+    ok.
+
+coverage_1(Var) ->
+    case id(Var) of
+	ok -> ok;
+	Error -> Error
+    end.
+
+%% Cover beam_jump:invert_test(is_ne_exact).
+coverage_2(Pre1, Pre2) ->
+    case
+        case Pre1 == [] of
+            false ->
+                false;
+            true ->
+                Pre2 /= []
+        end
+    of
+        true ->
+            gt;
+        false ->
+            case Pre1 > Pre2 of
+                true ->
+                    gt;
+                false ->
+                    le
+            end
     end.
 
 

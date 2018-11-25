@@ -429,16 +429,6 @@ opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
 	    %% as in the jump that follows -- thus it is not needed.
 	    opt(Is, Acc, St)
     end;
-opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc, St) ->
-    %% Similar to the above, except we have a fall-through rather than jump
-    %%    Test Label Ops
-    %%    label Label
-    case beam_utils:is_pure_test(I) of
-	false ->
-	    opt(Is, [I|Acc], label_used(Lbl, St));
-	true ->
-	    opt(Is, Acc, St)
-    end;
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
