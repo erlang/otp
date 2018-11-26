@@ -9225,7 +9225,10 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     ERL_NIF_TERM                result;
     ERL_NIF_TERM                eDataIn, eAssoc, eAddr, eSndFailure;
     ERL_NIF_TERM                ePeerError, eShutdown, ePartialDelivery;
-    ERL_NIF_TERM                eAdaptLayer, eAuth, eSndDry;
+    ERL_NIF_TERM                eAdaptLayer, eAuth;
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
+    ERL_NIF_TERM                eSndDry;
+#endif
     struct sctp_event_subscribe events;
     int                         res;
     size_t                      sz;
@@ -9273,8 +9276,10 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     if (!GET_MAP_VAL(env, eVal, atom_authentication,   &eAuth))
         return esock_make_error(env, esock_atom_einval);
 
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
     if (!GET_MAP_VAL(env, eVal, atom_sender_dry,       &eSndDry))
         return esock_make_error(env, esock_atom_einval);
+#endif
 
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_events -> decode attributes\r\n") );
@@ -9288,7 +9293,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     events.sctp_partial_delivery_event = esock_decode_bool(ePartialDelivery);
     events.sctp_adaptation_layer_event = esock_decode_bool(eAdaptLayer);
     events.sctp_authentication_event   = esock_decode_bool(eAuth);
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
     events.sctp_sender_dry_event       = esock_decode_bool(eSndDry);
+#endif
     
     SSDBG( descP,
            ("SOCKET", "nsetopt_lvl_sctp_events -> set events option\r\n") );
