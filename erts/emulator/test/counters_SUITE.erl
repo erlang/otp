@@ -22,12 +22,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([suite/0, all/0]).
--export([basic/1, bad/1, limits/1, indep/1]).
+-export([basic/1, bad/1, limits/1, indep/1, write_concurrency/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [basic, bad, limits, indep].
+    [basic, bad, limits, indep, write_concurrency].
 
 basic(Config) when is_list(Config) ->
     Size = 10,
@@ -175,3 +175,60 @@ indep_subber(Ref, I, Val) when Val > -(1 bsl 62) ->
     indep_subber(Ref, I, Res);
 indep_subber(_Ref, _I, Val) ->
     Val.
+
+
+
+%% Verify write_concurrency yields correct results.
+write_concurrency(Config) when is_list(Config) ->
+    rand:seed(exs1024s),
+    io:format("*** SEED: ~p ***\n", [rand:export_seed()]),
+    NScheds = erlang:system_info(schedulers),
+    Size = 100,
+    Ref = counters:new(Size,[write_concurrency]),
+    Rounds = 1000,
+    Papa = self(),
+    Pids = [spawn_opt(fun Worker() ->
+                              receive
+                                  {go, Ix, Incr} ->
+                                      wc_looper(Rounds, Ref, Ix, Incr),
+                                      Papa ! {self(), done, Rounds*Incr},
+                                      Worker();
+                                  stop ->
+                                      ok
+                              end
+                       end,
+                      [link, {scheduler, N}])
+            || N <- lists:seq(1, NScheds)],
+    [begin
+         Base = rand_log64(),
+         counters:put(Ref, Index, Base),
+         SendList = [{P,{go, Index, rand_log64()}} || P <- Pids],
+         [P ! Msg || {P,Msg} <- SendList],
+         Added = lists:sum([receive {P,done,Contrib} -> Contrib end || P <- Pids]),
+         Result = mask_sint64(Base+Added),
+         {_,Result} = {Result, counters:get(Ref, Index)}
+     end
+     || Index <- lists:seq(1, Size)],
+
+    [begin unlink(P), P ! stop end || P <- Pids],
+    ok.
+
+wc_looper(0, _, _, _) ->
+    ok;
+wc_looper(N, Ref, Ix, Incr) ->
+    counters:add(Ref, Ix, Incr),
+    wc_looper(N-1, Ref, Ix, Incr).
+
+mask_sint64(X) ->
+    SMask = 1 bsl 63,
+    UMask = SMask - 1,
+    (X band UMask) - (X band SMask).
+
+%% A random signed 64-bit integer
+%% with a uniformly distributed number of significant bits.
+rand_log64() ->
+    Uint = round(math:pow(2, rand:uniform()*63)),
+    case rand:uniform(2) of
+        1 -> -Uint;
+        2 -> Uint
+    end.

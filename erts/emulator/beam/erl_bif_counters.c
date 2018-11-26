@@ -41,13 +41,13 @@
  * Each logical counter consists of one 64-bit atomic instance per scheduler
  * plus one instance for the "base value".
  *
- * get() reads all atomics for the counter and return the sum.
+ * get() reads all atomics for the counter and returns the sum.
  * add() reads and writes only its own scheduler specific atomic instance.
  * put() reads all scheduler specific atomics and writes a new base value.
  */
 #define ATOMICS_PER_COUNTER (erts_no_schedulers + 1)
 
-#define COUNTERS_PER_CACHE_LINE (ERTS_CACHE_LINE_SIZE / sizeof(erts_atomic64_t))
+#define ATOMICS_PER_CACHE_LINE (ERTS_CACHE_LINE_SIZE / sizeof(erts_atomic64_t))
 
 typedef struct
 {
@@ -56,7 +56,7 @@ typedef struct
     UWord ulen;
 #endif
     union {
-        erts_atomic64_t v[COUNTERS_PER_CACHE_LINE];
+        erts_atomic64_t v[ATOMICS_PER_CACHE_LINE];
         byte cache_line__[ERTS_CACHE_LINE_SIZE];
     } u[1];
 }CountersRef;
@@ -88,7 +88,7 @@ BIF_RETTYPE erts_internal_counters_new_1(BIF_ALIST_1)
     if (cnt > (ERTS_UWORD_MAX / (sizeof(erts_atomic64_t)*2*ATOMICS_PER_COUNTER)))
         BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 
-    cache_lines = ATOMICS_PER_COUNTER * div_ceil(cnt, COUNTERS_PER_CACHE_LINE);
+    cache_lines = ATOMICS_PER_COUNTER * div_ceil(cnt, ATOMICS_PER_CACHE_LINE);
     bytes = offsetof(CountersRef, u) + cache_lines * ERTS_CACHE_LINE_SIZE;
     mbin = erts_create_magic_binary_x(bytes,
                                       counters_destructor,
@@ -102,7 +102,7 @@ BIF_RETTYPE erts_internal_counters_new_1(BIF_ALIST_1)
 #endif
     ASSERT((byte*)&p->u[cache_lines] <= ((byte*)p + bytes));
     for (ui=0; ui < cache_lines; ui++)
-        for (vi=0; vi < COUNTERS_PER_CACHE_LINE; vi++)
+        for (vi=0; vi < ATOMICS_PER_CACHE_LINE; vi++)
             erts_atomic64_init_nob(&p->u[ui].v[vi], 0);
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
     return erts_mk_magic_ref(&hp, &MSO(BIF_P), mbin);
@@ -130,8 +130,8 @@ static ERTS_INLINE int get_ref_cnt(Eterm ref, Eterm index,
     UWord ix, ui, vi;
     if (!get_ref(ref, &p) || !term_to_UWord(index, &ix) || --ix >= p->arity)
         return 0;
-    ui = (ix / COUNTERS_PER_CACHE_LINE) * ATOMICS_PER_COUNTER;
-    vi = ix % COUNTERS_PER_CACHE_LINE;
+    ui = (ix / ATOMICS_PER_CACHE_LINE) * ATOMICS_PER_COUNTER + sched_ix;
+    vi = ix % ATOMICS_PER_CACHE_LINE;
     ASSERT(ui < p->ulen);
     *pp = p;
     *app = &p->u[ui].v[vi];
