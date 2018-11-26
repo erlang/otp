@@ -576,14 +576,12 @@ fwrite_g_1(Float, Exp, Frac) ->
 
 scale(R, S, MPlus, MMinus, LowOk, HighOk, Float) ->
     Est = int_ceil(math:log10(abs(Float)) - 1.0e-10),
-    %% Note that the scheme implementation uses a 326 element look-up
-    %% table for int_pow(10, N) where we do not.
     if
         Est >= 0 ->
-            fixup(R, S * int_pow(10, Est), MPlus, MMinus, Est,
+            fixup(R, S * int_pow10(Est), MPlus, MMinus, Est,
                   LowOk, HighOk);
         true ->
-            Scale = int_pow(10, -Est),
+            Scale = int_pow10(-Est),
             fixup(R * Scale, S, MPlus * Scale, MMinus * Scale, Est,
                   LowOk, HighOk)
     end.
@@ -668,15 +666,24 @@ int_ceil(X) when is_float(X) ->
         _ -> T
     end.
 
-int_pow(X, 0) when is_integer(X) ->
+int_pow10(0) ->
     1;
-int_pow(X, N) when is_integer(X), is_integer(N), N > 0 ->
-    int_pow(X, N, 1).
+int_pow10(N) when is_integer(N), N > 0 ->
+    try persistent_term:get(?MODULE) of
+        Powers ->
+            element(N, Powers)
+    catch
+        error:badarg ->
+            TableSize = 326,
+            Powers = list_to_tuple(powers(TableSize, 10)),
+            persistent_term:put(?MODULE, Powers),
+            element(N, Powers)
+    end.
 
-int_pow(X, N, R) when N < 2 ->
-    R * X;
-int_pow(X, N, R) ->
-    int_pow(X * X, N bsr 1, case N band 1 of 1 -> R * X; 0 -> R end).
+powers(0, _B) ->
+    [];
+powers(N, B) ->
+    [B|powers(N-1, B*10)].
 
 log2floor(Int) when is_integer(Int), Int > 0 ->
     log2floor(Int, 0).
