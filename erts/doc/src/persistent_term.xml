@@ -71,7 +71,7 @@
       scan of their heaps for the term that has been deleted.  While
       such scan is relatively light-weight, if there are many
       processes, the system can become less responsive until all
-      process have scanned theirs heaps.</p></item>
+      process have scanned their heaps.</p></item>
 
       <item><p>If the deleted term (or any part of it) is still used
       by a process, that process will do a major (fullsweep) garbage
