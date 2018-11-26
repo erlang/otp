@@ -808,7 +808,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
                 _:_ ->
                     error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
                                            [Node]),
-                    AcceptPid ! {self(),{accept_pending,nok_pending}}
+                    AcceptPid ! {self(),{accept_pending,nok_pending}},
+                    {noreply, State}
             end
     end;
 
