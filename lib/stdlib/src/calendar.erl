@@ -693,14 +693,11 @@ local_offset(SystemTime, Unit) ->
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
 
+fraction_str(1, _Time) ->
+    "";
 fraction_str(Factor, Time) ->
-    case Time rem Factor of
-        0 ->
-            "";
-        Fraction ->
-            FS = io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]),
-            string:trim(FS, trailing, "0")
-    end.
+    Fraction = Time rem Factor,
+    io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]).
 
 fraction(second, _) ->
     0;
