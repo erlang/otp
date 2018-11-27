@@ -920,18 +920,8 @@ indexify(Fd,DecodeOpts,Bin,N) ->
                     [{_,LastPos}] = lookup_index(?proc_heap,LastId),
                     ets:insert(cdv_heap_file_chars,{LastId,N+Start+1-LastPos});
                 {?literals,[]} ->
-                    case get(truncated_reason) of
-                        undefined ->
-                            [{_,LastPos}] = lookup_index(?literals,[]),
-                            ets:insert(cdv_heap_file_chars,
-                                       {literals,N+Start+1-LastPos});
-                        _ ->
-                            %% Literals are truncated. Make sure we never
-                            %% attempt to read in the literals. (Heaps that
-                            %% references literals will show markers for
-                            %% incomplete heaps, but will otherwise work.)
-                            delete_index(?literals, [])
-                    end;
+                    [{_,LastPos}] = lookup_index(?literals,[]),
+                    ets:insert(cdv_heap_file_chars,{literals,N+Start+1-LastPos});
                 _ -> ok
             end,
 	    indexify(Fd,DecodeOpts,Rest,N1);
@@ -976,6 +966,14 @@ check_if_truncated() ->
 	{?ende,_} ->
 	    put(truncated,false),
 	    put(truncated_proc,false);
+        {?literals,[]} ->
+            put(truncated,true),
+            put(truncated_proc,false),
+            %% Literals are truncated. Make sure we never
+            %% attempt to read in the literals. (Heaps that
+            %% references literals will show markers for
+            %% incomplete heaps, but will otherwise work.)
+            delete_index(?literals, []);
 	TruncatedTag ->
 	    put(truncated,true),
 	    find_truncated_proc(TruncatedTag)
@@ -984,7 +982,6 @@ check_if_truncated() ->
 find_truncated_proc({Tag,_Id}) when Tag==?atoms;
                                     Tag==?binary;
                                     Tag==?instr_data;
-                                    Tag==?literals;
                                     Tag==?memory_status;
                                     Tag==?memory_map ->
     put(truncated_proc,false);
@@ -2887,12 +2884,17 @@ parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
     {Term,Line,D};
 parse_heap_term("Mf"++Line0, Addr, DecodeOpts, D0) -> %Flatmap.
     {Size,":"++Line1} = get_hex(Line0),
-    {Keys,":"++Line2,D1} = parse_term(Line1, DecodeOpts, D0),
-    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
-    Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
-    Map = maps:from_list(Pairs),
-    D = gb_trees:update(Addr, Map, D2),
-    {Map,Line,D};
+    case parse_term(Line1, DecodeOpts, D0) of
+        {Keys,":"++Line2,D1} when is_tuple(Keys) ->
+            {Values,Line,D2} = parse_tuple(Size, Line2, Addr,DecodeOpts, D1, []),
+            Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
+            Map = maps:from_list(Pairs),
+            D = gb_trees:update(Addr, Map, D2),
+            {Map,Line,D};
+        {Incomplete,_Line,D1} ->
+            D = gb_trees:insert(Addr, Incomplete, D1),
+            {Incomplete,"",D}
+    end;
 parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {MapSize,":"++Line1} = get_hex(Line0),
     {N,":"++Line2} = get_hex(Line1),
@@ -3051,7 +3053,7 @@ do_deref_ptr(Lookup, Line, DecodeOpts, D0) ->
 	    {Term,Line,D0};
 	none ->
             put(incomplete_heap, true),
-            {['#CDVIncompleteHeap'],Line,D0};
+            {'#CDVIncompleteHeap',Line,D0};
         {line,Addr,NewLine} ->
             D = parse_line(Addr, NewLine, DecodeOpts, D0),
             do_deref_ptr(Lookup, Line, DecodeOpts, D)
@@ -3276,10 +3278,10 @@ tag_to_atom(UnknownTag) ->
 %%%-----------------------------------------------------------------
 %%% Store last tag for use when truncated, and reason if aborted
 put_last_tag(?abort,Reason) ->
-    %% Don't overwrite the real last tag, and make sure to return
-    %% the previous last tag.
-    put(truncated_reason,Reason),
-    get(last_tag);
+    %% Don't overwrite the real last tag, and don't return it either,
+    %% since that would make the caller of this function believe that
+    %% the tag was complete.
+    put(truncated_reason,Reason);
 put_last_tag(Tag,Id) ->
     put(last_tag,{Tag,Id}).
 
