@@ -10204,12 +10204,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
         desc->tcp_add_flags |= TCP_ADDF_SENDFILE;
 
         /* See if we can finish sending without selecting & rescheduling. */
-        tcp_inet_sendfile(desc);
-
-        if(desc->sendfile.length > 0) {
-            sock_select(INETP(desc), FD_WRITE, 1);
+        if (tcp_inet_sendfile(desc) == 0) {
+            if(desc->sendfile.length > 0) {
+                sock_select(INETP(desc), FD_WRITE, 1);
+            }
         }
-
         return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 #else
         return ctl_error(ENOTSUP, rbuf, rsize);
@@ -11692,8 +11691,8 @@ socket_error: {
         DEBUGF(("tcp_inet_sendfile(%ld): send errno = %d (errno %d)\r\n",
             (long)desc->inet.port, socket_errno, errno));
 
-        result = tcp_send_error(desc, socket_errno);
         tcp_sendfile_aborted(desc, socket_errno);
+        result = tcp_send_error(desc, socket_errno);
 
         goto done;
     }
