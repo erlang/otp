@@ -23,7 +23,7 @@
 
 -include("beam_ssa.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
-                reverse/1,sort/1]).
+                partition/2,reverse/1,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -436,12 +436,12 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts0, D0) ->
             %% no need to include the type database passed on to the
             %% successors of this block.
             Ts = maps:remove(Bool, Ts0),
-            D = update_successor(Fail, Ts, D0),
-            SuccTs = infer_types(Bool, Ts, D0),
+            {SuccTs,FailTs} = infer_types(Bool, Ts, D0),
+            D = update_successor(Fail, FailTs, D0),
             update_successor(Succ, SuccTs, D);
         false ->
-            D = update_successor_bool(Bool, false, Fail, Ts0, D0),
-            SuccTs = infer_types(Bool, Ts0, D0),
+            {SuccTs,FailTs} = infer_types(Bool, Ts0, D0),
+            D = update_successor_bool(Bool, false, Fail, FailTs, D0),
             update_successor_bool(Bool, true, Succ, SuccTs, D)
     end;
 update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
@@ -458,7 +458,8 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
                 end,
             foldl(F, D, List);
         false ->
-            D = update_successor(Fail, Ts0, D0),
+            FailTs = subtract_types([{V,join_sw_list(List, Ts0, none)}], Ts0),
+            D = update_successor(Fail, FailTs, D0),
             F = fun({Val,S}, A) ->
                         T = get_type(Val, Ts0),
                         update_successor(S, Ts0#{V=>T}, A)
@@ -466,6 +467,10 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
             foldl(F, D, List)
         end;
 update_successors(#b_ret{}, _Ts, D) -> D.
+
+join_sw_list([{Val,_}|T], Ts, Type) ->
+    join_sw_list(T, Ts, join(Type, get_type(Val, Ts)));
+join_sw_list([], _, Type) -> Type.
 
 update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
     case t_is_boolean(get_type(Var, Ts)) of
@@ -881,10 +886,84 @@ get_type(#b_literal{val=Val}, _Ts) ->
             any
     end.
 
-infer_types(#b_var{}=V, Ts, #d{ds=Ds}) ->
+%% infer_types(Var, Types, #d{}) -> {SuccTypes,FailTypes}
+%%  Looking at the expression that defines the variable Var, infer
+%%  the types for the variables in the arguments. Return the updated
+%%  type database for the case that the expression evaluates to
+%%  true, and and for the case that it evaluates to false.
+%%
+%%  Here is an example. The variable being asked about is
+%%  the variable Bool, which is defined like this:
+%%
+%%     Bool = is_nonempty_list L
+%%
+%%  If 'is_nonempty_list L' evaluates to 'true', L must
+%%  must be cons. The meet of the previously known type of L and 'cons'
+%%  will be added to SuccTypes.
+%%
+%%  On the other hand, if 'is_nonempty_list L' evaluates to false, L
+%%  is not cons and cons can be subtracted from the previously known
+%%  type for L. For example, if L was known to be 'list', subtracting
+%%  'cons' would give 'nil' as the only possible type. The result of the
+%%  subtraction for L will be added to FailTypes.
+%%
+%%  Here is another example, asking about the variable Bool:
+%%
+%%     Head = bif:hd L
+%%     Bool = succeeded Head
+%%
+%%  'succeeded Head' will evaluate to 'true' if the instrution that
+%%  defined Head succeeded. In this case, it is the 'bif:hd L'
+%%  instruction, which will succeed if L is 'cons'. Thus, the meet of
+%%  the previous type for L and 'cons' will be added to SuccTypes.
+%%
+%%  If 'succeeded Head' evaluates to 'false', it means that 'bif:hd L'
+%%  failed and that L is not 'cons'. 'cons' can be subtracted from the
+%%  previously known type for L and the result put in FailTypes.
+
+infer_types(#b_var{}=V, Ts, #d{ds=Ds,once=Once}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
-    Types = infer_type(Op, Args, Ds),
-    meet_types(Types, Ts).
+    Types0 = infer_type(Op, Args, Ds),
+
+    %% We must be careful with types inferred from '=:='.
+    %%
+    %% If we have seen L =:= [a], we know that L is 'cons' if the
+    %% comparison succeeds. However, if the comparison fails, L could
+    %% still be 'cons'. Therefore, we must not subtract 'cons' from the
+    %% previous type of L.
+    %%
+    %% However, it is safe to subtract a type inferred from '=:=' if
+    %% it is single-valued, e.g. if it is [] or the atom 'true'.
+    EqTypes0 = infer_eq_type(Op, Args, Ts, Ds),
+    {Types1,EqTypes} = partition(fun({_,T}) ->
+                                         is_singleton_type(T)
+                                 end, EqTypes0),
+
+    %% Don't bother updating the types for variables that
+    %% are never used again.
+    Types2 = Types1 ++ Types0,
+    Types = [P || {InfV,_}=P <- Types2, not cerl_sets:is_element(InfV, Once)],
+
+    {meet_types(EqTypes++Types, Ts),subtract_types(Types, Ts)}.
+
+infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
+    Def = maps:get(Src, Ds),
+    Type = get_type(Lit, Ts),
+    [{Src,Type}|infer_tuple_size(Def, Lit) ++
+         infer_first_element(Def, Lit)];
+infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
+    %% As an example, assume that L1 is known to be 'list', and L2 is
+    %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
+    %% be inferred that L1 is 'cons' (the meet of 'cons' and 'list').
+    Type0 = get_type(Arg0, Ts),
+    Type1 = get_type(Arg1, Ts),
+    Type = meet(Type0, Type1),
+    [{V,MeetType} ||
+        {V,OrigType,MeetType} <-
+            [{Arg0,Type0,Type},{Arg1,Type1,Type}],
+        OrigType =/= MeetType];
+infer_eq_type(_Op, _Args, _Ts, _Ds) ->
+    [].
 
 infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
     if
@@ -895,11 +974,6 @@ infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
     end;
 infer_type({bif,element}, [#b_var{}=Position,#b_var{}=Tuple], _Ds) ->
     [{Position,t_integer()},{Tuple,#t_tuple{}}];
-infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ds) ->
-    Def = maps:get(Src, Ds),
-    Type = get_type(Lit, #{}),
-    [{Src,Type}|infer_tuple_size(Def, Lit) ++
-         infer_first_element(Def, Lit)];
 infer_type({bif,Bif}, [#b_var{}=Src]=Args, _Ds) ->
     case inferred_bif_type(Bif, Args) of
         any -> [];
@@ -1124,6 +1198,11 @@ t_tuple_size(#t_tuple{size=Size,exact=true}) ->
 t_tuple_size(_) ->
     none.
 
+is_singleton_type(#t_atom{elements=[_]}) -> true;
+is_singleton_type(#t_integer{elements={V,V}}) -> true;
+is_singleton_type(nil) -> true;
+is_singleton_type(_) -> false.
+
 %% join(Type1, Type2) -> Type
 %%  Return the "join" of Type1 and Type2. The join is a more general
 %%  type than Type1 and Type2. For example:
@@ -1188,13 +1267,39 @@ gcd(A, B) ->
 
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
-    T = meet(T0, T1),
-    meet_types(Vs, Ts#{V:=T});
+    case meet(T0, T1) of
+        T1 -> meet_types(Vs, Ts);
+        T -> meet_types(Vs, Ts#{V:=T})
+    end;
 meet_types([], Ts) -> Ts.
 
 meet([T1,T2|Ts]) ->
     meet([meet(T1, T2)|Ts]);
 meet([T]) -> T.
+
+subtract_types([{V,T0}|Vs], Ts) ->
+    #{V:=T1} = Ts,
+    case subtract(T1, T0) of
+        T1 -> subtract_types(Vs, Ts);
+        T -> subtract_types(Vs, Ts#{V:=T})
+    end;
+subtract_types([], Ts) -> Ts.
+
+%% subtract(Type1, Type2) -> Type.
+%%  Subtract Type2 from Type1. Example:
+%%
+%%     subtract(list, cons) -> nil
+
+subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
+    case ordsets:subtract(Set0, Set1) of
+        [] -> none;
+        [_|_]=Set -> #t_atom{elements=Set}
+    end;
+subtract(number, float) -> #t_integer{};
+subtract(number, #t_integer{elements=any}) -> float;
+subtract(list, cons) -> nil;
+subtract(list, nil) -> cons;
+subtract(T, _) -> T.
 
 %% meet(Type1, Type2) -> Type
 %%  Return the "meet" of Type1 and Type2. The meet is a narrower
