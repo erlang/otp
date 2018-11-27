@@ -13,38 +13,54 @@ main(Args0) ->
     end.
 
 usage() ->
-    S = "usage: otp-diffable-asm [OPTION] DIRECTORY\n\n"
-        "Options:\n"
-        "  --asm          Output to .S files (default)\n"
-        "  --legacy-asm   Output to legacy .S files\n"
-        "  --dis          Output to .dis files\n"
-        "  --no-compile   Disassemble from BEAM files (use with --dis)\n"
-        "\n"
-        "DESCRIPTION\n"
-        "\n"
-        "Compile some applications from OTP (about 1000 modules) to either\n"
-        ".S files or .dis files. The files are massaged to make them diff-friendly.\n"
-        "\n"
-        "The --legacy-asm options forces the output file to be in Latin1 encoding\n"
-        "and adds a latin1 encoding comment to the first line of the file.\n"
-        "EXAMPLES\n"
-        "\n"
-        "This example shows how the effectiveness of a compiler \n"
-        "optimization can be verified (alternatively, that pure code\n"
-        "refactoring has no effect on the generated code):\n"
-        "\n"
-        "$ scripts/diffable old\n"
-        "# Hack the compiler.\n"
-        "$ scripts/diffable new\n"
-        "$ diff -u old new\n"
-        "\n"
-        "This example shows how the effectiveness of loader hacks\n"
-        "can be verified:\n"
-        "\n"
-        "$ scripts/diffable --dis --no-compile old\n"
-        "# Hack ops.tab and/or one of the *instr.tab files.\n"
-        "$ scripts/diffable --dis --no-compile new\n"
-        "$ diff -u old new\n",
+    S = ["usage: otp-diffable-asm [OPTION] DIRECTORY\n\n"
+         "Options:\n"
+         "  --asm          Output to .S files (default)\n"
+         "  --legacy-asm   Output to legacy .S files\n"
+         "  --dis          Output to .dis files\n"
+         "  --no-compile   Disassemble from BEAM files (use with --dis)\n"
+         "\n"
+         "DESCRIPTION\n"
+         "\n"
+         "Compile some applications from OTP (about 1000 modules) to either\n"
+         ".S files or .dis files. The files are massaged to make them diff-friendly.\n"
+         "\n"
+         "The --legacy-asm options forces the output file to be in Latin1 encoding\n"
+         "and adds a latin1 encoding comment to the first line of the file.\n"
+         "\n"
+         "INCLUDING THE ELIXIR STANDARD LIBRARY\n"
+         "\n"
+         "If the Elixir repository is installed alongside the Erlang/OTP repository,\n"
+         "the Elixir standard library will be included in the compilation. For this\n"
+         "to work, the Elixir repository must be installed in: \n",
+         "\n"
+         "    ",elixir_root(),"\n"
+         "\n"
+         "Here is how to install Elixir:\n"
+         "\n"
+         "    cd ",filename:dirname(elixir_root()),"\n"
+         "    git clone git@github.com:elixir-lang/elixir.git\n"
+         "    cd elixir\n"
+         "    PATH=",code:root_dir(),"/bin:$PATH make clean test\n"
+         "\n"
+         "EXAMPLES\n"
+         "\n"
+         "This example shows how the effectiveness of a compiler \n"
+         "optimization can be verified (alternatively, that pure code\n"
+         "refactoring has no effect on the generated code):\n"
+         "\n"
+         "$ scripts/diffable old\n"
+         "# Hack the compiler.\n"
+         "$ scripts/diffable new\n"
+         "$ diff -u old new\n"
+         "\n"
+         "This example shows how the effectiveness of loader hacks\n"
+         "can be verified:\n"
+         "\n"
+         "$ scripts/diffable --dis --no-compile old\n"
+         "# Hack ops.tab and/or one of the *instr.tab files.\n"
+         "$ scripts/diffable --dis --no-compile new\n"
+         "$ diff -u old new\n"],
     io:put_chars(S),
     halt(1).
 
@@ -106,17 +122,26 @@ compile_file(CF, File) ->
         CF(File)
     catch
 	Class:Error:Stk ->
-	    io:format("~s: ~p ~p\n~p\n",
-		      [File,Class,Error,Stk]),
+            if
+                is_list(File) ->
+                    io:format("~s: ~p ~p\n~p\n\n",
+                              [File,Class,Error,Stk]);
+                true ->
+                    io:format("~p: ~p ~p\n~p\n\n",
+                              [File,Class,Error,Stk])
+            end,
 	    error
     end.
+
+elixir_root() ->
+    filename:join(filename:dirname(code:root_dir()), "elixir").
 
 %%%
 %%% Get names of files (either .erl files or BEAM files).
 %%%
 
 get_files(Apps, #{format:=dis,no_compile:=true}=Opts) ->
-    Files = get_beams(Apps),
+    Files = get_elixir_beams() ++ get_beams(Apps),
     {Files,Opts};
 get_files(Apps, #{}=Opts) ->
     Inc = make_includes(),
@@ -126,8 +151,19 @@ get_files(Apps, #{}=Opts) ->
                     {d,'COMPILER_VSN',1},
                     {d,erlang_daemon_port,1337}|Inc],
     Files0 = get_src(Apps),
-    Files = add_opts(Files0, CompilerOpts),
+    Files1 = add_opts(Files0, CompilerOpts),
+    Files = [{Beam,elixir} || Beam <- get_elixir_beams()] ++ Files1,
     {Files,Opts}.
+
+get_elixir_beams() ->
+    ElixirEbin = filename:join(elixir_root(), "lib/elixir/ebin"),
+    case filelib:is_dir(ElixirEbin) of
+        true ->
+            true = code:add_patha(ElixirEbin),
+            filelib:wildcard(filename:join(ElixirEbin, "*.beam"));
+        false ->
+            []
+    end.
 
 add_opts([F|Fs], Opts0) ->
     Opts = case vsn_is_harmful(F) of
@@ -216,6 +252,16 @@ compile_to_asm_fun(#{outdir:=OutDir}=Opts) ->
             compile_to_asm(File, OutDir, Legacy)
     end.
 
+compile_to_asm({Beam,elixir}, OutDir, _Legacy) ->
+    Abst = get_abstract_from_beam(Beam),
+    Source = filename:rootname(Beam, ".beam"),
+    Opts = [diffable,{outdir,OutDir},report_errors,{source,Source}],
+    case compile:forms(Abst, Opts) of
+        {ok,_Mod,_Asm} ->
+            ok;
+        error ->
+            error
+    end;
 compile_to_asm({File,Opts}, OutDir, Legacy) ->
     case compile:file(File, [diffable,{outdir,OutDir},report_errors|Opts]) of
         {ok,_Mod} ->
@@ -238,6 +284,11 @@ legacy_asm(OutDir, Source) ->
     Asm = [<<"%% -*- encoding:latin-1 -*-\n">>|Asm1],
     ok = file:write_file(AsmFile, Asm).
 
+get_abstract_from_beam(Beam) ->
+    {ok,{_Mod,[AbstChunk]}} = beam_lib:chunks(Beam, [abstract_code]),
+    {abstract_code,{raw_abstract_v1,Abst}} = AbstChunk,
+    Abst.
+
 %%%
 %%% Compile and disassemble the loaded code.
 %%%
@@ -251,6 +302,15 @@ compile_to_dis_fun(#{outdir:=OutDir,no_compile:=true}) ->
             dis_only(File, OutDir)
     end.
 
+compile_to_dis({File,elixir}, OutDir) ->
+    {ok,Beam} = file:read_file(File),
+    Mod0 = filename:rootname(filename:basename(File)),
+    Mod = list_to_atom(Mod0),
+    Dis0 = disasm(Mod, Beam),
+    Dis1 = renumber_disasm(Dis0, Mod, Mod),
+    Dis = format_disasm(Dis1),
+    OutFile = filename:join(OutDir, atom_to_list(Mod)++".dis"),
+    ok = file:write_file(OutFile, Dis);
 compile_to_dis({File,Opts}, OutDir) ->
     case compile:file(File, [to_asm,binary,report_errors|Opts]) of
         error ->
