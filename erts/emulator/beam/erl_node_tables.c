@@ -421,8 +421,25 @@ static void schedule_delete_dist_entry(DistEntry* dep)
      *
      * Note that timeouts do not guarantee thread progress.
      */
-    erts_schedule_thr_prgr_later_op(start_timer_delete_dist_entry,
-                                    dep, &dep->later_op);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+        erts_schedule_thr_prgr_later_op(start_timer_delete_dist_entry,
+                                        dep, &dep->later_op);
+    } else {
+        /*
+         * Since OTP 20, it's possible that destructor is executed on
+         *  a dirty scheduler. Aux work cannot be done on a dirty
+         *  scheduler, and scheduling any aux work on a dirty scheduler
+         *  makes the scheduler to loop infinitely.
+         * To avoid this, make a spot jump: schedule this function again
+         *  on a first normal scheduler. It is guaranteed to be always
+         *  online. Since it's a rare event, this shall not pose a big
+         *  utilisation hit.
+         */
+        erts_schedule_misc_aux_work(1,
+                                    (void (*)(void *))schedule_delete_dist_entry,
+                                    (void *) dep);
+    }
 }
 
 static void
