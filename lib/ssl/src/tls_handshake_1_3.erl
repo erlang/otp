@@ -331,7 +331,8 @@ get_client_public_key(Group, ClientShares) ->
 select_cipher_suite([], _) ->
     {error, no_suitable_cipher};
 select_cipher_suite([Cipher|ClientCiphers], ServerCiphers) ->
-    case lists:member(Cipher, ServerCiphers) of
+    case lists:member(Cipher, tls_v1:suites('TLS_v1.3')) andalso
+        lists:member(Cipher, ServerCiphers) of
         true ->
             {ok, Cipher};
         false ->

@@ -411,7 +411,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 
 %% TODO 1.3 same as above?
 
--spec suites(1|2|3|4) -> [ssl_cipher_format:cipher_suite()].
+-spec suites(1|2|3|4|'TLS_v1.3') -> [ssl_cipher_format:cipher_suite()].
 
 suites(Minor) when Minor == 1; Minor == 2 ->
     [
@@ -472,7 +472,17 @@ suites(4) ->
      %% Not supported
      %% ?TLS_AES_128_CCM_SHA256,
      %% ?TLS_AES_128_CCM_8_SHA256
-    ] ++ suites(3).
+    ] ++ suites(3);
+
+suites('TLS_v1.3') ->
+    [?TLS_AES_256_GCM_SHA384,
+     ?TLS_AES_128_GCM_SHA256,
+     ?TLS_CHACHA20_POLY1305_SHA256
+     %% Not supported
+     %% ?TLS_AES_128_CCM_SHA256,
+     %% ?TLS_AES_128_CCM_8_SHA256
+    ].
+
 
 signature_algs({3, 4}, HashSigns) ->
     signature_algs({3, 3}, HashSigns);

@@ -578,7 +578,8 @@ crypto_support_filters() ->
           end]}.
 
 is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
-                                                    KeyExchange == null ->
+                                                    KeyExchange == null;
+                                                    KeyExchange == any ->
     true;
 is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
                                                    KeyExchange == dhe_psk ->
