@@ -303,7 +303,7 @@ exit_reason: "It crashed"</code>
 	  <item><seealso marker="logger#set_handler_config-2">
 	      <c>logger:set_handler_config/2,3</c></seealso></item>
 	  <item><seealso marker="logger#update_handler_config-2">
-	      <c>logger:updata_handler_config/2</c></seealso></item>
+	      <c>logger:update_handler_config/2</c></seealso></item>
 	  <item><seealso marker="logger#update_formatter_config-2">
 	      <c>logger:update_formatter_config/2</c></seealso></item>
 	</list>
