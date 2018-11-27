@@ -9273,8 +9273,10 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     if (!GET_MAP_VAL(env, eVal, atom_adaptation_layer, &eAdaptLayer))
         return esock_make_error(env, esock_atom_einval);
 
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
     if (!GET_MAP_VAL(env, eVal, atom_authentication,   &eAuth))
         return esock_make_error(env, esock_atom_einval);
+#endif
 
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
     if (!GET_MAP_VAL(env, eVal, atom_sender_dry,       &eSndDry))
@@ -9292,7 +9294,9 @@ ERL_NIF_TERM nsetopt_lvl_sctp_events(ErlNifEnv*        env,
     events.sctp_shutdown_event         = esock_decode_bool(eShutdown);
     events.sctp_partial_delivery_event = esock_decode_bool(ePartialDelivery);
     events.sctp_adaptation_layer_event = esock_decode_bool(eAdaptLayer);
+#if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_AUTHENTICATION_EVENT)
     events.sctp_authentication_event   = esock_decode_bool(eAuth);
+#endif
 #if defined(HAVE_STRUCT_SCTP_EVENT_SUBSCRIBE_SCTP_SENDER_DRY_EVENT)
     events.sctp_sender_dry_event       = esock_decode_bool(eSndDry);
 #endif
@@ -15418,8 +15422,10 @@ char* decode_ip_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
             *val = IP_PMTUDISC_DONT;
         } else if (COMPARE(eVal, atom_do) == 0) {
             *val = IP_PMTUDISC_DO;
+#if defined(IP_PMTUDISC_PROBE)
         } else if (COMPARE(eVal, atom_probe) == 0) {
             *val = IP_PMTUDISC_PROBE;
+#endif
         } else {
             *val = -1;
             res  = ESOCK_STR_EINVAL;
@@ -15469,8 +15475,10 @@ char* decode_ipv6_pmtudisc(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
             *val = IPV6_PMTUDISC_DONT;
         } else if (COMPARE(eVal, atom_do) == 0) {
             *val = IPV6_PMTUDISC_DO;
+#if defined(IPV6_PMTUDISC_PROBE)
         } else if (COMPARE(eVal, atom_probe) == 0) {
             *val = IPV6_PMTUDISC_PROBE;
+#endif
         } else {
             *val = -1;
             res  = ESOCK_STR_EINVAL;
@@ -15523,9 +15531,11 @@ void encode_ip_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
         *eVal = atom_do;
         break;
 
+#if defined(IP_PMTUDISC_PROBE)
     case IP_PMTUDISC_PROBE:
         *eVal = atom_probe;
         break;
+#endif
 
     default:
         *eVal = MKI(env, val);
@@ -15565,9 +15575,11 @@ void encode_ipv6_pmtudisc(ErlNifEnv* env, int val, ERL_NIF_TERM* eVal)
         *eVal = atom_do;
         break;
 
+#if defined(IPV6_PMTUDISC_PROBE)
     case IPV6_PMTUDISC_PROBE:
         *eVal = atom_probe;
         break;
+#endif
 
     default:
         *eVal = MKI(env, val);
