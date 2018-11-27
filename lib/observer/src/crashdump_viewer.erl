@@ -589,9 +589,9 @@ truncated_here(Tag) ->
     case get(truncated) of
 	true ->
 	    case get(last_tag) of
-		Tag -> % Tag == {TagType,Id}
+		{Tag,_Pos} -> % Tag == {TagType,Id}
 		    true;
-		{Tag,_Id} ->
+		{{Tag,_Id},_Pos} ->
 		    true;
 		_LastTag ->
 		    truncated_earlier(Tag)
@@ -846,8 +846,8 @@ do_read_file(File) ->
                             case check_dump_version(Id) of
                                 {ok,DumpVsn} ->
                                     reset_tables(),
-                                    insert_index(Tag,Id,N1+1),
-                                    put_last_tag(Tag,""),
+                                    insert_index(Tag,Id,Pos=N1+1),
+                                    put_last_tag(Tag,"",Pos),
                                     DecodeOpts = get_decode_opts(DumpVsn),
                                     indexify(Fd,DecodeOpts,Rest,N1),
                                     end_progress(),
@@ -915,12 +915,10 @@ indexify(Fd,DecodeOpts,Bin,N) ->
                 _ ->
                     insert_index(Tag,Id,NewPos)
             end,
-	    case put_last_tag(Tag,Id) of
-                {?proc_heap,LastId} ->
-                    [{_,LastPos}] = lookup_index(?proc_heap,LastId),
+	    case put_last_tag(Tag,Id,NewPos) of
+                {{?proc_heap,LastId},LastPos} ->
                     ets:insert(cdv_heap_file_chars,{LastId,N+Start+1-LastPos});
-                {?literals,[]} ->
-                    [{_,LastPos}] = lookup_index(?literals,[]),
+                {{?literals,[]},LastPos} ->
                     ets:insert(cdv_heap_file_chars,{literals,N+Start+1-LastPos});
                 _ -> ok
             end,
@@ -963,10 +961,10 @@ tag(Fd,<<>>,N,Gat,Di,Now) ->
 
 check_if_truncated() ->
     case get(last_tag) of
-	{?ende,_} ->
+	{{?ende,_},_} ->
 	    put(truncated,false),
 	    put(truncated_proc,false);
-        {?literals,[]} ->
+        {{?literals,[]},_} ->
             put(truncated,true),
             put(truncated_proc,false),
             %% Literals are truncated. Make sure we never
@@ -974,7 +972,7 @@ check_if_truncated() ->
             %% references literals will show markers for
             %% incomplete heaps, but will otherwise work.)
             delete_index(?literals, []);
-	TruncatedTag ->
+	{TruncatedTag,_} ->
 	    put(truncated,true),
 	    find_truncated_proc(TruncatedTag)
     end.
@@ -2867,12 +2865,12 @@ parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
             SymbolicBin = {'#CDVBin',Start},
             Term = cdvbin(Offset, Sz, SymbolicBin),
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, SymbolicBin, D1),
+            D = gb_trees:enter(Binp, SymbolicBin, D1),
             {Term,Line,D};
         [] ->
             Term = '#CDVNonexistingBinary',
             D1 = gb_trees:insert(Addr, Term, D0),
-            D = gb_trees:insert(Binp, Term, D1),
+            D = gb_trees:enter(Binp, Term, D1),
             {Term,Line,D}
     end;
 parse_heap_term("Ys"++Line0, Addr, DecodeOpts, D0) ->	%Sub binary.
@@ -3277,13 +3275,13 @@ tag_to_atom(UnknownTag) ->
 
 %%%-----------------------------------------------------------------
 %%% Store last tag for use when truncated, and reason if aborted
-put_last_tag(?abort,Reason) ->
+put_last_tag(?abort,Reason,_Pos) ->
     %% Don't overwrite the real last tag, and don't return it either,
     %% since that would make the caller of this function believe that
     %% the tag was complete.
     put(truncated_reason,Reason);
-put_last_tag(Tag,Id) ->
-    put(last_tag,{Tag,Id}).
+put_last_tag(Tag,Id,Pos) ->
+    put(last_tag,{{Tag,Id},Pos}).
 
 %%%-----------------------------------------------------------------
 %%% Fetch next chunk from crashdump file

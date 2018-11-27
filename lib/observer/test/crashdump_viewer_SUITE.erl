@@ -400,6 +400,13 @@ special(File,Procs) ->
 		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
 	    io:format("  expand binary ok",[]),
 
+            ProcBins = proplists:get_value(proc_bins,Dict),
+            {['#CDVBin',0,65,ProcBin],
+             ['#CDVBin',65,65,ProcBin],
+             ['#CDVBin',130,125,ProcBin]} = ProcBins,
+            io:format("  ProcBins ok",[]),
+
+
             Binaries = crashdump_helper:create_binaries(),
             verify_binaries(Binaries, proplists:get_value(bins,Dict)),
 	    io:format("  binaries ok",[]),

@@ -64,6 +64,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     put(ref,Ref),
     put(pid,Pid),
     put(bin,Bin),
+    put(proc_bins,create_proc_bins()),
     put(bins,create_binaries()),
     put(sub_bin,SubBin),
     put(sub_bins,create_sub_binaries(get(bins))),
@@ -118,6 +119,23 @@ create_sub_binary(Bin, Start, LenSub) ->
     Len = byte_size(Bin) - LenSub - Start,
     <<_:Start/bytes,Sub:Len/bytes,_/bytes>> = Bin,
     Sub.
+
+create_proc_bins() ->
+    Parent = self(),
+    Pid =
+        spawn(
+          fun() ->
+                  %% Just reverse the list here, so this binary is not
+                  %% confused with the one created in n1_proc/5 above,
+                  %% which is used for testing truncation (see
+                  %% crashdump_viewer_SUITE:truncate_dump_binary/1)
+                  Bin = list_to_binary(lists:reverse(lists:seq(1, 255))),
+                  <<A:65/bytes,B:65/bytes,C/bytes>> = Bin,
+                  Parent ! {self(),{A,B,C}}
+          end),
+    receive
+        {Pid,ProcBins} -> ProcBins
+    end.
 
 %%%
 %%% Test dumping of maps. Dumping of maps only from OTP 20.2.
