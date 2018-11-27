@@ -3284,7 +3284,12 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
         ErtsMonotonicTime current_time = 0;
 
         aux_work = erts_atomic32_read_acqb(&ssi->aux_work);
-        if (aux_work && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+
+        if (aux_work && ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+            ERTS_INTERNAL_ERROR("Executing aux work on a dirty scheduler.");
+        }
+
+        if (aux_work) {
             if (!thr_prgr_active) {
                 erts_thr_progress_active(esdp, thr_prgr_active = 1);
                 sched_wall_time_change(esdp, 1);
@@ -3296,16 +3301,14 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
         }
 
         if (aux_work) {
-            if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-                flgs = erts_atomic32_read_acqb(&ssi->flags);
-                current_time = erts_get_monotonic_time(esdp);
-                if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
-                    if (!thr_prgr_active) {
-                        erts_thr_progress_active(esdp, thr_prgr_active = 1);
-                        sched_wall_time_change(esdp, 1);
-                    }
-                    erts_bump_timers(esdp->timer_wheel, current_time);
+            flgs = erts_atomic32_read_acqb(&ssi->flags);
+            current_time = erts_get_monotonic_time(esdp);
+            if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref)) {
+                if (!thr_prgr_active) {
+                    erts_thr_progress_active(esdp, thr_prgr_active = 1);
+                    sched_wall_time_change(esdp, 1);
                 }
+                erts_bump_timers(esdp->timer_wheel, current_time);
             }
         }
         else {
