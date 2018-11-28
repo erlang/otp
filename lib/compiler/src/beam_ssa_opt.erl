@@ -22,7 +22,8 @@
 -export([module/2]).
 
 -include("beam_ssa.hrl").
--import(lists, [all/2,append/1,foldl/3,keyfind/3,member/2,reverse/1,reverse/2,
+-import(lists, [all/2,append/1,foldl/3,keyfind/3,member/2,
+                reverse/1,reverse/2,
                 splitwith/2,takewhile/2,unzip/1]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
@@ -787,15 +788,20 @@ float_flush_regs(#fs{regs=Rs}) ->
 %%% with a cheaper instructions
 %%%
 
-ssa_opt_live(#st{ssa=Linear}=St) ->
-    St#st{ssa=live_opt(reverse(Linear), #{}, [])}.
+ssa_opt_live(#st{ssa=Linear0}=St) ->
+    RevLinear = reverse(Linear0),
+    Blocks0 = maps:from_list(RevLinear),
+    Blocks = live_opt(RevLinear, #{}, Blocks0),
+    Linear = beam_ssa:linearize(Blocks),
+    St#st{ssa=Linear}.
 
-live_opt([{L,Blk0}|Bs], LiveMap0, Acc) ->
-    Successors = beam_ssa:successors(Blk0),
+live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
+    Blk1 = beam_ssa_share:block(Blk0, Blocks),
+    Successors = beam_ssa:successors(Blk1),
     Live0 = live_opt_succ(Successors, L, LiveMap0),
-    {Blk,Live} = live_opt_blk(Blk0, Live0),
+    {Blk,Live} = live_opt_blk(Blk1, Live0),
     LiveMap = live_opt_phis(Blk#b_blk.is, L, Live, LiveMap0),
-    live_opt(Bs, LiveMap, [{L,Blk}|Acc]);
+    live_opt(Bs, LiveMap, Blocks#{L:=Blk});
 live_opt([], _, Acc) -> Acc.
 
 live_opt_succ([S|Ss], L, LiveMap) ->

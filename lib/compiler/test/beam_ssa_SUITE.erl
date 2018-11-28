@@ -22,7 +22,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
-         cover_ssa_dead/1,combine_sw/1]).
+         cover_ssa_dead/1,combine_sw/1,share_opt/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -36,7 +36,8 @@ groups() ->
        recv,
        maps,
        cover_ssa_dead,
-       combine_sw
+       combine_sw,
+       share_opt
       ]}].
 
 init_per_suite(Config) ->
@@ -466,6 +467,19 @@ do_comb_sw_2(X) ->
             ok
     end,
     erase(?MODULE).
+
+share_opt(_Config) ->
+    ok = do_share_opt(0).
+
+do_share_opt(A) ->
+    %% The compiler would be stuck in an infinite loop in beam_ssa_share.
+    case A of
+        0 -> a;
+        1 -> b;
+        2 -> c
+    end,
+    receive after 1 -> ok end.
+
 
 %% The identity function.
 id(I) -> I.

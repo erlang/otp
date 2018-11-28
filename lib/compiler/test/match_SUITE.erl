@@ -483,9 +483,8 @@ sel_same_value2(V) when V =:= 42; V =:= 43 ->
 sel_same_value2(_) ->
     error.
 
-%% Test deconstruction of select_val instructions in beam_peep into
-%% regular tests with just one possible value left. Hitting proper cases
-%% in beam_peep relies on unification of labels by beam_jump.
+%% Test deconstruction of select_val instructions to regular tests
+%% with zero or one values left.
 
 deselectify(Config) when is_list(Config) ->
     one_or_other = desel_tuple_arity({1}),
@@ -506,7 +505,31 @@ deselectify(Config) when is_list(Config) ->
 
     one_or_other = dsel_atom_typecheck(one),
     two = dsel_atom_typecheck(two),
-    one_or_other = dsel_atom_typecheck(three).
+    one_or_other = dsel_atom_typecheck(three),
+
+    %% Cover deconstruction of select_val instructions in
+    %% beam_peep.
+
+    stop = dsel_peek_0(stop),
+    ignore = dsel_peek_0(ignore),
+    Config = dsel_peek_0(Config),
+
+    stop = dsel_peek_1(stop, any),
+    Config = dsel_peek_1(ignore, Config),
+    other = dsel_peek_1(other, ignored),
+
+    0 = dsel_peek_2(0, any),
+    Config = dsel_peek_2(1, Config),
+    2 = dsel_peek_2(2, ignored),
+
+    true = dsel_peek_3(true),
+    false = dsel_peek_3(false),
+    {error,Config} = dsel_peek_3(Config),
+
+    ok.
+
+%% The following will be optimized by the sharing optimizations
+%% in beam_ssa_opt.
 
 desel_tuple_arity(Tuple) when is_tuple(Tuple) ->
     case Tuple of
@@ -541,6 +564,39 @@ dsel_atom_typecheck(Val) when is_atom(Val) ->
         one -> one_or_other;
         two -> two;
         _ -> one_or_other
+    end.
+
+%% The following functions are carefully crafted so that the sharing
+%% optimizations in beam_ssa_opt can't be applied. After applying the
+%% beam_jump:eliminate_moves/1 optimization and beam_clean:clean_labels/1
+%% has unified labels, beam_peep is able to optimize these functions.
+
+dsel_peek_0(A0) ->
+    case id(A0) of
+        stop ->   stop;
+        ignore -> ignore;
+        A ->      A
+    end.
+
+dsel_peek_1(A0, B) ->
+    case id(A0) of
+        stop ->   stop;
+        ignore -> B;
+        A ->      A
+    end.
+
+dsel_peek_2(A0, B) ->
+    case id(A0) of
+        0 -> 0;
+        1 -> B;
+        A -> A
+    end.
+
+dsel_peek_3(A0) ->
+    case id(A0) of
+        true ->  true;
+        false -> false;
+        Other -> {error,Other}
     end.
 
 underscore(Config) when is_list(Config) ->
