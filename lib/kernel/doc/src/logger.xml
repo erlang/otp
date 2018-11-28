@@ -290,7 +290,10 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 
   <section>
     <title>Macros</title>
-    <p>The following macros are defined:</p>
+    <p>The following macros are defined in <c>logger.hrl</c>, which
+      is included in a module with the directive</p>
+    <code>
+    -include_lib("kernel/include/logger.hrl").</code>
 
     <list>
       <item><c>?LOG_EMERGENCY(StringOrReport[,Metadata])</c></item>
