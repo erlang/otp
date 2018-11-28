@@ -113,7 +113,10 @@
       of functions on the form <c>logger:Level/1,2,3</c>, which are
       all shortcuts
       for <seealso marker="logger#log-2">
-	<c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seealso>.</p>
+    <c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seealso>.</p>
+    <p>The macros are defined in <c>logger.hrl</c>, which is included
+      in a module with the directive</p>
+    <code>-include_lib("kernel/include/logger.hrl").</code>
     <p>The difference between using the macros and the exported
       functions is that macros add location (originator) information
       to the metadata, and performs lazy evaluation by wrapping the
