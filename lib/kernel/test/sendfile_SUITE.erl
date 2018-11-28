@@ -342,8 +342,20 @@ t_sendfile_closeduring(Config) ->
 	   end,
 
     ok = sendfile_send({127,0,0,1}, Send, 0, [{active,false}]),
-    ok = sendfile_send({127,0,0,1}, Send, 0, [{active,true}]).
+    [] = flush(),
+    ok = sendfile_send({127,0,0,1}, Send, 0, [{active,true}]),
+    [] = flush(),
+    ok.
 
+flush() ->
+    lists:reverse(flush([])).
+
+flush(Acc) ->
+    receive M ->
+            flush([M | Acc])
+    after 0 ->
+            Acc
+    end.
 
 t_sendfile_crashduring(Config) ->
     Filename = proplists:get_value(big_file, Config),

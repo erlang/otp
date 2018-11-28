@@ -11150,27 +11150,31 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
     DEBUGF(("driver_failure_eof(%ld) in %s, line %d\r\n",
 	    (long)desc->inet.port, __FILE__, __LINE__));
     if (desc->inet.active) {
+        ErlDrvTermData err_atom;
 	if (show_econnreset) {
 	    tcp_error_message(desc, err);
-	    tcp_closed_message(desc);
-	    inet_reply_error(INETP(desc), err);
+            err_atom = error_atom(err);
 	} else {
-	    tcp_closed_message(desc);
-	    inet_reply_error_am(INETP(desc), am_closed);
+            err_atom = am_closed;
 	}
+        tcp_closed_message(desc);
+        if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE))
+            inet_reply_error_am(INETP(desc), err_atom);
+
 	if (desc->inet.exitf)
 	    driver_exit(desc->inet.port, 0);
 	else
 	    tcp_desc_close(desc);
     } else {
 	tcp_close_check(desc);
-	tcp_desc_close(desc);
 
 	if (desc->inet.caller) {
-	    if (show_econnreset)
-		inet_reply_error(INETP(desc), err);
-	    else
-		inet_reply_error_am(INETP(desc), am_closed);
+            if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
+                if (show_econnreset)
+                    inet_reply_error(INETP(desc), err);
+                else
+                    inet_reply_error_am(INETP(desc), am_closed);
+            }
 	}
 	else {
 	    /* No blocking send op to reply to right now.
@@ -11179,6 +11183,7 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	     */
 	    desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_SEND;
 	}
+        tcp_desc_close(desc);
 
 	/*
 	 * Make sure that the next receive operation gets an {error,closed}
