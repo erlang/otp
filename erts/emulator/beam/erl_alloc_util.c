@@ -834,12 +834,16 @@ static ERTS_INLINE void clr_bit(UWord* map, Uint ix)
         &= ~((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
 
+#ifdef DEBUG
+
 static ERTS_INLINE int is_bit_set(UWord* map, Uint ix)
 {
     ASSERT(ix / ERTS_VSPACE_WORD_BITS < VSPACE_MAP_SZ);
     return map[ix / ERTS_VSPACE_WORD_BITS]
         & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
+
+#endif
 
 UWord erts_literal_vspace_map[VSPACE_MAP_SZ];
 
