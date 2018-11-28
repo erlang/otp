@@ -32,6 +32,10 @@
 -define(LOG_DEBUG(A,B),?DO_LOG(debug,[A,B])).
 -define(LOG_DEBUG(A,B,C),?DO_LOG(debug,[A,B,C])).
 
+-define(LOG(L,A),?DO_LOG(L,[A])).
+-define(LOG(L,A,B),?DO_LOG(L,[A,B])).
+-define(LOG(L,A,B,C),?DO_LOG(L,[A,B,C])).
+
 -define(LOCATION,#{mfa=>{?MODULE,?FUNCTION_NAME,?FUNCTION_ARITY},
                    line=>?LINE,
                    file=>?FILE}).
