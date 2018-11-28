@@ -658,6 +658,12 @@ downgrade(Type, Event, State) ->
 callback_mode() ->
     state_functions.
 
+
+terminate(
+  {shutdown, sender_died, Reason}, _StateName,
+  #state{socket = Socket, transport_cb = Transport} = State) ->
+    ssl_connection:handle_trusted_certs_db(State),
+    close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, StateName, State) ->
     catch ssl_connection:terminate(Reason, StateName, State),
     ensure_sender_terminate(Reason, State).

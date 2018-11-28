@@ -51,8 +51,8 @@
 
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
-	 handle_normal_shutdown/3, stop/2, stop_and_reply/3
-	]).
+	 handle_normal_shutdown/3, stop/2, stop_and_reply/3,
+         handle_trusted_certs_db/1]).
 
 %% Data handling
 -export([read_application_data/2, internal_renegotiation/2]).
