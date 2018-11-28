@@ -851,7 +851,7 @@ read(Tid, Ts, Tab, Key, LockKind)
                                 abort({bad_type, Tab, LockKind})
                         end
                 end,
-	    add_written(?ets_lookup(Store, Oid), Tab, ObjsFun);
+	    add_written(?ets_lookup(Store, Oid), Tab, ObjsFun, LockKind);
 	_Protocol ->
 	    dirty_read(Tab, Key)
     end;
@@ -1207,13 +1207,17 @@ add_previous(_Tid, Ts, _Type, Tab) ->
 %% The actual read from the table is not done if not needed due to local
 %% transaction context, and if so, no extra read lock is needed either.
 
-add_written([], _Tab, ObjsFun) ->
+add_written([], _Tab, ObjsFun, _LockKind) ->
     ObjsFun();  % standard normal fast case
-add_written(Written, Tab, ObjsFun) ->
+add_written(Written, Tab, ObjsFun, LockKind) ->
     case val({Tab, setorbag}) of
 	bag ->
 	    add_written_to_bag(Written, ObjsFun(), []);
+        _ when LockKind == read;
+               LockKind == write ->
+	    add_written_to_set(Written);
 	_   ->
+            _ = ObjsFun(),  % Fall back to request new lock and read from source
 	    add_written_to_set(Written)
     end.
 
