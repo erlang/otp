@@ -142,7 +142,8 @@ all() ->
      use_selected_vsn,
      use_selected_vsn_relative_path,
      non_standard_vsn_id,
-     undefined_regexp].
+     undefined_regexp,
+     windows_erl_libs].
 
 groups() -> 
     [].
@@ -2546,10 +2547,21 @@ undefined_regexp(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Checks that reltool_utils can correctly read Windows ERL_LIBS
+
+windows_erl_libs(_Config) ->
+    WinErlLibs =
+        "C:\\Program Files\\Erlang Libs;C:\\Program Files\\More Erlang Libs",
+    Ret = reltool_utils:erl_libs(WinErlLibs, {win32, nt}),
+    ?m(["C:\\Program Files\\Erlang Libs","C:\\Program Files\\More Erlang Libs"],
+       Ret),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
 
 erl_libs() ->
-    string:lexemes(os:getenv("ERL_LIBS", ""), ":;").
+    reltool_utils:erl_libs().
 
 datadir(Config) ->
     %% Removes the trailing slash...
