@@ -73,7 +73,7 @@
         t_reused_key_variable/1,
 
         %% new in OTP 22
-        t_mixed_clause/1
+        t_mixed_clause/1,cover_beam_trim/1
     ]).
 
 suite() -> [].
@@ -130,7 +130,7 @@ all() ->
         t_reused_key_variable,
 
         %% new in OTP 22
-        t_mixed_clause
+        t_mixed_clause,cover_beam_trim
     ].
 
 groups() -> [].
@@ -2181,6 +2181,16 @@ t_mixed_clause(_Config) ->
                       nomatch
               end,
     ok.
+
+cover_beam_trim(_Config) ->
+    val = do_cover_beam_trim(id, max, max, id, #{id=>val}),
+    ok.
+
+do_cover_beam_trim(Id, OldMax, Max, Id, M) ->
+    OldMax = id(Max),
+    #{Id:=Val} = id(M),
+    Val.
+
 
 %% aux
 
