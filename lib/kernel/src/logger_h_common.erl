@@ -18,26 +18,469 @@
 %% %CopyrightEnd%
 %%
 -module(logger_h_common).
+-behaviour(gen_server).
 
 -include("logger_h_common.hrl").
 -include("logger_internal.hrl").
 
--export([log_to_binary/2,
-         check_common_config/1,
-         call_cast_or_drop/4,
-         check_load/1,
-         limit_burst/1,
-         kill_if_choked/5,
-         flush_log_events/0,
-         flush_log_events/1,
-         handler_exit/2,
-         set_restart_flag/2,
-         unset_restart_flag/2,
-         cancel_timer/1,
-         stop_or_restart/3,
-         overload_levels_ok/1,
-         error_notify/1,
-         info_notify/1]).
+%% API
+-export([start_link/1, info/2, filesync/2, reset/2]).
+
+%% gen_server and proc_lib callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
+
+%% logger callbacks
+-export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
+         filter_config/1]).
+
+%% Library functions for handlers
+-export([error_notify/1]).
+
+%%%-----------------------------------------------------------------
+-define(CONFIG_KEYS,[sync_mode_qlen,
+                     drop_mode_qlen,
+                     flush_qlen,
+                     burst_limit_enable,
+                     burst_limit_max_count,
+                     burst_limit_window_time,
+                     overload_kill_enable,
+                     overload_kill_qlen,
+                     overload_kill_mem_size,
+                     overload_kill_restart_after,
+                     filesync_repeat_interval]).
+-define(READ_ONLY_KEYS,[handler_pid,mode_tab]).
+
+%%%-----------------------------------------------------------------
+%%% API
+
+%% This function is called by the logger_sup supervisor
+start_link(Args) ->
+    proc_lib:start_link(?MODULE,init,[Args]).
+
+filesync(Module, Name) ->
+    call(Module, Name, filesync).
+
+info(Module, Name) ->
+    call(Module, Name, info).
+
+reset(Module, Name) ->
+    call(Module, Name, reset).
+
+%%%-----------------------------------------------------------------
+%%% Handler being added
+adding_handler(#{id:=Name,module:=Module}=Config) ->
+    HConfig0 = maps:get(config, Config, #{}),
+    HandlerConfig0 = maps:without(?CONFIG_KEYS,HConfig0),
+    case Module:check_config(Name,set,undefined,HandlerConfig0) of
+        {ok,HandlerConfig} ->
+            ModifiedCommon = maps:with(?CONFIG_KEYS,HandlerConfig),
+            CommonConfig0 = maps:with(?CONFIG_KEYS,HConfig0),
+            CommonConfig = maps:merge(
+                             maps:merge(get_default_config(), CommonConfig0),
+                             ModifiedCommon),
+            case check_config(CommonConfig) of
+                ok ->
+                    HConfig = maps:merge(CommonConfig,HandlerConfig),
+                    start(Config#{config => HConfig});
+                {error,Faulty} ->
+                    {error,{invalid_config,Module,Faulty}}
+            end;
+        Error ->
+            Error
+    end.
+
+%%%-----------------------------------------------------------------
+%%% Handler being removed
+removing_handler(#{id:=Name, module:=Module}) ->
+    case whereis(?name_to_reg_name(Module,Name)) of
+        undefined ->
+            ok;
+        Pid ->
+            %% We don't want to do supervisor:terminate_child here
+            %% since we need to distinguish this explicit stop from a
+            %% system termination in order to avoid circular attempts
+            %% at removing the handler (implying deadlocks and
+            %% timeouts).
+            %% And we don't need to do supervisor:delete_child, since
+            %% the restart type is temporary, which means that the
+            %% child specification is automatically removed from the
+            %% supervisor when the process dies.
+            _ = gen_server:call(Pid, stop),
+            ok
+    end.
+
+%%%-----------------------------------------------------------------
+%%% Updating handler config
+changing_config(SetOrUpdate,
+                #{id:=Name,config:=OldHConfig,module:=Module},
+                NewConfig0) ->
+    NewHConfig0 = maps:get(config, NewConfig0, #{}),
+    OldHandlerConfig = maps:without(?CONFIG_KEYS++?READ_ONLY_KEYS,OldHConfig),
+    NewHandlerConfig0 = maps:without(?CONFIG_KEYS++?READ_ONLY_KEYS,NewHConfig0),
+    case Module:check_config(Name, SetOrUpdate,
+                             OldHandlerConfig,NewHandlerConfig0) of
+        {ok, NewHandlerConfig} ->
+            ModifiedCommon = maps:with(?CONFIG_KEYS,NewHandlerConfig),
+            NewCommonConfig0 = maps:with(?CONFIG_KEYS,NewHConfig0),
+            CommonDefault =
+                case SetOrUpdate of
+                    set ->
+                        get_default_config();
+                    update ->
+                        maps:with(?CONFIG_KEYS,OldHConfig)
+                end,
+            NewCommonConfig = maps:merge(
+                                maps:merge(CommonDefault,NewCommonConfig0),
+                                ModifiedCommon),
+            case check_config(NewCommonConfig) of
+                ok ->
+                    ReadOnly = maps:with(?READ_ONLY_KEYS,OldHConfig),
+                    NewHConfig = maps:merge(
+                                   maps:merge(NewCommonConfig,NewHandlerConfig),
+                                   ReadOnly),
+                    NewConfig = NewConfig0#{config=>NewHConfig},
+                    HPid = maps:get(handler_pid,OldHConfig),
+                    case call(HPid, {change_config,NewConfig}) of
+                        ok      -> {ok,NewConfig};
+                        Error  -> Error
+                    end;
+                {error,Faulty} ->
+                    {error,{invalid_config,Module,Faulty}}
+            end;
+        Error ->
+            Error
+    end.
+
+%%%-----------------------------------------------------------------
+%%% Log a string or report
+-spec log(LogEvent, Config) -> ok when
+      LogEvent :: logger:log_event(),
+      Config :: logger:handler_config().
+
+log(LogEvent, Config = #{id := Name,
+                         config := #{handler_pid := HPid,
+                                     mode_tab := ModeTab}}) ->
+    %% if the handler has crashed, we must drop this event
+    %% and hope the handler restarts so we can try again
+    true = is_process_alive(HPid),
+    Bin = log_to_binary(LogEvent, Config),
+    call_cast_or_drop(Name, HPid, ModeTab, Bin).
+
+%%%-----------------------------------------------------------------
+%%% Remove internal fields from configuration
+filter_config(#{config:=HConfig}=Config) ->
+    Config#{config=>maps:without(?READ_ONLY_KEYS,HConfig)}.
+
+%%%-----------------------------------------------------------------
+%%% Start the handler process
+%%%
+%%% The process must always exist if the handler is registered with
+%%% logger (and must not exist if the handler is not registered).
+%%%
+%%% The handler process is linked to logger_sup, which is part of the
+%%% kernel application's supervision tree.
+start(#{id := Name} = Config0) ->
+    ChildSpec =
+        #{id       => Name,
+          start    => {?MODULE, start_link, [Config0]},
+          restart  => temporary,
+          shutdown => 2000,
+          type     => worker,
+          modules  => [?MODULE]},
+    case supervisor:start_child(logger_sup, ChildSpec) of
+        {ok,Pid,Config} ->
+            ok = logger_handler_watcher:register_handler(Name,Pid),
+            {ok,Config};
+        Error ->
+            Error
+    end.
+
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
+
+init(#{id := Name, module := Module,
+       formatter := Formatter, config := HConfig0} = Config0) ->
+    RegName = ?name_to_reg_name(Module,Name),
+    register(RegName, self()),
+    process_flag(trap_exit, true),
+    process_flag(message_queue_data, off_heap),
+
+    ?init_test_hooks(),
+    ?start_observation(Name),
+
+    case Module:init(Name, HConfig0) of
+        {ok,HState} ->
+            try ets:new(Name, [public]) of
+                ModeTab ->
+                    ?set_mode(ModeTab, async),
+                    T0 = ?timestamp(),
+                    HConfig = HConfig0#{handler_pid => self(),
+                                        mode_tab => ModeTab},
+                    Config = Config0#{config => HConfig},
+                    proc_lib:init_ack({ok,self(),Config}),
+                    %% Storing common config in state to avoid copying
+                    %% (sending) the config data for each log message
+                    CommonConfig = maps:with(?CONFIG_KEYS,HConfig),
+                    State =
+                        ?merge_with_stats(
+                           CommonConfig#{id => Name,
+                                         module => Module,
+                                         mode_tab => ModeTab,
+                                         mode => async,
+                                         ctrl_sync_count =>
+                                             ?CONTROLLER_SYNC_INTERVAL,
+                                         last_qlen => 0,
+                                         last_log_ts => T0,
+                                         last_op => sync,
+                                         burst_win_ts => T0,
+                                         burst_msg_count => 0,
+                                         formatter => Formatter,
+                                         handler_state => HState}),
+                    State1 = set_repeated_filesync(State),
+                    unset_restart_flag(State1),
+                    gen_server:enter_loop(?MODULE, [], State1)
+            catch
+                _:Error ->
+                    unregister(RegName),
+                    error_notify({init_handler,Name,Error}),
+                    proc_lib:init_ack(Error)
+            end;
+        Error ->
+            unregister(RegName),
+            error_notify({init_handler,Name,Error}),
+            proc_lib:init_ack(Error)
+    end.
+
+%% This is the synchronous log event.
+handle_call({log, Bin}, _From, State) ->
+    {Result,State1} = do_log(Bin, call, State),
+    %% Result == ok | dropped
+    {reply,Result, State1};
+
+handle_call(filesync, _From, State = #{id := Name,
+                                       module := Module,
+                                       handler_state := HandlerState}) ->
+    {Result,HandlerState1} = Module:filesync(Name,sync,HandlerState),
+    {reply, Result, State#{handler_state=>HandlerState1, last_op=>sync}};
+
+handle_call({change_config, #{formatter:=Formatter, config:=NewHConfig}}, _From,
+            State = #{filesync_repeat_interval := FSyncInt0}) ->
+    %% In the future, if handler_state must be updated due to config
+    %% change, then we need to add a callback to Module here.
+    CommonConfig = maps:with(?CONFIG_KEYS,NewHConfig),
+    State1 = maps:merge(State, CommonConfig),
+    State2 =
+        case maps:get(filesync_repeat_interval, NewHConfig) of
+            FSyncInt0 ->
+                State1;
+            _FSyncInt1 ->
+                set_repeated_filesync(cancel_repeated_filesync(State1))
+        end,
+    {reply, ok, State2#{formatter:=Formatter}};
+
+handle_call(info, _From, State) ->
+    {reply, State, State};
+
+handle_call(reset, _From,
+            #{id:=Name,module:=Module,handler_state:=HandlerState}=State) ->
+    State1 = ?merge_with_stats(State),
+    {reply, ok, State1#{last_qlen => 0,
+                        last_log_ts => ?timestamp(),
+                        handler_state => Module:reset_state(Name,HandlerState)}};
+
+handle_call(stop, _From, State) ->
+    {stop, {shutdown,stopped}, ok, State}.
+
+%% This is the asynchronous log event.
+handle_cast({log, Bin}, State) ->
+    {_,State1} = do_log(Bin, cast, State),
+    {noreply, State1};
+
+%% If FILESYNC_REPEAT_INTERVAL is set to a millisec value, this
+%% clause gets called repeatedly by the handler. In order to
+%% guarantee that a filesync *always* happens after the last log
+%% event, the repeat operation must be active!
+handle_cast(repeated_filesync,State = #{filesync_repeat_interval := no_repeat}) ->
+    %% This clause handles a race condition which may occur when
+    %% config changes filesync_repeat_interval from an integer value
+    %% to no_repeat.
+    {noreply,State};
+handle_cast(repeated_filesync,
+            State = #{id := Name,
+                      module := Module,
+                      handler_state := HandlerState,
+                      last_op := LastOp}) ->
+    State1 =
+        if LastOp == sync ->
+                State;
+           true ->
+                {_,HS} = Module:filesync(Name, async, HandlerState),
+                State#{handler_state => HS, last_op => sync}
+        end,
+    {noreply,set_repeated_filesync(State1)}.
+
+handle_info(Info, #{id := Name, module := Module,
+                    handler_state := HandlerState} = State) ->
+    {noreply,State#{handler_state => Module:handle_info(Name,Info,HandlerState)}}.
+
+terminate(Reason, State = #{id := Name,
+                            module := Module,
+                            handler_state := HandlerState}) ->
+    _ = cancel_repeated_filesync(State),
+    _ = Module:terminate(Name, Reason, HandlerState),
+    ok = stop_or_restart(Name, Reason, State),
+    unregister(?name_to_reg_name(Module, Name)),
+    ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+
+%%%-----------------------------------------------------------------
+%%% Internal functions
+call(Module, Name, Op) when is_atom(Name) ->
+    call(?name_to_reg_name(Module,Name), Op);
+call(_, Name, Op) ->
+    {error,{badarg,{Op,[Name]}}}.
+
+call(Server, Msg) ->
+    try
+        gen_server:call(Server, Msg, ?DEFAULT_CALL_TIMEOUT)
+    catch
+        _:{timeout,_} -> {error,handler_busy}
+    end.
+
+%% check for overload between every event (and set Mode to async,
+%% sync or drop accordingly), but never flush the whole mailbox
+%% before LogWindowSize events have been handled
+do_log(Bin, CallOrCast, State = #{id:=Name, mode:=Mode0}) ->
+    T1 = ?timestamp(),
+
+    %% check if the handler is getting overloaded, or if it's
+    %% recovering from overload (the check must be done for each
+    %% event to react quickly to large bursts of events and
+    %% to ensure that the handler can never end up in drop mode
+    %% with an empty mailbox, which would stop operation)
+    {Mode1,QLen,Mem,State1} = check_load(State),
+
+    if (Mode1 == drop) andalso (Mode0 =/= drop) ->
+            log_handler_info(Name, "Handler ~p switched to drop mode",
+                             [Name], State);
+       (Mode0 == drop) andalso ((Mode1 == async) orelse (Mode1 == sync)) ->
+            log_handler_info(Name, "Handler ~p switched to ~w mode",
+                             [Name,Mode1], State);
+       true ->
+            ok
+    end,
+
+    %% kill the handler if it can't keep up with the load
+    kill_if_choked(Name, QLen, Mem, State),
+
+    if Mode1 == flush ->
+            flush(Name, QLen, T1, State1);
+       true ->
+            write(Name, Mode1, T1, Bin, CallOrCast, State1)
+    end.
+
+%% this clause is called by do_log/3 after an overload check
+%% has been performed, where QLen > FlushQLen
+flush(Name, _QLen0, T1, State=#{last_log_ts := _T0, mode_tab := ModeTab}) ->
+    %% flush messages in the mailbox (a limited number in
+    %% order to not cause long delays)
+    NewFlushed = flush_log_events(?FLUSH_MAX_N),
+
+    %% write info in log about flushed messages
+    log_handler_info(Name, "Handler ~p flushed ~w log events",
+                     [Name,NewFlushed], State),
+
+    %% because of the receive loop when flushing messages, the
+    %% handler will be scheduled out often and the mailbox could
+    %% grow very large, so we'd better check the queue again here
+    {_,_QLen1} = process_info(self(), message_queue_len),
+    ?observe(Name,{max_qlen,_QLen1}),
+
+    %% Add 1 for the current log event
+    ?observe(Name,{flushed,NewFlushed+1}),
+
+    State1 = ?update_max_time(?diff_time(T1,_T0),State),
+    State2 = ?update_max_qlen(_QLen1,State1),
+    {dropped,?update_other(flushed,FLUSHED,NewFlushed,
+                           State2#{mode => ?set_mode(ModeTab,async),
+                                   last_qlen => 0,
+                                   last_log_ts => T1})}.
+
+%% this clause is called to write to file
+write(Name, Mode, T1, Bin, _CallOrCast,
+      State = #{module := Module,
+                handler_state := HandlerState,
+                mode_tab := ModeTab,
+                ctrl_sync_count := CtrlSync,
+                last_qlen := LastQLen,
+                last_log_ts := T0}) ->
+    %% check if we need to limit the number of writes
+    %% during a burst of log events
+    {DoWrite,State1} = limit_burst(State),
+
+    %% only log synhrounously every ?CONTROLLER_SYNC_INTERVAL time, to
+    %% give the handler time between writes so it can keep up with
+    %% incoming messages
+    {Result,LastQLen1,HandlerState1} =
+        if DoWrite, CtrlSync == 0 ->
+                ?observe(Name,{_CallOrCast,1}),
+                {_,HS1} = Module:write(Name, sync, Bin, HandlerState),
+                {ok,element(2, process_info(self(), message_queue_len)),HS1};
+           DoWrite ->
+                ?observe(Name,{_CallOrCast,1}),
+                {_,HS1} = Module:write(Name, async, Bin, HandlerState),
+                {ok,LastQLen,HS1};
+           not DoWrite ->
+                ?observe(Name,{flushed,1}),
+                {dropped,LastQLen,HandlerState}
+        end,
+
+    %% Check if the time since the previous log event is long enough -
+    %% and the queue length small enough - to assume the mailbox has
+    %% been emptied, and if so, do filesync operation and reset mode to
+    %% async. Note that this is the best we can do to detect an idle
+    %% handler without setting a timer after each log call/cast. If the
+    %% time between two consecutive log events is fast and no new
+    %% event comes in after the last one, idle state won't be detected!
+    Time = ?diff_time(T1,T0),
+    State2 =
+        if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
+           (Time > ?IDLE_DETECT_TIME_USEC) ->
+                {_,HS2} = Module:filesync(Name,async,HandlerState),
+                State1#{mode => ?change_mode(ModeTab, Mode, async),
+                        burst_msg_count => 0,
+                        handler_state => HS2};
+           true ->
+                State1#{mode => Mode, handler_state => HandlerState1}
+        end,
+    State3 = ?update_calls_or_casts(_CallOrCast,1,State2),
+    State4 = ?update_max_qlen(LastQLen1,State3),
+    State5 =
+        ?update_max_time(Time,
+                         State4#{last_qlen := LastQLen1,
+                                 last_log_ts => T1,
+                                 last_op => write,
+                                 ctrl_sync_count =>
+                                     if CtrlSync==0 -> ?CONTROLLER_SYNC_INTERVAL;
+                                        true -> CtrlSync-1
+                                     end}),
+    {Result,State5}.
+
+log_handler_info(Name, Format, Args, #{module:=Module,
+                                       formatter:=Formatter,
+                                       handler_state:=HandlerState}) ->
+    Config = #{formatter=>Formatter},
+    Meta = #{time=>erlang:system_time(microsecond)},
+    Bin = log_to_binary(#{level => notice,
+                          msg => {Format,Args},
+                          meta => Meta}, Config),
+    _ = Module:write(Name, async, Bin, HandlerState),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% Convert log data on any form to binary
@@ -94,46 +537,65 @@ string_to_binary(String) ->
             throw(Error)
     end.
 
-
 %%%-----------------------------------------------------------------
 %%% Check that the configuration term is valid
-check_common_config({mode_tab,_Tid}) ->
-    valid;
-check_common_config({handler_pid,Pid}) when is_pid(Pid) ->
-    valid;
+check_config(Config) when is_map(Config) ->
+    case check_common_config(maps:to_list(Config)) of
+        ok ->
+            case overload_levels_ok(Config) of
+                true ->
+                    ok;
+                false ->
+                    Faulty = maps:with([sync_mode_qlen,
+                                        drop_mode_qlen,
+                                        flush_qlen],Config),
+                    {error,{invalid_levels,Faulty}}
+            end;
+        Error ->
+            Error
+    end.
 
-check_common_config({sync_mode_qlen,N}) when is_integer(N) ->
-    valid;
-check_common_config({drop_mode_qlen,N}) when is_integer(N) ->
-    valid;
-check_common_config({flush_qlen,N}) when is_integer(N) ->
-    valid;
+check_common_config([{sync_mode_qlen,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{drop_mode_qlen,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{flush_qlen,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{burst_limit_enable,Bool}|Config]) when is_boolean(Bool) ->
+    check_common_config(Config);
+check_common_config([{burst_limit_max_count,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{burst_limit_window_time,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{overload_kill_enable,Bool}|Config]) when is_boolean(Bool) ->
+    check_common_config(Config);
+check_common_config([{overload_kill_qlen,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{overload_kill_mem_size,N}|Config]) when is_integer(N) ->
+    check_common_config(Config);
+check_common_config([{overload_kill_restart_after,NorA}|Config])
+  when is_integer(NorA); NorA == infinity ->
+    check_common_config(Config);
+check_common_config([{filesync_repeat_interval,NorA}|Config])
+  when is_integer(NorA); NorA == no_repeat ->
+    check_common_config(Config);
+check_common_config([{Key,Value}|_]) ->
+    {error,#{Key=>Value}};
+check_common_config([]) ->
+    ok.
 
-check_common_config({burst_limit_enable,Bool}) when Bool == true;
-                                                    Bool == false ->
-    valid;
-check_common_config({burst_limit_max_count,N}) when is_integer(N) ->
-    valid;
-check_common_config({burst_limit_window_time,N}) when is_integer(N) ->
-    valid;
-
-check_common_config({overload_kill_enable,Bool}) when Bool == true;
-                                                      Bool == false ->
-    valid;
-check_common_config({overload_kill_qlen,N}) when is_integer(N) ->
-    valid;
-check_common_config({overload_kill_mem_size,N}) when is_integer(N) ->
-    valid;
-check_common_config({overload_kill_restart_after,NorA})  when is_integer(NorA);
-                                                              NorA == infinity ->
-    valid;
-
-check_common_config({filesync_repeat_interval,NorA}) when is_integer(NorA);
-                                                          NorA == no_repeat ->
-    valid;
-check_common_config(_) ->
-    invalid.
-
+get_default_config() ->
+    #{sync_mode_qlen              => ?SYNC_MODE_QLEN,
+      drop_mode_qlen              => ?DROP_MODE_QLEN,
+      flush_qlen                  => ?FLUSH_QLEN,
+      burst_limit_enable          => ?BURST_LIMIT_ENABLE,
+      burst_limit_max_count       => ?BURST_LIMIT_MAX_COUNT,
+      burst_limit_window_time     => ?BURST_LIMIT_WINDOW_TIME,
+      overload_kill_enable        => ?OVERLOAD_KILL_ENABLE,
+      overload_kill_qlen          => ?OVERLOAD_KILL_QLEN,
+      overload_kill_mem_size      => ?OVERLOAD_KILL_MEM_SIZE,
+      overload_kill_restart_after => ?OVERLOAD_KILL_RESTART_AFTER,
+      filesync_repeat_interval    => ?FILESYNC_REPEAT_INTERVAL}.
 
 %%%-----------------------------------------------------------------
 %%% Overload Protection
@@ -146,15 +608,13 @@ call_cast_or_drop(_Name, HandlerPid, ModeTab, Bin) ->
         async ->
             gen_server:cast(HandlerPid, {log,Bin});
         sync ->
-            try gen_server:call(HandlerPid, {log,Bin}, ?DEFAULT_CALL_TIMEOUT) of
-                %% if return value from call == dropped, the
-                %% message has been flushed by handler and should
-                %% therefore not be counted as dropped in stats
-                ok      -> ok;
-                dropped -> ok
-            catch
-                _:{timeout,_} ->
-                    ?observe(_Name,{dropped,1})
+            case call(HandlerPid, {log,Bin}) of
+                ok ->
+                    ok;
+                _Other ->
+                    %% dropped or {error,handler_busy}
+                    ?observe(_Name,{dropped,1}),
+                    ok
             end;
         drop ->
             ?observe(_Name,{dropped,1})
@@ -165,10 +625,8 @@ call_cast_or_drop(_Name, HandlerPid, ModeTab, Bin) ->
     end,
     ok.
 
-handler_exit(_Name, Reason) ->
-    exit(Reason).
-
-set_restart_flag(Name, Module) ->
+set_restart_flag(#{id := Name, module := Module} = State) ->
+    log_handler_info(Name, "Handler ~p overloaded and stopping", [Name], State),
     Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
     spawn(fun() ->
                   register(Flag, self()),
@@ -176,14 +634,14 @@ set_restart_flag(Name, Module) ->
           end),
     ok.
 
-unset_restart_flag(Name, Module) ->
+unset_restart_flag(#{id := Name, module := Module} = State) ->
     Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
     case whereis(Flag) of
         undefined ->
-            false;
+            ok;
         Pid ->
             exit(Pid, kill),
-            true
+            log_handler_info(Name, "Handler ~p restarted", [Name], State)
     end.
 
 check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
@@ -221,45 +679,40 @@ check_load(State = #{id:=_Name, mode_tab := ModeTab, mode := Mode,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State1#{last_qlen => QLen})}.
 
-limit_burst(#{burst_limit_enable := false}) ->
-     {true,0,0};
+limit_burst(#{burst_limit_enable := false}=State) ->
+     {true,State};
 limit_burst(#{burst_win_ts := BurstWinT0,
               burst_msg_count := BurstMsgCount,
               burst_limit_window_time := BurstLimitWinTime,
-              burst_limit_max_count := BurstLimitMaxCnt}) ->
+              burst_limit_max_count := BurstLimitMaxCnt} = State) ->
     if (BurstMsgCount >= BurstLimitMaxCnt) -> 
             %% the limit for allowed messages has been reached
             BurstWinT1 = ?timestamp(),
             case ?diff_time(BurstWinT1,BurstWinT0) of
                 BurstCheckTime when BurstCheckTime < (BurstLimitWinTime*1000) ->
                     %% we're still within the burst time frame
-                    {false,BurstWinT0,BurstMsgCount};
+                    {false,?update_other(burst_drops,BURSTS,1,State)};
                 _BurstCheckTime ->
                     %% burst time frame passed, reset counters
-                    {true,BurstWinT1,0}
+                    {true,State#{burst_win_ts => BurstWinT1,
+                                 burst_msg_count => 0}}
             end;
        true ->
             %% the limit for allowed messages not yet reached
-            {true,BurstWinT0,BurstMsgCount+1}
+            {true,State#{burst_win_ts => BurstWinT0,
+                         burst_msg_count => BurstMsgCount+1}}
     end.
 
-kill_if_choked(Name, QLen, Mem, HandlerMod,
-               State = #{overload_kill_enable   := KillIfOL,
-                         overload_kill_qlen     := OLKillQLen,
-                         overload_kill_mem_size := OLKillMem}) ->
+kill_if_choked(Name, QLen, Mem, State = #{overload_kill_enable   := KillIfOL,
+                                          overload_kill_qlen     := OLKillQLen,
+                                          overload_kill_mem_size := OLKillMem}) ->
     if KillIfOL andalso
        ((QLen > OLKillQLen) orelse (Mem > OLKillMem)) ->
-            HandlerMod:log_handler_info(Name,
-                                        "Handler ~p overloaded and stopping",
-                                        [Name], State),
-            set_restart_flag(Name, HandlerMod),
-            handler_exit(Name, {shutdown,{overloaded,Name,QLen,Mem}});
+            set_restart_flag(State),
+            exit({shutdown,{overloaded,Name,QLen,Mem}});
        true ->
             ok
     end.
-
-flush_log_events() ->
-    flush_log_events(-1).
 
 flush_log_events(Limit) ->
     process_flag(priority, high),
@@ -283,16 +736,29 @@ flush_log_events(N, Limit) ->
         0 -> N
     end.
 
-cancel_timer(TRef) when is_atom(TRef) -> ok;
-cancel_timer(TRef) -> timer:cancel(TRef).
+set_repeated_filesync(#{filesync_repeat_interval:=FSyncInt} = State)
+  when is_integer(FSyncInt) ->
+    {ok,TRef} = timer:apply_after(FSyncInt, gen_server, cast,
+                                  [self(),repeated_filesync]),
+    State#{rep_sync_tref=>TRef};
+set_repeated_filesync(State) ->
+    State.
 
+cancel_repeated_filesync(State) ->
+    case maps:take(rep_sync_tref,State) of
+        {TRef,State1} ->
+            _ = timer:cancel(TRef),
+            State1;
+        error ->
+            State
+    end.
 
 stop_or_restart(Name, {shutdown,Reason={overloaded,_Name,_QLen,_Mem}},
                 #{overload_kill_restart_after := RestartAfter}) ->
     %% If we're terminating because of an overload situation (see
-    %% logger_h_common:kill_if_choked/4), we need to remove the handler
-    %% and set a restart timer. A separate process must perform this
-    %% in order to avoid deadlock.
+    %% kill_if_choked/4), we need to remove the handler and set a
+    %% restart timer. A separate process must perform this in order to
+    %% avoid deadlock.
     HandlerPid = self(),
     ConfigResult = logger:get_handler_config(Name),
     RemoveAndRestart =
@@ -334,6 +800,3 @@ overload_levels_ok(HandlerConfig) ->
 
 error_notify(Term) ->
     ?internal_log(error, Term).
-
-info_notify(Term) ->
-    ?internal_log(info, Term).

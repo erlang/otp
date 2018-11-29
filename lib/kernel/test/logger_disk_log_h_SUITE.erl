@@ -332,16 +332,18 @@ errors(Config) ->
     %%! Check how bad log_opts are handled!
 
     {error,{illegal_config_change,
-            #{config:=#{type:=wrap}},
-            #{config:=#{type:=halt}}}} =
+            logger_disk_log_h,
+            #{type:=wrap},
+            #{type:=halt}}} =
         logger:update_handler_config(Name1,
                                      config,
                                      #{type=>halt,
                                        file=>LogFile1}),
 
     {error,{illegal_config_change,
-            #{config:=#{file:=LogFile1}},
-            #{config:=#{file:="newfilename"}}}} =
+            logger_disk_log_h,
+            #{file:=LogFile1},
+            #{file:="newfilename"}}} =
         logger:update_handler_config(Name1,
                                      config,
                                      #{file=>"newfilename"}),
@@ -411,20 +413,25 @@ formatter_fail(cleanup,_Config) ->
     ok.
 
 config_fail(_Config) ->
-    {error,{handler_not_added,{invalid_config,logger_disk_log_h,{bad,bad}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,#{bad:=bad}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{bad => bad},
                              filter_default=>log,
                              formatter=>{?MODULE,self()}}),
 
-    {error,{handler_not_added,{invalid_levels,{_,1,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{drop_mode_qlen:=1}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>1}}),
-    {error,{handler_not_added,{invalid_levels,{43,42,_}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{sync_mode_qlen:=43,
+                                                 drop_mode_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{sync_mode_qlen=>43,
                                          drop_mode_qlen=>42}}),
-    {error,{handler_not_added,{invalid_levels,{_,43,42}}}} =
+    {error,{handler_not_added,{invalid_config,logger_disk_log_h,
+                               {invalid_levels,#{drop_mode_qlen:=43,
+                                                 flush_qlen:=42}}}}} =
         logger:add_handler(?MODULE,logger_disk_log_h,
                            #{config => #{drop_mode_qlen=>43,
                                          flush_qlen=>42}}),
@@ -433,20 +440,17 @@ config_fail(_Config) ->
                             #{filter_default=>log,
                               formatter=>{?MODULE,self()}}),
     %% can't change the disk log options for a log already in use
-    {error,{illegal_config_change,_,_}} =
+    {error,{illegal_config_change,logger_disk_log_h,_,_}} =
         logger:update_handler_config(?MODULE,config,
                                      #{max_no_files=>2}),
-    %% can't change name of an existing handler
-    {error,{illegal_config_change,_,_}} =
-        logger:update_handler_config(?MODULE,id,bad),
     %% incorrect values of OP params
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
-    {error,{invalid_levels,_}} =
+    {error,{invalid_config,logger_disk_log_h,{invalid_levels,_}}} =
         logger:update_handler_config(?MODULE,config,
                                      HConfig#{sync_mode_qlen=>100,
                                               flush_qlen=>99}),
     %% invalid name of config parameter
-    {error,{invalid_config,logger_disk_log_h,{filesync_rep_int,2000}}} =
+    {error,{invalid_config,logger_disk_log_h,#{filesync_rep_int:=2000}}} =
         logger:update_handler_config(?MODULE, config,
                                      HConfig#{filesync_rep_int => 2000}),
     ok.
@@ -487,10 +491,11 @@ reconfig(Config) ->
       overload_kill_mem_size := ?OVERLOAD_KILL_MEM_SIZE,
       overload_kill_restart_after := ?OVERLOAD_KILL_RESTART_AFTER,
       filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL,
-      log_opts := #{type := ?DISK_LOG_TYPE,
-                    max_no_files := ?DISK_LOG_MAX_NO_FILES,
-                    max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
-                    file := DiskLogFile}} =
+      handler_state :=
+          #{log_opts := #{type := ?DISK_LOG_TYPE,
+                          max_no_files := ?DISK_LOG_MAX_NO_FILES,
+                          max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
+                          file := DiskLogFile}}} =
         logger_disk_log_h:info(?MODULE),
     {ok,#{config :=
               #{sync_mode_qlen := ?SYNC_MODE_QLEN,
@@ -572,10 +577,11 @@ reconfig(Config) ->
                                     max_no_files => 1,
                                     max_no_bytes => 1024,
                                     file => File}}),
-    #{log_opts := #{type := halt,
-                    max_no_files := 1,
-                    max_no_bytes := 1024,
-                    file := File}} =
+    #{handler_state :=
+          #{log_opts := #{type := halt,
+                          max_no_files := 1,
+                          max_no_bytes := 1024,
+                          file := File}}} =
         logger_disk_log_h:info(?MODULE),
     {ok,#{config :=
               #{type := halt,
@@ -596,13 +602,13 @@ reconfig(Config) ->
 
     %% You are not allowed to actively set the write once fields
     %% (type, max_no_files, max_no_bytes, file) in runtime.
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{type=>wrap}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{max_no_files=>2}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{max_no_bytes=>2048}),
-    {error, {illegal_config_change,_,_}} =
+    {error, {illegal_config_change,_,_,_}} =
         logger:set_handler_config(?MODULE,config,#{file=>"otherfile.log"}),
     {ok,C7} = logger:get_handler_config(?MODULE),
     ct:log("C7: ~p",[C7]),
@@ -630,16 +636,16 @@ sync(Config) ->
                               filters=>?DEFAULT_HANDLER_FILTERS([?MODULE]),
                               formatter=>{?MODULE,nl}}),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"first\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"first\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("first", ?domain),
     %% wait for automatic disk_log_sync
     check_tracer(?FILESYNC_REPEAT_INTERVAL*2),
     
-    %% check that if there's no repeated disk_log_sync active,
+    %% check that if there's no repeated filesync active,
     %% a disk_log_sync is still performed when handler goes idle
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
@@ -652,12 +658,12 @@ sync(Config) ->
     %% triggered by the idle timeout between "fourth" and "fifth".
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
 
-    start_tracer([{disk_log,blog,2},
-                  {logger_disk_log_h,disk_log_sync,2}],
-                 [{disk_log,blog,<<"second\n">>},
-                  {logger_disk_log_h,disk_log_sync},
-                  {disk_log,blog,<<"third\n">>},
-                  {logger_disk_log_h,disk_log_sync}]),
+    start_tracer([{logger_disk_log_h,disk_log_write,3},
+                  {disk_log,sync,1}],
+                 [{logger_disk_log_h,disk_log_write,<<"second\n">>},
+                  {disk_log,sync},
+                  {logger_disk_log_h,disk_log_write,<<"third\n">>},
+                  {disk_log,sync}]),
 
     logger:notice("second", ?domain),
     timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
@@ -667,13 +673,13 @@ sync(Config) ->
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
     
-    %% switch repeated disk_log_sync on and verify that the looping works
+    %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,
     WaitT = 4500,
-    OneSync = {logger_disk_log_h,handle_cast,repeated_disk_log_sync},
-    %% receive 1 initial repeated_disk_log_sync, then 1 per sec
-    start_tracer([{logger_disk_log_h,handle_cast,2}],
-                 [OneSync || _ <- lists:seq(1, 1 + trunc(WaitT/SyncInt))]),
+    OneSync = {logger_h_common,handle_cast,repeated_filesync},
+    %% receive 1 repeated_filesync per sec
+    start_tracer([{logger_h_common,handle_cast,2}],
+                 [OneSync || _ <- lists:seq(1, trunc(WaitT/SyncInt))]),
 
     HConfig2 = HConfig#{filesync_repeat_interval => SyncInt},
     ok = logger:update_handler_config(?MODULE, config, HConfig2),
@@ -716,7 +722,7 @@ disk_log_wrap(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,MaxBytes)],
     ct:pal("String = ~p (~w)", [Text, erts_debug:size(Text)]),
@@ -734,7 +740,7 @@ disk_log_wrap(Config) ->
     timer:sleep(1000),
     dbg:stop_clear(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
@@ -770,7 +776,7 @@ disk_log_full(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     NoOfChars = 5,
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,NoOfChars)],
@@ -780,14 +786,18 @@ disk_log_full(Config) ->
     timer:sleep(2000),
     dbg:stop_clear(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
-                                  [{disk_log,_Node,_Name,What},_]}) ->
+                                  [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
                                 ({log,_}) ->
                                      []
                              end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
-    [{trace,full},
-     {trace,{error_status,{error,{full,_}}}}] = Received,
+
+    %% The tail here could be an error_status notification, if the
+    %% last write was synchronous, but in most cases it will not be
+    [{trace,full}|_] = Received,
+    %% [{trace,full},
+    %%  {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
     dbg:stop_clear(),
@@ -819,14 +829,14 @@ disk_log_events(Config) ->
                end,
     {ok,_} = dbg:tracer(process, {TraceFun, Tester}),
     {ok,_} = dbg:p(whereis(h_proc_name()), [c]),
-    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 2, []),
+    {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
     
     [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
     dbg:stop_clear(),
     Received = lists:map(fun({trace,_M,handle_info,
-                              [Got,_]}) -> Got
+                              [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
     ct:pal("Trace =~n~p", [Received]),
     NoOfEvents = length(Events),
@@ -849,13 +859,15 @@ write_failure(Config) ->
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
     HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts, HState)]),
+    ct:pal("LogOpts = ~p", [LogOpts = maps:get(log_opts,
+                                               maps:get(handler_state,HState))]),
 
+    %% ?check and ?check_no_log in this test only check for internal log events
     ok = log_on_remote_node(Node, "Logged1"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
 
     SyncRepInt = case (fun() -> is_atom(?FILESYNC_REPEAT_INTERVAL) end)() of
                      true -> 5500;
@@ -864,24 +876,26 @@ write_failure(Config) ->
 
     try_read_file(Log, {ok,<<"Logged1\n">>}, SyncRepInt),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,{error,no_such_log}]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,{error,no_such_log}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
 
+    %% this should have caused an internal log
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,{error,no_such_log}}}),
-    
-    ok = log_on_remote_node(Node, "No second error printout"),
-    ?check_no_log,
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,
+    ok = log_on_remote_node(Node, "No second error printout"),
+    ?check_no_log, % but don't log same error twice
+
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,
                                          {error,{full,?STANDARD_HANDLER}}]),
     ok = log_on_remote_node(Node, "Cause simple error printout"),
+    %% this was a different error, so it should be logged
     ?check({error,{?STANDARD_HANDLER,log,LogOpts,
                    {error,{full,?STANDARD_HANDLER}}}}),
 
-    rpc:call(Node, ?MODULE, set_result, [disk_log_blog,ok]),
+    rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
     ok = log_on_remote_node(Node, "Logged2"),
     rpc:call(Node, logger_disk_log_h, filesync, [?STANDARD_HANDLER]),
-    ?check_no_log,
+    ?check_no_log, % no internal log when write ok
     try_read_file(Log, {ok,<<"Logged1\nLogged2\n">>}, SyncRepInt),
     ok.
 write_failure(cleanup, _Config) ->
@@ -901,7 +915,7 @@ sync_failure(Config) ->
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
     HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
-    LogOpts = maps:get(log_opts, HState),
+    LogOpts = maps:get(log_opts, maps:get(handler_state,HState)),
     
     SyncInt = 500,
     ok = rpc:call(Node, logger, update_handler_config,
@@ -1606,10 +1620,10 @@ tpl([{M,F,A}|Trace]) ->
 tpl([]) ->
     ok.
 
-tracer({trace,_,call,{logger_disk_log_h,handle_cast,[Op|_]},Caller},
+tracer({trace,_,call,{logger_h_common,handle_cast,[Op|_]},Caller},
        {Pid,[{Mod,Func,Op}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Op},Caller);
-tracer({trace,_,call,{Mod=disk_log,Func=blog,[_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
+tracer({trace,_,call,{Mod=logger_disk_log_h,Func=disk_log_write,[_,_,Data]},Caller}, {Pid,[{Mod,Func,Data}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func,Data},Caller);
 tracer({trace,_,call,{Mod,Func,_},Caller}, {Pid,[{Mod,Func}|Expected]}) ->
     maybe_tracer_done(Pid,Expected,{Mod,Func},Caller);
