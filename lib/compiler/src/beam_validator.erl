@@ -1366,8 +1366,10 @@ kill_aliases(Reg, #st{aliases=Aliases0}=St) ->
             St
     end.
 
-set_type(Type, {x,_}=Reg, Vst) -> set_type_reg(Type, Reg, Vst);
-set_type(Type, {y,_}=Reg, Vst) -> set_type_y(Type, Reg, Vst);
+set_type(Type, {x,_}=Reg, Vst) ->
+    set_type_reg(Type, Reg, Reg, Vst);
+set_type(Type, {y,_}=Reg, Vst) ->
+    set_type_reg(Type, Reg, Reg, Vst);
 set_type(_, _, #vst{}=Vst) -> Vst.
 
 set_type_reg(Type, Src, Dst, Vst) ->
