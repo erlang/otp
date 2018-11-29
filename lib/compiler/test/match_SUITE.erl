@@ -641,13 +641,22 @@ do_map_vars_used(X, Y, Map) ->
 	    Val
     end.
 
+-record(coverage_id, {bool=false,id}).
 coverage(Config) when is_list(Config) ->
     %% Cover beam_dead.
     ok = coverage_1(x, a),
     ok = coverage_1(x, b),
 
     %% Cover sys_pre_expand.
-    ok = coverage_3("abc").
+    ok = coverage_3("abc"),
+
+    %% Cover beam_ssa_dead.
+    {expr,key} = coverage_4([literal,get], [[expr,key]]),
+    {expr,key} = coverage_4([expr,key], []),
+    a = coverage_5([8,8,8], #coverage_id{bool=true}),
+    b = coverage_5([], #coverage_id{bool=true}),
+
+    ok.
 
 coverage_1(B, Tag) ->
     case Tag of
@@ -659,6 +668,21 @@ coverage_2(1, a, x) -> ok;
 coverage_2(2, b, x) -> ok.
 
 coverage_3([$a]++[]++"bc") -> ok.
+
+%% Cover beam_ssa_dead:eval_type_test_1(is_nonempty_list, Arg).
+coverage_4([literal,get], [Expr]) ->
+    coverage_4(Expr, []);
+coverage_4([Expr,Key], []) ->
+    {Expr,Key}.
+
+%% Cover beam_ssa_dead:eval_type_test_1(is_tagged_tuple, Arg).
+coverage_5(Config, TermId)
+  when TermId =:= #coverage_id{bool=true},
+       Config =:= [8,8,8] ->
+    a;
+coverage_5(_Config, #coverage_id{bool=true}) ->
+    b.
+
 
 grab_bag(_Config) ->
     [_|T] = id([a,b,c]),

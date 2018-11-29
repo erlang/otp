@@ -1295,6 +1295,32 @@ rel_ops(Config) when is_list(Config) ->
     Empty = id([]),
     ?T(==, [], Empty),
 
+    %% Cover beam_ssa_dead:turn_op('/=').
+    ok = (fun(A, B) when is_atom(A) ->
+                  X = id(A /= B),
+                  if
+                      X -> ok;
+                      true -> error
+                  end
+          end)(a, b),
+    ok = (fun(A, B) when is_atom(A) ->
+                  X = id(B /= A),
+                  if
+                        X -> ok;
+                        true -> error
+                    end
+            end)(a, b),
+
+    %% Cover beam_ssa_dead.
+    Arrow = fun([T1,T2]) when T1 == $>, T2 == $>;
+                              T1 == $<, T2 == $| ->  true;
+               (_) -> false
+            end,
+    true = Arrow(">>"),
+    true = Arrow("<|"),
+    false = Arrow("><"),
+    false = Arrow(""),
+
     ok.
 
 -undef(TestOp).
@@ -1328,6 +1354,9 @@ rel_op_combinations_1(N, Digits) ->
     Bool = is_digit_6(N),
     Bool = is_digit_7(N),
     Bool = is_digit_8(N),
+    Bool = is_digit_9(42, N),
+    Bool = is_digit_10(N, 0),
+    Bool = is_digit_11(N, 0),
     rel_op_combinations_1(N-1, Digits).
 
 is_digit_1(X) when 16#0660 =< X, X =< 16#0669 -> true;
@@ -1370,6 +1399,24 @@ is_digit_8(X) when X =< 16#06F9, X > (16#06F0-1) -> true;
 is_digit_8(X) when X =< 16#0669, X > (16#0660-1) -> true;
 is_digit_8(16#0670) -> false;
 is_digit_8(_) -> false.
+
+is_digit_9(A, 0) when A =:= 42 -> false;
+is_digit_9(_, X) when X > 16#065F, X < 16#066A -> true;
+is_digit_9(_, X) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_9(_, X) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_9(_, _) -> false.
+
+is_digit_10(0, 0) -> false;
+is_digit_10(X, _) when X < 16#066A, 16#0660 =< X -> true;
+is_digit_10(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_10(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_10(_, _) -> false.
+
+is_digit_11(0, 0) -> false;
+is_digit_11(X, _) when X =< 16#0669, 16#0660 =< X -> true;
+is_digit_11(X, _) when 16#0030 =< X, X =< 16#0039 -> true;
+is_digit_11(X, _) when 16#06F0 =< X, X =< 16#06F9 -> true;
+is_digit_11(_, _) -> false.
 
 rel_op_combinations_2(0, _) ->
     ok;
@@ -1471,6 +1518,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
+    Val = redundant_11(N),
     rel_op_combinations_3(N-1, Red).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
@@ -1524,6 +1572,10 @@ redundant_11(X) when X < 51 -> 2*X;
 redundant_11(X) when X =:= 10 -> 2*X;
 redundant_11(X) when X >= 51, X =< 80 -> 5*X;
 redundant_11(_) -> none.
+
+redundant_12(X) when X >= 50, X =< 80 -> 2*X;
+redundant_12(X) when X < 51 -> 5*X;
+redundant_12(_) -> none.
 
 %% Test type tests on literal values. (From emulator test suites.)
 literal_type_tests(Config) when is_list(Config) ->
