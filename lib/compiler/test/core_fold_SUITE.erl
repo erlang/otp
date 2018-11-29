@@ -502,7 +502,7 @@ source(true, Activities) ->
 	    Activities
     end.
 
-tim(#{reduction := Emergency}) ->
+tim(#{reduction := _Emergency}) ->
     try
 	fun() -> surgery end
     catch

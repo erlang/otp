@@ -197,7 +197,7 @@ do_bs_init_4(Arg1, Arg2) ->
                          id(Rewrite)
                  end/binary,
                  "/shared">>);
-        Other ->
+        _Other ->
             error
     end.
 
@@ -553,7 +553,7 @@ not_used_p(_C, S, K, L) when is_record(K, k) ->
             id(K)
     end.
 
-is_used_fr(Config) ->
+is_used_fr(_Config) ->
     1 = is_used_fr(self(), self()),
     1 = is_used_fr(self(), other),
     receive 1 -> ok end,
@@ -572,7 +572,7 @@ is_used_fr(X, Y) ->
     X ! 1.
 
 %% ERL-778.
-unsafe_is_function(Config) ->
+unsafe_is_function(_Config) ->
     {undefined,any} = unsafe_is_function(undefined, any),
     {ok,any} = unsafe_is_function(fun() -> ok end, any),
     {'EXIT',{{case_clause,_},_}} = (catch unsafe_is_function(fun(_) -> ok end, any)),

@@ -1814,11 +1814,10 @@ do_erl_689_2b(_, <<Length, Data/binary>>) ->
 %% ERL-753
 
 bs_start_match2_defs(_Config) ->
-    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>, dummy),
-    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}, dummy).
+    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>),
+    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}).
 
-api_url(URL, Auth) ->
-    Header = [],
+api_url(URL) ->
     case URL of
         <<_/binary>> -> {<<"http://127.0.0.1:1234/vsaas/",URL/binary>>};
         {https, [_|_] = URL1} -> {"https://127.0.0.1:4321/vsaas/"++URL1}

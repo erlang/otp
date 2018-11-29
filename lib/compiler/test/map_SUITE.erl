@@ -2085,7 +2085,7 @@ t_register_corruption(Config) when is_list(Config) ->
     {3,wanted,<<"value">>} = register_corruption_foo(wanted,M),
     ok.
 
-register_corruption_foo(A,#{a := V1, b := V2}) ->
+register_corruption_foo(_,#{a := V1, b := V2}) ->
     register_corruption_dummy_call(1,V1,V2);
 register_corruption_foo(A,#{b := V}) ->
     register_corruption_dummy_call(2,A,V);
