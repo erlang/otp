@@ -137,7 +137,7 @@
           ets:insert(?TEST_HOOKS_TAB, {internal_log,{logger,internal_log}}),
           ets:insert(?TEST_HOOKS_TAB, {file_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {file_datasync,ok}),
-          ets:insert(?TEST_HOOKS_TAB, {disk_log_blog,ok}),
+          ets:insert(?TEST_HOOKS_TAB, {disk_log_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {disk_log_sync,ok})).
 
   -define(set_internal_log(MOD_FUNC),
@@ -150,7 +150,7 @@
           ets:insert(?TEST_HOOKS_TAB, {internal_log,{logger,internal_log}}),
           ets:insert(?TEST_HOOKS_TAB, {file_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {file_datasync,ok}),
-          ets:insert(?TEST_HOOKS_TAB, {disk_log_blog,ok}),
+          ets:insert(?TEST_HOOKS_TAB, {disk_log_write,ok}),
           ets:insert(?TEST_HOOKS_TAB, {disk_log_sync,ok})).
 
   -define(internal_log(TYPE, TERM),
@@ -171,11 +171,11 @@
               [{_,ERROR}] -> ERROR
           catch _:_       -> file:datasync(DEVICE) end).
 
-  -define(disk_log_blog(LOG, DATA),
-          try ets:lookup(?TEST_HOOKS_TAB, disk_log_blog) of
-              [{_,ok}]    -> disk_log:blog(LOG, DATA);
+  -define(disk_log_write(LOG, MODE, DATA),
+          try ets:lookup(?TEST_HOOKS_TAB, disk_log_write) of
+              [{_,ok}]    -> disk_log_write(LOG, MODE, DATA);
               [{_,ERROR}] -> ERROR
-          catch _:_       -> disk_log:blog(LOG, DATA) end).
+          catch _:_       -> disk_log_write(LOG, MODE, DATA) end).
 
   -define(disk_log_sync(LOG),
           try ets:lookup(?TEST_HOOKS_TAB, disk_log_sync) of
@@ -194,7 +194,7 @@
   -define(internal_log(TYPE, TERM), logger:internal_log(TYPE, TERM)).
   -define(file_write(DEVICE, DATA), file:write(DEVICE, DATA)).
   -define(file_datasync(DEVICE), file:datasync(DEVICE)).
-  -define(disk_log_blog(LOG, DATA), disk_log:blog(LOG, DATA)).
+  -define(disk_log_write(LOG, MODE, DATA), disk_log_write(LOG, MODE, DATA)).
   -define(disk_log_sync(LOG), disk_log:sync(LOG)).
   -define(DEFAULT_CALL_TIMEOUT, 10000).
 -endif.
@@ -210,7 +210,7 @@
 -ifdef(SAVE_STATS).
   -define(merge_with_stats(STATE),
           STATE#{flushes => 0, flushed => 0, drops => 0,
-                 casts => 0, calls => 0,
+                 burst_drops => 0, casts => 0, calls => 0,
                  max_qlen => 0, max_time => 0}).
 
   -define(update_max_qlen(QLEN, STATE),
