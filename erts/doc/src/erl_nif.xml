@@ -2285,7 +2285,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
 	  between nodes.</p>
 	  <list type="bulleted">
 	    <item>
-	      <p>Two resource terms will compare equal if they
+	      <p>Two resource terms will compare equal if and only if they
 	      would yield the same resource object pointer when passed to
 	      <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>.</p>
 	    </item>
