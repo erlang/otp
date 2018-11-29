@@ -1152,23 +1152,31 @@ handle_call({close, _} = Close, From, StateName, State, _Connection) ->
     stop_and_reply(
       {shutdown, normal},
       {reply, From, Result}, State#state{terminated = true});
+handle_call({shutdown, read_write = How}, From, StateName,
+	    #state{transport_cb = Transport,
+		   socket = Socket} = State, _) ->
+
+    try send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+                       StateName, State) of
+        _ -> 
+            case Transport:shutdown(Socket, How) of
+                ok ->
+                    {next_state, StateName, State#state{terminated = true}, [{reply, From, ok}]};
+                Error ->
+                    {stop, StateName, State#state{terminated = true}, [{reply, From, Error}]}
+            end
+    catch
+        throw:Return ->
+            Return
+    end;
 handle_call({shutdown, How0}, From, StateName,
 	    #state{transport_cb = Transport,
 		   socket = Socket} = State, _) ->
-    case How0 of
-	How when How == write; How == both ->	    
-            send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-                       StateName, State);
-	_ ->
-	    ok
-    end,
-
     case Transport:shutdown(Socket, How0) of
 	ok ->
-	    {keep_state_and_data, [{reply, From, ok}]};
+	    {next_state, StateName, State, [{reply, From, ok}]};
 	Error ->
-	    gen_statem:reply(From, {error, Error}),
-            stop(normal, State)
+            {stop, StateName, State, [{reply, From, Error}]}
     end;
 handle_call({recv, _N, _Timeout}, From, _,  
 		  #state{socket_options = 
@@ -1330,15 +1338,15 @@ terminate(downgrade = Reason, connection, #state{protocol_cb = Connection,
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, connection, #state{protocol_cb = Connection,
-                                                connection_states = ConnectionStates,
-                                                ssl_options = #ssl_options{padding_check = Check},
-                                                transport_cb = Transport, socket = Socket
-                                               } = State) ->
+                                     connection_states = ConnectionStates,
+                                     ssl_options = #ssl_options{padding_check = Check},
+                                     transport_cb = Transport, socket = Socket
+                                    } = State) ->
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
     %% Send the termination ALERT if possible
-    catch (ok = Connection:send_alert_in_connection(Alert, State)),
-    Connection:close(Reason, Socket, Transport, ConnectionStates, Check);
+    catch (Connection:send_alert_in_connection(Alert, State)),
+    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates, Check);
 terminate(Reason, _StateName, #state{transport_cb = Transport, protocol_cb = Connection,
 				     socket = Socket 
 				    } = State) ->
