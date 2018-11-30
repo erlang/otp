@@ -653,8 +653,12 @@ coverage(Config) when is_list(Config) ->
     %% Cover beam_ssa_dead.
     {expr,key} = coverage_4([literal,get], [[expr,key]]),
     {expr,key} = coverage_4([expr,key], []),
+
     a = coverage_5([8,8,8], #coverage_id{bool=true}),
     b = coverage_5([], #coverage_id{bool=true}),
+
+    %% Cover beam_ssa_opt.
+    ok = coverage_6(),
 
     ok.
 
@@ -683,6 +687,22 @@ coverage_5(Config, TermId)
 coverage_5(_Config, #coverage_id{bool=true}) ->
     b.
 
+coverage_6() ->
+    X = 17,
+    case
+        case id(1) > 0 of
+            true ->
+                17;
+            false ->
+                42
+        end
+    of
+        X ->
+            ok;
+        V ->
+            %% Cover beam_ssa_opt:make_literal/2.
+            error([error,X,V])
+    end.
 
 grab_bag(_Config) ->
     [_|T] = id([a,b,c]),
