@@ -126,13 +126,13 @@ decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     Len = ListLen + 2,
     Extension = <<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary>>,
     % after decoding we should see only valid curves
-    Extensions = ssl_handshake:decode_hello_extensions(Extension, {3,2}, client),
+    Extensions = ssl_handshake:decode_hello_extensions(Extension, {3,2}, {3,2}, client),
     #{elliptic_curves := #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]}} = Extensions. 
 
 decode_unknown_hello_extension_correctly(_Config) ->
     FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, {3,2}, client),
+    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, {3,2}, {3,2}, client),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 
@@ -147,12 +147,12 @@ encode_single_hello_sni_extension_correctly(_Config) ->
 decode_single_hello_sni_extension_correctly(_Config) ->
     SNI = <<16#00, 16#00, 16#00, 16#0d, 16#00, 16#0b, 16#00, 16#00, 16#08,
 	    $t,    $e,    $s,    $t,    $.,    $c,    $o,    $m>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, client),
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, {3,3}, client),
     #{sni := #sni{hostname = "test.com"}} = Decoded.
 
 decode_empty_server_sni_correctly(_Config) ->
     SNI = <<?UINT16(?SNI_EXT),?UINT16(0)>>,
-    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, server),
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, {3,3}, {3,3}, server),
     #{sni := #sni{hostname = ""}} = Decoded.
 
 

@@ -61,7 +61,7 @@
 -export([encode_handshake/2, encode_hello_extensions/1, encode_extensions/1, encode_extensions/2,
 	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
 %% Decode
--export([decode_handshake/3, decode_vector/1, decode_hello_extensions/3, decode_extensions/3,
+-export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
 	 decode_server_key/3, decode_client_key/3,
 	 decode_suites/2
 	]).
@@ -746,7 +746,7 @@ decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32
 		       Cipher_suite:2/binary, ?BYTE(Comp_method),
 		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
 
-    HelloExtensions = decode_hello_extensions(Extensions, Version, server_hello),
+    HelloExtensions = decode_hello_extensions(Extensions, Version, {Major, Minor}, server_hello),
 
     #server_hello{
        server_version = {Major,Minor},
@@ -803,11 +803,12 @@ decode_vector(<<?UINT16(Len), Vector:Len/binary>>) ->
     Vector.
 
 %%--------------------------------------------------------------------
--spec decode_hello_extensions(binary(), ssl_record:ssl_version(), atom()) -> map().
+-spec decode_hello_extensions(binary(), ssl_record:ssl_version(),
+                              ssl_record:ssl_version(), atom()) -> map().
 %%
 %% Description: Decodes TLS hello extensions
 %%--------------------------------------------------------------------
-decode_hello_extensions(Extensions, Version, MessageType0) ->
+decode_hello_extensions(Extensions, LocalVersion, LegacyVersion, MessageType0) ->
     %% Convert legacy atoms
     MessageType =
         case MessageType0 of
@@ -815,6 +816,13 @@ decode_hello_extensions(Extensions, Version, MessageType0) ->
             server -> server_hello;
             T -> T
         end,
+    %% RFC 8446 - 4.2.1
+    %% Servers MUST be prepared to receive ClientHellos that include this extension but
+    %% do not include 0x0304 in the list of versions.
+    %% Clients MUST check for this extension prior to processing the rest of the
+    %% ServerHello (although they will have to parse the ServerHello in order to read
+    %% the extension).
+    Version = process_supported_versions_extension(Extensions, LocalVersion, LegacyVersion),
     decode_extensions(Extensions, Version, MessageType, empty_extensions(Version, MessageType)).
 
 %%--------------------------------------------------------------------
@@ -2194,6 +2202,47 @@ dec_server_key_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
     {Params, undefined, Signature};
 dec_server_key_signature(_, _, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, failed_to_decrypt_server_key_sign)).
+
+%% Processes a ClientHello/ServerHello message and returns the version to be used
+%% in the decoding functions. The following rules apply:
+%% - IF supported_versions extension is absent:
+%%   RETURN the lowest of (LocalVersion and LegacyVersion)
+%% - IF supported_versions estension is present:
+%%   RETURN the lowest of (LocalVersion and first element of supported versions)
+process_supported_versions_extension(<<>>, LocalVersion, LegacyVersion)
+  when LegacyVersion =< LocalVersion ->
+    LegacyVersion;
+process_supported_versions_extension(<<>>, LocalVersion, _LegacyVersion) ->
+    LocalVersion;
+process_supported_versions_extension(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+                                       ExtData:Len/binary, _Rest/binary>>,
+                                     LocalVersion, _LegacyVersion) when Len > 2 ->
+    <<?UINT16(_),Versions0/binary>> = ExtData,
+    [Highest|_] = decode_versions(Versions0),
+    if Highest =< LocalVersion ->
+            Highest;
+       true ->
+            LocalVersion
+    end;
+process_supported_versions_extension(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
+                                       ?BYTE(Major),?BYTE(Minor), _Rest/binary>>,
+                                     LocalVersion, _LegacyVersion) when Len =:= 2 ->
+    SelectedVersion = {Major, Minor},
+    if SelectedVersion =< LocalVersion ->
+            SelectedVersion;
+       true ->
+            LocalVersion
+    end;
+process_supported_versions_extension(<<?UINT16(_), ?UINT16(Len),
+                                       _ExtData:Len/binary, Rest/binary>>,
+                                     LocalVersion, LegacyVersion) ->
+    process_supported_versions_extension(Rest, LocalVersion, LegacyVersion);
+%% Tolerate protocol encoding errors and skip parsing the rest of the extension.
+process_supported_versions_extension(_, LocalVersion, LegacyVersion)
+  when LegacyVersion =< LocalVersion ->
+    LegacyVersion;
+process_supported_versions_extension(_, LocalVersion, _) ->
+    LocalVersion.
 
 decode_extensions(<<>>, _Version, _MessageType, Acc) ->
     Acc;

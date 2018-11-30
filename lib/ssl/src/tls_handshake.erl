@@ -401,14 +401,15 @@ get_tls_handshake_aux(_Version, Data, _, Acc) ->
 
 decode_handshake({3, N}, ?HELLO_REQUEST, <<>>) when N < 4 ->
     #hello_request{};
-decode_handshake(Version, ?CLIENT_HELLO, 
+decode_handshake(Version, ?CLIENT_HELLO,
                  <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
                    ?BYTE(SID_length), Session_ID:SID_length/binary,
                    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
                    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
                    Extensions/binary>>) ->
     Exts = ssl_handshake:decode_vector(Extensions),
-    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, Version, client_hello),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, Version, {Major, Minor},
+                                                              client_hello),
     #client_hello{
        client_version = {Major,Minor},
        random = Random,

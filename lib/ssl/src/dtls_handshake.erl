@@ -340,8 +340,9 @@ decode_handshake(Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
 					    ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
 					    Extensions/binary>>) ->
     TLSVersion = dtls_v1:corresponding_tls_version(Version),
+    LegacyVersion = dtls_v1:corresponding_tls_version({Major, Minor}),
     Exts = ssl_handshake:decode_vector(Extensions),
-    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, client),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, LegacyVersion, client),
 
     #client_hello{
        client_version = {Major,Minor},

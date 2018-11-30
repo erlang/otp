@@ -326,7 +326,7 @@ extensions(?'TLS_v1.3' = Version, client_hello) ->
            %% oneof([psk_key_exchange_modes(), undefined]),
            %% oneof([early_data(), undefined]),
            %% oneof([cookie(), undefined]),
-           oneof([client_hello_versions(Version), undefined]),
+           oneof([client_hello_versions(Version)]),
            %% oneof([cert_authorities(), undefined]),
            %% oneof([post_handshake_auth(), undefined]),
            oneof([signature_algs_cert(), undefined])
@@ -403,7 +403,7 @@ extensions(?'TLS_v1.3' = Version, server_hello) ->
          {
           oneof([key_share(server_hello), undefined]),
           %% oneof([pre_shared_keys(),  undefined]),
-          oneof([server_hello_selected_version(), undefined])
+          oneof([server_hello_selected_version()])
          },
          maps:filter(fun(_, undefined) ->
                              false;
@@ -514,7 +514,9 @@ sig_scheme_list() ->
 client_hello_versions(?'TLS_v1.3') ->
     ?LET(SupportedVersions,
          oneof([[{3,4}],
-                [{3,3},{3,4}],
+                %% This list breaks the property but can be used for negative tests
+                %% [{3,3},{3,4}],
+                [{3,4},{3,3}],
                 [{3,4},{3,3},{3,2},{3,1},{3,0}]
                ]),
         #client_hello_versions{versions = SupportedVersions});
