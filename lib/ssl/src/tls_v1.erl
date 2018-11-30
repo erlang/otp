@@ -514,7 +514,9 @@ signature_algs({3, 3}, HashSigns) ->
     lists:reverse(Supported).
 
 default_signature_algs({3, 4} = Version) ->
-    default_signature_schemes(Version);
+    %% TLS 1.3 servers shall be prepared to process TLS 1.2 ClientHellos
+    %% containing legacy hash-sign tuples.
+    default_signature_schemes(Version) ++ default_signature_algs({3,3});
 default_signature_algs({3, 3} = Version) ->
     Default = [%% SHA2
 	       {sha512, ecdsa},
@@ -540,7 +542,7 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
     Curves = proplists:get_value(curves, CryptoSupports),
-    Fun = fun (Scheme, Acc) ->
+    Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash0, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
@@ -561,7 +563,10 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
                           [Scheme | Acc];
                       false ->
                           Acc
-                  end
+                  end;
+              %% Special clause for filtering out the legacy hash-sign tuples.
+              (_ , Acc) ->
+                  Acc
           end,
     Supported = lists:foldl(Fun, [], SignatureSchemes),
     lists:reverse(Supported);
