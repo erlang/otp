@@ -1313,7 +1313,10 @@ static int tcp_deliver(tcp_descriptor* desc, int len);
 
 static int tcp_shutdown_error(tcp_descriptor* desc, int err);
 
+#ifdef HAVE_SENDFILE
 static int tcp_inet_sendfile(tcp_descriptor* desc);
+static int tcp_sendfile_aborted(tcp_descriptor* desc, int socket_error);
+#endif
 
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event);
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
@@ -10421,6 +10424,7 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 #ifdef DEBUG
     long port = (long) desc->inet.port; /* Used after driver_exit() */
 #endif
+    int blocking_send = 0;
     DEBUGF(("tcp_recv_closed(%ld): s=%d, in %s, line %d\r\n",
 	    port, desc->inet.s, __FILE__, __LINE__));
     if (IS_BUSY(INETP(desc))) {
@@ -10436,7 +10440,15 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	set_busy_port(desc->inet.port, 0);
 	inet_reply_error_am(INETP(desc), am_closed);
 	DEBUGF(("tcp_recv_closed(%ld): busy reply 'closed'\r\n", port));
-    } else {
+        blocking_send = 1;
+    }
+#ifdef HAVE_SENDFILE
+    if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+        tcp_sendfile_aborted(desc, ENOTCONN);
+        blocking_send = 1;
+    }
+#endif
+    if (!blocking_send) {
         /* No blocking send op to reply to right now.
          * If next op is a send, make sure it returns {error,closed}
          * rather than {error,enotconn}.
@@ -10487,6 +10499,11 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 	    set_busy_port(desc->inet.port, 0);
 	    inet_reply_error_am(INETP(desc), am_closed);
 	}
+#ifdef HAVE_SENDFILE
+        if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+            tcp_sendfile_aborted(desc, err);
+        }
+#endif
 	if (!desc->inet.active) {
 	    /* We must cancel any timer here ! */
 	    driver_cancel_timer(desc->inet.port);
