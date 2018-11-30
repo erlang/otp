@@ -46,7 +46,7 @@
                          | {'registered', Names :: [Name :: atom()]}
                          | {'applications', [Application :: atom()]}
                          | {'included_applications', [Application :: atom()]}
-                         | {'env', [{Par :: atom(), Val :: term()}]}
+                         | {'env', [{Par :: term(), Val :: term()}]}
                          | {'start_phases',
                             [{Phase :: atom(), PhaseArgs :: term()}] | 'undefined'}
                          | {'maxT', MaxT :: timeout()}          % max timeout
@@ -281,7 +281,7 @@ info() ->
 
 -spec set_env(Application, Par, Val) -> 'ok' when
       Application :: atom(),
-      Par :: atom(),
+      Par :: term(),
       Val :: term().
 
 set_env(Application, Key, Val) -> 
@@ -289,7 +289,7 @@ set_env(Application, Key, Val) ->
 
 -spec set_env(Application, Par, Val, Opts) -> 'ok' when
       Application :: atom(),
-      Par :: atom(),
+      Par :: term(),
       Val :: term(),
       Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
@@ -302,14 +302,14 @@ set_env(Application, Key, Val, Opts) when is_list(Opts) ->
 
 -spec unset_env(Application, Par) -> 'ok' when
       Application :: atom(),
-      Par :: atom().
+      Par :: term().
 
 unset_env(Application, Key) -> 
     application_controller:unset_env(Application, Key).
 
 -spec unset_env(Application, Par, Opts) -> 'ok' when
       Application :: atom(),
-      Par :: atom(),
+      Par :: term(),
       Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
 unset_env(Application, Key, infinity) ->
@@ -320,7 +320,7 @@ unset_env(Application, Key, Opts) when is_list(Opts) ->
     application_controller:unset_env(Application, Key, Opts).
 
 -spec get_env(Par) -> 'undefined' | {'ok', Val} when
-      Par :: atom(),
+      Par :: term(),
       Val :: term().
 
 get_env(Key) -> 
@@ -328,7 +328,7 @@ get_env(Key) ->
 
 -spec get_env(Application, Par) -> 'undefined' | {'ok', Val} when
       Application :: atom(),
-      Par :: atom(),
+      Par :: term(),
       Val :: term().
 
 get_env(Application, Key) -> 
@@ -336,7 +336,7 @@ get_env(Application, Key) ->
 
 -spec get_env(Application, Par, Def) -> Val when
       Application :: atom(),
-      Par :: atom(),
+      Par :: term(),
       Def :: term(),
       Val :: term().
 
@@ -349,14 +349,14 @@ get_env(Application, Key, Def) ->
     end.
 
 -spec get_all_env() -> Env when
-      Env :: [{Par :: atom(), Val :: term()}].
+      Env :: [{Par :: term(), Val :: term()}].
 
 get_all_env() -> 
     application_controller:get_pid_all_env(group_leader()).
 
 -spec get_all_env(Application) -> Env when
       Application :: atom(),
-      Env :: [{Par :: atom(), Val :: term()}].
+      Env :: [{Par :: term(), Val :: term()}].
 
 get_all_env(Application) -> 
     application_controller:get_all_env(Application).
