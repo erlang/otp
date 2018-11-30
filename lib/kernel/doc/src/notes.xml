@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug causing net_kernel process crash on connection
+	    attempt from node with name identical to local node.</p>
+          <p>
+	    Own Id: OTP-15438 Aux Id: ERL-781 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
