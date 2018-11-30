@@ -51,12 +51,14 @@ all() ->
      ctrl_cmd_string,
      ctrl_cmd_string_optional,
      ensure_load,
-     {group, engine_stored_key}
+     {group, engine_stored_key},
+     {group, engine_fakes_rsa}
     ].
 
 groups() ->
     [{engine_stored_key, [],
-      [sign_verify_rsa,
+      [
+       sign_verify_rsa,
        sign_verify_dsa,
        sign_verify_ecdsa,
        sign_verify_rsa_pwd,
@@ -71,7 +73,10 @@ groups() ->
        get_pub_from_priv_key_rsa_pwd_bad_pwd,
        get_pub_from_priv_key_dsa,
        get_pub_from_priv_key_ecdsa
-      ]}].
+      ]},
+    {engine_fakes_rsa, [], [sign_verify_rsa_fake
+                     ]}
+     ].
 
 
 init_per_suite(Config) ->
@@ -102,7 +107,20 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(engine_stored_key, Config) ->
-    case load_storage_engine(Config) of
+    group_load_engine(Config,  [engine_method_rsa]);
+init_per_group(engine_fakes_rsa, Config) ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer), LibVer >= 16#10100000 ->
+            group_load_engine(Config,  []);
+        _ ->
+            {skip, "Too low OpenSSL cryptolib version"}
+    end;
+init_per_group(_Group, Config0) ->
+    Config0.
+
+
+group_load_engine(Config, ExcludeMthds) ->
+    case load_storage_engine(Config, ExcludeMthds) of
         {ok, E} ->
             KeyDir = key_dir(Config),
             [{storage_engine,E}, {storage_dir,KeyDir} | Config];
@@ -115,19 +133,19 @@ init_per_group(engine_stored_key, Config) ->
         Other ->
             ct:log("Engine load failed: ~p",[Other]),
             {fail, "Engine load failed"}
-    end;
-init_per_group(_Group, Config0) ->
-    Config0.
+    end.
 
-end_per_group(engine_stored_key, Config) ->
+
+
+
+
+end_per_group(_, Config) ->
     case proplists:get_value(storage_engine, Config) of
         undefined ->
             ok;
         E ->
             ok = crypto:engine_unload(E)
-    end;
-end_per_group(_, _) ->
-    ok.
+    end.
 
 %%--------------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
@@ -421,6 +439,9 @@ bad_arguments(Config) when is_list(Config) ->
             try
                 try
                     crypto:engine_load(fail_engine, [], [])
+                of
+                    X1 ->
+                        ct:fail("1 Got ~p",[X1])
                 catch
                     error:badarg ->
                        ok
@@ -432,6 +453,11 @@ bad_arguments(Config) when is_list(Config) ->
                                         {<<"ID">>, <<"MD5">>},
                                         <<"LOAD">>],
                                        [])
+                of
+                    {error,bad_engine_id} ->
+                        throw(dynamic_engine_unsupported);
+                    X2 ->
+                        ct:fail("2 Got ~p",[X2])
                 catch
                     error:badarg ->
                        ok
@@ -442,13 +468,20 @@ bad_arguments(Config) when is_list(Config) ->
                                         {'ID', <<"MD5">>},
                                         <<"LOAD">>],
                                        [])
+                of
+                    {error,bad_engine_id} ->    % should have happend in the previous try...catch end!
+                        throw(dynamic_engine_unsupported);
+                    X3 ->
+                        ct:fail("3 Got ~p",[X3])
                 catch
                     error:badarg ->
                        ok
                 end
           catch
               error:notsup ->
-                 {skip, "Engine not supported on this SSL version"}
+                  {skip, "Engine not supported on this SSL version"};
+              throw:dynamic_engine_unsupported ->
+                  {skip, "Dynamic Engine not supported"}
           end
     end.
 
@@ -650,6 +683,14 @@ sign_verify_rsa(Config) ->
              key_id => key_id(Config, "rsa_public_key.pem")},
     sign_verify(rsa, sha, Priv, Pub).
 
+sign_verify_rsa_fake(Config) ->
+    %% Use fake engine rsa implementation
+    Priv = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_private_key.pem")},
+    Pub  = #{engine => engine_ref(Config),
+             key_id => key_id(Config, "rsa_public_key.pem")},
+    sign_verify_fake(rsa, sha256, Priv, Pub).
+
 sign_verify_dsa(Config) ->
     Priv = #{engine => engine_ref(Config),
              key_id => key_id(Config, "dsa_private_key.pem")},
@@ -809,13 +850,18 @@ get_pub_from_priv_key_ecdsa(Config) ->
 %%%================================================================
 %%% Help for engine_stored_pub_priv_keys* test cases
 %%%
-load_storage_engine(_Config) ->
+load_storage_engine(Config) ->
+    load_storage_engine(Config, []).
+
+load_storage_engine(_Config, ExcludeMthds) ->
     case crypto:get_test_engine() of
         {ok, Engine} ->
             try crypto:engine_load(<<"dynamic">>,
                                    [{<<"SO_PATH">>, Engine},
                                     <<"LOAD">>],
-                                   [])
+                                   [],
+                                   crypto:engine_get_all_methods() -- ExcludeMthds
+                                  )
             catch
                 error:notsup ->
                     {error, notsup}
@@ -873,10 +919,47 @@ sign_verify(Alg, Sha, KeySign, KeyVerify) ->
         true ->
             PlainText = <<"Hej på dig">>,
             Signature = crypto:sign(Alg, Sha, PlainText, KeySign),
-            case crypto:verify(Alg, Sha, PlainText, Signature, KeyVerify) of
-                true -> ok;
-                _ -> {fail, "Sign-verify error"}
+            case is_fake(Signature) of
+                true ->
+                    ct:pal("SIG ~p ~p size ~p~n~p",[Alg,Sha,size(Signature),Signature]),
+                    {fail, "Faked RSA impl used!!"};
+                false ->
+                    case crypto:verify(Alg, Sha, PlainText, Signature, KeyVerify) of
+                        true -> ok;
+                        _ -> {fail, "Sign-verify error"}
+                    end
             end;
         false ->
             {skip, lists:concat([Alg," is not supported by cryptolib"])}
     end.
+
+
+%%% Use fake engine rsa implementation
+sign_verify_fake(Alg, Sha, KeySign, KeyVerify) ->
+    case pubkey_alg_supported(Alg) of
+        true ->
+            PlainText = <<"Fake me!">>,
+            Signature = crypto:sign(Alg, Sha, PlainText, KeySign),
+            case is_fake(Signature) of
+                true ->
+                    case crypto:verify(Alg, Sha, PlainText, Signature, KeyVerify) of
+                        true -> ok;
+                        _ -> {fail, "Sign-verify error"}
+                    end;
+                false ->
+                    ct:pal("SIG ~p ~p size ~p~n~p",[Alg,Sha,size(Signature),Signature]),
+                    {fail, "Faked impl not used"}
+            end;
+        false ->
+            {skip, lists:concat([Alg," is not supported by cryptolib"])}
+    end.
+
+
+is_fake(Sig) -> is_fake(Sig, 0).
+
+is_fake(<<>>, _) -> true;
+is_fake(<<B,Rest/binary>>, B) -> is_fake(Rest, B+1);
+is_fake(_, _) -> false.
+
+
+  

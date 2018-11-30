@@ -46,10 +46,17 @@ init_per_suite(Config) ->
                     ssl_test_lib:clean_start(),
                     case crypto:get_test_engine() of
                          {ok, EngineName} ->
-                            try crypto:engine_load(<<"dynamic">>,
-                                                    [{<<"SO_PATH">>, EngineName},
-                                                     <<"LOAD">>],
-                                                   []) of
+                            try
+                                %% The test engine has it's own fake rsa sign/verify that
+                                %% you don't want to use, so exclude it from methods to load:
+                                Methods = 
+                                    crypto:engine_get_all_methods() -- [engine_method_rsa],
+                                crypto:engine_load(<<"dynamic">>,
+                                                   [{<<"SO_PATH">>, EngineName},
+                                                    <<"LOAD">>],
+                                                   [],
+                                                   Methods)
+                            of
                                 {ok, Engine} ->
                                     [{engine, Engine} |Config];
                                 {error, Reason} ->
