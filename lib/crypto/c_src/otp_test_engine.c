@@ -35,7 +35,12 @@
 
 #if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0) \
     || defined(LIBRESSL_VERSION_NUMBER)
-#define OLD
+# define OLD
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) \
+    && !defined(LIBRESSL_VERSION_NUMBER)
+# define FAKE_RSA_IMPL
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
@@ -56,13 +61,41 @@
 static const char *test_engine_id = "MD5";
 static const char *test_engine_name = "MD5 test engine";
 
-/* The callback that does the job of fetching keys on demand by the Engine */
-EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data);
+#if defined(FAKE_RSA_IMPL)
+/*-------- test of private/public keys and RSA in engine ---------*/
+static RSA_METHOD *test_rsa_method = NULL;
 
+/* Our on "RSA" implementation */
+static int test_rsa_sign(int dtype, const unsigned char *m,
+                         unsigned int m_len, unsigned char *sigret,
+                         unsigned int *siglen, const RSA *rsa);
+static int test_rsa_verify(int dtype, const unsigned char *m,
+                           unsigned int m_len, const unsigned char *sigret,
+                           unsigned int siglen, const RSA *rsa);
+static int test_rsa_free(RSA *rsa);
+#endif /* if defined(FAKE_RSA_IMPL) */
+
+/* The callbacks that does the job of fetching keys on demand by the Engine */
+EVP_PKEY* test_privkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data);
+EVP_PKEY* test_pubkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data);
+
+EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data, int priv);
+
+/*----------------------------------------------------------------*/
 
 static int test_init(ENGINE *e) {
     printf("OTP Test Engine Initializatzion!\r\n");
     
+#if defined(FAKE_RSA_IMPL)
+    if (    !RSA_meth_set_finish(test_rsa_method, test_rsa_free)
+            || !RSA_meth_set_sign(test_rsa_method, test_rsa_sign)
+            || !RSA_meth_set_verify(test_rsa_method, test_rsa_verify)
+            ) {
+        fprintf(stderr, "Setup RSA_METHOD failed\r\n");
+        return 0;
+    }
+#endif /* if defined(FAKE_RSA_IMPL) */
+
     /* Load all digest and cipher algorithms. Needed for password protected private keys */
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
@@ -78,6 +111,19 @@ static void add_test_data(unsigned char *md, unsigned int len)
         md[i] = (unsigned char)(i & 0xff);
     }
 }
+
+#if defined(FAKE_RSA_IMPL)
+static int chk_test_data(const unsigned char *md, unsigned int len)
+{
+    unsigned int i;
+
+    for (i=0; i<len; i++) {
+        if (md[i] != (unsigned char)(i & 0xff))
+            return 0;
+    }
+    return 1;
+}
+#endif /* if defined(FAKE_RSA_IMPL) */
 
 /* MD5 part */
 #undef data
@@ -184,18 +230,33 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
     return ok;
 }
 
-
 static int bind_helper(ENGINE * e, const char *id)
 {
-    if (!ENGINE_set_id(e, test_engine_id) ||
-        !ENGINE_set_name(e, test_engine_name) ||
-        !ENGINE_set_init_function(e, test_init) ||
-        !ENGINE_set_digests(e, &test_engine_digest_selector) ||
-        /* For testing of key storage in an Engine: */
-        !ENGINE_set_load_privkey_function(e, &test_key_load) ||
-        !ENGINE_set_load_pubkey_function(e, &test_key_load)
-    )
+#if defined(FAKE_RSA_IMPL)
+    test_rsa_method = RSA_meth_new("OTP test RSA method", 0);
+    if (test_rsa_method == NULL) {
+        fprintf(stderr, "RSA_meth_new failed\r\n");
         return 0;
+    }
+#endif /* if defined(FAKE_RSA_IMPL) */
+
+    if (!ENGINE_set_id(e, test_engine_id)
+        || !ENGINE_set_name(e, test_engine_name)
+        || !ENGINE_set_init_function(e, test_init)
+        || !ENGINE_set_digests(e, &test_engine_digest_selector)
+        /* For testing of key storage in an Engine: */
+        || !ENGINE_set_load_privkey_function(e, &test_privkey_load)
+        || !ENGINE_set_load_pubkey_function(e, &test_pubkey_load)
+        )
+        return 0;
+
+#if defined(FAKE_RSA_IMPL)
+    if ( !ENGINE_set_RSA(e, test_rsa_method) ) {
+        RSA_meth_free(test_rsa_method);
+        test_rsa_method = NULL;
+        return 0;
+    }
+#endif /* if defined(FAKE_RSA_IMPL) */
 
     return 1;
 }
@@ -211,24 +272,29 @@ IMPLEMENT_DYNAMIC_BIND_FN(bind_helper);
  */
 int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password);
 
-EVP_PKEY* test_key_load(ENGINE *er, const char *id, UI_METHOD *ui_method, void *callback_data)
+EVP_PKEY* test_privkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data) {
+    return test_key_load(eng, id, ui_method, callback_data, 1);
+}
+
+EVP_PKEY* test_pubkey_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data) {
+    return test_key_load(eng, id, ui_method, callback_data, 0);
+}
+
+EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void *callback_data, int priv)
 {
     EVP_PKEY *pkey = NULL;
     FILE *f = fopen(id, "r");
 
     if (!f) {
-            fprintf(stderr, "%s:%d fopen(%s) failed\r\n", __FILE__,__LINE__,id);
-            return NULL;
+        fprintf(stderr, "%s:%d fopen(%s) failed\r\n", __FILE__,__LINE__,id);
+        return NULL;
     }
 
-    /* First try to read as a private key. If that fails, try to read as a public key: */
-    pkey = PEM_read_PrivateKey(f, NULL, pem_passwd_cb_fun, callback_data);
-    if (!pkey) {
-        /* ERR_print_errors_fp (stderr); */
-        fclose(f);
-        f = fopen(id, "r");
-        pkey = PEM_read_PUBKEY(f, NULL, NULL, NULL);
-    }
+    pkey =
+        priv
+        ? PEM_read_PrivateKey(f, NULL, pem_passwd_cb_fun, callback_data)
+        : PEM_read_PUBKEY(f, NULL, NULL, NULL);
+
     fclose(f);
     
     if (!pkey) {
@@ -278,3 +344,71 @@ int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
 }
 
 #endif
+
+#if defined(FAKE_RSA_IMPL)
+/* RSA sign. This returns a fixed string so the test case can test that it was called
+   instead of the cryptolib default RSA sign */
+
+unsigned char fake_flag[] = {255,3,124,180,35,10,180,151,101,247,62,59,80,122,220,
+                             142,24,180,191,34,51,150,112,27,43,142,195,60,245,213,80,179};
+
+int test_rsa_sign(int dtype, 
+                  /* The digest to sign */
+                  const unsigned char *m, unsigned int m_len,
+                  /* The allocated buffer to fill with the signature */ 
+                  unsigned char *sigret, unsigned int *siglen,
+                  /* The key */
+                  const RSA *rsa)
+{
+    int slen;
+    fprintf(stderr, "test_rsa_sign (dtype=%i) called m_len=%u *siglen=%u\r\n", dtype, m_len, *siglen);
+    if (!sigret) {
+        fprintf(stderr, "sigret = NULL\r\n");
+        return -1;
+    }
+
+    /* {int i;
+        fprintf(stderr, "Digest =\r\n");
+        for(i=0; i<m_len; i++)
+            fprintf(stderr, "%i,", m[i]);
+        fprintf(stderr, "\r\n");
+    } */
+
+    if ((sizeof(fake_flag) == m_len)
+        && bcmp(m,fake_flag,m_len) == 0) {
+        printf("To be faked\r\n");
+        /* To be faked */
+        slen = RSA_size(rsa);
+        add_test_data(sigret, slen); /* The signature is 0,1,2...255,0,1... */
+        *siglen = slen; /* Must set this. Why? */
+        return 1; /* 1 = success */
+    }
+    return 0;
+}
+
+int test_rsa_verify(int dtype, 
+                    /* The digest to verify */
+                    const unsigned char *m, unsigned int m_len,
+                    /* The signature */ 
+                    const unsigned char *sigret, unsigned int siglen,
+                    /* The key */
+                    const RSA *rsa)
+{
+    printf("test_rsa_verify (dtype=%i) called m_len=%u siglen=%u\r\n", dtype, m_len, siglen);
+
+    if ((sizeof(fake_flag) == m_len)
+        && bcmp(m,fake_flag,m_len) == 0) {
+        printf("To be faked\r\n");
+        return (siglen ==  RSA_size(rsa)) 
+            && chk_test_data(sigret, siglen);
+    }
+    return 0;
+}
+
+static int test_rsa_free(RSA *rsa)
+{
+    printf("test_rsa_free called\r\n");
+    return 1;
+}
+
+#endif /* if defined(FAKE_RSA_IMPL) */
