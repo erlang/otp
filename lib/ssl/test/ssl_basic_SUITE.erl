@@ -53,7 +53,8 @@ all() ->
      {group, options_tls},
      {group, session},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}, 
+     {group, 'dtlsv1'},
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -67,6 +68,7 @@ groups() ->
      {options_tls, [], options_tests_tls()},
      {'dtlsv1.2', [], all_versions_groups()},
      {'dtlsv1', [], all_versions_groups()},
+     {'tlsv1.3', [], tls13_test_group()},
      {'tlsv1.2', [], all_versions_groups() ++ tls_versions_groups() ++ [conf_signature_algs, no_common_signature_algs]},
      {'tlsv1.1', [], all_versions_groups() ++ tls_versions_groups()},
      {'tlsv1', [], all_versions_groups() ++ tls_versions_groups() ++ rizzo_tests()},
@@ -266,6 +268,11 @@ rizzo_tests() ->
      rizzo_zero_n,
      rizzo_disabled].
 
+%% For testing TLS 1.3 features and possible regressions
+tls13_test_group() ->
+    [tls13_enable_client_side,
+     tls13_enable_server_side].
+
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -295,7 +302,8 @@ init_per_group(GroupName, Config) when GroupName == basic_tls;
                                        GroupName == options;
                                        GroupName == basic;
                                        GroupName == session;
-                                       GroupName == error_handling_tests_tls
+                                       GroupName == error_handling_tests_tls;
+                                       GroupName == tls13_test_group
                                        ->
     ssl_test_lib:clean_tls_version(Config);                          
 init_per_group(GroupName, Config) ->
@@ -4472,6 +4480,60 @@ accept_pool(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1),
     ssl_test_lib:close(Client2).
     
+%%--------------------------------------------------------------------
+%% TLS 1.3
+%%--------------------------------------------------------------------
+
+tls13_enable_client_side() ->
+    [{doc,"Test that a TLS 1.3 client can connect to a TLS 1.2 server."}].
+
+tls13_enable_client_side(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, protocol_info_result, []}},
+					{options, [{versions,
+                                                    ['tlsv1.1', 'tlsv1.2']} | ServerOpts] }]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, protocol_info_result, []}},
+					{options,  [{versions,
+                                                     ['tlsv1.2', 'tlsv1.3']} | ClientOpts]}]),
+
+    ServerMsg = ClientMsg = {ok, 'tlsv1.2'},
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
+
+tls13_enable_server_side() ->
+    [{doc,"Test that a TLS 1.2 client can connect to a TLS 1.3 server."}].
+
+tls13_enable_server_side(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, protocol_info_result, []}},
+					{options, [{versions,
+                                                    ['tlsv1.2', 'tlsv1.3']} | ServerOpts] }]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, protocol_info_result, []}},
+					{options,  [{versions,
+                                                     ['tlsv1.2', 'tlsv1.1']} | ClientOpts]}]),
+
+    ServerMsg = ClientMsg = {ok, 'tlsv1.2'},
+    ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
