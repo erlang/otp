@@ -102,7 +102,7 @@ send_alert(Pid, Alert) ->
 %% in the connection state and recive an ack.
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
-    gen_statem:cast(Pid, {ack_alert, Alert}).
+    gen_statem:call(Pid, {ack_alert, Alert}, ?DEFAULT_TIMEOUT).
 %%--------------------------------------------------------------------
 -spec setopts(pid(), [{packet, integer() | atom()}]) -> ok | {error, term()}.
 %%  Description: Send application data
@@ -235,13 +235,13 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
                 [{next_event, internal,
                   {application_packets,{self(),undefined},Data}}]
         end]};
+connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
+    StateData = send_tls_alert(Alert, StateData0),
+    {next_state, ?FUNCTION_NAME, StateData,
+     [{reply,From,ok}]};
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 %%
-connection(cast, {ack_alert, #alert{} = Alert}, #data{connection_pid = Pid} =StateData0) ->
-    StateData = send_tls_alert(Alert, StateData0),
-    Pid ! {self(), ack_alert},
-    {next_state, ?FUNCTION_NAME, StateData};
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData};

@@ -367,13 +367,11 @@ send_alert_in_connection(#alert{description = ?CLOSE_NOTIFY} = Alert, State) ->
 send_alert_in_connection(Alert,
                          #state{protocol_specific = #{sender := Sender}}) ->
     tls_sender:send_alert(Sender, Alert).
-send_sync_alert(Alert, #state{protocol_specific = #{sender := Sender}}= State) ->
-    tls_sender:send_and_ack_alert(Sender, Alert),
-    receive
-        {Sender, ack_alert} ->
-            ok
-    after ?DEFAULT_TIMEOUT ->
-            %% Sender is blocked terminate anyway
+send_sync_alert(
+  Alert, #state{protocol_specific = #{sender := Sender}} = State) ->
+    try tls_sender:send_and_ack_alert(Sender, Alert)
+    catch
+        _:_ ->
             throw({stop, {shutdown, own_alert}, State})
     end.
 
