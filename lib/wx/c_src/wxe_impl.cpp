@@ -591,7 +591,7 @@ int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
   return ref;
 }
 
-int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
+int WxeApp::getRef(void * ptr, wxeMemEnv *memenv, int type) {
   if(!ptr) return 0;  // NULL and zero is the same
   ptrMap::iterator it = ptr2ref.find(ptr);
   if(it != ptr2ref.end()) {
@@ -618,7 +618,7 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
   }
 
   memenv->ref2ptr[ref] = ptr;
-  ptr2ref[ptr] = new wxeRefData(ref, 0, false, memenv);
+  ptr2ref[ptr] = new wxeRefData(ref, type, false, memenv);
   return ref;
 }
 

@@ -6147,18 +6147,18 @@ case wxGraphicsObject_IsNull: { // wxGraphicsObject::IsNull
 case wxGraphicsContext_Create_1_1: { // wxGraphicsContext::Create
  wxWindowDC * dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
  wxGraphicsContext * Result = (wxGraphicsContext*)wxGraphicsContext::Create(*dc);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
  break;
 }
 case wxGraphicsContext_Create_1_0: { // wxGraphicsContext::Create
  wxWindow *window = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxGraphicsContext * Result = (wxGraphicsContext*)wxGraphicsContext::Create(window);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
  break;
 }
 case wxGraphicsContext_Create_0: { // wxGraphicsContext::Create
  wxGraphicsContext * Result = (wxGraphicsContext*)wxGraphicsContext::Create();
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
  break;
 }
 case wxGraphicsContext_CreatePen: { // wxGraphicsContext::CreatePen
@@ -6999,7 +6999,7 @@ case wxGraphicsRenderer_CreateContext_1_1: { // wxGraphicsRenderer::CreateContex
  wxWindowDC * dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxGraphicsContext * Result = (wxGraphicsContext*)This->CreateContext(*dc);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
  break;
 }
 case wxGraphicsRenderer_CreateContext_1_0: { // wxGraphicsRenderer::CreateContext
@@ -7007,7 +7007,7 @@ case wxGraphicsRenderer_CreateContext_1_0: { // wxGraphicsRenderer::CreateContex
  wxWindow *window = (wxWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxGraphicsContext * Result = (wxGraphicsContext*)This->CreateContext(window);
- rt.addRef(getRef((void *)Result,memenv), "wxGraphicsContext");
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
  break;
 }
 
