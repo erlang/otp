@@ -328,27 +328,30 @@ file_ctrl_loop(Fd, DevName, Synced,
     receive
         %% asynchronous event
         {log,Bin} ->
-            Result = write_to_dev(Fd, Bin, DevName, PrevWriteResult, HandlerName),
-            file_ctrl_loop(Fd, DevName, false,
+            Fd1 = ensure(Fd, DevName),
+            Result = write_to_dev(Fd1, Bin, DevName, PrevWriteResult, HandlerName),
+            file_ctrl_loop(Fd1, DevName, false,
                            Result, PrevSyncResult, HandlerName);
 
         %% synchronous event
         {{log,Bin},{From,MRef}} ->
-            check_exist(Fd, DevName),
-            Result = write_to_dev(Fd, Bin, DevName, PrevWriteResult, HandlerName),
+            Fd1 = ensure(Fd, DevName),
+            Result = write_to_dev(Fd1, Bin, DevName, PrevWriteResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(Fd, DevName, false,
+            file_ctrl_loop(Fd1, DevName, false,
                            Result, PrevSyncResult, HandlerName);
 
         filesync ->
-            Result = sync_dev(Fd, DevName, Synced, PrevSyncResult, HandlerName),
-            file_ctrl_loop(Fd, DevName, true,
+            Fd1 = ensure(Fd, DevName),
+            Result = sync_dev(Fd1, DevName, Synced, PrevSyncResult, HandlerName),
+            file_ctrl_loop(Fd1, DevName, true,
                            PrevWriteResult, Result, HandlerName);
 
         {filesync,{From,MRef}} ->
-            Result = sync_dev(Fd, DevName, Synced, PrevSyncResult, HandlerName),
+            Fd1 = ensure(Fd, DevName),
+            Result = sync_dev(Fd1, DevName, Synced, PrevSyncResult, HandlerName),
             From ! {MRef,ok},
-            file_ctrl_loop(Fd, DevName, true,
+            file_ctrl_loop(Fd1, DevName, true,
                            PrevWriteResult, Result, HandlerName);
 
         stop ->
@@ -356,11 +359,25 @@ file_ctrl_loop(Fd, DevName, Synced,
             stopped
     end.
 
-check_exist(DevName, DevName) when is_atom(DevName) ->
-    ok;
-check_exist(_Fd, FileName) ->
-    _ = spawn_link(fun() -> {ok,_} = file:read_file_info(FileName) end),
-    ok.
+%% In order to play well with tools like logrotate, we need to be able
+%% to re-create the file if it has disappeared (e.g. if rotated by
+%% logrotate)
+ensure(Fd,DevName) when is_atom(DevName) ->
+    Fd;
+ensure(Fd,FileName) ->
+    case file:read_file_info(FileName) of
+        {ok,_} ->
+            Fd;
+        _ ->
+            _ = file:close(Fd),
+            _ = file:close(Fd), % delayed_write cause close not to close
+            case do_open_log_file({file,FileName}) of
+                {ok,Fd1} ->
+                    Fd1;
+                Error ->
+                    exit({could_not_reopen_file,Error})
+            end
+    end.
 
 write_to_dev(DevName, Bin, _DevName, _PrevWriteResult, _HandlerName)
   when is_atom(DevName) ->
