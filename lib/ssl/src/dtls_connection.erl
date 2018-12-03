@@ -50,7 +50,7 @@
 -export([encode_alert/3, send_alert/2, send_alert_in_connection/2, close/5, protocol_name/0]).
 
 %% Data handling
--export([encode_data/3, passive_receive/2, 
+-export([encode_data/3, next_record/1,
 	 send/3, socket/5, setopts/3, getopts/3]).
 
 %% gen_statem state functions
@@ -380,15 +380,6 @@ protocol_name() ->
 
 encode_data(Data, Version, ConnectionStates0)->
     dtls_record:encode_data(Data, Version, ConnectionStates0).
-
-passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
-    case Buffer of
-	<<>> ->
-	    next_event(StateName, no_record, State0);
-	_ ->
-	    {Record, State} = ssl_connection:read_application_data(<<>>, State0),
-	    next_event(StateName, Record, State)
-    end.
 
 send(Transport, {_, {{_,_}, _} = Socket}, Data) ->
     send(Transport, Socket, Data);

@@ -427,6 +427,21 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%====================================================================
 %% Data handling
 %%====================================================================
+
+passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connection) -> 
+    case Buffer of
+	<<>> ->
+	    {Record, State} = Connection:next_record(State0),
+	    Connection:next_event(StateName, Record, State);
+	_ ->
+	    case read_application_data(<<>>, State0) of
+                {stop, _, _} = ShutdownError ->
+                    ShutdownError;
+                {Record, State} ->
+                    Connection:next_event(StateName, Record, State)
+            end
+    end.
+
 read_application_data(Data, #state{user_application = {_Mon, Pid},
 				   socket = Socket,
 				   protocol_cb = Connection,
@@ -1017,9 +1032,9 @@ connection({call, RecvFrom}, {recv, N, Timeout},
 	   #state{protocol_cb = Connection,  socket_options =
 		      #socket_options{active = false}} = State0, Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
-    Connection:passive_receive(State0#state{bytes_to_read = N,
-					    start_or_recv_from = RecvFrom, 
-					    timer = Timer}, ?FUNCTION_NAME);
+    passive_receive(State0#state{bytes_to_read = N,
+                                 start_or_recv_from = RecvFrom, 
+                                 timer = Timer}, ?FUNCTION_NAME, Connection);
 connection({call, From}, renegotiate, #state{protocol_cb = Connection} = State, 
 	   Connection) ->
     Connection:renegotiate(State#state{renegotiation = {true, From}}, []);
@@ -1061,7 +1076,7 @@ connection(cast, {dist_handshake_complete, DHandle},
 connection(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 connection(internal, {recv, _}, State, Connection) ->
-    Connection:passive_receive(State, ?FUNCTION_NAME);
+    passive_receive(State, ?FUNCTION_NAME, Connection);
 connection(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
