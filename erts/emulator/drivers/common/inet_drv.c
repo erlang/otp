@@ -1320,7 +1320,10 @@ static int tcp_deliver(tcp_descriptor* desc, int len);
 
 static int tcp_shutdown_error(tcp_descriptor* desc, int err);
 
+#ifdef HAVE_SENDFILE
 static int tcp_inet_sendfile(tcp_descriptor* desc);
+static int tcp_sendfile_aborted(tcp_descriptor* desc, int socket_error);
+#endif
 
 static int tcp_inet_output(tcp_descriptor* desc, HANDLE event);
 static int tcp_inet_input(tcp_descriptor* desc, HANDLE event);
@@ -10300,12 +10303,11 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
         desc->tcp_add_flags |= TCP_ADDF_SENDFILE;
 
         /* See if we can finish sending without selecting & rescheduling. */
-        tcp_inet_sendfile(desc);
-
-        if(desc->sendfile.length > 0) {
-            sock_select(INETP(desc), FD_WRITE, 1);
+        if (tcp_inet_sendfile(desc) == 0) {
+            if(desc->sendfile.length > 0) {
+                sock_select(INETP(desc), FD_WRITE, 1);
+            }
         }
-
         return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 #else
         return ctl_error(ENOTSUP, rbuf, rsize);
@@ -10518,6 +10520,7 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 #ifdef DEBUG
     long port = (long) desc->inet.port; /* Used after driver_exit() */
 #endif
+    int blocking_send = 0;
     DEBUGF(("tcp_recv_closed(%ld): s=%d, in %s, line %d\r\n",
 	    port, desc->inet.s, __FILE__, __LINE__));
     if (IS_BUSY(INETP(desc))) {
@@ -10533,7 +10536,15 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	set_busy_port(desc->inet.port, 0);
 	inet_reply_error_am(INETP(desc), am_closed);
 	DEBUGF(("tcp_recv_closed(%ld): busy reply 'closed'\r\n", port));
-    } else {
+        blocking_send = 1;
+    }
+#ifdef HAVE_SENDFILE
+    if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+        tcp_sendfile_aborted(desc, ENOTCONN);
+        blocking_send = 1;
+    }
+#endif
+    if (!blocking_send) {
         /* No blocking send op to reply to right now.
          * If next op is a send, make sure it returns {error,closed}
          * rather than {error,enotconn}.
@@ -10584,6 +10595,11 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 	    set_busy_port(desc->inet.port, 0);
 	    inet_reply_error_am(INETP(desc), am_closed);
 	}
+#ifdef HAVE_SENDFILE
+        if (desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
+            tcp_sendfile_aborted(desc, err);
+        }
+#endif
 	if (!desc->inet.active) {
 	    /* We must cancel any timer here ! */
 	    driver_cancel_timer(desc->inet.port);
@@ -11247,27 +11263,31 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
     DEBUGF(("driver_failure_eof(%ld) in %s, line %d\r\n",
 	    (long)desc->inet.port, __FILE__, __LINE__));
     if (desc->inet.active) {
+        ErlDrvTermData err_atom;
 	if (show_econnreset) {
 	    tcp_error_message(desc, err);
-	    tcp_closed_message(desc);
-	    inet_reply_error(INETP(desc), err);
+            err_atom = error_atom(err);
 	} else {
-	    tcp_closed_message(desc);
-	    inet_reply_error_am(INETP(desc), am_closed);
+            err_atom = am_closed;
 	}
+        tcp_closed_message(desc);
+        if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE))
+            inet_reply_error_am(INETP(desc), err_atom);
+
 	if (desc->inet.exitf)
 	    driver_exit(desc->inet.port, 0);
 	else
 	    tcp_desc_close(desc);
     } else {
 	tcp_close_check(desc);
-	tcp_desc_close(desc);
 
 	if (desc->inet.caller) {
-	    if (show_econnreset)
-		inet_reply_error(INETP(desc), err);
-	    else
-		inet_reply_error_am(INETP(desc), am_closed);
+            if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
+                if (show_econnreset)
+                    inet_reply_error(INETP(desc), err);
+                else
+                    inet_reply_error_am(INETP(desc), am_closed);
+            }
 	}
 	else {
 	    /* No blocking send op to reply to right now.
@@ -11276,6 +11296,7 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	     */
 	    desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_SEND;
 	}
+        tcp_desc_close(desc);
 
 	/*
 	 * Make sure that the next receive operation gets an {error,closed}
@@ -11788,8 +11809,8 @@ socket_error: {
         DEBUGF(("tcp_inet_sendfile(%ld): send errno = %d (errno %d)\r\n",
             (long)desc->inet.port, socket_errno, errno));
 
-        result = tcp_send_error(desc, socket_errno);
         tcp_sendfile_aborted(desc, socket_errno);
+        result = tcp_send_error(desc, socket_errno);
 
         goto done;
     }
