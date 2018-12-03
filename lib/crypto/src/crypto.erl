@@ -1351,7 +1351,11 @@ engine_load_1(Engine, PreCmds, PostCmds, EngineMethods) ->
         throw:Error ->
             %% The engine couldn't initialise, release the structural reference
             ok = engine_free_nif(Engine),
-            throw(Error)
+            throw(Error);
+        error:badarg ->
+            %% For example bad argument list, release the structural reference
+            ok = engine_free_nif(Engine),
+            error(badarg)
     end.
 
 engine_load_2(Engine, PostCmds, EngineMethods) ->

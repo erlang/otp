@@ -4234,9 +4234,9 @@ static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {
 #ifdef HAVE_ED_CURVE_DH
     int type;
-    EVP_PKEY_CTX *ctx;
+    EVP_PKEY_CTX *ctx = NULL;
     ErlNifBinary peer_bin, my_bin, key_bin;
-    EVP_PKEY *peer_key, *my_key;
+    EVP_PKEY *peer_key = NULL, *my_key = NULL;
     size_t max_size;
 
     if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
@@ -4244,41 +4244,43 @@ static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     else return enif_make_badarg(env);
 
     if (!enif_inspect_binary(env, argv[1], &peer_bin) ||
-        !enif_inspect_binary(env, argv[2], &my_bin)) {
-	return enif_make_badarg(env);
-    }
+        !enif_inspect_binary(env, argv[2], &my_bin)) 
+        goto return_badarg;
 
     if (!(my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) ||
-        !(ctx = EVP_PKEY_CTX_new(my_key, NULL))) {
-	return enif_make_badarg(env);
-    }
+        !(ctx = EVP_PKEY_CTX_new(my_key, NULL))) 
+        goto return_badarg;
 
-    if (!EVP_PKEY_derive_init(ctx)) {
-	return enif_make_badarg(env);
-    }
+    if (!EVP_PKEY_derive_init(ctx)) 
+        goto return_badarg;
 
     if (!(peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) ||
-        !EVP_PKEY_derive_set_peer(ctx, peer_key)) {
-	return enif_make_badarg(env);
-    }
+        !EVP_PKEY_derive_set_peer(ctx, peer_key)) 
+        goto return_badarg;
 
-    if (!EVP_PKEY_derive(ctx, NULL, &max_size)) {
-	return enif_make_badarg(env);
-    }
+    if (!EVP_PKEY_derive(ctx, NULL, &max_size)) 
+        goto return_badarg;
 
     if (!enif_alloc_binary(max_size, &key_bin) ||
-        !EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size)) {
-	return enif_make_badarg(env);
-    }
+        !EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size)) 
+        goto return_badarg;
 
     if (key_bin.size < max_size) {
         size_t actual_size = key_bin.size;
-        if (!enif_realloc_binary(&key_bin, actual_size)) {
-            return enif_make_badarg(env);
-        }
+        if (!enif_realloc_binary(&key_bin, actual_size)) 
+            goto return_badarg;
     }
 
+    EVP_PKEY_free(my_key);
+    EVP_PKEY_free(peer_key);
+    EVP_PKEY_CTX_free(ctx);
     return enif_make_binary(env, &key_bin);
+
+return_badarg:
+    if (my_key)   EVP_PKEY_free(my_key);
+    if (peer_key) EVP_PKEY_free(peer_key);
+    if (ctx)      EVP_PKEY_CTX_free(ctx);
+    return enif_make_badarg(env);
 #else
     return atom_notsup;
 #endif
@@ -4289,7 +4291,7 @@ static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 {
 #ifdef HAVE_ED_CURVE_DH
     int type;
-    EVP_PKEY_CTX *ctx;
+    EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
     ERL_NIF_TERM ret_pub, ret_prv;
     size_t key_len;
@@ -4300,22 +4302,30 @@ static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
     if (!(ctx = EVP_PKEY_CTX_new_id(type, NULL))) return enif_make_badarg(env);
 
-    if (!EVP_PKEY_keygen_init(ctx)) return atom_error;
-    if (!EVP_PKEY_keygen(ctx, &pkey)) return atom_error;
+    if (!EVP_PKEY_keygen_init(ctx)) goto return_error;
+    if (!EVP_PKEY_keygen(ctx, &pkey)) goto return_error;
 
-    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len)) return atom_error;
+    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len)) goto return_error;
     if (!EVP_PKEY_get_raw_public_key(pkey,
                                      enif_make_new_binary(env, key_len, &ret_pub),
                                      &key_len))
-        return atom_error;
+        goto return_error;
 
-    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len)) return atom_error;
+    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len)) goto return_error;
     if (!EVP_PKEY_get_raw_private_key(pkey,
                                       enif_make_new_binary(env, key_len, &ret_prv),
                                       &key_len))
-        return atom_error;
+        goto return_error;
 
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_CTX_free(ctx);
     return enif_make_tuple2(env, ret_pub, ret_prv);
+
+return_error:
+    if (pkey) EVP_PKEY_free(pkey);
+    if (ctx)  EVP_PKEY_CTX_free(ctx);
+    return atom_error;
+
 #else
     return atom_notsup;
 #endif
@@ -4524,7 +4534,7 @@ static int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, E
 static char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
     ERL_NIF_TERM tmp_term;
     ErlNifBinary pwd_bin;
-    char *pwd;
+    char *pwd = NULL;
     if (enif_get_map_value(env, key, atom_password, &tmp_term) &&
         enif_inspect_binary(env, tmp_term, &pwd_bin) &&
         zero_terminate(pwd_bin, &pwd)
@@ -4549,16 +4559,17 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 #ifdef HAS_ENGINE_SUPPORT
         /* Use key stored in engine */
         ENGINE *e;
-        char *id;
+        char *id = NULL;
         char *password;
 
         if (!get_engine_and_key_id(env, key, &id, &e))
             return PKEY_BADARG;
         password = get_key_password(env, key);
         *pkey = ENGINE_load_private_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
         if (!*pkey)
             return PKEY_BADARG;
-        enif_free(id);
 #else
         return PKEY_BADARG;
 #endif
@@ -4636,16 +4647,17 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 #ifdef HAS_ENGINE_SUPPORT
         /* Use key stored in engine */
         ENGINE *e;
-        char *id;
+        char *id = NULL;
         char *password;
 
         if (!get_engine_and_key_id(env, key, &id, &e))
             return PKEY_BADARG;
         password = get_key_password(env, key);
         *pkey = ENGINE_load_public_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
         if (!pkey)
             return PKEY_BADARG;
-        enif_free(id);
 #else
         return PKEY_BADARG;
 #endif
@@ -4809,6 +4821,7 @@ printf("\r\n");
             EVP_MD_CTX_free(mdctx);
             goto badarg;
         }
+        EVP_MD_CTX_free(mdctx);
 #else
         goto badarg;    
 #endif
@@ -5120,6 +5133,15 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
     return PKEY_OK;
 }
 
+static size_t size_of_RSA(EVP_PKEY *pkey) {
+    size_t tmplen;
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+    if (rsa == NULL) return 0;
+    tmplen = RSA_size(rsa);
+    RSA_free(rsa);
+    return tmplen;
+}
+
 static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
     int i;
@@ -5217,9 +5239,8 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 #ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
 	    if (is_encrypt) {
-		RSA *rsa = EVP_PKEY_get1_RSA(pkey);
-		if (rsa == NULL) goto badarg;
-		tmplen = RSA_size(rsa);
+                tmplen = size_of_RSA(pkey);
+                if (tmplen == 0) goto badarg;
 		if (!enif_alloc_binary(tmplen, &tmp_bin)) goto badarg;
 		if (RSA_padding_add_SSLv23(tmp_bin.data, tmplen, in_bin.data, in_bin.size) <= 0)
 		    goto badarg;
@@ -5239,7 +5260,7 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 	    if (crypt_opt.rsa_mgf1_md != NULL
 		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, crypt_opt.rsa_mgf1_md) <= 0) goto badarg;
 	    if (crypt_opt.rsa_oaep_label.data != NULL && crypt_opt.rsa_oaep_label.size > 0) {
-		unsigned char *label_copy;
+		unsigned char *label_copy = NULL;
 		label_copy = OPENSSL_malloc(crypt_opt.rsa_oaep_label.size);
 		if (label_copy == NULL) goto badarg;
 		memcpy((void *)(label_copy), (const void *)(crypt_opt.rsa_oaep_label.data),
@@ -5351,14 +5372,11 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
 #ifdef HAVE_RSA_SSLV23_PADDING
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
-	    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
 	    unsigned char *p;
-	    if (rsa == NULL) goto badarg;
-	    tmplen = RSA_size(rsa);
-	    if (!enif_alloc_binary(tmplen, &tmp_bin)) {
-                RSA_free(rsa);
+            tmplen = size_of_RSA(pkey);
+	    if (tmplen == 0) goto badarg;
+	    if (!enif_alloc_binary(tmplen, &tmp_bin))
                 goto badarg;
-            }
 	    p = out_bin.data;
 	    p++;
 	    i = RSA_padding_check_SSLv23(tmp_bin.data, tmplen, p, out_bin.size - 1, tmplen);
@@ -5369,7 +5387,6 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 		tmp_bin = in_bin;
 		i = 1;
 	    }
-            RSA_free(rsa);
 	}
 #endif
     }
@@ -5432,6 +5449,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
             RSA_get0_key(rsa, &n, &e, &d);
             result[0] = bin_from_bn(env, e);  // Exponent E
             result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+            RSA_free(rsa);
             EVP_PKEY_free(pkey);
             return enif_make_list_from_array(env, result, 2);
         }
@@ -5446,6 +5464,7 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
             result[1] = bin_from_bn(env, q);
             result[2] = bin_from_bn(env, g);
             result[3] = bin_from_bn(env, pub_key);
+	    DSA_free(dsa);
             EVP_PKEY_free(pkey);
             return enif_make_list_from_array(env, result, 4);
         }

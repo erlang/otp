@@ -587,11 +587,11 @@ ctrl_cmd_string(Config) when is_list(Config) ->
                     {ok, E} ->
                         case crypto:engine_ctrl_cmd_string(E, <<"TEST">>, <<"17">>) of
                             ok ->
+                                ok = crypto:engine_unload(E),
                                 ct:fail(fail_ctrl_cmd_should_fail);
                             {error,ctrl_cmd_failed} ->
-                                ok
-                        end,
-                        ok = crypto:engine_unload(E);
+                                ok = crypto:engine_unload(E)
+                        end;
                     {error, bad_engine_id} ->
                         {skip, "Dynamic Engine not supported"}
                 end
@@ -617,11 +617,12 @@ ctrl_cmd_string_optional(Config) when is_list(Config) ->
                     {ok, E} ->
                         case crypto:engine_ctrl_cmd_string(E, <<"TEST">>, <<"17">>, true) of
                             ok ->
-                                ok;
-                            _ ->
+                                ok = crypto:engine_unload(E);
+                            Err ->
+                                ct:log("Error: ~p",[Err]),
+                                ok = crypto:engine_unload(E),
                                 ct:fail(fail_ctrl_cmd_string)
-                        end,
-                        ok = crypto:engine_unload(E);
+                        end;
                     {error, bad_engine_id} ->
                         {skip, "Dynamic Engine not supported"}
                 end
