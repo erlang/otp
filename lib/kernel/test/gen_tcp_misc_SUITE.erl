@@ -1969,20 +1969,20 @@ recvtclass(_Config) ->
             {skip,{ipv6_not_supported,IFs}}
     end.
 
-%% These version numbers are the highest noted in daily tests
-%% where the test fails for a plausible reason, so
-%% skip on that platform.
+%% These version numbers are above the highest noted
+%% in daily tests where the test fails for a plausible reason,
+%% so skip on platforms of lower version, i.e they are future
+%% versions where it is possible that it might not fail.
 %%
-%% On newer versions it might be fixed, but we'll see about that
-%% when machines with newer versions gets installed...
-%% If the test still fails for a plausible reason these
+%% When machines with newer versions gets installed,
+%% if the test still fails for a plausible reason these
 %% version numbers simply should be increased.
 %% Or maybe we should change to only test on known good
 %% platforms - change {unix,_} to false?
 
 %% pktoptions is not supported for IPv4
 recvtos_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
-recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvtos_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
 recvtos_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 recvtos_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
@@ -1994,7 +1994,7 @@ recvtos_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv4
 recvttl_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
-recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
 recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
@@ -2005,7 +2005,7 @@ recvttl_ok(_, _) -> false.
 
 %% pktoptions is not supported for IPv6
 recvtclass_ok({unix,openbsd}, OSVer) -> not semver_lt(OSVer, {6,4,0});
-recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {17,6,0});
+recvtclass_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 recvtclass_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
 %% Using the option returns einval, so it is not implemented.
 recvtclass_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
