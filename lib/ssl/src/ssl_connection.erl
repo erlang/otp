@@ -1092,6 +1092,12 @@ downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
 downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
     gen_statem:reply(From, {error, timeout}),
     stop(normal, State);
+downgrade(
+  info, {CloseTag, Socket},
+  #state{socket = Socket, close_tag = CloseTag, downgrade = {_, From}} =
+      State, _) ->
+    gen_statem:reply(From, {error, CloseTag}),
+    stop(normal, State);
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
 
