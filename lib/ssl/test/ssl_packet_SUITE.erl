@@ -725,7 +725,7 @@ packet_switch(Config) when is_list(Config) ->
 					{options, [{nodelay, true}, {packet, 2} |
 						   ClientOpts]}]),
 
-    ssl_test_lib:check_result(Client, ok),
+    ssl_test_lib:check_result(Client, ok, Server, ok),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
