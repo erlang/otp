@@ -936,7 +936,7 @@ static ERL_NIF_TERM set_permissions_nif(ErlNifEnv *env, int argc, const ERL_NIF_
     posix_errno_t posix_errno;
 
     efile_path_t path;
-    Uint32 permissions;
+    Uint permissions;
 
     ASSERT(argc == 2);
     if(!enif_get_uint(env, argv[1], &permissions)) {
@@ -956,7 +956,7 @@ static ERL_NIF_TERM set_owner_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     posix_errno_t posix_errno;
 
     efile_path_t path;
-    Sint32 uid, gid;
+    Sint uid, gid;
 
     ASSERT(argc == 3);
     if(!enif_get_int(env, argv[1], &uid) || !enif_get_int(env, argv[2], &gid)) {

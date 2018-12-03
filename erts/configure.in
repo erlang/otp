@@ -570,6 +570,17 @@ else
   WFLAGS=""
   WERRORFLAGS=""
 fi
+
+AC_MSG_CHECKING([CFLAGS for -O switch])
+case "$CFLAGS" in
+     *-O*) AC_MSG_RESULT([yes]) ;;
+     *)
+       AC_MSG_ERROR([
+  CFLAGS must contain a -O flag. If you need to edit the CFLAGS you probably
+  also want to add the default CFLAGS. The default CFLAGS are "-O2 -g".
+  If you want to build erts without any optimization, pass -O0 to CFLAGS.]) ;;
+esac
+
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
 AC_SUBST(DEBUG_CFLAGS)
