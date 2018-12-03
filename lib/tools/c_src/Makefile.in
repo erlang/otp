@@ -68,6 +68,12 @@ endif
 endif
 endif
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS   += -fpie
+LDFLAGS  += -pie
+endif
+
 ifeq ($(findstring -D_GNU_SOURCE,$(CFLAGS)),)
 THR_DEFS = $(ETHR_DEFS)
 else

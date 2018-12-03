@@ -65,6 +65,11 @@ endif # gcov
 # Don't fail if _LFS64_LARGEFILE is undefined
 ZLIB_CFLAGS := $(filter-out -Werror=undef,$(ZLIB_CFLAGS))
 
+# ASLR - Address Space Layout Randomization
+ifneq ($(BUILDNCS), true)
+ZLIB_CFLAGS  += -fPIC
+endif
+
 ifeq ($(TARGET), win32)
 $(ZLIB_LIBRARY): $(ZLIB_OBJS)
 	$(V_AR) -out:$@ $(ZLIB_OBJS)

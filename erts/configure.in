@@ -329,10 +329,10 @@ AS_HELP_STRING([--disable-ppc-lwsync],
     *)
         ;;
  esac ])
-                
+
 AC_ARG_ENABLE(small-memory,
 AS_HELP_STRING([--enable-small-memory],
-               [build an emulator tuned to use minimal memory]),
+               [Build an emulator tuned to use minimal memory]),
 [ case "$enableval" in
     no) ;;
     *)
@@ -340,6 +340,20 @@ AS_HELP_STRING([--enable-small-memory],
                 [Define to build an emulator tuned to use minimal memory])
        ;;
   esac ])
+
+# ASLR - Address Space Layout Randomization
+AC_ARG_ENABLE(aslr,
+AS_HELP_STRING([--disable-aslr],
+               [Build without ASLR flags]),
+[ case "$enableval" in
+    no)
+        DISABLE_ASLR=yes
+        ;;
+    *)
+        DISABLE_ASLR=no
+        ;;
+  esac ])
+AC_SUBST(DISABLE_ASLR)
 
 dnl Magic test for clearcase.
 OTP_RELEASE=

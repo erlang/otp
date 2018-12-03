@@ -364,6 +364,22 @@ if test X${enable_silent_rules} = Xno; then
 fi
 AC_SUBST(DEFAULT_VERBOSITY)
 
+# ASLR - Address Space Layout Randomization
+AC_ARG_ENABLE(aslr,
+AS_HELP_STRING([--disable-aslr],
+               [Build without ASLR flags]),
+[ case "$enableval" in
+    no)
+       DISABLE_ASLR=yes
+       ;;
+    *)
+       DISABLE_ASLR=no
+       CFLAGS="$CFLAGS -fpie"
+       LDFLAGS="$LDFLAGS -pie"
+       ;;
+  esac ])
+AC_SUBST(DISABLE_ASLR)
+
 if test X${enable_m64_build} = Xyes; then
 	CFLAGS="-m64 $CFLAGS"
 	export CFLAGS

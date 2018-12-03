@@ -69,7 +69,10 @@ LD      = @LD@
 LIBS    = @LIBS@ @SYSTEMD_DAEMON_LIBS@ $(ERTS_INTERNAL_LIBS)
 LDFLAGS = @LDFLAGS@
 
-
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS   += -fpie
+LDFLAGS  += -pie
+endif
 
 # ----------------------------------------------------
 # Release directory specification

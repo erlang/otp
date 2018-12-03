@@ -40,6 +40,12 @@ ERLANG_OSTYPE=@ERLANG_OSTYPE@
 OMIT_FP=false
 CFLAGS=$(subst O2,O3, @CFLAGS@)
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS  += -fPIC
+LDFLAGS += -PIC
+endif
+
 ifeq ($(TYPE),debug)
 CFLAGS=@DEBUG_CFLAGS@ -DDEBUG
 TYPE_SUFFIX=.debug

@@ -67,6 +67,11 @@ RELSYSDIR = $(RELEASE_PATH)/lib/erl_interface-$(EI_VSN)
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+LDFLAGS  += -pie
+endif
+
 ifeq ($(TYPE),debug)
 PURIFY =
 TYPEMARKER = .debug
@@ -136,10 +141,15 @@ WARNFLAGS += -DEI_NO_DEPR_WARN
 CFLAGS = @LIB_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
 PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Ilegacy
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS += -fPIC
+PROG_CFLAGS += -fpie
+endif
+
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 PROG_CFLAGS += -nostartfiles -Wl,-r,-d
 endif
-
 
 INSTALL = @INSTALL@
 INSTALL_DIR = @INSTALL_DIR@

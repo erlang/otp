@@ -49,6 +49,7 @@ beam/trace_instrs.tab
 DEBUG_CFLAGS = @DEBUG_CFLAGS@
 CONFIGURE_CFLAGS = @CFLAGS@
 
+
 #
 # Run this make file with TYPE set to the type of emulator you want.
 # Different versions of the emulator for different uses. The default
@@ -268,6 +269,12 @@ RANLIB  = @RANLIB@
 STRIP   = strip
 PERL    = @PERL@
 MKDIR	= @MKDIR@
+
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS   += -fpie
+LDFLAGS  += -pie
+endif
 
 USING_GCC = @GCC@
 

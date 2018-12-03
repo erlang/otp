@@ -75,6 +75,12 @@ LDFLAGS = @LDFLAGS@
 
 ALL_CFLAGS = @CFLAGS@ @DEFS@ $(CFLAGS)
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+ALL_CFLAGS += -fpie
+LDFLAGS    += -pie
+endif
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------

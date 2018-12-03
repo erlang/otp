@@ -64,6 +64,12 @@ LD        = @LD@
 LIBS      = @LIBS@
 LDFLAGS   = @LDFLAGS@
 
+# ASLR - Address Space Layout Randomization
+ifeq (@DISABLE_ASLR@,no)
+CFLAGS   += -fpie
+LDFLAGS  += -pie
+endif
+
 # For clock_gettime in heart
 ifneq ($(TARGET),arm-unknown-linux-androideabi)
 RTLIBS = @LIBRT@

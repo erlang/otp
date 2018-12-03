@@ -85,6 +85,19 @@ AC_ARG_ENABLE(mask-real-errno,
   esac ],
 [ mask_real_errno=yes ])
 
+# ASLR - Address Space Layout Randomization
+AC_ARG_ENABLE(aslr,
+AS_HELP_STRING([--disable-aslr],
+               [Build without ASLR flags]),
+[ case "$enableval" in
+    no)
+       DISABLE_ASLR=yes
+       ;;
+    *)
+       DISABLE_ASLR=no
+       ;;
+  esac ])
+AC_SUBST(DISABLE_ASLR)
 
 dnl ----------------------------------------------------------------------
 dnl Checks for programs
