@@ -136,7 +136,8 @@ all() ->
      mem_kill_new,
      mem_kill_std,
      restart_after,
-     handler_requests_under_load
+     handler_requests_under_load,
+     recreate_deleted_log
     ].
 
 add_remove_instance_tty(_Config) ->
@@ -1255,6 +1256,22 @@ handler_requests_under_load(Config) ->
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
+recreate_deleted_log(Config) ->
+    {Log,_HConfig,_StdHConfig} =
+        start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    logger:notice("first",?domain),
+    logger_std_h:filesync(?MODULE),
+    ok = file:rename(Log,Log++".old"),
+    logger:notice("second",?domain),
+    logger_std_h:filesync(?MODULE),
+    {ok,<<"first\n">>} = file:read_file(Log++".old"),
+    {ok,<<"second\n">>} = file:read_file(Log),
+    ok.
+recreate_deleted_log(cleanup, _Config) ->
+    ok = stop_handler(?MODULE).
+
+%%%-----------------------------------------------------------------
+%%%
 send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
     receive
         {From,finish} ->
@@ -1276,8 +1293,8 @@ send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-start_handler(Name, TTY, Config) when TTY == standard_io;
-                                      TTY == standard_error->
+start_handler(Name, TTY, _Config) when TTY == standard_io;
+                                       TTY == standard_error->
     ok = logger:add_handler(Name,
                             logger_std_h,
                             #{config => #{type => TTY},
