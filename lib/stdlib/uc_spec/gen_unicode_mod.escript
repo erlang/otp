@@ -646,7 +646,7 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "is_emodifier(_) -> false.\n\n"),
 
     io:put_chars(Fd, "gc_zwj(R0, Acc) ->\n    case cp(R0) of\n"),
-    GenZWJGlue = fun(Range) -> io:format(Fd, "~8c~s gc_extend(R1, R0, [CP|Acc]);\n",
+    GenZWJGlue = fun(Range) -> io:format(Fd, "~8c~s gc_extend(cp(R1), R0, [CP|Acc]);\n",
                                          [$\s,gen_case_clause(Range)]) end,
     [GenZWJGlue(CP) || CP <- merge_ranges(maps:get(glue_after_zwj,GBP))],
     GenZWJEBG = fun(Range) -> io:format(Fd, "~8c~s gc_e_cont(R1, [CP|Acc]);\n",
