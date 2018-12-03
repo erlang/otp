@@ -403,7 +403,11 @@
 	    default is <c>second</c>. If some other unit is given
 	    (<c>millisecond</c>, <c>microsecond</c>, or
 	    <c>nanosecond</c>), the formatted string includes a
-	    fraction of a second.</p>
+	    fraction of a second. The number of fractional second
+	    digits is three, six, or nine depending on what time unit
+	    is chosen. Notice that trailing zeros are not removed from
+	    the fraction.
+            </p>
 	  </item>
 	</taglist>
         <pre>
