@@ -999,7 +999,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	while (*ib_index < end_index) {
 
 	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index,
-                   *ib_index + len)) <= ASN1_ERROR
+                   end_index )) <= ASN1_ERROR
 	    )
 		return maybe_ret;
 	    curr_head = enif_make_list_cell(env, term, curr_head);
