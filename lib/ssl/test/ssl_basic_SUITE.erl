@@ -166,6 +166,7 @@ api_tests() ->
      socket_options,
      cipher_suites,
      handshake_continue,
+     handshake_continue_timeout,
      hello_client_cancel,
      hello_server_cancel
     ].
@@ -502,6 +503,15 @@ init_per_testcase(raw_ssl_option, Config) ->
             {skip, "Raw options are platform-specific"}
     end;
 
+init_per_testcase(handshake_continue_timeout, Config) ->
+	ct:timetrap({seconds, 5}),
+    case proplists:get_value(protocol, Config) of
+	dtls ->
+            {skip, "Not yet supported on DTLS sockets"};
+	_ ->
+	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+	    Config
+    end;
 init_per_testcase(accept_pool, Config) ->
     ct:timetrap({seconds, 5}),
     case proplists:get_value(protocol, Config) of
@@ -678,6 +688,38 @@ handshake_continue(Config) when is_list(Config) ->
      
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+handshake_continue_timeout() ->
+    [{doc, "Test API function ssl:handshake_continue/3 with short timeout"}].
+handshake_continue_timeout(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{timeout, 5},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true}, {handshake, hello}],
+                                                                           Config)},
+                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}
+                                       ]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {timeout, 10},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ClientOpts}
+                                      ]),
+
+    ssl_test_lib:check_result(Server, {error,timeout}),
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
