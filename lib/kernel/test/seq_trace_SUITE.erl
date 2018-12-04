@@ -25,7 +25,8 @@
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
-	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1]).
+	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
+         send_literal/1]).
 
 %% internal exports
 -export([simple_tracer/2, one_time_receiver/0, one_time_receiver/1,
@@ -44,7 +45,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [token_set_get, tracer_set_get, print, send,
+    [token_set_get, tracer_set_get, print, send, send_literal,
      distributed_send, recv, distributed_recv, trace_exit,
      distributed_exit, call, port, match_set_seq_token,
      gc_seq_token, label_capability_mismatch].
@@ -158,22 +159,50 @@ do_print(TsType) ->
 	   {0,{print,_,_,[],print3}, Ts1}] = stop_tracer(2),
     check_ts(TsType, Ts0),
     check_ts(TsType, Ts1).
-    
+
 send(Config) when is_list(Config) ->
     lists:foreach(fun do_send/1, ?TIMESTAMP_MODES).
 
 do_send(TsType) ->
+    do_send(TsType, send).
+
+do_send(TsType, Msg) ->
     seq_trace:reset_trace(),
     start_tracer(),
     Receiver = spawn(?MODULE,one_time_receiver,[]),
     Label = make_ref(),
     seq_trace:set_token(label,Label),
     set_token_flags([send, TsType]),
-    Receiver ! send,
+    Receiver ! Msg,
     Self = self(),
     seq_trace:reset_trace(),
-    [{Label,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
+    [{Label,{send,_,Self,Receiver,Msg}, Ts}] = stop_tracer(1),
     check_ts(TsType, Ts).
+
+%% This testcase tests that we do not segfault when we have a
+%% literal as the message and the message is copied onto the
+%% heap during a GC.
+send_literal(Config) when is_list(Config) ->
+    lists:foreach(fun do_send_literal/1,
+                  [atom, make_ref(), ets:new(hej,[]), 1 bsl 64,
+                   "gurka", {tuple,test,with,#{}}, #{}]).
+
+do_send_literal(Msg) ->
+    N = 10000,
+    seq_trace:reset_trace(),
+    start_tracer(),
+    Label = make_ref(),
+    seq_trace:set_token(label,Label),
+    set_token_flags([send, 'receive', no_timestamp]),
+    Receiver = spawn_link(fun() -> receive ok -> ok end end),
+    [Receiver ! Msg || _ <- lists:seq(1, N)],
+    erlang:garbage_collect(Receiver),
+    [Receiver ! Msg || _ <- lists:seq(1, N)],
+    erlang:garbage_collect(Receiver),
+    Self = self(),
+    seq_trace:reset_trace(),
+    [{Label,{send,_,Self,Receiver,Msg}, Ts} | _] = stop_tracer(N),
+    check_ts(no_timestamp, Ts).
 
 distributed_send(Config) when is_list(Config) ->
     lists:foreach(fun do_distributed_send/1, ?TIMESTAMP_MODES).
