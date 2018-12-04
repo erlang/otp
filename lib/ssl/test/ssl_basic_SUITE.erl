@@ -1097,16 +1097,19 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
     end.
 
 tls_closed_in_active_once_loop(Socket) ->
-    ssl:setopts(Socket, [{active, once}]),
-    receive
-	{ssl, Socket, _} ->
-	    tls_closed_in_active_once_loop(Socket);
-	{ssl_closed, Socket} ->
-	    ok
-    after 5000 ->
-	      no_ssl_closed_received
+    case ssl:setopts(Socket, [{active, once}]) of
+        ok ->
+            receive
+                {ssl, Socket, _} ->
+                    tls_closed_in_active_once_loop(Socket);
+                {ssl_closed, Socket} ->
+                    ok
+            after 5000 ->
+                    no_ssl_closed_received
+            end;
+        {error, closed} ->
+            ok
     end.
-
 %%--------------------------------------------------------------------
 connect_dist() ->
     [{doc,"Test a simple connect as is used by distribution"}].
@@ -5220,14 +5223,14 @@ get_invalid_inet_option(Socket) ->
 
 tls_shutdown_result(Socket, server) ->
     ssl:send(Socket, "Hej"),
-    ssl:shutdown(Socket, write),
+    ok = ssl:shutdown(Socket, write),
     {ok, "Hej hopp"} = ssl:recv(Socket, 8),
     ok;
 
 tls_shutdown_result(Socket, client) ->
-    {ok, "Hej"} = ssl:recv(Socket, 3),
     ssl:send(Socket, "Hej hopp"),
-    ssl:shutdown(Socket, write),
+    ok = ssl:shutdown(Socket, write),
+    {ok, "Hej"} = ssl:recv(Socket, 3),
     ok.
 
 tls_shutdown_write_result(Socket, server) ->
