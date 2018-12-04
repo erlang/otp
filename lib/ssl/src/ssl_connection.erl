@@ -52,8 +52,8 @@
 
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
-	 handle_normal_shutdown/3, stop/2, stop_and_reply/3
-	]).
+	 handle_normal_shutdown/3, stop/2, stop_and_reply/3,
+         handle_trusted_certs_db/1]).
 
 %% Data handling
 -export([read_application_data/2, internal_renegotiation/2]).
@@ -1102,6 +1102,12 @@ downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
     stop(normal, State);
 downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
     gen_statem:reply(From, {error, timeout}),
+    stop(normal, State);
+downgrade(
+  info, {CloseTag, Socket},
+  #state{socket = Socket, close_tag = CloseTag, downgrade = {_, From}} =
+      State, _) ->
+    gen_statem:reply(From, {error, CloseTag}),
     stop(normal, State);
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).

@@ -26,6 +26,7 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
@@ -1706,10 +1707,10 @@ openssl_dsa_support() ->
             true;
         "LibreSSL"  ++ _ ->
             false;
-        "OpenSSL 1.1" ++ Rest ->
+        "OpenSSL 1.1" ++ _Rest ->
             false;
         "OpenSSL 1.0.1" ++ Rest ->
-            hd(Rest) >= s;
+            hd(Rest) >= $s;
         _ ->
             true
     end.
@@ -1743,8 +1744,6 @@ openssl_sane_client_cert() ->
         "LibreSSL 2.3" ++ _ ->
             false; 
          "LibreSSL 2.1" ++ _ ->
-            false; 
-         "LibreSSL 2.0" ++ _ ->
             false; 
          "LibreSSL 2.0" ++ _ ->
             false; 

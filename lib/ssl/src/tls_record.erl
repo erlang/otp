@@ -116,7 +116,7 @@ encode_handshake(Frag, Version,
 		     ConnectionStates) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
-	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
+	    Data = split_bin(iolist_to_binary(Frag), Version, BCA, BeastMitigation),
 	    encode_iolist(?HANDSHAKE, Data, Version, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
@@ -157,7 +157,7 @@ encode_data(Frag, Version,
 				 security_parameters :=
 				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, Version, BCA, BeastMitigation),
+    Data = split_bin(Frag, Version, BCA, BeastMitigation),
     encode_iolist(?APPLICATION_DATA, Data, Version, ConnectionStates).
 
 %%====================================================================
@@ -526,27 +526,26 @@ start_additional_data(Type, {MajVer, MinVer},
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.
-split_bin(<<FirstByte:8, Rest/binary>>, ChunkSize, Version, BCA, one_n_minus_one) when
+split_bin(<<FirstByte:8, Rest/binary>>, Version, BCA, one_n_minus_one) when
       BCA =/= ?RC4 andalso ({3, 1} == Version orelse
 			    {3, 0} == Version) ->
-    do_split_bin(Rest, ChunkSize, [[FirstByte]]);
+    [[FirstByte]|do_split_bin(Rest)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
-split_bin(Bin, ChunkSize, Version, BCA, zero_n) when
+split_bin(Bin, Version, BCA, zero_n) when
       BCA =/= ?RC4 andalso ({3, 1} == Version orelse
 			    {3, 0} == Version) ->
-    do_split_bin(Bin, ChunkSize, [[<<>>]]);
-split_bin(Bin, ChunkSize, _, _, _) ->
-    do_split_bin(Bin, ChunkSize, []).
+    [<<>>|do_split_bin(Bin)];
+split_bin(Bin, _, _, _) ->
+    do_split_bin(Bin).
 
-do_split_bin(<<>>, _, Acc) ->
-    lists:reverse(Acc);
-do_split_bin(Bin, ChunkSize, Acc) ->
+do_split_bin(<<>>) -> [];
+do_split_bin(Bin) ->
     case Bin of
-        <<Chunk:ChunkSize/binary, Rest/binary>> ->
-            do_split_bin(Rest, ChunkSize, [Chunk | Acc]);
+        <<Chunk:?MAX_PLAIN_TEXT_LENGTH/binary, Rest/binary>> ->
+            [Chunk|do_split_bin(Rest)];
         _ ->
-            lists:reverse(Acc, [Bin])
+            [Bin]
     end.
 %%--------------------------------------------------------------------
 lowest_list_protocol_version(Ver, []) ->
