@@ -668,9 +668,11 @@ user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _
                      Version, ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout}, #state{hello = Hello,
                                                                            role = Role,
-                                                                           start_or_recv_from = RecvFrom,
+                                                                           start_or_recv_from = _RecvFrom,
+                                                                           timer = PrevTimer,
                                                                            ssl_options = Options0} = State0, _Connection) ->
-    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
+    cancel_timer(PrevTimer),
+    Timer = start_or_recv_cancel_timer(Timeout, From),
     Options = ssl:handle_options(NewOptions, Options0#ssl_options{handshake = full}),
     State = ssl_config(Options, Role, State0, continue),
     {next_state, hello, State#state{start_or_recv_from = From,
