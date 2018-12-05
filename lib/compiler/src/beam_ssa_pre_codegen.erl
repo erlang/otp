@@ -1994,13 +1994,15 @@ reserve_zregs(Blocks, Intervals, Res) ->
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
-              #b_set{op={bif,'=:='},args=[Dst,Val]}], _Last, ShortLived, A0) ->
-    case Val of
-        #b_literal{val=Arity} when Arity bsr 32 =:= 0 ->
+              #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
+    case {Val,Last} of
+        {#b_literal{val=Arity},#b_br{}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
             reserve_zreg_1(Dst, ShortLived, A0);
-        _ ->
+        {_,_} ->
+            %% Either the arity is too big, or the boolean value from
+            %% '=:=' will be returned.
             A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
