@@ -1980,7 +1980,7 @@ api_toc_tcp_client(Parent, GL) ->
     {To, ConLimit} = api_toc_tcp_client_await_continue(Parent, connect),
     Result = api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit),
     api_toc_tcp_client_announce_ready(Parent, connect, Result),
-    Reason = sc_rs_tcp_client_await_terminate(Parent),
+    Reason = api_toc_tcp_client_await_terminate(Parent),
     exit(Reason).
 
 api_toc_tcp_client_init(Parent, GL) ->
@@ -2057,7 +2057,7 @@ api_to_connect_tcp_await_timeout(ID, ConLimit, To, ServerSA, NewSock, Acc) ->
             ERROR
     end.
 
-api_to_connect_tcp_await_timeout2(ID, To, ServerSA, NewSock) ->
+api_to_connect_tcp_await_timeout2(_ID, To, ServerSA, NewSock) ->
     Sock = NewSock(),
     %% ?SEV_IPRINT("~w: try connect", [ID]),
     Start = t(),
@@ -10157,37 +10157,6 @@ tpp_udp_sock_close(Sock) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% This gets the local address (not 127.0...)
-%% We should really implement this using the (new) net module,
-%% but until that gets the necessary functionality...
-which_local_addr(Domain) ->
-    case inet:getifaddrs() of
-        {ok, IFL} ->
-            which_addr(Domain, IFL);
-        {error, Reason} ->
-            ?FAIL({inet, getifaddrs, Reason})
-    end.
-
-which_addr(_Domain, []) ->
-    ?FAIL(no_address);
-which_addr(Domain, [{Name, IFO}|_IFL]) when (Name =/= "lo") ->
-    which_addr2(Domain, IFO);
-which_addr(Domain, [_|IFL]) ->
-    which_addr(Domain, IFL).
-
-which_addr2(_Domain, []) ->
-    ?FAIL(no_address);
-which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
-    Addr;
-which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
-    Addr;
-which_addr2(Domain, [_|IFO]) ->
-    which_addr2(Domain, IFO).
-   
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 start_node(Host, NodeName) ->
     UniqueNodeName = f("~w_~w", [NodeName, erlang:system_time(millisecond)]),
     case do_start_node(Host, UniqueNodeName) of
@@ -10335,6 +10304,25 @@ which_local_addr(Domain) ->
             ?FAIL({inet, getifaddrs, Reason})
     end.
 
+which_addr(_Domain, []) ->
+    ?FAIL(no_address);
+which_addr(Domain, [{Name, IFO}|_IFL]) when (Name =/= "lo") ->
+    which_addr2(Domain, IFO);
+which_addr(Domain, [_|IFL]) ->
+    which_addr(Domain, IFL).
+
+which_addr2(_Domain, []) ->
+    ?FAIL(no_address);
+which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
+    Addr;
+which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
+    Addr;
+which_addr2(Domain, [_|IFO]) ->
+    which_addr2(Domain, IFO).
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -10470,21 +10458,21 @@ f(F, A) ->
 %%     i(Before ++ FStr ++ After, []).
 
 
-d(F, A) ->
-    d(get(dbg_fd), F, A).
+%% d(F, A) ->
+%%     d(get(dbg_fd), F, A).
 
-d(undefined, F, A) ->
-    [NodeNameStr|_] = string:split(atom_to_list(node()), [$@]),
-    DbgFileName = f("~s-dbg.txt", [NodeNameStr]),
-    case file:open(DbgFileName, [write]) of
-        {ok, FD} ->
-            put(dbg_fd, FD),
-            d(FD, F, A);
-        {error, Reason} ->
-            exit({failed_open_dbg_file, Reason})
-    end;
-d(FD, F, A) ->
-    io:format(FD, "~s~n", [f("[~s] " ++ F, [formated_timestamp()|A])]).
+%% d(undefined, F, A) ->
+%%     [NodeNameStr|_] = string:split(atom_to_list(node()), [$@]),
+%%     DbgFileName = f("~s-dbg.txt", [NodeNameStr]),
+%%     case file:open(DbgFileName, [write]) of
+%%         {ok, FD} ->
+%%             put(dbg_fd, FD),
+%%             d(FD, F, A);
+%%         {error, Reason} ->
+%%             exit({failed_open_dbg_file, Reason})
+%%     end;
+%% d(FD, F, A) ->
+%%     io:format(FD, "~s~n", [f("[~s] " ++ F, [formated_timestamp()|A])]).
 
 i(F) ->
     i(F, []).

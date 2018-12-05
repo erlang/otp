@@ -436,7 +436,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define SOCKET_RECV_FLAG_LOW          SOCKET_RECV_FLAG_CMSG_CLOEXEC
 #define SOCKET_RECV_FLAG_HIGH         SOCKET_RECV_FLAG_TRUNC
 
-#define SOCKET_RECV_BUFFER_SIZE_DEFAULT      2048
+#define SOCKET_RECV_BUFFER_SIZE_DEFAULT      8192
 #define SOCKET_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
 #define SOCKET_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
@@ -775,7 +775,7 @@ typedef struct {
     ErlNifEnv*     env;
 
     /* +++ Controller (owner) process +++ */
-    ErlNifPid      ctrlPid;
+    ErlNifPid         ctrlPid;
     // ErlNifMonitor  ctrlMon;
     ESockMonitor      ctrlMon;
 
@@ -5232,7 +5232,6 @@ ERL_NIF_TERM nsend(ErlNifEnv*        env,
     else
         save_errno = -1; // The value does not actually matter in this case
     
-
     return send_check_result(env, descP,
                              written, sndDataP->size, save_errno, sendRef);
 
@@ -6185,8 +6184,10 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
     int          type     = descP->type;
     int          protocol = descP->protocol;
 
-    SSDBG( descP, ("SOCKET", "nclose -> [%d] entry (0x%lX, 0x%lX, 0x%lX)\r\n",
+    SSDBG( descP, ("SOCKET", 
+                   "nclose -> [%d] entry (0x%lX, 0x%lX, 0x%lX, 0x%lX)\r\n",
                    descP->sock,
+                   descP->state,
                    descP->currentWriterP,
                    descP->currentReaderP,
                    descP->currentAcceptorP) );
@@ -6246,7 +6247,6 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
             SSDBG( descP,
                    ("SOCKET", "nclose -> [%d] stop was called\r\n", descP->sock) );
             dec_socket(domain, type, protocol);
-            DEMONP("nclose -> closer", env, descP, &descP->closerMon);
             reply = esock_atom_ok;
         } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
             /* The stop callback function has been *scheduled* which means that we
@@ -6284,8 +6284,9 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     SSDBG( descP,
            ("SOCKET", "nclose -> [%d] done when: "
+            "\r\n   state: 0x%lX"
             "\r\n   reply: %T"
-            "\r\n", descP->sock, reply) );
+            "\r\n", descP->sock, descP->state, reply) );
 
     return reply;
 }
@@ -16920,8 +16921,29 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MLOCK(descP->accMtx);
     MLOCK(descP->closeMtx);
     
-    SSDBG( descP, ("SOCKET", "socket_stop -> all mutex(s) locked\r\n") );
-    
+    SSDBG( descP, ("SOCKET", "socket_stop -> "
+                   "[%d, %T] all mutex(s) locked when counters:"
+                   "\r\n   writePkgCnt:  %u"
+                   "\r\n   writeByteCnt: %u"
+                   "\r\n   writeTries:   %u"
+                   "\r\n   writeWaits:   %u"
+                   "\r\n   writeFails:   %u"
+                   "\r\n   readPkgCnt:   %u"
+                   "\r\n   readByteCnt:  %u"
+                   "\r\n   readTries:    %u"
+                   "\r\n   readWaits:    %u"
+                   "\r\n",
+                   descP->sock, descP->ctrlPid,
+                   descP->writePkgCnt,
+                   descP->writeByteCnt,
+                   descP->writeTries,
+                   descP->writeWaits,
+                   descP->writeFails,
+                   descP->readPkgCnt,
+                   descP->readByteCnt,
+                   descP->readTries,
+                   descP->readWaits) );
+
     descP->state      = SOCKET_STATE_CLOSING; // Just in case...???
     descP->isReadable = FALSE;
     descP->isWritable = FALSE;
@@ -17063,7 +17085,8 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
          * </KOLLA>
          */
         
-        if (descP->closeLocal) {
+        if (descP->closeLocal &&
+            !is_direct_call) {
             
             /* +++ send close message to the waiting process +++
              *
@@ -17073,13 +17096,18 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
              *
              * WHAT HAPPENS IF THE RECEIVER HAS DIED IN THE MEANTIME????
              *
+             * Also, we should really *always* use a tag unique to this
+             * (nif-) module. Some like (in this case):
+             *
+             *      {'$socket', close, CloseRef}
+             *
              * </KOLLA>
              */
             
-            send_msg(env, MKT2(env, atom_close, descP->closeRef), &descP->closerPid);
+            send_msg(env,
+                     MKT2(env, atom_close, descP->closeRef), &descP->closerPid);
             
-            DEMONP("socket_stop -> closer",
-                   env, descP, &descP->closerMon);
+            DEMONP("socket_stop -> closer", env, descP, &descP->closerMon);
             
         } else {
             
@@ -17218,137 +17246,144 @@ void socket_down(ErlNifEnv*           env,
         SSDBG( descP, ("SOCKET", "socket_down -> OTHER mon\r\n") );
     }
     */
-    
-    if (compare_pids(env, &descP->ctrlPid, pid)) {
-        int selectRes;
 
-        /* We don't bother with the queue cleanup here - 
-         * we leave it to the stop callback function.
-         */
+    if (!IS_CLOSED(descP)) {
+        if (compare_pids(env, &descP->ctrlPid, pid)) {
+            int selectRes;
 
-        SSDBG( descP,
-               ("SOCKET", "socket_down -> controlling process exit\r\n") );
-
-        descP->state      = SOCKET_STATE_CLOSING;
-        descP->closeLocal = TRUE;
-        descP->closerPid  = *pid;
-        descP->closerMon  = (ESockMonitor) *mon;
-        descP->closeRef   = MKREF(env); // Do we really need this in this case?
-
-        /*
-        esock_dbg_printf("DOWN",
-                         "[%d] select stop %u,%u,%u,%d\r\n",
-                         descP->sock,
-                         monP->raw[0], monP->raw[1],
-                         monP->raw[2], monP->raw[3]);
-        */
-
-        selectRes = enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
-                                descP, NULL, descP->closeRef);
-
-        if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
-            /* We are done - wwe can finalize (socket close) directly */
-            SSDBG( descP,
-                   ("SOCKET", "socket_down -> [%d] stop called\r\n", descP->sock) );
-            dec_socket(descP->domain, descP->type, descP->protocol);
-            descP->state = SOCKET_STATE_CLOSED;
-
-            /* And finally close the socket.
-             * Since we close the socket because of an exiting owner,
-             * we do not need to wait for buffers to sync (linger).
-             * If the owner wish to ensure the buffer are written,
-             * it should have closed teh socket explicitly...
+            /* We don't bother with the queue cleanup here - 
+             * we leave it to the stop callback function.
              */
-            if (sock_close(descP->sock) != 0) {
-                int save_errno = sock_errno();
-                
-                esock_warning_msg("Failed closing socket for terminating "
-                                  "controlling process: "
+
+            SSDBG( descP,
+                   ("SOCKET", "socket_down -> controlling process exit\r\n") );
+
+            descP->state      = SOCKET_STATE_CLOSING;
+            descP->closeLocal = TRUE;
+            descP->closerPid  = *pid;
+            descP->closerMon  = (ESockMonitor) *mon;
+            descP->closeRef   = MKREF(env); // Do we really need this in this case?
+            
+            /*
+              esock_dbg_printf("DOWN",
+              "[%d] select stop %u,%u,%u,%d\r\n",
+              descP->sock,
+              monP->raw[0], monP->raw[1],
+              monP->raw[2], monP->raw[3]);
+            */
+            
+            selectRes = enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
+                                    descP, NULL, descP->closeRef);
+
+            if (selectRes & ERL_NIF_SELECT_STOP_CALLED) {
+                /* We are done - we can finalize (socket close) directly */
+                SSDBG( descP,
+                       ("SOCKET", 
+                        "socket_down -> [%d] stop called\r\n", descP->sock) );
+                dec_socket(descP->domain, descP->type, descP->protocol);
+                descP->state = SOCKET_STATE_CLOSED;
+
+                /* And finally close the socket.
+                 * Since we close the socket because of an exiting owner,
+                 * we do not need to wait for buffers to sync (linger).
+                 * If the owner wish to ensure the buffer are written,
+                 * it should have closed the socket explicitly...
+                 */
+                if (sock_close(descP->sock) != 0) {
+                    int save_errno = sock_errno();
+
+                    esock_warning_msg("Failed closing socket for terminating "
+                                      "controlling process: "
+                                      "\r\n   Controlling Process: %T"
+                                      "\r\n   Descriptor:          %d"
+                                      "\r\n   Errno:               %d"
+                                      "\r\n", pid, descP->sock, save_errno);
+                }
+                sock_close_event(descP->event);
+
+                descP->sock  = INVALID_SOCKET;
+                descP->event = INVALID_EVENT;
+
+                descP->state = SOCKET_STATE_CLOSED;
+
+            } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
+                /* The stop callback function has been *scheduled* which means
+                 * that "should" wait for it to complete. But since we are in
+                 * a callback (down) function, we cannot...
+                 * So, we must close the socket
+                 */
+                SSDBG( descP,
+                       ("SOCKET",
+                        "socket_down -> [%d] stop scheduled\r\n",
+                        descP->sock) );
+                dec_socket(descP->domain, descP->type, descP->protocol);
+
+                /* And now what? We can't wait for the stop function here... 
+                 * So, we simply close it here and leave the rest of the "close"
+                 * for later (when the stop function actually gets called...
+                 */
+
+                if (sock_close(descP->sock) != 0) {
+                    int save_errno = sock_errno();
+
+                    esock_warning_msg("Failed closing socket for terminating "
+                                      "controlling process: "
+                                      "\r\n   Controlling Process: %T"
+                                      "\r\n   Descriptor:          %d"
+                                      "\r\n   Errno:               %d"
+                                      "\r\n", pid, descP->sock, save_errno);
+                }
+                sock_close_event(descP->event);
+
+            } else {
+
+                /*
+                 * <KOLLA>
+                 *
+                 * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
+                 * SO WE DON'T LET STUFF LEAK.
+                 * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
+                 * THE CLOSE, WHAT TO DO? ABORT?
+                 *
+                 * </KOLLA>
+                 */
+                esock_warning_msg("Failed selecting stop when handling down "
+                                  "of controlling process: "
+                                  "\r\n   Select Res:          %d"
                                   "\r\n   Controlling Process: %T"
                                   "\r\n   Descriptor:          %d"
-                                  "\r\n   Errno:               %d"
-                                  "\r\n", pid, descP->sock, save_errno);
+                                  "\r\n   Monitor:             %u.%u.%u.%u"
+                                  "\r\n", selectRes, pid, descP->sock,
+                                  monP->raw[0], monP->raw[1],
+                                  monP->raw[2], monP->raw[3]);
             }
-            sock_close_event(descP->event);
-            
-            descP->sock  = INVALID_SOCKET;
-            descP->event = INVALID_EVENT;
-            
-            descP->state = SOCKET_STATE_CLOSED;
 
-        } else if (selectRes & ERL_NIF_SELECT_STOP_SCHEDULED) {
-            /* The stop callback function has been *scheduled* which means that 
-             * "should" wait for it to complete. But since we are in a callback
-             * (down) function, we cannot... 
-             * So, we must close the socket 
-             */
-            SSDBG( descP,
-                   ("SOCKET",
-                    "socket_down -> [%d] stop scheduled\r\n", descP->sock) );
-            dec_socket(descP->domain, descP->type, descP->protocol);
-
-            /* And now what? We can't wait for the stop function here... 
-             * So, we simply close it here and leave the rest of the "close"
-             * for later (when the stop function actually gets called...
-             */
-
-            if (sock_close(descP->sock) != 0) {
-                int save_errno = sock_errno();
-                
-                esock_warning_msg("Failed closing socket for terminating "
-                                  "controlling process: "
-                                  "\r\n   Controlling Process: %T"
-                                  "\r\n   Descriptor:          %d"
-                                  "\r\n   Errno:               %d"
-                                  "\r\n", pid, descP->sock, save_errno);
-            }
-            sock_close_event(descP->event);
-            
         } else {
 
-            /*
-             * <KOLLA>
+            /* check all operation queue(s): acceptor, writer and reader. 
              *
-             * WE SHOULD REALLY HAVE A WAY TO CLOBBER THE SOCKET,
-             * SO WE DON'T LET STUFF LEAK.
-             * NOW, BECAUSE WE FAILED TO SELECT, WE CANNOT FINISH
-             * THE CLOSE, WHAT TO DO? ABORT?
+             * Is it really any point in doing this if the socket is closed?
              *
-             * </KOLLA>
              */
-            esock_warning_msg("Failed selecting stop when handling down "
-                              "of controlling process: "
-                              "\r\n   Select Res:          %d"
-                              "\r\n   Controlling Process: %T"
-                              "\r\n   Descriptor:          %d"
-                              "\r\n   Monitor:             %u.%u.%u.%u"
-                              "\r\n", selectRes, pid, descP->sock,
-                              monP->raw[0], monP->raw[1],
-                              monP->raw[2], monP->raw[3]);
+
+            SSDBG( descP, ("SOCKET", "socket_down -> other process term\r\n") );
+
+            MLOCK(descP->accMtx);
+            if (descP->currentAcceptorP != NULL)
+                socket_down_acceptor(env, descP, pid);
+            MUNLOCK(descP->accMtx);
+
+            MLOCK(descP->writeMtx);
+            if (descP->currentWriterP != NULL)
+                socket_down_writer(env, descP, pid);
+            MUNLOCK(descP->writeMtx);
+
+            MLOCK(descP->readMtx);
+            if (descP->currentReaderP != NULL)
+                socket_down_reader(env, descP, pid);
+            MUNLOCK(descP->readMtx);
+
         }
-        
-
-    } else {
-    
-        /* check all operation queue(s): acceptor, writer and reader. */
-        
-        SSDBG( descP, ("SOCKET", "socket_down -> other process term\r\n") );
-
-        MLOCK(descP->accMtx);
-        if (descP->currentAcceptorP != NULL)
-            socket_down_acceptor(env, descP, pid);
-        MUNLOCK(descP->accMtx);
-        
-        MLOCK(descP->writeMtx);
-        if (descP->currentWriterP != NULL)
-            socket_down_writer(env, descP, pid);
-        MUNLOCK(descP->writeMtx);
-        
-        MLOCK(descP->readMtx);
-        if (descP->currentReaderP != NULL)
-            socket_down_reader(env, descP, pid);
-        MUNLOCK(descP->readMtx);
-
     }
 
     /*
