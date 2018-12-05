@@ -621,9 +621,9 @@ static TreeDbTerm* join_trees(TreeDbTerm *left_root_param,
 }
 
 #ifdef DEBUG
-#  define FORCE_RANDOM_SPLIT_JOIN
+#  define PROVOKE_RANDOM_SPLIT_JOIN
 #endif
-#ifdef FORCE_RANDOM_SPLIT_JOIN
+#ifdef PROVOKE_RANDOM_SPLIT_JOIN
 static int dbg_fastrand(void)
 {
     static int g_seed = 648835;
@@ -631,8 +631,12 @@ static int dbg_fastrand(void)
     return (g_seed>>16)&0x7FFF;
 }
 
-static void dbg_maybe_force_splitjoin(DbTableCATreeNode* base_node)
+static void dbg_provoke_random_splitjoin(DbTableCATree* tb,
+                                         DbTableCATreeNode* base_node)
 {
+    if (tb->common.status & DB_CATREE_FORCE_SPLIT)
+        return;
+
     switch (dbg_fastrand() % 8) {
     case 1:
         base_node->u.base.lock_statistics = 1+ERL_DB_CATREE_HIGH_CONTENTION_LIMIT;
@@ -643,8 +647,8 @@ static void dbg_maybe_force_splitjoin(DbTableCATreeNode* base_node)
     }
 }
 #else
-#  define dbg_maybe_force_splitjoin(N)
-#endif /* FORCE_RANDOM_SPLIT_JOIN */
+#  define dbg_provoke_random_splitjoin(T,N)
+#endif /* PROVOKE_RANDOM_SPLIT_JOIN */
 
 static ERTS_INLINE
 int try_wlock_base_node(DbTableCATreeBaseNode *base_node)
@@ -691,7 +695,7 @@ void wunlock_adapt_base_node(DbTableCATree* tb,
                              DbTableCATreeNode* parent,
                              int current_level)
 {
-    dbg_maybe_force_splitjoin(node);
+    dbg_provoke_random_splitjoin(tb,node);
     if ((!node->u.base.root && parent && !(tb->common.status
                                            & DB_CATREE_FORCE_SPLIT))
         || node->u.base.lock_statistics < ERL_DB_CATREE_LOW_CONTENTION_LIMIT) {
