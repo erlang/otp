@@ -34,6 +34,14 @@ SOCKET_MODULES = \
 	socket_client \
 	socket_test_lib \
 	socket_test_evaluator \
+	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_socket \
+	socket_test_ttest_tcp_client \
+	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_socket \
+	socket_test_ttest_tcp_server \
+	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_socket \
 	socket_SUITE
 
 MODULES= \
@@ -158,7 +166,10 @@ NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
 NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
-HRL_FILES= socket_test_evaluator.hrl
+HRL_FILES= \
+	socket_test_evaluator.hrl \
+	socket_test_ttest.hrl \
+	socket_test_ttest_client.hrl
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 SOCKET_TARGETS = $(SOCKET_MODULES:%=$(EBIN)/%.$(EMULATOR))
