@@ -1840,12 +1840,57 @@ sub do_pack_one {
     }
 
     #
-    # Return if there is nothing to pack.
+    # Check whether any packing can be done.
     #
-    if ($packable_args == 0) {
-        return (-1);
-    } elsif ($packable_args == 1 and $options == 0) {
-        return (-1);
+    my $nothing_to_pack = $packable_args == 0 ||
+        $packable_args == 1 && $options == 0;
+    if ($nothing_to_pack) {
+        # The packing engine in the loader processes the operands from
+        # right to left. Rightmost operands that are not packed must
+        # be stacked and then unstacked.
+        #
+        # Because instructions may be broken up into micro
+        # instructions, we might not see all operands at once. So
+        # there could be a micro instructions that packs the operands
+        # to the left of the current micro instruction. If that is the
+        # case, it is essential that we generate stacking and
+        # unstacking instructions even when no packing is
+        # possible. (build_pack_spec() will remove any unecessary
+        # stacking and unstacking operations.)
+        #
+        # Here is an example. Say that we have this instruction:
+        #
+        #     i_plus x x j d
+        #
+        # that comprises two micro instructions:
+        #
+        #     i_plus.fetch x x
+        #     i_plus.execute j d
+        #
+        # This function (do_pack_one()) will be called twice, once to pack
+        # 'x' and 'x', and once to pack 'j' and 'd'.
+        #
+        # On a 32-bit machine, the 'j' and 'd' operands can't be
+        # packed because 'j' requires a full word. The two 'x'
+        # operands in the i_plus.fetch micro instruction will be
+        # packed, though, so we must generate instructions for packing
+        # and unpacking the 'j' and 'd' operands.
+        my $down = '';
+        my $up = '';
+        foreach my $arg (@args) {
+            my $push = 'g';
+            if ($type_bit{$arg} & $type_bit{'q'}) {
+                # The operand may be a literal.
+                $push = 'q';
+            } elsif ($type_bit{$arg} & $type_bit{'f'}) {
+                # The operand may be a failure label.
+                $push = 'f';
+            }
+            $down = "$push${down}";
+            $up = "${up}p";
+        }
+        my $pack_spec = "$down:$up";
+        return (1, ['',$pack_spec,@args]);
     }
 
     #
