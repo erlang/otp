@@ -13883,6 +13883,8 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
+            FREE_BIN(bufP);
+
             return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
@@ -13896,7 +13898,10 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
 
+            FREE_BIN(bufP);
+
             return esock_make_error(env, esock_atom_eagain);
+
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
@@ -13905,6 +13910,8 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*        env,
                     "recvfrom_check_result -> errno: %d\r\n", saveErrno) );
             
             recv_error_current_reader(env, descP, res);
+
+            FREE_BIN(bufP);
 
             return res;
         }
@@ -13983,6 +13990,9 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
 
+
+        FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
         return esock_make_error(env, atom_closed);
 
     }
@@ -14023,6 +14033,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
+            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
             return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
@@ -14037,7 +14049,10 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
             SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
                    descP, NULL, recvRef);
 
+            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
             return esock_make_error(env, esock_atom_eagain);
+
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
 
@@ -14046,6 +14061,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
                     "recvmsg_check_result -> errno: %d\r\n", saveErrno) );
             
             recv_error_current_reader(env, descP, res);
+
+            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
 
             return res;
         }
@@ -14078,6 +14095,8 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*        env,
             
             recv_update_current_reader(env, descP);
         
+            FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
+
             return esock_make_error_str(env, xres);
         } else {
 
