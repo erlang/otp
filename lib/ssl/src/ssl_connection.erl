@@ -1160,7 +1160,7 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
     {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
      [{next_event, internal, Handshake}]};
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 
-    Connection:handle_common_event(internal, TLSorDTLSRecord, StateName, State);
+    Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
 handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->

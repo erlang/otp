@@ -47,7 +47,7 @@
 
 %% State transition handling	 
 -export([next_event/3, next_event/4, 
-         handle_common_event/4]).
+         handle_protocol_record/3]).
 
 %% Handshake handling
 -export([renegotiation/2, renegotiate/2, send_handshake/2, 
@@ -197,11 +197,12 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-handle_common_event(internal, #alert{} = Alert, StateName, 
-		    #state{negotiated_version = Version} = State) ->
-    ssl_connection:handle_own_alert(Alert, Version, StateName, State);
+%%% TLS record protocol level application data messages 
+
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
+    {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
 %%% TLS record protocol level handshake messages 
-handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
+handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
 		    StateName, #state{protocol_buffers =
 					  #protocol_buffers{tls_handshake_buffer = Buf0} = Buffers,
 				      negotiated_version = Version,
@@ -228,15 +229,12 @@ handle_common_event(internal,  #ssl_tls{type = ?HANDSHAKE, fragment = Data},
     catch throw:#alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
     end;
-%%% TLS record protocol level application data messages 
-handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
-    {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
 %%% TLS record protocol level change cipher messages
-handle_common_event(internal, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
+handle_protocol_record(#ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = Data}, StateName, State) ->
     {next_state, StateName, State, [{next_event, internal, #change_cipher_spec{type = Data}}]};
 %%% TLS record protocol level Alert messages
-handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
-		    #state{negotiated_version = Version} = State) ->
+handle_protocol_record(#ssl_tls{type = ?ALERT, fragment = EncAlerts}, StateName,
+                       #state{negotiated_version = Version} = State) ->
     try decode_alerts(EncAlerts) of	
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
@@ -252,8 +250,8 @@ handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, Sta
 
     end;
 %% Ignore unknown TLS record level protocol messages
-handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
-    {next_state, StateName, State}.
+handle_protocol_record(#ssl_tls{type = _Unknown}, StateName, State) ->
+    {next_state, StateName, State, []}.
 %%====================================================================
 %% Handshake handling
 %%====================================================================
