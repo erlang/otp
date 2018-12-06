@@ -110,6 +110,7 @@
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
                    'set_tuple_element' | 'succeeded' |
                    'timeout' |
+                   'update_tuple' |
                    'wait' | 'wait_timeout'.
 
 -type float_op() :: 'checkerror' | 'clearerror' | 'convert' | 'get' | 'put' |
@@ -117,7 +118,8 @@
 
 %% Primops only used internally during code generation.
 -type cg_prim_op() :: 'bs_get' | 'bs_match_string' | 'bs_restore' | 'bs_skip' |
-                      'copy' | 'put_tuple_arity' | 'put_tuple_element'.
+                      'copy' | 'put_tuple_arity' | 'put_tuple_element' |
+                      'update_record'.
 
 -import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
 
@@ -196,6 +198,7 @@ no_side_effect(#b_set{op=Op}) ->
         get_tl -> true;
         get_map_element -> true;
         get_tuple_element -> true;
+        update_tuple -> true;
         has_map_field -> true;
         is_nonempty_list -> true;
         is_tagged_tuple -> true;

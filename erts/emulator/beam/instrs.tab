@@ -608,6 +608,19 @@ set_tuple_element(Element, Tuple, Offset) {
     *p = $Element;
 }
 
+i_update_record(Src, Dst, Live, N) {
+    Eterm res;
+
+    HEAVY_SWAPOUT;
+    res = erts_gc_update_record(c_p, reg, $Live, $Src, $N, $NEXT_INSTRUCTION);
+    HEAVY_SWAPIN;
+
+    ASSERT(is_tuple(res));
+    $Dst = res;
+
+    $NEXT($NEXT_INSTRUCTION+$N);
+}
+
 swap(R1, R2) {
     Eterm V = $R1;
     $R1 = $R2;

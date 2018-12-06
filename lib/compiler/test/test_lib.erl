@@ -78,7 +78,7 @@ opt_opts(Mod) ->
 		    (no_stack_trimming) -> true;
 		    (debug_info) -> true;
 		    (inline) -> true;
-                    (no_put_tuple2) -> true;
+                    (no_tuple2) -> true;
                     (no_bsm3) -> true;
                     (no_bsm_opt) -> true;
 		    (_) -> false

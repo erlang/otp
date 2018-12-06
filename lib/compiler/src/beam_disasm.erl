@@ -373,6 +373,8 @@ disasm_instr(B, Bs, Atoms, Literals) ->
 	    disasm_map_inst(get_map_elements, Arity, Bs, Atoms, Literals);
 	has_map_fields ->
 	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals);
+	update_record ->
+	    disasm_update_record(Bs, Atoms, Literals);
 	put_tuple2 ->
 	    disasm_put_tuple2(Bs, Atoms, Literals);
 	_ ->
@@ -414,6 +416,16 @@ disasm_map_inst(Inst, Arity, Bs0, Atoms, Literals) ->
     {u, Len}   = U,
     {List, RestBs} = decode_n_args(Len, Bs2, Atoms, Literals),
     {{Inst, Args ++ [{Z,U,List}]}, RestBs}.
+
+disasm_update_record(Bs0, Atoms, Literals) ->
+    {Src, Bs1}  = decode_arg(Bs0, Atoms, Literals),
+    {Dst, Bs2}  = decode_arg(Bs1, Atoms, Literals),
+    {Live, Bs3} = decode_arg(Bs2, Atoms, Literals),
+    {Z, Bs4}    = decode_arg(Bs3, Atoms, Literals),
+    {U, Bs5}    = decode_arg(Bs4, Atoms, Literals),
+    {u, Len}    = U,
+    {List, RestBs} = decode_n_args(Len, Bs5, Atoms, Literals),
+    {{update_record, [Src,Dst,Live,{Z,U,List}]}, RestBs}.
 
 disasm_put_tuple2(Bs, Atoms, Literals) ->
     {X, Bs1} = decode_arg(Bs, Atoms, Literals),
@@ -1105,7 +1117,10 @@ resolve_inst({get_hd,[Src,Dst]},_,_,_) ->
 resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
     {get_tl,Src,Dst};
 
+%%
 %% OTP 22
+%%
+
 resolve_inst({bs_start_match3,[Fail,Bin,Live,Dst]},_,_,_) ->
     {bs_start_match3,Fail,Bin,Live,Dst};
 resolve_inst({bs_get_tail,[Src,Dst,Live]},_,_,_) ->
@@ -1114,13 +1129,13 @@ resolve_inst({bs_get_position,[Src,Dst,Live]},_,_,_) ->
     {bs_get_position,Src,Dst,Live};
 resolve_inst({bs_set_position,[Src,Dst]},_,_,_) ->
     {bs_set_position,Src,Dst};
-
-%%
-%% OTP 22.
-%%
 resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
     List = resolve_args(List0),
     {put_tuple2,Dst,{list,List}};
+resolve_inst({update_record,[Src,Dst,{u,Live},List]},_,_,_) ->
+    {{z,1},{u,_Len},Updates0} = List,
+    Updates = resolve_args(Updates0),
+    {update_record,Src,Dst,Live,{list,Updates}};
 
 %%
 %% Catches instructions that are not yet handled.

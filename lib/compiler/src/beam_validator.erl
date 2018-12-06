@@ -679,6 +679,22 @@ valfun_4(timeout, #vst{current=St}=Vst) ->
     Vst#vst{current=St#st{x=init_regs(0, term)}};
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
+valfun_4({update_record,Src,Dst,Live,{list,Ss}}, Vst) ->
+    verify_live(Live, Vst),
+    verify_y_init(Vst),
+    assert_term(Src, Vst),
+    %% Indexes must be within the tuple, and in ascending order.
+    (fun F([{integer, Idx}, Value | Updates], PrevIdx) when Idx > PrevIdx ->
+             assert_type({tuple_element, Idx}, Src, Vst),
+             assert_term(Value, Vst),
+             F(Updates, Idx);
+         F([Idx | _], _) ->
+             error({bad_tuple_index, Idx});
+         F([], _) ->
+             ok
+     end)(Ss, 0),
+    SrcType = get_term_type(Src, Vst),
+    set_type_reg(SrcType, Dst, Vst);
 valfun_4({set_tuple_element,Src,Tuple,I}, Vst) ->
     assert_term(Src, Vst),
     assert_type({tuple_element,I+1}, Tuple, Vst),

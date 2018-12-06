@@ -72,7 +72,7 @@
 
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,map/2,member/2,partition/2,
-                reverse/1,reverse/2,sort/1,zip/2]).
+                reverse/1,reverse/2,sort/1,sort/2,zip/2]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -114,16 +114,17 @@ functions([], _Ps, _UseBSM3) -> [].
 
 passes(Opts) ->
     AddPrecgAnnos = proplists:get_bool(dprecg, Opts),
-    FixTuples = proplists:get_bool(no_put_tuple2, Opts),
+    LegacyTuples = proplists:get_bool(no_tuple2, Opts),
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
           ?PASS(fix_bs),
           ?PASS(sanitize),
-          case FixTuples of
+          case LegacyTuples of
               false -> ignore;
-              true -> ?PASS(fix_tuples)
+              true -> ?PASS(legacy_tuples)
           end,
+          ?PASS(fix_tuples),
           ?PASS(place_frames),
           ?PASS(fix_receives),
 
@@ -838,23 +839,97 @@ prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
 %%% Fix tuples.
 %%%
 
-%% fix_tuples(St0) -> St.
-%%  If compatibility with a previous version of Erlang has been
-%%  requested, tuple creation must be split into two instruction to
-%%  mirror the the way tuples are created in BEAM prior to OTP 22.
+%% legacy_tuples(St0) -> St.
+%%  If compatibility with a previous version of Erlang has been requested,
+%%  tuple creation & updates must mirror the way they were handled prior
+%%  to OTP 22.
+%%
 %%  Each put_tuple instruction is split into put_tuple_arity followed
 %%  by put_tuple_elements.
+%%
+%%  The update_tuple psuedo-instruction is expanded to setelement/3, followed
+%%  by set_tuple_element if needed.
 
-fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
+legacy_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
     F = fun (#b_set{op=put_tuple,args=Args}=Put, C0) ->
                 Arity = #b_literal{val=length(Args)},
                 {Ignore,C} = new_var('@ssa_ignore', C0),
                 {[Put#b_set{op=put_tuple_arity,args=[Arity]},
                   #b_set{dst=Ignore,op=put_tuple_elements,args=Args}],C};
-           (I, C) -> {[I],C}
+            (#b_set{op=update_tuple,args=[_Kind, Src | Args]}=I, C0) ->
+                {Is, C} = expand_update_tuple(Args, I, Src, C0),
+                {reverse(Is), C};
+            (I, C) ->
+                {[I],C}
         end,
     {Blocks,Count} = beam_ssa:flatmapfold_instrs_rpo(F, [0], Count0, Blocks0),
     St#st{ssa=Blocks,cnt=Count}.
+
+%% fix_tuples(St0) -> St
+%%
+%%   Expands the update_tuple psuedo-instruction into its actual instructions.
+
+fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
+    {Linear, Count} = fix_tuples_1(beam_ssa:linearize(Blocks0), Count0, []),
+    Blocks = maps:from_list(Linear),
+    St#st{ssa=Blocks,cnt=Count}.
+
+fix_tuples_1([{L, #b_blk{is=Is0}=B} | Bs], Count0, Acc) ->
+    {Is, Count} = fix_tuples_is(Is0, Count0, []),
+    fix_tuples_1(Bs, Count, [{L, B#b_blk{is=Is}} | Acc]);
+fix_tuples_1([], Count, Acc) ->
+    {Acc, Count}.
+
+fix_tuples_is([#b_set{op=update_tuple, args=[Kind, Src | Args]}=I0 | Is],
+              Count0, Acc) ->
+    case {Kind, Src} of
+        {#b_literal{val=cannot_fail}, #b_var{}} ->
+            I = I0#b_set{op=update_record, args=[Src | Args]},
+            fix_tuples_is(Is, Count0, [I | Acc]);
+        {_, _} ->
+            {Expanded, Count} = expand_update_tuple(Args, I0, Src, Count0),
+            fix_tuples_is(Is, Count, Expanded ++ Acc)
+    end;
+fix_tuples_is([I | Is], Count, Acc) ->
+    fix_tuples_is(Is, Count, [I | Acc]);
+fix_tuples_is([], Count, Acc) ->
+    {reverse(Acc), Count}.
+
+%% Expands an update_tuple list into setelement/3 + set_tuple_element.
+%%
+%% Note that it returns the instructions in reverse order.
+expand_update_tuple(Args, I0, Src, Count0) ->
+    [Index, Value | Rest] = sort_update_tuple(Args, []),
+
+    %% set_tuple_element is destructive, so we have to start off with a
+    %% setelement/3 call to give them something to work on.
+    I = I0#b_set{op=call,
+                 args=[#b_remote{mod=#b_literal{val=erlang},
+                       name=#b_literal{val=setelement},
+                       arity=3},
+                 Index, Src, Value]},
+    eut_1(Rest, I#b_set.dst, Count0, [I]).
+
+eut_1([], _Src, Count, Acc) ->
+    {Acc, Count};
+eut_1([Index0, Value | Updates], Src, Count0, Acc) ->
+    %% This instruction uses 0-based indexing, unlike setelement/3.
+    Index = #b_literal{val=(Index0#b_literal.val - 1)},
+    {Dst, Count} = new_var('@ssa_dummy', Count0),
+    SetOp = #b_set{op=set_tuple_element,
+                   dst=Dst,
+                   args=[Value, Src, Index]},
+    eut_1(Updates, Src, Count, [SetOp | Acc]).
+
+%% Sorts updates so that the highest index comes first, letting us use
+%% set_tuple_element for all subsequent operations as we know their indexes
+%% will be valid.
+sort_update_tuple([_Index, _Value]=Args, []) ->
+    Args;
+sort_update_tuple([#b_literal{}=Index, Value | Updates], Acc) ->
+    sort_update_tuple(Updates, [{Index, Value} | Acc]);
+sort_update_tuple([], Acc) ->
+    append([[Index, Value] || {Index, Value} <- sort(fun erlang:'>='/2, Acc)]).
 
 %%%
 %%% Find out where frames should be placed.

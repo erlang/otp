@@ -596,3 +596,8 @@ BEAM_FORMAT_NUMBER=0
 ## @spec bs_set_positon Ctx Pos
 ## @doc  Sets the current position of Ctx to Pos
 168: bs_set_position/2
+
+## @spec update_record Src Dst Live Updates=[Index, Value]
+## @doc  Sets Dst to a copy of Src with the update list applied. The indexes
+##       must be in ascending order and within the bounds of Src.
+169: update_record/4

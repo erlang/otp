@@ -415,6 +415,10 @@ static Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
 static Eterm get_map_element(Eterm map, Eterm key);
 static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
+static Eterm erts_gc_update_record(Process *p, Eterm *reg, Uint live,
+                                   Eterm source, SWord update_count,
+                                   const Eterm *updates) NOINLINE;
+
 /*
  * Functions not directly called by process_main(). OK to inline.
  */
@@ -3187,6 +3191,86 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p
     p->fvalue = new_key;
     return THE_NON_VALUE;
 }
+
+static Eterm
+erts_gc_update_record(Process *p, Eterm *reg, Uint live, Eterm source,
+                      SWord update_count, const Eterm *updates)
+{
+    SWord tuple_size, arity, index;
+    const Eterm *src_elements, *E;
+    Eterm *dst_elements;
+
+#ifdef DEBUG
+    SWord prev_index = 0;
+#endif
+
+    ASSERT(update_count >= 2 && !(update_count % 2));
+    ASSERT(is_tuple(source));
+
+    src_elements = tuple_val(source);
+    arity = arityval(*src_elements);
+    tuple_size = arity + 1;
+
+    if (HeapWordsLeft(p) < tuple_size) {
+        reg[live] = source;
+        erts_garbage_collect(p, tuple_size, reg, live+1);
+        source = reg[live];
+
+        src_elements = tuple_val(source);
+    }
+
+    ASSERT(HeapWordsLeft(p) >= tuple_size);
+    E = STACK_TOP(p);
+
+    for (index = 0; index < update_count; index += 2) {
+        SWord update_index;
+        Eterm new_value;
+
+        update_index = signed_val(updates[index+0]);
+        GET_TERM(updates[index+1], new_value);
+
+        ASSERT(update_index >= 1 && update_index <= arity);
+        ASSERT(update_index > prev_index);
+        ASSERT(is_value(src_elements[update_index]));
+        ASSERT(is_value(new_value));
+
+#ifdef DEBUG
+        prev_index = update_index;
+#endif
+
+        /* This check is intentionally dirty to avoid deep comparisons, and is
+         * only intended to catch the relatively common case of updating with
+         * the exact same term. */
+        if (src_elements[update_index] != new_value) {
+            break;
+        }
+    }
+
+    ASSERT(index <= update_count);
+
+    if (index == update_count) {
+        /* No changes, return as-is. */
+        return source;
+    }
+
+    dst_elements = HEAP_TOP(p);
+    HEAP_TOP(p) += tuple_size;
+
+    sys_memcpy(dst_elements, src_elements, sizeof(Eterm) * tuple_size);
+
+    for (index = 0; index < update_count; index += 2) {
+        SWord update_index;
+        Eterm new_value;
+
+        update_index = signed_val(updates[index+0]);
+        GET_TERM(updates[index+1], new_value);
+
+        dst_elements[update_index] = new_value;
+    }
+
+    return make_tuple(dst_elements);
+}
+
 #undef GET_TERM
 
 int catchlevel(Process *p)

@@ -383,7 +383,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dcore, ".core"),
     do_listing(Simple, TargetDir, dcopt, ".copt"),
     do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
-    do_listing(Simple, TargetDir, dsetel, ".dsetel"),
     do_listing(Simple, TargetDir, dkern, ".kernel"),
     do_listing(Simple, TargetDir, dssa, ".ssa"),
     do_listing(Simple, TargetDir, dssaopt, ".ssaopt"),
@@ -1472,7 +1471,7 @@ bc_options(Config) ->
     101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
 
     103 = highest_opcode(DataDir, big,
-                         [no_put_tuple2,
+                         [no_tuple2,
                           no_get_hd_tl,no_ssa_opt_record,
                           no_line_info,no_stack_trimming]),
 
@@ -1480,16 +1479,16 @@ bc_options(Config) ->
                          [no_get_hd_tl,no_line_info,no_ssa_opt_float]),
 
     132 = highest_opcode(DataDir, small,
-                         [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                         [no_tuple2,no_get_hd_tl,no_ssa_opt_record,
                           no_ssa_opt_float,no_line_info,no_bsm3]),
 
     153 = highest_opcode(DataDir, small, [r20]),
     153 = highest_opcode(DataDir, small, [r21]),
 
-    136 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
+    136 = highest_opcode(DataDir, big, [no_tuple2,no_get_hd_tl,
                                         no_ssa_opt_record,no_line_info]),
 
-    153 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
+    153 = highest_opcode(DataDir, big, [no_tuple2,no_get_hd_tl,
                                         no_ssa_opt_record]),
     153 = highest_opcode(DataDir, big, [r16]),
     153 = highest_opcode(DataDir, big, [r17]),

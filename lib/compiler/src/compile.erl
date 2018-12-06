@@ -265,14 +265,14 @@ expand_opt(r19, Os) ->
 expand_opt(r20, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r21, Os) ->
-    [no_put_tuple2 | expand_opt(no_bsm3, Os)];
+    [no_tuple2 | expand_opt(no_bsm3, Os)];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->
-    [no_put_tuple2, no_get_hd_tl, no_ssa_opt_record,
-     no_utf8_atoms | expand_opt(no_bsm3, Os)].
+    [no_tuple2, no_get_hd_tl, no_ssa_opt_record, no_utf8_atoms |
+     expand_opt(no_bsm3, Os)].
 
 %% format_error(ErrorDescriptor) -> string()
 
@@ -810,8 +810,6 @@ kernel_passes() ->
     %% Optimizations that must be done after all other optimizations.
     [{pass,sys_core_bsm},
      {iff,dcbsm,{listing,"core_bsm"}},
-     {pass,sys_core_dsetel},
-     {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},
      {iff,core,?pass(save_core_code)},
@@ -2120,7 +2118,6 @@ pre_load() ->
 	 erl_scan,
 	 sys_core_alias,
 	 sys_core_bsm,
-	 sys_core_dsetel,
 	 sys_core_fold,
 	 v3_core,
 	 v3_kernel],

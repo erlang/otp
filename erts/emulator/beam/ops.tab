@@ -1643,3 +1643,10 @@ i_recv_set
 
 build_stacktrace
 raw_raise
+
+## OTP 22
+
+update_record Src=xy Dst=xy Live Size Updates=* => \
+    i_update_record Src Dst Live Size Updates
+
+i_update_record xy xy t I

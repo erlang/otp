@@ -53,6 +53,7 @@ passes(Opts0) ->
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_record),
+          ?PASS(ssa_opt_setelement),
 
           %% Run ssa_opt_cse twice, because it will help ssa_opt_dead,
           %% and ssa_opt_dead will help ssa_opt_cse. Run ssa_opt_live
@@ -307,6 +308,73 @@ swap_element_calls_1([], _, Blocks) ->
     %% Nothing to do. The element call with highest index
     %% is already the first one to be executed.
     Blocks.
+
+%%
+%% Replaces setelement/3 with the update_tuple psuedo-instruction, and merges
+%% multiple such calls into the same instruction.
+%%
+
+ssa_opt_setelement(#st{ssa=Linear0}=St) ->
+    St#st{ssa=setelement_opt(Linear0, #{})}.
+
+setelement_opt([{L, #b_blk{is=Is0}=B} | Bs], SetOps0) ->
+    {Is, SetOps} = setelement_opt_is(Is0, SetOps0, []),
+    [{L, B#b_blk{is=Is}} | setelement_opt(Bs, SetOps)];
+setelement_opt([], _SetOps) ->
+    [].
+
+setelement_opt_is([#b_set{op=call,
+                          dst=Dst,
+                          args=[#b_remote{mod=#b_literal{val=erlang},
+                                          name=#b_literal{val=setelement}},
+                                Index, Src, Value]}=I0 | Is],
+                  SetOps0, Acc) ->
+    SetOps1 = maps:put(Dst, {Src, Index, Value}, SetOps0),
+    SetOps = maps:remove(Value, SetOps1),
+
+    Args = setelement_merge(Src, SetOps, [Index, Value], gb_sets:new()),
+    I = I0#b_set{op=update_tuple,
+                 dst=Dst,
+                 args=[#b_literal{val=can_fail} | Args]},
+
+    setelement_opt_is(Is, SetOps, [I | Acc]);
+setelement_opt_is([#b_set{op=Op}=I | Is], SetOps0, Acc) ->
+    case beam_ssa:clobbers_xregs(I) of
+        true ->
+            %% Merging setelement across stack frames is potentially very
+            %% expensive as the update list needs to be saved on the stack, so
+            %% we discard our state whenever we need one.
+            setelement_opt_is(Is, #{}, [I | Acc]);
+        false when Op =/= succeeded ->
+            %% It's pointless to merge us with later ops if our result is used
+            %% and needs to be created anyway.
+            SetOps = maps:without(beam_ssa:used(I), SetOps0),
+            setelement_opt_is(Is, SetOps, [I | Acc]);
+        false when Op =:= succeeded ->
+            %% This is a psuedo-op used to link ourselves with our catch block,
+            %% so it doesn't really count as a use.
+            setelement_opt_is(Is, SetOps0, [I | Acc])
+    end;
+setelement_opt_is([], SetOps, Acc) ->
+    {reverse(Acc), SetOps}.
+
+setelement_merge(Src, SetOps, Updates0, Seen0) ->
+    %% Note that we're merging in reverse order, so Updates0 contains the
+    %% updates made *after* this one.
+    case SetOps of
+        #{ Src := {Ancestor, #b_literal{}=Index, Value} } ->
+            %% Drop redundant updates, which can happen when when a record is
+            %% updated in several branches and one of them overwrites a
+            %% previous index.
+            Updates = case gb_sets:is_element(Index, Seen0) of
+                          false -> [Index, Value | Updates0];
+                          true -> Updates0
+                      end,
+            Seen = gb_sets:add(Index, Seen0),
+            setelement_merge(Ancestor, SetOps, Updates, Seen);
+        #{} ->
+            [Src | Updates0]
+    end.
 
 %%%
 %%% Record optimization.

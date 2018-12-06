@@ -702,7 +702,7 @@ otp_7078(Config) when is_list(Config) ->
 
 -record(otp_7101, {a,b,c=[],d=[],e=[]}).
 
-%% OTP-7101. Record update: more than one call to setelement/3.
+%% OTP-7101. Record update: verify that setelement/3 is optimized away.
 otp_7101(Config) when is_list(Config) ->
     Rec = #otp_7101{},
 
@@ -712,15 +712,24 @@ otp_7101(Config) when is_list(Config) ->
     Tracer = spawn_link(fun() -> otp_7101_tracer(Self, 0) end),
     1 = erlang:trace_pattern({erlang,setelement,3}, true),
     erlang:trace(self(), true, [{tracer,Tracer},call]),
-    
-    %% Update the record.
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update1(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update2(Rec),
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update3(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update4(Rec),
 
-    %% Verify that setelement/3 was called the same number of times as
-    %% the number of record updates.
+    %% Update the record.
+    A = otp_7101_update1(Rec),
+    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = id(A),
+    B = otp_7101_update2(Rec),
+    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = id(B),
+    C = otp_7101_update3(Rec),
+    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = id(C),
+    D = otp_7101_update4(Rec),
+    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = id(D),
+
+    %% Make sure we haven't accidentally mutated the same instance.
+    true = A =/= B,
+    true = C =/= D,
+    true = A =:= C,
+    true = B =:= D,
+
+    %% Verify that setelement/3 was never called.
     Ref = erlang:trace_delivered(Self),
     receive
 	{trace_delivered, Self, Ref} ->
@@ -728,7 +737,7 @@ otp_7101(Config) when is_list(Config) ->
     end,
     1 = erlang:trace_pattern({erlang,setelement,3}, false),
     receive
-	4 ->
+	0 ->
 	    ok;
 	Other ->
 	    ct:fail({unexpected,Other})
@@ -755,6 +764,8 @@ otp_7101_update3(R) ->
 
 otp_7101_update4(R) ->
     R#otp_7101{a=1,b=2}.
+
+id(I) -> I.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

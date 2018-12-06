@@ -28,7 +28,7 @@
 
 -include("beam_ssa.hrl").
 
--import(lists, [foldl/3,keymember/3,keysort/2,last/1,map/2,mapfoldl/3,
+-import(lists, [append/1,foldl/3,keymember/3,keysort/2,last/1,map/2,mapfoldl/3,
                 reverse/1,reverse/2,sort/1,splitwith/2,takewhile/2]).
 
 -record(cg, {lcount=1 :: beam_label(),          %Label counter
@@ -392,6 +392,7 @@ classify_heap_need(raw_raise) -> gc;
 classify_heap_need(recv_next) -> gc;
 classify_heap_need(remove_message) -> neutral;
 classify_heap_need(resume) -> gc;
+classify_heap_need(update_record) -> gc;
 classify_heap_need(set_tuple_element) -> gc;
 classify_heap_need(succeeded) -> neutral;
 classify_heap_need(timeout) -> gc;
@@ -743,6 +744,7 @@ need_live_anno(Op) ->
         bs_skip -> true;
         call -> true;
         put_map -> true;
+        update_record -> true;
         _ -> false
     end.
 
@@ -859,6 +861,7 @@ need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
     end;
 need_y_init(#cg_set{op=bs_start_match}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
+need_y_init(#cg_set{op=update_record}) -> true;
 need_y_init(#cg_set{}) -> false.
 
 %% opt_allocate([{BlockLabel,Block}], #st{}) -> [BeamInstruction].
@@ -1530,6 +1533,8 @@ cg_instr(bs_get_tail, [Src], Dst, Set) ->
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
+cg_instr(update_record, [Src | Ss], Dst, Set) ->
+    cg_update_record(Src, Ss, Dst, Set);
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
@@ -1607,6 +1612,12 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
+cg_test(update_record, Fail, [Src | Ss], Dst, Set) ->
+    {f,0} = Fail,                               %Assertion.
+    cg_update_record(Src, Ss, Dst, Set);
+cg_test(set_tuple_element, Fail, [New,Tuple,{integer,Index}], _Dst, _Set) ->
+    {f,0} = Fail,                               %Assertion.
+    [{set_tuple_element,New,Tuple,Index}];
 cg_test(wait_timeout, Fail, [Timeout], _Dst, _) ->
     case Timeout of
         {atom,infinity} ->
@@ -1614,6 +1625,19 @@ cg_test(wait_timeout, Fail, [Timeout], _Dst, _) ->
         _ ->
             [{wait_timeout,Fail,Timeout}]
     end.
+
+cg_update_record(Src, Ss0, Dst, Set) ->
+    %% update_record requires the indexes to be sorted in ascending order.
+    Ss = sort_update_record(Ss0, []),
+    Live = get_live(Set),
+    [{update_record,Src,Dst,Live,{list,Ss}}].
+
+sort_update_record([_Index, _Value]=Args, []) ->
+    Args;
+sort_update_record([Index, Value | Updates], Acc) ->
+    sort_update_record(Updates, [{Index, Value} | Acc]);
+sort_update_record([], Acc) ->
+    append([[Index, Value] || {Index, Value} <- sort(Acc)]).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of

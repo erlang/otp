@@ -168,7 +168,6 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_alias:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_bsm:module(BadCoreErlang, []) end),
-    expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
     %% beam_kernel_to_ssa

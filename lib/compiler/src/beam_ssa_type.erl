@@ -289,11 +289,27 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
         none -> I;
         List -> #b_literal{val=list_to_tuple(List)}
     end;
+simplify(#b_set{op=update_tuple,args=[_Kind, Tuple | Updates]}=I, Ts) ->
+    case get_type(Tuple, Ts) of
+        #t_tuple{size=Size} ->
+            simplify_update_tuple(Updates, I, Size);
+        _ ->
+            I
+    end;
 simplify(#b_set{op=succeeded,args=[#b_literal{}]}, _Ts) ->
     #b_literal{val=true};
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
+
+simplify_update_tuple([#b_literal{val=N}, _Value | Updates], I, Size)
+  when is_integer(N), N =< Size, N >= 1 ->
+    simplify_update_tuple(Updates, I, Size);
+simplify_update_tuple([_|_], #b_set{args=[Kind | _Args]}=I, _Size) ->
+    #b_literal{val=can_fail} = Kind,            %Assertion.
+    I;
+simplify_update_tuple([], #b_set{args=[_Kind | Args]}=I, _Size) ->
+    I#b_set{args=[#b_literal{val=cannot_fail} | Args]}.
 
 make_literal_list(Args) ->
     make_literal_list(Args, []).
@@ -525,24 +541,8 @@ type(bs_match, Args, _Ts, _Ds) ->
 type(bs_get_tail, _Args, _Ts, _Ds) ->
     {binary, 1};
 type(call, [#b_remote{mod=#b_literal{val=Mod},
-                      name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
+                      name=#b_literal{val=Name}}|Args], _Ts, _Ds) ->
     case {Mod,Name,Args} of
-        {erlang,setelement,[Pos,Tuple,_]} ->
-            case {get_type(Pos, Ts),get_type(Tuple, Ts)} of
-                {#t_integer{elements={MinIndex,_}},#t_tuple{}=T}
-                  when MinIndex > 1 ->
-                    %% First element is not updated. The result
-                    %% will have the same type.
-                    T;
-                {_,#t_tuple{}=T} ->
-                    %% Position is 1 or unknown. May update the first
-                    %% element of the tuple.
-                    T#t_tuple{elements=[]};
-                {#t_integer{elements={MinIndex,_}},_} ->
-                    #t_tuple{size=MinIndex};
-                {_,_} ->
-                    #t_tuple{}
-            end;
         {math,_,_} ->
             case is_math_bif(Name, length(Args)) of
                 false -> any;
@@ -608,6 +608,37 @@ type(succeeded, [#b_var{}=Src], Ts, Ds) ->
         #b_set{} ->
             t_boolean()
     end;
+type(update_tuple, [_Kind, Src | Updates0], Ts, _Ds) ->
+    F = fun F([Pos, Value | Updates], #t_tuple{size=Size}=T) ->
+                case get_type(Pos, Ts) of
+                    #t_integer{elements={MinIndex,_}} when MinIndex > 1 ->
+                        %% First element can't be overwritten, so we bump the
+                        %% size and leave it at that.
+                        F(Updates, T#t_tuple{size=max(MinIndex, Size)});
+                    #t_integer{elements={1,1}} ->
+                        %% First element is overwritten, set its value if we
+                        %% know it.
+                        Es = case get_literal_from_type(get_type(Value, Ts)) of
+                                 #b_literal{val=Val} -> [Val];
+                                 none -> []
+                             end,
+                        F(Updates, T#t_tuple{size=max(1, Size), elements=Es});
+                    #t_integer{elements={1,_}} ->
+                        %% First element *could* be overwritten, so we need to
+                        %% wipe it before bumping the size.
+                        F(Updates, T#t_tuple{size=max(1, Size),
+                                             elements=[]});
+                    _ ->
+                        F(Updates, T#t_tuple{elements=[]})
+                end;
+            F([], #t_tuple{}=T) ->
+                T
+        end,
+    Type = case get_type(Src, Ts) of
+               #t_tuple{}=T -> T;
+               _ -> #t_tuple{}
+           end,
+    F(Updates0, Type);
 type(_, _, _, _) -> any.
 
 arith_op_type(Args, Ts) ->
