@@ -1998,8 +1998,9 @@ recvttl_ok({unix,darwin}, OSVer) -> not semver_lt(OSVer, {19,0,0});
 %% Using the option returns einval, so it is not implemented.
 recvttl_ok({unix,freebsd}, OSVer) -> not semver_lt(OSVer, {11,2,0});
 recvttl_ok({unix,sunos}, OSVer) -> not semver_lt(OSVer, {5,12,0});
+%% Does not return any value - not implemented for pktoptions
+recvttl_ok({unix,linux}, OSVer) -> not semver_lt(OSVer, {2,7,0});
 %%
-recvttl_ok({unix,linux}, _) -> true;
 recvttl_ok({unix,_}, _) -> true;
 recvttl_ok(_, _) -> false.
 
