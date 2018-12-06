@@ -4233,8 +4233,13 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
     descP->type     = type;
     descP->protocol = protocol;
 
+    /*
+     * Should we keep track of sockets (resources) in some way?
+     * Doing it here will require mutex to ensure data integrity,
+     * which will be costly. Send it somewhere?
+     */
     res = enif_make_resource(env, descP);
-    enif_release_resource(descP); // We should really store a reference ...
+    enif_release_resource(descP);
 
     /* Keep track of the creator
      * This should not be a problem but just in case
@@ -13592,6 +13597,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
         recv_error_current_reader(env, descP, res);
 
+        FREE_BIN(bufP);
+
         return res;
 
     }
@@ -13633,6 +13640,9 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
             if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL)
                 return esock_make_error_str(env, xres);
 
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
             data = MKBIN(env, bufP);
 
             SSDBG( descP,
@@ -13664,6 +13674,9 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
             recv_update_current_reader(env, descP);
 
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
             data = MKBIN(env, bufP);
 
             return esock_make_ok3(env, atom_true, data);
@@ -13707,6 +13720,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
+            FREE_BIN(bufP);
+
             return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
@@ -13721,16 +13736,14 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
             
             SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT for more\r\n") );
 
-            /*
-            SELECT(env, descP->sock, (ERL_NIF_SELECT_READ),
-                   descP, NULL, recvRef);
-            */
-
             sres = enif_select(env, descP->sock, (ERL_NIF_SELECT_READ),
                                descP, NULL, recvRef);
 
-            SSDBG( descP, ("SOCKET", "recv_check_result -> SELECT res: %d\r\n", sres) );
+            SSDBG( descP,
+                   ("SOCKET", "recv_check_result -> SELECT res: %d\r\n", sres) );
             
+            FREE_BIN(bufP);
+
             return esock_make_error(env, esock_atom_eagain);
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
@@ -13739,6 +13752,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
                            toRead, saveErrno) );
 
             recv_error_current_reader(env, descP, res);
+
+            FREE_BIN(bufP);
 
             return res;
         }
@@ -13768,6 +13783,9 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
             recv_update_current_reader(env, descP);
 
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
             data = MKBIN(env, bufP);
             data = MKSBIN(env, data, 0, read);
 
@@ -13792,6 +13810,9 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
             
             cnt_inc(&descP->readByteCnt, read);
 
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
             data = MKBIN(env, bufP);
             data = MKSBIN(env, data, 0, read);
 
@@ -15713,6 +15734,7 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
     if ((descP = enif_alloc_resource(sockets, sizeof(SocketDescriptor))) != NULL) {
         char buf[64]; /* Buffer used for building the mutex name */
 
+        // This needs to be released when the socket is closed!
         descP->env            = enif_alloc_env();
 
         sprintf(buf, "socket[w,%d]", sock);
@@ -16870,10 +16892,15 @@ void socket_dtor(ErlNifEnv* env, void* obj)
 {
   SocketDescriptor* descP = (SocketDescriptor*) obj;
 
+  enif_clear_env(descP->env);
+  enif_free_env(descP->env);
+  descP->env = NULL;
+
   MDESTROY(descP->writeMtx);
   MDESTROY(descP->readMtx);
   MDESTROY(descP->accMtx);
   MDESTROY(descP->closeMtx);
+
 }
 
 

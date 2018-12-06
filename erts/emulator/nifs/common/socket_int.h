@@ -378,6 +378,7 @@ extern ERL_NIF_TERM esock_atom_einval;
 
 #define ALLOC_BIN(SZ, BP)         enif_alloc_binary((SZ), (BP))
 #define REALLOC_BIN(SZ, BP)       enif_realloc_binary((SZ), (BP))
+#define FREE_BIN(BP)              enif_release_binary((BP))
 
 
 #endif // SOCKET_INT_H__
