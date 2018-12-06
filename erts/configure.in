@@ -3012,7 +3012,11 @@ AC_TRY_RUN([
 ],
 erl_code_model_small=yes,
 erl_code_model_small=no,
-erl_code_model_small=no)
+[case X$erl_xcomp_code_model_small in
+      X) erl_code_model_small=no;;
+      Xyes|Xno) erl_code_model_small=$erl_xcomp_code_model_small;;
+      *) AC_MSG_ERROR([Bad erl_xcomp_code_model_small value: $erl_xcomp_code_model_small]);;
+ esac])
 AC_MSG_RESULT([$erl_code_model_small])
 LDFLAGS="$saved_LDFLAGS"
 case $erl_code_model_small in

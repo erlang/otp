@@ -2320,8 +2320,8 @@ system_cleanup(int flush_async)
 	     * The exiting thread might be waiting for
 	     * us to block; need to update status...
 	     */
-	    erts_thr_progress_active(NULL, 0);
-	    erts_thr_progress_prepare_wait(NULL);
+	    erts_thr_progress_active(erts_thr_prgr_data(NULL), 0);
+	    erts_thr_progress_prepare_wait(erts_thr_prgr_data(NULL));
 	}
 	/* Wait forever... */
 	while (1)

@@ -521,6 +521,9 @@ When a variable has been set, no warning will be issued.
     `posix_memalign` implementation that accepts larger than page size
     alignment.
 
+*   `erl_xcomp_code_model_small` - `yes|no`. Default to `no`. If `yes`, the target
+    system must place the beam.smp executable in the lower 2 GB of memory. That is it
+    should not use position independent executable.
 
 
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md

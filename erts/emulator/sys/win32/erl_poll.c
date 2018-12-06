@@ -1017,10 +1017,12 @@ ErtsPollEvents erts_poll_control(ErtsPollSet *ps,
 
 int erts_poll_wait(ErtsPollSet *ps,
 		   ErtsPollResFd pr[],
-		   int *len)
+		   int *len,
+                   ErtsThrPrgrData *tpd,
+                   Sint64 timeout_in)
 {
     int no_fds;
-    DWORD timeout = INFINITE;
+    DWORD timeout = timeout_in == -1 ? INFINITE : timeout_in;
     EventData* ev;
     int res = 0;
     int num = 0;
@@ -1056,10 +1058,10 @@ int erts_poll_wait(ErtsPollSet *ps,
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
-	erts_thr_progress_prepare_wait(NULL);
+	erts_thr_progress_prepare_wait(tpd);
         ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_SLEEP);
 	handle = WaitForMultipleObjects(num_h, harr, FALSE, timeout);
-	erts_thr_progress_finalize_wait(NULL);
+	erts_thr_progress_finalize_wait(tpd);
         ERTS_MSACC_POP_STATE();
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
