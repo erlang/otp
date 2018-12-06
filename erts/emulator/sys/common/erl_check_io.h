@@ -138,8 +138,7 @@ typedef struct {
 
 struct erts_nif_select_event {
     Eterm pid;
-    Eterm immed;
-    Uint32 refn[ERTS_REF_NUMBERS];
+    ErtsMessage *mp;
 };
 
 typedef struct {

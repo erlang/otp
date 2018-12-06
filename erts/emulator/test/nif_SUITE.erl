@@ -486,6 +486,7 @@ t_on_load(Config) when is_list(Config) ->
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
 -define(ERL_NIF_SELECT_STOP, (1 bsl 2)).
 -define(ERL_NIF_SELECT_CANCEL, (1 bsl 3)).
+-define(ERL_NIF_SELECT_CUSTOM_MSG, (1 bsl 4)).
 
 -define(ERL_NIF_SELECT_STOP_CALLED, (1 bsl 0)).
 -define(ERL_NIF_SELECT_STOP_SCHEDULED, (1 bsl 1)).
@@ -496,33 +497,38 @@ t_on_load(Config) when is_list(Config) ->
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
+    select_do(0, make_ref(), make_ref()),
 
-    Ref = make_ref(),
-    Ref2 = make_ref(),
+    RefBin = list_to_binary(lists:duplicate(100, $x)),
+    select_do(?ERL_NIF_SELECT_CUSTOM_MSG,
+              small, {a, tuple, with, "some", RefBin}),
+    ok.
+
+select_do(Flag, Ref, Ref2) ->
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
     %% Wait for read
     eagain = read_nif(R, 3),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref),
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref, ready_input}] = flush(),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref, ready_input),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag,R,self(),Ref2),
+    receive_ready(R, Ref2, ready_input),
     Papa = self(),
     Pid = spawn_link(fun() ->
-                             [{select, R, Ref, ready_input}] = flush(),
+                             receive_ready(R, Ref, ready_input),
                              Papa ! {self(), done}
                      end),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,Pid,Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, Pid, Ref),
     {Pid, done} = receive_any(1000),
 
     %% Cancel read
     0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
     <<"hej">> = read_nif(R, 3),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref),
     ?ERL_NIF_SELECT_READ_CANCELLED =
         select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
     ok = write_nif(W, <<"hej again">>),
@@ -531,65 +537,63 @@ select(Config) when is_list(Config) ->
 
     %% Wait for write
     Written = write_full(W, $a),
-    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,self(),Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, self(), Ref),
     [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
-    [{select, W, Ref, ready_output}] = flush(),
+    receive_ready(W, Ref, ready_output),
 
     %% Cancel write
-    0 = select_nif(W,?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL,W,null,Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref),
     Written2 = write_full(W, $b),
-    0 = select_nif(W,?ERL_NIF_SELECT_WRITE,W,null,Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, null, Ref),
     ?ERL_NIF_SELECT_WRITE_CANCELLED =
-        select_nif(W,?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL,W,null,Ref),
+        select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref),
     Written2 = read_nif(R,byte_size(Written2)),
     [] = flush(0),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
-    check_stop_ret(select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref)),
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref)),
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(0),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref),
-    [{select, R, Ref, ready_input}] = flush(),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref),
+    receive_ready(R, Ref, ready_input),
     eof = read_nif(R,1),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref)),
+    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
-    select_2(Config).
+    select_2(Flag, Ref, Ref2).
 
-select_2(Config) ->
+select_2(Flag, Ref1, Ref2) ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
 
-    Ref1 = make_ref(),
-    Ref2 = make_ref(),
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
 
     %% Change ref
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,self(),Ref2),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref2),
 
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
-    [{select, R, Ref2, ready_input}] = flush(),
+    receive_ready(R, Ref2, ready_input),
     <<"hej">> = read_nif(R, 3),
 
     %% Change pid
     eagain = read_nif(R, 1),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
     Papa = self(),
     spawn_link(fun() ->
-                       0 = select_nif(R,?ERL_NIF_SELECT_READ,R,null,Ref1),
+                       0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
                        [] = flush(0),
                        Papa ! sync,
-                       [{select, R, Ref1, ready_input}] = flush(),
+                       receive_ready(R, Ref1, ready_input),
                        <<"hej">> = read_nif(R, 3),
                        Papa ! done
                end),
@@ -609,12 +613,18 @@ select_2(Config) ->
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
 
-    select_3(Config).
+    select_3().
 
-select_3(_Config) ->
+select_3() ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
     ok.
+
+receive_ready(R, Ref, IOatom) when is_reference(Ref) ->
+    [{select, R, Ref, IOatom}] = flush();
+receive_ready(_, Msg, _) ->
+    [Got] = flush(),
+    {true,_,_} = {Got=:=Msg, Got, Msg}.
 
 %% @doc The stealing child process for the select_steal test. Duplicates given
 %% W/RFds and runs select on them to steal
