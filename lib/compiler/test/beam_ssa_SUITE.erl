@@ -92,7 +92,13 @@ start_it([_|_]=MFA) ->
     end.
 
 tuple_matching(_Config) ->
-    do_tuple_matching({tag,42}).
+    do_tuple_matching({tag,42}),
+
+    true = is_two_tuple({a,b}),
+    false = is_two_tuple({a,b,c}),
+    false = is_two_tuple(atom),
+
+    ok.
 
 do_tuple_matching(Arg) ->
     Res = do_tuple_matching_1(Arg),
@@ -116,6 +122,12 @@ do_tuple_matching_3(Tuple) when is_tuple(Tuple) ->
         Size =:= 2 ->
             2 = id(Size),
             {ok,element(2, Tuple)}
+    end.
+
+is_two_tuple(Arg) ->
+    case is_tuple(Arg) of
+        false -> false;
+        true -> tuple_size(Arg) == 2
     end.
 
 -record(reporter_state, {res,run_config}).
