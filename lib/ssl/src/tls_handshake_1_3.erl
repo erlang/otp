@@ -50,8 +50,7 @@ server_hello(SessionId, KeyShare, ConnectionStates, _Map) ->
     Extensions = server_hello_extensions(KeyShare),
     #server_hello{server_version = {3,3}, %% legacy_version
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
-                  compression_method =
-                      SecParams#security_parameters.compression_algorithm,
+                  compression_method = 0, %% legacy attribute
 		  random = SecParams#security_parameters.server_random,
 		  session_id = SessionId,
 		  extensions = Extensions
@@ -198,7 +197,6 @@ extensions_list(HelloExtensions) ->
 %%====================================================================
 
 handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
-                                  random = Random,
                                   session_id = SessionId,
                                   extensions = Extensions} = _Hello,
                     #ssl_options{ciphers = ServerCiphers,
@@ -233,7 +231,7 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(ClientCiphers, ServerCiphers)),
         Group = Maybe(select_server_group(ServerGroups, ClientGroups)),
         Maybe(validate_key_share(ClientGroups, ClientShares)),
-        _ClientPubKey = Maybe(get_client_public_key(Group, ClientShares)),
+        ClientPubKey = Maybe(get_client_public_key(Group, ClientShares)),
 
         %% Handle certificate
         {PublicKeyAlgo, SignAlgo} = get_certificate_params(Cert),
@@ -250,9 +248,8 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         _Ret = #{cipher => Cipher,
                 group => Group,
                 sign_alg => SelectedSignAlg,
-                %% client_share => ClientPubKey,
+                client_share => ClientPubKey,
                 key_share => KeyShare,
-                client_random => Random,
                 session_id => SessionId}
 
         %% TODO:
