@@ -891,6 +891,11 @@ void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 int erts_set_group_leader(Process *proc, Eterm new_gl);
 
+/* erl_bif_guard.c */
+
+void erts_init_bif_guard(void);
+Eterm erts_trapping_length_1(Process* p, Eterm* args);
+
 /* erl_bif_op.c */
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);

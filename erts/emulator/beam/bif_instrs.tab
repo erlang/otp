@@ -161,6 +161,87 @@ i_bif3_body(Bif, Src1, Src2, Src3, Dst) {
 }
 
 //
+// length/1 is the only guard BIF that does not execute in constant
+// time. Here follows special instructions to allow the calculation of
+// the list length to be broken in several chunks to avoid hogging
+// the scheduler for a long time.
+//
+
+i_length_setup(Live, Src) {
+    Uint live = $Live;
+    Eterm src = $Src;
+
+    reg[live] = src;
+    reg[live+1] = make_small(0);
+    reg[live+2] = src;
+
+    /* This instruction is always followed by i_length */
+    SET_I($NEXT_INSTRUCTION);
+    goto i_length_start__;
+    //| -no_next
+}
+
+//
+// This instruction can be executed one or more times. When entering
+// this instruction, the X registers have the following contents:
+//
+// reg[live+0] The remainder of the list.
+// reg[live+1] The length so far (tagged integer).
+// reg[live+2] The original list. Only used if an error is generated
+//             (if the final tail of the list is not []).
+//
+
+i_length := i_length.start.execute;
+
+i_length.start() {
+ i_length_start__:
+    ;
+}
+
+i_length.execute(Fail, Live, Dst) {
+    Eterm result;
+    Uint live;
+
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    ERTS_CHK_MBUF_SZ(c_p);
+    DEBUG_SWAPOUT;
+
+    live = $Live;
+    result = erts_trapping_length_1(c_p, reg+live);
+
+    DEBUG_SWAPIN;
+    ERTS_CHK_MBUF_SZ(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_HOLE_CHECK(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(result))) {
+        /* Successful calculation of the list length. */
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    } else if (c_p->freason == TRAP) {
+        /*
+         * Good so far, but there is more work to do. Yield.
+         */
+        $SET_CP_I_ABS(I);
+        SWAPOUT;
+        c_p->arity = live + 3;
+        c_p->current = NULL;
+        goto context_switch3;
+    } else {
+        /* Error. */
+        $BIF_ERROR_ARITY_1($Fail, BIF_length_1, reg[live+2]);
+    }
+    //| -no_next
+}
+
+//
 // The most general BIF call.  The BIF may build any amount of data
 // on the heap.  The result is always returned in r(0).
 //

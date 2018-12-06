@@ -1588,6 +1588,17 @@ bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
 bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 
 #
+# Handle the length/1 guard BIF specially to make it trappable.
+#
+
+gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst => \
+   i_length_setup Live Src | i_length Fail Live Dst
+
+i_length_setup t xyc
+
+i_length j? t d
+
+#
 # Guard BIFs.
 #
 gc_bif1 p Live Bif Src Dst           => i_bif1_body Bif Src Dst
