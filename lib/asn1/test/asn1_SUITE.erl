@@ -63,7 +63,8 @@ groups() ->
        constraint_equivalence]},
 
      {ber, Parallel,
-      [ber_choiceinseq,
+      [ber_decode_invalid_length,
+       ber_choiceinseq,
        % Uses 'SOpttest'
        ber_optional,
        tagdefault_automatic]},
@@ -665,6 +666,19 @@ module_test(M0, Config, Rule, Opts) ->
 	    end
     end.
 
+ber_decode_invalid_length(_Config) ->
+    Bin = <<48,129,157,48,0,2,1,2,164,0,48,129,154,49,24,48,22,6,
+            3,85,4,10,19,15,69,120,97,109,112,108,101,32,67,111,
+            109,112,97,110,121,49,29,48,27,6,9,42,134,72,134,247,
+            13,1,9,1,22,14,99,97,64,101,120,97,109,112,108,101,46,
+            99,111,109,49,13,48,11,6,3,85,4,7,19,4,79,117,108,117,
+            49,26,48,24,6,3,85,4,8,19,17,80,111,104,106,111,105,
+            115,45,80,111,104,106,97,110,109,97,97,49,11,48,9,6,3,
+            85,4,6,19,2,70,73,49,19,48,17,6,3,85,4,3,19,10,69,120,
+            97,109,112,108,101,32,67,65,49,11,48,16,6,3,85,4,11,
+            19,9,84,101>>,
+    {'EXIT',{error,{asn1,{invalid_value,12}}}} = (catch asn1rt_nif:decode_ber_tlv(Bin)),
+    ok.
 
 ber_choiceinseq(Config) ->
     test(Config, fun ber_choiceinseq/3, [ber]).
