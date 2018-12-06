@@ -1189,7 +1189,8 @@ bad_raise(Expr) ->
 test_raise(Expr) ->
     test_raise_1(Expr),
     test_raise_2(Expr),
-    test_raise_3(Expr).
+    test_raise_3(Expr),
+    test_raise_4(Expr).
 
 test_raise_1(Expr) ->
     erase(exception),
@@ -1261,6 +1262,29 @@ do_test_raise_3(Expr) ->
             %% the raw_raise/3 instruction since the stacktrace is
             %% not actually used.
             erlang:raise(exit, {exception,C,E}, Stk)
+    end.
+
+test_raise_4(Expr) ->
+    try
+        do_test_raise_4(Expr)
+    catch
+        exit:{exception,C,E,Stk}:Stk ->
+            try
+                Expr()
+            catch
+                C:E:S ->
+                    [StkTop|_] = S,
+                    [StkTop|_] = Stk
+            end
+    end.
+
+do_test_raise_4(Expr) ->
+    try
+        Expr()
+    catch
+        C:E:Stk ->
+            %% Here the stacktrace must be built.
+            erlang:raise(exit, {exception,C,E,Stk}, Stk)
     end.
 
 

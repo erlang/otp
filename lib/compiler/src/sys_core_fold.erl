@@ -2635,12 +2635,20 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
         #c_call{module=#c_literal{val=erlang},
                 name=#c_literal{val=raise},
                 args=[Class,Exp,#c_var{name=Cooked}]} ->
-            %% The stacktrace is only used in a call to erlang:raise/3.
-            %% There is no need to build the stacktrace. Replace the
-            %% call to erlang:raise/3 with the the raw_raise/3 instruction,
-            %% which will use a raw stacktrace.
-            #c_primop{name=#c_literal{val=raw_raise},
-                      args=[Class,Exp,RawStk]};
+            case core_lib:is_var_used(Cooked, #c_cons{hd=Class,tl=Exp}) of
+                true ->
+                    %% Not safe. The stacktrace is used in the class or
+                    %% reason.
+                    Let;
+                false ->
+                    %% The stacktrace is only used in the last
+                    %% argument for erlang:raise/3. There is no need
+                    %% to build the stacktrace. Replace the call to
+                    %% erlang:raise/3 with the the raw_raise/3
+                    %% instruction, which will use a raw stacktrace.
+                    #c_primop{name=#c_literal{val=raw_raise},
+                              args=[Class,Exp,RawStk]}
+            end;
         #c_let{vars=[#c_var{name=V}],arg=Arg,body=B0} when V =/= Cooked ->
             case core_lib:is_var_used(Cooked, Arg) of
                 false ->
