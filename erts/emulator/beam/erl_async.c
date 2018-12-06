@@ -336,7 +336,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    case ERTS_THR_Q_NEED_THR_PRGR:
 	    {
 		ErtsThrPrgrVal prgr = erts_thr_q_need_thr_progress(q);
-		erts_thr_progress_wakeup(NULL, prgr);
+		erts_thr_progress_wakeup(erts_thr_prgr_data(NULL), prgr);
 		/*
 		 * We do no dequeue finalizing in hope that a new async
 		 * job will arrive before we are woken due to thread
