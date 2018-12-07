@@ -1163,20 +1163,6 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, Sta
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->
-    case read_application_data(Data, State0) of
-	{stop, _, _} = Stop->
-            Stop;
-	{Record, State1} ->
-            case Connection:next_event(StateName, Record, State1) of
-                {next_state, StateName, State} ->
-                    hibernate_after(StateName, State, []);
-                {next_state, StateName, State, Actions} -> 
-                    hibernate_after(StateName, State, Actions);
-                {stop, _, _} = Stop ->
-                    Stop
-            end 
-    end;
 handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, 
 		    #state{negotiated_version = Version} = State,  _) ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, 
