@@ -69,6 +69,22 @@
 
 </section>
 
+<section><title>Asn1 5.0.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.5.1</title>
 
     <section><title>Known Bugs and Problems</title>
@@ -1980,4 +1996,3 @@
     <!-- p>There are also release notes for <url href="notes_history.html">older versions</url>.</p -->
   </section>
 </chapter>
-
