@@ -200,7 +200,13 @@ next_event(StateName, Record, State, Actions) ->
 %%% TLS record protocol level application data messages 
 
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
-    {next_state, StateName, State, [{next_event, internal, {application_data, Data}}]};
+    case ssl_connection:read_application_data(Data, State0) of
+	{stop, _, _} = Stop->
+            Stop;
+	{Record, State1} ->
+            {next_state, StateName, State, Actions} = next_event(StateName0, Record, State1), 
+            ssl_connection:hibernate_after(StateName, State, Actions)
+    end;
 %%% TLS record protocol level handshake messages 
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
 		    StateName, #state{protocol_buffers =
