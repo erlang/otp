@@ -157,7 +157,10 @@ update_state(#state{connection_states = ConnectionStates0,
 negotiated(internal,
            Map,
            #state{connection_states = ConnectionStates0,
-                  session = #session{session_id = SessionId},
+                  session = #session{session_id = SessionId,
+                                     own_certificate = OwnCert},
+                  cert_db = CertDbHandle,
+                  cert_db_ref = CertDbRef,
                   ssl_options = #ssl_options{} = SslOpts,
                   key_share = KeyShare,
                   tls_handshake_history = HHistory0,
@@ -227,6 +230,10 @@ negotiated(internal,
                                            pending_write => PendingWrite},
 
     %% Create Certificate, CertificateVerify
+    Certificate = tls_handshake_1_3:certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
+    io:format("### Certificate: ~p~n", [Certificate]),
+
+    %% CertificateVerify = tls_handshake_1_3:certificate_verify(),
 
     %% Send Certificate, CertifricateVerify
 

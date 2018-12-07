@@ -38,7 +38,8 @@
 -export([handle_client_hello/3]).
 
 %% Create handshake messages
--export([server_hello/4]).
+-export([certificate/5,
+         server_hello/4]).
 
 %%====================================================================
 %% Create handshake messages
@@ -62,6 +63,20 @@ server_hello_extensions(KeyShare) ->
     ssl_handshake:add_server_share(Extensions, KeyShare).
 
 
+%% TODO: use maybe monad for error handling!
+certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
+    case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
+	{ok, _, Chain} ->
+            CertList = chain_to_cert_list(Chain),
+            %% If this message is in response to a CertificateRequest, the value of
+            %% certificate_request_context in that message. Otherwise (in the case
+            %%of server authentication), this field SHALL be zero length.
+	    #certificate_1_3{
+               certificate_request_context = <<>>,
+               certificate_list = CertList};
+	{error, Error} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
+    end.
 
 %%====================================================================
 %% Encode handshake
@@ -75,7 +90,7 @@ encode_handshake(#certificate_request_1_3{
     {?CERTIFICATE_REQUEST, <<EncContext/binary, BinExts/binary>>};
 encode_handshake(#certificate_1_3{
                     certificate_request_context = Context, 
-                    entries = Entries}) ->
+                    certificate_list = Entries}) ->
     EncContext = encode_cert_req_context(Context),
     EncEntries = encode_cert_entries(Entries),
     {?CERTIFICATE, <<EncContext/binary, EncEntries/binary>>};
@@ -119,14 +134,14 @@ decode_handshake(?CERTIFICATE, <<?BYTE(0), ?UINT24(Size), Certs:Size/binary>>) -
     CertList = decode_cert_entries(Certs),
     #certificate_1_3{ 
        certificate_request_context = <<>>,
-       entries = CertList
+       certificate_list = CertList
       };
 decode_handshake(?CERTIFICATE, <<?BYTE(CSize), Context:CSize/binary,
                                  ?UINT24(Size), Certs:Size/binary>>) ->
     CertList = decode_cert_entries(Certs),
     #certificate_1_3{ 
        certificate_request_context = Context,
-       entries = CertList
+       certificate_list = CertList
       };
 decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) ->
     #encrypted_extensions{
@@ -190,6 +205,23 @@ decode_extensions(Exts, MessageType) ->
 
 extensions_list(HelloExtensions) ->
     [Ext || {_, Ext} <- maps:to_list(HelloExtensions)].
+
+
+%% TODO: add extensions!
+chain_to_cert_list(L) ->
+    chain_to_cert_list(L, []).
+%%
+chain_to_cert_list([], Acc) ->
+    lists:reverse(Acc);
+chain_to_cert_list([H|T], Acc) ->
+    chain_to_cert_list(T, [certificate_entry(H)|Acc]).
+
+
+certificate_entry(DER) ->
+    #certificate_entry{
+       data = DER,
+       extensions = #{} %% Extensions not supported.
+      }.
 
 
 %%====================================================================

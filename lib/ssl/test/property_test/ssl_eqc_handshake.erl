@@ -160,7 +160,7 @@ certificate_1_3() ->
      ?LET(Certs, certificate_chain(),
           #certificate_1_3{
              certificate_request_context = certificate_request_context(),
-             entries = certificate_entries(Certs, [])  
+             certificate_list = certificate_entries(Certs, [])
             }).
 
 finished() ->
@@ -545,7 +545,10 @@ choose_certificate_chain(#{server_config := ServerConf,
     oneof([certificate_chain(ServerConf), certificate_chain(ClientConf)]).
 
 certificate_request_context() ->
-    <<>>.
+    oneof([<<>>,
+           <<1>>,
+           <<"foobar">>
+          ]).
 certificate_entries([], Acc) ->
     lists:reverse(Acc);
 certificate_entries([Cert | Rest], Acc) ->
