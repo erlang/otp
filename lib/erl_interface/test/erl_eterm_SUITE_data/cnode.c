@@ -20,7 +20,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-
+#include <string.h>
 #include "ei.h"
 #include "erl_interface.h"
 
@@ -68,6 +68,7 @@ MAIN(int argc, char **argv)
     char host[80];
     int number;
     ETERM *ref, *ref1, *ref2;
+    FILE *dfile = fopen("cnode_debug_printout", "w");
 
     erl_init(NULL, 0);
 
@@ -80,28 +81,30 @@ MAIN(int argc, char **argv)
     gethostname(host, sizeof(host));
     sprintf(node, "c%d@%s", number, host);
 
-    printf("s = %d\n", s);
+    fprintf(dfile, "s = %d\n", s); fflush(dfile);
 
     sprintf(server, "test_server@%s", host);
     fd = erl_connect(server);
-    printf("fd = %d\n", fd);
+    fprintf(dfile, "fd = %d\n", fd);
 
-/*    printf("dist = %d\n", erl_distversion(fd)); */
+/*    fprintf(dfile, "dist = %d\n", erl_distversion(fd)); */
 
 #if 1
     ref = erl_mk_long_ref(node, 4711, 113, 98, 0);
 #else
     ref = erl_mk_ref(node, 4711, 0);
 #endif
-    printf("ref = %d\n", ref);
+    fprintf(dfile, "ref = %p\n", ref); fflush(dfile);
 
     s = erl_reg_send(fd, "mip", ref);
-    printf("s = %d\n", s);
+    fprintf(dfile, "s = %d\n", s); fflush(dfile);
 
     {
       ETERM* emsg;
       emsg = SELF(fd);
-      erl_reg_send(fd,"mip",emsg);
+      fprintf(dfile, "pid = %p\n", emsg); fflush(dfile);
+      s = erl_reg_send(fd,"mip",emsg);
+      fprintf(dfile, "s2 = %d\n", s); fflush(dfile);
       erl_free_term(emsg);
     }
 
@@ -116,28 +119,29 @@ MAIN(int argc, char **argv)
 #endif
 	switch (s) {
 	  case ERL_TICK:
-	    printf("tick\n");
+	    fprintf(dfile, "tick\n");
 	    break;
 	  case ERL_ERROR:
-	    printf("error\n");
+            fprintf(dfile, "error: %s (%d)\n", strerror(erl_errno), erl_errno);
 	    break;
 	  case ERL_MSG:
-	    printf("msg %d\n", msgsize);
+	    fprintf(dfile, "msg %d\n", msgsize);
 	    break;
 	  default:
-	    printf("unknown result %d\n", s);
+	    fprintf(dfile, "unknown result %d\n", s);
 	    break;
 	}
+        fflush(dfile);
     } while (s == ERL_TICK);
 
     s = erl_reg_send(fd, "mip", msg.msg);
-    printf("s = %d\n", s);
+    fprintf(dfile, "s = %d\n", s); fflush(dfile);
     s = erl_reg_send(fd, "mip", msg.to);
-    printf("s = %d\n", s);
+    fprintf(dfile, "s = %d\n", s); fflush(dfile);
 #if 0
     /* from = NULL! */
     s = erl_reg_send(fd, "mip", msg.from);
-    printf("s = %d\n", s);
+    fprintf(dfile, "s = %d\n", s); fflush(dfile);
 #endif
 
 #if 0
@@ -150,16 +154,18 @@ MAIN(int argc, char **argv)
     ref1 = erl_mk_long_ref(node, 4711, 113, 98, 0);
     ref2 = erl_mk_ref(node, 4711, 0);
     s = erl_encode(ref1, buf1);
-    printf("enc1 s = %d\n", s);
+    fprintf(dfile, "enc1 s = %d\n", s); fflush(dfile);
     s = erl_encode(ref2, buf2);
-    printf("enc2 s = %d\n", s);
+    fprintf(dfile, "enc2 s = %d\n", s); fflush(dfile);
     s = erl_compare_ext(buf1, buf2);
-    printf("comp s = %d\n", s);
+    fprintf(dfile, "comp s = %d\n", s); fflush(dfile);
     
     /* Compare, in another way */
     s = erl_match(ref1, ref2);
-    printf("match s = %d\n", s);
+    fprintf(dfile, "match s = %d\n", s); fflush(dfile);
 #endif
+
+    fclose(dfile);
 
     erl_close_connection(fd);
 

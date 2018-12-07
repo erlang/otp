@@ -68,8 +68,10 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
   int nlen = strlen(alive);
   int len = elen + nlen + 13; /* hard coded: be careful! */
   int n;
-  int res, creation;
-  
+  int err, res, creation;
+  ssize_t dlen;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+
   if (len > sizeof(buf)-2)
   {
     erl_errno = ERANGE;
@@ -93,29 +95,39 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
 
   if ((fd = ei_epmd_connect_tmo(NULL,ms)) < 0) return fd;
 
-  if ((res = ei_write_fill_t(fd, buf, len+2, ms)) != len+2) {
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
+  dlen = (ssize_t) len+2;
+  err = ei_write_fill_t__(fd, buf, &dlen, tmo);
+  if (!err && dlen != (ssize_t) len + 2)
+      erl_errno = EIO;
+  if (err) {
+      ei_close__(fd);
+      EI_CONN_SAVE_ERRNO__(err);
+      return -1;
   }
 
   EI_TRACE_CONN6("ei_epmd_r4_publish",
 		 "-> ALIVE2_REQ alive=%s port=%d ntype=%d "
 		 "proto=%d dist-high=%d dist-low=%d",
 		 alive,port,'H',EI_MYPROTO,EI_DIST_HIGH,EI_DIST_LOW);
-  
-  if ((n = ei_read_fill_t(fd, buf, 4, ms)) != 4) {
+
+  dlen = (ssize_t) 4;
+  err = ei_read_fill_t__(fd, buf, &dlen, tmo);
+  n = (int) dlen;
+  if (!err && n != 4)
+      err = EIO;
+  if (err) {
     EI_TRACE_ERR0("ei_epmd_r4_publish","<- CLOSE");
-    closesocket(fd);
-    erl_errno = (n == -2) ? ETIMEDOUT : EIO;
+    ei_close__(fd);
+    EI_CONN_SAVE_ERRNO__(err);
     return -2;			/* version mismatch */
   }
+
   /* Don't close fd here! It keeps us registered with epmd */
   s = buf;
   if (((res=get8(s)) != EI_EPMD_ALIVE2_RESP)) {  /* response */
     EI_TRACE_ERR1("ei_epmd_r4_publish","<- unknown (%d)",res);
     EI_TRACE_ERR0("ei_epmd_r4_publish","-> CLOSE");
-    closesocket(fd);
+    ei_close__(fd);
     erl_errno = EIO;
     return -1;
   }
@@ -124,7 +136,7 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
 
   if (((res=get8(s)) != 0)) {           /* 0 == success */
       EI_TRACE_ERR1("ei_epmd_r4_publish"," result=%d (fail)",res);
-    closesocket(fd);
+    ei_close__(fd);
     erl_errno = EIO;
     return -1;
   }
