@@ -44,13 +44,25 @@
 -define(ACC_TIMEOUT,  10000).
 -define(RECV_TIMEOUT, 10000).
 
+-define(LIB,            socket_test_ttest_lib).
+-define(I(F),           ?LIB:info(F)).
+-define(I(F,A),         ?LIB:info(F, A)).
+-define(E(F,A),         ?LIB:error(F, A)).
+-define(F(F,A),         ?LIB:format(F, A)).
+-define(FORMAT_TIME(T), ?LIB:format_time(T)).
+-define(T(),            ?LIB:t()).
+-define(TDIFF(T1,T2),   ?LIB:tdiff(T1, T2)).
+
 
 %% ==========================================================================
 
-start_monitor(Mod, Active) 
-  when is_atom(Mod) andalso is_boolean(Active) orelse (Active =:= once) ->
+start_monitor(Transport, Active) 
+  when (is_atom(Transport) orelse is_tuple(Transport)) andalso
+       (is_boolean(Active) orelse (Active =:= once)) ->
     Self        = self(),
-    ServerInit  = fun() -> put(sname, "server"), server_init(Self, Mod, Active) end,
+    ServerInit  = fun() -> put(sname, "server"),
+                           server_init(Self, Transport, Active)
+                  end,
     {Pid, MRef} = spawn_monitor(ServerInit),
     receive
         {'DOWN', MRef, process, Pid, normal} ->
@@ -73,26 +85,28 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-server_init(Parent, Mod, Active) ->
-    i("init -> entry with"
-      "~n   Parent: ~p"
-      "~n   Mod:    ~p"
-      "~n   Active: ~p", [Parent, Mod, Active]),
-    case Mod:listen(0) of
+server_init(Parent, Transport, Active) ->
+    ?I("init -> entry with"
+       "~n   Parent: ~p"
+       "~n   Transport: ~p"
+       "~n   Active:    ~p", [Parent, Transport, Active]),
+    {Mod, Listen, StatsInterval} = process_transport(Transport, Active),
+    case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
                 {ok, Port} = OK ->
 		    Addr = which_addr(), % This is just for convenience
-                    i("init -> listening on:"
-		      "~n   Addr: ~p (~s)"
-		      "~n   Port: ~w"
-		      "~n", [Addr, inet:ntoa(Addr), Port]),
+                    ?I("init -> listening on:"
+                       "~n   Addr: ~p (~s)"
+                       "~n   Port: ~w"
+                       "~n", [Addr, inet:ntoa(Addr), Port]),
                     Parent ! {?MODULE, self(), OK},
-                    server_loop(#{parent   => Parent,
-				  mod      => Mod,
-                                  active   => Active,
-                                  lsock    => LSock,
-                                  handlers => [],
+                    server_loop(#{parent         => Parent,
+				  mod            => Mod,
+                                  active         => Active,
+                                  lsock          => LSock,
+                                  handlers       => [],
+                                  stats_interval => StatsInterval,
 				  %% Accumulation
 				  runtime  => 0,
 				  mcnt     => 0,
@@ -107,37 +121,40 @@ server_init(Parent, Mod, Active) ->
             exit({listen, LReason})
     end.
 
+process_transport(Mod, _) when is_atom(Mod) ->
+    {Mod, fun(Port) -> Mod:listen(Port) end, infinity};
+process_transport({Mod, #{stats_interval := T} = Opts}, Active)
+  when (Active =/= false) ->
+    {Mod, fun(Port) -> Mod:listen(Port, Opts#{stats_to => self()}) end, T};
+process_transport({Mod, #{stats_interval := T} = Opts}, _Active) ->
+    {Mod, fun(Port) -> Mod:listen(Port, Opts) end, T};
+process_transport({Mod, Opts}, _Active) ->
+    {Mod, fun(Port) -> Mod:listen(Port, Opts) end, infinity}.
+
+
 
 server_loop(State) ->
-    %% i("loop -> enter"),
     server_loop( server_handle_message( server_accept(State) ) ).
 
 server_accept(#{mod      := Mod,
 		active   := Active,
                 lsock    := LSock,
                 handlers := Handlers} = State) ->
-    
-    %% i("server-accept -> entry with"
-    %%   "~n   Mod:    ~p"
-    %%   "~n   Active: ~p"
-    %%   "~n   LSock:  ~p", [Mod, Active, LSock]),
-
     case Mod:accept(LSock, ?ACC_TIMEOUT) of
         {ok, Sock} ->
-	    %% i("server-accept -> accepted: "
-	    %%   "~n   Sock: ~p", [Sock]),
-            i("accepted connection from ~s", 
-              [case Mod:peername(Sock) of
-                   {ok, Peer} ->
-                       format_peername(Peer);
-                  {error, _} ->
-                      "-"
-              end]),
+            ?I("accepted connection from ~s", 
+               [case Mod:peername(Sock) of
+                    {ok, Peer} ->
+                        format_peername(Peer);
+                    {error, _} ->
+                        "-"
+                end]),
             {Pid, _} = handler_start(),
-            i("handler ~p started -> try transfer socket control", [Pid]),
+            ?I("handler ~p started -> try transfer socket control", [Pid]),
             case Mod:controlling_process(Sock, Pid) of
                 ok ->
-                    i("server-accept: handler ~p started", [Pid]),
+                    maybe_start_stats_timer(State, Pid),
+                    ?I("server-accept: handler ~p started", [Pid]),
                     handler_continue(Pid, Mod, Sock, Active),
                     Handlers2 = [Pid | Handlers],
                     State#{handlers => Handlers2};
@@ -156,14 +173,31 @@ server_accept(#{mod      := Mod,
 format_peername({Addr, Port}) ->
     case inet:gethostbyaddr(Addr) of
         {ok, #hostent{h_name = N}} ->
-            f("~s (~s:~w)", [N, inet:ntoa(Addr), Port]);
+            ?F("~s (~s:~w)", [N, inet:ntoa(Addr), Port]);
         {error, _} ->
-            f("~p, ~p", [Addr, Port])
+            ?F("~p, ~p", [Addr, Port])
     end.
-    
+
+maybe_start_stats_timer(#{active := Active, stats_interval := Time}, Handler)
+  when (Active =/= false) andalso (is_integer(Time) andalso (Time > 0)) ->
+    start_stats_timer(Time, "handler", Handler);
+maybe_start_stats_timer(_, _) ->
+    ok.
+
+start_stats_timer(Time, ProcStr, Pid) ->
+    erlang:start_timer(Time, self(), {stats, Time, ProcStr, Pid}).
+
 server_handle_message(#{parent := Parent, handlers := H} = State) ->
-    %% i("server_handle_message -> enter"),
     receive
+        {timeout, _TRef, {stats, Interval, ProcStr, Pid}} ->
+            case server_handle_stats(ProcStr, Pid) of
+                ok ->
+                    start_stats_timer(Interval, ProcStr, Pid);
+                skip ->
+                    ok
+            end,
+            State;
+            
         {?MODULE, Ref, Parent, stop} ->
             reply(Parent, Ref, ok),
             lists:foreach(fun(P) -> handler_stop(P) end, H),
@@ -176,11 +210,20 @@ server_handle_message(#{parent := Parent, handlers := H} = State) ->
             State
     end.
 
+server_handle_stats(ProcStr, Pid) ->
+    case ?LIB:formated_process_stats(Pid) of
+        "" ->
+            skip;
+        FormatedStats ->
+            ?I("Statistics for ~s ~p:~s", [ProcStr, Pid, FormatedStats]),
+            ok
+    end.
+
 
 server_handle_down(Pid, Reason, #{handlers := Handlers} = State) ->
     case lists:delete(Pid, Handlers) of
         Handlers ->
-            i("unknown process ~p died", [Pid]),                    
+            ?I("unknown process ~p died", [Pid]),                    
             State;
         Handlers2 ->
             server_handle_handler_down(Pid, Reason, State#{handlers => Handlers2})
@@ -197,35 +240,35 @@ server_handle_handler_down(Pid,
     AccMCnt2    = AccMCnt + MCnt,
     AccBCnt2    = AccBCnt + BCnt,
     AccHCnt2    = AccHCnt + 1,
-    i("handler ~p (~w) done => accumulated results: "
-      "~n   Run Time:      ~s ms"
-      "~n   Message Count: ~s"
-      "~n   Byte Count:    ~s",
-      [Pid, AccHCnt2,
-       format_time(AccRunTime2),
-       if (AccRunTime2 > 0) ->
-               f("~w => ~w (~w) msgs / ms", 
-		 [AccMCnt2,
-		  AccMCnt2 div AccRunTime2,
-		  (AccMCnt2 div AccHCnt2) div AccRunTime2]);
-          true ->
-               f("~w", [AccMCnt2])
-       end,
-       if (AccRunTime2 > 0) ->
-               f("~w => ~w (~w) bytes / ms",
-		 [AccBCnt2,
-		  AccBCnt2 div AccRunTime2,
-		  (AccBCnt2 div AccHCnt2) div AccRunTime2]);
-          true ->
-               f("~w", [AccBCnt2])
-       end]),
+    ?I("handler ~p (~w) done => accumulated results: "
+       "~n   Run Time:      ~s ms"
+       "~n   Message Count: ~s"
+       "~n   Byte Count:    ~s",
+       [Pid, AccHCnt2,
+        ?FORMAT_TIME(AccRunTime2),
+        if (AccRunTime2 > 0) ->
+                ?F("~w => ~w (~w) msgs / ms", 
+                   [AccMCnt2,
+                    AccMCnt2 div AccRunTime2,
+                    (AccMCnt2 div AccHCnt2) div AccRunTime2]);
+           true ->
+                ?F("~w", [AccMCnt2])
+        end,
+        if (AccRunTime2 > 0) ->
+                ?F("~w => ~w (~w) bytes / ms",
+                   [AccBCnt2,
+                    AccBCnt2 div AccRunTime2,
+                    (AccBCnt2 div AccHCnt2) div AccRunTime2]);
+           true ->
+                ?F("~w", [AccBCnt2])
+        end]),
     State#{runtime => AccRunTime2,
 	   mcnt    => AccMCnt2,
 	   bcnt    => AccBCnt2,
 	   hcnt    => AccHCnt2};
 server_handle_handler_down(Pid, Reason, State) ->
-    i("handler ~p terminated: "
-      "~n   ~p", [Pid, Reason]),
+    ?I("handler ~p terminated: "
+       "~n   ~p", [Pid, Reason]),
     State.
 
 
@@ -244,32 +287,31 @@ handler_stop(Pid) ->
     req(Pid, stop).
 
 handler_init(Parent) ->
-    i("starting"),
+    ?I("starting"),
     receive
 	{?MODULE, Ref, Parent, {continue, Mod, Sock, Active}} ->
-	    i("received continue"),
+	    ?I("received continue"),
 	    reply(Parent, Ref, ok),
 	    handler_initial_activation(Mod, Sock, Active),
 	    handler_loop(#{parent     => Parent,
 			   mod        => Mod,
 			   sock       => Sock,
 			   active     => Active,
-			   start      => t(),
+			   start      => ?T(),
 			   mcnt       => 0,
 			   bcnt       => 0,
 			   last_reply => none,
 			   acc        => <<>>})
 
     after 5000 ->
-	    i("timeout when message queue: "
-	      "~n   ~p"
-	      "~nwhen"
-	      "~n   Parent: ~p", [process_info(self(), messages), Parent]),
+	    ?I("timeout when message queue: "
+               "~n   ~p"
+               "~nwhen"
+               "~n   Parent: ~p", [process_info(self(), messages), Parent]),
 	    handler_init(Parent)
     end.
 
 handler_loop(State) ->
-    %% i("handler-loop"),
     handler_loop( handler_handle_message( handler_recv_message(State) ) ).
 
 %% When passive, we read *one* request and then attempt to reply to it.
@@ -278,7 +320,6 @@ handler_recv_message(#{mod    := Mod,
                        active := false,
                        mcnt   := MCnt,
                        bcnt   := BCnt} = State) ->
-    %% i("handler_recv_message(false) -> entry"),
     case handler_recv_message2(Mod, Sock) of
         {ok, {MsgSz, ID, Body}} ->
             handler_send_reply(Mod, Sock, ID, Body),
@@ -305,7 +346,6 @@ handler_recv_message(#{mod        := Mod,
                        bcnt       := BCnt,
                        last_reply := LID,
                        acc        := Acc} = State) ->
-    %% i("handler_recv_message(~w) -> entry", [Active]),
     case handler_recv_message3(Mod, Sock, Acc, LID) of
 	{ok, {MCnt2, BCnt2, LID2}, NewAcc} ->
 	    handler_maybe_activate(Mod, Sock, Active),
@@ -319,12 +359,12 @@ handler_recv_message(#{mod        := Mod,
                 (size(Acc) =:= 0) ->
                     handler_done(State);
                 true ->
-                    e("client done with partial message: "
-                      "~n   Last Reply Sent: ~w"
-                      "~n   Message Count:   ~w"
-                      "~n   Byte    Count:   ~w"
-                      "~n   Partial Message: ~w bytes",
-                      [LID, MCnt, BCnt, size(Acc)]),
+                    ?E("client done with partial message: "
+                       "~n   Last Reply Sent: ~w"
+                       "~n   Message Count:   ~w"
+                       "~n   Byte    Count:   ~w"
+                       "~n   Partial Message: ~w bytes",
+                       [LID, MCnt, BCnt, size(Acc)]),
                     exit({closed_with_partial_message, LID})
             end;
 
@@ -355,32 +395,27 @@ handler_process_data(Data, _Mod, _Sock, MCnt, BCnt, LID) ->
 	    
 	    
 handler_recv_message2(Mod, Sock) ->
-    %% i("handler_recv_message2 -> entry"),
     case Mod:recv(Sock, 4*4, ?RECV_TIMEOUT) of
         {ok, <<?TTEST_TAG:32,
                ?TTEST_TYPE_REQUEST:32,
                ID:32,
                SZ:32>> = Hdr} ->
-	    %% i("handler_recv_message2 -> got request header: "
-	    %%   "~n   ID: ~p"
-	    %%   "~n   SZ: ~p", [ID, SZ]),
             case Mod:recv(Sock, SZ, ?RECV_TIMEOUT) of
                 {ok, Body} when (SZ =:= size(Body)) ->
-		    %% i("handler_recv_message2 -> got body"),
                     {ok, {size(Hdr) + size(Body), ID, Body}};
                 {error, BReason} ->
-                    e("failed reading body (~w) of message ~w:"
-                      "~n   ~p", [SZ, ID, BReason]),
+                    ?E("failed reading body (~w) of message ~w:"
+                       "~n   ~p", [SZ, ID, BReason]),
                     exit({recv, body, ID, SZ, BReason})
             end;
         {error, timeout} = ERROR ->
-	    i("handler_recv_message2 -> timeout"),
+	    ?I("timeout"),
             ERROR;
         {error, closed} = ERROR ->
             ERROR;
         {error, HReason} ->
-            e("failed reading header of message:"
-              "~n   ~p", [HReason]),
+            ?E("Failed reading header of message:"
+               "~n   ~p", [HReason]),
             exit({recv, header, HReason})
     end.
 
@@ -405,116 +440,6 @@ handler_recv_message3(Mod, Sock, Acc, LID) ->
 
 
 
-%% %% Socket in passive mode => we need to read explicitly
-%% handler_loop(#{sock := Sock, active := false} = State, MCnt, BCnt) ->
-%%     %% i("try recv msg header"),
-%%     MsgSz =
-%%         case gen_tcp:recv(Sock, 4*4) of
-%%             {ok, <<?SOCKET_SIMPLE_TAG:32, 
-%%                   ?SOCKET_SIMPLE_TYPE_REQUEST:32,
-%%                   ID:32,
-%%                   SZ:32>> = Hdr} ->
-%%                 %% i("msg ~w header received (data sz is ~w bytes)", [ID, SZ]),
-%%                 case gen_tcp:recv(Sock, SZ) of
-%%                     {ok, Data} when (size(Data) =:= SZ) ->
-%%                         handler_send_reply(Sock, ID, Data),
-%%                         size(Hdr)+SZ;
-%%                     {ok, InvData} ->
-%%                         i("invalid data"),
-%%                         (catch gen_tcp:close(Sock)),
-%%                         exit({invalid_data, SZ, size(InvData)});
-%%                     {error, Reason2} ->
-%%                         i("Data read failed: ~p", [Reason2]),
-%%                         (catch gen_tcp:close(Sock)),
-%%                         exit({recv_data, Reason2})
-%%                 end;
-%%             {ok, _InvHdr} ->
-%%                 (catch gen_tcp:close(Sock)),
-%%                 exit(invalid_hdr);
-%%             {error, closed} ->
-%%                 i("we are done: "
-%%                   "~n   Message Count: ~p"
-%%                   "~n   Byte Count:    ~p", [MCnt, BCnt]),
-%%                 exit(normal);
-%%             {error, Reason1} ->
-%%                 i("Header read failed: ~p", [Reason1]),
-%%                 (catch gen_tcp:close(Sock)),
-%%                 exit({recv_hdr, Reason1})
-%%         end,
-%%     handler_loop(State, MCnt+1, BCnt+MsgSz);
-
-%% %% Socket in active mode (once | true) => data messages arrive
-%% handler_loop(#{sock := Sock, active := Active} = State, MCnt, BCnt) ->
-%%     %% i("await msg"),
-%%     try handler_recv_request(Sock, Active) of
-%%         {ID, Data, MsgSz} ->
-%%             %% i("msg ~w received (data sz is ~w bytes)", [ID, size(Data)]),
-%%             handler_send_reply(Sock, ID, Data),
-%%             handler_maybe_activate(Sock, Active),
-%%             handler_loop(State, MCnt+1, BCnt+MsgSz)
-%%     catch
-%%         throw:tcp_closed ->
-%%             i("we are done: "
-%%               "~n   Message Count: ~p"
-%%               "~n   Byte Count:    ~p", [MCnt, BCnt]),
-%%             exit(normal);
-%%           throw:{tcp_error, Reason} ->
-%%             i("<ERROR> TCP error ~p when: "
-%%               "~n   Message Count: ~p"
-%%               "~n   Byte Count:    ~p", [Reason, MCnt, BCnt]),
-%%             exit({tcp_error, Reason})
-%%     end.
-%%     %%     {ID, Data, MsgSz} = handler_recv_request(Sock, Active),
-%%     %% i("msg ~w received (data sz is ~w bytes)", [ID, size(Data)]),
-%%     %% handler_send_reply(Sock, ID, Data),
-%%     %% handler_maybe_activate(Sock, Active),
-%%     %% handler_loop(State, MCnt+1, BCnt+MsgSz).
-
-
-%% handler_recv_request(Sock, Active) ->
-%%     %% In theory we should also be ready for a partial header,
-%%     %% but I can't be bothered...
-%%     receive
-%%         {tcp_closed, Sock} ->
-%%             throw(tcp_closed);
-%%         {tcp_error, Sock, Reason} ->
-%%             throw({tcp_error, Reason});
-%%         {tcp, Sock, <<?SOCKET_SIMPLE_TAG:32,
-%% 		      ?SOCKET_SIMPLE_TYPE_REQUEST:32,
-%% 		      ID:32,
-%% 		      SZ:32,
-%% 		      Data/binary>> = Msg} when (size(Data) =:= SZ) ->
-%%             %% i("[complete] msg ~w received (data sz is ~w bytes)", [ID, SZ]),
-%%             {ID, Data, size(Msg)};
-%%         {tcp, Sock, <<?SOCKET_SIMPLE_TAG:32,
-%% 		      ?SOCKET_SIMPLE_TYPE_REQUEST:32,
-%% 		      ID:32,
-%% 		      SZ:32,
-%% 		      Data/binary>> = Msg} when (size(Data) < SZ) ->
-%%             %% i("[incomplete] msg ~w received (data sz is ~w bytes)", [ID, SZ]),
-%%             handler_recv_request_data(Sock, Active, ID, SZ, Data, size(Msg))
-%%     end.
-
-%% handler_recv_request_data(Sock, Active, ID, SZ, AccData, AccMsgSz) ->
-%%     handler_maybe_activate(Sock, Active),
-%%     receive
-%%         {tcp_closed, Sock} ->
-%%             %% i("we are done (incomplete data)"),
-%%             throw(tcp_closed);
-%%         {tcp_error, Sock, Reason} ->
-%%             throw({tcp_error, Reason});
-%%         {tcp, Sock, Data} when (SZ =:= (size(AccData) + size(Data))) ->
-%%             %% i("[complete] received the remaining data (~w bytes) for msg ~w", 
-%%             %%   [size(Data), ID]),
-%%             {ID, <<AccData/binary, Data/binary>>, AccMsgSz+size(Data)};
-%%         {tcp, Sock, Data} ->
-%%             %% i("[incomplete] received ~w bytes of data for for msg ~w", 
-%%             %%   [size(Data), ID]),
-%%             handler_recv_request_data(Sock, Active, ID, SZ,
-%%                                       <<AccData/binary, Data/binary>>,
-%%                                       AccMsgSz+size(Data))
-%%     end.
-    
 handler_send_reply(Mod, Sock, ID, Data) ->
     SZ = size(Data),
     Msg = <<?TTEST_TAG:32,
@@ -522,10 +447,8 @@ handler_send_reply(Mod, Sock, ID, Data) ->
 	    ID:32,
 	    SZ:32,
 	    Data/binary>>,
-    %% i("handler-send-reply -> try send reply ~w: ~w bytes", [ID, size(Msg)]),
     case Mod:send(Sock, Msg) of
         ok ->
-	    %% i("handler-send-reply -> reply ~w (~w bytes) sent", [ID, size(Msg)]),
             ok;
         {error, Reason} ->
             (catch Mod:close(Sock)),
@@ -534,7 +457,7 @@ handler_send_reply(Mod, Sock, ID, Data) ->
 
 
 handler_done(State) ->
-    handler_done(State, t()).
+    handler_done(State, ?T()).
 
 handler_done(#{start := Start,
 	       mod   := Mod,
@@ -542,7 +465,7 @@ handler_done(#{start := Start,
                mcnt  := MCnt,
                bcnt  := BCnt}, Stop) ->
     (catch Mod:close(Sock)),
-    exit({done, tdiff(Start, Stop), MCnt, BCnt}).
+    exit({done, ?TDIFF(Start, Stop), MCnt, BCnt}).
 
 
 handler_handle_message(#{parent := Parent} = State) ->
@@ -634,45 +557,45 @@ reply(Pid, Ref, Reply) ->
 
 %% ==========================================================================
 
-t() ->
-    os:timestamp().
+%% t() ->
+%%     os:timestamp().
 
-tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
-    T1 = A1*1000000000+B1*1000+(C1 div 1000), 
-    T2 = A2*1000000000+B2*1000+(C2 div 1000), 
-    T2 - T1.
+%% tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
+%%     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
+%%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
+%%     T2 - T1.
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
 
-format_timestamp({_N1, _N2, N3} = TS) ->
-    {_Date, Time}  = calendar:now_to_local_time(TS),
-    {Hour,Min,Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.4~w",
-                             [Hour, Min, Sec, round(N3/1000)]),  
-    lists:flatten(FormatTS).
+%% format_timestamp({_N1, _N2, N3} = TS) ->
+%%     {_Date, Time}  = calendar:now_to_local_time(TS),
+%%     {Hour,Min,Sec} = Time,
+%%     FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.4~w",
+%%                              [Hour, Min, Sec, round(N3/1000)]),  
+%%     lists:flatten(FormatTS).
 
-%% Time is always in number os ms (milli seconds)
-format_time(T) ->
-    f("~p", [T]).
+%% %% Time is always in number os ms (milli seconds)
+%% format_time(T) ->
+%%     f("~p", [T]).
 
 
 %% ==========================================================================
 
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
 
-e(F, A) ->
-    p(get(sname), "<ERROR> " ++ F, A).
+%% e(F, A) ->
+%%     p(get(sname), "<ERROR> " ++ F, A).
 
-i(F) ->
-    i(F, []).
+%% i(F) ->
+%%     i(F, []).
 
-i(F, A) ->
-    p(get(sname), "<INFO> " ++ F, A).
+%% i(F, A) ->
+%%     p(get(sname), "<INFO> " ++ F, A).
 
-p(undefined, F, A) ->
-    p("- ", F, A);
-p(Prefix, F, A) ->
-    io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
+%% p(undefined, F, A) ->
+%%     p("- ", F, A);
+%% p(Prefix, F, A) ->
+%%     io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
 

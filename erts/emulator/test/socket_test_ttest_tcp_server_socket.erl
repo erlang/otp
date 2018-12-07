@@ -21,14 +21,17 @@
 -module(socket_test_ttest_tcp_server_socket).
 
 -export([
-         start_monitor/1,
+         start_monitor/2,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_socket).
+%% -define(MOD(M),        {?TRANSPORT_MOD, #{method         => M,
+%%                                           stats_interval => 10000}}).
+-define(MOD(M),        {?TRANSPORT_MOD, #{method => M}}).
 
-start_monitor(Active) ->
-    socket_test_ttest_tcp_server:start_monitor(?TRANSPORT_MOD, Active).
+start_monitor(Method, Active) ->
+    socket_test_ttest_tcp_server:start_monitor(?MOD(Method), Active).
 
 stop(Pid) ->
     socket_test_ttest_tcp_server:stop(Pid).

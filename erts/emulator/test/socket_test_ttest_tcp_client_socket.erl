@@ -21,23 +21,24 @@
 -module(socket_test_ttest_tcp_client_socket).
 
 -export([
-         start_monitor/3, start_monitor/4, start_monitor/6,
+         start_monitor/4, start_monitor/5, start_monitor/7,
          stop/1
         ]).
 
 -define(TRANSPORT_MOD, socket_test_ttest_tcp_socket).
+-define(MOD(M),        {?TRANSPORT_MOD, #{method => Method}}).
 
-start_monitor(Active, Addr, Port) ->
-    socket_test_ttest_tcp_client:start_monitor(?TRANSPORT_MOD,
+start_monitor(Method, Active, Addr, Port) ->
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Method),
                                                Active, Addr, Port).
 
-start_monitor(Active, Addr, Port, MsgID) ->
-    socket_test_ttest_tcp_client:start_monitor(?TRANSPORT_MOD,
+start_monitor(Method, Active, Addr, Port, MsgID) ->
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Method),
                                                Active, Addr, Port,
                                                MsgID).
 
-start_monitor(Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
-    socket_test_ttest_tcp_client:start_monitor(?TRANSPORT_MOD,
+start_monitor(Method, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    socket_test_ttest_tcp_client:start_monitor(?MOD(Method),
                                                Active, Addr, Port,
                                                MsgID, MaxOutstanding, RunTime).
 

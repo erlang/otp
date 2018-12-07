@@ -54,6 +54,14 @@
 -define(MAX_OUTSTANDING_DEFAULT_2, 10).
 -define(MAX_OUTSTANDING_DEFAULT_3, 3).
 
+-define(LIB,            socket_test_ttest_lib).
+-define(I(F),           ?LIB:info(F)).
+-define(I(F,A),         ?LIB:info(F, A)).
+-define(E(F,A),         ?LIB:error(F, A)).
+-define(F(F,A),         ?LIB:format(F, A)).
+-define(FORMAT_TIME(T), ?LIB:format_time(T)).
+-define(T(),            ?LIB:t()).
+-define(TDIFF(T1,T2),   ?LIB:tdiff(T1, T2)).
 
 -type active()          :: once | boolean().
 -type msg_id()          :: 1..3.
@@ -63,42 +71,28 @@
 
 %% ==========================================================================
 
--spec start_monitor(Mod, Active, Addr, Port) -> term() when
-      Mod    :: atom(),
-      Active :: active(),
-      Addr   :: inet:ip_address(),
-      Port   :: inet:port_number().
+start_monitor(Transport, Active, Addr, Port) ->
+    start_monitor(Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
 
 %% RunTime is in number of ms.
-start_monitor(Mod, Active, Addr, Port) ->
-    start_monitor(Mod, Active, Addr, Port, ?MSG_ID_DEFAULT).
-
--spec start_monitor(Mod, Active, Addr, Port, MsgID) -> term() when
-      Mod    :: atom(),
-      Active :: active(),
-      Addr   :: inet:ip_address(),
-      Port   :: inet:port_number(),
-      MsgID  :: msg_id().
-
-%% RunTime is in number of ms.
-start_monitor(Mod, Active, Addr, Port, 1 = MsgID) ->
-    start_monitor(Mod, Active, Addr, Port, MsgID,
+start_monitor(Transport, Active, Addr, Port, 1 = MsgID) ->
+    start_monitor(Transport, Active, Addr, Port, MsgID,
 		  ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
-start_monitor(Mod, Active, Addr, Port, 2 = MsgID) ->
-    start_monitor(Mod, Active, Addr, Port, MsgID,
+start_monitor(Transport, Active, Addr, Port, 2 = MsgID) ->
+    start_monitor(Transport, Active, Addr, Port, MsgID,
 		  ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
-start_monitor(Mod, Active, Addr, Port, 3 = MsgID) ->
-    start_monitor(Mod, Active, Addr, Port, MsgID,
+start_monitor(Transport, Active, Addr, Port, 3 = MsgID) ->
+    start_monitor(Transport, Active, Addr, Port, MsgID,
 		  ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
 
--spec start_monitor(Mod,
+-spec start_monitor(Transport,
 		    Active,
                     Addr,
                     Port,
                     MsgID,
                     MaxOutstanding,
                     RunTime) -> term() when
-      Mod            :: atom(),
+      Transport      :: atom() | tuple(),
       Active         :: active(),
       Addr           :: inet:ip_address(),
       Port           :: inet:port_number(),
@@ -107,9 +101,9 @@ start_monitor(Mod, Active, Addr, Port, 3 = MsgID) ->
       RunTime        :: runtime().
 
 %% RunTime is in number of ms.
-start_monitor(Mod, Active, Addr, Port,
+start_monitor(Transport, Active, Addr, Port,
               MsgID, MaxOutstanding, RunTime) 
-  when is_atom(Mod) andalso
+  when (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
        is_tuple(Addr) andalso 
        (is_integer(Port) andalso (Port > 0)) andalso
@@ -119,7 +113,7 @@ start_monitor(Mod, Active, Addr, Port,
     Self       = self(),
     ClientInit = fun() -> put(sname, "client"),
                           init(Self,
-                               Mod, Active, Addr, Port,
+                               Transport, Active, Addr, Port,
                                MsgID, MaxOutstanding, RunTime)
                  end,
     {Pid, MRef} = spawn_monitor(ClientInit),
@@ -147,28 +141,29 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-init(Parent, Mod, Active, Addr, Port,
+init(Parent, Transport, Active, Addr, Port,
      MsgID, MaxOutstanding, RunTime) ->
-    i("init -> entry with"
-      "~n   Parent:               ~p"
-      "~n   Mod:                  ~p"
-      "~n   Active:               ~p"
-      "~n   Addr:                 ~s"
-      "~n   Port:                 ~p"
-      "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
-      "~n   Max Outstanding:      ~p"
-      "~n   (Suggested) Run Time: ~p ms",
-      [Parent,
-       Mod, Active, inet:ntoa(Addr), Port,
-       MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]),
-    case Mod:connect(Addr, Port) of
+    ?I("init with"
+       "~n   Parent:               ~p"
+       "~n   Transport:            ~p"
+       "~n   Active:               ~p"
+       "~n   Addr:                 ~s"
+       "~n   Port:                 ~p"
+       "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
+       "~n   Max Outstanding:      ~p"
+       "~n   (Suggested) Run Time: ~p ms",
+       [Parent,
+        Transport, Active, inet:ntoa(Addr), Port,
+        MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]),
+    {Mod, Connect} = process_transport(Transport),
+    case Connect(Addr, Port) of
         {ok, Sock} ->
-            i("init -> connected"),
+            ?I("connected"),
             Parent ! {?MODULE, self(), ok},
 	    initial_activation(Mod, Sock, Active),
             Results = loop(#{slogan          => run,
 			     runtime         => RunTime,
-			     start           => t(),
+			     start           => ?T(),
 			     parent          => Parent,
 			     mod             => Mod,
 			     sock            => Sock,
@@ -187,10 +182,16 @@ init(Parent, Mod, Active, Addr, Port,
             (catch Mod:close(Sock)),
             exit(normal);
         {error, Reason} ->
-            i("init -> connect failed: ~p", [Reason]),
+            ?E("connect failed: ~p", [Reason]),
             exit({connect, Reason})
     end.
 
+process_transport(Mod) when is_atom(Mod) ->
+    {Mod, fun(A, P) -> Mod:connect(A, P) end};
+process_transport({Mod, Opts}) ->
+    {Mod, fun(A, P) -> Mod:connect(A, P, Opts) end}.
+
+            
 which_msg_data(1) -> ?MSG_DATA1;
 which_msg_data(2) -> ?MSG_DATA2;
 which_msg_data(3) -> ?MSG_DATA3.
@@ -200,21 +201,21 @@ present_results(#{status  := ok,
 		  runtime := RunTime,
                   bcnt    := ByteCnt,
                   cnt     := NumIterations}) ->
-    i("Results: "
-      "~n   Run Time:      ~s"
-      "~n   ByteCnt:       ~s"
-      "~n   NumIterations: ~s", 
-      [format_time(RunTime), 
-       if ((ByteCnt =:= 0) orelse (RunTime =:= 0)) ->
-               f("~w, ~w", [ByteCnt, RunTime]);
+    ?I("Results: "
+       "~n   Run Time:      ~s"
+       "~n   ByteCnt:       ~s"
+       "~n   NumIterations: ~s", 
+       [?FORMAT_TIME(RunTime), 
+        if ((ByteCnt =:= 0) orelse (RunTime =:= 0)) ->
+                ?F("~w, ~w", [ByteCnt, RunTime]);
           true ->
-               f("~p => ~p byte / ms", [ByteCnt, ByteCnt div RunTime])
+                ?F("~p => ~p byte / ms", [ByteCnt, ByteCnt div RunTime])
        end,
        if (RunTime =:= 0) ->
                "-";
           true ->
-               f("~p => ~p iterations / ms",
-                 [NumIterations, NumIterations div RunTime])
+               ?F("~p => ~p iterations / ms",
+                  [NumIterations, NumIterations div RunTime])
        end]),
     ok;
 present_results(#{status  := Failure,
@@ -225,21 +226,21 @@ present_results(#{status  := Failure,
                   rcnt    := RCnt,
                   bcnt    := BCnt,
 		  num     := Num}) ->
-    i("Time Test failed: "
-      "~n   ~p"
-      "~n"
-      "~nwhen"
-      "~n"
-      "~n   Run Time:       ~s"
-      "~n   Send ID:        ~p"
-      "~n   Recv ID:        ~p"
-      "~n   Send Count:     ~p"
-      "~n   Recv Count:     ~p"
-      "~n   Byte Count:     ~p"
-      "~n   Num Iterations: ~p",
-      [Failure,
-       format_time(RunTime),
-       SID, RID, SCnt, RCnt, BCnt, Num]).
+    ?I("Time Test failed: "
+       "~n   ~p"
+       "~n"
+       "~nwhen"
+       "~n"
+       "~n   Run Time:       ~s"
+       "~n   Send ID:        ~p"
+       "~n   Recv ID:        ~p"
+       "~n   Send Count:     ~p"
+       "~n   Recv Count:     ~p"
+       "~n   Byte Count:     ~p"
+       "~n   Num Iterations: ~p",
+       [Failure,
+        ?FORMAT_TIME(RunTime),
+        SID, RID, SCnt, RCnt, BCnt, Num]).
 
 
 
@@ -255,17 +256,14 @@ do_loop(State) ->
     do_loop( handle_message( msg_exchange(State) ) ).
 
 msg_exchange(#{rcnt := Num, num := Num} = State) ->
-    %% i("we are done"),
     finish(ok, State);
 msg_exchange(#{scnt := Num, num := Num} = State) ->
     %% We are done sending more requests - now we will just await 
     %% the replies for the (still) outstanding replies.
-    %% i("we have sent all requests - (only) wait for replies"),
     msg_exchange( recv_reply(State) );
 msg_exchange(#{outstanding     := Outstanding,
                max_outstanding := MaxOutstanding} = State)
   when (Outstanding < MaxOutstanding) ->
-    %% i("send the (initial) requests (~w, ~w)", [Outstanding, MaxOutstanding]),
     msg_exchange( send_request(State) );
 msg_exchange(State) ->
     send_request( recv_reply(State) ).
@@ -273,9 +271,9 @@ msg_exchange(State) ->
 
 finish(ok,
        #{start := Start, bcnt  := BCnt, num := Num}) ->
-    Stop = t(),
+    Stop = ?T(),
     throw(#{status  => ok,
-	    runtime => tdiff(Start, Stop),
+	    runtime => ?TDIFF(Start, Stop),
             bcnt    => BCnt,
             cnt     => Num});
 finish(Reason,
@@ -283,9 +281,9 @@ finish(Reason,
 	 sid  := SID, rid := RID,
 	 scnt := SCnt, rcnt := RCnt, bcnt := BCnt,
 	 num  := Num}) ->
-    Stop = t(),
+    Stop = ?T(),
     throw(#{status  => Reason,
-	    runtime => tdiff(Start, Stop),
+	    runtime => ?TDIFF(Start, Stop),
 	    sid     => SID,
 	    rid     => RID,
             scnt    => SCnt,
@@ -301,11 +299,6 @@ send_request(#{mod             := Mod,
 	       max_outstanding := MaxOutstanding,
 	       msg_data        := Data} = State)
   when (MaxOutstanding > Outstanding) ->
-    %% i("send request -> entry when"
-    %%   "~n   ID:             ~p"
-    %%   "~n   Cnt:            ~p"
-    %%   "~n   Outstanding:    ~p"
-    %%   "~n   MaxOutstanding: ~p", [ID, Cnt, Outstanding, MaxOutstanding]),
     SZ   = size(Data),
     Req  = <<?TTEST_TAG:32,
 	     ?TTEST_TYPE_REQUEST:32,
@@ -314,12 +307,11 @@ send_request(#{mod             := Mod,
 	     Data/binary>>,
     case Mod:send(Sock, Req) of
         ok ->
-	    %% i("~w bytes sent", [size(Req)]),
             State#{sid         => next_id(ID),
 		   scnt        => Cnt + 1,
 		   outstanding => Outstanding + 1};
         {error, Reason} ->
-            e("Failed sending request: ~p", [Reason]),
+            ?E("Failed sending request: ~p", [Reason]),
             exit({send, Reason})
     end;
 send_request(State) ->
@@ -334,11 +326,6 @@ recv_reply(#{mod         := Mod,
              bcnt        := BCnt,
              rcnt        := Cnt,
 	     outstanding := Outstanding} = State) ->
-    %% i("recv-reply(false) -> entry with"
-    %%   "~n   (R)ID:       ~p"
-    %%   "~n   (R)Cnt:      ~p"
-    %%   "~n   BCnt:        ~p"
-    %%   "~n   Outstanding: ~p", [ID, Cnt, BCnt, Outstanding]),
     case recv_reply_message1(Mod, Sock, ID) of
 	{ok, MsgSz} ->
 	    State#{rid         => next_id(ID),
@@ -347,7 +334,7 @@ recv_reply(#{mod         := Mod,
 		   outstanding => Outstanding - 1};
 
 	{error, timeout} ->
-	    i("recv_reply(false) -> error: timeout"),
+	    ?I("receive timeout"),
 	    State;
 
 	{error, Reason} ->
@@ -362,11 +349,6 @@ recv_reply(#{mod         := Mod,
              rcnt        := RCnt,
 	     outstanding := Outstanding,
 	     acc         := Acc} = State) ->
-    %% i("recv-reply(~w) -> entry with"
-    %%   "~n   (R)ID:       ~p"
-    %%   "~n   RCnt:        ~p"
-    %%   "~n   BCnt:        ~p"
-    %%   "~n   Outstanding: ~p", [Active, ID, RCnt, BCnt, Outstanding]),
     case recv_reply_message2(Mod, Sock, ID, Acc) of
 	{ok, {MsgSz, NewAcc}} when is_integer(MsgSz) andalso is_binary(NewAcc) ->
 	    maybe_activate(Mod, Sock, Active),
@@ -380,12 +362,12 @@ recv_reply(#{mod         := Mod,
 	    State;
 
 	{error, stop} ->
-	    i("recv_reply(~w) -> stop", [Active]),
+	    ?I("receive [~w] -> stop", [Active]),
 	    %% This will have the effect that no more requests are sent...
-	    State#{num => SCnt, stop_started => t()};
+	    State#{num => SCnt, stop_started => ?T()};
 
 	{error, timeout} ->
-	    i("recv_reply(~w) -> error: timeout", [Active]),
+	    ?I("receive[~w] -> timeout", [Active]),
 	    State;
 
 	{error, Reason} ->
@@ -395,23 +377,19 @@ recv_reply(#{mod         := Mod,
 
 %% This function reads exactly one (reply) message. No more no less.	
 recv_reply_message1(Mod, Sock, ID) ->
-    %% i("recv_reply_message1 -> entry with"
-    %%   "~n   ID: ~w", [ID]),
     case Mod:recv(Sock, 4*4, ?RECV_TIMEOUT) of
         {ok, <<?TTEST_TAG:32,
                ?TTEST_TYPE_REPLY:32,
                ID:32,
                SZ:32>> = Hdr} ->
             %% Receive the ping-pong reply boby
-	    %% i("recv_reply_message1 -> try read body"
-	    %%   "~n   ID: ~w", [ID]),
             case Mod:recv(Sock, SZ, ?RECV_TIMEOUT) of
                 {ok, Data} when (size(Data) =:= SZ) ->
 		    {ok, size(Hdr) + size(Data)};
                 {error, Reason2} ->
-		    i("recv_reply_message1 -> body error: "
-		      "~n   ~p: ~p", [Reason2]),
-                    {error, {recv_hdr, Reason2}}
+		    ?E("Failed reading body: "
+                       "~n   ~p: ~p", [Reason2]),
+                    {error, {recv_body, Reason2}}
             end;
 
         {ok, <<BadTag:32,
@@ -427,7 +405,7 @@ recv_reply_message1(Mod, Sock, ID) ->
             {error, invalid_hdr};
 
         {error, Reason1} ->
-	    i("recv_reply_message1 -> hdr error: "
+	    ?E("Feiled reading header: "
 	      "~n   ~p", [Reason1]),
             {error, {recv_hdr, Reason1}}
     end.
@@ -437,8 +415,6 @@ recv_reply_message1(Mod, Sock, ID) ->
 %% accumulated. If that is not enough for a (complete) reply, it
 %% will attempt to receive more.
 recv_reply_message2(Mod, Sock, ID, Acc) ->
-    %% i("recv_reply_message2 -> entry with"
-    %%   "~n   ID: ~w", [ID]),
     case process_acc_data(ID, Acc) of
 	ok ->
 	    %% No or insufficient data, so get more
@@ -456,7 +432,6 @@ recv_reply_message2(Mod, Sock, ID, Acc) ->
 recv_reply_message3(_Mod, Sock, ID, Acc) ->
     receive
 	{timeout, _TRef, stop} ->
-	    %% i("stop - when messages: ~p", [process_info(self(), messages)]),
 	    {error, stop};
 
         {TagClosed, Sock} when (TagClosed =:= tcp_closed) orelse
@@ -469,7 +444,6 @@ recv_reply_message3(_Mod, Sock, ID, Acc) ->
 
         {Tag, Sock, Msg} when (Tag =:= tcp) orelse
 			      (Tag =:= socket) ->
-	    %% i("recv_reply_message3 -> got ~w byte message", [size(Msg)]),
             process_acc_data(ID, <<Acc/binary, Msg/binary>>)
         
     %% after ?RECV_TIMEOUT ->
@@ -482,9 +456,6 @@ process_acc_data(ID, <<?TTEST_TAG:32,
 		       ID:32,
 		       SZ:32,
 		       Data/binary>>) when (SZ =< size(Data)) ->
-    %% i("process_acc_data -> entry with"
-    %%   "~n   ID: ~w"
-    %%   "~n   SZ: ~w", [ID, SZ]),
     <<_Body:SZ/binary, Rest/binary>> = Data,
     {ok, {4*4+SZ, Rest}};
 process_acc_data(ID, <<BadTag:32,
@@ -508,9 +479,9 @@ process_acc_data(_ID, _Data) ->
 handle_message(#{parent := Parent, sock := Sock, scnt := SCnt} = State) ->
     receive
 	{timeout, _TRef, stop} ->
-	    i("stop"),
+	    ?I("STOP"),
 	    %% This will have the effect that no more requests are sent...
-	    State#{num => SCnt, stop_started => t()};
+	    State#{num => SCnt, stop_started => ?T()};
 
         {?MODULE, Ref, Parent, stop} ->
             %% This *aborts* the test
@@ -571,47 +542,47 @@ next_id(_) ->
 
 %% ==========================================================================
 
-t() ->
-    os:timestamp().
+%% t() ->
+%%     os:timestamp().
 
-tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
-    T1 = A1*1000000000+B1*1000+(C1 div 1000), 
-    T2 = A2*1000000000+B2*1000+(C2 div 1000), 
-    T2 - T1.
+%% tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
+%%     T1 = A1*1000000000+B1*1000+(C1 div 1000), 
+%%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
+%%     T2 - T1.
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
+%% formated_timestamp() ->
+%%     format_timestamp(os:timestamp()).
 
-format_timestamp({_N1, _N2, N3} = TS) ->
-    {_Date, Time}  = calendar:now_to_local_time(TS),
-    {Hour,Min,Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.4~w",
-                             [Hour, Min, Sec, round(N3/1000)]),  
-    lists:flatten(FormatTS).
+%% format_timestamp({_N1, _N2, N3} = TS) ->
+%%     {_Date, Time}  = calendar:now_to_local_time(TS),
+%%     {Hour,Min,Sec} = Time,
+%%     FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.4~w",
+%%                              [Hour, Min, Sec, round(N3/1000)]),  
+%%     lists:flatten(FormatTS).
 
-%% Time is always in number os ms (milli seconds)
-format_time(T) ->
-    f("~p", [T]).
+%% %% Time is always in number os ms (milli seconds)
+%% format_time(T) ->
+%%     f("~p", [T]).
 
 
 %% ==========================================================================
 
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
+%% f(F, A) ->
+%%     lists:flatten(io_lib:format(F, A)).
 
-%% e(F) ->
-%%     i("<ERROR> " ++ F).
+%% %% e(F) ->
+%% %%     i("<ERROR> " ++ F).
 
-e(F, A) ->
-    p(get(sname), "<ERROR> " ++ F, A).
+%% e(F, A) ->
+%%     p(get(sname), "<ERROR> " ++ F, A).
 
-i(F) ->
-    i(F, []).
+%% i(F) ->
+%%     i(F, []).
 
-i(F, A) ->
-    p(get(sname), "<INFO> " ++ F, A).
+%% i(F, A) ->
+%%     p(get(sname), "<INFO> " ++ F, A).
 
-p(undefined, F, A) ->
-    p("- ", F, A);
-p(Prefix, F, A) ->
-    io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
+%% p(undefined, F, A) ->
+%%     p("- ", F, A);
+%% p(Prefix, F, A) ->
+%%     io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
