@@ -34,6 +34,7 @@ SOCKET_MODULES = \
 	socket_client \
 	socket_test_lib \
 	socket_test_evaluator \
+	socket_test_ttest_lib \
 	socket_test_ttest_tcp_gen \
 	socket_test_ttest_tcp_socket \
 	socket_test_ttest_tcp_client \
