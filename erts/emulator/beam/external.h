@@ -180,8 +180,10 @@ int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
 
 ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
 ErtsExtSzRes erts_encode_ext_size_2(Eterm, unsigned, Uint *szp);
+Uint erts_encode_ext_size_int(Eterm);
 Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
+void erts_encode_ext_int(Eterm, byte **, struct erl_off_heap_header** ext_off_heap);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
 Uint erts_dist_ext_size(ErtsDistExternal *);
@@ -204,6 +206,7 @@ Sint erts_decode_dist_ext_size(ErtsDistExternal *, int, int);
 Eterm erts_decode_dist_ext(ErtsHeapFactory*, ErtsDistExternal *, int);
 
 Sint erts_decode_ext_size(byte*, Uint);
+Sint erts_decode_ext_size_int(byte*, Uint);
 Sint erts_decode_ext_size_ets(byte*, Uint);
 Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
 Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);

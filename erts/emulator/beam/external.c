@@ -649,6 +649,12 @@ ErtsExtSzRes erts_encode_ext_size(Eterm term, Uint *szp)
     return erts_encode_ext_size_2(term, TERM_TO_BINARY_DFLAGS, szp);
 }
 
+Uint erts_encode_ext_size_int(Eterm term)
+{
+    return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS)
+	+ 1 /* VERSION_MAGIC */;
+}
+
 Uint erts_encode_ext_size_ets(Eterm term)
 {
     return encode_size_struct2(NULL, term, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS);
@@ -672,6 +678,18 @@ void erts_encode_ext(Eterm term, byte **ext)
     byte *ep = *ext;
     *ep++ = VERSION_MAGIC;
     ep = enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS, NULL);
+    if (!ep)
+	erts_exit(ERTS_ABORT_EXIT,
+		 "%s:%d:erts_encode_ext(): Internal data structure error\n",
+		 __FILE__, __LINE__);
+    *ext = ep;
+}
+
+void erts_encode_ext_int(Eterm term, byte **ext, struct erl_off_heap_header** off_heap)
+{
+    byte *ep = *ext;
+    *ep++ = VERSION_MAGIC;
+    ep = enc_term(NULL, term, ep, TERM_TO_BINARY_DFLAGS|DFLAG_INTERNAL_TAGS, off_heap);
     if (!ep)
 	erts_exit(ERTS_ABORT_EXIT,
 		 "%s:%d:erts_encode_ext(): Internal data structure error\n",
@@ -1124,6 +1142,13 @@ Sint erts_decode_ext_size(byte *ext, Uint size)
     if (size == 0 || *ext != VERSION_MAGIC)
 	return -1;
     return decoded_size(ext+1, ext+size, 0, NULL);
+}
+
+Sint erts_decode_ext_size_int(byte *ext, Uint size)
+{
+    if (size == 0 || *ext != VERSION_MAGIC)
+	return -1;
+    return decoded_size(ext+1, ext+size, 1, NULL);
 }
 
 Sint erts_decode_ext_size_ets(byte *ext, Uint size)

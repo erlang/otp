@@ -114,7 +114,7 @@ void dtrace_nifenv_str(ErlNifEnv *, char *);
 #endif
 
 #define MIN_HEAP_FRAG_SZ 200
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp);
+Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp);
 
 static ERTS_INLINE int
 is_scheduler(void)
@@ -165,7 +165,7 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, size_t need)
     return alloc_heap_heavy(env, need, hp);
 }
 
-static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
+Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
 {
     env->hp = hp;
     if (env->heap_frag == NULL) {
@@ -185,6 +185,12 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, size_t need, Eterm* hp)
     env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
 
     return hp;
+}
+
+void* enif_get_offheap(ErlNifEnv* env);
+
+void* enif_get_offheap(ErlNifEnv* env) {
+    return &MSO(env->proc);
 }
 
 #if SIZEOF_LONG != ERTS_SIZEOF_ETERM
@@ -1373,6 +1379,45 @@ int enif_term_to_binary(ErlNifEnv *dst_env, ERL_NIF_TERM term,
     return 1;
 }
 
+/* OTP may add similar functionality */
+int enif_term_to_binary_int(ErlNifEnv *dst_env, ERL_NIF_TERM term,
+                            ErlNifBinary *bin)
+{
+    Sint size;
+    byte *bp;
+    Binary* refbin;
+    ErtsHeapFactory factory;
+
+    size = erts_encode_ext_size_int(term);
+    if (!enif_alloc_binary(size, bin))
+        return 0;
+
+    if (size > 0) {
+        flush_env(dst_env);
+        erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
+    } else {
+        erts_factory_dummy_init(&factory);
+    }
+
+    refbin = bin->ref_bin;
+
+    bp = bin->data;
+
+    erts_encode_ext_int(term, &bp, &factory.off_heap->first);
+
+    if (size > 0) {
+        erts_factory_close(&factory);
+        cache_env(dst_env);
+    }
+
+    bin->size = bp - bin->data;
+    refbin->orig_size = bin->size;
+
+    ASSERT(bin->data + bin->size == bp);
+
+    return 1;
+}
+
 size_t enif_binary_to_term(ErlNifEnv *dst_env,
                            const unsigned char* data,
                            size_t data_sz,
@@ -1412,6 +1457,46 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
     ASSERT(bp > data);
     return bp - data;
 }
+
+size_t enif_binary_to_term_int(ErlNifEnv *dst_env,
+                               const unsigned char* data,
+                               size_t data_sz,
+                               ERL_NIF_TERM *term,
+                               ErlNifBinaryToTerm opts)
+{
+    Sint size;
+    ErtsHeapFactory factory;
+    byte *bp = (byte*) data;
+
+    ERTS_ASSERT(ERL_NIF_BIN2TERM_SAFE == ERTS_DIST_EXT_BTT_SAFE);
+
+    if (opts & ~ERL_NIF_BIN2TERM_SAFE) {
+        return 0;
+    }
+    if ((size = erts_decode_ext_size_int(bp, data_sz)) < 0)
+        return 0;
+
+    if (size > 0) {
+        flush_env(dst_env);
+        erts_factory_proc_prealloc_init(&factory, dst_env->proc, size);
+    } else {
+        erts_factory_dummy_init(&factory);
+    }
+
+    *term = erts_decode_ext(&factory, &bp, (Uint32)opts);
+
+    if (is_non_value(*term)) {
+        return 0;
+    }
+    if (size > 0) {
+        erts_factory_close(&factory);
+        cache_env(dst_env);
+    }
+
+    ASSERT(bp > data);
+    return bp - data;
+}
+
 
 int enif_is_identical(Eterm lhs, Eterm rhs)
 {
