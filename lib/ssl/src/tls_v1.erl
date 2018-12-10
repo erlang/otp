@@ -575,22 +575,29 @@ signature_schemes(_, _) ->
 
 default_signature_schemes(Version) ->
     Default = [
-               rsa_pkcs1_sha256,
-               rsa_pkcs1_sha384,
-               rsa_pkcs1_sha512,
-               ecdsa_secp256r1_sha256,
-               ecdsa_secp384r1_sha384,
                ecdsa_secp521r1_sha512,
-               rsa_pss_rsae_sha256,
-               rsa_pss_rsae_sha384,
+               ecdsa_secp384r1_sha384,
+               ecdsa_secp256r1_sha256,
+               rsa_pss_pss_sha512,
+               rsa_pss_pss_sha384,
+               rsa_pss_pss_sha256,
                rsa_pss_rsae_sha512,
+               rsa_pss_rsae_sha384,
+               rsa_pss_rsae_sha256,
                %% ed25519,
                %% ed448,
-               rsa_pss_pss_sha256,
-               rsa_pss_pss_sha384,
-               rsa_pss_pss_sha512,
-               rsa_pkcs1_sha1,
-               ecdsa_sha1
+
+               %% These values refer solely to signatures
+               %% which appear in certificates (see Section 4.4.2.2) and are not
+               %% defined for use in signed TLS handshake messages, although they
+               %% MAY appear in "signature_algorithms" and
+               %% "signature_algorithms_cert" for backward compatibility with
+               %% TLS 1.2.
+               rsa_pkcs1_sha512,
+               rsa_pkcs1_sha384,
+               rsa_pkcs1_sha256,
+               ecdsa_sha1,
+               rsa_pkcs1_sha1
               ],
     signature_schemes(Version, Default).
 
