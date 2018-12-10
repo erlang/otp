@@ -202,12 +202,12 @@ false</code>
         <code type="none">
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> I = maps:iterator(M).
-[{a,1},{b,2}]
-> {K1, V1, I2} = maps:next(I).
-{a,1,[{b,2}]}
-> {K2, V2, I3} = maps:next(I2).
-{b,2,[]}
+> I = maps:iterator(M), ok.
+ok
+> {K1, V1, I2} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I3} = maps:next(I2),{K2, V2}.
+{b,2}
 > maps:next(I3).
 none</code>
       </desc>
@@ -298,15 +298,15 @@ none</code>
         <code type="none">
 > Map = #{a => 1, b => 2, c => 3}.
 #{a => 1,b => 2,c => 3}
-> Iter = maps:iterator(Map).
-[{a,1},{b,2},{c,3}]
-> {_, _, Iter1} = maps:next(Iter).
-{a,1,[{b,2},{c,3}]}
-> {_, _, Iter2} = maps:next(Iter1).
-{b,2,[{c,3}]}
-> {_, _, Iter3} = maps:next(Iter2).
-{c,3,[]}
-> maps:next(Iter3).
+> I = maps:iterator(Map), ok.
+ok
+> {K1, V1, I1} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I2} = maps:next(I1), {K2, V2}.
+{b,2}
+> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{c,3}
+> maps:next(I3).
 none</code>
       </desc>
     </func>
