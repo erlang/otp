@@ -765,10 +765,11 @@ next_tls_record(Data, StateName, #state{protocol_buffers =
     end.
 
 
+acceptable_record_versions(StateName, #state{negotiated_version = Version}) when StateName =/= hello->
+    Version;
 acceptable_record_versions(hello, _) ->
-    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS];
-acceptable_record_versions(_, #state{negotiated_version = Version}) ->
-    [Version].
+    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS].
+
 handle_record_alert(Alert, _) ->
     Alert.
 
