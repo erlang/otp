@@ -1161,8 +1161,6 @@ static BIF_RETTYPE lists_reverse_onheap(Process *c_p,
     if (is_nil(list)) {
         BIF_RET(tail);
     } else if (is_list(list)) {
-        ASSERT(is_list(tail));
-
         if (cells_left > CELLS_PER_RED) {
             return lists_reverse_alloc(c_p, list, tail);
         }
