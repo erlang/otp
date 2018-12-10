@@ -438,6 +438,37 @@ check_result(Pid, Msg) ->
 		      {got, Unexpected}},
 	    ct:fail(Reason)
     end.
+check_server_alert(Pid, Alert) ->
+    receive
+	{Pid, {error, {tls_alert, {Alert, _}}}} ->
+            ok
+    end.
+check_server_alert(Server, Client, Alert) ->
+    receive
+	{Server, {error, {tls_alert, {Alert, _}}}} ->
+	    receive
+		{Client, {error, {tls_alert, {Alert, _}}}} ->
+		    ok;
+		{Client, {error, closed}} ->
+		    ok
+	    end
+    end.
+check_client_alert(Pid, Alert) ->
+    receive
+	{Pid, {error, {tls_alert, {Alert, _}}}} ->
+            ok
+    end.
+check_client_alert(Server, Client, Alert) ->
+    receive
+	{Client, {error, {tls_alert, {Alert, _}}}} ->
+	    receive
+		{Server, {error, {tls_alert, {Alert, _}}}} ->
+		    ok;
+		{Server, {error, closed}} ->
+		    ok
+	    end
+    end.
+
 
 wait_for_result(Server, ServerMsg, Client, ClientMsg) -> 
     receive 
@@ -1072,8 +1103,7 @@ ecc_test(Expect, COpts, SOpts, CECCOpts, SECCOpts, Config) ->
 ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     {Server, Port} = start_server_ecc_error(erlang, SOpts, SECCOpts, Config),
     Client = start_client_ecc_error(erlang, Port, COpts, CECCOpts, Config),
-    Error = {error, {tls_alert, "insufficient security"}},
-    check_result(Server, Error, Client, Error).
+    check_server_alert(Server, Client, insufficient_security).
 
 start_client(openssl, Port, ClientOpts, Config) ->
     Cert = proplists:get_value(certfile, ClientOpts),

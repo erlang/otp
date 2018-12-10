@@ -783,8 +783,8 @@ format_error(Reason) when is_list(Reason) ->
     Reason;
 format_error(closed) ->
     "TLS connection is closed";
-format_error({tls_alert, Description}) ->
-    "TLS Alert: " ++ Description;
+format_error({tls_alert, {_, Description}}) ->
+    Description;
 format_error({options,{FileType, File, Reason}}) when FileType == cacertfile;
 						      FileType == certfile;
 						      FileType == keyfile;
