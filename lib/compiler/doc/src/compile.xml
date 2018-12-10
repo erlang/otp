@@ -695,12 +695,13 @@ module.beam: module.erl \
 	</note>
 	
 	<note>
-	<p>The options <c>{nowarn_unused_function, FAs}</c>,
-          <c>{nowarn_bif_clash, FAs}</c>, and 
-          <c>{nowarn_deprecated_function, MFAs}</c> are only
-          recognized when given in files. They are not affected by
-	  options <c>warn_unused_function</c>, <c>warn_bif_clash</c>, or 
-          <c>warn_deprecated_function</c>.</p>
+	<p>Before OTP 22, the option <c>{nowarn_deprecated_function,
+	MFAs}</c> was only recognized when given in the file with
+	attribute <c>-compile()</c>. (The option
+	<c>{nowarn_unused_function,FAs}</c> was incorrectly documented
+	to only work in a file, but it also worked when given in the
+	option list.) Starting from OTP 22, all options that can be
+	given in the file can also be given in the option list.</p>
 	</note>
 
         <p>For debugging of the compiler, or for pure curiosity,
