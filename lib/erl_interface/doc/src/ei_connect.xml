@@ -87,10 +87,10 @@
 
   <funcs>
     <func>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname(const char *name)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)</nametext></name>
+      <name><ret>struct hostent *</ret><nametext>ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
+      <name><ret>struct hostent *</ret><nametext>ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop)</nametext></name>
+      <name><ret>struct hostent *</ret><nametext>ei_gethostbyname(const char *name)</nametext></name>
+      <name><ret>struct hostent *</ret><nametext>ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop)</nametext></name>
       <fsummary>Name lookup functions.</fsummary>
       <desc>
         <p>Convenience functions for some common name lookup functions.</p>
