@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed delayed delete bug which caused wx applications to
+	    crash on Mojave.</p>
+          <p>
+	    Own Id: OTP-15426 Aux Id: ERL-755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.8.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

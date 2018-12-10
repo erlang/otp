@@ -31,6 +31,85 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Document <c>bit_size</c> in match specifications and
+	    allow it in <c>ets:fun2ms</c>.</p>
+          <p>
+	    Own Id: OTP-15343 Aux Id: PR-1962 </p>
+        </item>
+        <item>
+	    <p>The <c>beam()</c> type in <c>beam_lib</c> is defined
+	    as <c>module() | file:filename() | binary()</c>. The
+	    <c>module()</c> is misleading. Giving the module name as
+	    an atom will only work if the BEAM file is in a current
+	    directory.</p>
+	    <p>To avoid confusion, <c>module()</c> has been removed
+	    from the type. That means that there will be a Dialyzer
+	    warning for code that call <c>beam_lib</c> with an atom
+	    as filename, but the calls will still work.</p>
+          <p>
+	    Own Id: OTP-15378 Aux Id: ERL-696 </p>
+        </item>
+        <item>
+          <p>
+	    <c>unicode_util</c> crashed on certain emoji grapheme
+	    clusters in binary strings.</p>
+          <p>
+	    Own Id: OTP-15428 Aux Id: ERL-777 </p>
+        </item>
+        <item>
+	    <p>When an external fun was used, warnings for unused
+	    variables could be suppressed.</p>
+          <p>
+	    Own Id: OTP-15437 Aux Id: ERL-762 </p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction count in lists:member/2</p>
+          <p>
+	    Own Id: OTP-15474 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>When specified, the <c>+{source,Name}</c> option will
+	    now override the actual file name in stack traces,
+	    instead of only affecting the return value of
+	    <c>Mod:module_info()</c>.</p>
+	    <p>The <c>+deterministic</c> flag will also affect stack
+	    traces now, omitting all path information except the file
+	    name, fixing a long-standing issue where deterministic
+	    builds required deterministic paths.</p>
+          <p>
+	    Own Id: OTP-15245 Aux Id: ERL-706 </p>
+        </item>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+        <item>
+          <p>
+	    <c>calendar:system_time_to_rfc3339/1,2</c> no longer
+	    remove trailing zeros from fractions.</p>
+          <p>
+	    Own Id: OTP-15464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
