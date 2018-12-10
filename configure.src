@@ -45,6 +45,7 @@ parallel_otp_configure=yes
 help=no
 user_srcdir=
 config_arguments=
+skip_applications=
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
@@ -136,7 +137,7 @@ while test $# != 0; do
 		--without-*)
 		    skip_app=`expr "$1" : '--without-\(.*\)'`
 		    if test -d "lib/$skip_app"; then
-			echo "$skip_app" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
+			skip_applications="$skip_applications $skip_app"
 		    fi;;
 		*)
 		    ;;
@@ -377,7 +378,7 @@ echo ""
 
 pattern="lib/*/SKIP"
 files=`echo $pattern`
-if test "$files" != "$pattern" || test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
+if test "$files" != "$pattern" || test "$skip_applications" != ""; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS DISABLED  **********************'
   echo '*********************************************************************'
@@ -388,11 +389,10 @@ if test "$files" != "$pattern" || test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
       printf "%-15s: " $app; cat $skipfile
     done
   fi
-  if test -f "$ERL_TOP/lib/SKIP-APPLICATIONS"; then
-    for skipapp in `cat "$ERL_TOP/lib/SKIP-APPLICATIONS"`; do
-      printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
-    done
-  fi
+  for skipapp in $skip_applications; do
+    printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    echo "$skipapp" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
+  done
   echo
   echo '*********************************************************************'
 fi
@@ -417,14 +417,14 @@ if test -f "erts/doc/CONF_INFO"; then
   echo '**********************  DOCUMENTATION INFORMATION  ******************'
   echo '*********************************************************************'
   echo
-  printf "%-15s: \n" documentation; 
+  printf "%-15s: \n" documentation;
   havexsltproc="yes"
   for cmd in `cat erts/doc/CONF_INFO`; do
-	echo "                 $cmd is missing." 
+	echo "                 $cmd is missing."
   if test $cmd = "xsltproc"; then
     havexsltproc="no"
   fi
-  done  
+  done
   if test $havexsltproc = "no"; then
     echo '                 The documentation cannot be built.'
   else
