@@ -75,26 +75,15 @@ init_connection_states(Role, BeastMitigation) ->
       pending_write => Pending}.
 
 %%--------------------------------------------------------------------
--spec get_tls_records(binary(), [tls_version()], binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_tls_records(binary(), [tls_version()] | tls_version(), binary()) -> {[binary()], binary()} | #alert{}.
 %%			     
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer) ->
-    BinData = list_to_binary([Buffer, Data]),
-    case erlang:byte_size(BinData) of
-        N when N >= 3 ->
-            case assert_version(BinData, Versions) of
-                true ->
-                    get_tls_records_aux(BinData, []);
-                false ->
-                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
-            end;
-        _ ->
-            get_tls_records_aux(BinData, [])
-    end.
-
+get_tls_records(Data, Version, Buffer) ->
+    get_tls_records_aux(Version, <<Buffer/binary, Data/binary>>, []).
+                            
 %%====================================================================
 %% Encoding
 %%====================================================================
@@ -395,44 +384,51 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       server_verify_data => undefined
      }.
 
-assert_version(<<?BYTE(_), ?BYTE(MajVer), ?BYTE(MinVer), _/binary>>, Versions) ->
-    is_acceptable_version({MajVer, MinVer}, Versions).
-                   
-get_tls_records_aux(<<?BYTE(?APPLICATION_DATA),?BYTE(MajVer),?BYTE(MinVer),
-		     ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) ->
-    get_tls_records_aux(Rest, [#ssl_tls{type = ?APPLICATION_DATA,
-					version = {MajVer, MinVer},
+get_tls_records_aux({MajVer, MinVer} = Version, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
+                                                  ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
+		    Acc) when Type == ?APPLICATION_DATA;
+                              Type == ?HANDSHAKE;
+                              Type == ?ALERT;
+                              Type == ?CHANGE_CIPHER_SPEC ->
+    get_tls_records_aux(Version, Rest, [#ssl_tls{type = Type,
+					version = Version,
 					fragment = Data} | Acc]);
-get_tls_records_aux(<<?BYTE(?HANDSHAKE),?BYTE(MajVer),?BYTE(MinVer),
-		     ?UINT16(Length), 
-		     Data:Length/binary, Rest/binary>>, Acc) ->
-    get_tls_records_aux(Rest, [#ssl_tls{type = ?HANDSHAKE,
-					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
-get_tls_records_aux(<<?BYTE(?ALERT),?BYTE(MajVer),?BYTE(MinVer),
-		     ?UINT16(Length), Data:Length/binary, 
-		     Rest/binary>>, Acc) ->
-    get_tls_records_aux(Rest, [#ssl_tls{type = ?ALERT,
-					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
-get_tls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
-		     ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) ->
-    get_tls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
-					version = {MajVer, MinVer},
-					fragment = Data} | Acc]);
-get_tls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
-                      ?UINT16(Length), _/binary>>,
+get_tls_records_aux(Versions, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
+                                ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
+		    Acc) when is_list(Versions) andalso
+                              ((Type == ?APPLICATION_DATA) 
+                               orelse
+                                 (Type == ?HANDSHAKE)
+                               orelse
+                                 (Type == ?ALERT)
+                               orelse
+                                 (Type == ?CHANGE_CIPHER_SPEC)) ->
+    case is_acceptable_version({MajVer, MinVer}, Versions) of 
+        true ->
+            get_tls_records_aux(Versions, Rest, [#ssl_tls{type = Type,
+                                                          version = {MajVer, MinVer},
+                                                          fragment = Data} | Acc]);
+        false ->
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end;
+get_tls_records_aux(_, <<?BYTE(Type),?BYTE(_MajVer),?BYTE(_MinVer),
+                           ?UINT16(Length), _:Length/binary, _Rest/binary>>, 
+		    _) when Type == ?APPLICATION_DATA;
+                            Type == ?HANDSHAKE;
+                            Type == ?ALERT;
+                            Type == ?CHANGE_CIPHER_SPEC ->
+    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC);
+get_tls_records_aux(_, <<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
+                         ?UINT16(Length), _/binary>>,
                     _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-get_tls_records_aux(Data, Acc) ->
+get_tls_records_aux(_, Data, Acc) ->
     case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
 	true ->
 	    {lists:reverse(Acc), Data};
 	false ->
 	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
-	end.
+    end.
 %%--------------------------------------------------------------------
 encode_plain_text(Type, Version, Data, #{current_write := Write0} = ConnectionStates) ->
     {CipherFragment, Write1} = do_encode_plain_text(Type, Version, Data, Write0),
