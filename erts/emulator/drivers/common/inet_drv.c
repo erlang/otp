@@ -7048,10 +7048,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_ptr = (char*) (&arg.ival);
 	    arg_sz  = sizeof  ( arg.ival);
 
-	    /* Adjust the size of the user-level recv buffer, so it's not
-	       smaller than the kernel one: */
-	    if (desc->bufsz <= arg.ival)
-		desc->bufsz  = arg.ival;
 	    break;
 	}
 	case INET_OPT_REUSEADDR:
