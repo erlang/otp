@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>erl_anno.xml</file>
   </header>
-  <module>erl_anno</module>
+  <module since="OTP 18.0">erl_anno</module>
   <modulesummary>Abstract datatype for the annotations of the Erlang Compiler.
   </modulesummary>
 
@@ -135,7 +135,7 @@
 
   <funcs>
     <func>
-      <name name="column" arity="1"/>
+      <name name="column" arity="1" since="OTP 18.0"/>
       <fsummary>Return the column.</fsummary>
       <type name="column"></type>
       <desc>
@@ -144,7 +144,7 @@
     </func>
 
     <func>
-      <name name="end_location" arity="1"/>
+      <name name="end_location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the end location of the text.</fsummary>
       <type name="location"></type>
       <desc>
@@ -155,7 +155,7 @@
     </func>
 
     <func>
-      <name name="file" arity="1"/>
+      <name name="file" arity="1" since="OTP 18.0"/>
       <fsummary>Return the filename.</fsummary>
       <type name="filename"></type>
       <desc>
@@ -165,7 +165,7 @@
     </func>
 
     <func>
-      <name name="from_term" arity="1"/>
+      <name name="from_term" arity="1" since="OTP 18.0"/>
       <fsummary>Return annotations given a term.</fsummary>
       <desc>
         <p>Returns annotations with representation <anno>Term</anno>.</p>
@@ -174,7 +174,7 @@
     </func>
 
     <func>
-      <name name="generated" arity="1"/>
+      <name name="generated" arity="1" since="OTP 18.0"/>
       <fsummary>Return the generated Boolean.</fsummary>
       <type name="generated"></type>
       <desc>
@@ -185,7 +185,7 @@
     </func>
 
     <func>
-      <name name="is_anno" arity="1"/>
+      <name name="is_anno" arity="1" since="OTP 18.0"/>
       <fsummary>Test for a collection of annotations.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <anno>Term</anno> is a collection of
@@ -194,7 +194,7 @@
     </func>
 
     <func>
-      <name name="line" arity="1"/>
+      <name name="line" arity="1" since="OTP 18.0"/>
       <fsummary>Return the line.</fsummary>
       <type name="line"></type>
       <desc>
@@ -203,7 +203,7 @@
     </func>
 
     <func>
-      <name name="location" arity="1"/>
+      <name name="location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the location.</fsummary>
       <type name="location"></type>
       <desc>
@@ -212,7 +212,7 @@
     </func>
 
     <func>
-      <name name="new" arity="1"/>
+      <name name="new" arity="1" since="OTP 18.0"/>
       <fsummary>Create a new collection of annotations.</fsummary>
       <type name="location"></type>
       <desc>
@@ -221,7 +221,7 @@
     </func>
 
     <func>
-      <name name="set_file" arity="2"/>
+      <name name="set_file" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the filename.</fsummary>
       <type name="filename"></type>
       <desc>
@@ -230,7 +230,7 @@
     </func>
 
     <func>
-      <name name="set_generated" arity="2"/>
+      <name name="set_generated" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the generated marker.</fsummary>
       <type name="generated"></type>
       <desc>
@@ -240,7 +240,7 @@
     </func>
 
     <func>
-      <name name="set_line" arity="2"/>
+      <name name="set_line" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the line.</fsummary>
       <type name="line"></type>
       <desc>
@@ -249,7 +249,7 @@
     </func>
 
     <func>
-      <name name="set_location" arity="2"/>
+      <name name="set_location" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the location.</fsummary>
       <type name="location"></type>
       <desc>
@@ -258,7 +258,7 @@
     </func>
 
     <func>
-      <name name="set_record" arity="2"/>
+      <name name="set_record" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the record marker.</fsummary>
       <type name="record"></type>
       <desc>
@@ -267,7 +267,7 @@
     </func>
 
     <func>
-      <name name="set_text" arity="2"/>
+      <name name="set_text" arity="2" since="OTP 18.0"/>
       <fsummary>Modify the text.</fsummary>
       <type name="text"></type>
       <desc>
@@ -276,7 +276,7 @@
     </func>
     <func>
 
-      <name name="text" arity="1"/>
+      <name name="text" arity="1" since="OTP 18.0"/>
       <fsummary>Return the text.</fsummary>
       <type name="text"></type>
       <desc>
@@ -286,7 +286,7 @@
     </func>
 
     <func>
-      <name name="to_term" arity="1"/>
+      <name name="to_term" arity="1" since="OTP 18.0"/>
       <fsummary>Return the term representing a collection of annotations.
       </fsummary>
       <desc>

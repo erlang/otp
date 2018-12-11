@@ -44,7 +44,7 @@
 
   <funcs>
     <func>
-      <name name="add_predefined_functions" arity="1"/>
+      <name name="add_predefined_functions" arity="1" since="OTP 20.0"/>
       <fsummary>Add code for pre-defined functions.</fsummary>
       <desc>
         <p>Adds to <c><anno>Forms</anno></c> the code for the standard

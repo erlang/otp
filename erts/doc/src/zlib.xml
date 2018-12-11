@@ -502,7 +502,7 @@ list_to_binary([B1,B2])</pre>
     </func>
 
     <func>
-      <name name="inflate" arity="3"/>
+      <name name="inflate" arity="3" since="OTP 20.1"/>
       <fsummary>Decompress data.</fsummary>
       <desc>
         <p>Decompresses as much data as possible. It can introduce some output
@@ -524,7 +524,7 @@ list_to_binary([B1,B2])</pre>
     </func>
 
     <func>
-      <name name="inflateChunk" arity="1"/>
+      <name name="inflateChunk" arity="1" since="OTP 18.0"/>
       <fsummary>Read next uncompressed chunk.</fsummary>
       <desc>
         <warning>
@@ -540,7 +540,7 @@ list_to_binary([B1,B2])</pre>
     </func>
 
     <func>
-      <name name="inflateChunk" arity="2"/>
+      <name name="inflateChunk" arity="2" since="OTP 18.0"/>
       <fsummary>Decompress data with limited output size.</fsummary>
       <desc>
         <warning>
@@ -595,7 +595,7 @@ loop(Z, Handler, Uncompressed) ->
     </func>
 
     <func>
-      <name name="inflateGetDictionary" arity="1"/>
+      <name name="inflateGetDictionary" arity="1" since="OTP 20.0"/>
       <fsummary>Return the decompression dictionary.</fsummary>
       <desc>
         <p>Returns the decompression dictionary currently in use
@@ -696,7 +696,7 @@ new_unpack(Z, Compressed, Dict) ->
     </func>
 
     <func>
-      <name name="safeInflate" arity="2"/>
+      <name name="safeInflate" arity="2" since="OTP 20.1"/>
       <fsummary>Decompress data with limited output size.</fsummary>
       <desc>
         <p>Like <seealso marker="#inflate/2"><c>inflate/2</c></seealso>,
@@ -745,7 +745,7 @@ loop(Z, Handler, {finished, Output}) ->
     </func>
 
     <func>
-      <name name="set_controlling_process" arity="2"/>
+      <name name="set_controlling_process" arity="2" since="OTP 20.1.3"/>
       <fsummary>Transfers ownership of a zlib stream.</fsummary>
       <desc>
         <p>Changes the controlling process of <c><anno>Z</anno></c> to

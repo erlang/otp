@@ -109,7 +109,7 @@
 
     <func>
       <name>add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret</name>
-      <name>add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
+      <name since="OTP R14B03">add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
       <fsummary>Added one community</fsummary>
       <type>
         <v>Idx = string()</v>

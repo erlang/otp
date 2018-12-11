@@ -1510,7 +1510,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select_replace" arity="2"/>
+      <name name="select_replace" arity="2" since="OTP 20.0"/>
       <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
@@ -1549,7 +1549,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="1"/>
+      <name name="select_reverse" arity="1" since="OTP R14B"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
       <p>Continues a match started with <seealso marker="#select_reverse/3">
@@ -1582,7 +1582,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="2"/>
+      <name name="select_reverse" arity="2" since="OTP R14B"/>
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
@@ -1594,7 +1594,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="select_reverse" arity="3"/>
+      <name name="select_reverse" arity="3" since="OTP R14B"/>
       <fsummary>Match the objects in an ETS table against a
         match specification and return part of the answers.</fsummary>
       <desc>
@@ -1869,7 +1869,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 18.0"/>
       <fsummary>Return and remove all objects with a specified key from an
         ETS table.</fsummary>
       <desc>
@@ -1923,11 +1923,11 @@ true</pre>
 
     <func> 
       <name name="update_counter" arity="3" clause_i="1"/>
-      <name name="update_counter" arity="4" clause_i="1"/>
+      <name name="update_counter" arity="4" clause_i="1" since="OTP 18.0"/>
       <name name="update_counter" arity="3" clause_i="2"/>
-      <name name="update_counter" arity="4" clause_i="2"/>
+      <name name="update_counter" arity="4" clause_i="2" since="OTP 18.0"/>
       <name name="update_counter" arity="3" clause_i="3"/>
-      <name name="update_counter" arity="4" clause_i="3"/>
+      <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
       <type variable="Tab"/>
       <type variable="Key"/>
@@ -2049,7 +2049,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="whereis" arity="1"/>
+      <name name="whereis" arity="1" since="OTP 21.0"/>
       <fsummary>Retrieves the tid() of a named table.</fsummary>
       <desc>
         <p>This function returns the

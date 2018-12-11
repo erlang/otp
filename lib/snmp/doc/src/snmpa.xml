@@ -251,8 +251,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>load_mib(Mib) -> ok | {error, Reason}</name>
-      <name>load_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mib(Agent, Mib) -> ok | {error, Reason}</name>
       <fsummary>Load single MIB into the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -276,7 +276,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <name>load_mibs(Mibs) -> ok | {error, Reason}</name>
       <name>load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
       <name>load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name>load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Load MIBs into the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -305,8 +305,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>unload_mib(Mib) -> ok | {error, Reason}</name>
-      <name>unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
       <fsummary>Unload single MIB from the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -324,7 +324,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <name>unload_mibs(Mibs) -> ok | {error, Reason}</name>
       <name>unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
       <name>unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
-      <name>unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
+      <name since="OTP R16B02">unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Unload MIBs from the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -557,7 +557,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>log_to_txt(LogDir)</name>
+      <name since="OTP R15B01">log_to_txt(LogDir)</name>
       <name>log_to_txt(LogDir, Block | Mibs)</name>
       <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
@@ -565,7 +565,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -600,14 +600,14 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>log_to_io(LogDir) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Block | Mibs) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -767,8 +767,8 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
     </func>
 
     <func>
-      <name>which_mibs_cache_size() -> void()</name>
-      <name>which_mibs_cache_size(Agent) -> void()</name>
+      <name since="OTP R14B">which_mibs_cache_size() -> void()</name>
+      <name since="OTP R14B">which_mibs_cache_size(Agent) -> void()</name>
       <fsummary>The size of the mib server cache</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -992,7 +992,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 
     <func>
-      <name>send_notification2(Agent, Notification, SendOpts) -> void()</name>
+      <name since="OTP R14B03">send_notification2(Agent, Notification, SendOpts) -> void()</name>
       <fsummary>Send notification</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1123,7 +1123,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
       <name>send_notification(Agent, Notification, Receiver, Varbinds)</name>
       <name>send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
       <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
-      <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
+      <name since="OTP R14B">send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
       <fsummary>Send a notification</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -1435,7 +1435,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_info() -> void()</name>
+      <name since="OTP R14B02">print_mib_info() -> void()</name>
       <fsummary>Print mib info</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables and variables 
@@ -1446,7 +1446,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_tables() -> void()</name>
+      <name since="OTP R14B02">print_mib_tables() -> void()</name>
       <fsummary>Print mib tables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) tables 
@@ -1457,7 +1457,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
     </func>
 
     <func>
-      <name>print_mib_variables() -> void()</name>
+      <name since="OTP R14B02">print_mib_variables() -> void()</name>
       <fsummary>Print mib variables</fsummary>
       <desc>
         <p>Prints the content of all the (snmp) variables 

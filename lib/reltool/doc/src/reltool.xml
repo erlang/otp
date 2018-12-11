@@ -711,7 +711,7 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>get_status(Server) -> {ok, [Warning]} | {error, Reason}</name>
+      <name since="OTP R14B">get_status(Server) -> {ok, [Warning]} | {error, Reason}</name>
       <fsummary>Get contents of a release file</fsummary>
       <type>
         <v>Server  = server()</v>

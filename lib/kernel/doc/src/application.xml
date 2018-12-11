@@ -67,8 +67,8 @@
   </datatypes>
   <funcs>
     <func>
-        <name name="ensure_all_started" arity="1"/>
-        <name name="ensure_all_started" arity="2"/>
+        <name name="ensure_all_started" arity="1" since="OTP R16B02"/>
+        <name name="ensure_all_started" arity="2" since="OTP R16B02"/>
         <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
         <desc>
           <p>Equivalent to calling
@@ -85,8 +85,8 @@
         </desc>
     </func>
     <func>
-      <name name="ensure_started" arity="1"/>
-      <name name="ensure_started" arity="2"/>
+      <name name="ensure_started" arity="1" since="OTP R16B01"/>
+      <name name="ensure_started" arity="2" since="OTP R16B01"/>
       <fsummary>Load and start an application.</fsummary>
       <desc>
 	<p>Equivalent to
@@ -153,7 +153,7 @@
       </desc>
     </func>
     <func>
-      <name name="get_env" arity="3"/>
+      <name name="get_env" arity="3" since="OTP R16B"/>
       <fsummary>Get the value of a configuration parameter using a default.</fsummary>
       <desc>
         <p>Works like <seealso marker="#get_env/2"><c>get_env/2</c></seealso> but returns

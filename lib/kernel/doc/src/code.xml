@@ -507,7 +507,7 @@ zip:create("mnesia-4.4.7.ez",
       </desc>
     </func>
     <func>
-      <name name="atomic_load" arity="1"/>
+      <name name="atomic_load" arity="1" since="OTP 19.0"/>
       <fsummary>Load a list of modules atomically</fsummary>
       <desc>
         <p>Tries to load all of the modules in the list
@@ -566,7 +566,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="prepare_loading" arity="1"/>
+      <name name="prepare_loading" arity="1" since="OTP 19.0"/>
       <fsummary>Prepare a list of modules atomically</fsummary>
       <desc>
         <p>Prepares to load the modules in the list
@@ -598,7 +598,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="finish_loading" arity="1"/>
+      <name name="finish_loading" arity="1" since="OTP 19.0"/>
       <fsummary>Finish loading a list of prepared modules atomically</fsummary>
       <desc>
         <p>Tries to load code for all modules that have been previously
@@ -627,7 +627,7 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
-      <name name="ensure_modules_loaded" arity="1"/>
+      <name name="ensure_modules_loaded" arity="1" since="OTP 19.0"/>
       <fsummary>Ensure that a list of modules is loaded</fsummary>
       <desc>
         <p>Tries to load any modules not already loaded in the list
@@ -901,7 +901,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="module_status" arity="1"/>
+      <name name="module_status" arity="1" since="OTP 20.0"/>
       <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
       <desc>
 	<p>Returns:</p>
@@ -934,7 +934,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="modified_modules" arity="0"/>
+      <name name="modified_modules" arity="0" since="OTP 20.0"/>
       <fsummary>Return a list of all modules modified on disk.</fsummary>
       <desc>
         <p>Returns the list of all currently loaded modules for which
@@ -961,7 +961,7 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
     </func>
 
     <func>
-      <name name="get_mode" arity="0"/>
+      <name name="get_mode" arity="0" since="OTP R16B"/>
       <fsummary>The mode of the code server.</fsummary>
       <desc>
         <p>Returns an atom describing the mode of the code server:

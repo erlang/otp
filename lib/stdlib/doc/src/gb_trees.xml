@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
       <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
       <desc>
         <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
@@ -120,7 +120,7 @@
     </func>
 
     <func>
-      <name name="take_any" arity="2"/>
+      <name name="take_any" arity="2" since="OTP 20.0"/>
       <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
       <desc>
         <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
@@ -218,7 +218,7 @@
     </func>
 
     <func>
-      <name name="iterator_from" arity="2"/>
+      <name name="iterator_from" arity="2" since="OTP 18.0"/>
       <fsummary>Return an iterator for a tree starting from a specified key.
       </fsummary>
       <desc>

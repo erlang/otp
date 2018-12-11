@@ -191,7 +191,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="get_format_depth" arity="0"/>
+      <name name="get_format_depth" arity="0" since="OTP 20.0"/>
       <fsummary>Get the value of the Kernel application variable
                 <c>error_logger_format_depth</c>.</fsummary>
       <desc>

@@ -163,7 +163,7 @@ value() = term()
     </func>
 
     <func>
-      <name>get_table_info(Name, Item) -> table_info_result()</name>
+      <name since="OTP R15B01">get_table_info(Name, Item) -> table_info_result()</name>
       <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
       <type>
         <v>Name = name()</v>

@@ -902,7 +902,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="prompt_func" arity="1"/>
+      <name name="prompt_func" arity="1" since="OTP R13B04"/>
       <fsummary>Set the shell prompt.</fsummary>
       <desc>
         <p>Sets the shell prompt function to <c><anno>PromptFunc</anno></c>.
@@ -945,7 +945,7 @@ q                 - quit erlang
     </func>
 
     <func>
-      <name name="strings" arity="1"/>
+      <name name="strings" arity="1" since="OTP R16B"/>
       <fsummary>Set the shell's string recognition flag.</fsummary>
       <desc>
         <p>Sets pretty printing of lists to <c><anno>Strings</anno></c>.

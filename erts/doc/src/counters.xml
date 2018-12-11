@@ -23,7 +23,7 @@
 
     <title>counters</title>
   </header>
-  <module>counters</module>
+  <module since="OTP 21.2">counters</module>
   <modulesummary>Counter Functions</modulesummary>
   <description>
     <p>This module provides a set of functions to do operations towards
@@ -71,7 +71,7 @@
 
   <funcs>
     <func>
-      <name name="new" arity="2"/>
+      <name name="new" arity="2" since="OTP 21.2"/>
       <fsummary>Create counter array</fsummary>
       <desc>
         <p>Create a new counter array of <c><anno>Size</anno></c> counters.</p>
@@ -107,7 +107,7 @@
     </func>
 
     <func>
-      <name name="get" arity="2"/>
+      <name name="get" arity="2" since="OTP 21.2"/>
       <fsummary>Read counter value</fsummary>
       <desc>
         <p>Read counter value.</p>
@@ -115,7 +115,7 @@
     </func>
 
     <func>
-      <name name="add" arity="3"/>
+      <name name="add" arity="3" since="OTP 21.2"/>
       <fsummary>Add to counter</fsummary>
       <desc>
         <p>Add <c><anno>Incr</anno></c> to counter at index
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name name="sub" arity="3"/>
+      <name name="sub" arity="3" since="OTP 21.2"/>
       <fsummary>Subtract from counter</fsummary>
       <desc>
         <p>Subtract <c><anno>Decr</anno></c> from counter at index
@@ -133,7 +133,7 @@
     </func>
 
     <func>
-      <name name="put" arity="3"/>
+      <name name="put" arity="3" since="OTP 21.2"/>
       <fsummary>Set counter to value</fsummary>
       <desc>
         <p>Write <c><anno>Value</anno></c> to counter at index
@@ -144,14 +144,14 @@
 	  operation compared to the very lightweight and scalable <seealso
 	  marker="#add/3"><c>add</c></seealso> and <seealso marker="#sub/3">
 	  <c>sub</c></seealso>. The cost for a <c>put</c> with
-	  <c>write_concurrency</c> is lika a <seealso marker="#get/2"><c>get</c>
+	  <c>write_concurrency</c> is like a <seealso marker="#get/2"><c>get</c>
 	  </seealso> plus a <c>put</c> without <c>write_concurrency</c>.</p>
 	</note>
       </desc>
     </func>
 
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since="OTP 21.2"/>
       <fsummary>Get information about counter array.</fsummary>
       <desc>
         <p>Return information about a counter array in a map. The map

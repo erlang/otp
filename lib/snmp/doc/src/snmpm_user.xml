@@ -278,7 +278,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_invalid_result(IN, OUT) -> void()</name>
+      <name since="OTP R16B03">handle_invalid_result(IN, OUT) -> void()</name>
       <fsummary>Handle a report message</fsummary>
       <type>
         <v>IN = {Func, Args}</v>

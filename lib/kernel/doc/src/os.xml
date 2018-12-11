@@ -135,7 +135,7 @@
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
-      <name name="cmd" arity="2"/>
+      <name name="cmd" arity="2" since="OTP 20.2.3"/>
       <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
         <p>Executes <c><anno>Command</anno></c> in a command shell of the
@@ -220,7 +220,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
-      <name name="getenv" arity="2"/>
+      <name name="getenv" arity="2" since="OTP 18.0"/>
       <fsummary>Get the value of an environment variable.</fsummary>
       <desc>
         <p>Returns the <c><anno>Value</anno></c> of the environment variable
@@ -277,7 +277,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
-      <name name="set_signal" arity="2"/>
+      <name name="set_signal" arity="2" since="OTP 20.0"/>
       <fsummary>Enables or disables handling of OS signals.</fsummary>
       <desc>
           <p>Enables or disables OS signals.</p>
@@ -304,7 +304,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
-      <name name="system_time" arity="0"/>
+      <name name="system_time" arity="0" since="OTP 18.0"/>
       <fsummary>Current OS system time.</fsummary>
       <desc>
 	<p>Returns the current
@@ -317,7 +317,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
     </func>
 
     <func>
-      <name name="system_time" arity="1"/>
+      <name name="system_time" arity="1" since="OTP 18.0"/>
       <fsummary>Current OS system time.</fsummary>
       <desc>
 	<p>Returns the current
@@ -373,7 +373,7 @@ calendar:now_to_universal_time(TS),
     </func>
 
     <func>
-      <name name="perf_counter" arity="0"/>
+      <name name="perf_counter" arity="0" since="OTP 19.0"/>
       <fsummary>Returns a performance counter</fsummary>
       <desc>
         <p>Returns the current performance counter value in <c>perf_counter</c>
@@ -383,7 +383,7 @@ calendar:now_to_universal_time(TS),
       </desc>
     </func>
     <func>
-      <name name="perf_counter" arity="1"/>
+      <name name="perf_counter" arity="1" since="OTP 19.0"/>
       <fsummary>Returns a performance counter</fsummary>
       <desc><p>Returns a performance counter that can be used as a very fast and
       high resolution timestamp. This counter is read directly from the hardware or operating
@@ -417,7 +417,7 @@ calendar:now_to_universal_time(TS),
     </func>
 
     <func>
-      <name name="unsetenv" arity="1"/>
+      <name name="unsetenv" arity="1" since="OTP R16B03"/>
       <fsummary>Delete an environment variable.</fsummary>
       <desc>
 	<p>Deletes the environment variable <c><anno>VarName</anno></c>.</p>

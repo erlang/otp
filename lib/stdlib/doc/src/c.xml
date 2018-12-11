@@ -52,7 +52,7 @@
     <func>
       <name name="c" arity="1"/>
       <name name="c" arity="2"/>
-      <name name="c" arity="3"/>
+      <name name="c" arity="3" since="OTP 20.0"/>
       <fsummary>Compile and load a file or module.</fsummary>
       <desc>
         <p>Compiles and then purges and loads the code for a module.
@@ -94,7 +94,7 @@
     </func>
 
     <func>
-      <name name="erlangrc" arity="1"/>
+      <name name="erlangrc" arity="1" since="OTP 21.0"/>
       <fsummary>Load an erlang resource file.</fsummary>
       <desc>
         <p>Search <c>PathList</c> and load <c>.erlang</c> resource file if
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name name="lm" arity="0"/>
+      <name name="lm" arity="0" since="OTP 20.0"/>
       <fsummary>Loads all modified modules.</fsummary>
       <desc>
         <p>Reloads all currently loaded modules that have changed on disk (see <c>mm()</c>).
@@ -214,7 +214,7 @@
     </func>
 
     <func>
-      <name name="mm" arity="0"/>
+      <name name="mm" arity="0" since="OTP 20.0"/>
       <fsummary>Lists all modified modules.</fsummary>
       <desc>
         <p>Lists all modified modules. Shorthand for
@@ -301,7 +301,7 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
-      <name name="uptime" arity="0"/>
+      <name name="uptime" arity="0" since="OTP 18.0"/>
       <fsummary>Print node uptime.</fsummary>
       <desc>
         <p>Prints the node uptime (as specified by

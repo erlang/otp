@@ -428,7 +428,7 @@ word() = 0..65535
 
     <func>
       <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId) -> target_addr_entry()</name>
-      <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
+      <name since="OTP 17.3">target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask) -> target_addr_entry()</name>
       <name>target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <name>target_addr_entry(Name, Domain, Addr, Timeout, RetryCount, TagList, ParamsName, EngineId, TMask, MaxMessageSize) -> target_addr_entry()</name>
       <fsummary>Create an target_addr entry</fsummary>

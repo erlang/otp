@@ -176,7 +176,7 @@
 <funcs>    
 
   <func>
-    <name name="compute_key" arity="2"/>
+    <name name="compute_key" arity="2" since="OTP R16B01"/>
     <fsummary>Computes shared secret.</fsummary>
   <desc>
     <p>Computes shared secret.</p>
@@ -184,7 +184,7 @@
   </func>
 
   <func>
-    <name name="compute_key" arity="3"/>
+    <name name="compute_key" arity="3" since="OTP R16B01"/>
     <fsummary>Computes shared secret.</fsummary>
   <desc>
     <p>Computes shared secret.</p>
@@ -192,8 +192,8 @@
   </func>
 
   <func>
-    <name name="decrypt_private" arity="2"/>
-    <name name="decrypt_private" arity="3"/>
+    <name name="decrypt_private" arity="2" since="OTP R14B"/>
+    <name name="decrypt_private" arity="3" since="OTP R14B"/>
     <fsummary>Public-key decryption.</fsummary>
   <desc> 
     <p>Public-key decryption using the private key. See also <seealso
@@ -202,8 +202,8 @@
   </func>
 
   <func>
-    <name name="decrypt_public" arity="2"/>
-    <name name="decrypt_public" arity="3"/>
+    <name name="decrypt_public" arity="2" since="OTP R14B"/>
+    <name name="decrypt_public" arity="3" since="OTP R14B"/>
     <fsummary>Public-key decryption.</fsummary>
   <desc> 
     <p>Public-key decryption using the public key. See also <seealso
@@ -212,7 +212,7 @@
   </func> 
 
   <func>
-    <name name="der_decode" arity="2"/>
+    <name name="der_decode" arity="2" since="OTP R14B"/>
     <fsummary>Decodes a public-key ASN.1 DER encoded entity.</fsummary>
     <desc>
       <p>Decodes a public-key ASN.1 DER encoded entity.</p>
@@ -220,7 +220,7 @@
   </func>
 
   <func>
-    <name name="der_encode" arity="2"/>
+    <name name="der_encode" arity="2" since="OTP R14B"/>
     <fsummary>Encodes a public-key entity with ASN.1 DER encoding.</fsummary>
   <desc> 
     <p>Encodes a public-key entity with ASN.1 DER encoding.</p>
@@ -228,7 +228,7 @@
   </func>
 
   <func>
-    <name name="dh_gex_group" arity="4"/>
+    <name name="dh_gex_group" arity="4" since="OTP 18.2"/>
     <fsummary>Selects a group for Diffie-Hellman key exchange</fsummary>
     <desc>
       <p>Selects a group for Diffie-Hellman key exchange with the key size in the range <c>MinSize...MaxSize</c>
@@ -249,8 +249,8 @@
   </func>
 
   <func>
-    <name name="encrypt_private" arity="2"/>
-    <name name="encrypt_private" arity="3"/>
+    <name name="encrypt_private" arity="2" since="OTP R14B"/>
+    <name name="encrypt_private" arity="3" since="OTP 21.1"/>
     <fsummary>Public-key encryption using the private key.</fsummary>
   <desc> 
     <p>Public-key encryption using the private key.
@@ -260,8 +260,8 @@
   </func>   
 
   <func>
-    <name name="encrypt_public" arity="2"/>
-    <name name="encrypt_public" arity="3"/>
+    <name name="encrypt_public" arity="2" since="OTP R14B"/>
+    <name name="encrypt_public" arity="3" since="OTP 21.1"/>
     <fsummary>Public-key encryption using the public key.</fsummary>
   <desc> 
     <p>Public-key encryption using the public key. See also <seealso
@@ -270,7 +270,7 @@
   </func>   
   
   <func>
-    <name name="generate_key" arity="1"/>
+    <name name="generate_key" arity="1" since="OTP R16B01"/>
     <fsummary>Generates a new keypair.</fsummary>
   <desc>
     <p>Generates a new keypair. Note that except for Diffie-Hellman
@@ -281,7 +281,7 @@
   </func>
 
   <func>
-    <name name="pem_decode" arity="1"/>
+    <name name="pem_decode" arity="1" since="OTP R14B"/>
     <fsummary>Decodes PEM binary data and returns
     entries as ASN.1 DER encoded entities.</fsummary>
   <desc> 
@@ -291,7 +291,7 @@
   </func> 
     
   <func>
-    <name name="pem_encode" arity="1"/>
+    <name name="pem_encode" arity="1" since="OTP R14B"/>
     <fsummary>Creates a PEM binary.</fsummary>
     <desc> 
       <p>Creates a PEM binary.</p> 
@@ -299,8 +299,8 @@
   </func>
 
   <func>
-    <name name="pem_entry_decode" arity="1"/>
-    <name name="pem_entry_decode" arity="2"/>
+    <name name="pem_entry_decode" arity="1" since="OTP R14B"/>
+    <name name="pem_entry_decode" arity="2" since="OTP R14B"/>
     <fsummary>Decodes a PEM entry.</fsummary>
   <desc> 
     <p>Decodes a PEM entry. <c>pem_decode/1</c> returns a list of PEM
@@ -311,8 +311,8 @@
   </func>
 
   <func>
-    <name name="pem_entry_encode" arity="2"/>
-    <name name="pem_entry_encode" arity="3"/>
+    <name name="pem_entry_encode" arity="2" since="OTP R14B"/>
+    <name name="pem_entry_encode" arity="3" since="OTP R14B"/>
     <fsummary>Creates a PEM entry that can be fed to <c>pem_encode/1</c>.</fsummary>
     <desc> 
       <p>Creates a PEM entry that can be feed to <c>pem_encode/1</c>.</p>
@@ -337,7 +337,7 @@
   </func>
 
   <func>
-    <name name="pkix_encode" arity="3"/>
+    <name name="pkix_encode" arity="3" since="OTP R14B"/>
     <fsummary>DER encodes a PKIX x509 certificate or part of such a
     certificate.</fsummary>
   <desc> 
@@ -349,7 +349,7 @@
   </func>
 
  <func>
-   <name name="pkix_is_issuer" arity="2"/>
+   <name name="pkix_is_issuer" arity="2" since="OTP R14B"/>
    <fsummary>Checks if <c>IssuerCert</c> issued <c>Cert</c>.</fsummary>
    <desc> 
      <p>Checks if <c>IssuerCert</c> issued <c>Cert</c>.</p> 
@@ -357,7 +357,7 @@
  </func>
   
  <func>
-   <name name="pkix_is_fixed_dh_cert" arity="1"/>
+   <name name="pkix_is_fixed_dh_cert" arity="1" since="OTP R14B"/>
    <fsummary>Checks if a certificate is a fixed Diffie-Hellman certificate.</fsummary>
    <desc> 
      <p>Checks if a certificate is a fixed Diffie-Hellman certificate.</p> 
@@ -365,7 +365,7 @@
  </func>  
   
  <func>
-   <name name="pkix_is_self_signed" arity="1"/>
+   <name name="pkix_is_self_signed" arity="1" since="OTP R14B"/>
    <fsummary>Checks if a certificate is self-signed.</fsummary>
    <desc> 
      <p>Checks if a certificate is self-signed.</p> 
@@ -373,7 +373,7 @@
  </func>
 
  <func>
-   <name name="pkix_issuer_id" arity="2"/>
+   <name name="pkix_issuer_id" arity="2" since="OTP R14B"/>
    <fsummary>Returns the issuer id.</fsummary>
    <desc> 
      <p>Returns the issuer id.</p> 
@@ -381,7 +381,7 @@
  </func>
  
  <func>
-   <name name="pkix_normalize_name" arity="1"/>
+   <name name="pkix_normalize_name" arity="1" since="OTP R14B"/>
    <fsummary>Normalizes an issuer name so that it can be easily
    compared to another issuer name.</fsummary>
    <desc> 
@@ -391,7 +391,7 @@
  </func>
 
   <func>
-    <name>pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
+    <name since="OTP R16B">pkix_path_validation(TrustedCert, CertChain, Options) -> {ok, {PublicKeyInfo, PolicyTree}} | {error, {bad_cert, Reason}} </name>
     <fsummary>Performs a basic path validation according to RFC 5280.</fsummary>
      <type>
        <v>TrustedCert =  #'OTPCertificate'{} | der_encoded() | atom()</v>
@@ -491,7 +491,7 @@ fun(OtpCert :: #'OTPCertificate'{},
    </func>
 
     <func>  
-      <name name="pkix_crl_issuer" arity="1"/>
+      <name name="pkix_crl_issuer" arity="1" since="OTP 17.5"/>
       <fsummary>Returns the issuer of the <c>CRL</c>.</fsummary>
       <desc> 
 	<p>Returns the issuer of the <c>CRL</c>.</p>
@@ -499,7 +499,7 @@ fun(OtpCert :: #'OTPCertificate'{},
     </func> 
    
    <func>
-     <name name="pkix_crls_validate" arity="3"/>
+     <name name="pkix_crls_validate" arity="3" since="OTP R16B"/>
      <fsummary>Performs CRL validation.</fsummary>
      <desc>
       <p>Performs CRL validation. It is intended to be called from
@@ -551,7 +551,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
    </func>
    
    <func>  
-     <name name="pkix_crl_verify" arity="2"/>
+     <name name="pkix_crl_verify" arity="2" since="OTP 17.5"/>
      <fsummary> Verify that  <c>Cert</c>  is the <c> CRL</c>  signer. </fsummary>
      <desc> 
        <p>Verify that <c>Cert</c> is the <c>CRL</c> signer.</p>
@@ -559,7 +559,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
    </func>
 
    <func>  
-     <name name="pkix_dist_point" arity="1"/>
+     <name name="pkix_dist_point" arity="1" since="OTP 17.5"/>
      <fsummary>Creates a distribution point for CRLs issued by the same issuer as <c>Cert</c>.</fsummary>
      <desc> 
        <p>Creates a distribution point for CRLs issued by the same issuer as <c>Cert</c>.
@@ -570,7 +570,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
    </func>
    
    <func>  
-     <name name="pkix_dist_points" arity="1"/>
+     <name name="pkix_dist_points" arity="1" since="OTP 17.5"/>
      <fsummary> Extracts distribution points from the certificates extensions.</fsummary>
      <desc> 
        <p> Extracts distribution points from the certificates extensions.</p>
@@ -578,7 +578,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
  </func>
    
   <func>
-    <name name="pkix_match_dist_point" arity="2"/>
+    <name name="pkix_match_dist_point" arity="2" since="OTP 19.0"/>
     <fsummary>Checks whether the given distribution point matches the
     Issuing Distribution Point of the CRL.</fsummary>
     <desc>
@@ -590,7 +590,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>
-    <name name="pkix_sign" arity="2"/>
+    <name name="pkix_sign" arity="2" since="OTP R14B"/>
     <fsummary>Signs certificate.</fsummary>
     <desc> 
       <p>Signs an 'OTPTBSCertificate'. Returns the corresponding
@@ -599,7 +599,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func> 
 
   <func>
-    <name name="pkix_sign_types" arity="1"/>
+    <name name="pkix_sign_types" arity="1" since="OTP R16B01"/>
     <fsummary>Translates signature algorithm OID to Erlang digest and signature algorithm types.</fsummary>
     <desc>
       <p>Translates signature algorithm OID to Erlang digest and signature types.
@@ -609,8 +609,8 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>
-    <name>pkix_test_data(Options) -> Config </name>
-    <name>pkix_test_data([chain_opts()]) -> [conf_opt()]</name>
+    <name since="OTP 20.1">pkix_test_data(Options) -> Config </name>
+    <name since="OTP 20.1">pkix_test_data([chain_opts()]) -> [conf_opt()]</name>
     <fsummary>Creates certificate test data.</fsummary>
     <type>
       <v>Options = #{chain_type() := chain_opts()} </v>
@@ -742,7 +742,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
   
   <func>
-    <name>pkix_test_root_cert(Name, Options) -> RootCert</name>
+    <name since="OTP 20.2">pkix_test_root_cert(Name, Options) -> RootCert</name>
     <fsummary>Generates a test data root cert.</fsummary>
     <type>
       <v>Name = string()</v>
@@ -772,7 +772,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func>
 
   <func>  
-    <name name="pkix_verify" arity="2"/>
+    <name name="pkix_verify" arity="2" since="OTP R14B"/>
     <fsummary>Verifies PKIX x.509 certificate signature.</fsummary>
   <desc> 
     <p>Verifies PKIX x.509 certificate signature.</p>
@@ -780,8 +780,8 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func> 
 
   <func>
-    <name>pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()</name>
-    <name>pkix_verify_hostname(Cert, ReferenceIDs, Opts) -> boolean()</name>
+    <name since="OTP 19.3">pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()</name>
+    <name since="OTP 19.3">pkix_verify_hostname(Cert, ReferenceIDs, Opts) -> boolean()</name>
     <fsummary>Verifies that a PKIX x.509 certificate <i>presented identifier</i> (e.g hostname) is
     an expected one.</fsummary>
     <type>
@@ -864,7 +864,7 @@ end
   </func>
 
   <func>
-    <name>pkix_verify_hostname_match_fun(Protcol) ->  fun(RefId | FQDN::string(), PresentedID) -> boolean() | default</name>
+    <name since="OTP 21.0">pkix_verify_hostname_match_fun(Protcol) ->  fun(RefId | FQDN::string(), PresentedID) -> boolean() | default</name>
     <fsummary>Returns a fun that is intendended as argument to the match_fun option in pkix_verify_hostname/3.
     </fsummary>
     <type>
@@ -890,7 +890,7 @@ end
 
   <func>
     <name name="sign" arity="3"/>
-    <name name="sign" arity="4"/>
+    <name name="sign" arity="4" since="OTP 20.1"/>
     <fsummary>Creates a digital signature.</fsummary>
   <desc>
     <p>Creates a digital signature.</p> 
@@ -901,7 +901,7 @@ end
   </func>   
 
   <func>
-    <name name="ssh_decode" arity="2"/>
+    <name name="ssh_decode" arity="2" since="OTP R14B03"/>
     <fsummary>Decodes an SSH file-binary.</fsummary>
     <desc>
       <p>Decodes an SSH file-binary. In the case of <c>known_hosts</c> or
@@ -933,7 +933,7 @@ end
   </func>
 
   <func>
-    <name name="ssh_encode" arity="2"/>
+    <name name="ssh_encode" arity="2" since="OTP R14B03"/>
     <fsummary>Encodes a list of SSH file entries to a binary.</fsummary>
     <desc>
       <p>Encodes a list of SSH file entries (public keys and attributes) to a binary. Possible
@@ -947,9 +947,9 @@ end
   </func>
 
   <func>
-    <name>ssh_hostkey_fingerprint(HostKey) -> string()</name>
-    <name>ssh_hostkey_fingerprint(DigestType, HostKey) -> string()</name>
-    <name>ssh_hostkey_fingerprint([DigestType], HostKey) -> [string()]</name>
+    <name since="OTP 19.2">ssh_hostkey_fingerprint(HostKey) -> string()</name>
+    <name since="OTP 19.2">ssh_hostkey_fingerprint(DigestType, HostKey) -> string()</name>
+    <name since="OTP 19.2">ssh_hostkey_fingerprint([DigestType], HostKey) -> [string()]</name>
     <fsummary>Calculates a ssh fingerprint for a hostkey.</fsummary>
     <type>
       <v>HostKey = <seealso marker="#type-public_key">public_key()</seealso></v>
@@ -982,8 +982,8 @@ end
   </func>
 
   <func>
-    <name name="verify" arity="4"/>
-    <name name="verify" arity="5"/>
+    <name name="verify" arity="4" since="OTP R14B"/>
+    <name name="verify" arity="5" since="OTP 20.1"/>
     <fsummary>Verifies a digital signature.</fsummary>
   <desc>
     <p>Verifies a digital signature.</p>
@@ -993,7 +993,7 @@ end
   </func>
 
   <func>
-    <name name="short_name_hash" arity="1"/>
+    <name name="short_name_hash" arity="1" since="OTP 19.0"/>
     <fsummary>Generates a short hash of an issuer name.</fsummary>
     <desc>
       <p>Generates a short hash of an issuer name.  The hash is

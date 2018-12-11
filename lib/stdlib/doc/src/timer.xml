@@ -258,8 +258,8 @@
     </func>
 
     <func>
-      <name name="tc" arity="1"/>
-      <name name="tc" arity="2"/>
+      <name name="tc" arity="1" since="OTP R14B03"/>
+      <name name="tc" arity="2" since="OTP R14B"/>
       <name name="tc" arity="3"/>
       <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
         Function, Arguments)</c> or <c>apply(Fun, Arguments)</c>.</fsummary>

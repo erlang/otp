@@ -129,8 +129,8 @@
 
   <funcs>
     <func>
-      <name>Module:event(What, Port, Dir, Data) -> ignored</name>
-      <name>Module:event(What, Address, Port, Dir, Data) -> ignored</name>
+      <name since="OTP 18.1">Module:event(What, Port, Dir, Data) -> ignored</name>
+      <name since="OTP 18.1">Module:event(What, Address, Port, Dir, Data) -> ignored</name>
       <fsummary>Called whenever an event occurs in <c>mod_security</c>.</fsummary>
       <type>
         <v>What = atom()</v>

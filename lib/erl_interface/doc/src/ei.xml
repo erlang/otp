@@ -134,7 +134,7 @@ typedef enum {
       </func>
 
       <func>
-          <name><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</nametext></name>
+          <name since="OTP R16B"><ret>int</ret><nametext>ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result)</nametext></name>
           <fsummary>Decode an atom.</fsummary>
           <desc>
               <p>Decodes an atom from the binary format. The <c>NULL</c>-terminated
@@ -286,7 +286,7 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_decode_map_header(const char *buf, int *index, int *arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_decode_map_header(const char *buf, int *index, int *arity)</nametext></name>
       <fsummary>Decode a map.</fsummary>
       <desc>
         <p>Decodes a map header from the binary
@@ -415,10 +415,10 @@ typedef enum {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
+      <name since="OTP R16B"><ret>int</ret><nametext>ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc)</nametext></name>
       <fsummary>Encode an atom.</fsummary>
       <desc>
         <p>Encodes an atom in the binary format. Parameter <c>p</c> is the name of the atom with
@@ -574,8 +574,8 @@ ei_x_encode_empty_list(&amp;x);</pre>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_encode_map_header(char *buf, int *index, int arity)</nametext></name>
-      <name><ret>int</ret><nametext>ei_x_encode_map_header(ei_x_buff* x, int arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_encode_map_header(char *buf, int *index, int arity)</nametext></name>
+      <name since="OTP 17.0"><ret>int</ret><nametext>ei_x_encode_map_header(ei_x_buff* x, int arity)</nametext></name>
       <fsummary>Encode a map.</fsummary>
       <desc>
         <p>Encodes a map header, with a specified arity. The next

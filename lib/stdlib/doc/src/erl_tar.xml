@@ -423,7 +423,7 @@
     </func>
 
     <func>
-      <name>init(UserPrivate, AccessMode, Fun) ->
+      <name since="OTP 17.4">init(UserPrivate, AccessMode, Fun) ->
         {ok,TarDescriptor} | {error,Reason}</name>
       <fsummary>Create a <c>TarDescriptor</c> used in subsequent tar operations
         when defining own low-level storage access functions.</fsummary>

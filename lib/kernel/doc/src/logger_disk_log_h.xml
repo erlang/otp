@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>logger_disk_log_h.xml</file>
   </header>
-  <module>logger_disk_log_h</module>
+  <module since="OTP 21.0">logger_disk_log_h</module>
   <modulesummary>A disk_log based handler for Logger</modulesummary>
 
   <description>
@@ -148,7 +148,7 @@ erl -kernel logger '[{handler,default,logger_disk_log_h,
   <funcs>
 
     <func>
-      <name name="filesync" arity="1" clause_i="1"/>
+      <name name="filesync" arity="1" clause_i="1" since="OTP 21.0"/>
       <fsummary>Writes buffered data to disk.</fsummary>
       <desc>
         <p>Write buffered data to disk.</p>

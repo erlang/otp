@@ -801,7 +801,7 @@
     </func>
 
     <func>
-      <name>start_service(ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
+      <name since="OTP 21.0">start_service(ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Dynamically starts an <c>FTP</c>
       session after the <c>ftp</c> application has been started.</fsummary>
       <type>
@@ -820,7 +820,7 @@
     </func>
 
     <func>
-      <name>stop_service(Reference) -> ok | {error, Reason} </name>
+      <name since="OTP 21.0">stop_service(Reference) -> ok | {error, Reason} </name>
       <fsummary>Stops an FTP session.</fsummary>
       <type>
 	<v>Reference = pid() | term() - service-specified reference</v>

@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name name="format" arity="2"/>
+      <name name="format" arity="2" since="OTP R16B"/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
 	<note>
@@ -138,7 +138,7 @@
     </func>
 
     <func>
-      <name name="format" arity="3"/>
+      <name name="format" arity="3" since="OTP 18.1"/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
 	<note>
@@ -341,7 +341,7 @@ init(Parent) ->
     </func>
 
     <func>
-      <name name="stop" arity="1"/>
+      <name name="stop" arity="1" since="OTP 18.0"/>
       <fsummary>Terminate a process synchronously.</fsummary>
       <type variable="Process"/>
       <desc>
@@ -351,7 +351,7 @@ init(Parent) ->
     </func>
 
     <func>
-      <name name="stop" arity="3"/>
+      <name name="stop" arity="3" since="OTP 18.0"/>
       <fsummary>Terminate a process synchronously.</fsummary>
       <type variable="Process"/>
       <type variable="Reason"/>

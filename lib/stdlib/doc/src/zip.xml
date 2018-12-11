@@ -180,7 +180,7 @@
 
   <funcs>
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since="OTP R14B"/>
       <fsummary>Fold a function over all files in a zip archive.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>FileInArchive</anno>, <anno>GetInfo

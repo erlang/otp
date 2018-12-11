@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name>add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R14B">add_config(Callback, Config) -&gt; ok | {error, Reason}</name>
       <fsummary>Loads configuration variables using the specified callback
         module and configuration string.</fsummary>
       <type>
@@ -176,7 +176,7 @@
     </func>
 
     <func>
-      <name>break(Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Cancels any active timetrap and pause the execution of the
         current test case until the user calls function continue/0.</fsummary>
       <type>
@@ -206,7 +206,7 @@
     </func>
 
     <func>
-      <name>break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B02">break(TestCase, Comment) -&gt; ok | {error, Reason}</name>
       <fsummary>Works the same way as break/1, only argument TestCase makes it
         possible to pause a test case executing in a parallel group.</fsummary>
       <type>
@@ -228,7 +228,7 @@
     </func>
 
     <func>
-      <name>capture_get() -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get() -&gt; ListOfStrings</name>
       <fsummary>Equivalent to capture_get([default]).</fsummary>
       <type>
         <v>ListOfStrings = [string()]</v>
@@ -240,7 +240,7 @@
     </func>
 
     <func>
-      <name>capture_get(ExclCategories) -&gt; ListOfStrings</name>
+      <name since="OTP R15B">capture_get(ExclCategories) -&gt; ListOfStrings</name>
       <fsummary>Returns and purges the list of text strings buffered during
         the latest session of capturing printouts to stdout.</fsummary>
       <type>
@@ -262,7 +262,7 @@
     </func>
 
     <func>
-      <name>capture_start() -&gt; ok</name>
+      <name since="OTP R15B">capture_start() -&gt; ok</name>
       <fsummary>Starts capturing all text strings printed to stdout
         during execution of the test case.</fsummary>
         <desc><marker id="capture_start-0"/>
@@ -276,7 +276,7 @@
     </func>
 
     <func>
-      <name>capture_stop() -&gt; ok</name>
+      <name since="OTP R15B">capture_stop() -&gt; ok</name>
       <fsummary>Stops capturing text strings (a session started with
         capture_start/0).</fsummary>
       <desc><marker id="capture_stop-0"/>
@@ -307,7 +307,7 @@
     </func>
 
     <func>
-      <name>comment(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">comment(Format, Args) -&gt; ok</name>
       <fsummary>Prints the formatted string in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name>continue() -&gt; ok</name>
+      <name since="OTP R15B02">continue() -&gt; ok</name>
       <fsummary>This function must be called to continue after a test
         case (not executing in a parallel group) has called break/1.</fsummary>
       <desc><marker id="continue-0"/>
@@ -337,7 +337,7 @@
     </func>
 
     <func>
-      <name>continue(TestCase) -&gt; ok</name>
+      <name since="OTP R15B02">continue(TestCase) -&gt; ok</name>
       <fsummary>This function must be called to continue after a test case
         has called break/2.</fsummary>
       <type>
@@ -454,7 +454,7 @@
     </func>
 
     <func>
-      <name>fail(Format, Args) -&gt; ok</name>
+      <name since="OTP R15B">fail(Format, Args) -&gt; ok</name>
       <fsummary>Terminates a test case with an error message specified by
         a format string and a list of values (used as arguments to
         io_lib:format/2).</fsummary>
@@ -554,7 +554,7 @@
     </func>
 
     <func>
-      <name>get_event_mgr_ref() -&gt; EvMgrRef</name>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; EvMgrRef</name>
       <fsummary>Gets a reference to the <c>Common Test</c> event manager.</fsummary>
         <type>
           <v>EvMgrRef = atom()</v>
@@ -572,7 +572,7 @@
     </func>
 
     <func>
-      <name>get_progname() -&gt; string()</name>
+      <name since="OTP 21.0">get_progname() -&gt; string()</name>
       <fsummary>Returns the command used to start this Erlang instance.</fsummary>
       <desc><marker id="get_progname-0"/>
         <p>Returns the command used to start this Erlang instance.
@@ -622,7 +622,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms() -&gt; TestSpecTerms | undefined</name>
       <fsummary>Gets a list of all test specification terms used to
         configure and run this test.</fsummary>
       <type>
@@ -636,7 +636,7 @@
     </func>
 
     <func>
-      <name>get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
+      <name since="OTP 18.0">get_testspec_terms(Tags) -&gt; TestSpecTerms | undefined</name>
       <fsummary>Reads one or more terms from the test specification used to
         configure and run this test.</fsummary>
       <type>
@@ -663,7 +663,7 @@
     </func>
 
     <func>
-      <name>get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
+      <name since="OTP R15B">get_timetrap_info() -&gt; {Time, {Scaling,ScaleVal}}</name>
       <fsummary>Reads information about the timetrap set for the current
         test case.</fsummary>
       <type>
@@ -682,7 +682,7 @@
     </func>
 
     <func>
-      <name>get_verbosity(Category) -&gt; Level | undefined</name>
+      <name since="OTP 19.1">get_verbosity(Category) -&gt; Level | undefined</name>
       <fsummary>Read the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -778,7 +778,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">log(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -794,7 +794,7 @@
     </func>
 
     <func>
-      <name>log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 18.3">log(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the log file.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -825,7 +825,7 @@
     </func>
 
     <func>
-      <name>make_priv_dir() -&gt; ok | {error, Reason}</name>
+      <name since="OTP R15B01">make_priv_dir() -&gt; ok | {error, Reason}</name>
       <fsummary>If the test has been started with option create_priv_dir
         set to manual_per_tc, in order for the test case to use the private
         directory, it must first create it by calling this function.</fsummary>
@@ -841,7 +841,7 @@
     </func>
 
     <func>
-      <name>notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends an asynchronous notification of type Name with Data
         to the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -898,7 +898,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">pal(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -914,7 +914,7 @@
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -976,7 +976,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -1005,7 +1005,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2, X3, X4) -&gt; ok</name>
+      <name since="OTP R15B02">print(X1, X2, X3, X4) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -1021,7 +1021,7 @@
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
+      <name since="OTP 19.2">print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
@@ -1048,7 +1048,7 @@
     </func>
 
     <func>
-      <name>reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
+      <name since="OTP R14B">reload_config(Required) -&gt; ValueOrElement | {error, Reason}</name>
       <fsummary>Reloads configuration file containing specified configuration
         key.</fsummary>
       <type>
@@ -1071,7 +1071,7 @@
     </func>
 
      <func>
-      <name>remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <name since="OTP 20.2">remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
       <fsummary>>This function will return the identity of test- and group
        leader processes that are still running at the time of this call.</fsummary>
       <type>
@@ -1107,7 +1107,7 @@
     </func>   
 
     <func>
-      <name>remove_config(Callback, Config) -&gt; ok</name>
+      <name since="OTP R14B">remove_config(Callback, Config) -&gt; ok</name>
       <fsummary>Removes configuration variables (together with
         their aliases) that were loaded with specified callback module and
         configuration string.</fsummary>
@@ -1375,7 +1375,7 @@
     </func>
 
     <func>
-      <name>set_verbosity(Category, Level) -&gt; ok</name>
+      <name since="OTP 19.1">set_verbosity(Category, Level) -&gt; ok</name>
       <fsummary>Set the verbosity level for a logging category.</fsummary>
       <type>
         <v>Category = default | atom()</v>
@@ -1390,7 +1390,7 @@
     </func>
 
     <func>
-      <name>sleep(Time) -&gt; ok</name>
+      <name since="OTP R14B">sleep(Time) -&gt; ok</name>
       <fsummary>This function, similar to timer:sleep/1, suspends the
         test case for a specified time.</fsummary>
       <type>
@@ -1482,7 +1482,7 @@
     </func>
 
     <func>
-      <name>sync_notify(Name, Data) -&gt; ok</name>
+      <name since="OTP R15B02">sync_notify(Name, Data) -&gt; ok</name>
       <fsummary>Sends a synchronous notification of type Name with Data to
         the <c>Common Test</c> event manager.</fsummary>
       <type>
@@ -1515,7 +1515,7 @@
     </func>
 
     <func>
-      <name>timetrap(Time) -&gt; ok</name>
+      <name since="OTP R14B">timetrap(Time) -&gt; ok</name>
       <fsummary>Sets a new timetrap for the running test case.</fsummary>
       <type>
         <v>Time = {hours, Hours} | {minutes, Mins} | {seconds, Secs} | Millisecs | infinity | Func</v>

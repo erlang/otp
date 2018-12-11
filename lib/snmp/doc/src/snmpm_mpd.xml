@@ -64,7 +64,7 @@
       </desc>
     </func>
     <func>
-      <name>process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
       <fsummary>Process a message received from the network</fsummary>
       <type>
         <v>Msg = binary()</v>

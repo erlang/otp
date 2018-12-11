@@ -130,7 +130,7 @@
   <funcs>
 
     <func>
-      <name name="casefold" arity="1"/>
+      <name name="casefold" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a comparable string.</fsummary>
       <desc>
         <p>
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name name="chomp" arity="1"/>
+      <name name="chomp" arity="1" since="OTP 20.0"/>
       <fsummary>Remove trailing end of line control characters.</fsummary>
       <desc>
         <p>
@@ -165,8 +165,8 @@
 
     <func>
       <name name="equal" arity="2"/>
-      <name name="equal" arity="3"/>
-      <name name="equal" arity="4"/>
+      <name name="equal" arity="3" since="OTP 20.0"/>
+      <name name="equal" arity="4" since="OTP 20.0"/>
       <fsummary>Test string equality.</fsummary>
       <desc>
         <p>
@@ -201,8 +201,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="find" arity="2"/>
-      <name name="find" arity="3"/>
+      <name name="find" arity="2" since="OTP 20.0"/>
+      <name name="find" arity="3" since="OTP 20.0"/>
       <fsummary>Find start of substring.</fsummary>
       <desc>
         <p>
@@ -230,7 +230,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 20.0"/>
       <fsummary>Check if the string is empty.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>String</anno></c> is the
@@ -245,7 +245,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="length" arity="1"/>
+      <name name="length" arity="1" since="OTP 20.0"/>
       <fsummary>Calculate length of the string.</fsummary>
       <desc>
         <p>
@@ -261,7 +261,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="lexemes" arity="2"/>
+      <name name="lexemes" arity="2" since="OTP 20.0"/>
       <fsummary>Split string into lexemes.</fsummary>
       <desc>
 	<p>
@@ -287,7 +287,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="lowercase" arity="1"/>
+      <name name="lowercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to lowercase</fsummary>
       <desc>
         <p>
@@ -306,7 +306,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_codepoint" arity="1"/>
+      <name name="next_codepoint" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first codepoint.</fsummary>
       <desc>
         <p>
@@ -323,7 +323,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="next_grapheme" arity="1"/>
+      <name name="next_grapheme" arity="1" since="OTP 20.0"/>
       <fsummary>Pick the first grapheme cluster.</fsummary>
       <desc>
         <p>
@@ -340,7 +340,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="nth_lexeme" arity="3"/>
+      <name name="nth_lexeme" arity="3" since="OTP 20.0"/>
       <fsummary>Pick the nth lexeme.</fsummary>
       <desc>
 	<p>Returns lexeme number <c><anno>N</anno></c> in
@@ -355,9 +355,9 @@ true</pre>
     </func>
 
     <func>
-      <name name="pad" arity="2"/>
-      <name name="pad" arity="3"/>
-      <name name="pad" arity="4"/>
+      <name name="pad" arity="2" since="OTP 20.0"/>
+      <name name="pad" arity="3" since="OTP 20.0"/>
+      <name name="pad" arity="4" since="OTP 20.0"/>
       <fsummary>Pad a string to given length.</fsummary>
       <desc>
         <p>
@@ -381,7 +381,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="prefix" arity="2"/>
+      <name name="prefix" arity="2" since="OTP 20.0"/>
       <fsummary>Remove prefix from string.</fsummary>
       <desc>
         <p>
@@ -400,8 +400,8 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="replace" arity="3"/>
-      <name name="replace" arity="4"/>
+      <name name="replace" arity="3" since="OTP 20.0"/>
+      <name name="replace" arity="4" since="OTP 20.0"/>
       <fsummary>Replace a pattern in string.</fsummary>
       <desc>
         <p>
@@ -423,7 +423,7 @@ nomatch</pre>
     </func>
 
     <func>
-      <name name="reverse" arity="1"/>
+      <name name="reverse" arity="1" since="OTP 20.0"/>
       <fsummary>Reverses a string</fsummary>
       <desc>
         <p>
@@ -439,8 +439,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="slice" arity="2"/>
-      <name name="slice" arity="3"/>
+      <name name="slice" arity="2" since="OTP 20.0"/>
+      <name name="slice" arity="3" since="OTP 20.0"/>
       <fsummary>Extract a part of string</fsummary>
       <desc>
 	<p>Returns a substring of <c><anno>String</anno></c> of
@@ -459,8 +459,8 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="split" arity="2"/>
-      <name name="split" arity="3"/>
+      <name name="split" arity="2" since="OTP 20.0"/>
+      <name name="split" arity="3" since="OTP 20.0"/>
       <fsummary>Split a string into substrings.</fsummary>
       <desc>
         <p>
@@ -482,9 +482,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
-      <name name="take" arity="3"/>
-      <name name="take" arity="4"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
+      <name name="take" arity="3" since="OTP 20.0"/>
+      <name name="take" arity="4" since="OTP 20.0"/>
       <fsummary>Take leading or trailing parts.</fsummary>
       <desc>
         <p>Takes characters from <c><anno>String</anno></c> as long as
@@ -508,7 +508,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="titlecase" arity="1"/>
+      <name name="titlecase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to titlecase.</fsummary>
       <desc>
         <p>
@@ -566,7 +566,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="to_graphemes" arity="1"/>
+      <name name="to_graphemes" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to a list of grapheme clusters.</fsummary>
       <desc>
         <p>
@@ -582,9 +582,9 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="trim" arity="1"/>
-      <name name="trim" arity="2"/>
-      <name name="trim" arity="3"/>
+      <name name="trim" arity="1" since="OTP 20.0"/>
+      <name name="trim" arity="2" since="OTP 20.0"/>
+      <name name="trim" arity="3" since="OTP 20.0"/>
       <fsummary>Trim leading or trailing, or both, characters.</fsummary>
       <desc>
 	<p>
@@ -616,7 +616,7 @@ ÖÄÅ</pre>
     </func>
 
     <func>
-      <name name="uppercase" arity="1"/>
+      <name name="uppercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to uppercase.</fsummary>
       <desc>
         <p>

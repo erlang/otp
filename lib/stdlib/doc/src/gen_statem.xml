@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_statem</module>
+  <module since="OTP 19.0">gen_statem</module>
   <modulesummary>Generic state machine behavior.</modulesummary>
   <description>
     <p>
@@ -1398,8 +1398,8 @@ handle_event(_, _, State, Data) ->
 
   <funcs>
     <func>
-      <name name="call" arity="2"/>
-      <name name="call" arity="3"/>
+      <name name="call" arity="2" since="OTP 19.0"/>
+      <name name="call" arity="3" since="OTP 19.0"/>
       <fsummary>Make a synchronous call to a <c>gen_statem</c>.</fsummary>
       <desc>
         <p>
@@ -1474,7 +1474,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="cast" arity="2"/>
+      <name name="cast" arity="2" since="OTP 19.0"/>
       <fsummary>Send an asynchronous event to a <c>gen_statem</c>.</fsummary>
       <desc>
 	<p>
@@ -1493,7 +1493,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="4"/>
+      <name name="enter_loop" arity="4" since="OTP 19.1"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -1507,7 +1507,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="5"/>
+      <name name="enter_loop" arity="5" since="OTP 19.0"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -1531,7 +1531,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="enter_loop" arity="6"/>
+      <name name="enter_loop" arity="6" since="OTP 19.0"/>
       <fsummary>Enter the <c>gen_statem</c> receive loop.</fsummary>
       <desc>
 	<p>
@@ -1588,8 +1588,8 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="reply" arity="1"/>
-      <name name="reply" arity="2"/>
+      <name name="reply" arity="1" since="OTP 19.0"/>
+      <name name="reply" arity="2" since="OTP 19.0"/>
       <fsummary>Reply to a caller.</fsummary>
       <desc>
         <p>
@@ -1621,8 +1621,8 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="start" arity="3"/>
-      <name name="start" arity="4"/>
+      <name name="start" arity="3" since="OTP 19.0"/>
+      <name name="start" arity="4" since="OTP 19.0"/>
       <fsummary>Create a standalone <c>gen_statem</c> process.</fsummary>
       <desc>
         <p>
@@ -1642,8 +1642,8 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="start_link" arity="3"/>
-      <name name="start_link" arity="4"/>
+      <name name="start_link" arity="3" since="OTP 19.0"/>
+      <name name="start_link" arity="4" since="OTP 19.0"/>
       <fsummary>Create a linked <c>gen_statem</c> process.</fsummary>
       <desc>
         <p>
@@ -1750,7 +1750,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="stop" arity="1"/>
+      <name name="stop" arity="1" since="OTP 19.0"/>
       <fsummary>Synchronously stop a generic server.</fsummary>
       <desc>
 	<p>
@@ -1761,7 +1761,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name name="stop" arity="3"/>
+      <name name="stop" arity="3" since="OTP 19.0"/>
       <fsummary>Synchronously stop a generic server.</fsummary>
       <desc>
 	<p>
@@ -1807,7 +1807,7 @@ handle_event(_, _, State, Data) ->
 
   <funcs>
     <func>
-      <name>Module:callback_mode() -> CallbackMode</name>
+      <name since="OTP 19.1">Module:callback_mode() -> CallbackMode</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
       <type>
 	<v>
@@ -1858,7 +1858,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name>Module:code_change(OldVsn, OldState, OldData, Extra) ->
+      <name since="OTP 19.0">Module:code_change(OldVsn, OldState, OldData, Extra) ->
         Result
       </name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
@@ -1947,7 +1947,7 @@ handle_event(_, _, State, Data) ->
     </func>
 
     <func>
-      <name>Module:init(Args) -> Result(StateType)</name>
+      <name since="OTP 19.0">Module:init(Args) -> Result(StateType)</name>
       <fsummary>
 	Initializing process and internal state.
       </fsummary>
@@ -1989,7 +1989,7 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
     </func>
 
     <func>
-      <name>Module:format_status(Opt, [PDict,State,Data]) ->
+      <name since="OTP 19.0">Module:format_status(Opt, [PDict,State,Data]) ->
         Status
       </name>
       <fsummary>Optional function for providing a term describing the
@@ -2088,16 +2088,16 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
     </func>
 
     <func>
-      <name>Module:StateName(enter, OldState, Data) ->
+      <name since="OTP 19.0">Module:StateName(enter, OldState, Data) ->
         StateEnterResult(StateName)
       </name>
-      <name>Module:StateName(EventType, EventContent, Data) ->
+      <name since="OTP 19.0">Module:StateName(EventType, EventContent, Data) ->
         StateFunctionResult
       </name>
-      <name>Module:handle_event(enter, OldState, State, Data) ->
+      <name since="OTP 19.0">Module:handle_event(enter, OldState, State, Data) ->
 	StateEnterResult(State)
       </name>
-      <name>Module:handle_event(EventType, EventContent, State, Data) ->
+      <name since="OTP 19.0">Module:handle_event(EventType, EventContent, State, Data) ->
 	HandleEventResult
       </name>
       <fsummary>Handle an event.</fsummary>
@@ -2216,7 +2216,7 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
     </func>
 
     <func>
-      <name>Module:terminate(Reason, State, Data) -> Ignored</name>
+      <name since="OTP 19.0">Module:terminate(Reason, State, Data) -> Ignored</name>
       <fsummary>Clean up before termination.</fsummary>
       <type>
         <v>Reason = normal | shutdown | {shutdown,term()} | term()</v>

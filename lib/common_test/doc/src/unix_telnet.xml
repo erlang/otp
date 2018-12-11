@@ -80,7 +80,7 @@
 
   <funcs>
     <func>
-      <name>connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
+      <name since="OTP 18.3.3">connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -&gt; {ok, Handle} | {error, Reason}</name>
       <fsummary>Callback for ct_telnet.erl.</fsummary>
         <type>
           <v>ConnName = target_name()</v>

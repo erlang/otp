@@ -263,8 +263,8 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
     </func>
 
     <func>
-      <name name="find_file" arity="2"/>
-      <name name="find_file" arity="3"/>
+      <name name="find_file" arity="2" since="OTP 20.0"/>
+      <name name="find_file" arity="3" since="OTP 20.0"/>
       <fsummary>Find a file relative to a given directory.</fsummary>
       <desc>
         <p>Looks for a file of the given name by applying suffix rules to
@@ -278,7 +278,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
       </desc>
     </func>
     <func>
-      <name name="find_source" arity="1"/>
+      <name name="find_source" arity="1" since="OTP 20.0"/>
       <fsummary>Find the source file for a given object file.</fsummary>
       <desc>
         <p>Equivalent to <c>find_source(Base, Dir)</c>, where <c>Dir</c> is
@@ -287,8 +287,8 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
       </desc>
     </func>
     <func>
-      <name name="find_source" arity="2"/>
-      <name name="find_source" arity="3"/>
+      <name name="find_source" arity="2" since="OTP 20.0"/>
+      <name name="find_source" arity="3" since="OTP 20.0"/>
       <fsummary>Find a source file relative to a given directory.</fsummary>
       <desc>
         <p>Applies file extension specific rules to find the source file for

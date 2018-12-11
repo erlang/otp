@@ -1076,7 +1076,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>unsigned int</ret><nametext>driver_async_port_key(ErlDrvPort
+      <name since="OTP R16B02"><ret>unsigned int</ret><nametext>driver_async_port_key(ErlDrvPort
         port)</nametext></name>
       <fsummary>Calculate an async key from an ErlDrvPort.</fsummary>
       <desc>
@@ -1755,7 +1755,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port,
+      <name since="OTP R15B"><ret>ErlDrvSizeT</ret><nametext>driver_peekqv(ErlDrvPort port,
         ErlIOVec *ev)</nametext></name>
       <fsummary>Get the driver queue as an I/O vector.</fsummary>
       <desc>
@@ -2029,7 +2029,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port,
+      <name since="OTP R16B"><ret>void</ret><nametext>erl_drv_busy_msgq_limits(ErlDrvPort port,
         ErlDrvSizeT *low, ErlDrvSizeT *high)</nametext></name>
       <fsummary>Set and get limits for busy port message queue.</fsummary>
       <desc>
@@ -2128,7 +2128,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_cond_name(ErlDrvCond
         *cnd)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2185,7 +2185,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_consume_timeslice(ErlDrvPort port,
         int percent)</nametext></name>
       <fsummary>Give the runtime system a hint about how much CPU time the
         current driver callback call has consumed.</fsummary>
@@ -2228,7 +2228,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret><nametext>erl_drv_convert_time_unit(ErlDrvTime
         val, ErlDrvTimeUnit from, ErlDrvTimeUnit to)</nametext></name>
       <fsummary>Convert time unit of a time value.</fsummary>
       <desc>
@@ -2317,7 +2317,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port,
+      <name since="OTP 19.0"><ret>void</ret><nametext>erl_drv_init_ack(ErlDrvPort port,
         ErlDrvData res)</nametext></name>
       <fsummary>Acknowledge the start of the port.</fsummary>
       <desc>
@@ -2345,7 +2345,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret>
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret>
         <nametext>erl_drv_monotonic_time(ErlDrvTimeUnit time_unit)</nametext>
       </name>
       <fsummary>Get Erlang monotonic time.</fsummary>
@@ -2414,7 +2414,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_mutex_name(ErlDrvMutex
         *mtx)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2460,7 +2460,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port,
         ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data from driver to port owner.</fsummary>
       <desc>
@@ -2699,7 +2699,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_rwlock_name(ErlDrvRWLock
         *rwlck)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -2819,7 +2819,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port,
+      <name since="OTP R16B"><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port,
         ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data to other process than port owner process.
       </fsummary>
@@ -2843,7 +2843,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port,
+      <name since="OTP 19.0"><ret>void</ret><nametext>erl_drv_set_os_pid(ErlDrvPort port,
         ErlDrvSInt pid)</nametext></name>
       <fsummary>Set the os_pid for the port.</fsummary>
       <desc>
@@ -2962,7 +2962,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid
+      <name since="OTP R16B02"><ret>char *</ret><nametext>erl_drv_thread_name(ErlDrvTid
         tid)</nametext></name>
       <fsummary>Get name of driver mutex.</fsummary>
       <desc>
@@ -3031,7 +3031,7 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
     </func>
 
     <func>
-      <name><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit
+      <name since="OTP 18.3"><ret>ErlDrvTime</ret><nametext>erl_drv_time_offset(ErlDrvTimeUnit
         time_unit)</nametext></name>
       <fsummary>Get current time offset.</fsummary>
       <desc>

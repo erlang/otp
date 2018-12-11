@@ -47,7 +47,7 @@
   <funcs>
     <func>
       <name>start() -> ok</name>
-      <name>start(File) -> ok</name>
+      <name since="OTP 17.0">start(File) -> ok</name>
       <fsummary>Start the Crashdump Viewer.</fsummary>
       <type>
         <v>File = string()</v>

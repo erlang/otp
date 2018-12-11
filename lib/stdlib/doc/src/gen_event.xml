@@ -351,7 +351,7 @@ gen_event:stop             ----->  Module:terminate/2
     <func>
       <name>start() -> Result</name>
       <name>start(EventMgrName | Options) -> Result</name>
-      <name>start(EventMgrName, Options) -> Result</name>
+      <name since="OTP 20.0">start(EventMgrName, Options) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
         <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
@@ -377,7 +377,7 @@ gen_event:stop             ----->  Module:terminate/2
     <func>
       <name>start_link() -> Result</name>
       <name>start_link(EventMgrName | Options) -> Result</name>
-      <name>start_link(EventMgrName, Options) -> Result</name>
+      <name since="OTP 20.0">start_link(EventMgrName, Options) -> Result</name>
       <fsummary>Create a generic event manager process in a supervision tree.
       </fsummary>
       <type>
@@ -437,7 +437,7 @@ gen_event:stop             ----->  Module:terminate/2
 
     <func>
       <name>stop(EventMgrRef) -> ok</name>
-      <name>stop(EventMgrRef, Reason, Timeout) -> ok</name>
+      <name since="OTP 18.0">stop(EventMgrRef, Reason, Timeout) -> ok</name>
       <fsummary>Terminate a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -611,7 +611,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <name since="OTP R14B">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current event handler state.</fsummary>
       <type>

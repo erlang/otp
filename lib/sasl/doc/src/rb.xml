@@ -43,8 +43,8 @@
 
   <funcs>
     <func>
-      <name>filter(Filters)</name>
-      <name>filter(Filters, Dates)</name>
+      <name since="OTP R13B04">filter(Filters)</name>
+      <name since="OTP R13B04">filter(Filters, Dates)</name>
       <fsummary>Filters reports and displays them on the screen.</fsummary>
       <type>
         <v>Filters = [filter()]</v>
@@ -137,8 +137,8 @@
     </func>
 
     <func>
-      <name>log_list()</name>
-      <name>log_list(Type)</name>
+      <name since="OTP R16B02">log_list()</name>
+      <name since="OTP R16B02">log_list(Type)</name>
       <fsummary>Logs report lists.</fsummary>
       <type>
         <v>Type = type()</v>

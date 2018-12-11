@@ -131,7 +131,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="getopts" arity="2"/>
+      <name name="getopts" arity="2" since="OTP 19.1"/>
       <fsummary>Get distribution socket options.</fsummary>
       <desc>
         <p>Get one or more options for the distribution socket
@@ -324,7 +324,7 @@ $ <input>erl -sname foobar</input></pre>
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since="OTP 19.1"/>
       <fsummary>Set distribution socket options.</fsummary>
       <desc>
         <p>Set one or more options for distribution sockets.

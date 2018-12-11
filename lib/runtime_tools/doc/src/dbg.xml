@@ -442,7 +442,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
 
 
     <func>
-      <name>tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="OTP 19.0">tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Set pattern for traced event</fsummary>
       <type>
 	<v>Event = send | 'receive'</v>
@@ -607,7 +607,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
       </desc>
     </func>
     <func>
-      <name>ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
+      <name since="OTP 19.0">ctpe(Event) -> {ok, MatchDesc} | {error, term()}</name>
       <fsummary>Clear trace pattern for the specified event</fsummary>
       <type>
         <v>Event = send | 'receive'</v>

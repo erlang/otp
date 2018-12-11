@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
       <fsummary>Return value and new dictionary without element with this value.</fsummary>
       <desc>
         <p>This function returns value from dictionary and new dictionary without this value.
@@ -166,7 +166,7 @@
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 17.0"/>
       <fsummary>Return true if the dictionary is empty.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Orddict</anno></c> has no elements,

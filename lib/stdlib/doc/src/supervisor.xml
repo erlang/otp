@@ -329,7 +329,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="count_children" arity="1"/>
+      <name name="count_children" arity="1" since="OTP R13B04"/>
       <fsummary>Return counts for the number of child specifications,
         active children, supervisors, and workers.</fsummary>
       <desc>
@@ -387,7 +387,7 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
 
     <func>
-      <name name="get_childspec" arity="2"/>
+      <name name="get_childspec" arity="2" since="OTP 18.0"/>
       <fsummary>Return the child specification map for the specified
         child.</fsummary>
       <desc>

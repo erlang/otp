@@ -466,8 +466,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>stop(ServerRef) -> ok</name>
-      <name>stop(ServerRef, Reason, Timeout) -> ok</name>
+      <name since="OTP 18.0">stop(ServerRef) -> ok</name>
+      <name since="OTP 18.0">stop(ServerRef, Reason, Timeout) -> ok</name>
       <fsummary>Synchronously stop a generic server.</fsummary>
       <type>
         <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
@@ -550,7 +550,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <name since="OTP R13B04">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current <c>gen_server</c> status.</fsummary>
       <type>
@@ -703,7 +703,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name>Module:handle_continue(Continue, State) -> Result</name>
+      <name since="OTP 21.0">Module:handle_continue(Continue, State) -> Result</name>
       <fsummary>Handle a continue instruction.</fsummary>
       <type>
         <v>Continue = term()</v>

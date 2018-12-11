@@ -38,7 +38,7 @@
   </description>
   <funcs>
     <func>
-      <name name="raise_undef_exception" arity="3"/>
+      <name name="raise_undef_exception" arity="3" since="OTP R16B"/>
       <fsummary>Raise an undef exception.</fsummary>
       <type_desc variable="Args">
         A (possibly empty) list of arguments <c>Arg1,..,ArgN</c>

@@ -44,7 +44,7 @@
   </description>
   <funcs>
     <func>
-      <name>start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
+      <name since="OTP R15B">start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result</name>
       <fsummary>Start a trace port on each specified node.</fsummary>
       <type>
         <v>Result = see p/2</v>
@@ -573,7 +573,7 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>get_et_handler()</name>
+      <name since="OTP R15B">get_et_handler()</name>
       <fsummary>Return the <c>et</c> handler.</fsummary>
       <desc>
         <p>Returns the <c>et</c> handler, which can be used with <c>format/2</c>

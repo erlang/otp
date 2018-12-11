@@ -169,7 +169,7 @@
   <funcs>
     <func>
       <name>check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
-      <name>check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
+      <name since="OTP R14B04">check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}</name>
       <fsummary>Checks installation of a release in the system.</fsummary>
       <type>
         <v>Vsn = OtherVsn = string()</v>
@@ -495,7 +495,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
 
     <func>
-      <name>which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
+      <name since="OTP R15B">which_releases(Status) -> [{Name, Vsn, Apps, Status}]</name>
       <fsummary>Returns all known releases of a specific status.</fsummary>
       <type>
         <v>Name = Vsn = string()</v>

@@ -137,7 +137,7 @@
     </func>
 
     <func>
-      <name name="droplast" arity="1"/>
+      <name name="droplast" arity="1" since="OTP 17.0"/>
       <fsummary>Drop the last element of a list.</fsummary>
       <desc>
         <p>Drops the last element of a <c><anno>List</anno></c>. The list is to
@@ -182,7 +182,7 @@
     </func>
 
     <func>
-      <name name="filtermap" arity="2"/>
+      <name name="filtermap" arity="2" since="OTP R16B01"/>
       <fsummary>Filter and map elements that satisfy a function.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> on successive
@@ -297,7 +297,7 @@ flatmap(Fun, List1) ->
     </func>
 
     <func>
-      <name name="join" arity="2"/>
+      <name name="join" arity="2" since="OTP 19.0"/>
       <fsummary>Insert an element between elements in a list</fsummary>
       <desc>
         <p>Inserts <c><anno>Sep</anno></c> between each element in <c><anno>List1</anno></c>. Has no
@@ -771,7 +771,7 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
-      <name name="search" arity="2"/>
+      <name name="search" arity="2" since="OTP 21.0"/>
       <fsummary>Find the first element that satisfies a predicate.</fsummary>
       <desc>
         <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>

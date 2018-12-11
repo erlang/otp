@@ -99,7 +99,7 @@
 
   <funcs>
     <func>
-      <name name="build_text" arity="1"/>
+      <name name="build_text" arity="1" since="OTP 18.0"/>
       <fsummary>Build the output text for a preparsed format list.</fsummary>
       <desc>
         <p>For details, see
@@ -126,7 +126,7 @@
     </func>
 
     <func>
-      <name name="deep_latin1_char_list" arity="1"/>
+      <name name="deep_latin1_char_list" arity="1" since="OTP R16B"/>
       <fsummary>Test for a deep list of characters.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a, possibly deep,
@@ -156,8 +156,8 @@
     </func>
 
     <func>
-      <name name="format" arity="3"/>
-      <name name="fwrite" arity="3"/>
+      <name name="format" arity="3" since="OTP 21.0"/>
+      <name name="fwrite" arity="3" since="OTP 21.0"/>
       <fsummary>Write formatted output.</fsummary>
       <desc>
         <p>Returns a character list that represents <c><anno>Data</anno></c>
@@ -277,7 +277,7 @@
     </func>
 
     <func>
-      <name name="latin1_char_list" arity="1"/>
+      <name name="latin1_char_list" arity="1" since="OTP R16B"/>
       <fsummary>Test for a list of ISO Latin-1 characters.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
@@ -315,7 +315,7 @@
     </func>
 
     <func>
-      <name name="printable_latin1_list" arity="1"/>
+      <name name="printable_latin1_list" arity="1" since="OTP R16B"/>
       <fsummary>Test for a list of printable ISO Latin-1 characters.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
@@ -338,7 +338,7 @@
     </func>
 
     <func>
-      <name name="printable_unicode_list" arity="1"/>
+      <name name="printable_unicode_list" arity="1" since="OTP R16B"/>
       <fsummary>Test for a list of printable Unicode characters.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a flat list of
@@ -347,7 +347,7 @@
     </func>
 
     <func>
-      <name name="scan_format" arity="2"/>
+      <name name="scan_format" arity="2" since="OTP 18.0"/>
       <fsummary>Parse all control sequences in the format string.</fsummary>
       <desc>
         <p>Returns a list corresponding to the specified format string,
@@ -373,7 +373,7 @@
     </func>
 
     <func>
-      <name name="unscan_format" arity="1"/>
+      <name name="unscan_format" arity="1" since="OTP 18.0"/>
       <fsummary>Revert a preparsed format list to a plain character list
         and a list of arguments.</fsummary>
       <desc>
@@ -420,7 +420,7 @@
     </func>
 
     <func>
-      <name name="write_atom_as_latin1" arity="1"/>
+      <name name="write_atom_as_latin1" arity="1" since="OTP 20.0"/>
       <fsummary>Write an atom.</fsummary>
       <desc>
         <p>Returns the list of characters needed to print atom
@@ -439,7 +439,7 @@
     </func>
 
     <func>
-      <name name="write_char_as_latin1" arity="1"/>
+      <name name="write_char_as_latin1" arity="1" since="OTP R16B"/>
       <fsummary>Write a character.</fsummary>
       <desc>
         <p>Returns the list of characters needed to print a character
@@ -449,7 +449,7 @@
     </func>
 
     <func>
-      <name name="write_latin1_char" arity="1"/>
+      <name name="write_latin1_char" arity="1" since="OTP R16B"/>
       <fsummary>Write an ISO Latin-1 character.</fsummary>
       <desc>
         <p>Returns the list of characters needed to print a character
@@ -458,7 +458,7 @@
     </func>
 
     <func>
-      <name name="write_latin1_string" arity="1"/>
+      <name name="write_latin1_string" arity="1" since="OTP R16B"/>
       <fsummary>Write an ISO Latin-1 string.</fsummary>
       <desc>
         <p>Returns the list of characters needed to print
@@ -476,7 +476,7 @@
     </func>
 
     <func>
-      <name name="write_string_as_latin1" arity="1"/>
+      <name name="write_string_as_latin1" arity="1" since="OTP R16B"/>
       <fsummary>Write a string.</fsummary>
       <desc>
         <p>Returns the list of characters needed to print

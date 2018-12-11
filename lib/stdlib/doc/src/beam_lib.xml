@@ -267,7 +267,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
 
   <funcs>
     <func>
-      <name name="all_chunks" arity="1"/>
+      <name name="all_chunks" arity="1" since="OTP 18.2"/>
       <fsummary>Read all chunks from a BEAM file or binary</fsummary>
       <desc>
         <p>Reads chunk data for all chunks.</p>
@@ -275,7 +275,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     </func>
 
     <func>
-      <name name="build_module" arity="1"/>
+      <name name="build_module" arity="1" since="OTP 18.2"/>
       <fsummary>Create a BEAM module from a list of chunks.</fsummary>
       <desc>
         <p>Builds a BEAM module (as a binary) from a list of chunks.</p>

@@ -67,7 +67,7 @@
     </func>
 
     <func>
-    <name>cross_cover_analyse(Level, Tests) -&gt; ok</name>
+    <name since="OTP R16B">cross_cover_analyse(Level, Tests) -&gt; ok</name>
     <fsummary>Accumulates cover results over multiple tests.</fsummary>
       <type>
         <v>Level = overview | details</v>

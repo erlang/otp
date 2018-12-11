@@ -144,8 +144,8 @@
     </func>
 
     <func>
-      <name name="basedir" arity="2" clause_i="1"/>
-      <name name="basedir" arity="2" clause_i="2"/>
+      <name name="basedir" arity="2" clause_i="1" since="OTP 19.0"/>
+      <name name="basedir" arity="2" clause_i="2" since="OTP 19.0"/>
       <fsummary>Equivalent to <c>basedir(<anno>PathType</anno>,
            <anno>Application</anno>,#{})</c> or
 	   <c>basedir(<anno>PathsType</anno>, <anno>Application</anno>,#{})</c>.
@@ -165,8 +165,8 @@ basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
       </desc>
     </func>
     <func>
-      <name name="basedir" arity="3" clause_i="1" anchor="basedir_3_1"/>
-      <name name="basedir" arity="3" clause_i="2" anchor="basedir_3_2"/>
+      <name name="basedir" arity="3" clause_i="1" anchor="basedir_3_1" since="OTP 19.0"/>
+      <name name="basedir" arity="3" clause_i="2" anchor="basedir_3_2" since="OTP 19.0"/>
       <fsummary></fsummary>
       <type variable="PathType" name_i="1"/>
       <type name="basedir_path_type"/>
@@ -557,7 +557,7 @@ true
     </func>
 
     <func>
-      <name name="safe_relative_path" arity="1"/>
+      <name name="safe_relative_path" arity="1" since="OTP 19.3"/>
       <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
       <desc>
         <p>Sanitizes the relative path by eliminating ".." and "."

@@ -541,7 +541,7 @@
     </func>
 
     <func>
-      <name>send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 17.4">send(Connection, Cmd, Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Sends a Telnet command and returns immediately.</fsummary>
       <type>
         <v>Connection = connection()</v>
@@ -576,7 +576,7 @@
     </func>
 
     <func>
-    <name>sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
+    <name since="OTP 17.4">sendf(Connection, CmdFormat, Args, Opts) -&gt; ok | {error, Reason}</name>
     <fsummary>Sends a Telnet command and returns immediately (uses a format
       string and a list of arguments to build the command).</fsummary>
       <type>

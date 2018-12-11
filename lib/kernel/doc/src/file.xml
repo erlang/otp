@@ -186,7 +186,7 @@
 
   <funcs>
     <func>
-      <name name="advise" arity="4"/>
+      <name name="advise" arity="4" since="OTP R14B"/>
       <fsummary>Predeclare an access pattern for file data.</fsummary>
       <type name="posix_file_advise"/>
       <desc>
@@ -197,7 +197,7 @@
       </desc>
     </func>
     <func>
-      <name name="allocate" arity="3"/>
+      <name name="allocate" arity="3" since="OTP R16B"/>
       <fsummary>Allocate file space.</fsummary>
       <desc>
         <p><c>allocate/3</c> can be used to preallocate space for a file.</p>
@@ -217,7 +217,7 @@
       </desc>
     </func>
     <func>
-      <name name="change_mode" arity="2"/>
+      <name name="change_mode" arity="2" since="OTP R14B"/>
       <fsummary>Change permissions of a file.</fsummary>
       <desc>
         <p>Changes permissions of a file. See
@@ -346,7 +346,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="datasync" arity="1"/>
+      <name name="datasync" arity="1" since="OTP R14B"/>
       <fsummary>Synchronize the in-memory data of a file, ignoring most of its metadata, with that on the physical medium.</fsummary>
       <desc>
         <p>Ensures that any buffers kept by the operating system
@@ -578,7 +578,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="list_dir_all" arity="1"/>
+      <name name="list_dir_all" arity="1" since="OTP R16B"/>
       <fsummary>List all files in a directory.</fsummary>
       <desc>
         <p><marker id="list_dir_all"/>Lists all the files in a directory,
@@ -702,7 +702,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="native_name_encoding" arity="0"/>
+      <name name="native_name_encoding" arity="0" since="OTP R14B01"/>
       <fsummary>Return the configured filename encoding of the VM.</fsummary>
       <desc>
 	<p><marker id="native_name_encoding"/>Returns
@@ -1408,7 +1408,7 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="read_file_info" arity="1"/>
-      <name name="read_file_info" arity="2"/>
+      <name name="read_file_info" arity="2" since="OTP R15B"/>
       <fsummary>Retrieve information about a file.</fsummary>
       <desc>
         <p>Retrieves information about a file. Returns
@@ -1649,7 +1649,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="read_link_all" arity="1"/>
+      <name name="read_link_all" arity="1" since="OTP R16B"/>
       <fsummary>See what a link is pointing to.</fsummary>
       <desc>
         <p>Returns <c>{ok, <anno>Filename</anno>}</c> if
@@ -1678,7 +1678,7 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="read_link_info" arity="1"/>
-      <name name="read_link_info" arity="2"/>
+      <name name="read_link_info" arity="2" since="OTP R15B"/>
       <fsummary>Retrieve information about a link or file.</fsummary>
       <desc>
 	<p>Works like
@@ -1807,7 +1807,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="sendfile" arity="2"/>
+      <name name="sendfile" arity="2" since="OTP R15B"/>
       <fsummary>Send a file to a socket.</fsummary>
       <desc>
         <p>Sends the file <c>Filename</c> to <c>Socket</c>.
@@ -1816,7 +1816,7 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
-      <name name="sendfile" arity="5"/>
+      <name name="sendfile" arity="5" since="OTP R15B"/>
       <fsummary>Send a file to a socket.</fsummary>
       <type name="sendfile_option"/>
       <desc>
@@ -1990,7 +1990,7 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name name="write_file_info" arity="2"/>
-      <name name="write_file_info" arity="3"/>
+      <name name="write_file_info" arity="3" since="OTP R15B"/>
       <fsummary>Change file information.</fsummary>
       <desc>
         <p>Changes file information. Returns <c>ok</c> if successful,

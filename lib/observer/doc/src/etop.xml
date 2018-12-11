@@ -98,7 +98,7 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> ok</name>
+      <name since="OTP R15B01">start() -> ok</name>
       <fsummary>Start etop.</fsummary>
       <desc>
         <p>Starts <c>etop</c>.
@@ -106,7 +106,7 @@
       </desc>
     </func>
     <func>
-      <name>start(Options) -> ok</name>
+      <name since="OTP R15B01">start(Options) -> ok</name>
       <fsummary>Start etop.</fsummary>
       <type>
         <v>Options = [Option]</v>
@@ -120,7 +120,7 @@
       </desc>
     </func>
     <func>
-      <name>help() -> ok</name>
+      <name since="OTP R15B01">help() -> ok</name>
       <fsummary>Display the etop help.</fsummary>
       <desc>
         <p>Displays the help of <c>etop</c> and

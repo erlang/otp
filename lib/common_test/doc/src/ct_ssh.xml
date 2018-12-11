@@ -1034,7 +1034,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 20.0">shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to shell(SSH, ChannelId, DefaultTimeout).</fsummary>
       <desc><marker id="shell-2"/>
         <p>Equivalent to
@@ -1044,7 +1044,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
+      <name since="OTP 20.0">shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
       <fsummary>Requests that the user default shell is executed at the
         server end.</fsummary>
       <type>

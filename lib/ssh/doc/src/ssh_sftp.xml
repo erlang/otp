@@ -285,8 +285,8 @@
     </func>
 
     <func>
-      <name>open_tar(ChannelPid, Path, Mode) -></name>
-      <name>open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode) -></name>
+      <name since="OTP 17.4">open_tar(ChannelPid, Path, Mode, Timeout) -> {ok, Handle} | {error, reason()}</name>
       <fsummary>Opens a tar file on the server to which <c>ChannelPid</c>
       is connected and returns a handle.</fsummary>
       <type>

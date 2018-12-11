@@ -286,8 +286,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>ei_get_tracelevel(void)</nametext></name>
-      <name><ret>void</ret><nametext>ei_set_tracelevel(int level)</nametext></name>
+      <name since="OTP R13B04"><ret>int</ret><nametext>ei_get_tracelevel(void)</nametext></name>
+      <name since="OTP R13B04"><ret>void</ret><nametext>ei_set_tracelevel(int level)</nametext></name>
       <fsummary>Get and set functions for tracing.</fsummary>
       <desc>
         <p>Used to set tracing on the distribution. The levels are different

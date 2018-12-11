@@ -39,7 +39,7 @@
   </description>
   <funcs>
     <func>
-      <name>trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <name since="OTP R13B04">trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
       <fsummary>A function that is intended to be traced.</fsummary>
       <type>
         <v>DetailLevel = integer(X) when X =&lt; 0, X >= 100</v>
@@ -70,7 +70,7 @@
     </func>
 
     <func>
-      <name>trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name since="OTP R13B04">trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
       <fsummary>A function that is intended to be traced.</fsummary>
       <desc>
        <p>Invokes <c>et:trace_me/5</c> with both <c>From</c> and <c>To</c>

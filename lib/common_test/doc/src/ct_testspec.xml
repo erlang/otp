@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_testspec.xml</file>
   </header>
-  <module>ct_testspec</module>
+  <module since="OTP 19.3">ct_testspec</module>
   <modulesummary>Parsing of test specifications for Common Test.
   </modulesummary>
 
@@ -46,7 +46,7 @@
 
   <funcs>
     <func>
-    <name>get_tests(SpecsIn) -&gt; {ok, [{Specs,Tests}]} | {error, Reason}</name>
+    <name since="OTP 19.3">get_tests(SpecsIn) -&gt; {ok, [{Specs,Tests}]} | {error, Reason}</name>
     <fsummary>Parse the given test specification files and return the tests to run and skip.</fsummary>
       <type>
         <v>SpecsIn = [string()] | [[string()]]</v>

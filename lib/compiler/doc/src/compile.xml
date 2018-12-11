@@ -40,7 +40,7 @@
 
   <funcs>
     <func>
-      <name>env_compiler_options()</name>
+      <name since="OTP 19.0">env_compiler_options()</name>
       <fsummary>
 	Compiler options defined via the environment variable
 	<c>ERL_COMPILER_OPTIONS</c>

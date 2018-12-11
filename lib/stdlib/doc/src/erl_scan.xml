@@ -74,7 +74,7 @@
  
   <funcs>
     <func>
-      <name name="category" arity="1"/>
+      <name name="category" arity="1" since="OTP 18.0"/>
       <fsummary>Return the category.</fsummary>
       <desc>
         <p>Returns the category of <c><anno>Token</anno></c>.</p>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name name="column" arity="1"/>
+      <name name="column" arity="1" since="OTP 18.0"/>
       <fsummary>Return the column.</fsummary>
       <desc>
         <p>Returns the column of <c><anno>Token</anno></c>'s
@@ -91,7 +91,7 @@
     </func>
 
     <func>
-      <name name="end_location" arity="1"/>
+      <name name="end_location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the end location of the text.</fsummary>
       <desc>
         <p>Returns the end location of the text of
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="line" arity="1"/>
+      <name name="line" arity="1" since="OTP 18.0"/>
       <fsummary>Return the line.</fsummary>
       <desc>
         <p>Returns the line of <c><anno>Token</anno></c>'s collection
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="location" arity="1"/>
+      <name name="location" arity="1" since="OTP 18.0"/>
       <fsummary>Return the location.</fsummary>
       <desc>
         <p>Returns the location of <c><anno>Token</anno></c>'s
@@ -229,7 +229,7 @@
     </func>
 
     <func>
-      <name name="symbol" arity="1"/>
+      <name name="symbol" arity="1" since="OTP 18.0"/>
       <fsummary>Return the symbol.</fsummary>
       <desc>
         <p>Returns the symbol of <c><anno>Token</anno></c>.</p>
@@ -237,7 +237,7 @@
     </func>
 
     <func>
-      <name name="text" arity="1"/>
+      <name name="text" arity="1" since="OTP 18.0"/>
       <fsummary>Return the text.</fsummary>
       <desc>
         <p>Returns the text of <c><anno>Token</anno></c>'s collection

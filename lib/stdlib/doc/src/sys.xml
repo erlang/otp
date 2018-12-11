@@ -143,8 +143,8 @@
     </func>
 
     <func>
-      <name name="get_state" arity="1"/>
-      <name name="get_state" arity="2"/>
+      <name name="get_state" arity="1" since="OTP R16B01"/>
+      <name name="get_state" arity="2" since="OTP R16B01"/>
       <fsummary>Get the state of the process.</fsummary>
       <desc>
         <p>Gets the state of the process.</p>
@@ -338,8 +338,8 @@
     </func>
 
     <func>
-      <name name="replace_state" arity="2"/>
-      <name name="replace_state" arity="3"/>
+      <name name="replace_state" arity="2" since="OTP R16B01"/>
+      <name name="replace_state" arity="3" since="OTP R16B01"/>
       <fsummary>Replace the state of the process.</fsummary>
       <desc>
         <p>Replaces the state of the process, and returns the new state.</p>
@@ -482,8 +482,8 @@
     </func>
 
     <func>
-      <name name="terminate" arity="2"/>
-      <name name="terminate" arity="3"/>
+      <name name="terminate" arity="2" since="OTP 18.0"/>
+      <name name="terminate" arity="3" since="OTP 18.0"/>
       <fsummary>Terminate the process.</fsummary>
       <desc>
         <p>Orders the process to terminate with the
@@ -644,7 +644,7 @@
     </func>
 
     <func>
-      <name>Module:system_get_state(Misc) -> {ok, State}</name>
+      <name since="OTP 17.0">Module:system_get_state(Misc) -> {ok, State}</name>
       <fsummary>Called when the process is to return its current state.
       </fsummary>
       <type>
@@ -661,7 +661,7 @@
     </func>
 
     <func>
-      <name>Module:system_replace_state(StateFun, Misc) ->
+      <name since="OTP 17.0">Module:system_replace_state(StateFun, Misc) ->
         {ok, NState, NMisc}</name>
       <fsummary>Called when the process is to replace its current state.
       </fsummary>

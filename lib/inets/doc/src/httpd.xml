@@ -901,7 +901,7 @@ text/plain	asc txt</pre>
     <func>
       <name>info(Address, Port) ->  </name>
       <name>info(Address, Port, Profile) ->  </name>
-      <name>info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
+      <name since="OTP 18.0">info(Address, Port, Profile, Properties) -> [{Option, Value}] </name>
       <name>info(Address, Port, Properties) -> [{Option, Value}] </name>
       <fsummary>Fetches information about the HTTP server.</fsummary>
       <type>

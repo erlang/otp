@@ -1068,7 +1068,7 @@
    <func>
      <name>connect(Host, Port, Options) -> Result </name>
      <name>connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
-     <name>connect(TcpSocket, Options) -> Result</name>
+     <name since="OTP 19.0">connect(TcpSocket, Options) -> Result</name>
      <name>connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
      <fsummary>Connects to an SSH server.</fsummary>
      <type>
@@ -1154,7 +1154,7 @@
 
 <!-- DAEMON_INFO/1 -->   
    <func>
-     <name name="daemon_info" arity="1"/>
+     <name name="daemon_info" arity="1" since="OTP 19.0"/>
      <fsummary>Get info about a daemon</fsummary>
      <desc>
        <p>Returns a key-value list with information about the daemon.</p>
@@ -1164,7 +1164,7 @@
 
 <!-- DEFAULT_ALGORITHMS/0 -->
     <func>
-      <name name="default_algorithms" arity="0"/>
+      <name name="default_algorithms" arity="0" since="OTP 18.0"/>
       <fsummary>Get a list declaring the supported algorithms</fsummary>
       <desc>
 	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
@@ -1227,7 +1227,7 @@
     <func>
       <name name="stop_daemon" arity="1"/>
       <name name="stop_daemon" arity="2"/>
-      <name name="stop_daemon" arity="3"/>
+      <name name="stop_daemon" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener and all connections started by the listener.</fsummary>
       <desc>
 	<p>Stops the listener and all connections started by the listener.</p>
@@ -1237,7 +1237,7 @@
     <func>
       <name name="stop_listener" arity="1"/>
       <name name="stop_listener" arity="2"/>
-      <name name="stop_listener" arity="3"/>
+      <name name="stop_listener" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener, but leaves existing connections started by the listener operational.</fsummary>
       <desc>
 	<p>Stops the listener, but leaves existing connections started by the listener operational.</p>

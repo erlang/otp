@@ -79,7 +79,7 @@
 
   <funcs>
     <func>
-      <name name="version" arity="0"/>
+      <name name="version" arity="0" since="OTP 20.0"/>
       <fsummary>Gives the PCRE version of the system in a string format</fsummary>
       <desc>
       <p>The return of this function is a string with the PCRE version of the system that was used in the Erlang/OTP compilation.</p>
@@ -304,7 +304,7 @@
     </func> 
 
     <func>
-      <name name="inspect" arity="2"/>
+      <name name="inspect" arity="2" since="OTP 17.0"/>
       <fsummary>Inspects a compiled regular expression.</fsummary>
       <desc>
         <p>Takes a compiled regular expression and an item, and returns the

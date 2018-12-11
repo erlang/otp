@@ -272,7 +272,7 @@
     </func>
 
     <func>
-      <name>Module:group(GroupName) -> [Info] </name>
+      <name since="OTP R15B">Module:group(GroupName) -> [Info] </name>
       <fsummary>Test case group information function (providing default data
         for a test case group, that is, its test cases and
         subgroups).</fsummary>
@@ -486,7 +486,7 @@
       </func>
 
     <func>
-      <name>Module:Testcase() -> [Info] </name>
+      <name since="OTP R14B">Module:Testcase() -> [Info] </name>
       <fsummary>Test case information function.</fsummary>
       <type>
 	<v>Info = {timetrap,Time} | {require,Required} | {require,Name,Required} | {userdata,UserData} | {silent_connections,Conns}</v>
@@ -560,7 +560,7 @@
     </func>
 
     <func>
-	<name>Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name since="OTP R14B">Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case.</fsummary>
       <type>
 	<v>Config = SaveConfig = [{Key,Value}]</v>

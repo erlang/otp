@@ -344,7 +344,7 @@
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -412,10 +412,10 @@
     </func>
 
     <func>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Block | Stop) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop, Block) -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>

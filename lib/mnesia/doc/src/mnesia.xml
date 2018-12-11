@@ -595,7 +595,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       </desc>
     </func>
     <func>
-      <name>change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
+      <name since="OTP R14B03">change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Changes the majority check setting for the table.</fsummary>
       <desc>
         <p><c>Majority</c> must be a boolean. Default is <c>false</c>.
@@ -2143,7 +2143,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>sync_log() -> ok | {error, Reason}</name>
+      <name since="OTP 17.0">sync_log() -> ok | {error, Reason}</name>
       <fsummary>Performs a file sync of the local log file.</fsummary>
       <desc>
         <p>Ensures that the local transaction log file is synced to disk.

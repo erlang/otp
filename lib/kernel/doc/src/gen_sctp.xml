@@ -213,7 +213,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="4"/>
+      <name name="connect_init" arity="4" since="OTP R13B04"/>
       <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>..</fsummary>
       <desc>
         <p>Same as <c>connect_init(<anno>Socket</anno>, <anno>Addr</anno>,
@@ -222,7 +222,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="connect_init" arity="5"/>
+      <name name="connect_init" arity="5" since="OTP R13B04"/>
       <fsummary>Initiate a new association for socket <c>Socket</c>, with a
         peer (SCTP server socket).</fsummary>
       <desc>
@@ -366,7 +366,7 @@ connect(Socket, Ip, Port>,
     </func>
 
     <func>
-      <name name="peeloff" arity="2"/>
+      <name name="peeloff" arity="2" since="OTP R15B"/>
       <fsummary>Peel off a type <c>stream</c> socket from a type
         <c>seqpacket</c> one.</fsummary>
       <desc>

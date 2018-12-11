@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>docgen_xml_check</module>
+  <module since="OTP R15B">docgen_xml_check</module>
   <modulesummary>Validate XML documentation source code</modulesummary>
   <description>
     <p><c>docgen_xml_check</c> contains functions for validating XML
@@ -39,7 +39,7 @@
 
   <funcs>
     <func>
-      <name>validate(File) -> ok | error | {error, badfile}</name>
+      <name since="OTP R15B">validate(File) -> ok | error | {error, badfile}</name>
       <fsummary>Validate XML source code.</fsummary>
       <type>
 	<v>File = string()</v>

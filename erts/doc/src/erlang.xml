@@ -374,7 +374,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_part" arity="2"/>
+      <name name="binary_part" arity="2" since="OTP R14B"/>
       <fsummary>Extract a part of a binary.</fsummary>
       <desc>
       <p>Extracts the part of the binary described by
@@ -399,7 +399,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_part" arity="3"/>
+      <name name="binary_part" arity="3" since="OTP R14B"/>
       <fsummary>Extract a part of a binary.</fsummary>
       <desc>
       <p>The same as <c>binary_part(<anno>Subject</anno>,
@@ -459,7 +459,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_to_float" arity="1"/>
+      <name name="binary_to_float" arity="1" since="OTP R16B"/>
       <fsummary>Convert from text representation to a float.</fsummary>
       <desc>
         <p>Returns the float whose text representation is
@@ -473,7 +473,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_to_integer" arity="1"/>
+      <name name="binary_to_integer" arity="1" since="OTP R16B"/>
       <fsummary>Convert from text representation to an integer.</fsummary>
       <desc>
         <p>Returns an integer whose text representation is
@@ -487,7 +487,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_to_integer" arity="2"/>
+      <name name="binary_to_integer" arity="2" since="OTP R16B"/>
       <fsummary>Convert from text representation to an integer.</fsummary>
       <desc>
         <p>Returns an integer whose text representation in base
@@ -559,7 +559,7 @@ hello
     </func>
 
     <func>
-      <name name="binary_to_term" arity="2"/>
+      <name name="binary_to_term" arity="2" since="OTP R13B04"/>
       <fsummary>Decode an Erlang external term format binary.</fsummary>
       <desc>
         <p>As <c>binary_to_term/1</c>, but takes these options:</p>
@@ -684,7 +684,7 @@ hello
     </func>
 
     <func>
-      <name name="cancel_timer" arity="2"/>
+      <name name="cancel_timer" arity="2" since="OTP 18.0"/>
       <fsummary>Cancel a timer.</fsummary>
       <desc>
         <p>Cancels a timer that has been created by
@@ -766,7 +766,7 @@ hello
     </func>
 
     <func>
-      <name name="ceil" arity="1"/>
+      <name name="ceil" arity="1" since="OTP 20.0"/>
       <fsummary>Returns the smallest integer not less than the argument</fsummary>
       <desc>
         <p>Returns the smallest integer not less than
@@ -779,7 +779,7 @@ hello
       </desc>
     </func>
     <func>
-      <name name="check_old_code" arity="1"/>
+      <name name="check_old_code" arity="1" since="OTP R14B04"/>
       <fsummary>Check if a module has old code.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Module</anno></c> has old code,
@@ -801,7 +801,7 @@ hello
     </func>
 
     <func>
-      <name name="check_process_code" arity="3"/>
+      <name name="check_process_code" arity="3" since="OTP 17.0"/>
       <fsummary>Check if a process executes old code for a module.</fsummary>
       <desc>
         <p>Checks if the node local process identified by
@@ -904,7 +904,7 @@ hello
     </func>
 
     <func>
-      <name name="convert_time_unit" arity="3"/>
+      <name name="convert_time_unit" arity="3" since="OTP 18.0"/>
       <fsummary>Convert time unit of a time value.</fsummary>
       <desc>
         <p>Converts the <c><anno>Time</anno></c> value of time unit
@@ -1090,7 +1090,7 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="delete_element" arity="2"/>
+      <name name="delete_element" arity="2" since="OTP R16B"/>
       <fsummary>Delete element at index in a tuple.</fsummary>
       <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>)</type_desc>
       <desc>
@@ -1257,7 +1257,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_get_data" arity="1"/>
+      <name name="dist_ctrl_get_data" arity="1" since="OTP 21.0"/>
       <fsummary>Get distribution channel data to pass to another node.</fsummary>
       <desc>
         <p>
@@ -1290,7 +1290,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_get_data_notification" arity="1"/>
+      <name name="dist_ctrl_get_data_notification" arity="1" since="OTP 21.0"/>
       <fsummary>Request notification about available outgoing distribution channel data.</fsummary>
       <desc>
         <p>
@@ -1326,7 +1326,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_input_handler" arity="2"/>
+      <name name="dist_ctrl_input_handler" arity="2" since="OTP 21.0"/>
       <fsummary>Register distribution channel input handler process.</fsummary>
       <desc>
         <p>
@@ -1359,7 +1359,7 @@ end</code>
     </func>
 
     <func>
-      <name name="dist_ctrl_put_data" arity="2"/>
+      <name name="dist_ctrl_put_data" arity="2" since="OTP 21.0"/>
       <fsummary>Pass data into the VM from a distribution channel.</fsummary>
       <desc>
         <p>
@@ -1531,7 +1531,7 @@ b</pre>
     </func>
 
     <func>
-      <name name="external_size" arity="1"/>
+      <name name="external_size" arity="1" since="OTP R14B04"/>
       <fsummary>Calculate the maximum size for a term encoded in the Erlang
         external term format.</fsummary>
       <desc>
@@ -1550,7 +1550,7 @@ erlang:external_size(<anno>Term</anno>, [])</code>
     </func>
 
     <func>
-      <name name="external_size" arity="2"/>
+      <name name="external_size" arity="2" since="OTP R14B04"/>
       <fsummary>Calculate the maximum size for a term encoded in the Erlang
         external term format.</fsummary>
       <desc>
@@ -1592,7 +1592,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="float_to_binary" arity="1"/>
+      <name name="float_to_binary" arity="1" since="OTP R16B"/>
       <fsummary>Text representation of a float.</fsummary>
       <desc>
         <p>The same as
@@ -1601,7 +1601,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="float_to_binary" arity="2"/>
+      <name name="float_to_binary" arity="2" since="OTP R16B"/>
       <fsummary>Text representation of a float formatted using specified
         options.</fsummary>
       <desc>
@@ -1628,7 +1628,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="float_to_list" arity="2"/>
+      <name name="float_to_list" arity="2" since="OTP R16B"/>
       <fsummary>Text representation of a float formatted using specified
         options.</fsummary>
       <desc>
@@ -1664,7 +1664,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="floor" arity="1"/>
+      <name name="floor" arity="1" since="OTP 20.0"/>
       <fsummary>Returns the largest integer not greater than the argument</fsummary>
       <desc>
         <p>Returns the largest integer not greater than
@@ -1850,7 +1850,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="garbage_collect" arity="2"/>
+      <name name="garbage_collect" arity="2" since="OTP 17.0"/>
       <fsummary>Garbage collect a process.</fsummary>
       <desc>
         <p>Garbage collects the node local process identified by
@@ -1955,7 +1955,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="get_keys" arity="0"/>
+      <name name="get_keys" arity="0" since="OTP 18.0"/>
       <fsummary>Return a list of all keys from the process dictionary.
       </fsummary>
       <desc>
@@ -2117,7 +2117,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="halt" arity="2"/>
+      <name name="halt" arity="2" since="OTP R15B01"/>
       <fsummary>Halt the Erlang runtime system.</fsummary>
       <desc>
         <p><c><anno>Status</anno></c> must be a non-negative integer, a string,
@@ -2215,7 +2215,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="insert_element" arity="3"/>
+      <name name="insert_element" arity="3" since="OTP R16B"/>
       <fsummary>Insert an element at index in a tuple.</fsummary>
       <type_desc variable="Index">1..tuple_size(<anno>Tuple1</anno>)
         + 1</type_desc>
@@ -2233,7 +2233,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="integer_to_binary" arity="1"/>
+      <name name="integer_to_binary" arity="1" since="OTP R16B"/>
       <fsummary>Text representation of an integer.</fsummary>
       <desc>
         <p>Returns a binary corresponding to the text
@@ -2245,7 +2245,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="integer_to_binary" arity="2"/>
+      <name name="integer_to_binary" arity="2" since="OTP R16B"/>
       <fsummary>Text representation of an integer.</fsummary>
       <desc>
         <p>Returns a binary corresponding to the text
@@ -2314,7 +2314,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="iolist_to_iovec" arity="1"/>
+      <name name="iolist_to_iovec" arity="1" since="OTP 20.1"/>
       <fsummary>Converts an iolist to a iovec.</fsummary>
       <desc>
         <p>Returns an iovec that is made from the integers and binaries in
@@ -2438,7 +2438,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="is_map" arity="1"/>
+      <name name="is_map" arity="1" since="OTP 17.0"/>
       <fsummary>Check whether a term is a map.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is a map,
@@ -2448,7 +2448,7 @@ os_prompt%</pre>
     </func>
 
     <func>
-      <name name="is_map_key" arity="2"/>
+      <name name="is_map_key" arity="2" since="OTP 21.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns <c>true</c> if map <c><anno>Map</anno></c> contains
@@ -2750,7 +2750,7 @@ false</code>
     </func>
 
     <func>
-      <name name="list_to_port" arity="1"/>
+      <name name="list_to_port" arity="1" since="OTP 20.0"/>
       <fsummary>Convert from text representation to a port.</fsummary>
       <desc>
         <p>Returns a port identifier whose text representation is a
@@ -2768,7 +2768,7 @@ false</code>
     </func>
 
     <func>
-      <name name="list_to_ref" arity="1"/>
+      <name name="list_to_ref" arity="1" since="OTP 20.0"/>
       <fsummary>Convert from text representation to a ref.</fsummary>
       <desc>
         <p>Returns a reference whose text representation is a
@@ -3001,7 +3001,7 @@ false</code>
     </func>
 
     <func>
-      <name name="map_get" arity="2" />
+      <name name="map_get" arity="2"  since="OTP 21.0"/>
       <fsummary>Extract a value from a map</fsummary>
       <desc>
         <p>Returns value <c><anno>Value</anno></c> associated with
@@ -3020,7 +3020,7 @@ false</code>
     </func>
 
     <func>
-      <name name="map_size" arity="1"/>
+      <name name="map_size" arity="1" since="OTP 17.0"/>
       <fsummary>Return the size of a map.</fsummary>
       <desc>
         <p>Returns an integer, which is the number of key-value pairs
@@ -3033,7 +3033,7 @@ false</code>
     </func>
 
     <func>
-      <name name="match_spec_test" arity="3"/>
+      <name name="match_spec_test" arity="3" since="OTP 19.0"/>
       <fsummary>Test that a match specification works.</fsummary>
       <desc>
         <p>Tests a match specification used in calls to
@@ -3562,7 +3562,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="monotonic_time" arity="0"/>
+      <name name="monotonic_time" arity="0" since="OTP 18.0"/>
       <fsummary>Current Erlang monotonic time.</fsummary>
       <desc>
         <p>Returns the current
@@ -3596,7 +3596,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="monotonic_time" arity="1"/>
+      <name name="monotonic_time" arity="1" since="OTP 18.0"/>
       <fsummary>Current Erlang monotonic time.</fsummary>
       <desc>
         <p>Returns the current
@@ -3614,7 +3614,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="nif_error" arity="1"/>
+      <name name="nif_error" arity="1" since="OTP R14B"/>
       <fsummary>Stop execution with a specified reason.</fsummary>
       <desc>
         <p>Works exactly like
@@ -3627,7 +3627,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="nif_error" arity="2"/>
+      <name name="nif_error" arity="2" since="OTP R14B"/>
       <fsummary>Stop execution with a specified reason.</fsummary>
       <desc>
         <p>Works exactly like
@@ -5560,7 +5560,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="read_timer" arity="2"/>
+      <name name="read_timer" arity="2" since="OTP 18.0"/>
       <fsummary>Read the state of a timer.</fsummary>
       <desc>
         <p>Reads the state of a timer that has been created by either
@@ -5801,7 +5801,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="send_after" arity="4"/>
+      <name name="send_after" arity="4" since="OTP 18.0"/>
       <fsummary>Start a timer.</fsummary>
       <desc>
         <p>Starts a timer. When the timer expires, the message
@@ -6340,7 +6340,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="start_timer" arity="4"/>
+      <name name="start_timer" arity="4" since="OTP 18.0"/>
       <fsummary>Start a timer.</fsummary>
       <desc>
         <p>Starts a timer. When the timer expires, the message
@@ -9363,7 +9363,7 @@ ok
     </func>
 
     <func>
-      <name name="system_time" arity="0"/>
+      <name name="system_time" arity="0" since="OTP 18.0"/>
       <fsummary>Current Erlang system time.</fsummary>
       <desc>
         <p>Returns current
@@ -9385,7 +9385,7 @@ ok
     </func>
 
     <func>
-      <name name="system_time" arity="1"/>
+      <name name="system_time" arity="1" since="OTP 18.0"/>
       <fsummary>Current Erlang system time.</fsummary>
       <desc>
         <p>Returns current
@@ -9527,7 +9527,7 @@ hello
     </func>
 
     <func>
-      <name name="time_offset" arity="0"/>
+      <name name="time_offset" arity="0" since="OTP 18.0"/>
       <fsummary>Current time offset.</fsummary>
       <desc>
         <p>Returns the current time offset between
@@ -9559,7 +9559,7 @@ hello
     </func>
 
     <func>
-      <name name="time_offset" arity="1"/>
+      <name name="time_offset" arity="1" since="OTP 18.0"/>
       <fsummary>Current time offset.</fsummary>
       <desc>
         <p>Returns the current time offset between
@@ -9578,7 +9578,7 @@ hello
     </func>
 
     <func>
-      <name name="timestamp" arity="0"/>
+      <name name="timestamp" arity="0" since="OTP 18.0"/>
       <fsummary>Current Erlang System time.</fsummary>
       <type name="timestamp"/>
       <desc>
@@ -10870,7 +10870,7 @@ timestamp() ->
     </func>
 
     <func>
-      <name name="unique_integer" arity="0"/>
+      <name name="unique_integer" arity="0" since="OTP 18.0"/>
       <fsummary>Get a unique integer value.</fsummary>
       <desc>
         <p>Generates and returns an
@@ -10883,7 +10883,7 @@ timestamp() ->
     </func>
 
     <func>
-      <name name="unique_integer" arity="1"/>
+      <name name="unique_integer" arity="1" since="OTP 18.0"/>
       <fsummary>Get a unique integer value.</fsummary>
       <desc>
         <p>Generates and returns an

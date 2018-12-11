@@ -195,7 +195,7 @@
     </func>
 
     <func>
-      <name name="iso_week_number" arity="0"/>
+      <name name="iso_week_number" arity="0" since="OTP R14B02"/>
       <fsummary>Compute the ISO week number for the actual date.</fsummary>
       <desc>
         <p>Returns tuple <c>{Year, WeekNum}</c> representing
@@ -206,7 +206,7 @@
     </func>
 
     <func>
-      <name name="iso_week_number" arity="1"/>
+      <name name="iso_week_number" arity="1" since="OTP R14B02"/>
       <fsummary>Compute the ISO week number for the specified date.</fsummary>
       <desc>
         <p>Returns tuple <c>{Year, WeekNum}</c> representing
@@ -317,8 +317,8 @@
     </func>
 
     <func>
-      <name name="rfc3339_to_system_time" arity="1"/>
-      <name name="rfc3339_to_system_time" arity="2"/>
+      <name name="rfc3339_to_system_time" arity="1" since="OTP 21.0"/>
+      <name name="rfc3339_to_system_time" arity="2" since="OTP 21.0"/>
       <fsummary>Convert from RFC 3339 timestamp to system time.</fsummary>
       <type name="rfc3339_string"/>
       <type name="rfc3339_time_unit"/>
@@ -365,7 +365,7 @@
     </func>
 
     <func>
-      <name name="system_time_to_local_time" arity="2"/>
+      <name name="system_time_to_local_time" arity="2" since="OTP 21.0"/>
       <fsummary>Convert system time to local date and time.</fsummary>
       <desc>
 	<p>Converts a specified system time into local date and time.</p>
@@ -373,8 +373,8 @@
     </func>
 
     <func>
-      <name name="system_time_to_rfc3339" arity="1"/>
-      <name name="system_time_to_rfc3339" arity="2"/>
+      <name name="system_time_to_rfc3339" arity="1" since="OTP 21.0"/>
+      <name name="system_time_to_rfc3339" arity="2" since="OTP 21.0"/>
       <fsummary>Convert from system to RFC 3339 timestamp.</fsummary>
       <type name="offset"/>
       <type name="rfc3339_string"/>
@@ -426,7 +426,7 @@
     </func>
 
     <func>
-      <name name="system_time_to_universal_time" arity="2"/>
+      <name name="system_time_to_universal_time" arity="2" since="OTP 21.0"/>
       <fsummary>Convert system time to universal date and time.</fsummary>
       <desc>
 	<p>Converts a specified system time into universal date and time.</p>

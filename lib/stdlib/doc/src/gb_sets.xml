@@ -336,7 +336,7 @@
     </func>
 
     <func>
-      <name name="iterator_from" arity="2"/>
+      <name name="iterator_from" arity="2" since="OTP 18.0"/>
       <fsummary>Return an iterator for a set starting from a specified element.
       </fsummary>
       <desc>

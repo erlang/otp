@@ -65,7 +65,7 @@
     </func>
 
     <func>
-      <name>basic_html(Bool) -&gt; ok</name>
+      <name since="OTP R15B01">basic_html(Bool) -&gt; ok</name>
       <fsummary>If set to true, the ct_master logs are written on a primitive
         HTML format, not using the <c>Common Test</c> CSS style sheet.</fsummary>
       <type>
@@ -79,7 +79,7 @@
     </func>
 
     <func>
-      <name>get_event_mgr_ref() -&gt; MasterEvMgrRef</name>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; MasterEvMgrRef</name>
       <fsummary>Gets a reference to the <c>Common Test</c> master event
         manager.</fsummary>
       <type>

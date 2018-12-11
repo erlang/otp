@@ -241,7 +241,7 @@
 
      <func>
       <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
-      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name since="OTP R14B01">list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <fsummary>Lists users in the user database.</fsummary>
       <type>

@@ -140,7 +140,7 @@
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 21.0"/>
       <fsummary>Test for empty set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Set</anno></c> is an empty set,

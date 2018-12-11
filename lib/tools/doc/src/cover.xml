@@ -260,7 +260,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse() -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="OTP 18.0">analyse() -> {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse(Modules) -> OneResult | {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse(Analysis) -> {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse(Level) -> {result,Ok,Fail} | {error,not_main_node}</name>
@@ -305,7 +305,7 @@
       </desc>
     </func>
     <func>
-      <name>analyse_to_file() -> {result,Ok,Fail} | {error,not_main_node}</name>
+      <name since="OTP 18.0">analyse_to_file() -> {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse_to_file(Modules) ->  Answer | {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse_to_file(Options) -> {result,Ok,Fail} | {error,not_main_node}</name>
       <name>analyse_to_file(Modules,Options) -> Answer | {result,Ok,Fail} | {error,not_main_node}</name>
@@ -359,10 +359,10 @@
       </desc>
     </func>
     <func>
-      <name>async_analyse_to_file(Module) -> </name>
-      <name>async_analyse_to_file(Module,Options) -> </name>
-      <name>async_analyse_to_file(Module, OutFile) -> </name>
-      <name>async_analyse_to_file(Module, OutFile, Options) ->  pid()</name>
+      <name since="OTP R14B02">async_analyse_to_file(Module) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module,Options) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module, OutFile) -> </name>
+      <name since="OTP R14B02">async_analyse_to_file(Module, OutFile, Options) ->  pid()</name>
       <fsummary>Asynchronous call to analyse_to_file.</fsummary>
       <type>
         <v>Module = atom()</v>
@@ -523,7 +523,7 @@
       </desc>
     </func>
     <func>
-      <name>flush(Nodes) -> ok | {error,not_main_node}</name>
+      <name since="OTP R16B">flush(Nodes) -> ok | {error,not_main_node}</name>
       <fsummary>Collect cover data from remote nodes.</fsummary>
       <type>
         <v>Nodes = [atom()]</v>

@@ -298,8 +298,8 @@
    </func>
    
    <func>
-     <name>ptty_alloc(ConnectionRef, ChannelId, Options) -></name>
-     <name>ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) ->  > ssh_request_status() |
+     <name since="OTP 17.5">ptty_alloc(ConnectionRef, ChannelId, Options) -></name>
+     <name since="OTP 17.4">ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) ->  > ssh_request_status() |
      {error, reason()}</name>
        <fsummary>Sends an SSH Connection Protocol <c>pty_req</c>,
        to allocate a pseudo-terminal.</fsummary>

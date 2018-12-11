@@ -430,7 +430,7 @@
     </func>
 
     <func>
-      <name>unload_mibs(Mibs) -&gt; ok | {error, Reason}</name>
+      <name since="OTP R16B">unload_mibs(Mibs) -&gt; ok | {error, Reason}</name>
       <fsummary>Unloads the MIBs from agent snmp_master_agent.</fsummary>
       <type>
         <v>Mibs = [MibName]</v>
@@ -455,7 +455,7 @@
     </func>
 
     <func>
-      <name>unregister_agents(MgrAgentConfName, ManagedAgents) -&gt; ok</name>
+      <name since="OTP R16B">unregister_agents(MgrAgentConfName, ManagedAgents) -&gt; ok</name>
       <fsummary>Unregisters the specified managed agents.</fsummary>
       <type>
         <v>MgrAgentConfName = atom()</v>
@@ -480,7 +480,7 @@
     </func>
 
     <func>
-      <name>unregister_users(MgrAgentConfName, Users) -&gt; ok</name>
+      <name since="OTP R16B">unregister_users(MgrAgentConfName, Users) -&gt; ok</name>
       <fsummary>Unregisters the specified users.</fsummary>
       <type>
         <v>MgrAgentConfName = atom()</v>
@@ -493,7 +493,7 @@
     </func>
 
     <func>
-      <name>unregister_usm_users(MgrAgentConfName) -&gt; ok</name>
+      <name since="OTP R16B">unregister_usm_users(MgrAgentConfName) -&gt; ok</name>
       <fsummary>Unregisters all USM users.</fsummary>
       <type>
         <v>MgrAgentConfName = atom()</v>
@@ -505,7 +505,7 @@
     </func>
 
     <func>
-      <name>unregister_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok</name>
+      <name since="OTP R16B">unregister_usm_users(MgrAgentConfName, UsmUsers) -&gt; ok</name>
         <fsummary>Unregisters the specified USM users.</fsummary>
       <type>
         <v>MgrAgentConfName = atom()</v>
