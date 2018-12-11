@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The code was updated to avoid causing a dialyzer
+	    warning because of a tightened spec for
+	    <c>beam_lib:info/1</c>.</p>
+          <p>
+	    Own Id: OTP-15482</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.18.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

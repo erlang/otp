@@ -27,6 +27,83 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    PEM cache was not evicting expired entries due to due to
+	    timezone confusion.</p>
+          <p>
+	    Own Id: OTP-15368</p>
+        </item>
+        <item>
+          <p>
+	    Make sure an error is returned if a "transport_accept
+	    socket" is used in some other call than ssl:handshake* or
+	    ssl:controlling_process</p>
+          <p>
+	    Own Id: OTP-15384 Aux Id: ERL-756 </p>
+        </item>
+        <item>
+          <p>
+	    Fix timestamp handling in the PEM-cache could cause
+	    entries to not be invalidated at the correct time.</p>
+          <p>
+	    Own Id: OTP-15402</p>
+        </item>
+        <item>
+          <p>
+	    Extend check for undelivered data at closing, could under
+	    some circumstances fail to deliver all data that was
+	    actually received.</p>
+          <p>
+	    Own Id: OTP-15412 Aux Id: ERL-731 </p>
+        </item>
+        <item>
+          <p>
+	    Correct signature check for TLS-1.2 that allows different
+	    algorithms for signature of peer cert and peer cert key.
+	    Not all allowed combinations where accepted.</p>
+          <p>
+	    Own Id: OTP-15415 Aux Id: ERL-763 </p>
+        </item>
+        <item>
+          <p>
+	    Correct gen_statem return value, could cause
+	    renegotiation to fail.</p>
+          <p>
+	    Own Id: OTP-15418 Aux Id: ERL-770 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add engine support for RSA key exchange</p>
+          <p>
+	    Own Id: OTP-15420 Aux Id: ERIERL-268 </p>
+        </item>
+        <item>
+          <p>
+	    ssl now uses active n internally to boost performance.
+	    Old active once behavior can be restored by setting
+	    application variable see manual page for ssl application
+	    (man 6).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15449</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

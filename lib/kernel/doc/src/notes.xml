@@ -31,6 +31,107 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A new function, <c>logger:update_handler_config/3</c> is
+	    added, and the handler callback <c>changing_config</c>
+	    now has a new argument, <c>SetOrUpdate</c>, which
+	    indicates if the configuration change comes from
+	    <c>set_handler_config/2,3</c> or
+	    <c>update_handler_config/2,3</c>.</p>
+          <p>
+	    This allows the handler to consistently merge the new
+	    configuration with the old (if the change comes from
+	    <c>update_handler_config/2,3</c>) or with the default (if
+	    the change comes from <c>set_handler_config/2,3</c>).</p>
+          <p>
+	    The built-in handlers <c>logger_std_h</c> and
+	    <c>logger_disk_log_h</c> are updated accordingly. A bug
+	    which could cause inconsistency between the handlers'
+	    internal state and the stored configuration is also
+	    corrected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15364</p>
+        </item>
+        <item>
+          <p>
+	    Fix fallback when custom erl_epmd client does not
+	    implement address_please.</p>
+          <p>
+	    Own Id: OTP-15388 Aux Id: PR-1983 </p>
+        </item>
+        <item>
+          <p>
+	    The logger ets table did not have the
+	    <c>read_concurrency</c> option. This is now added.</p>
+          <p>
+	    Own Id: OTP-15453 Aux Id: ERL-782 </p>
+        </item>
+        <item>
+          <p>
+	    During system start, logger has a simple handler which
+	    prints to stdout. After the kernel supervision is
+	    started, this handler is removed and replaced by the
+	    default handler. Due to a bug, logger earlier issued a
+	    debug printout saying it received an unexpected message,
+	    which was the EXIT message from the simple handler's
+	    process. This is now corrected. The simple handler's
+	    process now unlinks from the logger process before
+	    terminating.</p>
+          <p>
+	    Own Id: OTP-15466 Aux Id: ERL-788 </p>
+        </item>
+        <item>
+          <p>
+	    The logger handler <c>logger_std_h</c> would not
+	    re-create it's log file if it was removed. Due to this it
+	    could not be used with tools like 'logrotate'. This is
+	    now corrected.</p>
+          <p>
+	    Own Id: OTP-15469</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A function <c>inet:getifaddrs/1</c> that takes a list
+	    with a namespace option has been added, for platforms
+	    that support that feature, for example Linux (only?).</p>
+          <p>
+	    Own Id: OTP-15121 Aux Id: ERIERL-189, PR-1974 </p>
+        </item>
+        <item>
+	    <p>Added the <c>nopush</c> option for TCP sockets, which
+	    corresponds to <c>TCP_NOPUSH</c> on *BSD and
+	    <c>TCP_CORK</c> on Linux.</p>
+	    <p>This is also used internally in <c>file:sendfile</c>
+	    to reduce latency on subsequent send operations.</p>
+          <p>
+	    Own Id: OTP-15357 Aux Id: ERL-698 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize handling of send_delay for tcp sockes to better
+	    work with the new pollthread implementation introduced in
+	    OTP-21.</p>
+          <p>
+	    Own Id: OTP-15471 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated the RSA options part in the crypto application's
+	    C-code, documentation and tests.</p>
+          <p>
+	    Own Id: OTP-15302</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ed25519 and ed448 sign/verify.</p>
+          <p>
+	    Requires OpenSSL 1.1.1 or higher as cryptolib under the
+	    OTP application <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-15419 Aux Id: OTP-15094 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed valgrind warnings.</p>
+          <p>
+	    Own Id: OTP-15467</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

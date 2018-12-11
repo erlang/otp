@@ -31,6 +31,201 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When a process was waiting for a TCP socket send
+	    operation to complete, and another process closed the
+	    socket during that send, the sending process could hang.
+	    This bug has now been corrected.</p>
+          <p>
+	    Own Id: OTP-12242 Aux Id: ERL-561 </p>
+        </item>
+        <item>
+          <p>
+	    Document <c>bit_size</c> in match specifications and
+	    allow it in <c>ets:fun2ms</c>.</p>
+          <p>
+	    Own Id: OTP-15343 Aux Id: PR-1962 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:select_replace</c> when called with a
+	    fully bound key could cause a following call to
+	    <c>ets:next</c> or <c>ets:prev</c> to crash the emulator
+	    or return invalid result.</p>
+          <p>
+	    Own Id: OTP-15346</p>
+        </item>
+        <item>
+	    <p>When a module has been purged from memory, any
+	    literals belonging to that module will be copied to all
+	    processes that hold references to them. The max heap size
+	    limit would be ignored in the garbage collection
+	    initiated when copying literals to a process. If the max
+	    heap size was exceeded, the process would typically be
+	    terminated in the following garbage collection. Corrected
+	    to terminate the process directly if copying a literal
+	    would exceed the max heap size.</p>
+          <p>
+	    Own Id: OTP-15360</p>
+        </item>
+        <item>
+          <p>
+	    Fix compilation of run_erl on Solaris 11.4 and later.</p>
+          <p>
+	    Own Id: OTP-15389</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where <c>lists:reverse/1-2</c> could use
+	    far too many reductions. This bug was introduced in
+	    <c>OTP 21.1</c>.</p>
+          <p>
+	    Own Id: OTP-15436</p>
+        </item>
+        <item>
+	    <p>Fixed a bug where a dirty scheduler could stay awake
+	    forever if a distribution entry was removed as part of a
+	    dirty GC.</p>
+          <p>
+	    Own Id: OTP-15446 Aux Id: PR-2024 </p>
+        </item>
+        <item>
+          <p>
+	    Fix microstate accounting handing in various places. Most
+	    importantly the GC states when the GC is run on a dirty
+	    scheduler are now managed correctly.</p>
+          <p>
+	    Own Id: OTP-15450 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>file:sendfile</c> when the send operation
+	    failed. For sockets in <c>active</c> modes it could cause
+	    emulator crash or a hanging call. For sockets with
+	    <c>{active,false}</c> an unexpected <c>{inet_reply, _,
+	    _}</c> message could be sent to the calling process. The
+	    bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15461 Aux Id: ERL-784 </p>
+        </item>
+        <item>
+          <p>
+	    The erts configure script has been updated to reject any
+	    CFLAGS that does not have <c>-O</c>. This in order to
+	    prevent the common mistake of forgetting to add
+	    <c>-O2</c> to custom CFLAGS.</p>
+          <p>
+	    Own Id: OTP-15465</p>
+        </item>
+        <item>
+          <p>
+	    Fix reduction count in lists:member/2</p>
+          <p>
+	    Own Id: OTP-15474 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>counters</c> and <c>atomics</c> modules supplies
+	    access to highly efficient operations on mutable fixed
+	    word sized variables.</p>
+          <p>
+	    Own Id: OTP-13468</p>
+        </item>
+        <item>
+	    <p>There is a new module <c>persistent_term</c> that
+	    implements a term storage suitable for terms that are
+	    frequently used but never or infrequently updated.
+	    Lookups are done in constant time without copying the
+	    terms.</p>
+          <p>
+	    Own Id: OTP-14669 Aux Id: PR-1989 </p>
+        </item>
+        <item>
+          <p>
+	    A function <c>inet:getifaddrs/1</c> that takes a list
+	    with a namespace option has been added, for platforms
+	    that support that feature, for example Linux (only?).</p>
+          <p>
+	    Own Id: OTP-15121 Aux Id: ERIERL-189, PR-1974 </p>
+        </item>
+        <item>
+	    <p>Added the <c>nopush</c> option for TCP sockets, which
+	    corresponds to <c>TCP_NOPUSH</c> on *BSD and
+	    <c>TCP_CORK</c> on Linux.</p>
+	    <p>This is also used internally in <c>file:sendfile</c>
+	    to reduce latency on subsequent send operations.</p>
+          <p>
+	    Own Id: OTP-15357 Aux Id: ERL-698 </p>
+        </item>
+        <item>
+	    <p>List subtraction (The <c>--</c> operator) will now
+	    yield properly on large inputs.</p>
+          <p>
+	    Own Id: OTP-15371</p>
+        </item>
+        <item>
+          <p>
+	    Optimize handling of send_delay for tcp sockes to better
+	    work with the new pollthread implementation introduced in
+	    OTP-21.</p>
+          <p>
+	    Own Id: OTP-15471 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize driver_set_timer with a zero timeout to
+	    short-circuit and not create any timer structure, but
+	    instead schedule the timer immediately.</p>
+          <p>
+	    Own Id: OTP-15472 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Add <c>erl_xcomp_code_model_small</c> as a cross
+	    configure variable in order to let the emulator be build
+	    with the assumption that a small code model will be used
+	    on the target machine.</p>
+          <p>
+	    Own Id: OTP-15473 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Add a new pollset that is made to handle sockets that use
+	    <c>{active, true}</c> or <c>{active, N}</c>. The new
+	    pollset will not be polled by a pollthread, but instead
+	    polled by a normal scheduler.</p>
+          <p>
+	    This change was made because of the overhead associated
+	    with constantly having to re-apply the ONESHOT mechanism
+	    on fds that all input events were interesting.</p>
+          <p>
+	    The new pollset is only active on platforms that support
+	    concurrent kernel poll updates, i.e. Linux and BSD.</p>
+          <p>
+	    Own Id: OTP-15475 Aux Id: ERIERL-229 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where emulator would segfault if a literal
+	    message was sent when sequence tracing was enabled.</p>
+          <p>
+	    Own Id: OTP-15478 Aux Id: ERL-741 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.1.3</title>
 
     <section><title>Improvements and New Features</title>

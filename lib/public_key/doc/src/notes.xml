@@ -35,6 +35,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.6.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ed25519 and ed448 sign/verify.</p>
+          <p>
+	    Requires OpenSSL 1.1.1 or higher as cryptolib under the
+	    OTP application <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-15419 Aux Id: OTP-15094 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

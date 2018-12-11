@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove emacs warnings and added more tests.</p>
+          <p>
+	    Own Id: OTP-15476</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.0.1</title>
 
     <section><title>Improvements and New Features</title>

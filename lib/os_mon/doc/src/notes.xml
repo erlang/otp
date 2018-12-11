@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Due to <c>/proc</c> restrictions in newer Android
+	    releases enforced by SELinux, cpu_sup is fixed so that it
+	    gets some basic CPU stats using the <c>sysinfo</c>
+	    syscall rather than reading <c>/proc/loadavg</c>.</p>
+          <p>
+	    Own Id: OTP-15387 Aux Id: PR-1966 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
