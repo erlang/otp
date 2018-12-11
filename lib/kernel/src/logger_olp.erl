@@ -358,7 +358,7 @@ do_load(Msg, CallOrCast, State) ->
 
 %% this function is called by do_load/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := T0, mode_ref := ModeRef}) ->
+flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := _T0, mode_ref := ModeRef}) ->
     %% flush load messages in the mailbox (a limited number in order
     %% to not cause long delays)
     NewFlushed = flush_load(?FLUSH_MAX_N),
@@ -375,7 +375,7 @@ flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := T0, mode_ref := Mod
     %% Add 1 for the current log event
     ?observe(_Name,{flushed,NewFlushed+1}),
 
-    State2 = ?update_max_time(?diff_time(T1,T0),State1),
+    State2 = ?update_max_time(?diff_time(T1,_T0),State1),
     State3 = ?update_max_qlen(QLen1,State2),
     State4 = maybe_notify_mode_change(async,QLen1,State3),
     {dropped,?update_other(flushed,FLUSHED,NewFlushed,

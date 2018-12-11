@@ -79,6 +79,7 @@ MODULES= \
 	logger_proxy_SUITE \
 	logger_simple_h_SUITE \
 	logger_std_h_SUITE \
+	logger_stress_SUITE \
 	logger_test_lib \
 	os_SUITE \
 	pg2_SUITE \

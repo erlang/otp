@@ -28,11 +28,17 @@
          post_end_per_testcase/5, post_end_per_suite/3]).
 
 setup(Config,Vars) ->
+    Postfix = case proplists:get_value(postfix, Config) of
+                  undefined -> "";
+                  P -> ["_",P]
+              end,
     FuncStr = lists:concat([proplists:get_value(suite, Config), "_",
-                            proplists:get_value(tc, Config)]),
+                            proplists:get_value(tc, Config)|
+                            Postfix]),
     ConfigFileName = filename:join(proplists:get_value(priv_dir, Config), FuncStr),
     file:write_file(ConfigFileName ++ ".config", io_lib:format("[{kernel, ~p}].",[Vars])),
-    case test_server:start_node(proplists:get_value(tc, Config), slave,
+    Sname = lists:concat([proplists:get_value(tc,Config)|Postfix]),
+    case test_server:start_node(Sname, slave,
                                 [{args, ["-pa ",filename:dirname(code:which(?MODULE)),
                                          " -boot start_sasl -kernel start_timer true "
                                          "-config ",ConfigFileName]}]) of
