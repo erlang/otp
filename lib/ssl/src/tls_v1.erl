@@ -542,15 +542,23 @@ signature_schemes(Version, SignatureSchemes) when is_tuple(Version)
     Hashes = proplists:get_value(hashs, CryptoSupports),
     PubKeys = proplists:get_value(public_keys, CryptoSupports),
     Curves = proplists:get_value(curves, CryptoSupports),
+    RSAPSSSupported = lists:member(rsa_pkcs1_pss_padding,
+                                   proplists:get_value(rsa_opts, CryptoSupports)),
     Fun = fun (Scheme, Acc) when is_atom(Scheme) ->
                   {Hash0, Sign0, Curve} =
                       ssl_cipher:scheme_to_components(Scheme),
                   Sign = case Sign0 of
-                             rsa_pkcs1 -> rsa;
+                             rsa_pkcs1 ->
+                                 rsa;
+                             rsa_pss_rsae when RSAPSSSupported ->
+                                 rsa;
+                             rsa_pss_pss when RSAPSSSupported ->
+                                 rsa;
                              S -> S
                          end,
                   Hash = case Hash0 of
-                             sha1 -> sha;
+                             sha1 ->
+                                 sha;
                              H -> H
                          end,
                   case proplists:get_bool(Sign, PubKeys)
