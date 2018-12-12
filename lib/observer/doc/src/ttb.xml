@@ -277,7 +277,8 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name>tp, tpl, tpe, ctp, ctpl, ctpg, ctpe</name>
+      <name since="">tp, tpl, ctp, ctpl, ctpg</name>
+      <name since="OTP 19.0">tpe, ctpe</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
         <p>These functions are to be used with trace

@@ -2153,7 +2153,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Synchronously executes a transaction.</fsummary>
       <desc>
       <marker id="sync_transaction"></marker>
@@ -2353,7 +2353,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>table(Tab [,[Option]]) -> QueryHandle</name>
+      <name since="">table(Tab [,[Option]]) -> QueryHandle</name>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
       <marker id="table"></marker>
@@ -2560,7 +2560,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name>transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Executes a transaction.</fsummary>
       <desc>
       <marker id="transaction"></marker>
@@ -2658,7 +2658,7 @@ raise(Name, Amount) ->
       </desc>
     </func>
     <func>
-      <name>traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc) -> {ok, LastAcc} | {error, Reason}</name>
+      <name since="">traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc) -> {ok, LastAcc} | {error, Reason}</name>
       <fsummary>Traversal of a backup.</fsummary>
       <desc>
       <marker id="traverse_backup"></marker>
