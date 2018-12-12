@@ -1911,7 +1911,7 @@ api_to_connect_tcp(InitState) ->
                          client := Client} = _State) ->
                            case ?SEV_AWAIT_READY(Client, client, connect,
                                                  [{server, Server}]) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -3670,6 +3670,7 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "close the connection socket",
            cmd  => fun(#{csock := Sock} = State) ->
+                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(csock, State)};
