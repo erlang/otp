@@ -673,35 +673,36 @@ update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}, Ts0, D0) ->
             %% no need to include the type database passed on to the
             %% successors of this block.
             Ts = maps:remove(Bool, Ts0),
-            {SuccTs,FailTs} = infer_types(Bool, Ts, D0),
+            {SuccTs,FailTs} = infer_types_br(Bool, Ts, D0),
             D = update_successor(Fail, FailTs, D0),
             update_successor(Succ, SuccTs, D);
         false ->
-            {SuccTs,FailTs} = infer_types(Bool, Ts0, D0),
+            {SuccTs,FailTs} = infer_types_br(Bool, Ts0, D0),
             D = update_successor_bool(Bool, false, Fail, FailTs, D0),
             update_successor_bool(Bool, true, Succ, SuccTs, D)
     end;
-update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
+update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts, D0) ->
     case cerl_sets:is_element(V, D0#d.once) of
         true ->
             %% This variable is defined in this block and is only
             %% referenced by this switch terminator. Therefore, there is
-            %% no need to include the type database passed on to the
-            %% successors of this block.
-            Ts = maps:remove(V, Ts0),
+            %% no need to include it in the type database passed on to
+            %% the successors of this block.
             D = update_successor(Fail, Ts, D0),
-            F = fun({_Val,S}, A) ->
-                        update_successor(S, Ts, A)
+            F = fun({Val,S}, A) ->
+                        SuccTs0 = infer_types_switch(V, Val, Ts, D),
+                        SuccTs = maps:remove(V, SuccTs0),
+                        update_successor(S, SuccTs, A)
                 end,
             foldl(F, D, List);
         false ->
             %% V can not be equal to any of the values in List at the fail
             %% block.
-            FailTs = subtract_sw_list(V, List, Ts0),
+            FailTs = subtract_sw_list(V, List, Ts),
             D = update_successor(Fail, FailTs, D0),
             F = fun({Val,S}, A) ->
-                        T = get_type(Val, Ts0),
-                        update_successor(S, Ts0#{V=>T}, A)
+                        SuccTs = infer_types_switch(V, Val, Ts, D),
+                        update_successor(S, SuccTs, A)
                 end,
             foldl(F, D, List)
     end;
@@ -1192,7 +1193,7 @@ get_type(#b_literal{val=Val}, _Ts) ->
 %%  failed and that L is not 'cons'. 'cons' can be subtracted from the
 %%  previously known type for L and the result put in FailTypes.
 
-infer_types(#b_var{}=V, Ts, #d{ds=Ds}) ->
+infer_types_br(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
     Types0 = infer_type(Op, Args, Ds),
 
@@ -1212,6 +1213,10 @@ infer_types(#b_var{}=V, Ts, #d{ds=Ds}) ->
 
     Types = Types1 ++ Types0,
     {meet_types(EqTypes++Types, Ts),subtract_types(Types, Ts)}.
+
+infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
+    Types = infer_eq_type({bif,'=:='}, [V, Lit], Ts, Ds),
+    meet_types(Types, Ts).
 
 infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
     Def = maps:get(Src, Ds),
