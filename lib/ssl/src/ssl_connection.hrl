@@ -59,7 +59,7 @@
                 socket_options        :: #socket_options{},
                 session               :: #session{} | secret_printout(),
                 allow_renegotiate = true                    ::boolean(),
-                terminated = false                          ::boolean(),
+                terminated = false                          ::boolean() | closed,
                 negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
                 downgrade,

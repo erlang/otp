@@ -17,7 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Handles an ssl connection, e.i. both the setup
@@ -590,6 +589,30 @@ connection({call, From}, {user_renegotiate, WriteState},
            #state{connection_states = ConnectionStates} = State) ->
     {next_state,  ?FUNCTION_NAME, State#state{connection_states = ConnectionStates#{current_write => WriteState}}, 
      [{next_event,{call, From}, renegotiate}]};
+connection({call, From}, 
+           {close, {Pid, _Timeout}}, 
+           #state{terminated = closed} = State) ->
+    {next_state, downgrade, State#state{terminated = true, downgrade = {Pid, From}}, 
+     [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}]};
+connection({call, From}, 
+           {close,{Pid, Timeout}},
+           #state{connection_states = ConnectionStates,
+                  protocol_specific = #{sender := Sender}
+                 } = State0) ->
+    case tls_sender:downgrade(Sender, Timeout) of
+        {ok, Write} ->
+            %% User downgrades connection
+            %% When downgrading an TLS connection to a transport connection
+            %% we must recive the close alert from the peer before releasing the 
+            %% transport socket.
+            State = send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY), 
+                               State0#state{connection_states =
+                                                ConnectionStates#{current_write => Write}}),
+            {next_state, downgrade, State#state{downgrade = {Pid, From},
+                                                terminated = true}, [{timeout, Timeout, downgrade}]};
+        {error, timeout} ->
+            {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
+    end;
 connection(internal, #hello_request{},
 	   #state{static_env = #static_env{role = client,
                                            host = Host,
@@ -638,9 +661,24 @@ connection(Type, Event, State) ->
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
+downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
+	  #state{static_env = #static_env{transport_cb = Transport,
+                                          socket = Socket},
+		 downgrade = {Pid, From}} = State) ->
+    tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
+    Transport:controlling_process(Socket, Pid),
+    {stop_and_reply, {shutdown, downgrade},[{reply, From, {ok, Socket}}], State};
+downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State) ->
+    {stop_and_reply, {shutdown, normal},[{reply, From, {error, timeout}}], State};
+downgrade(info, {CloseTag, Socket},
+          #state{static_env = #static_env{socket = Socket, 
+                                          close_tag = CloseTag}, downgrade = {_, From}} =
+              State) ->
+    {stop_and_reply, {shutdown, normal},[{reply, From, {error, CloseTag}}], State};
+downgrade(info, Info, State) ->
+    handle_info(Info, ?FUNCTION_NAME, State);
 downgrade(Type, Event, State) ->
-     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
-
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 %--------------------------------------------------------------------
 %% gen_statem callbacks
 %%--------------------------------------------------------------------
