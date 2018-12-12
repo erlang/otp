@@ -1450,28 +1450,26 @@ poll_threads(Config) when is_list(Config) ->
     {Conc, PollType, KP} = get_ioconfig(Config),
     {Sched, SchedOnln, _} = get_sstate(Config, ""),
 
+    [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
+    [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
+    [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
+
     if
         Conc ->
-            [1, 1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
-            [1, 1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
-            [1, 1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
 
-            [5, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
-            [3, 2, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
-            [2, 2, 2, 2, 2, 1] = get_ionum(Config,"+IOt 10 +IOPp 50"),
+            [5] = get_ionum(Config,"+IOt 5 +IOp 1"),
+            [3, 2] = get_ionum(Config,"+IOt 5 +IOp 2"),
+            [2, 2, 2, 2, 2] = get_ionum(Config,"+IOt 10 +IOPp 50"),
 
-            [2, 1] = get_ionum(Config, "+S 2 +IOPt 100"),
-            [4, 1] = get_ionum(Config, "+S 4 +IOPt 100"),
-            [4, 1] = get_ionum(Config, "+S 4:2 +IOPt 100"),
-            [4, 4, 1] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+            [2] = get_ionum(Config, "+S 2 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4:2 +IOPt 100"),
+            [4, 4] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
 
             fail = get_ionum(Config, "+IOt 1 +IOp 2"),
 
             ok;
         not Conc ->
-            [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
-            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
-            [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
 
             [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
             [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
@@ -1515,7 +1513,8 @@ get_iostate(Config, Cmd)->
                                              erlang:system_info(check_io)
                                      end]),
             IO = [IOState || IOState <- IOStates,
-                             proplists:get_value(fallback, IOState) == false],
+                             proplists:get_value(fallback, IOState) == false,
+                             proplists:get_value(poll_threads, IOState) /= 0],
             stop_node(Node),
             IO;
         {error,timeout} ->

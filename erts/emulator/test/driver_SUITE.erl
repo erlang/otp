@@ -1069,14 +1069,19 @@ get_stable_check_io_info(N) ->
 get_check_io_total(ChkIo) ->
     ct:log("ChkIo = ~p~n",[ChkIo]),
     {Fallback, Rest} = get_fallback(ChkIo),
+    OnlyPollThreads = [PS || PS <- Rest, not is_scheduler_pollset(PS)],
     add_fallback_infos(Fallback,
-      lists:foldl(fun(Pollset, Acc) ->
-                          lists:zipwith(fun(A, B) ->
-                                                add_pollset_infos(A,B)
-                                        end,
-                                        Pollset, Acc)
-                  end,
-                  hd(Rest), tl(Rest))).
+      lists:foldl(
+        fun(Pollset, Acc) ->
+                lists:zipwith(fun(A, B) ->
+                                      add_pollset_infos(A,B)
+                              end,
+                              Pollset, Acc)
+        end,
+        hd(OnlyPollThreads), tl(OnlyPollThreads))).
+
+is_scheduler_pollset(Pollset) ->
+    proplists:get_value(poll_threads, Pollset) == 0.
 
 add_pollset_infos({Tag, A}=TA , {Tag, B}=TB) ->
     case tag_type(Tag) of
