@@ -103,6 +103,7 @@ typedef unsigned int BOOLEAN_T;
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * "Global" atoms
  */
+extern ERL_NIF_TERM esock_atom_abort;
 extern ERL_NIF_TERM esock_atom_accept;
 extern ERL_NIF_TERM esock_atom_acceptconn;
 extern ERL_NIF_TERM esock_atom_acceptfilter;
@@ -126,6 +127,7 @@ extern ERL_NIF_TERM esock_atom_block_source;
 extern ERL_NIF_TERM esock_atom_broadcast;
 extern ERL_NIF_TERM esock_atom_busy_poll;
 extern ERL_NIF_TERM esock_atom_checksum;
+extern ERL_NIF_TERM esock_atom_close;
 extern ERL_NIF_TERM esock_atom_connect;
 extern ERL_NIF_TERM esock_atom_congestion;
 extern ERL_NIF_TERM esock_atom_context;
@@ -269,6 +271,7 @@ extern ERL_NIF_TERM esock_atom_sndbufforce;
 extern ERL_NIF_TERM esock_atom_sndlowat;
 extern ERL_NIF_TERM esock_atom_sndtimeo;
 extern ERL_NIF_TERM esock_atom_socket;
+extern ERL_NIF_TERM esock_atom_socket_tag;
 extern ERL_NIF_TERM esock_atom_spec_dst;
 extern ERL_NIF_TERM esock_atom_status;
 extern ERL_NIF_TERM esock_atom_stream;
