@@ -392,10 +392,12 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
     stop(normal, State);
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     StateName, State) -> 
+	     downgrade= StateName, State) -> 
+    {next_state, StateName, State, [{next_event, internal, Alert}]};
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
+	    StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
     stop({shutdown, peer_close}, State);
-
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
@@ -1115,23 +1117,6 @@ connection(Type, Msg, State, Connection) ->
 		#state{}, tls_connection | dtls_connection) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
-	  #state{static_env = #static_env{transport_cb = Transport,
-                                          socket = Socket},
-		 downgrade = {Pid, From}} = State, _) ->
-    tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
-    Transport:controlling_process(Socket, Pid),
-    gen_statem:reply(From, {ok, Socket}),
-    stop(normal, State);
-downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
-    gen_statem:reply(From, {error, timeout}),
-    stop(normal, State);
-downgrade(info, {CloseTag, Socket},
-          #state{static_env = #static_env{socket = Socket, 
-                                          close_tag = CloseTag}, downgrade = {_, From}} =
-      State, _) ->
-    gen_statem:reply(From, {error, CloseTag}),
-    stop(normal, State);
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
 
@@ -1175,15 +1160,6 @@ handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} 
 handle_call({application_data, _Data}, _, _, _, _) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
     {keep_state_and_data, [postpone]};
-handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when is_pid(Pid) ->
-    %% terminate will send close alert to peer
-    State = State0#state{downgrade = {Pid, From}},
-    Connection:terminate(downgrade, StateName, State),
-    %% User downgrades connection
-    %% When downgrading an TLS connection to a transport connection
-    %% we must recive the close alert from the peer before releasing the 
-    %% transport socket.
-    {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
 handle_call({close, _} = Close, From, StateName, State, _Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
@@ -1375,10 +1351,10 @@ terminate({shutdown, own_alert}, _StateName, #state{
 	_ ->
 	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
     end;
-terminate(downgrade = Reason, connection, #state{static_env = #static_env{protocol_cb = Connection,
-                                                                          transport_cb = Transport,
-                                                                          socket = Socket}
-                                                } = State) ->
+terminate({shutdown, downgrade = Reason}, downgrade, #state{static_env = #static_env{protocol_cb = Connection,
+                                                                                     transport_cb = Transport,
+                                                                                     socket = Socket}
+                                                           } = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate(Reason, connection, #state{static_env = #static_env{

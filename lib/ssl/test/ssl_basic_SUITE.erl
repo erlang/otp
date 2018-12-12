@@ -2118,14 +2118,20 @@ tls_downgrade(Config) when is_list(Config) ->
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
-					{mfa, {?MODULE, tls_downgrade_result, []}},
+					{mfa, {?MODULE, tls_downgrade_result, [self()]}},
 					{options, [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
-					{mfa, {?MODULE, tls_downgrade_result, []}},
+					{mfa, {?MODULE, tls_downgrade_result, [self()]}},
 					{options, [{active, false} |ClientOpts]}]),
+
+                                                   
+    ssl_test_lib:check_result(Server, ready, Client, ready),
+
+    Server ! go,
+    Client ! go,
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
@@ -5176,23 +5182,28 @@ connect_dist_c(S) ->
     {ok, Test} = ssl:recv(S, 0, 10000),
     ok.
 
-tls_downgrade_result(Socket) ->
+tls_downgrade_result(Socket, Pid) ->
     ok = ssl_test_lib:send_recv_result(Socket),
+    Pid ! {self(), ready},
+    receive 
+        go ->
+            ok
+    end,
     case ssl:close(Socket, {self(), 10000})  of
 	{ok, TCPSocket} -> 
-	    inet:setopts(TCPSocket, [{active, true}]),
+            inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
-	    receive 
-		{tcp, TCPSocket, <<"Downgraded">>} ->
-		    ok;
-		{tcp_closed, TCPSocket} ->
-		    ct:pal("Peer timed out, downgrade aborted"),
-		    ok;
-		Other ->
-		   {error, Other}
-	    end;
+            receive 
+                {tcp, TCPSocket, <<"Downgraded">>} ->
+	             ok;
+                {tcp_closed, TCPSocket} ->
+                    ct:fail("Peer timed out, downgrade aborted"),
+	            ok;
+	        Other ->
+                    {error, Other}
+            end;
 	{error, timeout} ->
-	    ct:pal("Timed out, downgrade aborted"),
+	    ct:fail("Timed out, downgrade aborted"),
 	    ok;
 	Fail ->
 	    {error, Fail}
