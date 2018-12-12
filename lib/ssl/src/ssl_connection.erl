@@ -668,7 +668,6 @@ user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _
                      Version, ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout}, #state{hello = Hello,
                                                                            role = Role,
-                                                                           start_or_recv_from = _RecvFrom,
                                                                            timer = PrevTimer,
                                                                            ssl_options = Options0} = State0, _Connection) ->
     cancel_timer(PrevTimer),
