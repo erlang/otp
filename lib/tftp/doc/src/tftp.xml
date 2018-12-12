@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>tftp</module>
+  <module since="">tftp</module>
   <modulesummary>Trivial FTP.</modulesummary>
   <description>
     <p>Interface module for the <c>tftp</c> application.</p>
@@ -172,7 +172,7 @@
 
   <funcs>
     <func>
-      <name>change_config(daemons, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(daemons, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all daemons.
       </fsummary>
       <type>
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name>change_config(servers, Options) -> [{Pid, Result}]</name>
+      <name since="">change_config(servers, Options) -> [{Pid, Result}]</name>
       <fsummary>Changes configuration for all servers.
       </fsummary>
       <type>
@@ -202,7 +202,7 @@
     </func>
 
     <func>
-      <name>change_config(Pid, Options) -> Result</name>
+      <name since="">change_config(Pid, Options) -> Result</name>
       <fsummary>Changes configuration for a TFTP daemon, server, 
       or client process.</fsummary>
       <type>
@@ -217,7 +217,7 @@
     </func>
     
     <func>
-      <name>info(daemons) -> [{Pid, Options}]</name>
+      <name since="">info(daemons) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all daemons.</fsummary>
       <type>
         <v>Pid = [pid()]</v>
@@ -230,7 +230,7 @@
     </func>
 
     <func>
-      <name>info(servers) -> [{Pid, Options}]</name>
+      <name since="">info(servers) -> [{Pid, Options}]</name>
       <fsummary>Returns information about all servers.</fsummary>
       <type>
         <v>Pid = [pid()]</v>
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name>info(Pid) -> {ok, Options} | {error, Reason}</name>
+      <name since="">info(Pid) -> {ok, Options} | {error, Reason}</name>
       <fsummary>Returns information about a daemon, server, or client process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -255,7 +255,7 @@
     </func>
        
     <func>
-      <name>read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">read_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Reads a (virtual) file from a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>
@@ -285,7 +285,7 @@
     </func>
     
     <func>
-       <name>start(Options) -> {ok, Pid} | {error, Reason}</name>
+       <name since="">start(Options) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Starts a daemon process.</fsummary>
       <type>
         <v>Options = [option()]</v>
@@ -301,7 +301,7 @@
     </func>
 
     <func>
-      <name>write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
+      <name since="">write_file(RemoteFilename, LocalFilename, Options) -> {ok, LastCallbackState} | {error, Reason}</name>
       <fsummary>Writes a (virtual) file to a TFTP server.</fsummary>
       <type>
         <v>RemoteFilename = string()</v>

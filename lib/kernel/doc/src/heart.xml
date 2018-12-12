@@ -28,7 +28,7 @@
     <date>1998-01-28</date>
     <rev>A</rev>
   </header>
-  <module>heart</module>
+  <module since="">heart</module>
   <modulesummary>Heartbeat monitoring of an Erlang runtime system.</modulesummary>
   <description>
     <p>This modules contains the interface to the <c>heart</c> process.
@@ -119,7 +119,7 @@
 
   <funcs>
     <func>
-      <name name="set_cmd" arity="1"/>
+      <name name="set_cmd" arity="1" since=""/>
       <fsummary>Set a temporary reboot command.</fsummary>
       <desc>
         <p>Sets a temporary reboot command. This command is used if
@@ -136,7 +136,7 @@
     </func>
 
     <func>
-      <name name="clear_cmd" arity="0"/>
+      <name name="clear_cmd" arity="0" since=""/>
       <fsummary>Clear the temporary boot command.</fsummary>
       <desc>
         <p>Clears the temporary boot command. If the system terminates,
@@ -145,7 +145,7 @@
     </func>
 
     <func>
-      <name name="get_cmd" arity="0"/>
+      <name name="get_cmd" arity="0" since=""/>
       <fsummary>Get the temporary reboot command.</fsummary>
       <desc>
         <p>Gets the temporary reboot command. If the command is cleared,

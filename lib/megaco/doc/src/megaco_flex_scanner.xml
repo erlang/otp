@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_flex_scanner.xml</file>
   </header>
-  <module>megaco_flex_scanner</module>
+  <module since="">megaco_flex_scanner</module>
   <modulesummary>Interface module to the flex scanner linked in driver.</modulesummary>
   <description>
     <p>This module contains the public interface to the flex scanner 
@@ -72,7 +72,7 @@ megaco_version() = integer() >= 1
 
   <funcs>
     <func>
-      <name>start() -> {ok, PortOrPorts} | {error, Reason}</name>
+      <name since="">start() -> {ok, PortOrPorts} | {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>PortOrPorts = megaco_ports()</v>
@@ -94,7 +94,7 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name>stop(PortOrPorts) -> stopped</name>
+      <name since="">stop(PortOrPorts) -> stopped</name>
       <fsummary></fsummary>
       <type>
         <v>PortOrPorts = megaco_ports()</v>
@@ -108,7 +108,7 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name>is_reentrant_enabled() -> Boolean</name>
+      <name since="">is_reentrant_enabled() -> Boolean</name>
       <fsummary></fsummary>
       <type>
         <v>Boolean = boolean()</v>
@@ -121,7 +121,7 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name>is_scanner_port(Port, PortOrPorts) -> Boolean</name>
+      <name since="">is_scanner_port(Port, PortOrPorts) -> Boolean</name>
       <fsummary></fsummary>
       <type>
         <v>Port = port()</v>
@@ -137,7 +137,7 @@ megaco_version() = integer() >= 1
     </func>
 
     <func>
-      <name>scan(Binary, PortOrPorts) -> {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine} </name>
+      <name since="">scan(Binary, PortOrPorts) -> {ok, Tokens, Version, LatestLine} | {error, Reason, LatestLine} </name>
       <fsummary></fsummary>
       <type>
         <v>Binary = binary()</v>

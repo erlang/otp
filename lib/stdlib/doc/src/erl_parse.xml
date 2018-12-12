@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_parse.xml</file>
   </header>
-  <module>erl_parse</module>
+  <module since="">erl_parse</module>
   <modulesummary>The Erlang parser.</modulesummary>
   <description>
     <p>This module is the basic Erlang parser that converts tokens into
@@ -89,7 +89,7 @@
 
   <funcs>
     <func>
-      <name name="abstract" arity="1"/>
+      <name name="abstract" arity="1" since=""/>
       <fsummary>Convert an Erlang term into an abstract form.</fsummary>
       <desc>
         <p>Converts the Erlang data structure <c><anno>Data</anno></c> into an
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name>format_error(ErrorDescriptor) -> Chars</name>
+      <name since="">format_error(ErrorDescriptor) -> Chars</name>
       <fsummary>Format an error descriptor.</fsummary>
       <type>
         <v>ErrorDescriptor = <seealso
@@ -236,7 +236,7 @@
     </func>
 
     <func>
-      <name name="normalise" arity="1"/>
+      <name name="normalise" arity="1" since=""/>
       <fsummary>Convert abstract form to an Erlang term.</fsummary>
       <desc>
         <p>Converts the abstract form <c><anno>AbsTerm</anno></c> of a
@@ -247,7 +247,7 @@
     </func>
 
     <func>
-      <name name="parse_exprs" arity="1"/>
+      <name name="parse_exprs" arity="1" since=""/>
       <fsummary>Parse Erlang expressions.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a list of expressions.
@@ -267,7 +267,7 @@
     </func>
 
     <func>
-      <name name="parse_form" arity="1"/>
+      <name name="parse_form" arity="1" since=""/>
       <fsummary>Parse an Erlang form.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a form. Returns one
@@ -287,7 +287,7 @@
     </func>
 
     <func>
-      <name name="parse_term" arity="1"/>
+      <name name="parse_term" arity="1" since=""/>
       <fsummary>Parse an Erlang term.</fsummary>
       <desc>
         <p>Parses <c><anno>Tokens</anno></c> as if it was a term. Returns
@@ -307,8 +307,8 @@
     </func>
 
     <func>
-      <name name="tokens" arity="1"/>
-      <name name="tokens" arity="2"/>
+      <name name="tokens" arity="1" since=""/>
+      <name name="tokens" arity="2" since=""/>
       <fsummary>Generate a list of tokens for an expression.</fsummary>
       <desc>
         <p>Generates a list of tokens representing the abstract

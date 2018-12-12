@@ -963,7 +963,7 @@ typedef struct {
 
   <funcs>
     <func>
-      <name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
+      <name since=""><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory.</fsummary>
       <desc>
         <p>Allocates memory of <c>size</c> bytes.</p>
@@ -974,7 +974,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>enif_alloc_binary(size_t size, ErlNifBinary* bin)</nametext>
       </name>
       <fsummary>Create a new binary.</fsummary>
@@ -1276,7 +1276,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
+      <name since=""><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
       <fsummary>Free dynamic memory.</fsummary>
       <desc>
         <p>Frees memory allocated by
@@ -1362,7 +1362,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM
+      <name since=""><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM
         term, int* ip)</nametext></name>
       <fsummary>Read an integer term.</fsummary>
       <desc>
@@ -1408,7 +1408,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env,
+      <name since=""><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env,
         ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext>
       </name>
       <fsummary>Get head and tail from a list.</fsummary>
@@ -1544,7 +1544,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM
+      <name since=""><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM
         term, unsigned long* ip)</nametext></name>
       <fsummary>Read an unsigned integer term.</fsummary>
       <desc>
@@ -1601,7 +1601,7 @@ enif_free_iovec(iovec);]]></code>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env,
+      <name since=""><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env,
         ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary.</fsummary>
       <desc>
@@ -1772,7 +1772,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>int</ret>
+      <name since=""><ret>int</ret>
         <nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext>
       </name>
       <fsummary>Determine if a term is a binary.</fsummary>
@@ -1941,7 +1941,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext>
       </name>
       <fsummary>Create an atom term.</fsummary>
@@ -1969,7 +1969,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
       <desc>
@@ -1997,7 +1997,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext>
       </name>
       <fsummary>Make a binary term.</fsummary>
@@ -2065,7 +2065,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
       </desc>
     </func>
 
-    <func><name><ret>ERL_NIF_TERM</ret>
+    <func><name since=""><ret>ERL_NIF_TERM</ret>
       <nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term.</fsummary>
       <desc>
@@ -2084,7 +2084,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext>
       </name>
       <fsummary>Create a list term.</fsummary>
@@ -2126,7 +2126,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv*
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv*
         env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
       <fsummary>Create a list cell.</fsummary>
       <desc>
@@ -2352,7 +2352,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env,
         const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc>
@@ -2388,7 +2388,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env,
+      <name since=""><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env,
         unsigned cnt, ...)</nametext></name>
       <fsummary>Creates a tuple term.</fsummary>
       <desc>
@@ -2458,7 +2458,7 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
-      <name><ret>ERL_NIF_TERM</ret>
+      <name since=""><ret>ERL_NIF_TERM</ret>
         <nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext>
       </name>
       <fsummary>Create an integer term from an unsigned long int.</fsummary>
@@ -2876,7 +2876,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
-      <name><ret>void</ret>
+      <name since=""><ret>void</ret>
         <nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
       <desc>

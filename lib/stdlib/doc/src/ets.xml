@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ets</module>
+  <module since="">ets</module>
   <modulesummary>Built-in term storage.</modulesummary>
   <description>
     <p>This module is an interface to the Erlang built-in term storage
@@ -207,7 +207,7 @@
 
   <funcs>
     <func>
-      <name name="all" arity="0"/>
+      <name name="all" arity="0" since=""/>
       <fsummary>Return a list of all ETS tables.</fsummary>
       <desc>
         <p>Returns a list of all tables at the node. Named tables are
@@ -222,7 +222,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="1"/>
+      <name name="delete" arity="1" since=""/>
       <fsummary>Delete an entire ETS table.</fsummary>
       <desc>
         <p>Deletes the entire table <c><anno>Tab</anno></c>.</p>
@@ -230,7 +230,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Delete all objects with a specified key from an ETS
         table.</fsummary>
       <desc>
@@ -240,7 +240,7 @@
     </func>
 
     <func>
-      <name name="delete_all_objects" arity="1"/>
+      <name name="delete_all_objects" arity="1" since=""/>
       <fsummary>Delete all objects in an ETS table.</fsummary>
       <desc>
         <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
@@ -250,7 +250,7 @@
     </func>
 
     <func>
-      <name name="delete_object" arity="2"/>
+      <name name="delete_object" arity="2" since=""/>
       <fsummary>Deletes a specific from an ETS table.</fsummary>
       <desc>
         <p>Delete the exact object <c><anno>Object</anno></c> from the
@@ -262,7 +262,7 @@
     </func>
 
     <func>
-      <name name="file2tab" arity="1"/>
+      <name name="file2tab" arity="1" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
         <p>Reads a file produced by <seealso marker="#tab2file/2">
@@ -274,7 +274,7 @@
     </func>
 
     <func>
-      <name name="file2tab" arity="2"/>
+      <name name="file2tab" arity="2" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
         <p>Reads a file produced by <seealso marker="#tab2file/2">
@@ -306,7 +306,7 @@
     </func>
 
     <func>
-      <name name="first" arity="1"/>
+      <name name="first" arity="1" since=""/>
       <fsummary>Return the first key in an ETS table.</fsummary>
       <desc>
         <p>Returns the first key <c><anno>Key</anno></c> in table
@@ -321,7 +321,7 @@
     </func>
 
     <func>
-      <name name="foldl" arity="3"/>
+      <name name="foldl" arity="3" since=""/>
       <fsummary>Fold a function over an ETS table.</fsummary>
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
@@ -337,7 +337,7 @@
     </func>
 
     <func>
-      <name name="foldr" arity="3"/>
+      <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over an ETS table.</fsummary>
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
@@ -353,7 +353,7 @@
     </func>
 
     <func>
-      <name name="from_dets" arity="2"/>
+      <name name="from_dets" arity="2" since=""/>
       <fsummary>Fill an ETS table with objects from a Dets
         table.</fsummary>
       <desc>
@@ -367,7 +367,7 @@
     </func>
 
     <func>
-      <name name="fun2ms" arity="1"/>
+      <name name="fun2ms" arity="1" since=""/>
       <fsummary>Pseudo function that transforms fun syntax to a match
         specification.</fsummary>
       <desc>
@@ -436,7 +436,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="give_away" arity="3"/>
+      <name name="give_away" arity="3" since=""/>
       <fsummary>Change owner of a table.</fsummary>
       <desc>
         <p>Make process <c><anno>Pid</anno></c> the new owner of table
@@ -454,7 +454,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="i" arity="0"/>
+      <name name="i" arity="0" since=""/>
       <fsummary>Display information about all ETS tables on a terminal.
       </fsummary>
       <desc>
@@ -463,7 +463,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="i" arity="1"/>
+      <name name="i" arity="1" since=""/>
       <fsummary>Browse an ETS table on a terminal.</fsummary>
       <desc>
         <p>Browses table <c><anno>Tab</anno></c> on a terminal.</p>
@@ -471,7 +471,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Return information about an <c>table</c>.</fsummary>
       <desc>
         <p>Returns information about table <c><anno>Tab</anno></c> as a list of
@@ -547,7 +547,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="info" arity="2"/>
+      <name name="info" arity="2" since=""/>
       <fsummary>Return the information associated with the specified item for
         an ETS table.</fsummary>
       <desc>
@@ -619,7 +619,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="init_table" arity="2"/>
+      <name name="init_table" arity="2" since=""/>
       <fsummary>Replace all objects of an ETS table.</fsummary>
       <desc>
         <p>Replaces the existing objects of table <c><anno>Tab</anno></c> with
@@ -649,7 +649,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="insert" arity="2"/>
+      <name name="insert" arity="2" since=""/>
       <fsummary>Insert an object into an ETS table.</fsummary>
       <desc>
         <p>Inserts the object or all of the objects in list
@@ -681,7 +681,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="insert_new" arity="2"/>
+      <name name="insert_new" arity="2" since=""/>
       <fsummary>Insert an object into an ETS table if the key is not
         already present.</fsummary>
       <desc>
@@ -700,7 +700,7 @@ Error: fun containing local Erlang function calls
     </func>
 
     <func>
-      <name name="is_compiled_ms" arity="1"/>
+      <name name="is_compiled_ms" arity="1" since=""/>
       <fsummary>Check if an Erlang term is the result of
         <c>match_spec_compile</c>.</fsummary>
       <desc>
@@ -732,7 +732,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="last" arity="1"/>
+      <name name="last" arity="1" since=""/>
       <fsummary>Return the last key in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>
@@ -747,7 +747,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary>Return all objects with a specified key in an ETS table.
       </fsummary>
       <desc>
@@ -787,7 +787,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="lookup_element" arity="3"/>
+      <name name="lookup_element" arity="3" since=""/>
       <fsummary>Return the <c>Pos</c>:th element of all objects with a
         specified key in an ETS table.</fsummary>
       <desc>
@@ -810,7 +810,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="1"/>
+      <name name="match" arity="1" since=""/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -824,7 +824,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="2"/>
+      <name name="match" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
@@ -856,7 +856,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match" arity="3"/>
+      <name name="match" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern
         and return part of the answers.</fsummary>
       <desc>
@@ -875,7 +875,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_delete" arity="2"/>
+      <name name="match_delete" arity="2" since=""/>
       <fsummary>Delete all objects that match a specified pattern from an
         ETS table.</fsummary>
       <desc>
@@ -886,7 +886,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="1"/>
+      <name name="match_object" arity="1" since=""/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -901,7 +901,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="2"/>
+      <name name="match_object" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern.
       </fsummary>
       <desc>
@@ -920,7 +920,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_object" arity="3"/>
+      <name name="match_object" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a pattern and
         return part of the answers.</fsummary>
       <desc>
@@ -940,7 +940,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_spec_compile" arity="1"/>
+      <name name="match_spec_compile" arity="1" since=""/>
       <fsummary>Compile a match specification into its internal representation.
       </fsummary>
       <desc>
@@ -968,7 +968,7 @@ ets:is_compiled_ms(Broken).</code>
     </func>
 
     <func>
-      <name name="match_spec_run" arity="2"/>
+      <name name="match_spec_run" arity="2" since=""/>
       <fsummary>Perform matching, using a compiled match specification on a
         list of terms.</fsummary>
       <desc>
@@ -1005,7 +1005,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="member" arity="2"/>
+      <name name="member" arity="2" since=""/>
       <fsummary>Tests for occurrence of a key in an ETS table.</fsummary>
       <desc>
         <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
@@ -1016,7 +1016,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="new" arity="2"/>
+      <name name="new" arity="2" since=""/>
       <fsummary>Create a new ETS table.</fsummary>
       <desc>
         <p>Creates a new table and returns a table identifier that can
@@ -1180,7 +1180,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="next" arity="2"/>
+      <name name="next" arity="2" since=""/>
       <fsummary>Return the next key in an ETS table.</fsummary>
       <desc>
         <p>Returns the next key <c><anno>Key2</anno></c>, following key
@@ -1202,7 +1202,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="prev" arity="2"/>
+      <name name="prev" arity="2" since=""/>
       <fsummary>Return the previous key in an ETS table of type
         <c>ordered_set</c>.</fsummary>
       <desc>
@@ -1218,7 +1218,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="rename" arity="2"/>
+      <name name="rename" arity="2" since=""/>
       <fsummary>Rename a named ETS table.</fsummary>
       <desc>
         <p>Renames the named table <c><anno>Tab</anno></c> to the new name
@@ -1228,7 +1228,7 @@ ets:select(Table, MatchSpec),</code>
     </func>
 
     <func>
-      <name name="repair_continuation" arity="2"/>
+      <name name="repair_continuation" arity="2" since=""/>
       <fsummary>Repair a continuation from <c>ets:select/1 or ets:select/3</c>
         that has passed through external representation.</fsummary>
       <desc>
@@ -1283,7 +1283,7 @@ ets:select(ets:repair_continuation(Broken,MS)).</code>
     </func>
 
     <func>
-      <name name="safe_fixtable" arity="2"/>
+      <name name="safe_fixtable" arity="2" since=""/>
       <fsummary>Fix an ETS table for safe traversal.</fsummary>
       <desc>
         <p>Fixes a table of type <c>set</c>, <c>bag</c>, or
@@ -1339,7 +1339,7 @@ clean_all_with_value(Tab,X,Key) ->
     </func>
 
     <func>
-      <name name="select" arity="1"/>
+      <name name="select" arity="1" since=""/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
@@ -1353,7 +1353,7 @@ clean_all_with_value(Tab,X,Key) ->
     </func>
 
     <func>
-      <name name="select" arity="2"/>
+      <name name="select" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
@@ -1448,7 +1448,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select" arity="3"/>
+      <name name="select" arity="3" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and return part of the answers.</fsummary>
       <desc>
@@ -1467,7 +1467,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select_count" arity="2"/>
+      <name name="select_count" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and return the number of objects for which the match
         specification returned <c>true</c>.</fsummary>
@@ -1486,7 +1486,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
     </func>
 
     <func>
-      <name name="select_delete" arity="2"/>
+      <name name="select_delete" arity="2" since=""/>
       <fsummary>Match the objects in an ETS table against a match
         specification and delete objects where the match specification
         returns <c>true</c>.</fsummary>
@@ -1612,7 +1612,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since=""/>
       <fsummary>Set table options.</fsummary>
       <desc>
         <p>Sets table options. The only allowed option to be set after the
@@ -1623,7 +1623,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="slot" arity="2"/>
+      <name name="slot" arity="2" since=""/>
       <fsummary>Return all objects in a specified slot of an ETS table.
       </fsummary>
       <desc>
@@ -1648,7 +1648,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2file" arity="2"/>
+      <name name="tab2file" arity="2" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
         <p>Dumps table <c><anno>Tab</anno></c> to file
@@ -1659,7 +1659,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2file" arity="3"/>
+      <name name="tab2file" arity="3" since=""/>
       <fsummary>Dump an ETS table to a file.</fsummary>
       <desc>
         <p>Dumps table <c><anno>Tab</anno></c> to file
@@ -1706,7 +1706,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tab2list" arity="1"/>
+      <name name="tab2list" arity="1" since=""/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
         <p>Returns a list of all objects in table <c><anno>Tab</anno></c>.</p>
@@ -1714,7 +1714,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="tabfile_info" arity="1"/>
+      <name name="tabfile_info" arity="1" since=""/>
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
         <p>Returns information about the table dumped to file by
@@ -1792,8 +1792,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
     </func>
 
     <func>
-      <name name="table" arity="1"/>
-      <name name="table" arity="2"/>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
         <p>Returns a Query List
@@ -1884,7 +1884,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="test_ms" arity="2"/>
+      <name name="test_ms" arity="2" since=""/>
       <fsummary>Test a match specification for use in <c>select/2</c>.
       </fsummary>
       <desc>
@@ -1911,7 +1911,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="to_dets" arity="2"/>
+      <name name="to_dets" arity="2" since=""/>
       <fsummary>Fill a Dets table with objects from an ETS table.
       </fsummary>
       <desc>
@@ -1922,11 +1922,11 @@ true</pre>
     </func>
 
     <func> 
-      <name name="update_counter" arity="3" clause_i="1"/>
+      <name name="update_counter" arity="3" clause_i="1" since=""/>
       <name name="update_counter" arity="4" clause_i="1" since="OTP 18.0"/>
-      <name name="update_counter" arity="3" clause_i="2"/>
+      <name name="update_counter" arity="3" clause_i="2" since=""/>
       <name name="update_counter" arity="4" clause_i="2" since="OTP 18.0"/>
-      <name name="update_counter" arity="3" clause_i="3"/>
+      <name name="update_counter" arity="3" clause_i="3" since=""/>
       <name name="update_counter" arity="4" clause_i="3" since="OTP 18.0"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
       <type variable="Tab"/>
@@ -2006,8 +2006,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="update_element" arity="3" clause_i="1"/>
-      <name name="update_element" arity="3" clause_i="2"/>
+      <name name="update_element" arity="3" clause_i="1" since=""/>
+      <name name="update_element" arity="3" clause_i="2" since=""/>
       <fsummary>Update the <c>Pos</c>:th element of the object with a
         specified key in an ETS table.</fsummary>
       <type variable="Tab"/>

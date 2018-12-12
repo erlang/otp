@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>unicode</module>
+  <module since="">unicode</module>
   <modulesummary>Functions for converting Unicode characters.</modulesummary>
   <description>
   <p>This module contains functions for converting between different character 
@@ -139,7 +139,7 @@
 
   <funcs>
     <func>
-      <name name="bom_to_encoding" arity="1"/>
+      <name name="bom_to_encoding" arity="1" since=""/>
       <fsummary>Identify UTF byte order marks in a binary.</fsummary>
       <type name="endian"/>
       <type_desc variable="Bin">
@@ -156,7 +156,7 @@
     </func>
 
     <func>
-     <name name="characters_to_binary" arity="1"/>
+     <name name="characters_to_binary" arity="1" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
         <p>Same as <c>characters_to_binary(<anno>Data</anno>, unicode,
@@ -165,7 +165,7 @@
     </func>
 
     <func>    
-     <name name="characters_to_binary" arity="2"/>
+     <name name="characters_to_binary" arity="2" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
         <p>Same as <c>characters_to_binary(<anno>Data</anno>, 
@@ -174,7 +174,7 @@
     </func>
 
     <func>
-      <name name="characters_to_binary" arity="3"/>
+      <name name="characters_to_binary" arity="3" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
         <p>Behaves as <seealso marker="#characters_to_list/2">
@@ -211,7 +211,7 @@
     </func>
 
     <func>
-      <name name="characters_to_list" arity="1"/>
+      <name name="characters_to_list" arity="1" since=""/>
       <fsummary>Convert a collection of characters to a list of Unicode
         characters.</fsummary>
       <desc>
@@ -220,7 +220,7 @@
     </func>
 
     <func>
-      <name name="characters_to_list" arity="2"/>
+      <name name="characters_to_list" arity="2" since=""/>
       <fsummary>Convert a collection of characters to a list of Unicode
         characters.</fsummary>
       <desc>
@@ -515,7 +515,7 @@ decode_data(Data) ->
     </func>
 
     <func>
-      <name name="encoding_to_bom" arity="1"/>
+      <name name="encoding_to_bom" arity="1" since=""/>
       <fsummary>Create a binary UTF byte order mark from encoding.</fsummary>
       <type_desc variable="Bin">
         A <c>binary()</c> such that <c>byte_size(<anno>Bin</anno>) >= 4</c>.

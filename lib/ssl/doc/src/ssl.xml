@@ -28,7 +28,7 @@
     <rev></rev>
     <file>ssl.xml</file>
   </header>
-  <module>ssl</module>
+  <module since="">ssl</module>
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
     <p>
@@ -939,7 +939,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
    
     <func>
       <name since="OTP R14B">connect(Socket, SslOptions) -> </name>
-      <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
+      <name since="">connect(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
 	| {error, Reason}</name>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
 	equivalent, connected socket to an TLS socket.</fsummary>
@@ -975,8 +975,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>connect(Host, Port, Options) -></name>
-      <name>connect(Host, Port, Options, Timeout) ->
+      <name since="">connect(Host, Port, Options) -></name>
+      <name since="">connect(Host, Port, Options, Timeout) ->
 	  {ok, SslSocket}| {ok, SslSocket, Ext} | {error, Reason}</name>
       <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
       <type>
@@ -1018,7 +1018,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>close(SslSocket) -> ok | {error, Reason}</name>
+      <name since="">close(SslSocket) -> ok | {error, Reason}</name>
       <fsummary>Closes an TLS/DTLS connection.</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
@@ -1044,7 +1044,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>controlling_process(SslSocket, NewOwner) ->
+      <name since="">controlling_process(SslSocket, NewOwner) ->
 	ok | {error, Reason}</name>
 	<fsummary>Assigns a new controlling process to the
 	TLS/DTLS socket.</fsummary>
@@ -1118,7 +1118,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>format_error(Reason) -> string()</name>
+      <name since="">format_error(Reason) -> string()</name>
       <fsummary>Returns an error string.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -1129,7 +1129,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
    
     <func>
-      <name>getopts(SslSocket, OptionNames) ->
+      <name since="">getopts(SslSocket, OptionNames) ->
 	{ok, [socketoption()]} | {error, Reason}</name>
       <fsummary>Gets the values of the specified options.</fsummary>
       <type>
@@ -1240,7 +1240,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>listen(Port, Options) ->
+      <name since="">listen(Port, Options) ->
 	{ok, ListenSocket} | {error, Reason}</name>
       <fsummary>Creates an SSL listen socket.</fsummary>
       <type>
@@ -1268,7 +1268,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
+      <name since="">peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
       <fsummary>Returns the peer certificate.</fsummary>
      <type>
         <v>SslSocket = sslsocket()</v>
@@ -1283,7 +1283,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>peername(SslSocket) -> {ok, {Address, Port}} |
+      <name since="">peername(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the peer address and port.</fsummary>
       <type>
@@ -1333,8 +1333,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>recv(SslSocket, Length) -> </name>
-      <name>recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
+      <name since="">recv(SslSocket, Length) -> </name>
+      <name since="">recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
 	Reason}</name>
       <fsummary>Receives data on a socket.</fsummary>
       <type>
@@ -1373,7 +1373,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>send(SslSocket, Data) -> ok | {error, Reason}</name>
+      <name since="">send(SslSocket, Data) -> ok | {error, Reason}</name>
       <fsummary>Writes data to a socket.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1387,7 +1387,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>setopts(SslSocket, Options) -> ok | {error, Reason}</name>
+      <name since="">setopts(SslSocket, Options) -> ok | {error, Reason}</name>
       <fsummary>Sets socket options.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1418,8 +1418,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>ssl_accept(SslSocket) -> </name>
-      <name>ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
+      <name since="">ssl_accept(SslSocket) -> </name>
+      <name since="">ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1433,7 +1433,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>ssl_accept(Socket, SslOptions) -> </name>
+      <name since="">ssl_accept(Socket, SslOptions) -> </name>
       <name since="OTP R14B">ssl_accept(Socket, SslOptions, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
@@ -1449,7 +1449,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>sockname(SslSocket) -> {ok, {Address, Port}} |
+      <name since="">sockname(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the local address and port.</fsummary>
       <type>
@@ -1497,8 +1497,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>transport_accept(ListenSocket) -></name>
-      <name>transport_accept(ListenSocket, Timeout) ->
+      <name since="">transport_accept(ListenSocket) -></name>
+      <name since="">transport_accept(ListenSocket, Timeout) ->
 	{ok, SslSocket} | {error, Reason}</name>
       <fsummary>Accepts an incoming connection and
 	prepares for <c>ssl_accept</c>.</fsummary>

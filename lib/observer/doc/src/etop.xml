@@ -34,7 +34,7 @@
     <rev></rev>
     <file></file>
   </header>
-  <module>etop</module>
+  <module since="">etop</module>
   <modulesummary>Erlang Top is a tool for presenting information about Erlang
   processes similar to the information presented by "top" in UNIX.</modulesummary>
   <description>
@@ -128,7 +128,7 @@
       </desc>
     </func>
     <func>
-      <name>config(Key,Value) -> Result</name>
+      <name since="">config(Key,Value) -> Result</name>
       <fsummary>Change the configuration of the tool.</fsummary>
       <type>
         <v>Result = ok | {error,Reason}</v>
@@ -142,7 +142,7 @@
       </desc>
     </func>
     <func>
-      <name>dump(File) -> Result</name>
+      <name since="">dump(File) -> Result</name>
       <fsummary>Dump the current display to a file.</fsummary>
       <type>
         <v>Result = ok | {error,Reason}</v>
@@ -153,7 +153,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> stop</name>
+      <name since="">stop() -> stop</name>
       <fsummary>Terminate etop.</fsummary>
       <desc>
         <p>Terminates <c>etop</c>.</p>

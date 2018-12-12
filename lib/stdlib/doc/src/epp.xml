@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>epp.xml</file>
   </header>
-  <module>epp</module>
+  <module since="">epp</module>
   <modulesummary>An Erlang code preprocessor.</modulesummary>
   <description>
     <p>The Erlang code preprocessor includes functions that are used by the
@@ -76,7 +76,7 @@
 
   <funcs>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close the preprocessing of the file associated with <c>Epp</c>.
       </fsummary>
       <desc>
@@ -136,7 +136,7 @@
     </func>
 
     <func>
-      <name name="open" arity="2"/>
+      <name name="open" arity="2" since=""/>
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Equivalent to
@@ -145,7 +145,7 @@
     </func>
 
     <func>
-      <name name="open" arity="3"/>
+      <name name="open" arity="3" since=""/>
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Equivalent to <c>epp:open([{name, FileName}, {includes, IncludePath},
@@ -154,7 +154,7 @@
     </func>
 
     <func>
-      <name name="parse_erl_form" arity="1"/>
+      <name name="parse_erl_form" arity="1" since=""/>
       <fsummary>Return the next Erlang form from the opened Erlang source file.
       </fsummary>
       <type name="warning_info"/>
@@ -185,7 +185,7 @@
     </func>
 
     <func>
-      <name name="parse_file" arity="3"/>
+      <name name="parse_file" arity="3" since=""/>
       <fsummary>Preprocess and parse an Erlang source file.</fsummary>
       <desc>
         <p>Equivalent to <c>epp:parse_file(FileName, [{includes, IncludePath},

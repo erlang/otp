@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_user.xml</file>
   </header>
-  <module>megaco_user</module>
+  <module since="">megaco_user</module>
   <modulesummary>Callback module for users of the Megaco application</modulesummary>
   <description>
     <p>This module defines the callback behaviour of Megaco users.  A
@@ -164,8 +164,8 @@ protocol_version() = integer()    ]]></code>
 
   <funcs>
     <func>
-      <name>handle_connect(ConnHandle, ProtocolVersion) -> ok | error | {error,ErrorDescr}</name>
-      <name>handle_connect(ConnHandle, ProtocolVersion, Extra]) -> ok | error | {error,ErrorDescr}</name>
+      <name since="">handle_connect(ConnHandle, ProtocolVersion) -> ok | error | {error,ErrorDescr}</name>
+      <name since="">handle_connect(ConnHandle, ProtocolVersion, Extra]) -> ok | error | {error,ErrorDescr}</name>
       <fsummary>Invoked when a new connection is established</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -202,7 +202,7 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_disconnect(ConnHandle, ProtocolVersion, Reason) -> ok</name>
+      <name since="">handle_disconnect(ConnHandle, ProtocolVersion, Reason) -> ok</name>
       <fsummary>Invoked when a connection is teared down</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -220,8 +220,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED) -> reply | {reply, ED} | no_reply | {no_reply, ED} </name>
-      <name>handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED, Extra) -> reply | {reply, ED} | no_reply | {no_reply, ED} </name>
+      <name since="">handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED) -> reply | {reply, ED} | no_reply | {no_reply, ED} </name>
+      <name since="">handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED, Extra) -> reply | {reply, ED} | no_reply | {no_reply, ED} </name>
       <fsummary>Invoked when a received message had syntax errors</fsummary>
       <type>
         <v>ReceiveHandle    = receive_handle()</v>
@@ -258,8 +258,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr) -> ok</name>
-      <name>handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr, Extra) -> ok</name>
+      <name since="">handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr) -> ok</name>
+      <name since="">handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr, Extra) -> ok</name>
       <fsummary>Invoked when a received message just contains an error</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -291,8 +291,8 @@ protocol_version() = integer()    ]]></code>
 
 <!--
     <func>
-      <name>handle_segment_error(ConnHandle, ProtocolVersion, TransId, SegmentError) -> ok</name>
-      <name>handle_segment_error(ConnHandle, ProtocolVersion, TransId, SegmentError, Extra) -> ok</name>
+      <name since="">handle_segment_error(ConnHandle, ProtocolVersion, TransId, SegmentError) -> ok</name>
+      <name since="">handle_segment_error(ConnHandle, ProtocolVersion, TransId, SegmentError, Extra) -> ok</name>
       <fsummary>Invoked when a segment error has been detected</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -316,8 +316,8 @@ protocol_version() = integer()    ]]></code>
 -->
 
     <func>
-      <name>handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests) -> pending() | reply() | ignore_trans_request</name>
-      <name>handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests, Extra) -> pending() | reply() | ignore_trans_request</name>
+      <name since="">handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests) -> pending() | reply() | ignore_trans_request</name>
+      <name since="">handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests, Extra) -> pending() | reply() | ignore_trans_request</name>
       <fsummary>Invoked for each transaction request</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -420,8 +420,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData) -> reply()</name>
-      <name>handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData, Extra) -> reply()</name>
+      <name since="">handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData) -> reply()</name>
+      <name since="">handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData, Extra) -> reply()</name>
       <fsummary>Optionally invoked for a time consuming transaction request</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -460,8 +460,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData) -> ok</name>
-      <name>handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData, Extra) -> ok</name>
+      <name since="">handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData) -> ok</name>
+      <name since="">handle_trans_reply(ConnHandle, ProtocolVersion, UserReply, ReplyData, Extra) -> ok</name>
       <fsummary>Optionally invoked for a transaction reply</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -593,8 +593,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData) -> ok</name>
-      <name>handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData, Extra) -> ok</name>
+      <name since="">handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData) -> ok</name>
+      <name since="">handle_trans_ack(ConnHandle, ProtocolVersion, AckStatus, AckData, Extra) -> ok</name>
       <fsummary>Optionally invoked for a transaction acknowledgement</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -658,8 +658,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans) -> ok</name>
-      <name>handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans, Extra) -> ok</name>
+      <name since="">handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans) -> ok</name>
+      <name since="">handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans, Extra) -> ok</name>
       <fsummary>Invoked when an unexpected message is received</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -685,8 +685,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid) -> ok</name>
-      <name>handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid, Extra) -> ok</name>
+      <name since="">handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid) -> ok</name>
+      <name since="">handle_trans_request_abort(ConnHandle, ProtocolVersion, TransNo, Pid, Extra) -> ok</name>
       <fsummary>Invoked when an transaction request has been aborted</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>
@@ -710,8 +710,8 @@ protocol_version() = integer()    ]]></code>
     </func>
 
     <func>
-      <name>handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl) -> ok</name>
-      <name>handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl, Extra) -> ok</name>
+      <name since="">handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl) -> ok</name>
+      <name since="">handle_segment_reply(ConnHandle, ProtocolVersion, TransNo, SegNo, SegCompl, Extra) -> ok</name>
       <fsummary>Segment Reply Indication</fsummary>
       <type>
         <v>ConnHandle      = conn_handle()</v>

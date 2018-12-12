@@ -32,7 +32,7 @@
     <rev>C</rev>
     <file>ms_transform.xml</file>
   </header>
-  <module>ms_transform</module>
+  <module since="">ms_transform</module>
   <modulesummary>A parse transformation that translates fun syntax into match
     specifications.</modulesummary>
   <description>
@@ -731,7 +731,7 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
 
   <funcs>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Error formatting function as required by the parse transformation interface.</fsummary>
       <desc>
         <p>Takes an error code returned by one of the other functions
@@ -741,7 +741,7 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
     </func>
 
     <func>
-      <name name="parse_transform" arity="2"/>
+      <name name="parse_transform" arity="2" since=""/>
       <fsummary>Transforms Erlang abstract format containing calls to
         ets/dbg:fun2ms/1 into literal match specifications.</fsummary>
       <type_desc variable="Options">Option list, required but not used.
@@ -762,7 +762,7 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
     </func>
 
     <func>
-      <name name="transform_from_shell" arity="3"/>
+      <name name="transform_from_shell" arity="3" since=""/>
       <fsummary>Used when transforming funs created in the shell into
         match_specifications.</fsummary>
       <type_desc variable="BoundEnvironment">List of variable bindings in the

@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_mpd.xml</file>
   </header>
-  <module>snmpa_mpd</module>
+  <module since="">snmpa_mpd</module>
   <modulesummary>Message Processing and Dispatch module for the SNMP agent</modulesummary>
   <description>
     <p>The module <c>snmpa_mpd</c> implements the version independent
@@ -52,7 +52,7 @@
 
   <funcs>
     <func>
-      <name>init(Vsns) -> mpd_state()</name>
+      <name since="">init(Vsns) -> mpd_state()</name>
       <fsummary>Initialize the MPD module</fsummary>
       <type>
         <v>Vsns = [Vsn]</v>
@@ -211,7 +211,7 @@
     </func>
 
     <func>
-      <name>discarded_pdu(Variable) -> void()</name>
+      <name since="">discarded_pdu(Variable) -> void()</name>
       <fsummary>Increment the variable associated with a discarded pdu</fsummary>
       <type>
         <v>Variable = atom()</v>

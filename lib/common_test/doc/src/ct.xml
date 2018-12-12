@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct.xml</file>
   </header>
-  <module>ct</module>
+  <module since="">ct</module>
   <modulesummary>Main user interface for the Common Test framework.</modulesummary>
 
   <description>
@@ -139,7 +139,7 @@
 
   <funcs>
     <func>
-      <name>abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
+      <name since="">abort_current_testcase(Reason) -&gt; ok | {error, ErrorReason}</name>
       <fsummary>Aborts the currently executing test case.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -290,7 +290,7 @@
     </func>
 
     <func>
-      <name>comment(Comment) -&gt; ok</name>
+      <name since="">comment(Comment) -&gt; ok</name>
       <fsummary>Prints the specified Comment in the comment field in the
         table on the test suite result page.</fsummary>
       <type>
@@ -353,7 +353,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -372,7 +372,7 @@
     </func>
 
     <func>
-      <name>decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Decrypts EncryptFileName, previously generated with
         encrypt_config_file/2,3.</fsummary>
       <type>
@@ -390,7 +390,7 @@
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
         result in file EncryptFileName.</fsummary>
       <type>
@@ -416,7 +416,7 @@
     </func>
 
     <func>
-      <name>encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
+      <name since="">encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -&gt; ok | {error, Reason}</name>
       <fsummary>Encrypts the source configuration file with DES3 and saves the
        result in the target file EncryptFileName.</fsummary>
       <type>
@@ -442,7 +442,7 @@
     </func>
 
     <func>
-      <name>fail(Reason) -&gt; ok</name>
+      <name since="">fail(Reason) -&gt; ok</name>
       <fsummary>Terminates a test case with the specified error
         Reason.</fsummary>
       <type>
@@ -470,7 +470,7 @@
     </func>
 
     <func>
-      <name>get_config(Required) -&gt; Value</name>
+      <name since="">get_config(Required) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
       <desc><marker id="get_config-1"/>
         <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
@@ -479,7 +479,7 @@
     </func>
 
     <func>
-      <name>get_config(Required, Default) -&gt; Value</name>
+      <name since="">get_config(Required, Default) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
       <desc><marker id="get_config-2"/>
         <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
@@ -488,7 +488,7 @@
     </func>
 
     <func>
-      <name>get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
+      <name since="">get_config(Required, Default, Opts) -&gt; ValueOrElement</name>
       <fsummary>Reads configuration data values.</fsummary>
       <type>
         <v>Required = KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey}</v>
@@ -582,7 +582,7 @@
     </func>
 
     <func>
-      <name>get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
+      <name since="">get_status() -&gt; TestStatus | {error, Reason} | no_tests_running</name>
       <fsummary>Returns status of ongoing test.</fsummary>
       <type>
         <v>TestStatus = [StatusElem]</v>
@@ -608,7 +608,7 @@
     </func>
 
     <func>
-      <name>get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
+      <name since="">get_target_name(Handle) -&gt; {ok, TargetName} | {error, Reason}</name>
       <fsummary>Returns the name of the target that the specified connection
         belongs to.</fsummary>
       <type>
@@ -697,7 +697,7 @@
     </func>
 
     <func>
-      <name>install(Opts) -&gt; ok | {error, Reason}</name>
+      <name since="">install(Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Installs configuration files and event handlers.</fsummary>
       <type>
         <v>Opts = [Opt]</v>
@@ -724,7 +724,7 @@
     </func>
 
     <func>
-      <name>listenv(Telnet) -&gt; [Env]</name>
+      <name since="">listenv(Telnet) -&gt; [Env]</name>
       <fsummary>Performs command listenv on the specified Telnet connection
         and returns the result as a list of key-value pairs.</fsummary>
       <type>
@@ -740,7 +740,7 @@
     </func>
 
     <func>
-      <name>log(Format) -&gt; ok</name>
+      <name since="">log(Format) -&gt; ok</name>
       <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
@@ -749,7 +749,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2) -&gt; ok</name>
+      <name since="">log(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -763,7 +763,7 @@
     </func>
 
     <func>
-      <name>log(X1, X2, X3) -&gt; ok</name>
+      <name since="">log(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to log(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -859,7 +859,7 @@
     </func>
 
     <func>
-      <name>pal(Format) -&gt; ok</name>
+      <name since="">pal(Format) -&gt; ok</name>
       <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
@@ -869,7 +869,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2) -&gt; ok</name>
+      <name since="">pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, []).</fsummary>
       <type>
@@ -883,7 +883,7 @@
     </func>
 
     <func>
-      <name>pal(X1, X2, X3) -&gt; ok</name>
+      <name since="">pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -945,7 +945,7 @@
     </func>
 
     <func>
-      <name>parse_table(Data) -&gt; {Heading, Table}</name>
+      <name since="">parse_table(Data) -&gt; {Heading, Table}</name>
       <fsummary>Parses the printout from an SQL table and returns a list of
         tuples.</fsummary>
       <type>
@@ -967,7 +967,7 @@
     </func>
 
     <func>
-      <name>print(Format) -&gt; ok</name>
+      <name since="">print(Format) -&gt; ok</name>
       <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
         <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
@@ -990,7 +990,7 @@
     </func>
 
     <func>
-      <name>print(X1, X2, X3) -&gt; ok</name>
+      <name since="">print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
         FormatArgs, Opts).</fsummary>
       <type>
@@ -1124,7 +1124,7 @@
     </func>
 
     <func>
-      <name>require(Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available.</fsummary>
       <type>
         <v>Required = Key | {Key, SubKeys} | {Key, SubKey, SubKeys}</v>
@@ -1178,7 +1178,7 @@
     </func>
 
     <func>
-      <name>require(Name, Required) -&gt; ok | {error, Reason}</name>
+      <name since="">require(Name, Required) -&gt; ok | {error, Reason}</name>
       <fsummary>Checks if the required configuration is available and gives
         it a name.</fsummary>
       <type>
@@ -1237,7 +1237,7 @@
     </func>
 
     <func>
-      <name>run(TestDirs) -&gt; Result</name>
+      <name since="">run(TestDirs) -&gt; Result</name>
       <fsummary>Runs all test cases in all suites in the specified
         directories.</fsummary>
       <type>
@@ -1251,7 +1251,7 @@
     </func>
 
     <func>
-      <name>run(TestDir, Suite) -&gt; Result</name>
+      <name since="">run(TestDir, Suite) -&gt; Result</name>
       <fsummary>Runs all test cases in the specified suite.</fsummary>
       <desc><marker id="run-2"/>
         <p>Runs all test cases in the specified suite.</p>
@@ -1261,7 +1261,7 @@
     </func>
 
     <func>
-      <name>run(TestDir, Suite, Cases) -&gt; Result</name>
+      <name since="">run(TestDir, Suite, Cases) -&gt; Result</name>
       <fsummary>Runs the specified test cases.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1283,7 +1283,7 @@
     </func>
 
     <func>
-      <name>run_test(Opts) -&gt; Result</name>
+      <name since="">run_test(Opts) -&gt; Result</name>
       <fsummary>Runs tests as specified by the combination of options in
         Opts.</fsummary>
       <type>
@@ -1355,7 +1355,7 @@
     </func>
 
     <func>
-      <name>run_testspec(TestSpec) -&gt; Result</name>
+      <name since="">run_testspec(TestSpec) -&gt; Result</name>
       <fsummary>Runs a test specified by TestSpec.</fsummary>
       <type>
         <v>TestSpec = [term()]</v>
@@ -1412,7 +1412,7 @@
     </func>
 
     <func>
-      <name>start_interactive() -&gt; ok</name>
+      <name since="">start_interactive() -&gt; ok</name>
       <fsummary>Starts <c>Common Test</c> in interactive mode.</fsummary>
       <desc><marker id="start_interactive-0"/>
         <p>Starts <c>Common Test</c> in interactive mode.</p>
@@ -1440,7 +1440,7 @@
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1453,7 +1453,7 @@
     </func>
 
     <func>
-      <name>step(TestDir, Suite, Case, Opts) -&gt; Result</name>
+      <name since="">step(TestDir, Suite, Case, Opts) -&gt; Result</name>
       <fsummary>Steps through a test case with the debugger.</fsummary>
       <type>
         <v>Case = atom()</v>
@@ -1470,7 +1470,7 @@
     </func>
 
     <func>
-      <name>stop_interactive() -&gt; ok</name>
+      <name since="">stop_interactive() -&gt; ok</name>
       <fsummary>Exits the interactive mode.</fsummary>
       <desc><marker id="stop_interactive-0"/>
         <p>Exits the interactive mode.</p>
@@ -1501,7 +1501,7 @@
     </func>
 
     <func>
-      <name>testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
+      <name since="">testcases(TestDir, Suite) -&gt; Testcases | {error, Reason}</name>
       <fsummary>Returns all test cases in the specified suite.</fsummary>
       <type>
         <v>TestDir = string()</v>
@@ -1539,7 +1539,7 @@
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite) -&gt; SuiteUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:suite/0.</fsummary>
       <type>
@@ -1556,7 +1556,7 @@
     </func>
 
     <func>
-      <name>userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
+      <name since="">userdata(TestDir, Suite, Case::GroupOrCase) -&gt; TCUserData | {error, Reason}</name>
       <fsummary>Returns any data specified with tag userdata in the list of
         tuples returned from Suite:group(GroupName) or Suite:Case().</fsummary>
       <type>

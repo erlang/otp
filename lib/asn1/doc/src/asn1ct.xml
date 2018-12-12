@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>asn1.sgml</file>
   </header>
-  <module>asn1ct</module>
+  <module since="">asn1ct</module>
   <modulesummary>ASN.1 compiler and compile-time support functions</modulesummary>
   <description>
     <p>The ASN.1 compiler takes an ASN.1 module as input and generates a 
@@ -72,8 +72,8 @@
 
   <funcs>
     <func>
-      <name>compile(Asn1module) -> ok | {error, Reason}</name>
-      <name>compile(Asn1module, Options) -> ok | {error, Reason}</name>
+      <name since="">compile(Asn1module) -> ok | {error, Reason}</name>
+      <name since="">compile(Asn1module, Options) -> ok | {error, Reason}</name>
       <fsummary>Compiles an ASN.1 module and generates encode/decode functions according to encoding rules BER or PER.</fsummary>
       <type>
         <v>Asn1module = atom() | string()</v>
@@ -336,7 +336,7 @@ File3.asn</pre>
     </func>
 
     <func>
-      <name>value(Module, Type) -> {ok, Value} | {error, Reason}</name>
+      <name since="">value(Module, Type) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Creates an ASN.1 value for test purposes.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
@@ -361,9 +361,9 @@ File3.asn</pre>
     </func>
 
     <func>
-      <name>test(Module) -> ok | {error, Reason}</name>
-      <name>test(Module, Type | Options) -> ok | {error, Reason}</name>
-      <name>test(Module, Type, Value | Options) -> ok | {error, Reason}</name>
+      <name since="">test(Module) -> ok | {error, Reason}</name>
+      <name since="">test(Module, Type | Options) -> ok | {error, Reason}</name>
+      <name since="">test(Module, Type, Value | Options) -> ok | {error, Reason}</name>
       <fsummary>Performs a test of encode and decode for types in an ASN.1 module.</fsummary>
       <type>
         <v>Module = Type = atom()</v>

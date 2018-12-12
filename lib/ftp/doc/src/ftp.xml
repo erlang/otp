@@ -29,7 +29,7 @@
     <rev>B</rev>
     <file>ftp.xml</file>
   </header>
-  <module>ftp</module>
+  <module since="">ftp</module>
   <modulesummary>A File Transfer Protocol client.</modulesummary>
 
   <description>
@@ -272,7 +272,7 @@
   <funcs>
 
     <func>
-      <name>account(Pid, Account) -> ok | {error, Reason}</name>
+      <name since="">account(Pid, Account) -> ok | {error, Reason}</name>
       <fsummary>Specifies which account to use.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -289,8 +289,8 @@
     </func>
 
     <func>
-      <name>append(Pid, LocalFile) -> </name>
-      <name>append(Pid, LocalFile, RemoteFile) -> ok | {error, Reason}</name>
+      <name since="">append(Pid, LocalFile) -> </name>
+      <name since="">append(Pid, LocalFile, RemoteFile) -> ok | {error, Reason}</name>
       <fsummary>Transfers a file to remote server, and appends it to 
       <c>Remotefile</c>.</fsummary>
       <type>
@@ -310,7 +310,7 @@
     </func>
 
     <func>
-      <name>append_bin(Pid, Bin, RemoteFile) -> ok | {error, Reason}</name>
+      <name since="">append_bin(Pid, Bin, RemoteFile) -> ok | {error, Reason}</name>
       <fsummary>Transfers a binary into a remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -328,7 +328,7 @@
     </func>
 
     <func>
-      <name>append_chunk(Pid, Bin) -> ok | {error, Reason}</name>
+      <name since="">append_chunk(Pid, Bin) -> ok | {error, Reason}</name>
       <fsummary>Appends a chunk to the remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -348,7 +348,7 @@
     </func>
 
     <func>
-      <name>append_chunk_start(Pid, File) -> ok | {error, Reason}</name>
+      <name since="">append_chunk_start(Pid, File) -> ok | {error, Reason}</name>
       <fsummary>Starts transfer of file chunks for appending to <c>File</c>.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -365,7 +365,7 @@
     </func>
 
     <func>
-      <name>append_chunk_end(Pid) -> ok | {error, Reason}</name>
+      <name since="">append_chunk_end(Pid) -> ok | {error, Reason}</name>
       <fsummary>Stops transfer of chunks for appending.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -381,7 +381,7 @@
     </func>
 
     <func>
-      <name>cd(Pid, Dir) -> ok | {error, Reason}</name>
+      <name since="">cd(Pid, Dir) -> ok | {error, Reason}</name>
       <fsummary>Changes remote working directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -397,7 +397,7 @@
     </func>
     
     <func>
-      <name>close(Pid) -> ok</name>
+      <name since="">close(Pid) -> ok</name>
       <fsummary>Ends the FTP session.</fsummary>
       <type>
 	<v>Pid = pid()</v>
@@ -411,7 +411,7 @@
     </func>
 
     <func>
-      <name>delete(Pid, File) -> ok | {error, Reason}</name>
+      <name since="">delete(Pid, File) -> ok | {error, Reason}</name>
       <fsummary>Deletes a file at the remote server.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -426,7 +426,7 @@
     </func>
 
     <func>
-      <name>formaterror(Tag) -> string()</name>
+      <name since="">formaterror(Tag) -> string()</name>
       <fsummary>Returns error diagnostics.</fsummary>
       <type>
         <v>Tag = {error, atom()} | atom()</v>
@@ -440,7 +440,7 @@
     </func>
 
     <func>
-      <name>lcd(Pid, Dir) -> ok | {error, Reason}</name>
+      <name since="">lcd(Pid, Dir) -> ok | {error, Reason}</name>
       <fsummary>Changes local working directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -455,7 +455,7 @@
     </func>
 
     <func>
-      <name>lpwd(Pid) -> {ok, Dir}</name>
+      <name since="">lpwd(Pid) -> {ok, Dir}</name>
       <fsummary>Gets local current working directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -470,8 +470,8 @@
     </func>
 
     <func>
-      <name>ls(Pid) -> </name>
-      <name>ls(Pid, Pathname) -> {ok, Listing} | {error, Reason}</name>
+      <name since="">ls(Pid) -> </name>
+      <name since="">ls(Pid, Pathname) -> {ok, Listing} | {error, Reason}</name>
       <fsummary>List of files.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -493,7 +493,7 @@
     </func>
 
     <func>
-      <name>mkdir(Pid, Dir) -> ok | {error, Reason}</name>
+      <name since="">mkdir(Pid, Dir) -> ok | {error, Reason}</name>
       <fsummary>Creates a remote directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -510,8 +510,8 @@
     </func>
 
     <func>
-      <name>nlist(Pid) -> </name>
-      <name>nlist(Pid, Pathname) -> {ok, Listing} | {error, Reason}</name>
+      <name since="">nlist(Pid) -> </name>
+      <name since="">nlist(Pid, Pathname) -> {ok, Listing} | {error, Reason}</name>
       <fsummary>List of files.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -535,8 +535,8 @@
     </func>
 
     <func>
-      <name>open(Host) -> {ok, Pid} | {error, Reason}</name>
-      <name>open(Host, Opts) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">open(Host) -> {ok, Pid} | {error, Reason}</name>
+      <name since="">open(Host, Opts) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Starts a standalone FTP client.</fsummary>
       <type>
 	<v>Host = string() | ip_address()</v>
@@ -587,7 +587,7 @@
     </func>
 
     <func>
-      <name>pwd(Pid) -> {ok, Dir} | {error, Reason}</name>
+      <name since="">pwd(Pid) -> {ok, Dir} | {error, Reason}</name>
       <fsummary>Gets the remote current working directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -603,8 +603,8 @@
     </func>
 
     <func>
-      <name>recv(Pid, RemoteFile) -> </name>
-      <name>recv(Pid, RemoteFile, LocalFile) -> ok | {error, Reason}</name>
+      <name since="">recv(Pid, RemoteFile) -> </name>
+      <name since="">recv(Pid, RemoteFile, LocalFile) -> ok | {error, Reason}</name>
       <fsummary>Transfers a file from remote server.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -627,7 +627,7 @@
     </func>
 
     <func>
-      <name>recv_bin(Pid, RemoteFile) -> {ok, Bin} | {error, Reason}</name>
+      <name since="">recv_bin(Pid, RemoteFile) -> {ok, Bin} | {error, Reason}</name>
       <fsummary>Transfers a file from remote server as a binary.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -644,7 +644,7 @@
     </func>
 
     <func>
-      <name>recv_chunk_start(Pid, RemoteFile) -> ok | {error, Reason}</name>
+      <name since="">recv_chunk_start(Pid, RemoteFile) -> ok | {error, Reason}</name>
       <fsummary>Starts chunk-reading of the remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -660,7 +660,7 @@
     </func>
 
     <func>
-      <name>recv_chunk(Pid) -> ok | {ok, Bin} | {error, Reason}</name>
+      <name since="">recv_chunk(Pid) -> ok | {ok, Bin} | {error, Reason}</name>
       <fsummary>Receives a chunk of the remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -682,7 +682,7 @@
     </func>
 
     <func>
-      <name>rename(Pid, Old, New) -> ok | {error, Reason}</name>
+      <name since="">rename(Pid, Old, New) -> ok | {error, Reason}</name>
       <fsummary>Renames a file at the remote server.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -697,7 +697,7 @@
     </func>
 
     <func>
-      <name>rmdir(Pid, Dir) -> ok | {error, Reason}</name>
+      <name since="">rmdir(Pid, Dir) -> ok | {error, Reason}</name>
       <fsummary>Removes a remote directory.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -714,8 +714,8 @@
     </func>
 
     <func>
-      <name>send(Pid, LocalFile) -></name>
-      <name>send(Pid, LocalFile, RemoteFile) -> ok | {error, Reason}</name>
+      <name since="">send(Pid, LocalFile) -></name>
+      <name since="">send(Pid, LocalFile, RemoteFile) -> ok | {error, Reason}</name>
       <fsummary>Transfers a file to the remote server.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -732,7 +732,7 @@
     </func>
 
     <func>
-      <name>send_bin(Pid, Bin, RemoteFile) -> ok | {error, Reason}</name>
+      <name since="">send_bin(Pid, Bin, RemoteFile) -> ok | {error, Reason}</name>
       <fsummary>Transfers a binary into a remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -749,7 +749,7 @@
     </func>
 
     <func>
-      <name>send_chunk(Pid, Bin) -> ok | {error, Reason}</name>
+      <name since="">send_chunk(Pid, Bin) -> ok | {error, Reason}</name>
       <fsummary>Writes a chunk to the remote file.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -769,7 +769,7 @@
     </func>
 
     <func>
-      <name>send_chunk_start(Pid, File) -> ok | {error, Reason}</name>
+      <name since="">send_chunk_start(Pid, File) -> ok | {error, Reason}</name>
       <fsummary>Starts transfer of file chunks.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -785,7 +785,7 @@
     </func>
 
     <func>
-      <name>send_chunk_end(Pid) -> ok | {error, Reason}</name>
+      <name since="">send_chunk_end(Pid) -> ok | {error, Reason}</name>
       <fsummary>Stops transfer of chunks.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -832,7 +832,7 @@
     </func>
 
     <func>
-      <name>type(Pid, Type) -> ok | {error, Reason}</name>
+      <name since="">type(Pid, Type) -> ok | {error, Reason}</name>
       <fsummary>Sets transfer type to <c>ascii</c>or <c>binary</c>.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -849,7 +849,7 @@
     </func>
 
     <func>
-      <name>user(Pid, User, Password) -> ok | {error, Reason}</name>
+      <name since="">user(Pid, User, Password) -> ok | {error, Reason}</name>
       <fsummary>User login.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -864,7 +864,7 @@
     </func>
 
     <func>
-      <name>user(Pid, User, Password, Account) -> ok | {error, Reason}</name>
+      <name since="">user(Pid, User, Password, Account) -> ok | {error, Reason}</name>
       <fsummary>User login.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -880,7 +880,7 @@
     </func>
 
     <func>
-      <name>quote(Pid, Command) -> [FTPLine]</name>
+      <name since="">quote(Pid, Command) -> [FTPLine]</name>
       <fsummary>Sends an arbitrary FTP command.</fsummary>
       <type>
         <v>Pid = pid()</v>

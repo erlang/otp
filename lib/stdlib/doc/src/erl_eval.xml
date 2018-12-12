@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>erl_eval.xml</file>
   </header>
-  <module>erl_eval</module>
+  <module since="">erl_eval</module>
   <modulesummary>The Erlang meta interpreter.</modulesummary>
   <description>
     <p>This module provides an interpreter for Erlang expressions. The
@@ -96,7 +96,7 @@
 
   <funcs>
     <func>
-      <name name="add_binding" arity="3"/>
+      <name name="add_binding" arity="3" since=""/>
       <fsummary>Add a binding.</fsummary>
       <desc>
         <p>Adds binding <c><anno>Name</anno>=<anno>Value</anno></c>
@@ -106,7 +106,7 @@
     </func>
 
     <func>
-      <name name="binding" arity="2"/>
+      <name name="binding" arity="2" since=""/>
       <fsummary>Return bindings.</fsummary>
       <desc>
         <p>Returns the binding of <c><anno>Name</anno></c>
@@ -115,7 +115,7 @@
     </func>
 
     <func>
-      <name name="bindings" arity="1"/>
+      <name name="bindings" arity="1" since=""/>
       <fsummary>Return bindings.</fsummary>
       <desc>
         <p>Returns the list of bindings contained in the binding
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name name="del_binding" arity="2"/>
+      <name name="del_binding" arity="2" since=""/>
       <fsummary>Delete a binding.</fsummary>
       <desc>
         <p>Removes the binding of <c><anno>Name</anno></c>
@@ -134,10 +134,10 @@
     </func>
 
     <func>
-      <name name="expr" arity="2"/>
-      <name name="expr" arity="3"/>
-      <name name="expr" arity="4"/>
-      <name name="expr" arity="5"/>
+      <name name="expr" arity="2" since=""/>
+      <name name="expr" arity="3" since=""/>
+      <name name="expr" arity="4" since=""/>
+      <name name="expr" arity="5" since=""/>
       <fsummary>Evaluate expression.</fsummary>
       <desc>
         <p>Evaluates <c><anno>Expression</anno></c> with the set of bindings
@@ -157,9 +157,9 @@
     </func>
 
     <func>
-      <name name="expr_list" arity="2"/>
-      <name name="expr_list" arity="3"/>
-      <name name="expr_list" arity="4"/>
+      <name name="expr_list" arity="2" since=""/>
+      <name name="expr_list" arity="3" since=""/>
+      <name name="expr_list" arity="4" since=""/>
       <fsummary>Evaluate a list of expressions.</fsummary>
       <desc>
         <p>Evaluates a list of expressions in parallel, using the same
@@ -174,9 +174,9 @@
     </func>
 
     <func>
-      <name name="exprs" arity="2"/>
-      <name name="exprs" arity="3"/>
-      <name name="exprs" arity="4"/>
+      <name name="exprs" arity="2" since=""/>
+      <name name="exprs" arity="3" since=""/>
+      <name name="exprs" arity="4" since=""/>
       <fsummary>Evaluate expressions.</fsummary>
       <desc>
         <p>Evaluates <c><anno>Expressions</anno></c> with the set of bindings
@@ -197,7 +197,7 @@
     </func>
 
     <func>
-      <name name="new_bindings" arity="0"/>
+      <name name="new_bindings" arity="0" since=""/>
       <fsummary>Return a bindings structure.</fsummary>
       <desc>
         <p>Returns an empty binding structure.</p>

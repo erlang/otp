@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>otp_mib</module>
+  <module since="">otp_mib</module>
   <modulesummary>Handles the OTP-MIB</modulesummary>
   <description>
     <p>The SNMP application should be used to start an SNMP agent. Then
@@ -41,7 +41,7 @@
   </description>
   <funcs>
     <func>
-      <name>load(Agent) -> ok | {error, Reason}</name>
+      <name since="">load(Agent) -> ok | {error, Reason}</name>
       <fsummary>Load the OTP-MIB</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -52,7 +52,7 @@
       </desc>
     </func>
     <func>
-      <name>unload(Agent) -> ok | {error, Reason}</name>
+      <name since="">unload(Agent) -> ok | {error, Reason}</name>
       <fsummary>Unload the OTP-MIB</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>

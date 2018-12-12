@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>instrument.sgml</file>
   </header>
-  <module>instrument</module>
+  <module since="">instrument</module>
   <modulesummary>Analysis and Utility Functions for Instrumentation</modulesummary>
   <description>
     <p>The module <c>instrument</c> contains support for studying the resource

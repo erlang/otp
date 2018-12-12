@@ -31,7 +31,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>public_key</module>
+  <module since="">public_key</module>
   <modulesummary>API module for public-key infrastructure.</modulesummary>
   <description>
     <p>Provides functions to handle public-key infrastructure,
@@ -326,7 +326,7 @@
   </func>
 
   <func>
-    <name name="pkix_decode_cert" arity="2"/>
+    <name name="pkix_decode_cert" arity="2" since=""/>
     <fsummary>Decodes an ASN.1 DER-encoded PKIX x509 certificate.</fsummary>
     <desc> 
       <p>Decodes an ASN.1 DER-encoded PKIX certificate. Option <c>otp</c>
@@ -889,7 +889,7 @@ end
   
 
   <func>
-    <name name="sign" arity="3"/>
+    <name name="sign" arity="3" since=""/>
     <name name="sign" arity="4" since="OTP 20.1"/>
     <fsummary>Creates a digital signature.</fsummary>
   <desc>

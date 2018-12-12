@@ -23,7 +23,7 @@
 
     <title>crypto</title>
   </header>
-  <module>crypto</module>
+  <module since="">crypto</module>
   <modulesummary>Crypto Functions</modulesummary>
   <description>
     <p>This module provides a set of cryptographic functions.
@@ -622,7 +622,7 @@
     </func>
 
     <func>
-      <name name="exor" arity="2"/>
+      <name name="exor" arity="2" since=""/>
       <fsummary>XOR data</fsummary>
       <desc>
 	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
@@ -805,7 +805,7 @@
     </func>
 
     <func>
-      <name name="info_lib" arity="0"/>
+      <name name="info_lib" arity="0" since=""/>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <desc>
         <p>Provides the name and version of the libraries used by crypto.</p>
@@ -922,7 +922,7 @@
     </func>
 
      <func>
-      <name>rand_uniform(Lo, Hi) -> N</name>
+      <name since="">rand_uniform(Lo, Hi) -> N</name>
       <fsummary>Generate a random number</fsummary>
       <type>
         <v>Lo, Hi, N = integer()</v>
@@ -935,7 +935,7 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
+      <name name="start" arity="0" since=""/>
       <fsummary> Equivalent to application:start(crypto). </fsummary>
       <desc>
         <p> Equivalent to application:start(crypto).</p>
@@ -943,7 +943,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary> Equivalent to application:stop(crypto).</fsummary>
       <desc>
         <p> Equivalent to application:stop(crypto).</p>
