@@ -746,6 +746,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += 1;
         }
         break;
+    case op_i_jump_on_val_rfIW:
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{
@@ -760,6 +761,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+    case op_i_jump_on_val_zero_rfI:
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
