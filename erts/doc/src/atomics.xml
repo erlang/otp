@@ -30,7 +30,7 @@
     mutable atomic variables. The implementation utilizes only
     atomic hardware instructions without any software level locking, which makes
     it very efficient for concurrent access. The atomics are organized into
-    arrays with the follwing semantics:</p>
+    arrays with the following semantics:</p>
     <list type="bulleted">
       <item>
 	<p>Atomics are 64 bit integers.</p>
