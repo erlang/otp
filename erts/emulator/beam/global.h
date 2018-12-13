@@ -1311,6 +1311,7 @@ struct Sint_buf {
 #endif
 };	
 char* Sint_to_buf(Sint, struct Sint_buf*);
+char* Sint_to_buf_by_base(Sint, char*, Uint);
 
 #define ERTS_IOLIST_STATE_INITER(C_P, OBJ)	\
     {(C_P), 0, 0, (OBJ), {NULL, NULL, NULL, ERTS_ALC_T_INVALID}, 0, 0}

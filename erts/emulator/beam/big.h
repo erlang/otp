@@ -120,9 +120,12 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #endif
 
 int big_decimal_estimate(Wterm);
+int big_integer_estimate(Wterm, Uint);
 Eterm erts_big_to_list(Eterm, Eterm**);
+Eterm erts_big_to_list_by_base(Eterm, Eterm**, Uint);
 char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
 Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz);
+Uint erts_big_to_binary_bytes_by_base(Eterm x, char *buf, Uint buf_sz, Uint base);
 
 Eterm small_times(Sint, Sint, Eterm*);
 

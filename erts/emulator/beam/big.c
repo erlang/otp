@@ -429,6 +429,7 @@
 static const byte digits_per_sint_lookup[36-1];
 static const byte digits_per_small_lookup[36-1];
 static const Sint largest_power_of_base_lookup[36-1];
+static const double lg2_lookup[36-1];
 
 static ERTS_INLINE byte get_digits_per_signed_int(Uint base) {
     return digits_per_sint_lookup[base-2];
@@ -440,6 +441,10 @@ static ERTS_INLINE byte get_digits_per_small(Uint base) {
 
 static ERTS_INLINE Sint get_largest_power_of_base(Uint base) {
     return largest_power_of_base_lookup[base-2];
+}
+
+static ERTS_INLINE double lookup_log2(Uint base) {
+    return lg2_lookup[base - 2];
 }
 
 /*
@@ -1732,6 +1737,19 @@ int big_decimal_estimate(Wterm x)
 }
 
 /*
+ ** Estimate the number of digits in given base (include sign)
+ */
+int big_integer_estimate(Wterm x, Uint base)
+{
+    Eterm* xp = big_val(x);
+    int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
+    int lgBase = ((lg + 1) * lookup_log2(base)) + 1;
+
+    if (BIG_SIGN(xp)) lgBase++;	/* add sign */
+    return lgBase + 1;		/* add null */
+}
+
+/*
 ** Convert a bignum into a string of decimal numbers
 */
 
@@ -1788,6 +1806,87 @@ static Uint write_big(Wterm x, void (*write_func)(void *, char), void *arg)
     return n;
 }
 
+/*
+** Convert a bignum into a string of numbers in given base
+*/
+static Uint write_big_by_base(Wterm x, void (*write_func)(void *, char),
+    void *arg, Uint base)
+{
+    Eterm* xp = big_val(x);
+    ErtsDigit* dx = BIG_V(xp);
+    dsize_t xl = BIG_SIZE(xp);
+    short sign = BIG_SIGN(xp);
+    ErtsDigit rem;
+    Uint n = 0;
+    const Uint digits_per_Sint = get_digits_per_signed_int(base);
+    const Sint largest_pow_of_base = get_largest_power_of_base(base);
+
+    if (xl == 1 && *dx < largest_pow_of_base) {
+        rem = *dx;
+        if (rem == 0) {
+            (*write_func)(arg, '0'); n++;
+        } else {
+            while(rem) {
+                int digit = rem % base;
+
+                if (digit < 10) {
+                    (*write_func)(arg, digit + '0'); n++;
+                } else {
+                    (*write_func)(arg, 'A' + (digit - 10)); n++;
+                }
+
+                rem /= base;
+            }
+        }
+    } else {
+        ErtsDigit* tmp = (ErtsDigit*) erts_alloc(ERTS_ALC_T_TMP,
+                            sizeof(ErtsDigit) * xl);
+        dsize_t tmpl = xl;
+
+        MOVE_DIGITS(tmp, dx, xl);
+
+        while(1) {
+            tmpl = D_div(tmp, tmpl, largest_pow_of_base, tmp, &rem);
+
+            if (tmpl == 1 && *tmp == 0) {
+                while(rem) {
+                    int digit = rem % base;
+
+                    if (digit < 10) {
+                        (*write_func)(arg, digit + '0'); n++;
+                    } else {
+                        (*write_func)(arg, 'A' + (digit - 10)); n++;
+                    }
+
+                    rem /= base;
+                }
+                break;
+            } else {
+                Uint i = digits_per_Sint;
+
+                while(i--) {
+                    int digit = rem % base;
+
+                    if (digit < 10) {
+                        (*write_func)(arg, digit + '0'); n++;
+                    } else {
+                        (*write_func)(arg, 'A' + (digit - 10)); n++;
+                    }
+
+                    rem /= base;
+                }
+            }
+        }
+        erts_free(ERTS_ALC_T_TMP, (void *) tmp);
+    }
+
+    if (sign) {
+        (*write_func)(arg, '-'); n++;
+    }
+
+    return n;
+}
+
 struct big_list__ {
     Eterm *hp;
     Eterm res;
@@ -1807,6 +1906,16 @@ Eterm erts_big_to_list(Eterm x, Eterm **hpp)
     bl.hp = *hpp;
     bl.res = NIL;
     write_big(x, write_list, (void *) &bl);
+    *hpp = bl.hp;
+    return bl.res;
+}
+
+Eterm erts_big_to_list_by_base(Eterm x, Eterm **hpp, Uint base)
+{
+    struct big_list__ bl;
+    bl.hp = *hpp;
+    bl.res = NIL;
+    write_big_by_base(x, write_list, (void *) &bl, base);
     *hpp = bl.hp;
     return bl.res;
 }
@@ -1835,6 +1944,15 @@ Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz)
     char *big_str = buf + buf_sz;
     Uint n;
     n = write_big(x, write_string, (void *) &big_str);
+    ASSERT(buf <= big_str && big_str <= buf + buf_sz);
+    return n;
+}
+
+Uint erts_big_to_binary_bytes_by_base(Eterm x, char *buf, Uint buf_sz, Uint base)
+{
+    char *big_str = buf + buf_sz;
+    Uint n;
+    n = write_big_by_base(x, write_string, (void *) &big_str, base);
     ASSERT(buf <= big_str && big_str <= buf + buf_sz);
     return n;
 }
@@ -2577,9 +2695,6 @@ static const double lg2_lookup[36-1] = {
     4.32193, 4.39232, 4.45943, 4.52356, 4.58496, 4.64386, 4.70044, 4.75489,
     4.80735, 4.85798, 4.90689, 4.9542, 5.0, 5.04439, 5.08746, 5.12928, 5.16993
 };
-static ERTS_INLINE double lookup_log2(Uint base) {
-    return lg2_lookup[base - 2];
-}
 
 /*
  * How many digits can fit into a signed int (Sint) for given base, we take

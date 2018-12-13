@@ -3707,6 +3707,42 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
     return p+1;
 }
 
+/*
+** Convert an integer to a byte list in given base
+** return pointer to converted stuff (need not to be at start of buf!)
+*/
+char* Sint_to_buf_by_base(Sint n, char *s, Uint base)
+{
+    char *p = &s[s[0] - 1];
+    int sign = 0;
+
+    *p-- = '\0'; /* null terminate */
+    if (n == 0) {
+        *p-- = '0';
+    } else if (n < 0) {
+        sign = 1;
+        n = -n;
+    }
+
+    while (n != 0) {
+        int digit = n % base;
+
+        if (digit < 10) {
+            *p-- = '0' + digit;
+        } else {
+            *p-- = 'A' + (digit - 10);
+        }
+
+        n /= base;
+    }
+
+    if (sign) {
+        *p-- = '-';
+    }
+
+    return p + 1;
+}
+
 /* Build a list of integers in some safe memory area
 ** Memory must be pre allocated prio call 2*len in size
 ** hp is a pointer to the "heap" pointer on return

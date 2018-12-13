@@ -358,6 +358,53 @@ BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
+{
+    Uint size;
+    Eterm res;
+    Uint base;
+
+    if (is_not_integer(BIF_ARG_1) || is_not_integer(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    base = unsigned_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_1)) {
+        #if defined(ARCH_64)
+            char s[65];
+        #else
+            char s[33];
+        #endif
+
+        char *c;
+
+        s[0] = sizeof(s);
+
+        c = Sint_to_buf_by_base(signed_val(BIF_ARG_1), s, base);
+        size = sys_strlen(c);
+
+        res = new_binary(BIF_P, (byte *)c, size);
+    } else {
+        byte* bytes;
+        Uint n;
+
+        size = big_integer_estimate(BIF_ARG_1, base) - 1; /* remove null */
+
+        bytes = (byte*) erts_alloc(ERTS_ALC_T_TMP, sizeof(byte) * size);
+
+        n = erts_big_to_binary_bytes_by_base(BIF_ARG_1, (char *)bytes, size, base);
+        res = new_binary(BIF_P, bytes + size - n, n);
+
+        erts_free(ERTS_ALC_T_TMP, (void *) bytes);
+    }
+
+    BIF_RET(res);
+}
+
 #define ERTS_B2L_BYTES_PER_REDUCTION 256
 
 typedef struct {

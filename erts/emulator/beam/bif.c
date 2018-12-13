@@ -2844,6 +2844,60 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
     }
 }
 
+BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
+{
+    Eterm* hp;
+    Uint need;
+    int n;
+    Uint base;
+    Eterm res;
+
+    if (is_not_integer(BIF_ARG_1) || is_not_integer(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    base = unsigned_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (is_small(BIF_ARG_1)) {
+        #if defined(ARCH_64)
+            char s[65];
+        #else
+            char s[33];
+        #endif
+
+        char *c;
+
+        s[0] = sizeof(s);
+
+        c = Sint_to_buf_by_base(signed_val(BIF_ARG_1), s, base);
+        n = sys_strlen(c);
+
+        need = 2 * n;
+
+        hp = HAlloc(BIF_P, need);
+
+        res = buf_to_intlist(&hp, c, n, NIL);
+    } else {
+        Eterm* hp_end;
+
+        n = big_integer_estimate(BIF_ARG_1, base);
+
+        need = 2 * n;
+
+        hp = HAlloc(BIF_P, need);
+        hp_end = hp + need;
+
+        res = erts_big_to_list_by_base(BIF_ARG_1, &hp, base);
+
+        HRelease(BIF_P, hp_end, hp);
+    }
+
+    BIF_RET(res);
+}
+
 /**********************************************************************/
 
 /*
