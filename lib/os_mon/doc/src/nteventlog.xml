@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>nteventlog</module>
+  <module since="">nteventlog</module>
   <modulesummary>Interface to Windows Event Log</modulesummary>
   <description>
     <p><c>nteventlog</c> provides a generic interface to the Windows
@@ -61,8 +61,8 @@
   </description>
   <funcs>
     <func>
-      <name>start(Identifier, MFA) -> Result</name>
-      <name>start_link(Identifier, MFA) -> Result</name>
+      <name since="">start(Identifier, MFA) -> Result</name>
+      <name since="">start_link(Identifier, MFA) -> Result</name>
       <fsummary>Start the NT eventlog server</fsummary>
       <type>
         <v>Identifier = string() | atom()</v>
@@ -82,7 +82,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> stopped</name>
+      <name since="">stop() -> stopped</name>
       <fsummary>Stop the NT eventlog server</fsummary>
       <type>
         <v>Result = stopped</v>

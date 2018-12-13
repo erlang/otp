@@ -22,7 +22,7 @@
 
     <title>crypto</title>
   </header>
-  <module>crypto</module>
+  <module since="">crypto</module>
   <modulesummary>Crypto Functions</modulesummary>
   <description>
     <p>This module provides a set of cryptographic functions.
@@ -523,7 +523,7 @@
   <!--================ FUNCTIONS ================-->
   <funcs>
     <func>
-      <name name="block_encrypt" arity="3"/>
+      <name name="block_encrypt" arity="3" since="OTP 18.0"/>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <desc>
 	<p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.</p>
@@ -536,7 +536,7 @@
     </func>
 
     <func>
-      <name name="block_decrypt" arity="3"/>
+      <name name="block_decrypt" arity="3" since="OTP 18.0"/>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <desc>
         <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.</p>
@@ -549,9 +549,9 @@
     </func>
 
     <func>
-      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
-      <name>block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
+      <name since="OTP R16B01">block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
+      <name since="OTP R16B01">block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <name since="OTP R16B01">block_encrypt(aes_gcm | aes_ccm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
@@ -576,8 +576,8 @@
     </func>
 
     <func>
-      <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <name>block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <name since="OTP R16B01">block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
+      <name since="OTP R16B01">block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
       <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = <seealso marker="#type-block_cipher_with_iv">block_cipher_with_iv()</seealso></v>
@@ -602,7 +602,7 @@
     </func>
 
      <func>
-      <name name="bytes_to_integer" arity="1"/>
+      <name name="bytes_to_integer" arity="1" since="OTP R16B01"/>
       <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
       <desc>
         <p>Convert binary representation, of an integer, to an Erlang integer.
@@ -611,7 +611,7 @@
     </func>
 
     <func>
-      <name name="compute_key" arity="4"/>
+      <name name="compute_key" arity="4" since="OTP R16B01"/>
       <fsummary>Computes the shared secret</fsummary>
       <desc>
 	<p>Computes the shared secret from the private key and the other party's public key.
@@ -621,7 +621,7 @@
     </func>
 
     <func>
-      <name name="exor" arity="2"/>
+      <name name="exor" arity="2" since=""/>
       <fsummary>XOR data</fsummary>
       <desc>
 	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
@@ -630,8 +630,8 @@
 
 
     <func>
-      <name name="generate_key" arity="2"/>
-      <name name="generate_key" arity="3"/>
+      <name name="generate_key" arity="2" since="OTP R16B01"/>
+      <name name="generate_key" arity="3" since="OTP R16B01"/>
       <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <desc>
 	<p>Generates a public key of type <c>Type</c>.
@@ -652,7 +652,7 @@
     </func>
 
      <func>
-      <name name="hash" arity="2"/>
+      <name name="hash" arity="2" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
         <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
@@ -662,7 +662,7 @@
     </func>
 
     <func>
-      <name name="hash_init" arity="1"/>
+      <name name="hash_init" arity="1" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
@@ -674,7 +674,7 @@
     </func>
 
     <func>
-      <name name="hash_update" arity="2"/>
+      <name name="hash_update" arity="2" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
         <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
@@ -686,7 +686,7 @@
     </func>
 
     <func>
-      <name name="hash_final" arity="1"/>
+      <name name="hash_final" arity="1" since="OTP R15B02"/>
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the hash operation referenced by <c>Context</c> returned
@@ -697,8 +697,8 @@
     </func>
 
     <func>
-      <name name="hmac" arity="3"/>
-      <name name="hmac" arity="4"/>
+      <name name="hmac" arity="3" since="OTP R16B"/>
+      <name name="hmac" arity="4" since="OTP R16B"/>
       <fsummary></fsummary>
       <desc>
         <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
@@ -708,7 +708,7 @@
     </func>
 
     <func>
-      <name name="hmac_init" arity="2"/>
+      <name name="hmac_init" arity="2" since="OTP R14B03"/>
       <fsummary></fsummary>
       <desc>
         <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
@@ -718,7 +718,7 @@
     </func>
 
     <func>
-      <name name="hmac_update" arity="2"/>
+      <name name="hmac_update" arity="2" since="OTP R14B03"/>
       <fsummary></fsummary>
       <desc>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
@@ -737,7 +737,7 @@
     </func>
 
     <func>
-      <name name="hmac_final" arity="1"/>
+      <name name="hmac_final" arity="1" since="OTP R14B03"/>
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
@@ -746,7 +746,7 @@
     </func>
 
     <func>
-      <name name="hmac_final_n" arity="2"/>
+      <name name="hmac_final_n" arity="2" since="OTP R14B03"/>
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
@@ -755,8 +755,8 @@
     </func>
 
     <func>
-      <name name="cmac" arity="3"/>
-      <name name="cmac" arity="4"/>
+      <name name="cmac" arity="3" since="OTP 20.0"/>
+      <name name="cmac" arity="4" since="OTP 20.0"/>
       <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
       <desc>
         <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
@@ -766,7 +766,7 @@
     </func>
 
     <func>
-      <name name="info_fips" arity="0"/>
+      <name name="info_fips" arity="0" since="OTP 20.0"/>
       <fsummary>Provides information about the FIPS operating status.</fsummary>
       <desc>
         <p>Provides information about the FIPS operating status of
@@ -789,7 +789,7 @@
     </func>
 
     <func>
-      <name name="enable_fips_mode" arity="1"/>
+      <name name="enable_fips_mode" arity="1" since="OTP 21.1"/>
       <fsummary>Change FIPS mode.</fsummary>
       <desc>
         <p>Enables (<c>Enable = true</c>) or disables (<c>Enable = false</c>) FIPS mode. Returns <c>true</c> if
@@ -804,7 +804,7 @@
     </func>
 
     <func>
-      <name name="info_lib" arity="0"/>
+      <name name="info_lib" arity="0" since=""/>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <desc>
         <p>Provides the name and version of the libraries used by crypto.</p>
@@ -825,7 +825,7 @@
     </func>
 
     <func>
-      <name name="mod_pow" arity="3"/>
+      <name name="mod_pow" arity="3" since="OTP R16B01"/>
       <fsummary>Computes the function: N^P mod M</fsummary>
       <desc>
 	<p>Computes the function <c>N^P mod M</c>.</p>
@@ -833,8 +833,8 @@
     </func>
 
     <func>
-      <name name="next_iv" arity="2"/>
-      <name name="next_iv" arity="3"/>
+      <name name="next_iv" arity="2" since="OTP R16B01"/>
+      <name name="next_iv" arity="3" since="OTP R16B01"/>
       <fsummary></fsummary>
       <desc>
 	<p>Returns the initialization vector to be used in the next
@@ -846,7 +846,7 @@
     </func>
 
     <func>
-      <name name="poly1305" arity="2"/>
+      <name name="poly1305" arity="2" since="OTP 21.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using
@@ -855,7 +855,7 @@
     </func>
 
     <func>
-      <name name="private_decrypt" arity="4"/>
+      <name name="private_decrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <desc>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
@@ -869,7 +869,7 @@
     </func>
 
     <func>
-      <name name="private_encrypt" arity="4"/>
+      <name name="private_encrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
@@ -882,7 +882,7 @@
     </func>
 
     <func>
-      <name name="public_decrypt" arity="4"/>
+      <name name="public_decrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <desc>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
@@ -896,7 +896,7 @@
     </func>
 
     <func>
-      <name name="public_encrypt" arity="4"/>
+      <name name="public_encrypt" arity="4" since="OTP R16B01"/>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <desc>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
@@ -908,7 +908,7 @@
     </func>
 
     <func>
-      <name name="rand_seed" arity="1"/>
+      <name name="rand_seed" arity="1" since="OTP 17.0"/>
       <fsummary>Set the seed for random bytes generation</fsummary>
       <desc>
         <p>Set the seed for PRNG to the given binary. This calls the
@@ -921,7 +921,7 @@
     </func>
 
      <func>
-      <name>rand_uniform(Lo, Hi) -> N</name>
+      <name since="">rand_uniform(Lo, Hi) -> N</name>
       <fsummary>Generate a random number</fsummary>
       <type>
         <v>Lo, Hi, N = integer()</v>
@@ -934,7 +934,7 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
+      <name name="start" arity="0" since=""/>
       <fsummary> Equivalent to application:start(crypto). </fsummary>
       <desc>
         <p> Equivalent to application:start(crypto).</p>
@@ -942,7 +942,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary> Equivalent to application:stop(crypto).</fsummary>
       <desc>
         <p> Equivalent to application:stop(crypto).</p>
@@ -950,7 +950,7 @@
     </func>
 
     <func>
-      <name name="strong_rand_bytes" arity="1"/>
+      <name name="strong_rand_bytes" arity="1" since="OTP R14B03"/>
       <fsummary>Generate a binary of random bytes</fsummary>
       <desc>
         <p>Generates N bytes randomly uniform 0..255, and returns the
@@ -963,7 +963,7 @@
     </func>
 
     <func>
-      <name name="rand_seed" arity="0"/>
+      <name name="rand_seed" arity="0" since="OTP 20.0"/>
       <fsummary>Strong random number generation plugin state</fsummary>
       <desc>
 	<p>
@@ -991,7 +991,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
     </func>
 
     <func>
-      <name name="rand_seed_s" arity="0"/>
+      <name name="rand_seed_s" arity="0" since="OTP 20.0"/>
       <fsummary>Strong random number generation plugin state</fsummary>
       <desc>
 	<p>
@@ -1026,7 +1026,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
     </func>
 
     <func>
-      <name>rand_seed_alg(Alg) -> rand:state()</name>
+      <name since="OTP 21.0">rand_seed_alg(Alg) -> rand:state()</name>
       <fsummary>Strong random number generation plugin state</fsummary>
       <type>
         <v>Alg = crypto | crypto_cache</v>
@@ -1057,7 +1057,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
     </func>
 
     <func>
-      <name>rand_seed_alg(Alg, Seed) -> rand:state()</name>
+      <name since="OTP-22.0">rand_seed_alg(Alg, Seed) -> rand:state()</name>
       <fsummary>Strong random number generation plugin state</fsummary>
       <type>
         <v>Alg = crypto_aes</v>
@@ -1085,7 +1085,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name>rand_seed_alg_s(Alg) -> rand:state()</name>
+      <name since="OTP 21.0">rand_seed_alg_s(Alg) -> rand:state()</name>
       <fsummary>Strong random number generation plugin state</fsummary>
       <type>
         <v>Alg = crypto | crypto_cache</v>
@@ -1149,7 +1149,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name>rand_seed_alg_s(Alg, Seed) -> rand:state()</name>
+      <name since="OTP 22.0">rand_seed_alg_s(Alg, Seed) -> rand:state()</name>
       <fsummary>Strong random number generation plugin state</fsummary>
       <type>
         <v>Alg = crypto_aes</v>
@@ -1215,7 +1215,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="stream_init" arity="2"/>
+      <name name="stream_init" arity="2" since="OTP R16B01"/>
       <fsummary></fsummary>
       <desc>
         <p>Initializes the state for use in RC4 stream encryption
@@ -1228,7 +1228,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
    <func>
-      <name name="stream_init" arity="3"/>
+      <name name="stream_init" arity="3" since="OTP R16B01"/>
       <fsummary></fsummary>
       <desc>
         <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
@@ -1243,7 +1243,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="stream_encrypt" arity="2"/>
+      <name name="stream_encrypt" arity="2" since="OTP R16B01"/>
       <fsummary></fsummary>
       <desc>
 	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
@@ -1254,7 +1254,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="stream_decrypt" arity="2"/>
+      <name name="stream_decrypt" arity="2" since="OTP R16B01"/>
       <fsummary></fsummary>
       <desc>
 	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
@@ -1265,7 +1265,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
    <func>
-      <name name="supports" arity="0"/>
+      <name name="supports" arity="0" since="OTP R16B01"/>
       <fsummary>Provide a list of available crypto algorithms.</fsummary>
       <desc>
         <p> Can be used to determine which crypto algorithms that are supported
@@ -1277,7 +1277,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ec_curves" arity="0"/>
+      <name name="ec_curves" arity="0" since="OTP 17.0"/>
       <fsummary>Provide a list of available named elliptic curves.</fsummary>
       <desc>
         <p>Can be used to determine which named elliptic curves are supported.</p>
@@ -1285,7 +1285,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ec_curve" arity="1"/>
+      <name name="ec_curve" arity="1" since="OTP 17.0"/>
       <fsummary>Get the defining parameters of a elliptic curve.</fsummary>
       <desc>
         <p>Return the defining parameters of a elliptic curve.</p>
@@ -1293,8 +1293,8 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="sign" arity="4"/>
-      <name name="sign" arity="5"/>
+      <name name="sign" arity="4" since="OTP R16B01"/>
+      <name name="sign" arity="5" since="OTP 20.1"/>
       <fsummary> Create digital signature.</fsummary>
       <desc>
 	<p>Creates a digital signature.</p>
@@ -1308,8 +1308,8 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="verify" arity="5"/>
-      <name name="verify" arity="6"/>
+      <name name="verify" arity="5" since="OTP R16B01"/>
+      <name name="verify" arity="6" since="OTP 20.1"/>
       <fsummary>Verifies a digital signature.</fsummary>
       <desc>
 	<p>Verifies a digital signature</p>
@@ -1325,7 +1325,7 @@ FloatValue = rand:uniform().     % again
 
     <!-- Engine functions -->
     <func>
-      <name name="privkey_to_pubkey" arity="2"/>
+      <name name="privkey_to_pubkey" arity="2" since="OTP 20.2"/>
       <fsummary>Fetches a public key from an Engine stored private key.</fsummary>
       <desc>
 	<p>Fetches the corresponding public key from a private key stored in an Engine.
@@ -1335,7 +1335,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_get_all_methods" arity="0"/>
+      <name name="engine_get_all_methods" arity="0" since="OTP 20.2"/>
       <fsummary>Return list of all possible engine methods</fsummary>
       <desc>
 	<p>
@@ -1353,7 +1353,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_load" arity="3"/>
+      <name name="engine_load" arity="3" since="OTP 20.2"/>
       <fsummary>Dynamical load an encryption engine</fsummary>
       <desc>
 	<p>
@@ -1375,7 +1375,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_load" arity="4"/>
+      <name name="engine_load" arity="4" since="OTP 20.2"/>
       <fsummary>Dynamical load an encryption engine</fsummary>
       <desc>
 	<p>
@@ -1395,7 +1395,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_unload" arity="1"/>
+      <name name="engine_unload" arity="1" since="OTP 20.2"/>
       <fsummary>Dynamical load an encryption engine</fsummary>
       <desc>
 	<p>
@@ -1415,7 +1415,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_by_id" arity="1"/>
+      <name name="engine_by_id" arity="1" since="OTP 21.0.6"/>
       <fsummary>Get a reference to an already loaded engine</fsummary>
       <desc>
 	<p>
@@ -1435,7 +1435,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_ctrl_cmd_string" arity="3"/>
+      <name name="engine_ctrl_cmd_string" arity="3" since="OTP 20.2"/>
       <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
       <desc>
 	<p>
@@ -1452,7 +1452,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_ctrl_cmd_string" arity="4"/>
+      <name name="engine_ctrl_cmd_string" arity="4" since="OTP 20.2"/>
       <fsummary>Sends ctrl commands to an OpenSSL engine</fsummary>
       <desc>
 	<p>
@@ -1473,7 +1473,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_add" arity="1"/>
+      <name name="engine_add" arity="1" since="OTP 21.0.6"/>
       <fsummary>Add engine to OpenSSL internal list</fsummary>
       <desc>
 	<p>Add the engine to OpenSSL's internal list.</p>
@@ -1486,7 +1486,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_remove" arity="1"/>
+      <name name="engine_remove" arity="1" since="OTP 21.0.6"/>
       <fsummary>Remove engine to OpenSSL internal list</fsummary>
       <desc>
 	<p>Remove the engine from OpenSSL's internal list.</p>
@@ -1499,7 +1499,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_get_id" arity="1"/>
+      <name name="engine_get_id" arity="1" since="OTP 21.0.6"/>
       <fsummary>Fetch engine ID</fsummary>
       <desc>
 	<p>Return the ID for the engine, or an empty binary if there is no id set.</p>
@@ -1512,7 +1512,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_get_name" arity="1"/>
+      <name name="engine_get_name" arity="1" since="OTP 21.0.6"/>
       <fsummary>Fetch engine name</fsummary>
       <desc>
 	<p>Return the name (eg a description) for the engine, or an empty binary if there is no name set.</p>
@@ -1525,7 +1525,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="engine_list" arity="0"/>
+      <name name="engine_list" arity="0" since="OTP 20.2"/>
       <fsummary>List the known engine ids</fsummary>
       <desc>
 	<p>List the id's of all engines in OpenSSL's internal list.</p>
@@ -1545,7 +1545,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ensure_engine_loaded" arity="2"/>
+      <name name="ensure_engine_loaded" arity="2" since="OTP 21.0.6"/>
       <fsummary>Ensure encryption engine just loaded once</fsummary>
       <desc>
 	<p>
@@ -1567,7 +1567,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ensure_engine_loaded" arity="3"/>
+      <name name="ensure_engine_loaded" arity="3" since="OTP 21.0.6"/>
       <fsummary>Ensure encryption engine just loaded once</fsummary>
       <desc>
 	<p>
@@ -1590,7 +1590,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ensure_engine_unloaded" arity="1"/>
+      <name name="ensure_engine_unloaded" arity="1" since="OTP 21.0.6"/>
       <fsummary>Unload an engine loaded with the ensure function</fsummary>
       <desc>
 	<p>
@@ -1613,7 +1613,7 @@ FloatValue = rand:uniform().     % again
     </func>
 
     <func>
-      <name name="ensure_engine_unloaded" arity="2"/>
+      <name name="ensure_engine_unloaded" arity="2" since="OTP 21.0.6"/>
       <fsummary>Unload an engine loaded with the ensure function</fsummary>
       <desc>
 	<p>

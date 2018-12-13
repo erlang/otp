@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>erl_ddll</module>
+  <module since="">erl_ddll</module>
   <modulesummary>Dynamic driver loader and linker.</modulesummary>
   <description>
     <p>This module provides an interface for loading
@@ -196,7 +196,7 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="demonitor" arity="1"/>
+      <name name="demonitor" arity="1" since=""/>
       <fsummary>Remove a monitor for a driver.</fsummary>
       <desc>
         <p>Removes a driver monitor in much the same way as 
@@ -212,7 +212,7 @@
       </desc>
     </func>
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Format an error descriptor.</fsummary>
       <desc>
         <p>Takes an <c><anno>ErrorDesc</anno></c> returned by load, unload, or
@@ -229,7 +229,7 @@
       </desc>
     </func>
     <func>
-      <name name="info" arity="0"/>
+      <name name="info" arity="0" since=""/>
       <fsummary>Retrieve information about all drivers.</fsummary>
       <desc>
         <p>Returns a list of tuples <c>{<anno>DriverName</anno>, <anno>InfoList</anno>}</c>,
@@ -240,7 +240,7 @@
       </desc>
     </func>
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Retrieve information about one driver.</fsummary>
       <desc>
         <p>Returns a list of tuples <c>{<anno>Tag</anno>, <anno>Value</anno>}</c>,
@@ -266,7 +266,7 @@
       </desc>
     </func>
     <func>
-      <name name="info" arity="2"/>
+      <name name="info" arity="2" since=""/>
       <fsummary>Retrieve specific information about one driver.</fsummary>
       <desc>
         <p>Returns specific information about one aspect of a driver.
@@ -328,7 +328,7 @@
       </desc>
     </func>
     <func>
-      <name name="load" arity="2"/>
+      <name name="load" arity="2" since=""/>
       <fsummary>Load a driver.</fsummary>
       <desc>
         <p>Loads and links the dynamic driver <c><anno>Name</anno></c>.
@@ -390,7 +390,7 @@
       </desc>
     </func>
     <func>
-      <name name="load_driver" arity="2"/>
+      <name name="load_driver" arity="2" since=""/>
       <fsummary>Load a driver.</fsummary>
       <desc>
         <p>Works essentially as <c>load/2</c>, but loads the driver
@@ -413,7 +413,7 @@
       </desc>
     </func>
     <func>
-      <name name="loaded_drivers" arity="0"/>
+      <name name="loaded_drivers" arity="0" since=""/>
       <fsummary>List loaded drivers.</fsummary>
       <desc>
         <p>Returns a list of all the available drivers, both
@@ -425,7 +425,7 @@
       </desc>
     </func>
     <func>
-      <name name="monitor" arity="2"/>
+      <name name="monitor" arity="2" since=""/>
       <fsummary>Create a monitor for a driver.</fsummary>
       <desc>
         <p>Creates a driver monitor and works in many
@@ -588,7 +588,7 @@
       </desc>
     </func>
     <func>
-      <name name="reload" arity="2"/>
+      <name name="reload" arity="2" since=""/>
       <fsummary>Replace a driver.</fsummary>
       <desc>
         <p>Reloads the driver named <c><anno>Name</anno></c> from a possibly
@@ -626,7 +626,7 @@
       </desc>
     </func>
     <func>
-      <name name="reload_driver" arity="2"/>
+      <name name="reload_driver" arity="2" since=""/>
       <fsummary>Replace a driver.</fsummary>
       <desc>
         <p>Works exactly as <seealso marker="#reload/2"><c>reload/2</c></seealso>,
@@ -644,7 +644,7 @@
       </desc>
     </func>
     <func>
-      <name name="try_load" arity="3"/>
+      <name name="try_load" arity="3" since=""/>
       <fsummary>Load a driver.</fsummary>
       <desc>
         <p>Provides more control than the
@@ -931,7 +931,7 @@
       </desc>
     </func>
     <func>
-      <name name="try_unload" arity="2"/>
+      <name name="try_unload" arity="2" since=""/>
       <fsummary>Unload a driver.</fsummary>
       <desc>
         <p>This is the low-level function to unload (or decrement
@@ -1116,7 +1116,7 @@
       </desc>
     </func>
     <func>
-      <name name="unload" arity="1"/>
+      <name name="unload" arity="1" since=""/>
       <fsummary>Unload a driver.</fsummary>
       <desc>
         <p>Unloads, or at least dereferences the driver named
@@ -1143,7 +1143,7 @@
       </desc>
     </func>
     <func>
-      <name name="unload_driver" arity="1"/>
+      <name name="unload_driver" arity="1" since=""/>
       <fsummary>Unload a driver.</fsummary>
       <desc>
         <p>Unloads, or at least dereferences the driver named

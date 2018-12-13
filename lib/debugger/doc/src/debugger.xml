@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>debugger</module>
+  <module since="">debugger</module>
   <modulesummary>Erlang Debugger.</modulesummary>
   <description>
     <p>Erlang Debugger for debugging and testing of Erlang programs.</p>
@@ -36,10 +36,10 @@
 
   <funcs>
     <func>
-      <name>start()</name>
-      <name>start(File)</name>
-      <name>start(Mode)</name>
-      <name>start(Mode, File)</name>
+      <name since="">start()</name>
+      <name since="">start(File)</name>
+      <name since="">start(Mode)</name>
+      <name since="">start(Mode, File)</name>
       <fsummary>Start Debugger.</fsummary>
       <type>
 	<v>Mode = local | global</v>
@@ -60,7 +60,7 @@
     </func>
 
     <func>
-      <name>quick(Module, Name, Args)</name>
+      <name since="">quick(Module, Name, Args)</name>
       <fsummary>Debug a process.</fsummary>
       <type>
 	<v>Module = Name = atom()</v>

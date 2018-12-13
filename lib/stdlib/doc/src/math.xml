@@ -34,7 +34,7 @@
     <rev>B</rev>
     <file>math.xml</file>
   </header>
-  <module>math</module>
+  <module since="">math</module>
   <modulesummary>Mathematical functions.</modulesummary>
   <description>
     <p>This module provides an interface to a number of mathematical
@@ -50,28 +50,28 @@
 
   <funcs>
     <func>
-      <name name="acos" arity="1"/>
-      <name name="acosh" arity="1"/>
-      <name name="asin" arity="1"/>
-      <name name="asinh" arity="1"/>
-      <name name="atan" arity="1"/>
-      <name name="atan2" arity="2"/>
-      <name name="atanh" arity="1"/>
-      <name name="ceil" arity="1"/>
-      <name name="cos" arity="1"/>
-      <name name="cosh" arity="1"/>
-      <name name="exp" arity="1"/>
-      <name name="floor" arity="1"/>
-      <name name="fmod" arity="2"/>
-      <name name="log" arity="1"/>
-      <name name="log10" arity="1"/>
-      <name name="log2" arity="1"/>
-      <name name="pow" arity="2"/>
-      <name name="sin" arity="1"/>
-      <name name="sinh" arity="1"/>
-      <name name="sqrt" arity="1"/>
-      <name name="tan" arity="1"/>
-      <name name="tanh" arity="1"/>
+      <name name="acos" arity="1" since=""/>
+      <name name="acosh" arity="1" since=""/>
+      <name name="asin" arity="1" since=""/>
+      <name name="asinh" arity="1" since=""/>
+      <name name="atan" arity="1" since=""/>
+      <name name="atan2" arity="2" since=""/>
+      <name name="atanh" arity="1" since=""/>
+      <name name="ceil" arity="1" since="OTP 20.0"/>
+      <name name="cos" arity="1" since=""/>
+      <name name="cosh" arity="1" since=""/>
+      <name name="exp" arity="1" since=""/>
+      <name name="floor" arity="1" since="OTP 20.0"/>
+      <name name="fmod" arity="2" since="OTP 20.0"/>
+      <name name="log" arity="1" since=""/>
+      <name name="log10" arity="1" since=""/>
+      <name name="log2" arity="1" since="OTP 18.0"/>
+      <name name="pow" arity="2" since=""/>
+      <name name="sin" arity="1" since=""/>
+      <name name="sinh" arity="1" since=""/>
+      <name name="sqrt" arity="1" since=""/>
+      <name name="tan" arity="1" since=""/>
+      <name name="tanh" arity="1" since=""/>
       <fsummary>Diverse math functions.</fsummary>
       <type variable="X" name_i="6"/>
       <type variable="Y" name_i="6"/>
@@ -82,7 +82,7 @@
     </func>
 
     <func>
-      <name name="erf" arity="1"/>
+      <name name="erf" arity="1" since=""/>
       <fsummary>Error function.</fsummary>
       <desc>
         <p>Returns the error function of <c><anno>X</anno></c>, where:</p>
@@ -92,7 +92,7 @@ erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
     </func>
 
     <func>
-      <name name="erfc" arity="1"/>
+      <name name="erfc" arity="1" since=""/>
       <fsummary>Another error function.</fsummary>
       <desc>
         <p><c>erfc(X)</c> returns <c>1.0</c> - <c>erf(X)</c>, computed by
@@ -101,7 +101,7 @@ erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.</pre>
     </func>
 
     <func>
-      <name name="pi" arity="0"/>
+      <name name="pi" arity="0" since=""/>
       <fsummary>A useful number.</fsummary>
       <desc>
         <p>A useful number.</p>

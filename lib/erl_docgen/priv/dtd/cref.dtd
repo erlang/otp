@@ -30,6 +30,8 @@
 <!-- `name' is used in common.refs.dtd and must therefore 
       be defined in each *ref. dtd -->
 <!ELEMENT name                (ret,nametext) >
+<!ATTLIST name                 since CDATA #IMPLIED>
+
 <!ELEMENT ret                 (#PCDATA) >
 <!ELEMENT nametext            (#PCDATA) >
 

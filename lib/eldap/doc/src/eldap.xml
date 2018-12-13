@@ -28,7 +28,7 @@
     <date>2000-06-20</date>
     <rev>B</rev>
   </header>
-  <module>eldap</module>
+  <module since="OTP R15B01">eldap</module>
   <modulesummary>LDAP Client</modulesummary>
   <description>
     <p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
@@ -103,7 +103,7 @@
 
   <funcs>
     <func>
-      <name>open([Host]) -> {ok, Handle} | {error, Reason}</name>
+      <name since="OTP R15B01">open([Host]) -> {ok, Handle} | {error, Reason}</name>
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -113,7 +113,7 @@
       </desc>
     </func>
     <func>
-      <name>open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
+      <name since="OTP R15B01">open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
       <fsummary>Open a connection to an LDAP server.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -129,7 +129,7 @@
       </desc>
     </func>
     <func>
-      <name>close(Handle) -> ok</name>
+      <name since="OTP R15B01">close(Handle) -> ok</name>
       <fsummary>Shutdown the connection.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -140,14 +140,14 @@
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options) -> return_value()</name>
+      <name since="OTP R16B03">start_tls(Handle, Options) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <desc>
         <p>Same as start_tls(Handle, Options, infinity)</p>
       </desc>
     </func>
     <func>
-      <name>start_tls(Handle, Options, Timeout) -> return_value()</name>
+      <name since="OTP R16B03">start_tls(Handle, Options, Timeout) -> return_value()</name>
       <fsummary>Upgrade a connection to TLS.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -176,7 +176,7 @@
       </desc>
     </func>
     <func>
-      <name>simple_bind(Handle, Dn, Password) -> return_value()</name>
+      <name since="OTP R15B01">simple_bind(Handle, Dn, Password) -> return_value()</name>
       <fsummary>Authenticate the connection.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -188,7 +188,7 @@
       </desc>
     </func>
     <func>
-      <name>add(Handle, Dn, [Attribute]) -> return_value()</name>
+      <name since="OTP R15B01">add(Handle, Dn, [Attribute]) -> return_value()</name>
       <fsummary>Add an entry.</fsummary>
       <type>
 	<v>Handle = handle()</v>
@@ -209,7 +209,7 @@
       </desc>
     </func>
     <func>
-      <name>delete(Handle, Dn) -> return_value()</name>
+      <name since="OTP R15B01">delete(Handle, Dn) -> return_value()</name>
       <fsummary>Delete an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -223,7 +223,7 @@
     </func>
 
     <func>
-      <name>mod_add(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_add(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -232,7 +232,7 @@
       <desc> <p> Create an add modification operation.</p> </desc>
     </func>
     <func>
-      <name>mod_delete(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_delete(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -241,7 +241,7 @@
       <desc> <p> Create a delete modification operation.</p> </desc>
     </func>
     <func>
-      <name>mod_replace(Type, [Value]) -> modify_op()</name>
+      <name since="OTP R15B01">mod_replace(Type, [Value]) -> modify_op()</name>
       <fsummary>Create a modification operation.</fsummary>
       <type>
         <v>Type = string()</v>
@@ -251,7 +251,7 @@
     </func>
 
     <func>
-      <name>modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
+      <name since="OTP R15B01">modify(Handle, Dn, [ModifyOp]) -> return_value()</name>
       <fsummary>Modify an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -267,7 +267,7 @@
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -278,7 +278,7 @@
       </desc>
     </func>
     <func>
-      <name>modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
+      <name since="OTP 18.0">modify_password(Handle, Dn, NewPasswd, OldPasswd) -> return_value() | {ok, GenPasswd}</name>
       <fsummary>Modify the password of a user.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -307,7 +307,7 @@
       </desc>
     </func>
     <func>
-      <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
+      <name since="OTP R15B01">modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> return_value()</name>
       <fsummary>Modify the DN of an entry.</fsummary>
       <type>
         <v>Dn = string()</v>
@@ -327,7 +327,7 @@
       </desc>
     </func>
     <func>
-      <name>search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
+      <name since="OTP R15B01">search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {ok, {referral,referrals()}} | {error, Reason}</name>
       <fsummary>Search the Directory</fsummary>
       <type>
         <v>SearchOptions = #eldap_search{} | [SearchOption]</v>
@@ -354,44 +354,44 @@
     </func>
 
     <func>
-      <name>baseObject() -> scope()</name>
+      <name since="OTP R15B01">baseObject() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search baseobject only.</p> </desc>
     </func>
     <func>
-      <name>singleLevel() -> scope()</name>
+      <name since="OTP R15B01">singleLevel() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search the specified level only, i.e. do not recurse.</p> </desc>
     </func>
     <func>
-      <name>wholeSubtree() -> scope()</name>
+      <name since="OTP R15B01">wholeSubtree() -> scope()</name>
       <fsummary>Create search scope.</fsummary>
       <desc> <p> Search the entire subtree.</p> </desc>
     </func>
 
     <func>
-      <name>neverDerefAliases() -> dereference()</name>
+      <name since="OTP R15B01">neverDerefAliases() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Never derefrence aliases, treat aliases as entries.</p> </desc>
     </func>
     <func>
-      <name>derefAlways() -> dereference()</name>
+      <name since="OTP R15B01">derefAlways() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Always derefrence aliases.</p> </desc>
     </func>
     <func>
-      <name>derefInSearching() -> dereference()</name>
+      <name since="OTP R15B01">derefInSearching() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only when searching.</p> </desc>
     </func>
     <func>
-      <name>derefFindingBaseObj() -> dereference()</name>
+      <name since="OTP R15B01">derefFindingBaseObj() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
     </func>
 
     <func>
-      <name>present(Type) -> filter()</name>
+      <name since="OTP R15B01">present(Type) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -399,7 +399,7 @@
       <desc> <p>Create a filter which filters on attribute type presence.</p> </desc>
     </func>
     <func>
-      <name>substrings(Type, [SubString]) -> filter()</name>
+      <name since="OTP R15B01">substrings(Type, [SubString]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -409,7 +409,7 @@
       <desc> <p>Create a filter which filters on substrings.</p> </desc>
     </func>
     <func>
-      <name>equalityMatch(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">equalityMatch(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -418,7 +418,7 @@
       <desc> <p>Create a equality filter.</p> </desc>
     </func>
     <func>
-      <name>greaterOrEqual(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">greaterOrEqual(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -427,7 +427,7 @@
       <desc> <p>Create a greater or equal filter.</p> </desc>
     </func>
     <func>
-      <name>lessOrEqual(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">lessOrEqual(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -436,7 +436,7 @@
       <desc> <p>Create a less or equal filter.</p> </desc>
     </func>
     <func>
-      <name>approxMatch(Type, Value) -> filter()</name>
+      <name since="OTP R15B01">approxMatch(Type, Value) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Type = string()</v>
@@ -445,7 +445,7 @@
       <desc> <p>Create a approximation match filter.</p> </desc>
     </func>
     <func>
-      <name>extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
+      <name since="OTP 17.4">extensibleMatch(MatchValue, OptionalAttrs) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>MatchValue = string()</v>
@@ -459,7 +459,7 @@
       <p>creates a filter which performs a <c>caseExactMatch</c> on the attribute <c>sn</c> and matches with the value <c>"Bar"</c>. The default value of <c>dnAttributes</c> is <c>false</c>.</p> </desc>
     </func>
     <func>
-      <name>'and'([Filter]) -> filter()</name>
+      <name since="OTP R15B01">'and'([Filter]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>
@@ -467,7 +467,7 @@
       <desc> <p>Creates a filter where all <c>Filter</c> must be true.</p> </desc>
     </func>
     <func>
-      <name>'or'([Filter]) -> filter()</name>
+      <name since="OTP R15B01">'or'([Filter]) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>
@@ -475,7 +475,7 @@
       <desc> <p>Create a filter where at least one of the <c>Filter</c> must be true.</p> </desc>
     </func>
     <func>
-      <name>'not'(Filter) -> filter()</name>
+      <name since="OTP R15B01">'not'(Filter) -> filter()</name>
       <fsummary>Create search filter option.</fsummary>
       <type>
 	<v>Filter = filter()</v>

@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>os_sup</module>
+  <module since="">os_sup</module>
   <modulesummary>Interface to OS System Messages</modulesummary>
   <description>
     <p><c>os_sup</c> is a process providing a message passing service
@@ -159,8 +159,8 @@
   </section>
   <funcs>
     <func>
-      <name>enable() -> ok | {error, Res}</name>
-      <name>enable(Dir, Conf) -> ok | {error, Error}</name>
+      <name since="">enable() -> ok | {error, Res}</name>
+      <name since="">enable(Dir, Conf) -> ok | {error, Error}</name>
       <fsummary>Enable the service (Solaris only)</fsummary>
       <type>
         <v>Dir = Conf = Res = string()</v>
@@ -194,8 +194,8 @@
       </desc>
     </func>
     <func>
-      <name>disable() -> ok | {error, Res}</name>
-      <name>disable(Dir, Conf) -> ok | {error, Error}</name>
+      <name since="">disable() -> ok | {error, Res}</name>
+      <name since="">disable(Dir, Conf) -> ok | {error, Error}</name>
       <fsummary>Disable the service (Solaris only)</fsummary>
       <type>
         <v>Dir = Conf = Res = string()</v>

@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_community_mib.xml</file>
   </header>
-  <module>snmp_community_mib</module>
+  <module since="">snmp_community_mib</module>
   <modulesummary>Instrumentation Functions for SNMP-COMMUNITY-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_community_mib</c> implements the instrumentation
@@ -45,7 +45,7 @@
 
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -77,7 +77,7 @@
     </func>
 
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-COMMUNITY-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -108,8 +108,8 @@
     </func>
 
     <func>
-      <name>add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret</name>
-      <name>add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
+      <name since="">add_community(Idx, CommName, SecName, CtxName, TransportTag) -> Ret</name>
+      <name since="OTP R14B03">add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) -> Ret</name>
       <fsummary>Added one community</fsummary>
       <type>
         <v>Idx = string()</v>
@@ -132,7 +132,7 @@
     </func>
 
     <func>
-      <name>delete_community(Key) -> Ret</name>
+      <name since="">delete_community(Key) -> Ret</name>
       <fsummary>Delete one community</fsummary>
       <type>
         <v>Key = term()</v>

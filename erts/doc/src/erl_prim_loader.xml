@@ -29,7 +29,7 @@
     <rev></rev>
     <file>erl_prim_loader.xml</file>
   </header>
-  <module>erl_prim_loader</module>
+  <module since="">erl_prim_loader</module>
   <modulesummary>Low-level Erlang loader.</modulesummary>
   <description>
     <p>This module is used to load all Erlang modules into
@@ -47,7 +47,7 @@
 
   <funcs>
     <func>
-      <name name="get_file" arity="1"/>
+      <name name="get_file" arity="1" since=""/>
       <fsummary>Get a file.</fsummary>
       <desc>
         <p>Fetches a file using the low-level loader.
@@ -65,7 +65,7 @@
     </func>
 
     <func>
-      <name name="get_path" arity="0"/>
+      <name name="get_path" arity="0" since=""/>
       <fsummary>Get the path set in the loader.</fsummary>
       <desc>
         <p>Gets the path set in the loader. The path is
@@ -75,7 +75,7 @@
     </func>
 
     <func>
-      <name name="list_dir" arity="1"/>
+      <name name="list_dir" arity="1" since=""/>
       <fsummary>List files in a directory.</fsummary>
       <desc>
         <p>Lists all the files in a directory. Returns
@@ -92,7 +92,7 @@
     </func>
 
     <func>
-      <name name="read_file_info" arity="1"/>
+      <name name="read_file_info" arity="1" since=""/>
       <fsummary>Get information about a file.</fsummary>
       <desc>
         <p>Retrieves information about a file. Returns
@@ -114,7 +114,7 @@
     </func>
 
     <func>
-      <name name="read_link_info" arity="1"/>
+      <name name="read_link_info" arity="1" since="OTP 17.1.2"/>
       <fsummary>Get information about a link or file.</fsummary>
       <desc>
         <p>Works like
@@ -131,7 +131,7 @@
     </func>
 
     <func>
-      <name name="set_path" arity="1"/>
+      <name name="set_path" arity="1" since=""/>
       <fsummary>Set the path of the loader.</fsummary>
       <desc>
         <p>Sets the path of the loader if

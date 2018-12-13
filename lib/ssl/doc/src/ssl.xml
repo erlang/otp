@@ -28,7 +28,7 @@
     <rev></rev>
     <file>ssl.xml</file>
   </header>
-  <module>ssl</module>
+  <module since="">ssl</module>
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
     <p>
@@ -920,7 +920,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
   <funcs>
 
     <func>
-      <name>append_cipher_suites(Deferred, Suites) -> ciphers() </name>
+      <name since="OTP 20.3">append_cipher_suites(Deferred, Suites) -> ciphers() </name>
       <fsummary></fsummary>
       <type>
            <v>Deferred = ciphers() | cipher_filters() </v>
@@ -936,8 +936,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>cipher_suites() -></name>
-      <name>cipher_suites(Type) -> old_ciphers()</name>
+      <name since="OTP R14B">cipher_suites() -></name>
+      <name since="OTP R14B">cipher_suites(Type) -> old_ciphers()</name>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
       <type>
         <v>Type = erlang | openssl | all</v>
@@ -948,7 +948,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
    <func>
-      <name>cipher_suites(Supported, Version) ->  ciphers()</name>
+      <name since="OTP 20.3">cipher_suites(Supported, Version) ->  ciphers()</name>
       <fsummary>Returns a list of all default or
       all supported cipher suites.</fsummary>
       <type>
@@ -962,8 +962,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>eccs() -></name>
-      <name>eccs(protocol_version()) -> [named_curve()]</name>
+      <name since="OTP 19.2">eccs() -></name>
+      <name since="OTP 19.2">eccs(protocol_version()) -> [named_curve()]</name>
       <fsummary>Returns a list of supported ECCs.</fsummary>
 
       <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
@@ -973,7 +973,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>clear_pem_cache() -> ok </name>
+      <name since="OTP 17.5">clear_pem_cache() -> ok </name>
       <fsummary> Clears the pem cache</fsummary>
 
       <desc><p>PEM files, used by ssl API-functions, are cached. The
@@ -985,8 +985,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
    
     <func>
-      <name>connect(Socket, SslOptions) -> </name>
-      <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
+      <name since="OTP R14B">connect(Socket, SslOptions) -> </name>
+      <name since="">connect(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext}
 	| {error, Reason}</name>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
 	equivalent, connected socket to an TLS socket.</fsummary>
@@ -1022,8 +1022,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>connect(Host, Port, Options) -></name>
-      <name>connect(Host, Port, Options, Timeout) ->
+      <name since="">connect(Host, Port, Options) -></name>
+      <name since="">connect(Host, Port, Options, Timeout) ->
 	  {ok, SslSocket}| {ok, SslSocket, Ext} | {error, Reason}</name>
       <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
       <type>
@@ -1065,7 +1065,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>close(SslSocket) -> ok | {error, Reason}</name>
+      <name since="">close(SslSocket) -> ok | {error, Reason}</name>
       <fsummary>Closes an TLS/DTLS connection.</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
@@ -1076,7 +1076,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
+      <name since="OTP 18.1">close(SslSocket, How) -> ok | {ok, port()} | {error, Reason}</name>
       <fsummary>Closes an TLS connection.</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
@@ -1091,7 +1091,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>controlling_process(SslSocket, NewOwner) ->
+      <name since="">controlling_process(SslSocket, NewOwner) ->
 	ok | {error, Reason}</name>
 	<fsummary>Assigns a new controlling process to the
 	TLS/DTLS socket.</fsummary>
@@ -1107,7 +1107,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>connection_information(SslSocket) ->
+      <name since="OTP 18.0">connection_information(SslSocket) ->
         {ok, Result} |  {error, Reason} </name>
       <fsummary>Returns all the connection information.
       </fsummary>
@@ -1128,7 +1128,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>connection_information(SslSocket, Items) ->
+      <name since="OTP 18.0">connection_information(SslSocket, Items) ->
         {ok, Result} |  {error, Reason} </name>
       <fsummary>Returns the requested connection information.
       </fsummary>
@@ -1150,7 +1150,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
       <func>
-      <name>filter_cipher_suites(Suites, Filters) -> ciphers()</name>
+      <name since="OTP 20.3">filter_cipher_suites(Suites, Filters) -> ciphers()</name>
       <fsummary></fsummary>
       <type>
 	<v> Suites = ciphers()</v>
@@ -1165,7 +1165,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>format_error(Reason) -> string()</name>
+      <name since="">format_error(Reason) -> string()</name>
       <fsummary>Returns an error string.</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -1176,7 +1176,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
    
     <func>
-      <name>getopts(SslSocket, OptionNames) ->
+      <name since="">getopts(SslSocket, OptionNames) ->
 	{ok, [socketoption()]} | {error, Reason}</name>
       <fsummary>Gets the values of the specified options.</fsummary>
       <type>
@@ -1190,9 +1190,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>getstat(SslSocket) ->
+      <name since="OTP 19.0">getstat(SslSocket) ->
         {ok, OptionValues} | {error, inet:posix()}</name>
-      <name>getstat(SslSocket, OptionNames) ->
+      <name since="OTP 19.0">getstat(SslSocket, OptionNames) ->
         {ok, OptionValues} | {error, inet:posix()}</name>
       <fsummary>Get one or more statistic options for a socket</fsummary>
       <type>
@@ -1207,8 +1207,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake(HsSocket) -> </name>
-      <name>handshake(HsSocket, Timeout) -> {ok, SslSocket}  | {error, Reason}</name>
+      <name since="OTP 21.0">handshake(HsSocket) -> </name>
+      <name since="OTP 21.0">handshake(HsSocket, Timeout) -> {ok, SslSocket}  | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
         <v>HsSocket = SslSocket = sslsocket()</v>
@@ -1222,8 +1222,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake(Socket, SslOptions) -> </name>
-      <name>handshake(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason}</name>
+      <name since="OTP 21.0">handshake(Socket, SslOptions) -> </name>
+      <name since="OTP 21.0">handshake(Socket, SslOptions, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
@@ -1261,7 +1261,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake_cancel(SslSocket) -> ok </name>
+      <name since="OTP 21.0">handshake_cancel(SslSocket) -> ok </name>
       <fsummary>Cancel handshake with a fatal alert</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1272,8 +1272,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>handshake_continue(HsSocket, SSLOptions) -> {ok, SslSocket} | {error, Reason}</name>
-      <name>handshake_continue(HsSocket, SSLOptions, Timeout) -> {ok, SslSocket} | {error, Reason}</name>
+      <name since="OTP 21.0">handshake_continue(HsSocket, SSLOptions) -> {ok, SslSocket} | {error, Reason}</name>
+      <name since="OTP 21.0">handshake_continue(HsSocket, SSLOptions, Timeout) -> {ok, SslSocket} | {error, Reason}</name>
       <fsummary>Continue the SSL/TLS handshake.</fsummary>
       <type>
 	<v>HsSocket = SslSocket = sslsocket()</v>
@@ -1287,7 +1287,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>listen(Port, Options) ->
+      <name since="">listen(Port, Options) ->
 	{ok, ListenSocket} | {error, Reason}</name>
       <fsummary>Creates an SSL listen socket.</fsummary>
       <type>
@@ -1301,7 +1301,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
+      <name since="OTP 18.0">negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, protocol_not_negotiated}</name>
       <fsummary>Returns the protocol negotiated through ALPN or NPN extensions.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1315,7 +1315,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
+      <name since="">peercert(SslSocket) -> {ok, Cert} | {error, Reason}</name>
       <fsummary>Returns the peer certificate.</fsummary>
      <type>
         <v>SslSocket = sslsocket()</v>
@@ -1330,7 +1330,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>peername(SslSocket) -> {ok, {Address, Port}} |
+      <name since="">peername(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the peer address and port.</fsummary>
       <type>
@@ -1344,7 +1344,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
       <func>
-      <name>prepend_cipher_suites(Preferred, Suites) -> ciphers()</name>
+      <name since="OTP 20.3">prepend_cipher_suites(Preferred, Suites) -> ciphers()</name>
       <fsummary></fsummary>
       <type>
         <v>Preferred = ciphers() | cipher_filters() </v>
@@ -1360,7 +1360,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>prf(Socket, Secret, Label, Seed, WantedLength) -> {ok, binary()} | {error, reason()}</name>
+      <name since="OTP R15B01">prf(Socket, Secret, Label, Seed, WantedLength) -> {ok, binary()} | {error, reason()}</name>
       <fsummary>Uses a session Pseudo-Random Function to generate key material.</fsummary>
       <type>
 	<v>Socket = sslsocket()</v>
@@ -1380,8 +1380,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>recv(SslSocket, Length) -> </name>
-      <name>recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
+      <name since="">recv(SslSocket, Length) -> </name>
+      <name since="">recv(SslSocket, Length, Timeout) -> {ok, Data} | {error,
 	Reason}</name>
       <fsummary>Receives data on a socket.</fsummary>
       <type>
@@ -1407,7 +1407,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>renegotiate(SslSocket) -> ok | {error, Reason}</name>
+      <name since="OTP R14B">renegotiate(SslSocket) -> ok | {error, Reason}</name>
       <fsummary>Initiates a new handshake.</fsummary>
       <type>
 	<v>SslSocket = sslsocket()</v>
@@ -1420,7 +1420,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>send(SslSocket, Data) -> ok | {error, Reason}</name>
+      <name since="">send(SslSocket, Data) -> ok | {error, Reason}</name>
       <fsummary>Writes data to a socket.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1434,7 +1434,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>setopts(SslSocket, Options) -> ok | {error, Reason}</name>
+      <name since="">setopts(SslSocket, Options) -> ok | {error, Reason}</name>
       <fsummary>Sets socket options.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1447,7 +1447,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>set_log_level(Level) -> ok | {error, Reason}</name>
+      <name since="OTP 22.0">set_log_level(Level) -> ok | {error, Reason}</name>
       <fsummary>Sets log level for the SSL application.</fsummary>
       <type>
         <v>Level = atom()</v>
@@ -1458,7 +1458,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>shutdown(SslSocket, How) -> ok | {error, Reason}</name>
+      <name since="OTP R14B">shutdown(SslSocket, How) -> ok | {error, Reason}</name>
       <fsummary>Immediately closes a socket.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1476,8 +1476,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>ssl_accept(SslSocket) -> </name>
-      <name>ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
+      <name since="">ssl_accept(SslSocket) -> </name>
+      <name since="">ssl_accept(SslSocket, Timeout) -> ok | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
       <type>
         <v>SslSocket = sslsocket()</v>
@@ -1491,8 +1491,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>ssl_accept(Socket, SslOptions) -> </name>
-      <name>ssl_accept(Socket, SslOptions, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
+      <name since="">ssl_accept(Socket, SslOptions) -> </name>
+      <name since="OTP R14B">ssl_accept(Socket, SslOptions, Timeout) -> {ok, Socket} | ok | {error, Reason}</name>
       <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
       <type>
         <v>Socket = socket() | sslsocket() </v>
@@ -1507,7 +1507,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>sockname(SslSocket) -> {ok, {Address, Port}} |
+      <name since="">sockname(SslSocket) -> {ok, {Address, Port}} |
 	{error, Reason}</name>
       <fsummary>Returns the local address and port.</fsummary>
       <type>
@@ -1522,8 +1522,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>start() -> </name>
-      <name>start(Type) -> ok | {error, Reason}</name>
+      <name since="OTP R14B">start() -> </name>
+      <name since="OTP R14B">start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the SSL application.</fsummary>
       <type>
         <v>Type = permanent | transient | temporary</v>
@@ -1535,7 +1535,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>stop() -> ok </name>
+      <name since="OTP R14B">stop() -> ok </name>
       <fsummary>Stops the SSL application.</fsummary>
       <desc>
         <p>Stops the SSL application.</p>
@@ -1543,7 +1543,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>suite_to_str(CipherSuite) -> String</name>
+      <name since="OTP 21.0">suite_to_str(CipherSuite) -> String</name>
       <fsummary>Returns the string representation of a cipher suite.</fsummary>
       <type>
         <v>CipherSuite = erl_cipher_suite()</v>
@@ -1555,8 +1555,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
 
     <func>
-      <name>transport_accept(ListenSocket) -></name>
-      <name>transport_accept(ListenSocket, Timeout) ->
+      <name since="">transport_accept(ListenSocket) -></name>
+      <name since="">transport_accept(ListenSocket, Timeout) ->
 	{ok, SslSocket} | {error, Reason}</name>
       <fsummary>Accepts an incoming connection and
 	prepares for <c>ssl_accept</c>.</fsummary>
@@ -1590,7 +1590,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     </func>
     
     <func>
-      <name>versions() -> [versions_info()]</name>
+      <name since="OTP R14B">versions() -> [versions_info()]</name>
       <fsummary>Returns version information relevant for the
 	SSL application.</fsummary>
       <type>

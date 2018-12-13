@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_index.xml</file>
   </header>
-  <module>snmp_index</module>
+  <module since="">snmp_index</module>
   <modulesummary>Abstract Data Type for SNMP Indexing</modulesummary>
   <description>
     <p>The module <c>snmp_index</c> implements an Abstract
@@ -159,7 +159,7 @@ get_next_pid(Oid, SnmpIndex) ->
   </section>
   <funcs>
     <func>
-      <name>delete(Index) -> true</name>
+      <name since="">delete(Index) -> true</name>
       <fsummary>Delete an index table</fsummary>
       <type>
         <v>Index = NewIndex = index()</v>
@@ -173,7 +173,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>delete(Index, Key) -> NewIndex</name>
+      <name since="">delete(Index, Key) -> NewIndex</name>
       <fsummary>Delete an item from the index</fsummary>
       <type>
         <v>Index = NewIndex = index()</v>
@@ -185,7 +185,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined</name>
+      <name since="">get(Index, KeyOid) -> {ok, {KeyOid, Value}} | undefined</name>
       <fsummary>Get the item with <c>KeyOid</c></fsummary>
       <type>
         <v>Index = index()</v>
@@ -198,7 +198,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>get_last(Index) -> {ok, {KeyOid, Value}} | undefined</name>
+      <name since="">get_last(Index) -> {ok, {KeyOid, Value}} | undefined</name>
       <fsummary>Get the last item in the index structure</fsummary>
       <type>
         <v>Index = index()</v>
@@ -210,7 +210,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined</name>
+      <name since="">get_next(Index, KeyOid) -> {ok, {NextKeyOid, Value}} | undefined</name>
       <fsummary>Get the next item</fsummary>
       <type>
         <v>Index = index()</v>
@@ -224,7 +224,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>insert(Index, Key, Value) -> NewIndex</name>
+      <name since="">insert(Index, Key, Value) -> NewIndex</name>
       <fsummary>Insert an item into the index</fsummary>
       <type>
         <v>Index = NewIndex = index()</v>
@@ -238,7 +238,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>key_to_oid(Index, Key) -> KeyOid</name>
+      <name since="">key_to_oid(Index, Key) -> KeyOid</name>
       <fsummary>Convert a key to an OBJECT IDENTIFIER</fsummary>
       <type>
         <v>Index = index()</v>
@@ -250,7 +250,7 @@ get_next_pid(Oid, SnmpIndex) ->
       </desc>
     </func>
     <func>
-      <name>new(KeyTypes) -> Index</name>
+      <name since="">new(KeyTypes) -> Index</name>
       <fsummary>Create a new snmp index structure</fsummary>
       <type>
         <v>KeyTypes = key_types()</v>

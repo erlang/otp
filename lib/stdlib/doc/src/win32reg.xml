@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>win32reg.xml</file>
   </header>
-  <module>win32reg</module>
+  <module since="">win32reg</module>
   <modulesummary>Provides access to the registry on Windows.</modulesummary>
   <description>
     <p>This module provides read and write access to the
@@ -112,7 +112,7 @@ hkdd             HKEY_DYN_DATA</pre>
 
   <funcs>
     <func>
-      <name name="change_key" arity="2"/>
+      <name name="change_key" arity="2" since=""/>
       <fsummary>Move to a key in the registry.</fsummary>
       <desc>
         <p>Changes the current key to another key. Works like <c>cd</c>.
@@ -122,7 +122,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="change_key_create" arity="2"/>
+      <name name="change_key_create" arity="2" since=""/>
       <fsummary>Move to a key, create it if it is not there.</fsummary>
       <desc>
         <p>Creates a key, or just changes to it, if it is already there. Works
@@ -133,7 +133,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close the registry.</fsummary>
       <desc>
         <p>Closes the registry. After that, the <c><anno>RegHandle</anno></c>
@@ -142,7 +142,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="current_key" arity="1"/>
+      <name name="current_key" arity="1" since=""/>
       <fsummary>Return the path to the current key.</fsummary>
       <desc>
         <p>Returns the path to the current key. This is the equivalent of
@@ -153,7 +153,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="delete_key" arity="1"/>
+      <name name="delete_key" arity="1" since=""/>
       <fsummary>Delete the current key.</fsummary>
       <desc>
         <p>Deletes the current key, if it is valid. Calls the Win32 API
@@ -166,7 +166,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="delete_value" arity="2"/>
+      <name name="delete_value" arity="2" since=""/>
       <fsummary>Delete the named value on the current key.</fsummary>
       <desc>
         <p>Deletes a named value on the current key. The atom <c>default</c> is
@@ -176,7 +176,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="expand" arity="1"/>
+      <name name="expand" arity="1" since=""/>
       <fsummary>Expand a string with environment variables.</fsummary>
       <desc>
         <p>Expands a string containing environment variables between percent
@@ -189,7 +189,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Convert a POSIX error code to a string.</fsummary>
       <desc>
         <p>Converts a POSIX error code to a string
@@ -198,7 +198,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="open" arity="1"/>
+      <name name="open" arity="1" since=""/>
       <fsummary>Open the registry for reading or writing.</fsummary>
       <desc>
         <p>Opens the registry for reading or writing. The current key is the
@@ -211,7 +211,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="set_value" arity="3"/>
+      <name name="set_value" arity="3" since=""/>
       <fsummary>Set value at the current registry key with specified name.
       </fsummary>
       <desc>
@@ -230,7 +230,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="sub_keys" arity="1"/>
+      <name name="sub_keys" arity="1" since=""/>
       <fsummary>Get subkeys to the current key.</fsummary>
       <desc>
         <p>Returns a list of subkeys to the current key. Calls the Win32
@@ -240,7 +240,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="value" arity="2"/>
+      <name name="value" arity="2" since=""/>
       <fsummary>Get the named value on the current key.</fsummary>
       <desc>
         <p>Retrieves the named value (or default) on the current key.
@@ -251,7 +251,7 @@ hkdd             HKEY_DYN_DATA</pre>
     </func>
 
     <func>
-      <name name="values" arity="1"/>
+      <name name="values" arity="1" since=""/>
       <fsummary>Get all values on the current key.</fsummary>
       <desc>
         <p>Retrieves a list of all values on the current key. The values

@@ -29,7 +29,7 @@
     <rev></rev>
     <file>dialyzer.xml</file>
   </header>
-  <module>dialyzer</module>
+  <module since="">dialyzer</module>
   <modulesummary>Dialyzer, a DIscrepancy AnaLYZer for ERlang programs.
   </modulesummary>
   <description>
@@ -472,7 +472,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 
   <funcs>
     <func>
-      <name>format_warning(Msg) -> string()</name>
+      <name since="">format_warning(Msg) -> string()</name>
       <fsummary>Get the string version of a warning message.</fsummary>
       <type>
         <v>Msg = {Tag, Id, msg()}</v>
@@ -485,8 +485,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     </func>
 
     <func>
-      <name>gui() -> ok | {error, Msg}</name>
-      <name>gui(OptList) -> ok | {error, Msg}</name>
+      <name since="">gui() -> ok | {error, Msg}</name>
+      <name since="">gui(OptList) -> ok | {error, Msg}</name>
       <fsummary>Dialyzer GUI version.</fsummary>
       <type>
         <v>OptList</v>
@@ -539,7 +539,7 @@ WarnOpts :: error_handling
     </func>
 
     <func>
-      <name>plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}</name>
+      <name since="">plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}</name>
       <fsummary>Return information about the specified PLT.</fsummary>
       <desc>
         <p>Returns information about the specified PLT.</p>
@@ -547,7 +547,7 @@ WarnOpts :: error_handling
     </func>
 
     <func>
-      <name>run(OptList) -> Warnings</name>
+      <name since="">run(OptList) -> Warnings</name>
       <fsummary>Dialyzer command-line version.</fsummary>
       <type>
         <v>OptList</v>

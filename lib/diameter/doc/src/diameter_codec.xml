@@ -46,7 +46,7 @@ limitations under the License.
 <file>diameter_codec.xml</file>
 </header>
 
-<module>diameter_codec</module>
+<module since="OTP R15B03">diameter_codec</module>
 <modulesummary>Decode and encode of Diameter messages.</modulesummary>
 
 <description>
@@ -346,7 +346,7 @@ question, as documented in &man_transport;.</p>
 <funcs>
 
 <func>
-<name>decode(Mod, Bin) -> Pkt</name>
+<name since="OTP R15B03">decode(Mod, Bin) -> Pkt</name>
 <fsummary>Decode a Diameter message.</fsummary>
 <type>
 <v>Mod = &dictionary;</v>
@@ -362,7 +362,7 @@ Decode a Diameter message.</p>
 </func>
 
 <func>
-<name>encode(Mod, Msg) -> Pkt</name>
+<name since="OTP R15B03">encode(Mod, Msg) -> Pkt</name>
 <fsummary>Encode a Diameter message.</fsummary>
 <type>
 <v>Mod = &dictionary;</v>

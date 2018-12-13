@@ -41,7 +41,7 @@
 
   <funcs>
     <func>
-      <name><ret>ETERM *</ret><nametext>erl_format(FormatStr, ...)</nametext></name>
+      <name since=""><ret>ETERM *</ret><nametext>erl_format(FormatStr, ...)</nametext></name>
       <fsummary>Create an Erlang term.</fsummary>
       <type>
         <v>char *FormatStr;</v>
@@ -81,7 +81,7 @@ erl_format("[{name,~a},{age,~i},{data,~w}]",
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_match(Pattern, Term)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_match(Pattern, Term)</nametext></name>
       <fsummary>Perform pattern matching.</fsummary>
       <type>
         <v>ETERM *Pattern,*Term;</v>

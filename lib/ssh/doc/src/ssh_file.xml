@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>ssh_file</module>
+  <module since="OTP 21.2">ssh_file</module>
   <modulesummary>Default callback module for the client's and server's database operations in the ssh application</modulesummary>
   <description>
     <p>This module is the default callback handler for the client's and the server's user and host "database" operations.
@@ -169,7 +169,7 @@
 
   <funcs>
     <func>
-      <name>host_key(Algorithm, DaemonOptions) -> {ok, Key} | {error, Reason}</name>
+      <name since="OTP 21.2">host_key(Algorithm, DaemonOptions) -> {ok, Key} | {error, Reason}</name>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -195,7 +195,7 @@
     </func>
 
     <func>
-      <name>is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
+      <name since="OTP 21.2">is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -216,7 +216,7 @@
     </func>
 
     <func>
-      <name>add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <name since="OTP 21.2">add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -235,7 +235,7 @@
     </func>
 
     <func>
-      <name>is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
+      <name since="OTP 21.2">is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -254,7 +254,7 @@
     </func>
 
     <func>
-      <name>user_key(Algorithm, ConnectOptions) -> {ok, PrivateKey} | {error, Reason}</name>
+      <name since="OTP 21.2">user_key(Algorithm, ConnectOptions) -> {ok, PrivateKey} | {error, Reason}</name>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>

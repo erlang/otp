@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>dyntrace.xml</file>
   </header>
-  <module>dyntrace</module>
+  <module since="OTP R15B01">dyntrace</module>
   <modulesummary>Interface to dynamic tracing</modulesummary>
   <description>
     <p>This module implements interfaces to dynamic tracing, should such be compiled into the virtual machine. For a standard and/or commercial build, no dynamic tracing is available, in which case none of the functions in this module is usable or give any effect.</p>
@@ -47,7 +47,7 @@
   </description>
   <funcs>
     <func>
-      <name>available() -> boolean()</name>
+      <name since="OTP R15B01">available() -> boolean()</name>
       <fsummary>Check if dynamic tracing is available</fsummary>
       <desc>
 	<p>This function uses the NIF library to determine if dynamic
@@ -59,42 +59,42 @@
       </desc>
     </func>
     <func>
-      <name>p() -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p() -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message only containing the user tag and zeroes/empty strings in all other fields.</p>
       </desc>
     </func>
     <func>
-      <name>p(integer() | string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer() | string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer or string parameter in the first integer/string field.</p>
       </desc>
     </func>
     <func>
-      <name>p(integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters. I.e. <c>p(1,"Hello")</c> is ok, as is <c>p(1,1)</c> and <c>p("Hello","Again")</c>, but not <c>p("Hello",1)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>p(integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>p(integer() | string(), integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer() | string(), integer() | string(), integer() | string(), integer() | string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>p(integer(), integer() | string(), integer() | string(), integer() | string(), string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer(), integer() | string(), integer() | string(), integer() | string(), string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
@@ -102,7 +102,7 @@
       </desc>
     </func>
      <func>
-      <name>p(integer(), integer(), integer() | string(), integer() | string(), string(), string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer(), integer(), integer() | string(), integer() | string(), string(), string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
@@ -110,7 +110,7 @@
       </desc>
     </func>
      <func>
-      <name>p(integer(), integer(), integer(), integer() | string(), string(), string(), string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer(), integer(), integer(), integer() | string(), string(), string(), string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing the user tag and the integer() or string() parameters as the first fields of respective type. integer() parameters should be put before any string() parameters, as in <seealso marker="#p/2">p/2</seealso>.</p>
@@ -118,14 +118,14 @@
       </desc>
     </func>
      <func>
-      <name>p(integer(), integer(), integer(), integer(), string(), string(), string(), string()) -> true | false | error | badarg</name>
+      <name since="OTP R15B01">p(integer(), integer(), integer(), integer(), string(), string(), string(), string()) -> true | false | error | badarg</name>
       <fsummary>Trigger the user trace probe.</fsummary>
       <desc>
         <p>Calling this function will trigger the "user" trace probe user_trace_i4s4 in the dyntrace NIF module, sending a trace message containing all the integer()'s and string()'s provided, as well as any user tag set in the current process.</p> 
       </desc>
     </func>
     <func>
-      <name>get_tag() -> binary() | undefined</name>
+      <name since="OTP R15B01">get_tag() -> binary() | undefined</name>
       <fsummary>Get the user tag set in the process.</fsummary>
       <desc>
 	<p>This function returns the user tag set in the current
@@ -134,7 +134,7 @@
       </desc>
     </func>
     <func>
-      <name>get_tag() -> binary() | undefined</name>
+      <name since="OTP R15B01">get_tag() -> binary() | undefined</name>
       <fsummary>Get the user tag set in the process or sent to the process.</fsummary>
       <desc>
 	<p>This function returns the user tag set in the current
@@ -151,7 +151,7 @@
     </func>
     
     <func>
-      <name>put_tag(Item) -> binary() | undefined </name>
+      <name since="OTP R15B01">put_tag(Item) -> binary() | undefined </name>
       <fsummary>Set the user tag of the current process.</fsummary>
       <type>
         <v>Item = iodata()</v>
@@ -163,7 +163,7 @@
       </desc>
     </func>
     <func>
-      <name>spread_tag(boolean()) -> TagData</name>
+      <name since="OTP R15B01">spread_tag(boolean()) -> TagData</name>
       <fsummary>Start or stop spreading dynamic trace user tags with the next message.</fsummary>
       <type>
         <v>TagData = opaque data that can be used as parameter to <seealso marker="#restore_tag/1">restore_tag/1</seealso></v>
@@ -185,7 +185,7 @@ f() ->
       </desc>
     </func>
     <func>
-    <name>restore_tag(TagData) -> true</name>
+    <name since="OTP R15B01">restore_tag(TagData) -> true</name>
       <fsummary>Restore to a previous state of user tag spreading.</fsummary>
       <type>
         <v>TagData = opaque data returned by <seealso marker="#spread_tag/1">spread_tag/1</seealso></v>

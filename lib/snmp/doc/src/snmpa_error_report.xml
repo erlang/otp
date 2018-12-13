@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_error_report.xml</file>
   </header>
-  <module>snmpa_error_report</module>
+  <module since="">snmpa_error_report</module>
   <modulesummary>Behaviour module for reporting SNMP agent errors</modulesummary>
   <description>
     <marker id="desc"></marker>
@@ -52,7 +52,7 @@
   </description>
   <funcs>
     <func>
-      <name>config_err(Format, Args) -> void()</name>
+      <name since="">config_err(Format, Args) -> void()</name>
       <fsummary>Called if a configuration error occurs</fsummary>
       <type>
         <v>Format = string()</v>
@@ -68,7 +68,7 @@
       </desc>
     </func>
     <func>
-      <name>user_err(Format, Args) -> void()</name>
+      <name since="">user_err(Format, Args) -> void()</name>
       <fsummary>Called if a user related error occurs</fsummary>
       <type>
         <v>Format = string()</v>

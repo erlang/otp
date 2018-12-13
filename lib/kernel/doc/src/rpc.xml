@@ -28,7 +28,7 @@
     <date>1996-09-10</date>
     <rev>A</rev>
   </header>
-  <module>rpc</module>
+  <module since="">rpc</module>
   <modulesummary>Remote Procedure Call services.</modulesummary>
   <description>
     <p>This module contains services similar to Remote
@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name name="abcast" arity="2"/>
+      <name name="abcast" arity="2" since=""/>
       <fsummary>Broadcast a message asynchronously to a registered process on
         all nodes.</fsummary>
       <desc>
@@ -61,7 +61,7 @@
     </func>
 
     <func>
-      <name name="abcast" arity="3"/>
+      <name name="abcast" arity="3" since=""/>
       <fsummary>Broadcast a message asynchronously to a registered process on
         specific nodes.</fsummary>
       <desc>
@@ -72,7 +72,7 @@
     </func>
 
     <func>
-      <name name="async_call" arity="4"/>
+      <name name="async_call" arity="4" since=""/>
       <fsummary>Evaluate a function call on a node, asynchronous
       version.</fsummary>
       <desc>
@@ -98,7 +98,7 @@
     </func>
 
     <func>
-      <name name="block_call" arity="4"/>
+      <name name="block_call" arity="4" since=""/>
       <fsummary>Evaluate a function call on a node in the RPC server's
         context.</fsummary>
       <desc>
@@ -115,7 +115,7 @@
     </func>
 
     <func>
-      <name name="block_call" arity="5"/>
+      <name name="block_call" arity="5" since=""/>
       <fsummary>Evaluate a function call on a node in the RPC server's
         context.</fsummary>
       <desc>
@@ -127,7 +127,7 @@
     </func>
 
     <func>
-      <name name="call" arity="4"/>
+      <name name="call" arity="4" since=""/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -138,7 +138,7 @@
     </func>
 
     <func>
-      <name name="call" arity="5"/>
+      <name name="call" arity="5" since=""/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -158,7 +158,7 @@
     </func>
 
     <func>
-      <name name="cast" arity="4"/>
+      <name name="cast" arity="4" since=""/>
       <fsummary>Run a function on a node ignoring the result.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -171,7 +171,7 @@
     </func>
 
     <func>
-      <name name="eval_everywhere" arity="3"/>
+      <name name="eval_everywhere" arity="3" since=""/>
       <fsummary>Run a function on all nodes, ignoring the result.</fsummary>
       <desc>
         <p>Equivalent to <c>eval_everywhere([node()|nodes()],
@@ -181,7 +181,7 @@
     </func>
 
     <func>
-      <name name="eval_everywhere" arity="4"/>
+      <name name="eval_everywhere" arity="4" since=""/>
       <fsummary>Run a function on specific nodes, ignoring the
         result.</fsummary>
       <desc>
@@ -192,7 +192,7 @@
     </func>
 
     <func>
-      <name name="multi_server_call" arity="2"/>
+      <name name="multi_server_call" arity="2" since=""/>
       <fsummary>Interact with the servers on a number of nodes.</fsummary>
       <desc>
         <p>Equivalent to <c>multi_server_call([node()|nodes()],
@@ -201,7 +201,7 @@
     </func>
 
     <func>
-      <name name="multi_server_call" arity="3"/>
+      <name name="multi_server_call" arity="3" since=""/>
       <fsummary>Interact with the servers on a number of nodes.</fsummary>
       <desc>
         <p>Can be used when interacting with servers called
@@ -224,7 +224,7 @@
     </func>
 
     <func>
-      <name name="multicall" arity="3"/>
+      <name name="multicall" arity="3" since=""/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
         <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>,
@@ -233,7 +233,7 @@
     </func>
 
     <func>
-      <name name="multicall" arity="4" clause_i="1"/>
+      <name name="multicall" arity="4" clause_i="1" since=""/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
         <p>Equivalent to <c>multicall(<anno>Nodes</anno>, <anno>Module</anno>,
@@ -242,7 +242,7 @@
     </func>
 
     <func>
-      <name name="multicall" arity="4" clause_i="2"/>
+      <name name="multicall" arity="4" clause_i="2" since=""/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
         <p>Equivalent to <c>multicall([node()|nodes()], <anno>Module</anno>,
@@ -252,7 +252,7 @@
     </func>
 
     <func>
-      <name name="multicall" arity="5"/>
+      <name name="multicall" arity="5" since=""/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <desc>
         <p>In contrast to an RPC, a multicall is an RPC that is sent
@@ -288,7 +288,7 @@
     </func>
 
     <func>
-      <name name="nb_yield" arity="1"/>
+      <name name="nb_yield" arity="1" since=""/>
       <fsummary>Deliver the result of evaluating a function call on a node
         (non-blocking).</fsummary>
       <desc>
@@ -297,7 +297,7 @@
     </func>
 
     <func>
-      <name name="nb_yield" arity="2"/>
+      <name name="nb_yield" arity="2" since=""/>
       <fsummary>Deliver the result of evaluating a function call on a node
         (non-blocking).</fsummary>
       <desc>
@@ -315,7 +315,7 @@
     </func>
 
     <func>
-      <name name="parallel_eval" arity="1"/>
+      <name name="parallel_eval" arity="1" since=""/>
       <fsummary>Evaluate many function calls on all nodes in
         parallel.</fsummary>
       <desc>
@@ -328,7 +328,7 @@
     </func>
 
     <func>
-      <name name="pinfo" arity="1"/>
+      <name name="pinfo" arity="1" since=""/>
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
@@ -337,8 +337,8 @@
     </func>
 
     <func>
-      <name name="pinfo" arity="2" clause_i="1"/>
-      <name name="pinfo" arity="2" clause_i="2"/>
+      <name name="pinfo" arity="2" clause_i="1" since=""/>
+      <name name="pinfo" arity="2" clause_i="2" since=""/>
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
@@ -347,7 +347,7 @@
     </func>
 
     <func>
-      <name name="pmap" arity="3"/>
+      <name name="pmap" arity="3" since=""/>
       <fsummary>Parallel evaluation of mapping a function over a
         list.</fsummary>
       <desc>
@@ -360,7 +360,7 @@
     </func>
 
     <func>
-      <name name="sbcast" arity="2"/>
+      <name name="sbcast" arity="2" since=""/>
       <fsummary>Broadcast a message synchronously to a registered process on
         all nodes.</fsummary>
       <desc>
@@ -370,7 +370,7 @@
     </func>
 
     <func>
-      <name name="sbcast" arity="3"/>
+      <name name="sbcast" arity="3" since=""/>
       <fsummary>Broadcast a message synchronously to a registered process on
         specific nodes.</fsummary>
       <desc>
@@ -391,7 +391,7 @@
     </func>
 
     <func>
-      <name name="server_call" arity="4"/>
+      <name name="server_call" arity="4" since=""/>
       <fsummary>Interact with a server on a node.</fsummary>
       <desc>
         <p>Can be used when interacting with a server called
@@ -410,7 +410,7 @@
     </func>
 
     <func>
-      <name name="yield" arity="1"/>
+      <name name="yield" arity="1" since=""/>
       <fsummary>Deliver the result of evaluating a function call on a node
         (blocking).</fsummary>
       <desc>

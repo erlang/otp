@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_slave.xml</file>
   </header>
-  <module>ct_slave</module>
+  <module since="OTP R14B">ct_slave</module>
   <modulesummary>Common Test framework functions for starting and stopping
     nodes for Large-Scale Testing.</modulesummary>
 
@@ -50,7 +50,7 @@
 
   <funcs>
     <func>
-      <name>start(Node) -&gt; Result</name>
+      <name since="OTP R14B">start(Node) -&gt; Result</name>
       <fsummary>Starts an Erlang node with name Node on the local
         host.</fsummary>
       <type>
@@ -68,7 +68,7 @@
     </func>
 
     <func>
-      <name>start(HostOrNode, NodeOrOpts) -&gt; Result</name>
+      <name since="OTP R14B">start(HostOrNode, NodeOrOpts) -&gt; Result</name>
       <fsummary>Starts an Erlang node with default options on a specified
         host, or on the local host with specified options.</fsummary>
       <type>
@@ -90,7 +90,7 @@
     </func>
 
     <func>
-      <name>start(Host, Node, Opts) -&gt; Result</name>
+      <name since="OTP R14B">start(Host, Node, Opts) -&gt; Result</name>
       <fsummary>Starts an Erlang node with name Node on host Host as
         specified by the combination of options in Opts.</fsummary>
       <type>
@@ -184,7 +184,7 @@
     </func>
 
     <func>
-      <name>stop(Node) -&gt; Result</name>
+      <name since="OTP R14B">stop(Node) -&gt; Result</name>
       <fsummary>Stops the running Erlang node with name Node on the local
         host.</fsummary>
       <type>
@@ -199,7 +199,7 @@
     </func>
 
     <func>
-      <name>stop(Host, Node) -&gt; Result</name>
+      <name since="OTP R14B">stop(Host, Node) -&gt; Result</name>
       <fsummary>Stops the running Erlang node with name Node on host
         Host.</fsummary>
       <type>

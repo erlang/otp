@@ -28,7 +28,7 @@
     <date>1998-12-18</date>
     <rev>B</rev>
   </header>
-  <module>global_group</module>
+  <module since="">global_group</module>
   <modulesummary>Grouping nodes to global name registration groups.</modulesummary>
   <description>
     <p>This module makes it possible to partition the nodes of a
@@ -105,7 +105,7 @@
 
   <funcs>
     <func>
-      <name name="global_groups" arity="0"/>
+      <name name="global_groups" arity="0" since=""/>
       <fsummary>Return the global group names.</fsummary>
       <desc>
         <p>Returns a tuple containing the name of the global group that
@@ -116,7 +116,7 @@
     </func>
 
     <func>
-      <name name="info" arity="0"/>
+      <name name="info" arity="0" since=""/>
       <fsummary>Information about global groups.</fsummary>
       <type name="info_item"/>
       <type name="sync_state"/>
@@ -173,7 +173,7 @@
     </func>
 
     <func>
-      <name name="monitor_nodes" arity="1"/>
+      <name name="monitor_nodes" arity="1" since=""/>
       <fsummary>Subscribe to node status changes.</fsummary>
       <desc>
         <p>Depending on <c><anno>Flag</anno></c>, the calling process
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name name="own_nodes" arity="0"/>
+      <name name="own_nodes" arity="0" since=""/>
       <fsummary>Return the group nodes.</fsummary>
       <desc>
         <p>Returns the names of all group nodes, regardless of their
@@ -196,7 +196,7 @@
     </func>
 
     <func>
-      <name name="registered_names" arity="1"/>
+      <name name="registered_names" arity="1" since=""/>
       <fsummary>Return globally registered names.</fsummary>
       <desc>
         <p>Returns a list of all names that are globally registered
@@ -205,8 +205,8 @@
     </func>
 
     <func>
-      <name name="send" arity="2"/>
-      <name name="send" arity="3"/>
+      <name name="send" arity="2" since=""/>
+      <name name="send" arity="3" since=""/>
       <fsummary>Send a message to a globally registered pid.</fsummary>
       <desc>
         <p>Searches for <c><anno>Name</anno></c>, globally registered on
@@ -224,7 +224,7 @@
     </func>
 
     <func>
-      <name name="sync" arity="0"/>
+      <name name="sync" arity="0" since=""/>
       <fsummary>Synchronize the group nodes.</fsummary>
       <desc>
         <p>Synchronizes the group nodes, that is, the global name
@@ -242,8 +242,8 @@
     </func>
 
     <func>
-      <name name="whereis_name" arity="1"/>
-      <name name="whereis_name" arity="2"/>
+      <name name="whereis_name" arity="1" since=""/>
+      <name name="whereis_name" arity="2" since=""/>
       <fsummary>Get the pid with a specified globally registered name.</fsummary>
       <desc>
         <p>Searches for <c><anno>Name</anno></c>, globally registered on

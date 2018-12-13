@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>i</module>
+  <module since="">i</module>
   <modulesummary>Debugger/Interpreter Interface.</modulesummary>
   <description>
     <p>The <c>i</c> module provides short forms for some of
@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name>im() -> pid()</name>
+      <name since="">im() -> pid()</name>
       <fsummary>Start a graphical monitor.</fsummary>
       <desc>
 	<p>Starts a new graphical monitor. This is the Monitor window,
@@ -63,10 +63,10 @@
     </func>
 
     <func>
-      <name>ii(AbsModules) -> ok</name>
-      <name>ii(AbsModule) -> {module, Module} | error</name>
-      <name>ini(AbsModules) -> ok</name>
-      <name>ini(AbsModule) -> {module, Module} | error</name>
+      <name since="">ii(AbsModules) -> ok</name>
+      <name since="">ii(AbsModule) -> {module, Module} | error</name>
+      <name since="">ini(AbsModules) -> ok</name>
+      <name since="">ini(AbsModule) -> {module, Module} | error</name>
       <fsummary>Interpret a module.</fsummary>
       <type>
 	<v>AbsModules = [AbsModule]</v>
@@ -84,8 +84,8 @@
     </func>
 
     <func>
-      <name>iq(AbsModule) -> ok</name>
-      <name>inq(AbsModule) -> ok</name>
+      <name since="">iq(AbsModule) -> ok</name>
+      <name since="">inq(AbsModule) -> ok</name>
       <fsummary>Stop interpreting a module.</fsummary>
       <type>
 	<v>AbsModule = Module | File</v>
@@ -100,7 +100,7 @@
     </func>
 
     <func>
-      <name>il() -> ok</name>
+      <name since="">il() -> ok</name>
       <fsummary>Make a printout of all interpreted modules</fsummary>
       <desc>
 	<p>Makes a printout of all interpreted modules.
@@ -110,7 +110,7 @@
     </func>
 
     <func>
-      <name>ip() -> ok</name>
+      <name since="">ip() -> ok</name>
       <fsummary>Print the current status of all interpreted
 	processes.</fsummary>
       <desc>
@@ -119,7 +119,7 @@
     </func>
 
     <func>
-      <name>ic() -> ok</name>
+      <name since="">ic() -> ok</name>
       <fsummary>Clear information about processes executing interpreted
 	code.</fsummary>
       <desc>
@@ -129,8 +129,8 @@
     </func>
 
     <func>
-      <name>iaa(Flags) -> true</name>
-      <name>iaa(Flags, Function) -> true</name>
+      <name since="">iaa(Flags) -> true</name>
+      <name since="">iaa(Flags, Function) -> true</name>
       <fsummary>Set when and how to attach to a process.</fsummary>
       <type>
 	<v>Flags = [init | break | exit]</v>
@@ -148,7 +148,7 @@
     </func>
 
     <func>
-      <name>ist(Flag) -> true</name>
+      <name since="">ist(Flag) -> true</name>
       <fsummary>Set how to save call frames.</fsummary>
       <type>
 	<v>Flag = all | no_tail | false</v>
@@ -160,7 +160,7 @@
     </func>
 
     <func>
-      <name>ia(Pid) -> ok | no_proc</name>
+      <name since="">ia(Pid) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
 	<v>Pid = pid()</v>
@@ -172,7 +172,7 @@
     </func>
 
     <func>
-      <name>ia(X,Y,Z) -> ok | no_proc</name>
+      <name since="">ia(X,Y,Z) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
 	<v>X = Y = Z = int()</v>
@@ -184,7 +184,7 @@
     </func>
 
     <func>
-      <name>ia(Pid, Function) -> ok | no_proc</name>
+      <name since="">ia(Pid, Function) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
 	<v>Pid = pid()</v>
@@ -199,7 +199,7 @@
     </func>
 
     <func>
-      <name>ia(X,Y,Z, Function) -> ok | no_proc</name>
+      <name since="">ia(X,Y,Z, Function) -> ok | no_proc</name>
       <fsummary>Attache to a process.</fsummary>
       <type>
 	<v>X = Y = Z = int()</v>
@@ -217,7 +217,7 @@
     </func>
 
     <func>
-      <name>ib(Module, Line) -> ok | {error, break_exists}</name>
+      <name since="">ib(Module, Line) -> ok | {error, break_exists}</name>
       <fsummary>Create a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -229,7 +229,7 @@
     </func>
 
     <func>
-      <name>ib(Module, Name, Arity) -> ok | {error, function_not_found}
+      <name since="">ib(Module, Name, Arity) -> ok | {error, function_not_found}
       </name>
       <fsummary>Create breakpoints in the specified function.</fsummary>
       <type>
@@ -243,7 +243,7 @@
     </func>
 
     <func>
-      <name>ir() -> ok</name>
+      <name since="">ir() -> ok</name>
       <fsummary>Delete all breakpoints.</fsummary>
       <desc>
 	<p>Deletes all breakpoints.</p>
@@ -251,7 +251,7 @@
     </func>
 
     <func>
-      <name>ir(Module) -> ok</name>
+      <name since="">ir(Module) -> ok</name>
       <fsummary>Delete all breakpoints in a module.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -262,7 +262,7 @@
     </func>
 
     <func>
-      <name>ir(Module, Line) -> ok</name>
+      <name since="">ir(Module, Line) -> ok</name>
       <fsummary>Delete a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -274,7 +274,7 @@
     </func>
 
     <func>
-      <name>ir(Module, Name, Arity) -> ok | {error, function_not_found}
+      <name since="">ir(Module, Name, Arity) -> ok | {error, function_not_found}
       </name>
       <fsummary>Delete breakpoints from the specified function.</fsummary>
       <type>
@@ -288,7 +288,7 @@
     </func>
 
     <func>
-      <name>ibd(Module, Line) -> ok</name>
+      <name since="">ibd(Module, Line) -> ok</name>
       <fsummary>Make a breakpoint inactive.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -300,7 +300,7 @@
     </func>
 
     <func>
-      <name>ibe(Module, Line) -> ok</name>
+      <name since="">ibe(Module, Line) -> ok</name>
       <fsummary>Make a breakpoint active.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -312,7 +312,7 @@
     </func>
 
     <func>
-      <name>iba(Module, Line, Action) -> ok</name>
+      <name since="">iba(Module, Line, Action) -> ok</name>
       <fsummary>Set the trigger action of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -326,7 +326,7 @@
     </func>
 
     <func>
-      <name>ibc(Module, Line, Function) -> ok</name>
+      <name since="">ibc(Module, Line, Function) -> ok</name>
       <fsummary>Set the conditional test of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -348,7 +348,7 @@
     </func>
 
     <func>
-      <name>ipb() -> ok</name>
+      <name since="">ipb() -> ok</name>
       <fsummary>Print all existing breakpoints.</fsummary>
       <desc>
 	<p>Prints all existing breakpoints.</p>
@@ -356,7 +356,7 @@
     </func>
 
     <func>
-      <name>ipb(Module) -> ok</name>
+      <name since="">ipb(Module) -> ok</name>
       <fsummary>Print all existing breakpoints in a module.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -367,7 +367,7 @@
     </func>
 
     <func>
-      <name>iv() -> atom()</name>
+      <name since="">iv() -> atom()</name>
       <fsummary>Return the current version number of the interpreter.
       </fsummary>
       <desc>
@@ -377,7 +377,7 @@
     </func>
 
     <func>
-      <name>help() -> ok</name>
+      <name since="">help() -> ok</name>
       <fsummary>Print help text.</fsummary>
       <desc>
 	<p>Prints help text.</p>

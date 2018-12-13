@@ -49,7 +49,7 @@
 
   <funcs>
     <func>
-      <name><ret>int</ret><nametext>erl_accept(listensock, conp)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_accept(listensock, conp)</nametext></name>
       <fsummary>Accept a connection.</fsummary>
       <type>
         <v>int listensock;</v>
@@ -78,7 +78,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_close_connection(fd)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_close_connection(fd)</nametext></name>
       <fsummary>Close a connection to an Erlang node.</fsummary>
       <type>
         <v>int fd;</v>
@@ -95,8 +95,8 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_connect(node)</nametext></name>
-      <name><ret>int</ret><nametext>erl_xconnect(addr, alive)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_connect(node)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_xconnect(addr, alive)</nametext></name>
       <fsummary>Establish a connection to an Erlang node.</fsummary>
       <type>
         <v>char *node, *alive;</v>
@@ -149,8 +149,8 @@ erl_xconnect( &addr , ALIVE );
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_connect_init(number, cookie, creation)</nametext></name>
-      <name><ret>int</ret><nametext>erl_connect_xinit(host, alive, node, addr, cookie, creation)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_connect_init(number, cookie, creation)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_connect_xinit(host, alive, node, addr, cookie, creation)</nametext></name>
       <fsummary>Initialize communication.</fsummary>
       <type>
         <v>int number;</v>
@@ -246,7 +246,7 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_publish(port)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_publish(port)</nametext></name>
       <fsummary>Publish a node name.</fsummary>
       <type>
         <v>int port;</v>
@@ -277,7 +277,7 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_receive(fd, bufp, bufsize)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_receive(fd, bufp, bufsize)</nametext></name>
       <fsummary>Receive a message.</fsummary>
       <type>
         <v>int fd;</v>
@@ -316,7 +316,7 @@ if (!erl_connect_init(17, "samplecookiestring...", 0))
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_receive_msg(fd, bufp, bufsize, emsg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_receive_msg(fd, bufp, bufsize, emsg)</nametext></name>
       <fsummary>Receive and decode a message.</fsummary>
       <type>
         <v>int fd;</v>
@@ -411,7 +411,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_reg_send(fd, to, msg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_reg_send(fd, to, msg)</nametext></name>
       <fsummary>Send a message to a registered name.</fsummary>
       <type>
         <v>int fd;</v>
@@ -439,9 +439,9 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>ETERM *</ret><nametext>erl_rpc(fd, mod, fun, args)</nametext></name>
-      <name><ret>int</ret><nametext>erl_rpc_from(fd, timeout, emsg)</nametext></name>
-      <name><ret>int</ret><nametext>erl_rpc_to(fd, mod, fun, args)</nametext></name>
+      <name since=""><ret>ETERM *</ret><nametext>erl_rpc(fd, mod, fun, args)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_rpc_from(fd, timeout, emsg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_rpc_to(fd, mod, fun, args)</nametext></name>
       <fsummary>Remote Procedure Call.</fsummary>
       <type>
         <v>int fd, timeout;</v>
@@ -511,7 +511,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_send(fd, to, msg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_send(fd, to, msg)</nametext></name>
       <fsummary>Send a message.</fsummary>
       <type>
         <v>int fd;</v>
@@ -541,11 +541,11 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>const char *</ret><nametext>erl_thisalivename()</nametext></name>
-      <name><ret>const char *</ret><nametext>erl_thiscookie()</nametext></name>
-      <name><ret>short</ret><nametext>erl_thiscreation()</nametext></name>
-      <name><ret>const char *</ret><nametext>erl_thishostname()</nametext></name>
-      <name><ret>const char *</ret><nametext>erl_thisnodename()</nametext></name>
+      <name since=""><ret>const char *</ret><nametext>erl_thisalivename()</nametext></name>
+      <name since=""><ret>const char *</ret><nametext>erl_thiscookie()</nametext></name>
+      <name since=""><ret>short</ret><nametext>erl_thiscreation()</nametext></name>
+      <name since=""><ret>const char *</ret><nametext>erl_thishostname()</nametext></name>
+      <name since=""><ret>const char *</ret><nametext>erl_thisnodename()</nametext></name>
       <fsummary>Retrieve some values.</fsummary>
       <desc>
         <p>Retrieves information about
@@ -556,7 +556,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_unpublish(alive)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_unpublish(alive)</nametext></name>
       <fsummary>Forcefully unpublish a node name.</fsummary>
       <type>
         <v>char *alive;</v>
@@ -583,7 +583,7 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>erl_xreceive_msg(fd, bufpp, bufsizep, emsg)</nametext></name>
+      <name since=""><ret>int</ret><nametext>erl_xreceive_msg(fd, bufpp, bufsizep, emsg)</nametext></name>
       <fsummary>Receive and decode a message.</fsummary>
       <type>
         <v>int fd;</v>
@@ -616,10 +616,10 @@ typedef struct {
     </func>
 
     <func>
-      <name><ret>struct hostent</ret><nametext>*erl_gethostbyaddr(addr, length, type)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*erl_gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, h_errnop)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*erl_gethostbyname(name)</nametext></name>
-      <name><ret>struct hostent</ret><nametext>*erl_gethostbyname_r(name, hostp, buffer, buflen, h_errnop)</nametext></name>
+      <name since=""><ret>struct hostent *</ret><nametext>erl_gethostbyaddr(addr, length, type)</nametext></name>
+      <name since=""><ret>struct hostent *</ret><nametext>erl_gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, h_errnop)</nametext></name>
+      <name since=""><ret>struct hostent *</ret><nametext>erl_gethostbyname(name)</nametext></name>
+      <name since=""><ret>struct hostent *</ret><nametext>erl_gethostbyname_r(name, hostp, buffer, buflen, h_errnop)</nametext></name>
 
       <fsummary>Name lookup functions.</fsummary>
       <type>

@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_user_based_sm_mib.xml</file>
   </header>
-  <module>snmp_user_based_sm_mib</module>
+  <module since="">snmp_user_based_sm_mib</module>
   <modulesummary>Instrumentation Functions for SNMP-USER-BASED-SM-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_user_based_sm_mib</c> implements the instrumentation 
@@ -43,7 +43,7 @@
   </description>
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-USER-BASED-SM-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -72,7 +72,7 @@
       </desc>
     </func>
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-USER-BASED-SM-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -103,7 +103,7 @@
       </desc>
     </func>
     <func>
-      <name>add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret</name>
+      <name since="">add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret</name>
       <fsummary>Add one user</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -130,7 +130,7 @@
       </desc>
     </func>
     <func>
-      <name>delete_user(Key) -> Ret</name>
+      <name since="">delete_user(Key) -> Ret</name>
       <fsummary>Delete one user</fsummary>
       <type>
         <v>Key = term()</v>

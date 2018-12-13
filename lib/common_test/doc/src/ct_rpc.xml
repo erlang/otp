@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_rpc.xml</file>
   </header>
-  <module>ct_rpc</module>
+  <module since="">ct_rpc</module>
   <modulesummary>Common Test specific layer on Erlang/OTP rpc.</modulesummary>
 
   <description>
@@ -43,7 +43,7 @@
 
   <funcs>
     <func>
-      <name>app_node(App, Candidates) -&gt; NodeName</name>
+      <name since="">app_node(App, Candidates) -&gt; NodeName</name>
       <fsummary>From a set of candidate nodes determines which of them is
         running the application App.</fsummary>
       <type>
@@ -61,7 +61,7 @@
     </func>
 
     <func>
-      <name>app_node(App, Candidates, FailOnBadRPC) -&gt; NodeName</name>
+      <name since="">app_node(App, Candidates, FailOnBadRPC) -&gt; NodeName</name>
         <fsummary>Same as app_node/2, except that argument FailOnBadRPC
           determines if the search for a candidate node is to stop if
           badrpc is received at some point.</fsummary>
@@ -81,7 +81,7 @@
     </func>
 
     <func>
-      <name>app_node(App, Candidates, FailOnBadRPC, Cookie) -&gt; NodeName</name>
+      <name since="">app_node(App, Candidates, FailOnBadRPC, Cookie) -&gt; NodeName</name>
       <fsummary>Same as app_node/2, except that argument FailOnBadRPC
         determines if the search for a candidate node is to stop if badrpc is
         received at some point.</fsummary>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name>call(Node, Module, Function, Args) -&gt; term() | {badrpc, Reason}</name>
+      <name since="">call(Node, Module, Function, Args) -&gt; term() | {badrpc, Reason}</name>
       <fsummary>Same as call(Node, Module, Function, Args, infinity).</fsummary>
       <desc><marker id="call-4"/>
         <p>Same as <c>call(Node, Module, Function, Args, infinity)</c>.</p>
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name>call(Node, Module, Function, Args, TimeOut) -&gt; term() | {badrpc, Reason}</name>
+      <name since="">call(Node, Module, Function, Args, TimeOut) -&gt; term() | {badrpc, Reason}</name>
       <fsummary>Evaluates apply(Module, Function, Args) on the node
         Node.</fsummary>
       <type>
@@ -136,7 +136,7 @@
     </func>
 
     <func>
-      <name>call(Node, Module, Function, Args, TimeOut, Cookie) -&gt; term() | {badrpc, Reason}</name>
+      <name since="">call(Node, Module, Function, Args, TimeOut, Cookie) -&gt; term() | {badrpc, Reason}</name>
       <fsummary>Evaluates apply(Module, Function, Args) on the node
         Node.</fsummary>
       <type>
@@ -163,7 +163,7 @@
     </func>
 
     <func>
-      <name>cast(Node, Module, Function, Args) -&gt; ok</name>
+      <name since="">cast(Node, Module, Function, Args) -&gt; ok</name>
       <fsummary>Evaluates apply(Module, Function, Args) on the node
         Node.</fsummary>
       <type>
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name>cast(Node, Module, Function, Args, Cookie) -&gt; ok</name>
+      <name since="">cast(Node, Module, Function, Args, Cookie) -&gt; ok</name>
       <fsummary>Evaluates apply(Module, Function, Args) on the node
         Node.</fsummary>
       <type>

@@ -57,7 +57,7 @@ limitations under the License.
 <file>diameter_tcp.xml</file>
 </header>
 
-<module>diameter_tcp</module>
+<module since="OTP R14B03">diameter_tcp</module>
 <modulesummary>Diameter transport over TCP.</modulesummary>
 
 <description>
@@ -83,7 +83,7 @@ before configuring TLS capability on diameter transports.</p>
 <funcs>
 
 <func>
-<name>start({Type, Ref}, Svc, [Opt])
+<name since="OTP R14B03">start({Type, Ref}, Svc, [Opt])
          -> {ok, Pid}
           | {ok, Pid, [LAddr]}
           | {error, Reason}</name>

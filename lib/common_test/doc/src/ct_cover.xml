@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_cover.xml</file>
   </header>
-  <module>ct_cover</module>
+  <module since="">ct_cover</module>
   <modulesummary>Common Test framework code coverage support module.
   </modulesummary>
 
@@ -47,7 +47,7 @@
 
   <funcs>
     <func>
-    <name>add_nodes(Nodes) -&gt; {ok, StartedNodes} | {error, Reason}</name>
+    <name since="">add_nodes(Nodes) -&gt; {ok, StartedNodes} | {error, Reason}</name>
     <fsummary>Adds nodes to current cover test (only works if cover support
       is active).</fsummary>
       <type>
@@ -67,7 +67,7 @@
     </func>
 
     <func>
-    <name>cross_cover_analyse(Level, Tests) -&gt; ok</name>
+    <name since="OTP R16B">cross_cover_analyse(Level, Tests) -&gt; ok</name>
     <fsummary>Accumulates cover results over multiple tests.</fsummary>
       <type>
         <v>Level = overview | details</v>
@@ -83,7 +83,7 @@
     </func>
 
     <func>
-    <name>remove_nodes(Nodes) -&gt; ok | {error, Reason}</name>
+    <name since="">remove_nodes(Nodes) -&gt; ok | {error, Reason}</name>
     <fsummary>Removes nodes from the current cover test.</fsummary>
       <type>
         <v>Nodes = [atom()]</v>

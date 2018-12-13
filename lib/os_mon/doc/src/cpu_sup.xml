@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>cpu_sup</module>
+  <module since="">cpu_sup</module>
   <modulesummary>A CPU Load and CPU Utilization Supervisor Process</modulesummary>
   <description>
     <p><c>cpu_sup</c> is a process which supervises the CPU load
@@ -76,7 +76,7 @@
   </description>
   <funcs>
     <func>
-      <name>nprocs() -> UnixProcesses | {error, Reason}</name>
+      <name since="">nprocs() -> UnixProcesses | {error, Reason}</name>
       <fsummary>Get the number of UNIX processes running on this host</fsummary>
       <type>
         <v>UnixProcesses = int()</v>
@@ -90,7 +90,7 @@
       </desc>
     </func>
     <func>
-      <name>avg1() -> SystemLoad | {error, Reason}</name>
+      <name since="">avg1() -> SystemLoad | {error, Reason}</name>
       <fsummary>Get the system load average for the last minute</fsummary>
       <type>
         <v>SystemLoad = int()</v>
@@ -104,7 +104,7 @@
       </desc>
     </func>
     <func>
-      <name>avg5() -> SystemLoad | {error, Reason}</name>
+      <name since="">avg5() -> SystemLoad | {error, Reason}</name>
       <fsummary>Get the system load average for the last five minutes</fsummary>
       <type>
         <v>SystemLoad = int()</v>
@@ -118,7 +118,7 @@
       </desc>
     </func>
     <func>
-      <name>avg15() -> SystemLoad | {error, Reason}</name>
+      <name since="">avg15() -> SystemLoad | {error, Reason}</name>
       <fsummary>Get the system load average for the last fifteen minutes</fsummary>
       <type>
         <v>SystemLoad = int()</v>
@@ -132,7 +132,7 @@
       </desc>
     </func>
     <func>
-      <name>util() -> CpuUtil | {error, Reason}</name>
+      <name since="">util() -> CpuUtil | {error, Reason}</name>
       <fsummary>Get the CPU utilization</fsummary>
       <type>
         <v>CpuUtil = float()</v>
@@ -156,7 +156,7 @@
       </desc>
     </func>
     <func>
-      <name>util(Opts) -> UtilSpec | {error, Reason}</name>
+      <name since="">util(Opts) -> UtilSpec | {error, Reason}</name>
       <fsummary>Get the CPU utilization</fsummary>
       <type>
         <v>Opts = [detailed | per_cpu]</v>

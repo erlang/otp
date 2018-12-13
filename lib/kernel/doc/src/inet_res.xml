@@ -28,7 +28,7 @@
     <date>2009-09-11</date>
     <rev>A</rev>
   </header>
-  <module>inet_res</module>
+  <module since="">inet_res</module>
   <modulesummary>A rudimentary DNS client.</modulesummary>
   <description>
     <p>This module performs DNS name resolving to recursive name servers.</p>
@@ -185,8 +185,8 @@ inet_dns:record_type(_) -> undefined.</pre>
 
   <funcs>
     <func>
-      <name name="getbyname" arity="2"/>
-      <name name="getbyname" arity="3"/>
+      <name name="getbyname" arity="2" since=""/>
+      <name name="getbyname" arity="3" since=""/>
       <fsummary>Resolve a DNS record of the specified type for the specified
       host.</fsummary>
       <desc>
@@ -205,8 +205,8 @@ inet_dns:record_type(_) -> undefined.</pre>
     </func>
 
     <func>
-      <name name="gethostbyaddr" arity="1"/>
-      <name name="gethostbyaddr" arity="2"/>
+      <name name="gethostbyaddr" arity="1" since=""/>
+      <name name="gethostbyaddr" arity="2" since=""/>
       <fsummary>Return a hostent record for the host with the specified
         address.</fsummary>
       <desc>
@@ -217,9 +217,9 @@ inet_dns:record_type(_) -> undefined.</pre>
     </func>
 
     <func>
-      <name name="gethostbyname" arity="1"/>
-      <name name="gethostbyname" arity="2"/>
-      <name name="gethostbyname" arity="3"/>
+      <name name="gethostbyname" arity="1" since=""/>
+      <name name="gethostbyname" arity="2" since=""/>
+      <name name="gethostbyname" arity="3" since=""/>
       <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
@@ -235,9 +235,9 @@ inet_dns:record_type(_) -> undefined.</pre>
     </func>
 
     <func>
-      <name name="lookup" arity="3"/>
-      <name name="lookup" arity="4"/>
-      <name name="lookup" arity="5"/>
+      <name name="lookup" arity="3" since=""/>
+      <name name="lookup" arity="4" since=""/>
+      <name name="lookup" arity="5" since=""/>
       <fsummary>Resolve the DNS data for the record of the specified type
         and class for the specified name.</fsummary>
       <desc>
@@ -257,9 +257,9 @@ inet_dns:record_type(_) -> undefined.</pre>
     </func>
 
     <func>
-      <name name="resolve" arity="3"/>
-      <name name="resolve" arity="4"/>
-      <name name="resolve" arity="5"/>
+      <name name="resolve" arity="3" since=""/>
+      <name name="resolve" arity="4" since=""/>
+      <name name="resolve" arity="5" since=""/>
       <fsummary>Resolve a DNS record of the specified type and class
         for the specified name.</fsummary>
       <desc>
@@ -326,9 +326,9 @@ example_lookup(Name, Class, Type) ->
 
   <funcs>
     <func>
-      <name name="nslookup" arity="3"/>
-      <name name="nslookup" arity="4" clause_i="1"/>
-      <name name="nslookup" arity="4" clause_i="2"/>
+      <name name="nslookup" arity="3" since=""/>
+      <name name="nslookup" arity="4" clause_i="1" since=""/>
+      <name name="nslookup" arity="4" clause_i="2" since=""/>
       <fsummary>Resolve a DNS record of the specified type and class for the
         specified name.</fsummary>
       <type variable="Name"/>
@@ -344,8 +344,8 @@ example_lookup(Name, Class, Type) ->
     </func>
 
     <func>
-      <name name="nnslookup" arity="4"/>
-      <name name="nnslookup" arity="5"/>
+      <name name="nnslookup" arity="4" since=""/>
+      <name name="nnslookup" arity="5" since=""/>
       <fsummary>Resolve a DNS record of the specified type and class
         for the specified name.</fsummary>
       <desc>

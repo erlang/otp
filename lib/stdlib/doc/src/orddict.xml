@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>orddict.xml</file>
   </header>
-  <module>orddict</module>
+  <module since="">orddict</module>
   <modulesummary>Key-value dictionary as ordered list.</modulesummary>
   <description>
     <p>This module provides a <c>Key</c>-<c>Value</c> dictionary.
@@ -61,7 +61,7 @@
 
   <funcs>
     <func>
-      <name name="append" arity="3"/>
+      <name name="append" arity="3" since=""/>
       <fsummary>Append a value to keys in a dictionary.</fsummary>
       <desc>
         <p>Appends a new <c><anno>Value</anno></c> to the current list
@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name name="append_list" arity="3"/>
+      <name name="append_list" arity="3" since=""/>
       <fsummary>Append new values to keys in a dictionary.</fsummary>
       <desc>
         <p>Appends a list of values <c><anno>ValList</anno></c> to
@@ -85,7 +85,7 @@
     </func>
 
     <func>
-      <name name="erase" arity="2"/>
+      <name name="erase" arity="2" since=""/>
       <fsummary>Erase a key from a dictionary.</fsummary>
       <desc>
         <p>Erases all items with a specified key from a dictionary.</p>
@@ -93,7 +93,7 @@
     </func>
 
     <func>
-      <name name="fetch" arity="2"/>
+      <name name="fetch" arity="2" since=""/>
       <fsummary>Look up values in a dictionary.</fsummary>
       <desc>
         <p>Returns the value associated with <c><anno>Key</anno></c>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name name="fetch_keys" arity="1"/>
+      <name name="fetch_keys" arity="1" since=""/>
       <fsummary>Return all keys in a dictionary.</fsummary>
       <desc>
         <p>Returns a list of all keys in a dictionary.</p>
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 20.0"/>
       <fsummary>Return value and new dictionary without element with this value.</fsummary>
       <desc>
         <p>This function returns value from dictionary and new dictionary without this value.
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="filter" arity="2"/>
+      <name name="filter" arity="2" since=""/>
       <fsummary>Select elements that satisfy a predicate.</fsummary>
       <desc>
         <p><c><anno>Orddict2</anno></c> is a dictionary of all keys and values
@@ -133,7 +133,7 @@
     </func>
 
     <func>
-      <name name="find" arity="2"/>
+      <name name="find" arity="2" since=""/>
       <fsummary>Search for a key in a dictionary.</fsummary>
       <desc>
         <p>Searches for a key in a dictionary. Returns
@@ -145,7 +145,7 @@
     </func>
 
     <func>
-      <name name="fold" arity="3"/>
+      <name name="fold" arity="3" since=""/>
       <fsummary>Fold a function over a dictionary.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
@@ -157,7 +157,7 @@
     </func>
 
     <func>
-      <name name="from_list" arity="1"/>
+      <name name="from_list" arity="1" since=""/>
       <fsummary>Convert a list of pairs to a dictionary.</fsummary>
       <desc>
         <p>Converts the <c><anno>Key</anno></c>-<c><anno>Value</anno></c> list
@@ -166,7 +166,7 @@
     </func>
 
     <func>
-      <name name="is_empty" arity="1"/>
+      <name name="is_empty" arity="1" since="OTP 17.0"/>
       <fsummary>Return true if the dictionary is empty.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Orddict</anno></c> has no elements,
@@ -175,7 +175,7 @@
     </func>
 
     <func>
-      <name name="is_key" arity="2"/>
+      <name name="is_key" arity="2" since=""/>
       <fsummary>Test if a key is in a dictionary.</fsummary>
       <desc>
         <p>Tests if <c><anno>Key</anno></c> is contained in
@@ -184,7 +184,7 @@
     </func>
 
     <func>
-      <name name="map" arity="2"/>
+      <name name="map" arity="2" since=""/>
       <fsummary>Map a function over a dictionary.</fsummary>
       <desc>
         <p>Calls <c><anno>Fun</anno></c> on successive keys and values of
@@ -193,7 +193,7 @@
     </func>
 
     <func>
-      <name name="merge" arity="3"/>
+      <name name="merge" arity="3" since=""/>
       <fsummary>Merge two dictionaries.</fsummary>
       <desc>
         <p>Merges two dictionaries, <c><anno>Orddict1</anno></c> and
@@ -212,7 +212,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="new" arity="0"/>
+      <name name="new" arity="0" since=""/>
       <fsummary>Create a dictionary.</fsummary>
       <desc>
         <p>Creates a new dictionary.</p>
@@ -220,7 +220,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="size" arity="1"/>
+      <name name="size" arity="1" since=""/>
       <fsummary>Return the number of elements in an ordered dictionary.
       </fsummary>
       <desc>
@@ -229,7 +229,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="store" arity="3"/>
+      <name name="store" arity="3" since=""/>
       <fsummary>Store a value in a dictionary.</fsummary>
       <desc>
         <p>Stores a <c><anno>Key</anno></c>-<c><anno>Value</anno></c> pair in a
@@ -240,7 +240,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="to_list" arity="1"/>
+      <name name="to_list" arity="1" since=""/>
       <fsummary>Convert a dictionary to a list of pairs.</fsummary>
       <desc>
         <p>Converts a dictionary to a list representation.</p>
@@ -248,7 +248,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="update" arity="3"/>
+      <name name="update" arity="3" since=""/>
       <fsummary>Update a value in a dictionary.</fsummary>
       <desc>
         <p>Updates a value in a dictionary by calling <c><anno>Fun</anno></c>
@@ -258,7 +258,7 @@ merge(Fun, D1, D2) ->
     </func>
 
     <func>
-      <name name="update" arity="4"/>
+      <name name="update" arity="4" since=""/>
       <fsummary>Update a value in a dictionary.</fsummary>
       <desc>
         <p>Updates a value in a dictionary by calling <c><anno>Fun</anno></c>
@@ -273,7 +273,7 @@ append(Key, Val, D) ->
     </func>
 
     <func>
-      <name name="update_counter" arity="3"/>
+      <name name="update_counter" arity="3" since=""/>
       <fsummary>Increment a value in a dictionary.</fsummary>
       <desc>
         <p>Adds <c><anno>Increment</anno></c> to the value associated with
