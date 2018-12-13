@@ -2419,27 +2419,9 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    cpy_words:
 		ASSERT(sz >= cpy_sz);
 		sz -= cpy_sz;
-		while (cpy_sz >= 8) {
-		    cpy_sz -= 8;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		    *hp++ = *fhp++;
-		}
-		switch (cpy_sz) {
-		case 7: *hp++ = *fhp++;
-		case 6: *hp++ = *fhp++;
-		case 5: *hp++ = *fhp++;
-		case 4: *hp++ = *fhp++;
-		case 3: *hp++ = *fhp++;
-		case 2: *hp++ = *fhp++;
-		case 1: *hp++ = *fhp++;
-		default: break;
-		}
+                sys_memcpy(hp, fhp, cpy_sz * sizeof(Eterm));
+                hp += cpy_sz;
+                fhp += cpy_sz;
 		if (oh) {
 		    /* Add to offheap list */
 		    oh->next = off_heap->first;
