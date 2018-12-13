@@ -2122,26 +2122,13 @@ active_once_packet(Socket, Data, N) ->
     active_once_packet(Socket, Data, N-1).
 
 active_raw(Socket, Data, N) ->
-    active_raw(Socket, Data, N, []).
-
-active_raw(_Socket, _, 0, _) ->
+    active_raw(Socket, (length(Data) * N)).
+active_raw(_Socket, 0) ->
     ok;
-active_raw(Socket, Data, N, Acc) ->
+active_raw(Socket, N) ->
     receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    receive
-		{ssl, Socket, _} ->
-		    active_raw(Socket, Data, N -1)
-	    end;
-	{ssl, Socket, Data} ->
-	    active_raw(Socket, Data, N-1, []);
-	{ssl, Socket, Other} ->
-	    case Acc ++ Other of
-		Data ->
-		    active_raw(Socket, Data, N-1, []);
-		NewAcc ->
-		    active_raw(Socket, Data, NewAcc)
-	    end
+	{ssl, Socket, Bytes} ->
+            active_raw(Socket, N-length(Bytes))
     end.
 
 active_packet(Socket, _, 0) ->
