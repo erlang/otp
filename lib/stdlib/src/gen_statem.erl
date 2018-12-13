@@ -67,6 +67,14 @@
 %% Type that is exported just to be documented
 -export_type([transition_option/0]).
 
+%% Type exports for start_link & friends
+-export_type(
+   [server_name/0,
+    server_ref/0,
+    hibernate_after_opt/0,
+    start_opt/0,
+    start_ret/0]).
+
 %%%==========================================================================
 %%% Interface functions.
 %%%==========================================================================
