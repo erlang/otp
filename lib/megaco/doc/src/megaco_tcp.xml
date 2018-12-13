@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_tcp.xml</file>
   </header>
-  <module>megaco_tcp</module>
+  <module since="">megaco_tcp</module>
   <modulesummary>Interface module to TPKT transport protocol for Megaco/H.248.</modulesummary>
   <description>
     <p>This module contains the public interface to the TPKT (TCP/IP) version
@@ -40,7 +40,7 @@
   </description>
   <funcs>
     <func>
-      <name>start_transport() -> {ok, TransportRef}</name>
+      <name since="">start_transport() -> {ok, TransportRef}</name>
       <fsummary></fsummary>
       <type>
         <v>TransportRef = pid()</v>
@@ -51,7 +51,7 @@
       </desc>
     </func>
     <func>
-      <name>listen(TransportRef, ListenPortSpecList) -> ok</name>
+      <name since="">listen(TransportRef, ListenPortSpecList) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>TransportRef = pid() | regname()</v>
@@ -65,7 +65,7 @@
       </desc>
     </func>
     <func>
-      <name>connect(TransportRef, OptionList) -> {ok, Handle, ControlPid} |  {error, Reason}</name>
+      <name since="">connect(TransportRef, OptionList) -> {ok, Handle, ControlPid} |  {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>TransportRef = pid() | regname()</v>
@@ -86,7 +86,7 @@
       </desc>
     </func>
     <func>
-      <name>close(Handle) -> ok</name>
+      <name since="">close(Handle) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
@@ -96,7 +96,7 @@
       </desc>
     </func>
     <func>
-      <name>socket(Handle) -> Socket</name>
+      <name since="">socket(Handle) -> Socket</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
@@ -109,7 +109,7 @@
       </desc>
     </func>
     <func>
-      <name>send_message(Handle, Message) -> ok</name>
+      <name since="">send_message(Handle, Message) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
@@ -120,7 +120,7 @@
       </desc>
     </func>
     <func>
-      <name>block(Handle) -> ok</name>
+      <name since="">block(Handle) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
@@ -130,7 +130,7 @@
       </desc>
     </func>
     <func>
-      <name>unblock(Handle) -> ok</name>
+      <name since="">unblock(Handle) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>Handle = socket_handle()</v>
@@ -141,7 +141,7 @@
       </desc>
     </func>
     <func>
-      <name>upgrade_receive_handle(ControlPid) -> ok</name>
+      <name since="">upgrade_receive_handle(ControlPid) -> ok</name>
       <fsummary></fsummary>
       <type>
         <v>ControlPid = pid()</v>
@@ -153,9 +153,9 @@
       </desc>
     </func>
     <func>
-      <name>get_stats() -> {ok, TotalStats} | {error, Reason}</name>
-      <name>get_stats(SendHandle) -> {ok, SendHandleStats} | {error, Reason}</name>
-      <name>get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason}</name>
+      <name since="">get_stats() -> {ok, TotalStats} | {error, Reason}</name>
+      <name since="">get_stats(SendHandle) -> {ok, SendHandleStats} | {error, Reason}</name>
+      <name since="">get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason}</name>
       <fsummary></fsummary>
       <type>
         <v>TotalStats = [send_handle_stats()]</v>
@@ -173,8 +173,8 @@
       </desc>
     </func>
     <func>
-      <name>reset_stats() -> void()</name>
-      <name>reset_stats(SendHandle) -> void()</name>
+      <name since="">reset_stats() -> void()</name>
+      <name since="">reset_stats(SendHandle) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>SendHandle = send_handle()</v>

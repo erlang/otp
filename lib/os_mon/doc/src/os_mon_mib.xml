@@ -29,7 +29,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>os_mon_mib</module>
+  <module since="">os_mon_mib</module>
   <modulesummary>Loading and Unloading of OTP-OS-MON-MIB</modulesummary>
   <description>
     <p>Functions for loading and unloading the OTP-OS-MON-MIB into/from
@@ -42,7 +42,7 @@
   </description>
   <funcs>
     <func>
-      <name>load(Agent) -> ok | {error, Reason}</name>
+      <name since="">load(Agent) -> ok | {error, Reason}</name>
       <fsummary>Load the OTP-OS-MON-MIB</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -53,7 +53,7 @@
       </desc>
     </func>
     <func>
-      <name>unload(Agent) -> ok | {error, Reason}</name>
+      <name since="">unload(Agent) -> ok | {error, Reason}</name>
       <fsummary>Unload the OTP-OS-MON-MIB</fsummary>
       <type>
         <v>Agent = pid() | atom() </v>

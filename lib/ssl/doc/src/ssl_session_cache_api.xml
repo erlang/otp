@@ -28,7 +28,7 @@
     <rev></rev>
     <file>ssl_session_cache_api.xml</file>
   </header>
-  <module>ssl_session_cache_api</module>
+  <module since="OTP R14B">ssl_session_cache_api</module>
   <modulesummary>TLS session cache API</modulesummary>
 
   <description>
@@ -66,7 +66,7 @@
   <funcs>
 
     <func>
-      <name>delete(Cache, Key) -> _</name>
+      <name since="OTP R14B">delete(Cache, Key) -> _</name>
       <fsummary>Deletes a cache entry.</fsummary>
       <type>
 	<v>Cache = cache_ref()</v>
@@ -80,7 +80,7 @@
     </func>
 
     <func>
-      <name>foldl(Fun, Acc0, Cache) -> Acc</name>
+      <name since="OTP R14B">foldl(Fun, Acc0, Cache) -> Acc</name>
       <fsummary></fsummary>
       <type>
 	<v></v>
@@ -96,7 +96,7 @@
     </func>
 
     <func>
-      <name>init(Args) -> opaque() </name>
+      <name since="OTP 18.0">init(Args) -> opaque() </name>
       <fsummary>Returns cache reference.</fsummary>
       <type>
 	<v>Args = proplists:proplist()</v>
@@ -121,7 +121,7 @@
     </func>
 
     <func>
-      <name>lookup(Cache, Key) -> Entry</name>
+      <name since="OTP R14B">lookup(Cache, Key) -> Entry</name>
       <fsummary>Looks up a cache entry.</fsummary>
       <type>
 	<v>Cache = cache_ref()</v>
@@ -136,7 +136,7 @@
     </func>
 
     <func>
-      <name>select_session(Cache, PartialKey) -> [session()]</name>
+      <name since="OTP R14B">select_session(Cache, PartialKey) -> [session()]</name>
       <fsummary>Selects sessions that can be reused.</fsummary>
       <type>
 	<v>Cache = cache_ref()</v>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name>size(Cache) -> integer()</name>
+      <name since="OTP 19.3">size(Cache) -> integer()</name>
       <fsummary>Returns the number of sessions in the cache.</fsummary>
       <type>
 	<v>Cache = cache_ref()</v>
@@ -166,7 +166,7 @@
     </func>
 
     <func>
-      <name>terminate(Cache) -> _</name>
+      <name since="OTP R14B">terminate(Cache) -> _</name>
       <fsummary>Called by the process that handles the cache when it
       is about to terminate.</fsummary>
       <type>
@@ -180,7 +180,7 @@
     </func>
 
     <func>
-      <name>update(Cache, Key, Session) -> _</name>
+      <name since="OTP R14B">update(Cache, Key, Session) -> _</name>
       <fsummary>Caches a new session or updates an already cached one.</fsummary>
       <type>
 	<v>Cache = cache_ref()</v>

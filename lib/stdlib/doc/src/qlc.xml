@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>qlc.xml</file>
   </header>
-  <module>qlc</module>
+  <module since="">qlc</module>
   <modulesummary>Query interface to Mnesia, ETS, Dets, and so on.
   </modulesummary>
   <description>
@@ -720,7 +720,7 @@ ets:match_spec_run(ets:lookup(86033, {2,2}),
 
   <funcs>
     <func>
-      <name name="append" arity="1"/>
+      <name name="append" arity="1" since=""/>
       <fsummary>Return a query handle.</fsummary>
       <desc>
         <p>Returns a query handle. When evaluating query handle
@@ -731,7 +731,7 @@ ets:match_spec_run(ets:lookup(86033, {2,2}),
     </func>
 
     <func>
-      <name name="append" arity="2"/>
+      <name name="append" arity="2" since=""/>
       <fsummary>Return a query handle.</fsummary>
       <desc>
         <p>Returns a query handle. When evaluating query handle
@@ -744,8 +744,8 @@ ets:match_spec_run(ets:lookup(86033, {2,2}),
     </func>
 
     <func>
-      <name name="cursor" arity="1"/>
-      <name name="cursor" arity="2"/>
+      <name name="cursor" arity="1" since=""/>
+      <name name="cursor" arity="2" since=""/>
       <fsummary>Create a query cursor.</fsummary>
       <desc>
         <p>Creates a query cursor and
@@ -777,7 +777,7 @@ ok</pre>
     </func>
 
     <func>
-      <name name="delete_cursor" arity="1"/>
+      <name name="delete_cursor" arity="1" since=""/>
       <fsummary>Delete a query cursor.</fsummary>
       <desc>
         <p>Deletes a query cursor. Only the owner of the cursor can
@@ -786,10 +786,10 @@ ok</pre>
     </func>
 
     <func>
-      <name name="e" arity="1"/>
-      <name name="e" arity="2"/>
-      <name name="eval" arity="1"/>
-      <name name="eval" arity="2"/>
+      <name name="e" arity="1" since=""/>
+      <name name="e" arity="2" since=""/>
+      <name name="eval" arity="1" since=""/>
+      <name name="eval" arity="2" since=""/>
       <fsummary>Return all answers to a query.</fsummary>
       <desc>
         <p>Evaluates a query handle in the
@@ -805,8 +805,8 @@ ok</pre>
     </func>
 
     <func>
-      <name name="fold" arity="3"/>
-      <name name="fold" arity="4"/>
+      <name name="fold" arity="3" since=""/>
+      <name name="fold" arity="4" since=""/>
       <fsummary>Fold a function over the answers to a query.</fsummary>
       <desc>
         <p>Calls <c><anno>Function</anno></c> on successive answers to
@@ -830,7 +830,7 @@ ok</pre>
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return an English description of a an error tuple.</fsummary>
       <desc>
         <p>Returns a descriptive string in English of an error tuple
@@ -841,8 +841,8 @@ ok</pre>
     </func>
 
     <func>
-      <name name="info" arity="1"/>
-      <name name="info" arity="2"/>
+      <name name="info" arity="1" since=""/>
+      <name name="info" arity="2" since=""/>
       <fsummary>Return code describing a query handle.</fsummary>
       <desc>
         <p>Returns information about a
@@ -946,8 +946,8 @@ end</pre>
     </func>
 
     <func>
-      <name name="keysort" arity="2"/>
-      <name name="keysort" arity="3"/>
+      <name name="keysort" arity="2" since=""/>
+      <name name="keysort" arity="3" since=""/>
       <fsummary>Return a query handle.</fsummary>
       <desc>
         <p>Returns a query handle. When evaluating query handle
@@ -967,8 +967,8 @@ end</pre>
     </func>
 
     <func>
-      <name name="next_answers" arity="1"/>
-      <name name="next_answers" arity="2"/>
+      <name name="next_answers" arity="1" since=""/>
+      <name name="next_answers" arity="2" since=""/>
       <fsummary>Return some or all answers to a query.</fsummary>
       <desc>
         <p>Returns some or all of the remaining answers to a query
@@ -983,8 +983,8 @@ end</pre>
     </func>
 
     <func>
-      <name name="q" arity="1"/>
-      <name name="q" arity="2"/>
+      <name name="q" arity="1" since=""/>
+      <name name="q" arity="2" since=""/>
       <fsummary>Return a handle for a query list comprehension.</fsummary>
       <desc>
         <p>Returns a query handle for a QLC.
@@ -1188,8 +1188,8 @@ ets:match_spec_run(
     </func>
 
     <func>
-      <name name="sort" arity="1"/>
-      <name name="sort" arity="2"/>
+      <name name="sort" arity="1" since=""/>
+      <name name="sort" arity="2" since=""/>
       <fsummary>Return a query handle.</fsummary>
       <desc>
         <p>Returns a query handle. When evaluating query handle
@@ -1208,9 +1208,9 @@ ets:match_spec_run(
     </func>
 
     <func>
-      <name name="string_to_handle" arity="1"/>
-      <name name="string_to_handle" arity="2"/>
-      <name name="string_to_handle" arity="3"/>
+      <name name="string_to_handle" arity="1" since=""/>
+      <name name="string_to_handle" arity="2" since=""/>
+      <name name="string_to_handle" arity="3" since=""/>
       <fsummary>Return a handle for a query list comprehension.</fsummary>
       <desc>
         <p>A string version of <seealso marker="#q/1"><c>q/1,2</c></seealso>.
@@ -1238,7 +1238,7 @@ ets:match_spec_run(
     </func>
 
     <func>
-      <name name="table" arity="2"/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Return a query handle for a table.</fsummary>
       <desc>
         <p>Returns a query handle for a QLC table.

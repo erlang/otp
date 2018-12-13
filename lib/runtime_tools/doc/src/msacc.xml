@@ -31,7 +31,7 @@
     <rev>A</rev>
     <file>msacc.xml</file>
   </header>
-  <module>msacc</module>
+  <module since="OTP 19.0">msacc</module>
   <modulesummary>Convenience functions for microstate accounting</modulesummary>
   <description>
     <p>This module implements some convenience functions for analyzing
@@ -146,7 +146,7 @@ ok
   </datatypes>
   <funcs>
     <func>
-      <name name="available" arity="0"/>
+      <name name="available" arity="0" since="OTP 19.0"/>
       <fsummary>Check if microstate accounting is available</fsummary>
       <desc>
 	<p>This function checks whether microstate accounting
@@ -154,7 +154,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="start" arity="0"/>
+      <name name="start" arity="0" since="OTP 19.0"/>
       <fsummary>Start microstate accounting.</fsummary>
       <desc>
         <p>Start microstate accounting. Returns whether it was
@@ -162,7 +162,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="start" arity="1"/>
+      <name name="start" arity="1" since="OTP 19.0"/>
       <fsummary>Start microstate accounting for a time.</fsummary>
       <desc>
         <p>Resets all counters and then starts microstate accounting
@@ -170,7 +170,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since="OTP 19.0"/>
       <fsummary>Stop microstate accounting.</fsummary>
       <desc>
         <p>Stop microstate accounting.
@@ -178,7 +178,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="reset" arity="0"/>
+      <name name="reset" arity="0" since="OTP 19.0"/>
       <fsummary>Reset microstate accounting counters</fsummary>
       <desc>
         <p>Reset microstate accounting counters.
@@ -186,7 +186,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="print" arity="0"/>
+      <name name="print" arity="0" since="OTP 19.0"/>
       <fsummary>Print microstate statistics</fsummary>
       <desc>
         <p>
@@ -199,7 +199,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="print" arity="1"/>
+      <name name="print" arity="1" since="OTP 19.0"/>
       <fsummary>Print microstate statistics</fsummary>
       <desc>
         <p>Print the given microstate statistics values to stdout.
@@ -211,7 +211,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="print" arity="2"/>
+      <name name="print" arity="2" since="OTP 19.0"/>
       <fsummary>Print microstate statistics</fsummary>
       <desc>
         <p>Print the given microstate statistics values to standard out.
@@ -234,7 +234,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="print" arity="3"/>
+      <name name="print" arity="3" since="OTP 19.0"/>
       <fsummary>Print microstate statistics</fsummary>
       <desc>
         <p>Print the given microstate statistics values to the given file
@@ -243,7 +243,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="stats" arity="0"/>
+      <name name="stats" arity="0" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a runtime system independent version of the microstate
@@ -254,7 +254,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="stats" arity="2" clause_i="1"/>
+      <name name="stats" arity="2" clause_i="1" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the system time for the given microstate statistics values.
@@ -269,7 +269,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="stats" arity="2" clause_i="2"/>
+      <name name="stats" arity="2" clause_i="2" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns fractions of real-time or run-time spent in the various
@@ -277,7 +277,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="stats" arity="2" clause_i="3"/>
+      <name name="stats" arity="2" clause_i="3" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a list of microstate statistics values where the values
@@ -285,7 +285,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="to_file" arity="1"/>
+      <name name="to_file" arity="1" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Dumps the current microstate statistics counters to a file that can
@@ -294,7 +294,7 @@ ok
       </desc>
     </func>
     <func>
-      <name name="from_file" arity="1"/>
+      <name name="from_file" arity="1" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Read a file dump produced by <seealso marker="#to_file/1">

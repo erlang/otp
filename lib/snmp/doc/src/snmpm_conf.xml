@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpm_conf.xml</file>
   </header>
-  <module>snmpm_conf</module>
+  <module since="">snmpm_conf</module>
   <modulesummary>Utility functions for handling the manager config files.</modulesummary>
   <description>
     <p>The module <c>snmpm_conf</c> contains various utility functions to 
@@ -42,7 +42,7 @@
   </description>
   <funcs>
     <func>
-      <name>manager_entry(Tag, Val) -> manager_entry()</name>
+      <name since="">manager_entry(Tag, Val) -> manager_entry()</name>
       <fsummary>Create an manager entry</fsummary>
       <type>
         <v>Tag = address | port | engine_id | max_message_size</v>
@@ -60,8 +60,8 @@
       </desc>
     </func>
     <func>
-      <name>write_manager_config(Dir, Conf) -> ok</name>
-      <name>write_manager_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_manager_config(Dir, Conf) -> ok</name>
+      <name since="">write_manager_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the manager config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -81,7 +81,7 @@
       </desc>
     </func>
     <func>
-      <name>append_manager_config(Dir, Conf) -> ok</name>
+      <name since="">append_manager_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -98,7 +98,7 @@
       </desc>
     </func>
     <func>
-      <name>read_manager_config(Dir) -> Conf</name>
+      <name since="">read_manager_config(Dir) -> Conf</name>
       <fsummary>Read the manager config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -115,9 +115,9 @@
       </desc>
     </func>
     <func>
-      <name>users_entry(UserId) -> users_entry()</name>
-      <name>users_entry(UserId, UserMod) -> users_entry()</name>
-      <name>users_entry(UserId, UserMod, UserData) -> users_entry()</name>
+      <name since="">users_entry(UserId) -> users_entry()</name>
+      <name since="">users_entry(UserId, UserMod) -> users_entry()</name>
+      <name since="">users_entry(UserId, UserMod, UserData) -> users_entry()</name>
       <fsummary>Create an users entry</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -139,8 +139,8 @@
       </desc>
     </func>
     <func>
-      <name>write_users_config(Dir, Conf) -> ok</name>
-      <name>write_users_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_users_config(Dir, Conf) -> ok</name>
+      <name since="">write_users_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the manager users config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -161,7 +161,7 @@
       </desc>
     </func>
     <func>
-      <name>append_users_config(Dir, Conf) -> ok</name>
+      <name since="">append_users_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager users config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -179,7 +179,7 @@
       </desc>
     </func>
     <func>
-      <name>read_users_config(Dir) -> Conf</name>
+      <name since="">read_users_config(Dir) -> Conf</name>
       <fsummary>Read the manager users config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -196,7 +196,7 @@
       </desc>
     </func>
     <func>
-      <name>agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
+      <name since="">agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
       <fsummary>Create an agents entry</fsummary>
       <type>
         <v>UserId = term()</v>
@@ -223,8 +223,8 @@
       </desc>
     </func>
     <func>
-      <name>write_agents_config(Dir, Conf) -> ok</name>
-      <name>write_agents_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_agents_config(Dir, Conf) -> ok</name>
+      <name since="">write_agents_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the manager agents to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -245,7 +245,7 @@
       </desc>
     </func>
     <func>
-      <name>append_agents_config(Dir, Conf) -> ok</name>
+      <name since="">append_agents_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager agents to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -263,7 +263,7 @@
       </desc>
     </func>
     <func>
-      <name>read_agents_config(Dir) -> Conf</name>
+      <name since="">read_agents_config(Dir) -> Conf</name>
       <fsummary>Read the manager agents config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -280,8 +280,8 @@
       </desc>
     </func>
     <func>
-      <name>usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
-      <name>usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
+      <name since="">usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
+      <name since="">usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
       <fsummary>Create an usm entry</fsummary>
       <type>
         <v>EngineID = string()</v>
@@ -303,8 +303,8 @@
       </desc>
     </func>
     <func>
-      <name>write_usm_config(Dir, Conf) -> ok</name>
-      <name>write_usm_config(Dir, Hdr, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Conf) -> ok</name>
+      <name since="">write_usm_config(Dir, Hdr, Conf) -> ok</name>
       <fsummary>Write the manager usm config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -325,7 +325,7 @@
       </desc>
     </func>
     <func>
-      <name>append_usm_config(Dir, Conf) -> ok</name>
+      <name since="">append_usm_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager usm  config to the config file</fsummary>
       <type>
         <v>Dir = string()</v>
@@ -343,7 +343,7 @@
       </desc>
     </func>
     <func>
-      <name>read_usm_config(Dir) -> Conf</name>
+      <name since="">read_usm_config(Dir) -> Conf</name>
       <fsummary>Read the manager usm config from the config file</fsummary>
       <type>
         <v>Dir = string()</v>

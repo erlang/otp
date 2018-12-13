@@ -43,7 +43,7 @@ limitations under the License.
 <file>diameter_transport.xml</file>
 </header>
 
-<module>diameter_transport</module>
+<module since="OTP R14B03">diameter_transport</module>
 <modulesummary>Diameter transport interface.</modulesummary>
 
 <description>
@@ -94,7 +94,7 @@ and has the binary() to send in its <c>bin</c> field.</p>
 <funcs>
 
 <func>
-<name>Mod:start({Type, Ref}, Svc, Config)
+<name since="OTP R14B03">Mod:start({Type, Ref}, Svc, Config)
          -> {ok, Pid}
           | {ok, Pid, LAddrs}
           | {error, Reason}</name>

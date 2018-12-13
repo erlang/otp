@@ -44,7 +44,7 @@ limitations under the License.
 
 </header>
 
-<module>diameter_app</module>
+<module since="OTP R14B03">diameter_app</module>
 <modulesummary>
 Callback module of a Diameter application.</modulesummary>
 
@@ -180,7 +180,7 @@ process.</p>
 <funcs>
 
 <func>
-<name>Mod:peer_up(SvcName, Peer, State) -> NewState</name>
+<name since="OTP R14B03">Mod:peer_up(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been established</fsummary>
 <type>
 <v>SvcName = &mod_service_name;</v>
@@ -215,7 +215,7 @@ handled independently of &peer_up; and &peer_down;.</p>
 </func>
 
 <func>
-<name>Mod:peer_down(SvcName, Peer, State) -> NewState</name>
+<name since="OTP R14B03">Mod:peer_down(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been lost.</fsummary>
 <type>
 <v>SvcName = &mod_service_name;</v>
@@ -234,7 +234,7 @@ candidate in &pick_peer; callbacks.</p>
 </func>
 
 <func>
-<name>Mod:pick_peer(LocalCandidates, RemoteCandidates, SvcName, State)
+<name since="OTP R14B03">Mod:pick_peer(LocalCandidates, RemoteCandidates, SvcName, State)
       -> Selection | false</name>
 <fsummary>Select a target peer for an outgoing request.</fsummary>
 <type>
@@ -311,7 +311,7 @@ or &peer_down; callback.</p>
 </func>
 
 <func>
-<name>Mod:prepare_request(Packet, SvcName, Peer) -> Action</name>
+<name since="OTP R14B03">Mod:prepare_request(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Return a request for encoding and transport.</fsummary>
 <type>
 <v>Packet = &packet;</v>
@@ -363,7 +363,7 @@ discarded}</c>.</p>
 </func>
 
 <func>
-<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Action</name>
+<name since="OTP R14B03">Mod:prepare_retransmit(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Return a request for encoding and retransmission.</fsummary>
 <type>
 <v>Packet  = &packet;</v>
@@ -393,7 +393,7 @@ discarded}</c>.</p>
 </func>
 
 <func>
-<name>Mod:handle_answer(Packet, Request, SvcName, Peer) -> Result</name>
+<name since="OTP R14B03">Mod:handle_answer(Packet, Request, SvcName, Peer) -> Result</name>
 <fsummary>Receive an answer message from a peer.</fsummary>
 <type>
 <v>Packet  = &packet;</v>
@@ -437,7 +437,7 @@ The &mod_application_opt;
 </func>
 
 <func>
-<name>Mod:handle_error(Reason, Request, SvcName, Peer) -> Result</name>
+<name since="OTP R14B03">Mod:handle_error(Reason, Request, SvcName, Peer) -> Result</name>
 <fsummary>Return an error from a outgoing request.</fsummary>
 <type>
 <v>Reason  = timeout | failover | term()</v>
@@ -465,7 +465,7 @@ not selected.</p>
 </func>
 
 <func>
-<name>Mod:handle_request(Packet, SvcName, Peer) -> Action</name>
+<name since="OTP R14B03">Mod:handle_request(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Receive an incoming request.</fsummary>
 <type>
 <v>Packet  = &packet;</v>

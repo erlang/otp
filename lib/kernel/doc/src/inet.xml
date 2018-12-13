@@ -28,7 +28,7 @@
     <date>1998-02-04</date>
     <rev>A</rev>
   </header>
-  <module>inet</module>
+  <module since="">inet</module>
   <modulesummary>Access to TCP/IP protocols.</modulesummary>
   <description>
     <p>This module provides access to TCP/IP protocols.</p>
@@ -298,7 +298,7 @@ fe80::204:acff:fe17:bf38
 
   <funcs>
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a socket of any type.</fsummary>
       <desc>
         <p>Closes a socket of any type.</p>
@@ -306,7 +306,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="format_error" arity="1"/>
+      <name name="format_error" arity="1" since=""/>
       <fsummary>Return a descriptive string for an error reason.</fsummary>
       <desc>
         <p>Returns a diagnostic error string. For possible POSIX values and
@@ -316,7 +316,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="get_rc" arity="0"/>
+      <name name="get_rc" arity="0" since=""/>
       <fsummary>Return a list of IP configuration parameters.</fsummary>
       <desc>
         <p>
@@ -335,7 +335,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getaddr" arity="2"/>
+      <name name="getaddr" arity="2" since=""/>
       <fsummary>Return the IP address for a host.</fsummary>
       <desc>
         <p>Returns the IP address for <c><anno>Host</anno></c> as a tuple of
@@ -345,7 +345,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getaddrs" arity="2"/>
+      <name name="getaddrs" arity="2" since=""/>
       <fsummary>Return the IP addresses for a host.</fsummary>
       <desc>
         <p>Returns a list of all IP addresses for <c><anno>Host</anno></c>.
@@ -355,7 +355,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyaddr" arity="1"/>
+      <name name="gethostbyaddr" arity="1" since=""/>
       <fsummary>Return a hostent record for the host with the specified
         address.</fsummary>
       <desc>
@@ -364,7 +364,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyname" arity="1"/>
+      <name name="gethostbyname" arity="1" since=""/>
       <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
@@ -376,7 +376,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostbyname" arity="2"/>
+      <name name="gethostbyname" arity="2" since=""/>
       <fsummary>Return a hostent record for the host with the specified name.
       </fsummary>
       <desc>
@@ -386,7 +386,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="gethostname" arity="0"/>
+      <name name="gethostname" arity="0" since=""/>
       <fsummary>Return the local hostname.</fsummary>
       <desc>
         <p>Returns the local hostname. Never fails.</p>
@@ -394,7 +394,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getifaddrs" arity="0"/>
+      <name name="getifaddrs" arity="0" since="OTP R14B01"/>
       <fsummary>Return a list of interfaces and their addresses.</fsummary>
       <desc>
         <p>
@@ -416,7 +416,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name>getifaddrs(Opts) ->
+      <name since="OTP 21.2">getifaddrs(Opts) ->
         {ok, [{Ifname, Ifopts}]} | {error, Posix}
       </name>
       <fsummary>Return a list of interfaces and their addresses.</fsummary>
@@ -459,7 +459,7 @@ fe80::204:acff:fe17:bf38
     </func>
 
     <func>
-      <name name="getopts" arity="2"/>
+      <name name="getopts" arity="2" since=""/>
       <fsummary>Get one or more options for a socket.</fsummary>
       <desc>
         <p>Gets one or more options for a socket. For a list of available
@@ -529,8 +529,8 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="getstat" arity="1"/>
-      <name name="getstat" arity="2"/>
+      <name name="getstat" arity="1" since=""/>
+      <name name="getstat" arity="2" since=""/>
       <fsummary>Get one or more statistic options for a socket.</fsummary>
       <type name="stat_option"/>
       <desc>
@@ -586,9 +586,9 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="i" arity="0" />
-      <name name="i" arity="1" />
-      <name name="i" arity="2" />
+      <name name="i" arity="0"  since="OTP 21.0"/>
+      <name name="i" arity="1"  since="OTP 21.0"/>
+      <name name="i" arity="2"  since="OTP 21.0"/>
       <fsummary>Displays information and statistics about sockets on the terminal</fsummary>
       <desc>
         <p>
@@ -641,7 +641,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="ntoa" arity="1" />
+      <name name="ntoa" arity="1"  since="OTP R16B02"/>
       <fsummary>Convert IPv6/IPV4 address to ASCII.</fsummary>
       <desc>
 	<p>Parses an
@@ -651,7 +651,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_address" arity="1" />
+      <name name="parse_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 or IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
@@ -662,7 +662,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv4_address" arity="1" />
+      <name name="parse_ipv4_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 address.</fsummary>
       <desc>
 	<p>Parses an IPv4 address string and returns an
@@ -672,7 +672,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv4strict_address" arity="1" />
+      <name name="parse_ipv4strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv4 address string containing four fields, that is,
@@ -683,7 +683,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv6_address" arity="1" />
+      <name name="parse_ipv6_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv6 address.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
@@ -694,7 +694,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_ipv6strict_address" arity="1" />
+      <name name="parse_ipv6strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv6 address string and returns an
@@ -704,7 +704,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="ipv4_mapped_ipv6_address" arity="1" />
+      <name name="ipv4_mapped_ipv6_address" arity="1"  since="OTP 21.0"/>
       <fsummary>Convert to and from IPv4-mapped IPv6 address.</fsummary>
       <desc>
 	<p>
@@ -717,7 +717,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="parse_strict_address" arity="1" />
+      <name name="parse_strict_address" arity="1"  since="OTP R16B"/>
       <fsummary>Parse an IPv4 or IPv6 address strict.</fsummary>
       <desc>
 	<p>Parses an IPv4 or IPv6 address string and returns an
@@ -728,7 +728,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peername" arity="1"/>
+      <name name="peername" arity="1" since=""/>
       <fsummary>Return the address and port for the other end of a connection.
       </fsummary>
       <desc>
@@ -741,7 +741,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peernames" arity="1"/>
+      <name name="peernames" arity="1" since="OTP R16B03"/>
       <fsummary>Return all address/port numbers for the other end of a
         connection.</fsummary>
       <desc>
@@ -755,7 +755,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="peernames" arity="2"/>
+      <name name="peernames" arity="2" since="OTP R16B03"/>
       <fsummary>Return all address/port numbers for the other end of a
         connection.</fsummary>
       <desc>
@@ -774,7 +774,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="port" arity="1"/>
+      <name name="port" arity="1" since=""/>
       <fsummary>Return the local port number for a socket.</fsummary>
       <desc>
         <p>Returns the local port number for a socket.</p>
@@ -782,7 +782,7 @@ get_tcpi_sacked(Sock) ->
     </func>
 
     <func>
-      <name name="setopts" arity="2"/>
+      <name name="setopts" arity="2" since=""/>
       <fsummary>Set one or more options for a socket.</fsummary>
       <desc>
         <p>Sets one or more options for a socket.</p>
@@ -1486,7 +1486,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="sockname" arity="1"/>
+      <name name="sockname" arity="1" since=""/>
       <fsummary>Return the local address and port number for a socket.
       </fsummary>
       <desc>
@@ -1499,7 +1499,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="socknames" arity="1"/>
+      <name name="socknames" arity="1" since="OTP R16B03"/>
       <fsummary>Return all local address/port numbers for a socket.</fsummary>
       <desc>
 	<p>Equivalent to
@@ -1509,7 +1509,7 @@ inet:setopts(Sock,[{raw,6,8,<<30:32/native>>}]),]]></code>
     </func>
 
     <func>
-      <name name="socknames" arity="2"/>
+      <name name="socknames" arity="2" since="OTP R16B03"/>
       <fsummary>Return all local address/port numbers for a socket.</fsummary>
       <desc>
 	<p>Returns a list of all local address/port number pairs for a socket

@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_codec_transform.xml</file>
   </header>
-  <module>megaco_codec_transform</module>
+  <module since="">megaco_codec_transform</module>
   <modulesummary>Megaco message transformation utility.</modulesummary>
 
   <description>
@@ -45,8 +45,8 @@
 
   <funcs>
     <func>
-      <name>export_messages() -> void()</name>
-      <name>export_messages(MessagePackage) -> void()</name>
+      <name since="">export_messages() -> void()</name>
+      <name since="">export_messages(MessagePackage) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = atom()</v>

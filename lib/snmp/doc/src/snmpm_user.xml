@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpm_user.xml</file>
   </header>
-  <module>snmpm_user</module>
+  <module since="">snmpm_user</module>
   <modulesummary>Behaviour module for the SNMP manager user.</modulesummary>
   <description>
     <p>This module defines the behaviour of the manager user. 
@@ -93,7 +93,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 
   <funcs>
     <func>
-      <name>handle_error(ReqId, Reason, UserData) -> void()</name>
+      <name since="">handle_error(ReqId, Reason, UserData) -> void()</name>
       <fsummary>Handle error</fsummary>
       <type>
         <v>ReqId = integer()</v>
@@ -122,7 +122,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -> Reply</name>
+      <name since="">handle_agent(Domain, Addr, Type, SnmpInfo, UserData) -> Reply</name>
       <fsummary>Handle agent</fsummary>
       <type>
         <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
@@ -181,7 +181,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) -> void()</name>
+      <name since="">handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) -> void()</name>
       <fsummary>Handle the reply to an asynchronous request</fsummary>
       <type>
         <v>TargetName = target_name()</v>
@@ -202,7 +202,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_trap(TargetName, SnmpTrapInfo, UserData) -> Reply</name>
+      <name since="">handle_trap(TargetName, SnmpTrapInfo, UserData) -> Reply</name>
       <fsummary>Handle a trap/notification message</fsummary>
       <type>
         <v>TargetName = TargetName2 = target_name()</v>
@@ -225,7 +225,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_inform(TargetName, SnmpInformInfo, UserData) -> Reply</name>
+      <name since="">handle_inform(TargetName, SnmpInformInfo, UserData) -> Reply</name>
       <fsummary>Handle a inform message</fsummary>
       <type>
         <v>TargetName = TargetName2 = target_name()</v>
@@ -253,7 +253,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_report(TargetName, SnmpReportInfo, UserData) -> Reply</name>
+      <name since="">handle_report(TargetName, SnmpReportInfo, UserData) -> Reply</name>
       <fsummary>Handle a report message</fsummary>
       <type>
         <v>TargetName = TargetName2 = target_name()</v>
@@ -278,7 +278,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
     </func>
 
     <func>
-      <name>handle_invalid_result(IN, OUT) -> void()</name>
+      <name since="OTP R16B03">handle_invalid_result(IN, OUT) -> void()</name>
       <fsummary>Handle a report message</fsummary>
       <type>
         <v>IN = {Func, Args}</v>

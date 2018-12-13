@@ -25,7 +25,7 @@
     <title>httpd_custom_api</title>
     <file>httpd_custom_api.xml</file>
   </header>
-  <module>httpd_custom_api</module>
+  <module since="OTP 17.5.6">httpd_custom_api</module>
   <modulesummary>Behaviour with optional callbacks to customize the inets HTTP server.</modulesummary>
   <description>
     <p> The module implementing this behaviour shall be supplied to to the servers
@@ -34,7 +34,7 @@
   </description>  
   <funcs>
      <func>
-      <name>response_default_headers() -> [Header] </name>
+      <name since="OTP 18.1.1">response_default_headers() -> [Header] </name>
       <fsummary>Provide default headers for the HTTP servers responses.</fsummary>
       <type>
         <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
@@ -48,7 +48,7 @@
     </func>
     
     <func>
-      <name>response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
+      <name since="OTP 17.5.6">response_header({HeaderName, HeaderValue}) ->  {true, Header} | false </name>
       <fsummary>Filter and possible alter HTTP response headers.</fsummary>
       <type>
         <v>Header = {HeaderName :: string(), HeaderValue::string()}</v>
@@ -61,7 +61,7 @@
     </func>
    
     <func>
-      <name>request_header({HeaderName, HeaderValue}) ->   {true, Header} | false </name>
+      <name since="OTP 17.5.6">request_header({HeaderName, HeaderValue}) ->   {true, Header} | false </name>
       <fsummary>Filter and possible alter HTTP request headers.</fsummary>
       <type>
 	<v>Header = {HeaderName :: string(), HeaderValue::string()}</v>

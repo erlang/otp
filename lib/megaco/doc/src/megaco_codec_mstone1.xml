@@ -32,7 +32,7 @@
     <rev>%VSN%</rev>
     <file>megaco_codec_mstone1.xml</file>
   </header>
-  <module>megaco_codec_mstone1</module>
+  <module since="">megaco_codec_mstone1</module>
   <modulesummary>This module implements a simple megaco codec-based performance tool.</modulesummary>
   <description>
     <p>This module implements the <em>mstone1</em> tool, 
@@ -44,9 +44,9 @@
 
   <funcs>
     <func>
-      <name>start() -> void()</name>
-      <name>start(MessagePackage) -> void()</name>
-      <name>start(MessagePackage, Factor) -> void()</name>
+      <name since="">start() -> void()</name>
+      <name since="">start(MessagePackage) -> void()</name>
+      <name since="">start(MessagePackage, Factor) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = message_package()</v>
@@ -63,9 +63,9 @@
     </func>
 
     <func>
-      <name>start_flex() -> void()</name>
-      <name>start_flex(MessagePackage) -> void()</name>
-      <name>start_flex(MessagePackage, Factor) -> void()</name>
+      <name since="">start_flex() -> void()</name>
+      <name since="">start_flex(MessagePackage) -> void()</name>
+      <name since="">start_flex(MessagePackage, Factor) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = message_package()</v>
@@ -83,9 +83,9 @@
     </func>
 
     <func>
-      <name>start_only_drv() -> void()</name>
-      <name>start_only_drv(MessagePackage) -> void()</name>
-      <name>start_only_drv(MessagePackage, Factor) -> void()</name>
+      <name since="">start_only_drv() -> void()</name>
+      <name since="">start_only_drv(MessagePackage) -> void()</name>
+      <name since="">start_only_drv(MessagePackage, Factor) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = message_package()</v>
@@ -105,9 +105,9 @@
     </func>
 
     <func>
-      <name>start_no_drv() -> void()</name>
-      <name>start_no_drv(MessagePackage) -> void()</name>
-      <name>start_no_drv(MessagePackage, Factor) -> void()</name>
+      <name since="">start_no_drv() -> void()</name>
+      <name since="">start_no_drv(MessagePackage) -> void()</name>
+      <name since="">start_no_drv(MessagePackage, Factor) -> void()</name>
       <fsummary></fsummary>
       <type>
         <v>MessagePackage = message_package()</v>

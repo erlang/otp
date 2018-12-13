@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmpa_discovery_handler.xml</file>
   </header>
-  <module>snmpa_discovery_handler</module>
+  <module since="">snmpa_discovery_handler</module>
   <modulesummary>Behaviour module for the SNMP agent discovery handler.</modulesummary>
   <description>
     <p>This module defines the behaviour of the agent discovery
@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name>stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
+      <name since="">stage1_finish(TargetName, ManagerEngineID, ExtraInfo) -> ignore | {ok, usm_entry() | [usm_entry()]} | {ok, usm_entry() | [usm_entry()], NewExtraInfo}</name>
       <fsummary>Discovery stage 1 finish</fsummary>
       <type>
         <v>TargetName = string()</v>

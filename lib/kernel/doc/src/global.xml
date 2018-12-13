@@ -28,7 +28,7 @@
     <date>1997-11-17</date>
     <rev></rev>
   </header>
-  <module>global</module>
+  <module since="">global</module>
   <modulesummary>A global name registration facility.</modulesummary>
   <description>
     <p>This module consists of the following services:</p>
@@ -100,8 +100,8 @@
 
   <funcs>
     <func>
-      <name name="del_lock" arity="1"/>
-      <name name="del_lock" arity="2"/>
+      <name name="del_lock" arity="1" since=""/>
+      <name name="del_lock" arity="2" since=""/>
       <fsummary>Delete a lock.</fsummary>
       <desc>
         <p>Deletes the lock <c><anno>Id</anno></c> synchronously.</p>
@@ -109,7 +109,7 @@
     </func>
 
     <func>
-      <name name="notify_all_name" arity="3"/>
+      <name name="notify_all_name" arity="3" since=""/>
       <fsummary>Name resolving function that notifies both pids.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
@@ -123,7 +123,7 @@
     </func>
 
     <func>
-      <name name="random_exit_name" arity="3"/>
+      <name name="random_exit_name" arity="3" since=""/>
       <fsummary>Name resolving function that kills one pid.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
@@ -136,7 +136,7 @@
     </func>
 
     <func>
-      <name name="random_notify_name" arity="3"/>
+      <name name="random_notify_name" arity="3" since=""/>
       <fsummary>Name resolving function that notifies one pid.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
@@ -150,8 +150,8 @@
     </func>
 
     <func>
-      <name name="re_register_name" arity="2"/>
-      <name name="re_register_name" arity="3"/>
+      <name name="re_register_name" arity="2" since=""/>
+      <name name="re_register_name" arity="3" since=""/>
       <fsummary>Atomically re-register a name.</fsummary>
       <type name="method"/>
       <type_desc name="method">{<c>Module</c>, <c>Function</c>}
@@ -167,8 +167,8 @@
     </func>
 
     <func>
-      <name name="register_name" arity="2"/>
-      <name name="register_name" arity="3"/>
+      <name name="register_name" arity="2" since=""/>
+      <name name="register_name" arity="3" since=""/>
       <fsummary>Globally register a name for a pid.</fsummary>
       <type name="method"/>
       <type_desc name="method">{<c>Module</c>, <c>Function</c>} is also
@@ -221,7 +221,7 @@
     </func>
 
     <func>
-      <name name="registered_names" arity="0"/>
+      <name name="registered_names" arity="0" since=""/>
       <fsummary>All globally registered names.</fsummary>
       <desc>
         <p>Returns a list of all globally registered names.</p>
@@ -229,7 +229,7 @@
     </func>
 
     <func>
-      <name name="send" arity="2"/>
+      <name name="send" arity="2" since=""/>
       <fsummary>Send a message to a globally registered pid.</fsummary>
       <desc>
         <p>Sends message <c><anno>Msg</anno></c> to the pid globally registered
@@ -241,9 +241,9 @@
     </func>
 
     <func>
-      <name name="set_lock" arity="1"/>
-      <name name="set_lock" arity="2"/>
-      <name name="set_lock" arity="3"/>
+      <name name="set_lock" arity="1" since=""/>
+      <name name="set_lock" arity="2" since=""/>
+      <name name="set_lock" arity="3" since=""/>
       <fsummary>Set a lock on the specified nodes.</fsummary>
       <type name="id"/>
       <type name="retries"/>
@@ -287,7 +287,7 @@
     </func>
 
     <func>
-      <name name="sync" arity="0"/>
+      <name name="sync" arity="0" since=""/>
       <fsummary>Synchronize the global name server.</fsummary>
       <desc>
         <p>Synchronizes the global name server with all nodes known to
@@ -302,9 +302,9 @@
     </func>
 
     <func>
-      <name name="trans" arity="2"/>
-      <name name="trans" arity="3"/>
-      <name name="trans" arity="4"/>
+      <name name="trans" arity="2" since=""/>
+      <name name="trans" arity="3" since=""/>
+      <name name="trans" arity="4" since=""/>
       <fsummary>Micro transaction facility.</fsummary>
       <type name="retries"/>
       <type name="trans_fun"/>
@@ -322,7 +322,7 @@
     </func>
 
     <func>
-      <name name="unregister_name" arity="1"/>
+      <name name="unregister_name" arity="1" since=""/>
       <fsummary>Remove a globally registered name for a pid.</fsummary>
       <desc>
         <p>Removes the globally registered name <c><anno>Name</anno></c> from
@@ -331,7 +331,7 @@
     </func>
 
     <func>
-      <name name="whereis_name" arity="1"/>
+      <name name="whereis_name" arity="1" since=""/>
       <fsummary>Get the pid with a specified globally registered name.</fsummary>
       <desc>
         <p>Returns the pid with the globally registered name

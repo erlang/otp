@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>pool</module>
+  <module since="">pool</module>
   <modulesummary>Load distribution facility.</modulesummary>
   <description>
     <p>This module can be used to run a set of Erlang nodes as a pool
@@ -54,7 +54,7 @@
 
   <funcs>
     <func>
-      <name name="attach" arity="1"/>
+      <name name="attach" arity="1" since=""/>
       <fsummary>Ensure that a pool master is running.</fsummary>
       <desc>
         <p>Ensures that a pool master is running and includes
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name name="get_node" arity="0"/>
+      <name name="get_node" arity="0" since=""/>
       <fsummary>Return the node with the expected lowest future load.</fsummary>
       <desc>
         <p>Returns the node with the expected lowest future load.</p>
@@ -71,7 +71,7 @@
     </func>
 
     <func>
-      <name name="get_nodes" arity="0"/>
+      <name name="get_nodes" arity="0" since=""/>
       <fsummary>Return a list of the current member nodes of the pool.
       </fsummary>
       <desc>
@@ -80,7 +80,7 @@
     </func>
 
     <func>
-      <name name="pspawn" arity="3"/>
+      <name name="pspawn" arity="3" since=""/>
       <fsummary>Spawn a process on the pool node with expected lowest future
         load.</fsummary>
       <desc>
@@ -90,7 +90,7 @@
     </func>
 
     <func>
-      <name name="pspawn_link" arity="3"/>
+      <name name="pspawn_link" arity="3" since=""/>
       <fsummary>Spawn and link to a process on the pool node with expected
         lowest future load.</fsummary>
       <desc>
@@ -100,8 +100,8 @@
     </func>
 
     <func>
-      <name name="start" arity="1"/>
-      <name name="start" arity="2"/>
+      <name name="start" arity="1" since=""/>
+      <name name="start" arity="2" since=""/>
       <fsummary>>Start a new pool.</fsummary>
       <desc>
         <p>Starts a new pool. The file <c>.hosts.erlang</c> is read to
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Stop the pool and kill all the slave nodes.</fsummary>
       <desc>
         <p>Stops the pool and kills all the slave nodes.</p>

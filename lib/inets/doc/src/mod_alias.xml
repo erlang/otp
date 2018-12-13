@@ -29,7 +29,7 @@
     <rev>2.2</rev>
     <file>mod_alias.sgml</file>
   </header>
-  <module>mod_alias</module>
+  <module since="">mod_alias</module>
   <modulesummary>URL aliasing.</modulesummary>
   <description>
     <p>Erlang web server internal API for handling of, for example,
@@ -40,7 +40,7 @@
 
   <funcs>
     <func>
-      <name>default_index(ConfigDB, Path) -> NewPath</name>
+      <name since="">default_index(ConfigDB, Path) -> NewPath</name>
       <fsummary>Returns a new path with the default resource or file appended.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
@@ -64,7 +64,7 @@
     </func>
 
     <func>
-      <name>path(PathData, ConfigDB, RequestURI) -> Path</name>
+      <name since="">path(PathData, ConfigDB, RequestURI) -> Path</name>
       <fsummary>Returns the file path to a URL.</fsummary>
       <type>
         <v>PathData = interaction_data()</v>
@@ -89,7 +89,7 @@
     </func>
 
     <func>
-      <name>real_name(ConfigDB, RequestURI, Aliases) -> Ret</name>
+      <name since="">real_name(ConfigDB, RequestURI, Aliases) -> Ret</name>
       <fsummary>Expands a request URI using <c>Aliases</c> config directives.</fsummary>
       <type>
         <v>ConfigDB = config_db()</v>
@@ -120,7 +120,7 @@
     </func>
 
     <func>
-      <name>real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret</name>
+      <name since="">real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret</name>
       <fsummary>Expands a request URI using <c>ScriptAliases</c> 
       config directives.</fsummary>
       <type>

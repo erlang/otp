@@ -28,7 +28,7 @@
     <date>2007-10-06</date>
     <rev></rev>
   </header>
-  <module>ssh</module>
+  <module since="">ssh</module>
   <modulesummary>Main API of the ssh application</modulesummary>
   <description>
     <p>This is the interface module for the <c>SSH</c> application.
@@ -1059,17 +1059,17 @@
 
 <!-- CLOSE/1 -->
    <func>
-     <name name="close" arity="1"/>
+     <name name="close" arity="1" since=""/>
       <fsummary>Closes an SSH connection.</fsummary>
       <desc><p>Closes an SSH connection.</p></desc>
     </func>
     
 <!-- CONNECT/2 etc -->
    <func>
-     <name>connect(Host, Port, Options) -> Result </name>
-     <name>connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
-     <name>connect(TcpSocket, Options) -> Result</name>
-     <name>connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
+     <name since="">connect(Host, Port, Options) -> Result </name>
+     <name since="">connect(Host, Port, Options, NegotiationTimeout) -> Result </name>
+     <name since="OTP 19.0">connect(TcpSocket, Options) -> Result</name>
+     <name since="">connect(TcpSocket, Options, NegotiationTimeout) -> Result</name>
      <fsummary>Connects to an SSH server.</fsummary>
      <type>
        <v>Host = <seealso marker="#type-host">host()</seealso></v>
@@ -1098,7 +1098,7 @@
 
 <!-- CONNECTION_INFO/1, CONNECTION_INFO/2 -->
    <func>
-     <name name="connection_info" arity="2"/>
+     <name name="connection_info" arity="2" since=""/>
      <fsummary>Retrieves information about a connection.</fsummary>
      <desc>
        <p>Retrieves information about a connection. The list <c>Keys</c> defines which information that
@@ -1108,9 +1108,9 @@
 
 <!-- DEAMON/1,2,3 -->
    <func>
-     <name>daemon(Port | TcpSocket) -> Result</name>
-     <name>daemon(Port | TcpSocket, Options) -> Result</name>
-     <name>daemon(HostAddress, Port, Options) -> Result</name>
+     <name since="">daemon(Port | TcpSocket) -> Result</name>
+     <name since="">daemon(Port | TcpSocket, Options) -> Result</name>
+     <name since="">daemon(HostAddress, Port, Options) -> Result</name>
      <fsummary>Starts a server listening for SSH connections.</fsummary>
      <type>
        <v>Port = integer()</v>
@@ -1154,7 +1154,7 @@
 
 <!-- DAEMON_INFO/1 -->   
    <func>
-     <name name="daemon_info" arity="1"/>
+     <name name="daemon_info" arity="1" since="OTP 19.0"/>
      <fsummary>Get info about a daemon</fsummary>
      <desc>
        <p>Returns a key-value list with information about the daemon.</p>
@@ -1164,7 +1164,7 @@
 
 <!-- DEFAULT_ALGORITHMS/0 -->
     <func>
-      <name name="default_algorithms" arity="0"/>
+      <name name="default_algorithms" arity="0" since="OTP 18.0"/>
       <fsummary>Get a list declaring the supported algorithms</fsummary>
       <desc>
 	<p>Returns a key-value list, where the keys are the different types of algorithms and the values are the
@@ -1176,9 +1176,9 @@
 
 <!-- SHELL/1,2,3 -->
     <func>
-      <name>shell(Host | TcpSocket) -> Result </name>
-      <name>shell(Host | TcpSocket, Options) -> Result </name>
-      <name>shell(Host, Port, Options) -> Result </name>
+      <name since="">shell(Host | TcpSocket) -> Result </name>
+      <name since="">shell(Host | TcpSocket, Options) -> Result </name>
+      <name since="">shell(Host, Port, Options) -> Result </name>
       <fsummary>Starts an interactive shell on a remote SSH server.</fsummary>
       <type>
 	<v>Host = <seealso marker="#type-host">host()</seealso></v>
@@ -1203,8 +1203,8 @@
     </func>
 
     <func>
-      <name name="start" arity="0"/>
-      <name name="start" arity="1"/>
+      <name name="start" arity="0" since=""/>
+      <name name="start" arity="1" since=""/>
       <fsummary>Starts the SSH application.</fsummary>
       <desc>
         <p>Utility function that starts the applications <c>crypto</c>, <c>public_key</c>,
@@ -1215,7 +1215,7 @@
     </func>
 
     <func>
-      <name name="stop" arity="0"/>
+      <name name="stop" arity="0" since=""/>
       <fsummary>Stops the <c>ssh</c> application.</fsummary>
       <desc>
         <p>Stops the <c>ssh</c> application.
@@ -1225,9 +1225,9 @@
     </func>
     
     <func>
-      <name name="stop_daemon" arity="1"/>
-      <name name="stop_daemon" arity="2"/>
-      <name name="stop_daemon" arity="3"/>
+      <name name="stop_daemon" arity="1" since=""/>
+      <name name="stop_daemon" arity="2" since=""/>
+      <name name="stop_daemon" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener and all connections started by the listener.</fsummary>
       <desc>
 	<p>Stops the listener and all connections started by the listener.</p>
@@ -1235,9 +1235,9 @@
     </func>
 
     <func>
-      <name name="stop_listener" arity="1"/>
-      <name name="stop_listener" arity="2"/>
-      <name name="stop_listener" arity="3"/>
+      <name name="stop_listener" arity="1" since=""/>
+      <name name="stop_listener" arity="2" since=""/>
+      <name name="stop_listener" arity="3" since="OTP 21.0"/>
       <fsummary>Stops the listener, but leaves existing connections started by the listener operational.</fsummary>
       <desc>
 	<p>Stops the listener, but leaves existing connections started by the listener operational.</p>

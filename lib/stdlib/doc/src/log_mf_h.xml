@@ -34,7 +34,7 @@
     <rev>A</rev>
     <file>log_mf_h.xml</file>
   </header>
-  <module>log_mf_h</module>
+  <module since="">log_mf_h</module>
   <modulesummary>An event handler that logs events to disk.</modulesummary>
   <description>
     <p>This module is a <c>gen_event</c> handler module that can be installed
@@ -60,8 +60,8 @@
 
   <funcs>
     <func>
-      <name name="init" arity="3"/>
-      <name name="init" arity="4"/>
+      <name name="init" arity="3" since=""/>
+      <name name="init" arity="4" since=""/>
       <fsummary>Initiate the event handler.</fsummary>
       <desc>
         <p>Initiates the event handler. Returns <c><anno>Args</anno></c>, which

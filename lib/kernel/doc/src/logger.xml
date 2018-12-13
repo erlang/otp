@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>logger.xml</file>
   </header>
-  <module>logger</module>
+  <module since="OTP 21.0">logger</module>
   <modulesummary>API module for Logger, the standard logging facility
     in Erlang/OTP.</modulesummary>
 
@@ -334,9 +334,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
   </section>
   <funcs>
     <func>
-      <name>emergency(StringOrReport[,Metadata])</name>
-      <name>emergency(Format,Args[,Metadata])</name>
-      <name>emergency(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">emergency(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">emergency(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">emergency(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>emergency</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -345,9 +345,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>alert(StringOrReport[,Metadata])</name>
-      <name>alert(Format,Args[,Metadata])</name>
-      <name>alert(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">alert(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">alert(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">alert(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>alert</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -356,9 +356,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>critical(StringOrReport[,Metadata])</name>
-      <name>critical(Format,Args[,Metadata])</name>
-      <name>critical(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">critical(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">critical(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">critical(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>critical</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -367,9 +367,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>error(StringOrReport[,Metadata])</name>
-      <name>error(Format,Args[,Metadata])</name>
-      <name>error(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">error(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">error(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">error(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>error</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -378,9 +378,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>warning(StringOrReport[,Metadata])</name>
-      <name>warning(Format,Args[,Metadata])</name>
-      <name>warning(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">warning(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">warning(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">warning(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>warning</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -389,9 +389,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>notice(StringOrReport[,Metadata])</name>
-      <name>notice(Format,Args[,Metadata])</name>
-     <name>notice(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">notice(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">notice(Format,Args[,Metadata])</name>
+     <name since="OTP 21.0">notice(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>notice</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -400,9 +400,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>info(StringOrReport[,Metadata])</name>
-      <name>info(Format,Args[,Metadata])</name>
-      <name>info(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">info(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">info(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">info(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>info</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -411,9 +411,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name>debug(StringOrReport[,Metadata])</name>
-      <name>debug(Format,Args[,Metadata])</name>
-      <name>debug(Fun,FunArgs[,Metadata])</name>
+      <name since="OTP 21.0">debug(StringOrReport[,Metadata])</name>
+      <name since="OTP 21.0">debug(Format,Args[,Metadata])</name>
+      <name since="OTP 21.0">debug(Fun,FunArgs[,Metadata])</name>
       <fsummary>Logs the given message as level <c>debug</c>.</fsummary>
       <desc>
         <p>Equivalent to
@@ -422,12 +422,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name name="log" arity="2"/>
-      <name name="log" arity="3" clause_i="1"/>
-      <name name="log" arity="3" clause_i="2"/>
-      <name name="log" arity="3" clause_i="3"/>
-      <name name="log" arity="4" clause_i="1"/>
-      <name name="log" arity="4" clause_i="2"/>
+      <name name="log" arity="2" since="OTP 21.0"/>
+      <name name="log" arity="3" clause_i="1" since="OTP 21.0"/>
+      <name name="log" arity="3" clause_i="2" since="OTP 21.0"/>
+      <name name="log" arity="3" clause_i="3" since="OTP 21.0"/>
+      <name name="log" arity="4" clause_i="1" since="OTP 21.0"/>
+      <name name="log" arity="4" clause_i="2" since="OTP 21.0"/>
       <fsummary>Logs the given message.</fsummary>
       <type variable="Level"/>
       <type variable="StringOrReport" name_i="1"/>
@@ -448,7 +448,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
   </section>
   <funcs>
     <func>
-      <name name="add_handler" arity="3"/>
+      <name name="add_handler" arity="3" since="OTP 21.0"/>
       <fsummary>Add a handler with the given configuration.</fsummary>
       <desc>
         <p>Add a handler with the given configuration.</p>
@@ -459,7 +459,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name name="add_handler_filter" arity="3"/>
+      <name name="add_handler_filter" arity="3" since="OTP 21.0"/>
       <fsummary>Add a filter to the specified handler.</fsummary>
       <desc>
         <p>Add a filter to the specified handler.</p>
@@ -500,7 +500,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name name="add_handlers" arity="1" clause_i="1"/>
+      <name name="add_handlers" arity="1" clause_i="1" since="OTP 21.0"/>
       <fsummary>Set up log handlers from the application's
 	configuration parameters.</fsummary>
       <desc>
@@ -510,7 +510,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
 
     <func>
-      <name name="add_handlers" arity="1" clause_i="2"/>
+      <name name="add_handlers" arity="1" clause_i="2" since="OTP 21.0"/>
       <fsummary>Setup logger handlers.</fsummary>
       <type name="config_handler"/>
       <desc>
@@ -553,7 +553,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="add_primary_filter" arity="2"/>
+      <name name="add_primary_filter" arity="2" since="OTP 21.0"/>
       <fsummary>Add a primary filter to Logger.</fsummary>
       <desc>
         <p>Add a primary filter to Logger.</p>
@@ -594,7 +594,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_config" arity="0"/>
+      <name name="get_config" arity="0" since="OTP 21.0"/>
       <fsummary>Look up the current Logger configuration</fsummary>
       <desc>
         <p>Look up all current Logger configuration, including primary
@@ -603,7 +603,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_handler_config" arity="0"/>
+      <name name="get_handler_config" arity="0" since="OTP 21.0"/>
       <fsummary>Look up the current configuration for all handlers.</fsummary>
       <desc>
         <p>Look up the current configuration for all handlers.</p>
@@ -611,7 +611,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_handler_config" arity="1"/>
+      <name name="get_handler_config" arity="1" since="OTP 21.0"/>
       <fsummary>Look up the current configuration for the given
 	handler.</fsummary>
       <desc>
@@ -620,7 +620,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_handler_ids" arity="0"/>
+      <name name="get_handler_ids" arity="0" since="OTP 21.0"/>
       <fsummary>Look up the identities for all installed handlers.</fsummary>
       <desc>
         <p>Look up the identities for all installed handlers.</p>
@@ -628,7 +628,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_primary_config" arity="0"/>
+      <name name="get_primary_config" arity="0" since="OTP 21.0"/>
       <fsummary>Look up the current primary configuration for Logger.</fsummary>
       <desc>
         <p>Look up the current primary configuration for Logger.</p>
@@ -636,7 +636,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_module_level" arity="0"/>
+      <name name="get_module_level" arity="0" since="OTP 21.0"/>
       <fsummary>Look up all current module levels.</fsummary>
       <desc>
         <p>Look up all current module levels. Returns a list
@@ -648,7 +648,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_module_level" arity="1"/>
+      <name name="get_module_level" arity="1" since="OTP 21.0"/>
       <fsummary>Look up the current level for the given modules.</fsummary>
       <desc>
         <p>Look up the current level for the given modules. Returns a
@@ -660,7 +660,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="get_process_metadata" arity="0"/>
+      <name name="get_process_metadata" arity="0" since="OTP 21.0"/>
       <fsummary>Retrieve data set with set_process_metadata/1.</fsummary>
       <desc>
         <p>Retrieve data set
@@ -672,7 +672,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="remove_handler" arity="1"/>
+      <name name="remove_handler" arity="1" since="OTP 21.0"/>
       <fsummary>Remove the handler with the specified identity.</fsummary>
       <desc>
         <p>Remove the handler identified by <c><anno>HandlerId</anno></c>.</p>
@@ -680,7 +680,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="remove_handler_filter" arity="2"/>
+      <name name="remove_handler_filter" arity="2" since="OTP 21.0"/>
       <fsummary>Remove a filter from the specified handler.</fsummary>
       <desc>
         <p>Remove the filter identified
@@ -690,7 +690,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="remove_primary_filter" arity="1"/>
+      <name name="remove_primary_filter" arity="1" since="OTP 21.0"/>
       <fsummary>Remove a primary filter from Logger.</fsummary>
       <desc>
         <p>Remove the primary filter identified
@@ -699,7 +699,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_application_level" arity="2"/>
+      <name name="set_application_level" arity="2" since="OTP 21.1"/>
       <fsummary>Set the log level for all modules in the specified application.</fsummary>
       <desc>
         <p>Set the log level for all the modules of the specified application.</p>
@@ -710,7 +710,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_handler_config" arity="2"/>
+      <name name="set_handler_config" arity="2" since="OTP 21.0"/>
       <fsummary>Set configuration data for the specified handler.</fsummary>
       <desc>
         <p>Set configuration data for the specified handler. This
@@ -731,11 +731,11 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_handler_config" arity="3" clause_i="1"/>
-      <name name="set_handler_config" arity="3" clause_i="2"/>
-      <name name="set_handler_config" arity="3" clause_i="3"/>
-      <name name="set_handler_config" arity="3" clause_i="4"/>
-      <name name="set_handler_config" arity="3" clause_i="5"/>
+      <name name="set_handler_config" arity="3" clause_i="1" since="OTP 21.0"/>
+      <name name="set_handler_config" arity="3" clause_i="2" since="OTP 21.0"/>
+      <name name="set_handler_config" arity="3" clause_i="3" since="OTP 21.0"/>
+      <name name="set_handler_config" arity="3" clause_i="4" since="OTP 21.0"/>
+      <name name="set_handler_config" arity="3" clause_i="5" since="OTP 21.0"/>
       <fsummary>Add or update configuration data for the specified
         handler.</fsummary>
       <type variable="HandlerId"/>
@@ -767,7 +767,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_primary_config" arity="1"/>
+      <name name="set_primary_config" arity="1" since="OTP 21.0"/>
       <fsummary>Set primary configuration data for Logger.</fsummary>
       <desc>
         <p>Set primary configuration data for Logger. This
@@ -785,9 +785,9 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_primary_config" arity="2" clause_i="1"/>
-      <name name="set_primary_config" arity="2" clause_i="2"/>
-      <name name="set_primary_config" arity="2" clause_i="3"/>
+      <name name="set_primary_config" arity="2" clause_i="1" since="OTP 21.0"/>
+      <name name="set_primary_config" arity="2" clause_i="2" since="OTP 21.0"/>
+      <name name="set_primary_config" arity="2" clause_i="3" since="OTP 21.0"/>
       <fsummary>Add or update primary configuration data for Logger.</fsummary>
       <type variable="Level" name_i="1"/>
       <type variable="FilterDefault" name_i="2"/>
@@ -801,7 +801,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_module_level" arity="2"/>
+      <name name="set_module_level" arity="2" since="OTP 21.0"/>
       <fsummary>Set the log level for the specified modules.</fsummary>
       <desc>
         <p>Set the log level for the specified modules.</p>
@@ -841,7 +841,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="set_process_metadata" arity="1"/>
+      <name name="set_process_metadata" arity="1" since="OTP 21.0"/>
       <fsummary>Set metadata to use when logging from current process.</fsummary>
       <desc>
         <p>Set metadata which Logger shall automatically insert in
@@ -860,7 +860,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="unset_application_level" arity="1"/>
+      <name name="unset_application_level" arity="1" since="OTP 21.1"/>
       <fsummary>Unset the log level for all modules in the specified application.</fsummary>
       <desc>
         <p>Unset the log level for all the modules of the specified application.</p>
@@ -871,7 +871,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="unset_module_level" arity="0"/>
+      <name name="unset_module_level" arity="0" since="OTP 21.0"/>
       <fsummary>Remove module specific log settings for all modules.</fsummary>
       <desc>
         <p>Remove module specific log settings. After this, the
@@ -880,7 +880,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="unset_module_level" arity="1"/>
+      <name name="unset_module_level" arity="1" since="OTP 21.0"/>
       <fsummary>Remove module specific log settings for the given
 	modules.</fsummary>
       <desc>
@@ -890,7 +890,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="unset_process_metadata" arity="0"/>
+      <name name="unset_process_metadata" arity="0" since="OTP 21.0"/>
       <fsummary>Delete data set with set_process_metadata/1.</fsummary>
       <desc>
         <p>Delete data set
@@ -902,7 +902,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="update_formatter_config" arity="2"/>
+      <name name="update_formatter_config" arity="2" since="OTP 21.0"/>
       <fsummary>Update the formatter configuration for the specified handler.</fsummary>
       <desc>
         <p>Update the formatter configuration for the specified handler.</p>
@@ -917,7 +917,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="update_formatter_config" arity="3"/>
+      <name name="update_formatter_config" arity="3" since="OTP 21.0"/>
       <fsummary>Update the formatter configuration for the specified handler.</fsummary>
       <desc>
         <p>Update the formatter configuration for the specified handler.</p>
@@ -928,7 +928,7 @@ start(_, []) ->
     </func>
 
     <func>
-      <name name="update_handler_config" arity="2"/>
+      <name name="update_handler_config" arity="2" since="OTP 21.0"/>
       <fsummary>Update configuration data for the specified handler.</fsummary>
       <desc>
         <p>Update configuration data for the specified handler. This function
@@ -944,11 +944,11 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
     </func>
 
     <func>
-      <name name="update_handler_config" arity="3" clause_i="1"/>
-      <name name="update_handler_config" arity="3" clause_i="2"/>
-      <name name="update_handler_config" arity="3" clause_i="3"/>
-      <name name="update_handler_config" arity="3" clause_i="4"/>
-      <name name="update_handler_config" arity="3" clause_i="5"/>
+      <name name="update_handler_config" arity="3" clause_i="1" since="OTP 21.2"/>
+      <name name="update_handler_config" arity="3" clause_i="2" since="OTP 21.2"/>
+      <name name="update_handler_config" arity="3" clause_i="3" since="OTP 21.2"/>
+      <name name="update_handler_config" arity="3" clause_i="4" since="OTP 21.2"/>
+      <name name="update_handler_config" arity="3" clause_i="5" since="OTP 21.2"/>
       <fsummary>Add or update configuration data for the specified
         handler.</fsummary>
       <type variable="HandlerId"/>
@@ -980,7 +980,7 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
     </func>
 
     <func>
-      <name name="update_primary_config" arity="1"/>
+      <name name="update_primary_config" arity="1" since="OTP 21.0"/>
       <fsummary>Update primary configuration data for Logger.</fsummary>
       <desc>
         <p>Update primary configuration data for Logger. This function
@@ -996,7 +996,7 @@ logger:set_primary_config(maps:merge(Old, Config)).
     </func>
 
     <func>
-      <name name="update_process_metadata" arity="1"/>
+      <name name="update_process_metadata" arity="1" since="OTP 21.0"/>
       <fsummary>Set or update metadata to use when logging from
 	current process.</fsummary>
       <desc>
@@ -1021,7 +1021,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
   </section>
   <funcs>
     <func>
-      <name name="compare_levels" arity="2"/>
+      <name name="compare_levels" arity="2" since="OTP 21.0"/>
       <fsummary>Compare the severity of two log levels.</fsummary>
       <desc>
         <p>Compare the severity of two log levels. Returns <c>gt</c>
@@ -1032,7 +1032,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name name="format_report" arity="1"/>
+      <name name="format_report" arity="1" since="OTP 21.0"/>
       <fsummary>Convert a log message on report form to {Format, Args}.</fsummary>
       <desc>
         <p>Convert a log message on report form to <c>{Format,
@@ -1062,7 +1062,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 
   <funcs>
     <func>
-      <name>HModule:adding_handler(Config1) -> {ok, Config2} | {error,
+      <name since="OTP 21.0">HModule:adding_handler(Config1) -> {ok, Config2} | {error,
 	Reason}</name>
       <fsummary>An instance of this handler is about to be added.</fsummary>
       <type>
@@ -1088,7 +1088,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -> {ok, Config} | {error, Reason}</name>
+      <name since="OTP 21.2">HModule:changing_config(SetOrUpdate, OldConfig, NewConfig) -> {ok, Config} | {error, Reason}</name>
       <fsummary>The configuration for this handler is about to change.</fsummary>
       <type>
 	<v>SetOrUpdate = set | update</v>
@@ -1126,7 +1126,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:filter_config(Config) -> FilteredConfig</name>
+      <name since="OTP 21.2">HModule:filter_config(Config) -> FilteredConfig</name>
       <fsummary>Remove internal data from configuration.</fsummary>
       <type>
 	<v>Config = FilteredConfig =
@@ -1146,7 +1146,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:log(LogEvent, Config) -> void()</name>
+      <name since="OTP 21.0">HModule:log(LogEvent, Config) -> void()</name>
       <fsummary>Log the given log event.</fsummary>
       <type>
 	<v>LogEvent =
@@ -1169,7 +1169,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
     </func>
 
     <func>
-      <name>HModule:removing_handler(Config) -> ok</name>
+      <name since="OTP 21.0">HModule:removing_handler(Config) -> ok</name>
       <fsummary>The given handler is about to be removed.</fsummary>
       <type>
 	<v>Config =
@@ -1197,7 +1197,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 
   <funcs>
     <func>
-      <name>FModule:check_config(FConfig) -> ok | {error, Reason}</name>
+      <name since="OTP 21.0">FModule:check_config(FConfig) -> ok | {error, Reason}</name>
       <fsummary>Validate the given formatter configuration.</fsummary>
       <type>
 	<v>FConfig =
@@ -1228,7 +1228,7 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
       </desc>
     </func>
     <func>
-      <name>FModule:format(LogEvent, FConfig) -> FormattedLogEntry</name>
+      <name since="OTP 21.0">FModule:format(LogEvent, FConfig) -> FormattedLogEntry</name>
       <fsummary>Format the given log event.</fsummary>
       <type>
 	<v>LogEvent =

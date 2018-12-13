@@ -32,14 +32,14 @@
     <rev>%VSN%</rev>
     <file>et_viewer.xml</file>
   </header>
-  <module>et_viewer</module>
+  <module since="">et_viewer</module>
   <modulesummary>Displays a sequence chart for trace events (messages/actions)</modulesummary>
   <description>
     <p></p>
   </description>
   <funcs>
     <func>
-      <name>file(FileName) -> {ok, ViewerPid} | {error, Reason}</name>
+      <name since="">file(FileName) -> {ok, ViewerPid} | {error, Reason}</name>
       <fsummary>Start a new event viewer and a corresponding collector and load them with trace events from a trace file.</fsummary>
       <type>
         <v>FileName() = string()</v>
@@ -52,7 +52,7 @@
       </desc>
     </func>
     <func>
-      <name>start() -> ok</name>
+      <name since="">start() -> ok</name>
       <fsummary>Simplified start of a sequence chart viewer with global tracing activated.</fsummary>
       <desc>
         <p>Simplified start of a sequence chart viewer with
@@ -62,7 +62,7 @@
       </desc>
     </func>
     <func>
-      <name>start(Options) -> ok</name>
+      <name since="">start(Options) -> ok</name>
       <fsummary>Start of a sequence chart viewer without linking to the parent process.</fsummary>
       <desc>
         <p>Start of a sequence chart viewer without linking
@@ -70,7 +70,7 @@
       </desc>
     </func>
     <func>
-      <name>start_link(Options) -> {ok, ViewerPid} | {error, Reason}</name>
+      <name since="">start_link(Options) -> {ok, ViewerPid} | {error, Reason}</name>
       <fsummary>Start a sequence chart viewer for trace events (messages/actions)</fsummary>
       <type>
         <v>Options = [option() | collector_option()]</v>
@@ -125,7 +125,7 @@
       </desc>
     </func>
     <func>
-      <name>get_collector_pid(ViewerPid) -> CollectorPid</name>
+      <name since="">get_collector_pid(ViewerPid) -> CollectorPid</name>
       <fsummary>Returns the identifier of the collector process</fsummary>
       <type>
         <v>ViewerPid = pid()</v>
@@ -136,7 +136,7 @@
       </desc>
     </func>
     <func>
-      <name>stop(ViewerPid) -> ok</name>
+      <name since="">stop(ViewerPid) -> ok</name>
       <fsummary>Stops a viewer</fsummary>
       <type>
         <v>ViewerPid = pid()</v>

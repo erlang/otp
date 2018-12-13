@@ -32,7 +32,7 @@
     <rev></rev>
     <file>snmp_view_based_acm_mib.xml</file>
   </header>
-  <module>snmp_view_based_acm_mib</module>
+  <module since="">snmp_view_based_acm_mib</module>
   <modulesummary>Instrumentation Functions for SNMP-VIEW-BASED-ACM-MIB</modulesummary>
   <description>
     <p>The module <c>snmp_view_based_acm_mib</c> implements the instrumentation functions for the
@@ -45,7 +45,7 @@
 
   <funcs>
     <func>
-      <name>configure(ConfDir) -> void()</name>
+      <name since="">configure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -71,7 +71,7 @@
     </func>
 
     <func>
-      <name>reconfigure(ConfDir) -> void()</name>
+      <name since="">reconfigure(ConfDir) -> void()</name>
       <fsummary>Configure the SNMP-VIEW-BASED-ACM-MIB</fsummary>
       <type>
         <v>ConfDir = string()</v>
@@ -104,7 +104,7 @@
     </func>
 
     <func>
-      <name>add_sec2group(SecModel, SecName, GroupName) -> Ret</name>
+      <name since="">add_sec2group(SecModel, SecName, GroupName) -> Ret</name>
       <fsummary>Add one security to group definition</fsummary>
       <type>
         <v>SecModel = v1 | v2c | usm</v>
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name>delete_sec2group(Key) -> Ret</name>
+      <name since="">delete_sec2group(Key) -> Ret</name>
       <fsummary>Delete one security to group definition</fsummary>
       <type>
         <v>Key = term()</v>
@@ -139,7 +139,7 @@
     </func>
 
     <func>
-      <name>add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret</name>
+      <name since="">add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret</name>
       <fsummary>Add one access definition</fsummary>
       <type>
         <v>GroupName = string()</v>
@@ -163,7 +163,7 @@
     </func>
 
     <func>
-      <name>delete_access(Key) -> Ret</name>
+      <name since="">delete_access(Key) -> Ret</name>
       <fsummary>Delete one access definition</fsummary>
       <type>
         <v>Key = term()</v>
@@ -178,7 +178,7 @@
     </func>
 
     <func>
-      <name>add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret</name>
+      <name since="">add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret</name>
       <fsummary>Add one view tree family definition</fsummary>
       <type>
         <v>ViewIndex = integer()</v>
@@ -199,7 +199,7 @@
     </func>
 
     <func>
-      <name>delete_view_tree_fam(Key) -> Ret</name>
+      <name since="">delete_view_tree_fam(Key) -> Ret</name>
       <fsummary>Delete one view tree family definition</fsummary>
       <type>
         <v>Key = term()</v>

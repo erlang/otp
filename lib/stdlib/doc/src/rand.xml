@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>rand.xml</file>
   </header>
-  <module>rand</module>
+  <module since="OTP 18.0">rand</module>
   <modulesummary>Pseudo random number generation.</modulesummary>
   <description>
     <p>
@@ -273,7 +273,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 
   <funcs>
     <func>
-      <name name="export_seed" arity="0"/>
+      <name name="export_seed" arity="0" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed-0"/>
         <p>Returns the random number state in an external format.
@@ -282,7 +282,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="export_seed_s" arity="1"/>
+      <name name="export_seed_s" arity="1" since="OTP 18.0"/>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed_s-1"/>
         <p>Returns the random number generator state in an external format.
@@ -291,7 +291,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="jump" arity="0"/>
+      <name name="jump" arity="0" since="OTP 20.0"/>
       <fsummary>Return the seed after performing jump calculation
           to the state in the process dictionary.</fsummary>
       <desc><marker id="jump-0" />
@@ -306,7 +306,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="jump" arity="1"/>
+      <name name="jump" arity="1" since="OTP 20.0"/>
       <fsummary>Return the seed after performing jump calculation.</fsummary>
       <desc><marker id="jump-1" />
           <p>Returns the state after performing jump calculation
@@ -318,7 +318,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="normal" arity="0"/>
+      <name name="normal" arity="0" since="OTP 18.0"/>
       <fsummary>Return a standard normal distributed random float.</fsummary>
       <desc>
         <p>Returns a standard normal deviate float (that is, the mean
@@ -328,7 +328,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="normal" arity="2"/>
+      <name name="normal" arity="2" since="OTP 20.0"/>
       <fsummary>Return a normal distributed random float.</fsummary>
       <desc>
         <p>Returns a normal N(Mean, Variance) deviate float
@@ -337,7 +337,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="normal_s" arity="1"/>
+      <name name="normal_s" arity="1" since="OTP 18.0"/>
       <fsummary>Return a standard normal distributed random float.</fsummary>
       <desc>
         <p>Returns, for a specified state, a standard normal
@@ -347,7 +347,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="normal_s" arity="3"/>
+      <name name="normal_s" arity="3" since="OTP 20.0"/>
       <fsummary>Return a normal distributed random float.</fsummary>
       <desc>
         <p>Returns, for a specified state, a normal N(Mean, Variance)
@@ -356,7 +356,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="1"/>
+      <name name="seed" arity="1" since="OTP 18.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <marker id="seed-1"/>
@@ -372,7 +372,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed" arity="2"/>
+      <name name="seed" arity="2" since="OTP 18.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
         <p>Seeds random number generation with the specified algorithm and
@@ -381,7 +381,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed_s" arity="1"/>
+      <name name="seed_s" arity="1" since="OTP 18.0"/>
       <fsummary>Seed random number generator.</fsummary>
       <desc>
         <p>
@@ -396,7 +396,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="seed_s" arity="2"/>
+      <name name="seed_s" arity="2" since="OTP 18.0"/>
       <fsummary>Seed the random number generation.</fsummary>
       <desc>
         <p>Seeds random number generation with the specified algorithm and
@@ -405,7 +405,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
     </func>
 
     <func>
-      <name name="uniform" arity="0"/>
+      <name name="uniform" arity="0" since="OTP 18.0"/>
       <fsummary>Return a random float.</fsummary>
       <desc><marker id="uniform-0"/>
         <p>
@@ -441,7 +441,7 @@ end.</pre>
     </func>
 
     <func>
-      <name name="uniform_real" arity="0"/>
+      <name name="uniform_real" arity="0" since="OTP 21.0"/>
       <fsummary>Return a random float.</fsummary>
       <desc><marker id="uniform_real-0"/>
         <p>
@@ -477,7 +477,7 @@ end.</pre>
     </func>
 
     <func>
-      <name name="uniform" arity="1"/>
+      <name name="uniform" arity="1" since="OTP 18.0"/>
       <fsummary>Return a random integer.</fsummary>
       <desc><marker id="uniform-1"/>
         <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>,
@@ -488,7 +488,7 @@ end.</pre>
     </func>
 
     <func>
-      <name name="uniform_s" arity="1"/>
+      <name name="uniform_s" arity="1" since="OTP 18.0"/>
       <fsummary>Return a random float.</fsummary>
       <desc>
         <p>
@@ -524,7 +524,7 @@ end.</pre>
     </func>
 
     <func>
-      <name name="uniform_real_s" arity="1"/>
+      <name name="uniform_real_s" arity="1" since="OTP 21.0"/>
       <fsummary>Return a random float.</fsummary>
       <desc>
         <p>
@@ -586,7 +586,7 @@ end.</pre>
     </func>
 
     <func>
-      <name name="uniform_s" arity="2"/>
+      <name name="uniform_s" arity="2" since="OTP 18.0"/>
       <fsummary>Return a random integer.</fsummary>
       <desc>
         <p>Returns, for a specified integer <c><anno>N</anno> >= 1</c>

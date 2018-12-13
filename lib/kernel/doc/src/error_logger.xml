@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>error_logger</module>
+  <module since="">error_logger</module>
   <modulesummary>Erlang error logger.</modulesummary>
   <description>
 
@@ -76,8 +76,8 @@
   </datatypes>
   <funcs>
     <func>
-      <name name="add_report_handler" arity="1"/>
-      <name name="add_report_handler" arity="2"/>
+      <name name="add_report_handler" arity="1" since=""/>
+      <name name="add_report_handler" arity="2" since=""/>
       <fsummary>Add an event handler to the error logger.</fsummary>
       <desc>
         <p>Adds a new event handler to the error logger. The event
@@ -96,7 +96,7 @@
       </desc>
     </func>
     <func>
-      <name name="delete_report_handler" arity="1"/>
+      <name name="delete_report_handler" arity="1" since=""/>
       <fsummary>Delete an event handler from the error logger.</fsummary>
       <desc>
         <p>Deletes an event handler from the error logger by calling
@@ -108,9 +108,9 @@
       </desc>
     </func>
     <func>
-      <name name="error_msg" arity="1"/>
-      <name name="error_msg" arity="2"/>
-      <name name="format" arity="2"/>
+      <name name="error_msg" arity="1" since=""/>
+      <name name="error_msg" arity="2" since=""/>
+      <name name="format" arity="2" since=""/>
       <fsummary>Log a standard error event.</fsummary>
       <desc>
         <p>Log a standard error event. The <c><anno>Format</anno></c>
@@ -142,7 +142,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="error_report" arity="1"/>
+      <name name="error_report" arity="1" since=""/>
       <fsummary>Log a standard error event.</fsummary>
       <desc>
         <p>Log a standard error event. Error logger forwards the event
@@ -169,7 +169,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="error_report" arity="2"/>
+      <name name="error_report" arity="2" since=""/>
       <fsummary>Log a user-defined error event.</fsummary>
       <desc>
         <p>Log a user-defined error event. Error logger forwards the
@@ -191,7 +191,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="get_format_depth" arity="0"/>
+      <name name="get_format_depth" arity="0" since="OTP 20.0"/>
       <fsummary>Get the value of the Kernel application variable
                 <c>error_logger_format_depth</c>.</fsummary>
       <desc>
@@ -211,8 +211,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_msg" arity="1"/>
-      <name name="info_msg" arity="2"/>
+      <name name="info_msg" arity="1" since=""/>
+      <name name="info_msg" arity="2" since=""/>
       <fsummary>Log a standard information event.</fsummary>
       <desc>
         <p>Log a standard information event. The <c><anno>Format</anno></c>
@@ -244,7 +244,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_report" arity="1"/>
+      <name name="info_report" arity="1" since=""/>
       <fsummary>Log a standard information event.</fsummary>
       <desc>
         <p>Log a standard information event. Error logger forwards the
@@ -271,7 +271,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="info_report" arity="2"/>
+      <name name="info_report" arity="2" since=""/>
       <fsummary>Log a user-defined information event.</fsummary>
       <desc>
         <p>Log a user-defined information event. Error logger forwards
@@ -294,9 +294,9 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="logfile" arity="1" clause_i="1"/>
-      <name name="logfile" arity="1" clause_i="2"/>
-      <name name="logfile" arity="1" clause_i="3"/>
+      <name name="logfile" arity="1" clause_i="1" since=""/>
+      <name name="logfile" arity="1" clause_i="2" since=""/>
+      <name name="logfile" arity="1" clause_i="3" since=""/>
       <fsummary>Enable or disable error printouts to a file.</fsummary>
       <type variable="Filename"/>
       <type variable="OpenReason" name_i="1"/>
@@ -346,7 +346,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="tty" arity="1"/>
+      <name name="tty" arity="1" since=""/>
       <fsummary>Enable or disable printouts to the terminal.</fsummary>
       <desc>
         <p>Enables (<c><anno>Flag</anno> == true</c>) or disables
@@ -363,7 +363,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_map" arity="0"/>
+      <name name="warning_map" arity="0" since=""/>
       <fsummary>Return the current mapping for warning events.</fsummary>
       <desc>
         <p>Returns the current mapping for warning events. Events sent
@@ -400,8 +400,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_msg" arity="1"/>
-      <name name="warning_msg" arity="2"/>
+      <name name="warning_msg" arity="1" since=""/>
+      <name name="warning_msg" arity="2" since=""/>
       <fsummary>Log a standard warning event.</fsummary>
       <desc>
         <p>Log a standard warning event. The <c><anno>Format</anno></c>
@@ -429,7 +429,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_report" arity="1"/>
+      <name name="warning_report" arity="1" since=""/>
       <fsummary>Log a standard warning event.</fsummary>
       <desc>
         <p>Log a standard warning event. Error logger forwards the event
@@ -446,7 +446,7 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name name="warning_report" arity="2"/>
+      <name name="warning_report" arity="2" since=""/>
       <fsummary>Log a user-defined warning event.</fsummary>
       <desc>
         <p>Log a user-defined warning event. Error logger forwards the

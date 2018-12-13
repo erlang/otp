@@ -30,7 +30,7 @@
     <file>snmpa_mib_data.xml</file>
   </header>
 
-  <module>snmpa_mib_data</module>
+  <module since="OTP R16B01">snmpa_mib_data</module>
   <modulesummary>Behaviour module for the SNMP agent mib-server 
   data module.</modulesummary>
   <description>
@@ -108,7 +108,7 @@
 
   <funcs>
     <func>
-      <name>Module:new(Storage) -> State</name>
+      <name since="OTP R16B01">Module:new(Storage) -> State</name>
       <fsummary>Create new (mib-server) data instance</fsummary>
       <type>
         <v>Storage = mib_storage()</v>
@@ -122,7 +122,7 @@
     </func>
 
     <func>
-      <name>Module:close(State) -> void()</name>
+      <name since="OTP R16B01">Module:close(State) -> void()</name>
       <fsummary>Close the mib-server data instance</fsummary>
       <type>
         <v>State = term()</v>
@@ -135,7 +135,7 @@
     </func>
 
     <func>
-      <name>Module:sync(State) -> void()</name>
+      <name since="OTP R16B01">Module:sync(State) -> void()</name>
       <fsummary>Synchronize to disc</fsummary>
       <type>
         <v>State = term()</v>
@@ -151,7 +151,7 @@
     </func>
 
     <func>
-      <name>Module:load_mib(State, Filename, MeOverride, TeOverride) -> {ok, NewState} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:load_mib(State, Filename, MeOverride, TeOverride) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Load a mib into the mib-server</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -172,7 +172,7 @@
     </func>
 
     <func>
-      <name>Module:unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
+      <name since="OTP R16B01">Module:unload_mib(State, Filename) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Unload mib from the mib-server</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -188,7 +188,7 @@
     </func>
 
     <func>
-      <name>Module:lookup(State, Oid) -> Reply</name>
+      <name since="OTP R16B01">Module:lookup(State, Oid) -> Reply</name>
       <fsummary>Find the mib-entry corresponding to the Oid</fsummary>
       <type>
         <v>State = term()</v>
@@ -210,7 +210,7 @@
     </func>
 
     <func>
-      <name>Module:next(State, Oid, MibView) -> Reply</name>
+      <name since="OTP R16B01">Module:next(State, Oid, MibView) -> Reply</name>
       <fsummary>Finds the lexicographically next oid</fsummary>
       <type>
         <v>State = term()</v>
@@ -227,7 +227,7 @@
     </func>
 
     <func>
-      <name>Module:register_subagent(State, Oid, Pid) -> Reply</name>
+      <name since="OTP R16B01">Module:register_subagent(State, Oid, Pid) -> Reply</name>
       <fsummary>Register the subagent</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -245,7 +245,7 @@
     </func>
 
     <func>
-      <name>Module:unregister_subagent(State, PidOrOid) -> Reply</name>
+      <name since="OTP R16B01">Module:unregister_subagent(State, PidOrOid) -> Reply</name>
       <fsummary>Unregister the subagent</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -266,7 +266,7 @@
     </func>
 
     <func>
-      <name>Module:dump(State, Destination) -> Reply</name>
+      <name since="OTP R16B01">Module:dump(State, Destination) -> Reply</name>
       <fsummary>Unregister the subagent</fsummary>
       <type>
         <v>State = term()</v>
@@ -284,7 +284,7 @@
     </func>
 
     <func>
-      <name>Module:which_mib(State, Oid) -> Reply</name>
+      <name since="OTP R16B01">Module:which_mib(State, Oid) -> Reply</name>
       <fsummary>Retrieve the mib file for an oid()</fsummary>
       <type>
         <v>State = term()</v>
@@ -301,7 +301,7 @@
     </func>
 
     <func>
-      <name>Module:which_mibs(State) -> Reply</name>
+      <name since="OTP R16B01">Module:which_mibs(State) -> Reply</name>
       <fsummary>Retrieve all loaded mib files</fsummary>
       <type>
         <v>State = term()</v>
@@ -317,7 +317,7 @@
     </func>
 
     <func>
-      <name>Module:whereis_mib(State, MibName) -> Reply</name>
+      <name since="OTP R16B01">Module:whereis_mib(State, MibName) -> Reply</name>
       <fsummary>Retrieve the mib file for the mib</fsummary>
       <type>
         <v>State = term()</v>
@@ -334,7 +334,7 @@
     </func>
 
     <func>
-      <name>Module:info(State) -> Reply</name>
+      <name since="OTP R16B01">Module:info(State) -> Reply</name>
       <fsummary>Retrieve misc info for the mib data</fsummary>
       <type>
         <v>State = term()</v>
@@ -352,7 +352,7 @@
     </func>
 
     <func>
-      <name>Module:backup(State, BackupDir) -> Reply</name>
+      <name since="OTP R16B01">Module:backup(State, BackupDir) -> Reply</name>
       <fsummary>Perform a backup of the mib-server data</fsummary>
       <type>
         <v>State = term()</v>
@@ -370,7 +370,7 @@
     </func>
 
     <func>
-      <name>Module:code_change(Destination, Vsn, Extra, State) -> NewState</name>
+      <name since="OTP R16B01">Module:code_change(Destination, Vsn, Extra, State) -> NewState</name>
       <fsummary>Perform a code-change</fsummary>
       <type>
         <v>Destination = up | down</v>

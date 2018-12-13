@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_event</module>
+  <module since="">gen_event</module>
   <modulesummary>Generic event handling behavior.</modulesummary>
   <description>
     <p>This behavior module provides event handling functionality. It
@@ -130,7 +130,7 @@ gen_event:stop             ----->  Module:terminate/2
 
   <funcs>
     <func>
-      <name>add_handler(EventMgrRef, Handler, Args) -> Result</name>
+      <name since="">add_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add an event handler to a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -178,7 +178,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>add_sup_handler(EventMgrRef, Handler, Args) -> Result</name>
+      <name since="">add_sup_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add a supervised event handler to a generic event manager.
       </fsummary>
       <type>
@@ -241,8 +241,8 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>call(EventMgrRef, Handler, Request) -> Result</name>
-      <name>call(EventMgrRef, Handler, Request, Timeout) -> Result</name>
+      <name since="">call(EventMgrRef, Handler, Request) -> Result</name>
+      <name since="">call(EventMgrRef, Handler, Request, Timeout) -> Result</name>
       <fsummary>Make a synchronous call to a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -285,7 +285,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func> 
-      <name>delete_handler(EventMgrRef, Handler, Args) -> Result</name>
+      <name since="">delete_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Delete an event handler from a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -318,8 +318,8 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>notify(EventMgrRef, Event) -> ok</name>
-      <name>sync_notify(EventMgrRef, Event) -> ok</name>
+      <name since="">notify(EventMgrRef, Event) -> ok</name>
+      <name since="">sync_notify(EventMgrRef, Event) -> ok</name>
       <fsummary>Notify an event manager about an event.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -349,9 +349,9 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>start() -> Result</name>
-      <name>start(EventMgrName | Options) -> Result</name>
-      <name>start(EventMgrName, Options) -> Result</name>
+      <name since="">start() -> Result</name>
+      <name since="">start(EventMgrName | Options) -> Result</name>
+      <name since="OTP 20.0">start(EventMgrName, Options) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
         <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
@@ -375,9 +375,9 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>start_link() -> Result</name>
-      <name>start_link(EventMgrName | Options) -> Result</name>
-      <name>start_link(EventMgrName, Options) -> Result</name>
+      <name since="">start_link() -> Result</name>
+      <name since="">start_link(EventMgrName | Options) -> Result</name>
+      <name since="OTP 20.0">start_link(EventMgrName, Options) -> Result</name>
       <fsummary>Create a generic event manager process in a supervision tree.
       </fsummary>
       <type>
@@ -436,8 +436,8 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>stop(EventMgrRef) -> ok</name>
-      <name>stop(EventMgrRef, Reason, Timeout) -> ok</name>
+      <name since="">stop(EventMgrRef) -> ok</name>
+      <name since="OTP 18.0">stop(EventMgrRef, Reason, Timeout) -> ok</name>
       <fsummary>Terminate a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -474,7 +474,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>swap_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
+      <name since="">swap_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
       <fsummary>Replace an event handler in a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -521,7 +521,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>swap_sup_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
+      <name since="">swap_sup_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
       <fsummary>Replace an event handler in a generic event manager.</fsummary>
       <type>
         <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
@@ -546,7 +546,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>which_handlers(EventMgrRef) -> [Handler]</name>
+      <name since="">which_handlers(EventMgrRef) -> [Handler]</name>
       <fsummary>Return all event handlers installed in a generic event manager.
       </fsummary>
       <type>
@@ -575,7 +575,7 @@ gen_event:stop             ----->  Module:terminate/2
 
   <funcs>
     <func>
-      <name>Module:code_change(OldVsn, State, Extra) -> {ok, NewState}</name>
+      <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
       <type>
         <v>OldVsn = Vsn | {down, Vsn}</v>
@@ -611,7 +611,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <name since="OTP R14B">Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current event handler state.</fsummary>
       <type>
@@ -667,7 +667,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:handle_call(Request, State) -> Result</name>
+      <name since="">Module:handle_call(Request, State) -> Result</name>
       <fsummary>Handle a synchronous request.</fsummary>
       <type>
         <v>Request = term()</v>
@@ -698,7 +698,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:handle_event(Event, State) -> Result</name>
+      <name since="">Module:handle_event(Event, State) -> Result</name>
       <fsummary>Handle an event.</fsummary>
       <type>
         <v>Event = term()</v>
@@ -756,7 +756,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:handle_info(Info, State) -> Result</name>
+      <name since="">Module:handle_info(Info, State) -> Result</name>
       <fsummary>Handle an incoming message.</fsummary>
       <type>
         <v>Info = term()</v>
@@ -788,7 +788,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:init(InitArgs) -> {ok,State} | {ok,State,hibernate} | {error,Reason}</name>
+      <name since="">Module:init(InitArgs) -> {ok,State} | {ok,State,hibernate} | {error,Reason}</name>
       <fsummary>Initialize an event handler.</fsummary>
       <type>
         <v>InitArgs = Args | {Args,Term}</v>
@@ -825,7 +825,7 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name>Module:terminate(Arg, State) -> term()</name>
+      <name since="">Module:terminate(Arg, State) -> term()</name>
       <fsummary>Clean up before deletion.</fsummary>
       <type>
         <v>Arg = Args | {stop,Reason} | stop | remove_handler</v>

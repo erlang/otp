@@ -28,7 +28,7 @@
     <date>2018-02-19</date>
     <rev>A</rev>
   </header>
-  <module>erl_epmd</module>
+  <module since="OTP R14B">erl_epmd</module>
   <modulesummary>
     Erlang interface towards epmd
   </modulesummary>
@@ -41,7 +41,7 @@
 
   <funcs>
     <func>
-      <name name="start_link" arity="0"/>
+      <name name="start_link" arity="0" since="OTP 21.0"/>
       <fsummary>Callback for erl_distribution supervisor.</fsummary>
       <desc>
         <p>This function is invoked as this module is added as a child of the
@@ -50,8 +50,8 @@
     </func>
 
     <func>
-      <name name="register_node" arity="2"/>
-      <name name="register_node" arity="3"/>
+      <name name="register_node" arity="2" since="OTP 21.0"/>
+      <name name="register_node" arity="3" since="OTP 21.0"/>
       <fsummary>Registers the node with <c>epmd</c>.</fsummary>
       <desc>
         <p>Registers the node with <c>epmd</c> and tells epmd what port will be
@@ -62,8 +62,8 @@
     </func>
 
     <func>
-      <name name="port_please" arity="2"/>
-      <name name="port_please" arity="3"/>
+      <name name="port_please" arity="2" since="OTP 21.0"/>
+      <name name="port_please" arity="3" since="OTP 21.0"/>
       <fsummary>Returns the port number for a given node.</fsummary>
       <desc>
         <p>Requests the distribution port for the given node of an EPMD
@@ -73,7 +73,7 @@
     </func>
 
     <func>
-      <name name="address_please" arity="3"/>
+      <name name="address_please" arity="3" since="OTP 21.0"/>
       <fsummary>Returns address and port.</fsummary>
       <desc>
         <p>Called by the distribution module. Resolves the <c>Host</c> to an IP
@@ -84,7 +84,7 @@
     </func>
 
     <func>
-      <name name="names" arity="1"/>
+      <name name="names" arity="1" since="OTP 21.0"/>
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
         <p>Called by <seealso marker="net_adm"><c>net_adm:names/0</c></seealso>.

@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>ct_master.xml</file>
   </header>
-  <module>ct_master</module>
+  <module since="">ct_master</module>
   <modulesummary>Distributed test execution control for Common Test.</modulesummary>
 
 <description>
@@ -46,7 +46,7 @@
 
   <funcs>
     <func>
-      <name>abort() -&gt; ok</name>
+      <name since="">abort() -&gt; ok</name>
       <fsummary>Stops all running tests.</fsummary>
       <desc><marker id="abort-0"/>
         <p>Stops all running tests.</p>
@@ -54,7 +54,7 @@
     </func>
 
     <func>
-      <name>abort(Nodes) -&gt; ok</name>
+      <name since="">abort(Nodes) -&gt; ok</name>
       <fsummary>Stops tests on specified nodes.</fsummary>
       <type>
         <v>Nodes = atom() | [atom()]</v>
@@ -65,7 +65,7 @@
     </func>
 
     <func>
-      <name>basic_html(Bool) -&gt; ok</name>
+      <name since="OTP R15B01">basic_html(Bool) -&gt; ok</name>
       <fsummary>If set to true, the ct_master logs are written on a primitive
         HTML format, not using the <c>Common Test</c> CSS style sheet.</fsummary>
       <type>
@@ -79,7 +79,7 @@
     </func>
 
     <func>
-      <name>get_event_mgr_ref() -&gt; MasterEvMgrRef</name>
+      <name since="OTP 17.5">get_event_mgr_ref() -&gt; MasterEvMgrRef</name>
       <fsummary>Gets a reference to the <c>Common Test</c> master event
         manager.</fsummary>
       <type>
@@ -98,7 +98,7 @@
     </func>
 
     <func>
-      <name>progress() -&gt; [{Node, Status}]</name>
+      <name since="">progress() -&gt; [{Node, Status}]</name>
       <fsummary>Returns test progress.</fsummary>
       <type>
         <v>Node = atom()</v>
@@ -112,7 +112,7 @@
     </func>
 
     <func>
-      <name>run(TestSpecs) -&gt; ok</name>
+      <name since="">run(TestSpecs) -&gt; ok</name>
       <fsummary>Equivalent to run(TestSpecs, false, [], []).</fsummary>
       <type>
         <v>TestSpecs = string() | [SeparateOrMerged]</v>
@@ -124,7 +124,7 @@
     </func>
 
     <func>
-      <name>run(TestSpecs, InclNodes, ExclNodes) -&gt; ok</name>
+      <name since="">run(TestSpecs, InclNodes, ExclNodes) -&gt; ok</name>
       <fsummary>Equivalent to run(TestSpecs, false, InclNodes, ExclNodes).
       </fsummary>
       <type>
@@ -140,7 +140,7 @@
      </func>
 
      <func>
-       <name>run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -&gt; ok</name>
+       <name since="">run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -&gt; ok</name>
        <fsummary>Tests are spawned on the nodes as specified in TestSpecs.
        </fsummary>
        <type>
@@ -162,7 +162,7 @@
     </func>
 
     <func>
-      <name>run_on_node(TestSpecs, Node) -&gt; ok</name>
+      <name since="">run_on_node(TestSpecs, Node) -&gt; ok</name>
       <fsummary>Equivalent to run_on_node(TestSpecs, false, Node).</fsummary>
       <type>
         <v>TestSpecs = string() | [SeparateOrMerged]</v>
@@ -177,7 +177,7 @@
     </func>
 
     <func>
-      <name>run_on_node(TestSpecs, AllowUserTerms, Node) -&gt; ok</name>
+      <name since="">run_on_node(TestSpecs, AllowUserTerms, Node) -&gt; ok</name>
       <fsummary>Tests are spawned on Node according to TestSpecs.</fsummary>
       <type>
         <v>TestSpecs = string() | [SeparateOrMerged]</v>
@@ -191,7 +191,7 @@
     </func>
 
     <func>
-      <name>run_test(Node, Opts) -&gt; ok</name>
+      <name since="">run_test(Node, Opts) -&gt; ok</name>
       <fsummary>Tests are spawned on Node using ct:run_test/1.</fsummary>
       <type>
         <v>Node = atom()</v>

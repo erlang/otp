@@ -24,7 +24,7 @@
     <file>ssl_crl_cache.xml</file>
   </header>
   
-  <module>ssl_crl_cache</module>
+  <module since="OTP 18.0">ssl_crl_cache</module>
   <modulesummary>CRL cache </modulesummary>
   <description>
     <p>
@@ -37,7 +37,7 @@
   
     <funcs>
       <func>
-	<name>delete(Entries) -> ok |  {error, Reason} </name>
+	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
 	<fsummary> </fsummary>
 	<type>
 	  <v> Entries =  <seealso marker="stdlib:uri_string">uri_string:uri_string()</seealso> | {file, string()} | {der, [<seealso
@@ -49,8 +49,8 @@
 	</desc>
       </func>     
       <func>
-	<name>insert(CRLSrc) -> ok | {error, Reason}</name>
-	<name>insert(URI, CRLSrc) -> ok | {error, Reason}</name>
+	<name since="OTP 18.0">insert(CRLSrc) -> ok | {error, Reason}</name>
+	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
 	<fsummary> </fsummary>
 	<type>
 	  <v> CRLSrc = {file, string()} | {der, [ <seealso
