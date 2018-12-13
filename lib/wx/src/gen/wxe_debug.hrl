@@ -3388,6 +3388,11 @@ wxdebug_table() ->
  {3608, {wxDisplay, getFromPoint, 1}},
  {3609, {wxDisplay, getFromWindow, 1}},
  {3610, {wxDisplay, getPPI, 0}},
+ {3611, {wxGCDC, new_1, 1}},
+ {3612, {wxGCDC, new_0, 0}},
+ {3613, {wxGCDC, destruct, 0}},
+ {3614, {wxGCDC, getGraphicsContext, 0}},
+ {3615, {wxGCDC, setGraphicsContext, 1}},
  {-1, {mod, func, -1}}
 ].
 

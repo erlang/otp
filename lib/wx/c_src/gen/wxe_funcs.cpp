@@ -32198,6 +32198,35 @@ case wxDisplay_GetPPI: { // wxDisplay::GetPPI
 }
 #endif
 #endif // wxUSE_DISPLAY
+#if wxUSE_GRAPHICS_CONTEXT
+case wxGCDC_new_1: { // wxGCDC::wxGCDC
+ wxWindowDC *dc = (wxWindowDC *) getPtr(bp,memenv); bp += 4;
+ wxGCDC * Result = new EwxGCDC(*dc);
+ newPtr((void *) Result, 8, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxGCDC");
+ break;
+}
+case wxGCDC_new_0: { // wxGCDC::wxGCDC
+ wxGCDC * Result = new EwxGCDC();
+ newPtr((void *) Result, 8, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxGCDC");
+ break;
+}
+case wxGCDC_GetGraphicsContext: { // wxGCDC::GetGraphicsContext
+ wxGCDC *This = (wxGCDC *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxGraphicsContext * Result = (wxGraphicsContext*)This->GetGraphicsContext();
+ rt.addRef(getRef((void *)Result,memenv,8), "wxGraphicsContext");
+ break;
+}
+case wxGCDC_SetGraphicsContext: { // wxGCDC::SetGraphicsContext
+ wxGCDC *This = (wxGCDC *) getPtr(bp,memenv); bp += 4;
+ wxGraphicsContext *ctx = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetGraphicsContext(ctx);
+ break;
+}
+#endif // wxUSE_GRAPHICS_CONTEXT
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) op);

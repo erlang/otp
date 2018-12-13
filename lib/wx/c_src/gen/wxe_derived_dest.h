@@ -799,3 +799,11 @@ class EwxDCOverlay : public wxDCOverlay {
  EwxDCOverlay(wxOverlay& overlay,wxWindowDC * dc) : wxDCOverlay(overlay,dc) {};
 };
 
+#if wxUSE_GRAPHICS_CONTEXT
+class EwxGCDC : public wxGCDC {
+ public: ~EwxGCDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxGCDC(const wxWindowDC& dc) : wxGCDC(dc) {};
+ EwxGCDC() : wxGCDC() {};
+};
+#endif // wxUSE_GRAPHICS_CONTEXT
+

@@ -47,6 +47,7 @@
 #include <wx/sashwin.h>
 #include <wx/laywin.h>
 #include <wx/graphics.h>
+#include <wx/dcgraph.h>
 #include <wx/aui/aui.h>
 #include <wx/datectrl.h>
 #include <wx/filepicker.h>
@@ -3438,5 +3439,10 @@
 #define wxDisplay_GetFromPoint 3608
 #define wxDisplay_GetFromWindow 3609
 #define wxDisplay_GetPPI 3610
+#define wxGCDC_new_1 3611
+#define wxGCDC_new_0 3612
+#define wxGCDC_destruct 3613
+#define wxGCDC_GetGraphicsContext 3614
+#define wxGCDC_SetGraphicsContext 3615
 
 

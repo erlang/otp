@@ -1177,6 +1177,7 @@ gen_macros() ->
     w("#include <wx/sashwin.h>~n"),
     w("#include <wx/laywin.h>~n"),
     w("#include <wx/graphics.h>~n"),
+    w("#include <wx/dcgraph.h>~n"),
     w("#include <wx/aui/aui.h>~n"),
     w("#include <wx/datectrl.h>~n"),
     w("#include <wx/filepicker.h>~n"),
