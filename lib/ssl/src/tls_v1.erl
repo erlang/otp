@@ -43,7 +43,8 @@
          client_handshake_traffic_secret/3, server_handshake_traffic_secret/3,
          client_application_traffic_secret_0/3, server_application_traffic_secret_0/3,
          exporter_master_secret/3, resumption_master_secret/3,
-         update_traffic_secret/2, calculate_traffic_keys/3]).
+         update_traffic_secret/2, calculate_traffic_keys/3,
+         transcript_hash/2]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -99,6 +100,12 @@ hkdf_extract(MacAlg, Salt, KeyingMaterial) ->
 hkdf_expand(PseudoRandKey, ContextInfo, Length, Algo) -> 
     Iterations = erlang:ceil(Length / ssl_cipher:hash_size(Algo)),
     hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, 1, Iterations, <<>>, <<>>).
+
+
+-spec transcript_hash(Messages::iodata(),  Algo::ssl_cipher_format:hash()) -> Hash::binary().
+
+transcript_hash(Messages, Algo) ->
+     crypto:hash(mac_algo(Algo), Messages).
 %% TLS 1.3 ---------------------------------------------------
 
 %% TLS 1.0 -1.2  ---------------------------------------------------
