@@ -158,19 +158,19 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins xy f? I
+i_select_val_bins rxy f? I
 
-i_select_val_lins xy f? I
+i_select_val_lins rxy f? I
 
-i_select_val2 xy f? c c
+i_select_val2 rxy f? c c
 
-i_select_tuple_arity xy f? I
+i_select_tuple_arity rxy f? I
 
-i_select_tuple_arity2 xy f? A A
+i_select_tuple_arity2 rxy f? A A
 
-i_jump_on_val_zero xy f? I
+i_jump_on_val_zero rxy f? I
 
-i_jump_on_val xy f? I W
+i_jump_on_val rxy f? I W
 
 get_list xy xy xy
 
@@ -1020,9 +1020,9 @@ node y
 
 # Note: 'I' is sufficient because this instruction will only be used
 # if the arity fits in 24 bits.
-i_fast_element xy j? I d
+i_fast_element rxy j? I d
 
-i_element xy j? s d
+i_element rxy j? s d
 
 i_bif1 f? b s d
 i_bif1_body b s d
@@ -1092,7 +1092,7 @@ func_info M F A => i_func_info u M F A
 %warm
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 xy f t t d
+i_bs_start_match2 rxy f t t d
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
 i_bs_save2 xy t
@@ -1245,7 +1245,7 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail xy j? t? x
+i_bs_init_fail rxy j? t? x
 
 i_bs_init_fail_heap s I j? t? x
 
@@ -1266,7 +1266,7 @@ bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail xy j? t? x
+i_bs_init_bits_fail rxy j? t? x
 
 i_bs_init_bits_fail_heap s I j? t? x
 

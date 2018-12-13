@@ -676,8 +676,10 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
      * Instead use unpacked[-1], unpacked[-2], ...
      */
     switch (op) {
+    case op_i_select_val_lins_rfI:
     case op_i_select_val_lins_xfI:
     case op_i_select_val_lins_yfI:
+    case op_i_select_val_bins_rfI:
     case op_i_select_val_bins_xfI:
     case op_i_select_val_bins_yfI:
 	{
@@ -699,6 +701,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += (n+1) / 2;
 	}
 	break;
+    case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
         {
@@ -725,8 +728,10 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += (n+1) / 2;
         }
         break;
+    case op_i_select_val2_rfcc:
     case op_i_select_val2_xfcc:
     case op_i_select_val2_yfcc:
+    case op_i_select_tuple_arity2_rfAA:
     case op_i_select_tuple_arity2_xfAA:
     case op_i_select_tuple_arity2_yfAA:
         {
