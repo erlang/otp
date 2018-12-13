@@ -58,103 +58,70 @@ CALL_GUARD_BIF(BF, TmpReg, Dst) {
     }
 }
 
-// Guard BIF in head.  On failure, ignore the error and jump
-// to the code for the next clause.  We don't support tracing
+// Guard BIF in head. On failure, ignore the error and jump
+// to the code for the next clause. We don't support tracing
 // of guard BIFs.
 
-i_bif1(Fail, Bif, Src, Dst) {
-    ErtsBifFunc bf;
-    Eterm tmp_reg[1];
+i_bif1 := i_bif.fetch0.call;
+i_bif2 := i_bif.fetch1.fetch0.call;
+i_bif3 := i_bif.fetch2.fetch1.fetch0.call;
 
-    tmp_reg[0] = $Src;
-    bf = (BifFunction) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
-
-    $FAIL($Fail);
-}
-
-//
-// Guard BIF in body.  It can fail like any BIF.  No trace support.
-//
-
-i_bif1_body(Bif, Src, Dst) {
-    ErtsBifFunc bf;
-    Eterm tmp_reg[1];
-
-    tmp_reg[0] = $Src;
-    bf = (BifFunction) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
-
-    reg[0] = tmp_reg[0];
-    SWAPOUT;
-    I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
-    goto post_error_handling;
-}
-
-//
-// Guard bif in guard with two arguments ('and'/2, 'or'/2, 'xor'/2).
-//
-
-i_bif2(Fail, Bif, Src1, Src2, Dst) {
-    Eterm tmp_reg[2];
-    ErtsBifFunc bf;
-
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    bf = (ErtsBifFunc) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
-    $FAIL($Fail);
-}
-
-//
-// Guard bif in body with two arguments ('and'/2, 'or'/2, 'xor'/2).
-//
-
-i_bif2_body(Bif, Src1, Src2, Dst) {
-    Eterm tmp_reg[2];
-    ErtsBifFunc bf;
-
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    bf = (ErtsBifFunc) $Bif;
-    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
-    reg[0] = tmp_reg[0];
-    reg[1] = tmp_reg[1];
-    SWAPOUT;
-    I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
-    goto post_error_handling;
-}
-
-// Guard BIF in head (binary_part/3).  On failure, ignore the error
-// and jump to the code for the next clause.  We don't support tracing
-// of guard BIFs.
-
-i_bif3(Fail, Bif, Src1, Src2, Src3, Dst) {
+i_bif.head() {
     ErtsBifFunc bf;
     Eterm tmp_reg[3];
+}
 
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    tmp_reg[2] = $Src3;
+i_bif.fetch0(Src) {
+    tmp_reg[0] = $Src;
+}
+
+i_bif.fetch1(Src) {
+    tmp_reg[1] = $Src;
+}
+
+i_bif.fetch2(Src) {
+    tmp_reg[2] = $Src;
+}
+
+i_bif.call(Fail, Bif, Dst) {
     bf = (BifFunction) $Bif;
     $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
 
     $FAIL($Fail);
 }
 
-// Guard BIF in body with three arguments (binary_part/3).
+//
+// Guard BIF in body. It can fail like any BIF. No trace support.
+//
 
-i_bif3_body(Bif, Src1, Src2, Src3, Dst) {
+i_bif1_body := i_bif_body.fetch0.call;
+i_bif2_body := i_bif_body.fetch1.fetch0.call;
+i_bif3_body := i_bif_body.fetch2.fetch1.fetch0.call;
+
+i_bif_body.head() {
     ErtsBifFunc bf;
     Eterm tmp_reg[3];
+}
 
-    tmp_reg[0] = $Src1;
-    tmp_reg[1] = $Src2;
-    tmp_reg[2] = $Src3;
+i_bif_body.fetch0(Src) {
+    tmp_reg[0] = $Src;
+}
+
+i_bif_body.fetch1(Src) {
+    tmp_reg[1] = $Src;
+}
+
+i_bif_body.fetch2(Src) {
+    tmp_reg[2] = $Src;
+}
+
+i_bif_body.call(Bif, Dst) {
     bf = (BifFunction) $Bif;
     $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
+
     reg[0] = tmp_reg[0];
     reg[1] = tmp_reg[1];
+    reg[2] = tmp_reg[2];
     SWAPOUT;
     I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
     goto post_error_handling;

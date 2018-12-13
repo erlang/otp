@@ -1002,11 +1002,11 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
 
-bif1 p Bif S1 Dst         => i_bif1_body Bif S1 Dst
-bif1 Fail=f Bif S1 Dst    => i_bif1 Fail Bif S1 Dst
+bif1 p Bif S1 Dst         => i_bif1_body S1 Bif Dst
+bif1 Fail=f Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 
-bif2 p Bif S1 S2 Dst      => i_bif2_body Bif S1 S2 Dst
-bif2 Fail=f Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
+bif2 p Bif S1 S2 Dst      => i_bif2_body S2 S1 Bif Dst
+bif2 Fail=f Bif S1 S2 Dst => i_bif2 S2 S1 Fail Bif Dst
 
 i_get_hash c I d
 i_get s d
@@ -1024,12 +1024,12 @@ i_fast_element xy j? I d
 
 i_element xy j? s d
 
-i_bif1 f? b s d
-i_bif1_body b s d
-i_bif2 f? b s s d
-i_bif2_body b s s d
-i_bif3 f? b s s s d
-i_bif3_body b s s s d
+i_bif1 s f? b d
+i_bif1_body s b d
+i_bif2 s s f? b d
+i_bif2_body s s b d
+i_bif3 s s s f? b d
+i_bif3_body s s s b d
 
 #
 # Internal calls.
@@ -1590,14 +1590,14 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 #
 # Guard BIFs.
 #
-gc_bif1 p Live Bif Src Dst           => i_bif1_body Bif Src Dst
-gc_bif1 Fail=f Live Bif Src Dst      => i_bif1 Fail Bif Src Dst
+gc_bif1 p Live Bif Src Dst           => i_bif1_body Src Bif Dst
+gc_bif1 Fail=f Live Bif Src Dst      => i_bif1 Src Fail Bif Dst
 
-gc_bif2 p Live Bif S1 S2 Dst         => i_bif2_body Bif S1 S2 Dst
-gc_bif2 Fail=f Live Bif S1 S2 Dst    => i_bif2 Fail Bif S1 S2 Dst
+gc_bif2 p Live Bif S1 S2 Dst         => i_bif2_body S2 S1 Bif Dst
+gc_bif2 Fail=f Live Bif S1 S2 Dst    => i_bif2 S2 S1 Fail Bif Dst
 
-gc_bif3 p Live Bif S1 S2 S3 Dst      => i_bif3_body Bif S1 S2 S3 Dst
-gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 Fail Bif S1 S2 S3 Dst
+gc_bif3 p Live Bif S1 S2 S3 Dst      => i_bif3_body S3 S2 S1 Bif Dst
+gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 S3 S2 S1 Fail Bif Dst
 
 #
 # The following instruction is specially handled in beam_load.c
