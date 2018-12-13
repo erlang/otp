@@ -680,9 +680,9 @@ encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
 encode_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
     Versions = encode_versions(Versions0),
     VerLen = byte_size(Versions),
-    Len = VerLen + 2,
+    Len = VerLen + 1,
     encode_extensions(Rest, <<?UINT16(?SUPPORTED_VERSIONS_EXT),
-                              ?UINT16(Len), ?UINT16(VerLen), Versions/binary, Acc/binary>>);
+                              ?UINT16(Len), ?BYTE(VerLen), Versions/binary, Acc/binary>>);
 encode_extensions([#server_hello_selected_version{selected_version = Version0} | Rest], Acc) ->
     Version = encode_versions([Version0]),
     Len = byte_size(Version), %% 2
@@ -745,7 +745,6 @@ decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       Cipher_suite:2/binary, ?BYTE(Comp_method),
 		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
-
     HelloExtensions = decode_hello_extensions(Extensions, Version, {Major, Minor}, server_hello),
 
     #server_hello{
@@ -2222,7 +2221,7 @@ process_supported_versions_extension(<<>>, LocalVersion, _LegacyVersion) ->
 process_supported_versions_extension(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                                        ExtData:Len/binary, _Rest/binary>>,
                                      LocalVersion, _LegacyVersion) when Len > 2 ->
-    <<?UINT16(_),Versions0/binary>> = ExtData,
+    <<?BYTE(_),Versions0/binary>> = ExtData,
     [Highest|_] = decode_versions(Versions0),
     if Highest =< LocalVersion ->
             Highest;
@@ -2375,7 +2374,7 @@ decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
 
 decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) when Len > 2 ->
-    <<?UINT16(_),Versions/binary>> = ExtData,
+    <<?BYTE(_),Versions/binary>> = ExtData,
     decode_extensions(Rest, Version, MessageType,
                       Acc#{client_hello_versions =>
                                #client_hello_versions{
