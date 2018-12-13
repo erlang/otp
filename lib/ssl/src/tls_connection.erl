@@ -198,12 +198,12 @@ next_event(StateName, Record, State, Actions) ->
 
 %%% TLS record protocol level application data messages 
 
-handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_connection:read_application_data(Data, State0) of
 	{stop, _, _} = Stop->
             Stop;
 	{Record, State1} ->
-            {next_state, StateName, State, Actions} = next_event(StateName0, Record, State1), 
+            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1), 
             ssl_connection:hibernate_after(StateName, State, Actions)
     end;
 %%% TLS record protocol level handshake messages 
@@ -473,8 +473,9 @@ init(Type, Event, State) ->
 %%--------------------------------------------------------------------
 error({call, From}, {start, _Timeout}, 
       #state{protocol_specific = #{error := Error}} = State) ->
-    ssl_connection:stop_and_reply(
-      normal, {reply, From, {error, Error}}, State);
+    {stop_and_reply, {shutdown, normal}, 
+     [{reply, From, {error, Error}}], State};
+
 error({call, _} = Call, Msg, State) ->
     gen_handshake(?FUNCTION_NAME, Call, Msg, State);
 error(_, _, _) ->
@@ -824,7 +825,7 @@ handle_info({Protocol, _, Data}, StateName,
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
 	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
-	    ssl_connection:stop({shutdown, own_alert}, State0)
+	    {stop, {shutdown, own_alert}, State0}
     end;
 handle_info({tcp_passive, Socket},  StateName, 
             #state{static_env = #static_env{socket = Socket},
@@ -859,7 +860,7 @@ handle_info({CloseTag, Socket}, StateName,
             end,
 
             ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-            ssl_connection:stop({shutdown, transport_closed}, State);
+            {stop, {shutdown, transport_closed}, State};
         true ->
             %% Fixes non-delivery of final TLS record in {active, once}.
             %% Basically allows the application the opportunity to set {active, once} again
