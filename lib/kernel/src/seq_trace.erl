@@ -98,7 +98,7 @@ print(Label, Term) ->
 -spec reset_trace() -> 'true'.
 
 reset_trace() ->
-    erlang:system_flag(1, 0).
+    erlang:system_flag(reset_seq_trace, true).
 
 %% reset_trace(Pid) -> % this might be a useful function too
 
