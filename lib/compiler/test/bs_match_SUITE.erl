@@ -743,8 +743,18 @@ coverage(Config) when is_list(Config) ->
     bitstring = coverage_bitstring(<<7:4>>),
     other = coverage_bitstring([a]),
 
+    %% Cover code in beam_trim.
+
     {done,<<17,53>>,[253,155,200]} =
         coverage_trim(<<253,155,200,17,53>>, e0, e1, e2, e3, []),
+
+    <<"(right|linux)">> = coverage_trim_1(<<"">>, <<"right">>, <<"linux">>),
+    <<"/(right|linux)">> = coverage_trim_1(<<"/">>, <<"right">>, <<"linux">>),
+    <<"(left|linux)/(right|linux)">> =
+        coverage_trim_1(<<"left">>, <<"right">>, <<"linux">>),
+
+    {10,<<"-">>,""} = coverage_trim_2(<<"-">>, 10, []),
+    {8,<<"-">>,"aa"} = coverage_trim_2(<<"aa-">>, 10, []),
 
     ok.
 
@@ -847,6 +857,29 @@ coverage_trim(<<C:8,T/binary>> = Bin, E0, E1, E2, E3, Acc) ->
         false ->
             {done,Bin,lists:reverse(Acc)}
     end.
+
+coverage_trim_1(<<>>, Right, OsType) ->
+    do_coverage_trim_1(Right, OsType);
+coverage_trim_1(<<"/">>, Right, OsType) ->
+    <<"/",(do_coverage_trim_1(Right, OsType))/binary>>;
+coverage_trim_1(Left, Right, OsType) ->
+    <<(do_coverage_trim_1(Left, OsType))/binary,
+      "/",
+      (do_coverage_trim_1(Right, OsType))/binary>>.
+
+do_coverage_trim_1(A, OsType) ->
+    <<"(",A/binary,"|",OsType/binary,")">>.
+
+coverage_trim_2(<<C/utf8,R/binary>> = Bin, I, L) ->
+    case printable_char(C) of
+        true ->
+            coverage_trim_2(R, I - 1, [C | L]);
+        false ->
+            {I,Bin,lists:reverse(L)}
+    end.
+
+printable_char($a) -> true;
+printable_char(_) -> false.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
@@ -1814,11 +1847,10 @@ do_erl_689_2b(_, <<Length, Data/binary>>) ->
 %% ERL-753
 
 bs_start_match2_defs(_Config) ->
-    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>, dummy),
-    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}, dummy).
+    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>),
+    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}).
 
-api_url(URL, Auth) ->
-    Header = [],
+api_url(URL) ->
     case URL of
         <<_/binary>> -> {<<"http://127.0.0.1:1234/vsaas/",URL/binary>>};
         {https, [_|_] = URL1} -> {"https://127.0.0.1:4321/vsaas/"++URL1}

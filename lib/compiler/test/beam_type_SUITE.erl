@@ -116,8 +116,8 @@ do_integers_4(_, _, Res) ->
     Res.
 
 do_integers_5(X0, Y0) ->
-    %% X and Y will use the same register.
-    X = X0 band 1,
+    %% _X and Y will use the same register.
+    _X = X0 band 1,
     Y = Y0 band 3,
     case Y of
         0 -> zero;
