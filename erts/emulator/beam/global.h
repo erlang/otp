@@ -1303,14 +1303,7 @@ Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
 int erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written);
 Sint erts_unicode_list_to_buf_len(Eterm list);
 
-struct Sint_buf {
-#if defined(ARCH_64)
-    char s[22];
-#else
-    char s[12];
-#endif
-};	
-char* Sint_to_buf(Sint, struct Sint_buf*);
+int Sint_to_buf(Sint num, int base, char **buf_p, size_t buf_size);
 
 #define ERTS_IOLIST_STATE_INITER(C_P, OBJ)	\
     {(C_P), 0, 0, (OBJ), {NULL, NULL, NULL, ERTS_ALC_T_INVALID}, 0, 0}

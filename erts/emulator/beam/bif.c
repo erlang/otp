@@ -2810,38 +2810,77 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 
 /* convert an integer to a list of ascii integers */
 
-BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
+static Eterm integer_to_list(Process *c_p, Eterm num, int base)
 {
-    Eterm* hp;
+    Eterm *hp;
+    Eterm res;
     Uint need;
 
-    if (is_not_integer(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
+    if (is_small(num)) {
+        char s[128];
+        char *c = s;
+        Uint digits;
 
-    if (is_small(BIF_ARG_1)) {
-	char *c;
-	int n;
-	struct Sint_buf ibuf;
+        digits = Sint_to_buf(signed_val(num), base, &c, sizeof(s));
+        need = 2 * digits;
 
-	c = Sint_to_buf(signed_val(BIF_ARG_1), &ibuf);
-	n = sys_strlen(c);
-	need = 2*n;
-	hp = HAlloc(BIF_P, need);
-	BIF_RET(buf_to_intlist(&hp, c, n, NIL));
-    }
-    else {
-	int n = big_decimal_estimate(BIF_ARG_1);
-	Eterm res;
-        Eterm* hp_end;
+        hp = HAlloc(c_p, need);
+        res = buf_to_intlist(&hp, c, digits, NIL);
+    } else {
+        const int DIGITS_PER_RED = 16;
+        Eterm *hp_end;
+        Uint digits;
 
-	need = 2*n;
-	hp = HAlloc(BIF_P, need);
+        digits = big_integer_estimate(num, base);
+
+        if ((digits / DIGITS_PER_RED) > ERTS_BIF_REDS_LEFT(c_p)) {
+            ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+            /* This could take a very long time, tell the caller to reschedule
+             * us to a dirty CPU scheduler if we aren't already on one. */
+            if (esdp->type == ERTS_SCHED_NORMAL) {
+                return THE_NON_VALUE;
+            }
+        } else {
+            BUMP_REDS(c_p, digits / DIGITS_PER_RED);
+        }
+
+        need = 2 * digits;
+
+        hp = HAlloc(c_p, need);
         hp_end = hp + need;
-	res = erts_big_to_list(BIF_ARG_1, &hp);
-        HRelease(BIF_P,hp_end,hp);
-	BIF_RET(res);
+
+        res = erts_big_to_list(num, base, &hp);
+        HRelease(c_p, hp_end, hp);
     }
+
+    return res;
+}
+
+BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
+{
+    Eterm res;
+
+    if (is_not_integer(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    res = integer_to_list(BIF_P, BIF_ARG_1, 10);
+
+    if (is_non_value(res)) {
+        Eterm args[1];
+        args[0] = BIF_ARG_1;
+        return erts_schedule_bif(BIF_P,
+                                 args,
+                                 BIF_I,
+                                 integer_to_list_1,
+                                 ERTS_SCHED_DIRTY_CPU,
+                                 am_erlang,
+                                 am_integer_to_list,
+                                 1);
+    }
+
+    return res;
 }
 
 /**********************************************************************/

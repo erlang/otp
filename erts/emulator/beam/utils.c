@@ -3681,30 +3681,47 @@ erts_unicode_list_to_buf_len(Eterm list)
     }
 }
 
-/*
-** Convert an integer to a byte list
-** return pointer to converted stuff (need not to be at start of buf!)
-*/
-char* Sint_to_buf(Sint n, struct Sint_buf *buf)
+/* Prints an integer in the given base, returning the number of digits printed.
+ *
+ * (*buf) is a pointer to the buffer, and is set to the start of the string
+ * when returning. */
+int Sint_to_buf(Sint n, int base, char **buf, size_t buf_size)
 {
-    char* p = &buf->s[sizeof(buf->s)-1];
-    int sign = 0;
+    char *p = &(*buf)[buf_size - 1];
+    int sign = 0, size = 0;
 
-    *p-- = '\0'; /* null terminate */
-    if (n == 0)
-	*p-- = '0';
-    else if (n < 0) {
-	sign = 1;
-	n = -n;
+    ASSERT(base >= 2 && base <= 36);
+
+    if (n == 0) {
+        *p-- = '0';
+        size++;
+    } else if (n < 0) {
+        sign = 1;
+        n = -n;
     }
 
     while (n != 0) {
-	*p-- = (n % 10) + '0';
-	n /= 10;
+        int digit = n % base;
+
+        if (digit < 10) {
+            *p-- = '0' + digit;
+        } else {
+            *p-- = 'A' + (digit - 10);
+        }
+
+        size++;
+
+        n /= base;
     }
-    if (sign)
-	*p-- = '-';
-    return p+1;
+
+    if (sign) {
+        *p-- = '-';
+        size++;
+    }
+
+    *buf = p + 1;
+
+    return size;
 }
 
 /* Build a list of integers in some safe memory area
