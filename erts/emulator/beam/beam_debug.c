@@ -558,23 +558,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_gc_bif1_jWstd:
-	    case op_i_gc_bif2_jWtssd:
-	    case op_i_gc_bif3_jWtssd:
-		{
-		    const ErtsGcBif* p;
-		    BifFunction gcf = (BifFunction) *ap;
-		    for (p = erts_gc_bifs; p->bif != 0; p++) {
-			if (p->gc_bif == gcf) {
-			    print_bif_name(to, to_arg, p->bif);
-			    break;
-			}
-		    }
-		    if (p->bif == 0) {
-			erts_print(to, to_arg, "%d", (Uint)gcf);
-		    }
-		    break;
-		}
 	    case op_i_make_fun_Wt:
                 if (*sign == 'W') {
                     ErlFunEntry* fe = (ErlFunEntry *) *ap;

@@ -1970,9 +1970,7 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	goto badarg;
     }
 
-
-
-    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
+    hp = HeapFragOnlyAlloc(p, ERL_SUB_BIN_SIZE);
 
     ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
     sb = (ErlSubBin *) hp;
@@ -1990,100 +1988,6 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     BIF_ERROR(p, BADARG);
 }
 
-#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
-
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple)
-{
-    Uint pos;
-    Sint len;
-    size_t orig_size;
-    Eterm orig;
-    Uint offset;
-    Uint bit_offset;
-    Uint bit_size;
-    Eterm* hp;
-    ErlSubBin* sb;
-    Eterm binary;
-    Eterm *tp;
-    Eterm epos, elen;
-    int extra_args;
-
-
-    if (range_is_tuple) {
-	Eterm tpl = reg[live];
-	extra_args = 1;
-	if (is_not_tuple(tpl)) {
-	    goto badarg;
-	}
-	tp = tuple_val(tpl);
-	if (arityval(*tp) != 2) {
-	    goto badarg;
-	}
-
-	epos = tp[1];
-	elen = tp[2];
-    } else {
-	extra_args = 2;
-	epos = reg[live-1];
-	elen = reg[live];
-    }
-    binary = reg[live-extra_args];
-
-    if (is_not_binary(binary)) {
-	goto badarg;
-    }
-    if (!term_to_Uint(epos, &pos)) {
-	goto badarg;
-    }
-    if (!term_to_Sint(elen, &len)) {
-	goto badarg;
-    }
-    if (len < 0) {
-	Uint lentmp = -(Uint)len;
-	/* overflow */
-	if ((Sint)lentmp < 0) {
-	    goto badarg;
-	}
-	len = lentmp;
-	if (len > pos) {
-	    goto badarg;
-	}
-	pos -= len;
-    }
-    /* overflow */
-    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
-	goto badarg;
-    }
-    if ((orig_size = binary_size(binary)) < pos ||
-	orig_size < (pos + len)) {
-	goto badarg;
-    }
-
-    if (ERTS_NEED_GC(p, ERL_SUB_BIN_SIZE)) {
-	erts_garbage_collect(p, ERL_SUB_BIN_SIZE, reg, live+1-extra_args); /* I don't need the tuple
-									      or indices any more */
-	binary = reg[live-extra_args];
-    }
-
-    hp = p->htop;
-    p->htop += ERL_SUB_BIN_SIZE;
-
-    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
-
-    sb = (ErlSubBin *) hp;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = len;
-    sb->offs = offset + pos;
-    sb->orig = orig;
-    sb->bitoffs = bit_offset;
-    sb->bitsize = 0;
-    sb->is_writable = 0;
-
-    BIF_RET(make_binary(sb));
-
- badarg:
-    BIF_ERROR(p, BADARG);
-}
 /*************************************************************
  * The actual guard BIFs are in erl_bif_guard.c
  * but the implementation of both the non-gc and the gc

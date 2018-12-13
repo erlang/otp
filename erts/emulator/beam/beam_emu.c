@@ -206,8 +206,12 @@ void** beam_ops;
 #ifdef DEBUG
 #  /* The stack pointer is used in an assertion. */
 #  define LIGHT_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPOUT SWAPOUT
+#  define DEBUG_SWAPIN  SWAPIN
 #else
 #  define LIGHT_SWAPOUT HEAP_TOP(c_p) = HTOP
+#  define DEBUG_SWAPOUT
+#  define DEBUG_SWAPIN
 #endif
 
 /*
@@ -386,7 +390,6 @@ do {                                            \
  */
 static void init_emulator_finish(void) NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
-static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
 			       Eterm* reg, ErtsCodeMFA* bif_mfa) NOINLINE;
 static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
@@ -1301,18 +1304,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 }
 
 static ErtsCodeMFA *
-gcbif2mfa(void* gcf)
-{
-    int i;
-    for (i = 0; erts_gc_bifs[i].bif; i++) {
-	if (erts_gc_bifs[i].gc_bif == gcf)
-	    return &bif_export[erts_gc_bifs[i].exp_ix]->info.mfa;
-    }
-    erts_exit(ERTS_ERROR_EXIT, "bad gc bif");
-    return NULL;
-}
-
-static ErtsCodeMFA *
 ubif2mfa(void* uf)
 {
     int i;
@@ -1320,7 +1311,7 @@ ubif2mfa(void* uf)
 	if (erts_u_bifs[i].bif == uf)
 	    return &bif_export[erts_u_bifs[i].exp_ix]->info.mfa;
     }
-    erts_exit(ERTS_ERROR_EXIT, "bad u bif");
+    erts_exit(ERTS_ERROR_EXIT, "bad u bif: %p\n", uf);
     return NULL;
 }
 

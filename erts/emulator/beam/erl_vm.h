@@ -146,6 +146,21 @@
       (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 #endif
 
+/*
+ * Always allocate in a heap fragment, never on the heap.
+ */
+#if defined(VALGRIND)
+/* Running under valgrind, allocate exactly as much as needed.*/
+#  define HeapFragOnlyAlloc(p, sz)              \
+  (ASSERT((sz) >= 0),                           \
+   ErtsHAllocLockCheck(p),                      \
+   erts_heap_alloc((p),(sz),0))
+#else
+#  define HeapFragOnlyAlloc(p, sz)              \
+  (ASSERT((sz) >= 0),                           \
+   ErtsHAllocLockCheck(p),                      \
+   erts_heap_alloc((p),(sz),512))
+#endif
 
 /*
  * Description for each instruction (defined here because the name and

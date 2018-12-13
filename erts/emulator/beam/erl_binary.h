@@ -278,7 +278,6 @@ Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, 
  */
 
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg, Export *bif);
-BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
 

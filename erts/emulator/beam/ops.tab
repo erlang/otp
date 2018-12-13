@@ -1002,10 +1002,11 @@ bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => gen_get(Src, Dst)
 
 bif2 Jump=j u$bif:erlang:element/2 S1=s S2=xy Dst=d => gen_element(Jump, S1, S2, Dst)
 
-bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
+bif1 p Bif S1 Dst         => i_bif1_body Bif S1 Dst
+bif1 Fail=f Bif S1 Dst    => i_bif1 Fail Bif S1 Dst
 
-bif2 p Bif S1 S2 Dst => i_bif2_body Bif S1 S2 Dst
-bif2 Fail Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
+bif2 p Bif S1 S2 Dst      => i_bif2_body Bif S1 S2 Dst
+bif2 Fail=f Bif S1 S2 Dst => i_bif2 Fail Bif S1 S2 Dst
 
 i_get_hash c I d
 i_get s d
@@ -1023,10 +1024,12 @@ i_fast_element xy j? I d
 
 i_element xy j? s d
 
-bif1 f? b s d
-bif1_body b s d
+i_bif1 f? b s d
+i_bif1_body b s d
 i_bif2 f? b s s d
 i_bif2_body b s s d
+i_bif3 f? b s s s d
+i_bif3_body b s s s d
 
 #
 # Internal calls.
@@ -1499,80 +1502,80 @@ gc_bif2 Fail Live u$bif:erlang:sminus/2 S1 S2 Dst => \
 
 #
 # Optimize addition and subtraction of small literals using
-# the i_increment/4 instruction (in bodies, not in guards).
+# the i_increment/3 instruction (in bodies, not in guards).
 #
 
 gen_plus p Live Int=i Reg=d Dst => \
-	gen_increment(Reg, Int, Live, Dst)
+	gen_increment(Reg, Int, Dst)
 gen_plus p Live Reg=d Int=i Dst => \
-	gen_increment(Reg, Int, Live, Dst)
+	gen_increment(Reg, Int, Dst)
 
 gen_minus p Live Reg=d Int=i Dst | negation_is_small(Int) => \
-	gen_increment_from_minus(Reg, Int, Live, Dst)
+	gen_increment_from_minus(Reg, Int, Dst)
 
 #
-# GCing arithmetic instructions.
+# Arithmetic instructions.
 #
 
-gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Live Dst
+gen_plus Fail Live S1 S2 Dst => i_plus S1 S2 Fail Dst
 
-gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Live Dst
+gen_minus Fail Live S1 S2 Dst => i_minus S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst => \
-  i_times Fail Live S1 S2 Dst
+  i_times Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst => \
-  i_m_div Fail Live S1 S2 Dst
+  i_m_div Fail S1 S2 Dst
 gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst => \
-  i_int_div Fail Live S1 S2 Dst
+  i_int_div Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst => \
-  i_rem S1 S2 Fail Live Dst
+  i_rem S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst => \
-  i_bsl S1 S2 Fail Live Dst
+  i_bsl S1 S2 Fail Dst
 gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst => \
-  i_bsr S1 S2 Fail Live Dst
+  i_bsr S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst => \
-  i_band S1 S2 Fail Live Dst
+  i_band S1 S2 Fail Dst
 
 gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst => \
-  i_bor Fail Live S1 S2 Dst
+  i_bor Fail S1 S2 Dst
 
 gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
-  i_bxor Fail Live S1 S2 Dst
+  i_bxor Fail S1 S2 Dst
 
-gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
+gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src Dst
 
-i_increment rxy W t d
+i_increment rxy W d
 
-i_plus x xy j? t d
-i_plus s s  j? t d
+i_plus x xy j? d
+i_plus s s  j? d
 
-i_minus x x j? t d
-i_minus s s j? t d
+i_minus x x j? d
+i_minus s s j? d
 
-i_times j? t s s d
+i_times j? s s d
 
-i_m_div j? t s s d
-i_int_div j? t s s d
+i_m_div j? s s d
+i_int_div j? s s d
 
-i_rem x x j? t d
-i_rem s s j? t d
+i_rem x x j? d
+i_rem s s j? d
 
-i_bsl s s j? t d
-i_bsr s s j? t d
+i_bsl s s j? d
+i_bsr s s j? d
 
-i_band x c j? t d
-i_band s s j? t d
+i_band x c j? d
+i_band s s j? d
 
-i_bor j? I s s d
-i_bxor j? I s s d
+i_bor j? s s d
+i_bxor j? s s d
 
-i_int_bnot Fail Src=c Live Dst => move Src x | i_int_bnot Fail x Live Dst
+i_int_bnot Fail Src=c Dst => move Src x | i_int_bnot Fail x Dst
 
-i_int_bnot j? S t d
+i_int_bnot j? S d
 
 #
 # Old guard BIFs that creates heap fragments are no longer allowed.
@@ -1587,27 +1590,14 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 #
 # Guard BIFs.
 #
-gc_bif1 Fail I Bif Src Dst => \
-	gen_guard_bif1(Fail, I, Bif, Src, Dst)
+gc_bif1 p Live Bif Src Dst           => i_bif1_body Bif Src Dst
+gc_bif1 Fail=f Live Bif Src Dst      => i_bif1 Fail Bif Src Dst
 
-gc_bif2 Fail I Bif S1 S2 Dst => \
-	gen_guard_bif2(Fail, I, Bif, S1, S2, Dst)
+gc_bif2 p Live Bif S1 S2 Dst         => i_bif2_body Bif S1 S2 Dst
+gc_bif2 Fail=f Live Bif S1 S2 Dst    => i_bif2 Fail Bif S1 S2 Dst
 
-gc_bif3 Fail I Bif S1 S2 S3 Dst => \
-	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
-
-i_gc_bif1 j? W s t? d
-
-i_gc_bif2 j? W t? s s d
-
-ii_gc_bif3/7
-
-# A specific instruction can only have 6 operands, so we must
-# pass one of the arguments in an x register.
-ii_gc_bif3 Fail Bif Live S1 S2 S3 Dst => \
-  move S1 x | i_gc_bif3 Fail Bif Live S2 S3 Dst
-
-i_gc_bif3 j? W t? s s d
+gc_bif3 p Live Bif S1 S2 S3 Dst      => i_bif3_body Bif S1 S2 S3 Dst
+gc_bif3 Fail=f Live Bif S1 S2 S3 Dst => i_bif3 Fail Bif S1 S2 S3 Dst
 
 #
 # The following instruction is specially handled in beam_load.c

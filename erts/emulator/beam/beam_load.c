@@ -3580,38 +3580,36 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
 }
 
 static GenOp*
-gen_increment(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
-	      GenOpArg Live, GenOpArg Dst)
+gen_increment(LoaderState* stp, GenOpArg Reg,
+              GenOpArg Integer, GenOpArg Dst)
 {
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_increment_4;
-    op->arity = 4;
+    op->op = genop_i_increment_3;
+    op->arity = 3;
     op->next = NULL;
     op->a[0] = Reg;
     op->a[1].type = TAG_u;
     op->a[1].val = Integer.val;
-    op->a[2] = Live;
-    op->a[3] = Dst;
+    op->a[2] = Dst;
     return op;
 }
 
 static GenOp*
-gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
-			 GenOpArg Live, GenOpArg Dst)
+gen_increment_from_minus(LoaderState* stp, GenOpArg Reg,
+                         GenOpArg Integer, GenOpArg Dst)
 {
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_increment_4;
-    op->arity = 4;
+    op->op = genop_i_increment_3;
+    op->arity = 3;
     op->next = NULL;
     op->a[0] = Reg;
     op->a[1].type = TAG_u;
     op->a[1].val = -Integer.val;
-    op->a[2] = Live;
-    op->a[3] = Dst;
+    op->a[2] = Dst;
     return op;
 }
 
@@ -4297,98 +4295,6 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 
     op->next = NULL;
     return op;
-}
-
-static GenOp*
-translate_gc_bif(LoaderState* stp, GenOp* op, GenOpArg Bif)
-{
-    const ErtsGcBif* p;
-    BifFunction bf;
-
-    bf = stp->import[Bif.val].bf;
-    for (p = erts_gc_bifs; p->bif != 0; p++) {
-	if (p->bif == bf) {
-	    op->a[1].type = TAG_u;
-	    op->a[1].val = (BeamInstr) p->gc_bif;
-	    return op;
-	}
-    }
-
-    op->op = genop_unsupported_guard_bif_3;
-    op->arity = 3;
-    op->a[0].type = TAG_a;
-    op->a[0].val = stp->import[Bif.val].module;
-    op->a[1].type = TAG_a;
-    op->a[1].val = stp->import[Bif.val].function;
-    op->a[2].type = TAG_u;
-    op->a[2].val = stp->import[Bif.val].arity;
-    return op;
-}
-
-/*
- * Rewrite gc_bifs with one parameter (the common case).
- */
-static GenOp*
-gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg Src, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_i_gc_bif1_5;
-    op->arity = 5;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Src;
-    op->a[3] = Live;
-    op->a[4] = Dst;
-    return translate_gc_bif(stp, op, Bif);
-}
-
-/*
- * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
- */
-static GenOp*
-gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg S1, GenOpArg S2, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_i_gc_bif2_6;
-    op->arity = 6;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Live;
-    op->a[3] = S1;
-    op->a[4] = S2;
-    op->a[5] = Dst;
-    return translate_gc_bif(stp, op, Bif);
-}
-
-/*
- * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
- */
-static GenOp*
-gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg S1, GenOpArg S2, GenOpArg S3, GenOpArg Dst)
-{
-    GenOp* op;
-
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_ii_gc_bif3_7;
-    op->arity = 7;
-    op->a[0] = Fail;
-    /* op->a[1] is set by translate_gc_bif() */
-    op->a[2] = Live;
-    op->a[3] = S1;
-    op->a[4] = S2;
-    op->a[5] = S3;
-    op->a[6] = Dst;
-    return translate_gc_bif(stp, op, Bif);
 }
 
 static GenOp*
