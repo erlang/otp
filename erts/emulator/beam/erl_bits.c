@@ -1331,6 +1331,10 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	}
     }
 
+    if (build_size_in_bits == 0) {
+	goto return_bin;
+    }
+
     if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
         c_p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
@@ -1389,16 +1393,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	Eterm* hp;
 
 	/*
-	 * Allocate heap space.
-	 */
-	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
-	if (c_p->stop - c_p->htop < heap_need) {
-	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
-	    bin = reg[live];
-	}
-	hp = c_p->htop;
-
-	/*
 	 * Calculate sizes. The size of the new binary, is the sum of the
 	 * build size and the size of the old binary. Allow some room
 	 * for growing.
@@ -1411,6 +1405,19 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 		goto badarg;
 	    }
 	}
+
+	if (build_size_in_bits == 0) {
+	    goto return_bin;
+	}
+
+	/*
+	 * Allocate heap space.
+	 */
+	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
+	if (c_p->stop - c_p->htop < heap_need) {
+	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
+	}
+	hp = c_p->htop;
 
         if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
             c_p->freason = SYSTEM_LIMIT;
@@ -1470,6 +1477,16 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	copy_binary_to_buffer(erts_current_bin, 0, src_bytes, bitoffs, erts_bin_offset);
 
 	return make_binary(sb);
+    }
+
+ return_bin:
+    {
+	if (c_p->stop - c_p->htop < extra_words) {
+	    reg[live] = bin;
+	    (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
+	    bin = reg[live];
+	}
+	return bin;
     }
 }
 
