@@ -168,7 +168,11 @@ eval({op,_,Op,A0,B0}, LFH) ->
     Res = eval_op(Op, A, B),
     erlang:garbage_collect(),
     Res;
-eval({integer,_,I}, _) -> I;
+eval({integer,_,I}, _) ->
+    %% "Parasitic" ("symbiotic"?) test of squaring all numbers
+    %% found in the test data.
+    test_squaring(I),
+    I;
 eval({call,_,{atom,_,Local},Args0}, LFH) ->
     Args = eval_list(Args0, LFH),
     LFH(Local, Args).
@@ -191,6 +195,18 @@ eval_op('bor', A, B) -> A bor B;
 eval_op('bxor', A, B) -> A bxor B;
 eval_op('bsl', A, B) -> A bsl B;
 eval_op('bsr', A, B) -> A bsr B.
+
+test_squaring(I) ->
+    %% Multiplying an integer by itself is specially optimized, so we
+    %% should take special care to test squaring.  The optimization
+    %% will kick in when the two operands have the same address.
+    Sqr = I * I,
+
+    %% This expression will be multiplied in the usual way, because
+    %% the the two operands for '*' are stored at different addresses.
+    Sqr = I * ((I + id(1)) - id(1)),
+
+    ok.
 
 %% Built in test functions
 
