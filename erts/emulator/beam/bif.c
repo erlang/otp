@@ -2883,6 +2883,39 @@ BIF_RETTYPE integer_to_list_1(BIF_ALIST_1)
     return res;
 }
 
+BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
+{
+    Eterm res;
+    int base;
+
+    if (is_not_integer(BIF_ARG_1) || is_not_integer(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    base = unsigned_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    res = integer_to_list(BIF_P, BIF_ARG_1, base);
+
+    if (is_non_value(res)) {
+        Eterm args[2];
+        args[0] = BIF_ARG_1;
+        args[1] = BIF_ARG_2;
+        return erts_schedule_bif(BIF_P,
+                                 args,
+                                 BIF_I,
+                                 integer_to_list_2,
+                                 ERTS_SCHED_DIRTY_CPU,
+                                 am_erlang,
+                                 am_integer_to_list,
+                                 2);
+    }
+
+    return res;
+}
+
 /**********************************************************************/
 
 /*
