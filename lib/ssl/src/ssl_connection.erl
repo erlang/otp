@@ -51,7 +51,7 @@
 
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
-	 handle_normal_shutdown/3, stop/2, stop_and_reply/3,
+	 handle_normal_shutdown/3, 
          handle_trusted_certs_db/1]).
 
 %% Data handling
@@ -349,7 +349,7 @@ handle_own_alert(Alert, _, StateName,
     catch _:_ ->
 	    ok
     end,
-    stop({shutdown, own_alert}, State).
+    {stop, {shutdown, own_alert}, State}.
 
 handle_normal_shutdown(Alert, _, #state{static_env = #static_env{role = Role,
                                                                  socket = Socket,
@@ -389,7 +389,7 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
               StateName, Alert#alert{role = opposite_role(Role)}),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
-    stop(normal, State);
+    {stop, {shutdown, normal}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
 	     downgrade= StateName, State) -> 
@@ -397,7 +397,7 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
 	    StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
-    stop({shutdown, peer_close}, State);
+    {stop,{shutdown, peer_close}, State};
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
@@ -406,7 +406,7 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     log_alert(SslOpts#ssl_options.log_alert, Role, 
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     handle_normal_shutdown(Alert, StateName, State),
-    stop({shutdown, peer_close}, State);
+    {stop,{shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, connection = StateName, 
 	     #state{static_env = #static_env{role = Role,
@@ -513,7 +513,7 @@ read_application_data(Data, #state{static_env = #static_env{socket = Socket,
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(Connection:pids(State0),
                                  Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker, Connection),
-            stop(normal, State0)
+            {stop, {shutdown, normal}, State0}
     end.
 
 dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := undefined,
@@ -533,7 +533,7 @@ dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := DHandle,
         _ -> %% We have more data
             read_application_data(<<>>, State)
     catch error:_ ->
-            stop(State, disconnect)
+            {stop, State, disconnect}
     end.
 
 merge_dist_data(<<>>, ClientData) ->
@@ -648,7 +648,7 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
 	     State#state{ssl_options = SslOpts, 
                          socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
-	    stop_and_reply(normal, {reply, From, {error, Error}}, State0)
+	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
 init({call, From}, {new_user, _} = Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
@@ -664,7 +664,7 @@ init(_Type, _Event, _State, _Connection) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 error({call, From}, {close, _}, State, _Connection) ->
-    stop_and_reply(normal, {reply, From, ok}, State);
+    {stop_and_reply, {shutdown, normal}, {reply, From, ok}, State};
 error({call, From}, _Msg, State, _Connection) ->
     {next_state, ?FUNCTION_NAME, State, [{reply, From, {error, closed}}]}.
 
@@ -1164,9 +1164,9 @@ handle_call({close, _} = Close, From, StateName, State, _Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
     Result = terminate(Close, StateName, State),
-    stop_and_reply(
-      {shutdown, normal},
-      {reply, From, Result}, State#state{terminated = true});
+    {stop_and_reply,
+     {shutdown, normal},
+     {reply, From, Result}, State#state{terminated = true}};
 handle_call({shutdown, read_write = How}, From, StateName,
 	    #state{static_env = #static_env{transport_cb = Transport,
                                             socket = Socket}} = State, _) ->
@@ -1271,14 +1271,14 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker,Socket, 
 	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, Connection),
-    stop(normal, State);
+    {stop, {shutdown, normal}, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{socket = Socket,
                                                                                    error_tag = ErrorTag}} = State)  ->
     Report = io_lib:format("SSL: Socket error: ~p ~n", [Reason]),
     error_logger:error_report(Report),
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    stop(normal, State);
+    {stop, {shutdown,normal}, State};
 
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
             #state{user_application = {MonitorRef, _Pid},
@@ -1286,7 +1286,7 @@ handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
     {stop, {shutdown, Reason}};
 handle_info({'DOWN', MonitorRef, _, _, _}, _,
             #state{user_application = {MonitorRef, _Pid}}) ->
-    {stop, normal};
+    {stop, {shutdown, normal}};
 handle_info({'EXIT', Pid, _Reason}, StateName,
             #state{user_application = {_MonitorRef, Pid}} = State) ->
     %% It seems the user application has linked to us
@@ -1294,22 +1294,22 @@ handle_info({'EXIT', Pid, _Reason}, StateName,
     {next_state, StateName, State};
 %%% So that terminate will be run when supervisor issues shutdown
 handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
-    stop(shutdown, State);
+    {stop, shutdown, State};
 handle_info({'EXIT', Socket, normal}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
     %% Handle as transport close"
-    stop({shutdown, transport_closed}, State);
+    {stop,{shutdown, transport_closed}, State};
 handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
-    stop({shutdown, Reason}, State);
+    {stop,{shutdown, Reason}, State};
 
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}};
 
 handle_info({cancel_start_or_recv, StartFrom}, StateName,
 	    #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
-    stop_and_reply(
-      {shutdown, user_timeout},
-      {reply, StartFrom, {error, timeout}},
-      State#state{timer = undefined});
+    {stop_and_reply,
+     {shutdown, user_timeout},
+     {reply, StartFrom, {error, timeout}},
+     State#state{timer = undefined}};
 handle_info({cancel_start_or_recv, RecvFrom}, StateName, 
 	    #state{start_or_recv_from = RecvFrom} = State) when RecvFrom =/= undefined ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
@@ -2727,12 +2727,6 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
-
-stop(Reason, State) ->
-    {stop, Reason, State}.
-
-stop_and_reply(Reason, Replies, State) ->
-    {stop_and_reply, Reason, Replies, State}.
 
 is_dist_up(#{dist_handle := Handle}) when Handle =/= undefined ->
     true;
