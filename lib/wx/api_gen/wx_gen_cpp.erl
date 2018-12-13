@@ -1165,6 +1165,7 @@ gen_macros() ->
     w("#include <wx/fontdlg.h>~n"),
     w("#include <wx/progdlg.h>~n"),
     w("#include <wx/printdlg.h>~n"),
+    w("#include <wx/display.h>~n"),
     w("#include <wx/dcbuffer.h>~n"),
     w("#include <wx/dcmirror.h>~n"),
     w("#include <wx/glcanvas.h>~n"),

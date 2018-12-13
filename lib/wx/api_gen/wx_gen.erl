@@ -701,8 +701,13 @@ parse_type2(["wxe_cb"|R],Info,Opts, T) ->
     parse_type2(R,Info,Opts,T#type{name=int,base=wxe_cb});
 parse_type2([const|R],Info,Opts,T=#type{mod=Mod}) -> 
     parse_type2(R,Info,Opts,T#type{mod=[const|Mod]});
-parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) -> 
-    parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]});
+parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) ->
+    case T#type.base of
+        undefined ->
+            parse_type2(R,Info,Opts,T#type{name=int, base=int, mod=[unsigned|Mod]});
+        _ ->
+            parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]})
+    end;
 parse_type2(["int"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int});
 parse_type2(["wxByte"|R],Info,Opts,  T) ->

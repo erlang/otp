@@ -44,3 +44,9 @@ class wxWindowGTK {
  public:
     double GetContentScaleFactor();
 };
+
+class wxDisplay {
+    public:
+    // get the resolution of this monitor in pixels per inch
+    wxSize GetPPI() const;
+};

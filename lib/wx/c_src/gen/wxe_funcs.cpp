@@ -32113,6 +32113,91 @@ case wxDropFilesEvent_GetFiles: { // wxDropFilesEvent::GetFiles
  rt.add(tmpArrayStr);
  break;
 }
+#if wxUSE_DISPLAY
+case wxDisplay_new: { // wxDisplay::wxDisplay
+ int n=0;
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ n = (int)*(unsigned int *) bp; bp += 4;
+  } break;
+ }};
+ wxDisplay * Result = new wxDisplay(n);
+ newPtr((void *) Result, 239, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxDisplay");
+ break;
+}
+case wxDisplay_destruct: { // wxDisplay::~wxDisplay
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
+case wxDisplay_IsOk: { // wxDisplay::IsOk
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsOk();
+ rt.addBool(Result);
+ break;
+}
+#if wxCHECK_VERSION(2,8,12)
+case wxDisplay_GetClientArea: { // wxDisplay::GetClientArea
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxRect Result = This->GetClientArea();
+ rt.add(Result);
+ break;
+}
+#endif
+case wxDisplay_GetGeometry: { // wxDisplay::GetGeometry
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxRect Result = This->GetGeometry();
+ rt.add(Result);
+ break;
+}
+case wxDisplay_GetName: { // wxDisplay::GetName
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxString Result = This->GetName();
+ rt.add(Result);
+ break;
+}
+case wxDisplay_IsPrimary: { // wxDisplay::IsPrimary
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsPrimary();
+ rt.addBool(Result);
+ break;
+}
+case wxDisplay_GetCount: { // wxDisplay::GetCount
+ int Result = wxDisplay::GetCount();
+ rt.addUint(Result);
+ break;
+}
+case wxDisplay_GetFromPoint: { // wxDisplay::GetFromPoint
+ int * ptX = (int *) bp; bp += 4;
+ int * ptY = (int *) bp; bp += 4;
+ wxPoint pt = wxPoint(*ptX,*ptY);
+ int Result = wxDisplay::GetFromPoint(pt);
+ rt.addInt(Result);
+ break;
+}
+case wxDisplay_GetFromWindow: { // wxDisplay::GetFromWindow
+ wxWindow *window = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int Result = wxDisplay::GetFromWindow(window);
+ rt.addInt(Result);
+ break;
+}
+#if wxCHECK_VERSION(3,1,2)
+case wxDisplay_GetPPI: { // wxDisplay::GetPPI
+ wxDisplay *This = (wxDisplay *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->GetPPI();
+ rt.add(Result);
+ break;
+}
+#endif
+#endif // wxUSE_DISPLAY
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) op);
@@ -32174,6 +32259,7 @@ bool WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 231: delete (EwxLocale *) ptr; return false;
   case 236: delete (wxOverlay *) ptr; break;
   case 237: delete (EwxDCOverlay *) ptr; return false;
+  case 239: delete (wxDisplay *) ptr; break;
   default: delete (wxObject *) ptr; return false;
   }
   return true;
