@@ -3041,15 +3041,23 @@ erts_set_port_timer(Port *c_prt, Sint64 tmo)
 
     check_canceled_queue(esdp, esdp->timer_service);
 
-    timeout_pos = get_timeout_pos(erts_get_monotonic_time(esdp), tmo);
+    if (tmo == 0) {
+        erts_atomic_set_relb(&c_prt->common.timer, ERTS_PTMR_TIMEDOUT);
+        erts_port_task_schedule(c_prt->common.id,
+				&c_prt->timeout_task,
+				ERTS_PORT_TASK_TIMEOUT);
+    } else {
 
-    create_timer = (tmo < ERTS_TIMER_WHEEL_MSEC
-                    ? create_tw_timer
-                    : create_hl_timer);
-    tmr = (void *) create_timer(esdp, timeout_pos, 0, ERTS_TMR_PORT,
-                                (void *) c_prt, c_prt->common.id,
-                                THE_NON_VALUE, NULL, NULL, NULL);
-    erts_atomic_set_relb(&c_prt->common.timer, (erts_aint_t) tmr);
+        timeout_pos = get_timeout_pos(erts_get_monotonic_time(esdp), tmo);
+
+        create_timer = (tmo < ERTS_TIMER_WHEEL_MSEC
+                        ? create_tw_timer
+                        : create_hl_timer);
+        tmr = (void *) create_timer(esdp, timeout_pos, 0, ERTS_TMR_PORT,
+                                    (void *) c_prt, c_prt->common.id,
+                                    THE_NON_VALUE, NULL, NULL, NULL);
+        erts_atomic_set_relb(&c_prt->common.timer, (erts_aint_t) tmr);
+    }
 }
 
 void

@@ -32,7 +32,7 @@
     <rev>B</rev>
     <file>dets.xml</file>
   </header>
-  <module>dets</module>
+  <module since="">dets</module>
   <modulesummary>A disk-based term storage.</modulesummary>
   <description>
     <p>This module provides a term storage on file. The
@@ -188,7 +188,7 @@
 
   <funcs>
     <func>
-      <name name="all" arity="0"/>
+      <name name="all" arity="0" since=""/>
       <fsummary>Return a list of the names of all open Dets tables on
         this node.</fsummary>
       <desc>
@@ -197,7 +197,7 @@
     </func>
 
     <func>
-      <name name="bchunk" arity="2"/>
+      <name name="bchunk" arity="2" since=""/>
       <fsummary>Return a chunk of objects stored in a Dets table.
       </fsummary>
       <desc>
@@ -227,7 +227,7 @@
     </func>
 
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a Dets table.</fsummary>
       <desc>
         <p>Closes a table. Only processes that have opened a table are
@@ -239,7 +239,7 @@
     </func>
 
     <func>
-      <name name="delete" arity="2"/>
+      <name name="delete" arity="2" since=""/>
       <fsummary>Delete all objects with a specified key from a Dets
         table.</fsummary>
       <desc>
@@ -249,7 +249,7 @@
     </func>
 
     <func>
-      <name name="delete_all_objects" arity="1"/>
+      <name name="delete_all_objects" arity="1" since=""/>
       <fsummary>Delete all objects from a Dets table.</fsummary>
       <desc>
         <p>Deletes all objects from a table in almost constant time.
@@ -259,7 +259,7 @@
     </func>
 
     <func>
-      <name name="delete_object" arity="2"/>
+      <name name="delete_object" arity="2" since=""/>
       <fsummary>Delete a specified object from a Dets table.</fsummary>
       <desc>
         <p>Deletes all instances of a specified object from a table. If a
@@ -270,7 +270,7 @@
     </func>
 
     <func>
-      <name name="first" arity="1"/>
+      <name name="first" arity="1" since=""/>
       <fsummary>Return the first key stored in a Dets table.</fsummary>
       <desc>
         <p>Returns the first key stored in table <c><anno>Name</anno></c>
@@ -295,8 +295,8 @@
     </func>
 
     <func>
-      <name name="foldl" arity="3"/>
-      <name name="foldr" arity="3"/>
+      <name name="foldl" arity="3" since=""/>
+      <name name="foldr" arity="3" since=""/>
       <fsummary>Fold a function over a Dets table.</fsummary>
       <desc>
         <p>Calls <c><anno>Function</anno></c> on successive elements of
@@ -309,7 +309,7 @@
     </func>
 
     <func>
-      <name name="from_ets" arity="2"/>
+      <name name="from_ets" arity="2" since=""/>
       <fsummary>Replace the objects of a Dets table with the objects
         of an ETS table.</fsummary>
       <desc>
@@ -322,7 +322,7 @@
     </func>
 
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since=""/>
       <fsummary>Return information about a Dets table.</fsummary>
       <desc>
         <p>Returns information about table <c><anno>Name</anno></c>
@@ -354,7 +354,7 @@
     </func>
 
     <func>
-      <name name="info" arity="2"/>
+      <name name="info" arity="2" since=""/>
       <fsummary>Return the information associated with a specified item for
         a Dets table.</fsummary>
       <desc>
@@ -455,8 +455,8 @@
     </func>
 
     <func>
-      <name name="init_table" arity="2"/>
-      <name name="init_table" arity="3"/>
+      <name name="init_table" arity="2" since=""/>
+      <name name="init_table" arity="3" since=""/>
       <fsummary>Replace all objects of a Dets table.</fsummary>
       <desc>
         <p>Replaces the existing objects of table <c><anno>Name</anno></c>
@@ -516,7 +516,7 @@
     </func>
 
     <func>
-      <name name="insert" arity="2"/>
+      <name name="insert" arity="2" since=""/>
       <fsummary>Insert one or more objects into a Dets table.</fsummary>
       <desc>
         <p>Inserts one or more objects into the table <c><anno>Name</anno></c>.
@@ -527,7 +527,7 @@
     </func>
 
     <func>
-      <name name="insert_new" arity="2"/>
+      <name name="insert_new" arity="2" since=""/>
       <fsummary>Insert one or more objects into a Dets table.</fsummary>
       <desc>
         <p>Inserts one or more objects into table <c><anno>Name</anno></c>.
@@ -539,7 +539,7 @@
     </func>
 
     <func>
-      <name name="is_compatible_bchunk_format" arity="2"/>
+      <name name="is_compatible_bchunk_format" arity="2" since=""/>
       <fsummary>Test compatibility of chunk data of a table.</fsummary>
       <desc>
         <p>Returns <c>true</c> if it would be possible to initialize
@@ -554,7 +554,7 @@
     </func>
 
     <func>
-      <name name="is_dets_file" arity="1"/>
+      <name name="is_dets_file" arity="1" since=""/>
       <fsummary>Test for a Dets table.</fsummary>
       <desc>
         <p>Returns <c>true</c> if file <c><anno>Filename</anno></c>
@@ -563,7 +563,7 @@
     </func>
 
     <func>
-      <name name="lookup" arity="2"/>
+      <name name="lookup" arity="2" since=""/>
       <fsummary>Return all objects with a specified key stored in a
         Dets table.</fsummary>
       <desc>
@@ -590,7 +590,7 @@ ok
     </func>
 
     <func>
-      <name name="match" arity="1"/>
+      <name name="match" arity="1" since=""/>
       <fsummary>Match a chunk of objects stored in a Dets table and
         return a list of variable bindings.</fsummary>
       <desc>
@@ -606,7 +606,7 @@ ok
     </func>
 
     <func>
-      <name name="match" arity="2"/>
+      <name name="match" arity="2" since=""/>
       <fsummary>Match the objects stored in a Dets table and return a
         list of variable bindings.</fsummary>
       <desc>
@@ -622,7 +622,7 @@ ok
     </func>
 
     <func>
-      <name name="match" arity="3"/>
+      <name name="match" arity="3" since=""/>
       <fsummary>Match the first chunk of objects stored in a Dets table
         and return a list of variable bindings.</fsummary>
       <desc>
@@ -654,7 +654,7 @@ ok
     </func>
 
     <func>
-      <name name="match_delete" arity="2"/>
+      <name name="match_delete" arity="2" since=""/>
       <fsummary>Delete all objects that match a given pattern from a
         Dets table.</fsummary>
       <desc>
@@ -667,7 +667,7 @@ ok
     </func>
 
     <func>
-      <name name="match_object" arity="1"/>
+      <name name="match_object" arity="1" since=""/>
       <fsummary>Match a chunk of objects stored in a Dets table and
         return a list of objects.</fsummary>
       <desc>
@@ -683,7 +683,7 @@ ok
     </func>
 
     <func>
-      <name name="match_object" arity="2"/>
+      <name name="match_object" arity="2" since=""/>
       <fsummary>Match the objects stored in a Dets table and return
         a list of objects.</fsummary>
       <desc>
@@ -702,7 +702,7 @@ ok
     </func>
 
     <func>
-      <name name="match_object" arity="3"/>
+      <name name="match_object" arity="3" since=""/>
       <fsummary>Match the first chunk of objects stored in a Dets table
         and return a list of objects.</fsummary>
       <desc>
@@ -735,7 +735,7 @@ ok
     </func>
 
     <func>
-      <name name="member" arity="2"/>
+      <name name="member" arity="2" since=""/>
       <fsummary>Test for occurrence of a key in a Dets table.</fsummary>
       <desc>
         <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
@@ -746,7 +746,7 @@ ok
     </func>
 
     <func>
-      <name name="next" arity="2"/>
+      <name name="next" arity="2" since=""/>
       <fsummary>Return the next key in a Dets table.</fsummary>
       <desc>
         <p>Returns either the key following <c><anno>Key1</anno></c> in table
@@ -760,7 +760,7 @@ ok
     </func>
 
     <func>
-      <name name="open_file" arity="1"/>
+      <name name="open_file" arity="1" since=""/>
       <fsummary>Open an existing Dets table.</fsummary>
       <desc>
         <p>Opens an existing table. If the table is not properly closed,
@@ -770,7 +770,7 @@ ok
     </func>
 
     <func>
-      <name name="open_file" arity="2"/>
+      <name name="open_file" arity="2" since=""/>
       <fsummary>Open a Dets table.</fsummary>
       <desc>
         <p>Opens a table. An empty Dets table is created if no file
@@ -872,7 +872,7 @@ ok
     </func>
 
     <func>
-      <name name="pid2name" arity="1"/>
+      <name name="pid2name" arity="1" since=""/>
       <fsummary>Return the name of the Dets table handled by a pid.</fsummary>
       <desc>
         <p>Returns the table name given the pid of a process
@@ -883,7 +883,7 @@ ok
     </func>
 
     <func>
-      <name name="repair_continuation" arity="2"/>
+      <name name="repair_continuation" arity="2" since=""/>
       <fsummary>Repair a continuation from <c>select/1</c> or <c>select/3</c>.
       </fsummary>
       <desc>
@@ -917,7 +917,7 @@ ok
     </func>
 
     <func>
-      <name name="safe_fixtable" arity="2"/>
+      <name name="safe_fixtable" arity="2" since=""/>
       <fsummary>Fix a Dets table for safe traversal.</fsummary>
       <desc>
         <p>If <c><anno>Fix</anno></c> is <c>true</c>, table
@@ -945,7 +945,7 @@ ok
     </func>
 
     <func>
-      <name name="select" arity="1"/>
+      <name name="select" arity="1" since=""/>
       <fsummary>Apply a match specification to some objects stored in a
         Dets table.</fsummary>
       <desc>
@@ -962,7 +962,7 @@ ok
     </func>
 
     <func>
-      <name name="select" arity="2"/>
+      <name name="select" arity="2" since=""/>
       <fsummary>Apply a match specification to all objects stored in a
         Dets table.</fsummary>
       <desc>
@@ -984,7 +984,7 @@ ok
     </func>
 
     <func>
-      <name name="select" arity="3"/>
+      <name name="select" arity="3" since=""/>
       <fsummary>Apply a match specification to the first chunk of objects
         stored in a Dets table.</fsummary>
       <desc>
@@ -1019,7 +1019,7 @@ ok
     </func>
 
     <func>
-      <name name="select_delete" arity="2"/>
+      <name name="select_delete" arity="2" since=""/>
       <fsummary>Delete all objects that match a given pattern from a
         Dets table.</fsummary>
       <desc>
@@ -1036,7 +1036,7 @@ ok
     </func>
 
     <func>
-      <name name="slot" arity="2"/>
+      <name name="slot" arity="2" since=""/>
       <fsummary>Return the list of objects associated with a slot of a
         Dets table.</fsummary>
       <desc>
@@ -1049,7 +1049,7 @@ ok
     </func>
 
     <func>
-      <name name="sync" arity="1"/>
+      <name name="sync" arity="1" since=""/>
       <fsummary>Ensure that all updates made to a Dets table are written
         to disk.</fsummary>
       <desc>
@@ -1064,8 +1064,8 @@ ok
     </func>
 
     <func>
-      <name name="table" arity="1"/>
-      <name name="table" arity="2"/>
+      <name name="table" arity="1" since=""/>
+      <name name="table" arity="2" since=""/>
       <fsummary>Return a QLC query handle.</fsummary>
       <desc>
         <p>Returns a Query List
@@ -1140,7 +1140,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="to_ets" arity="2"/>
+      <name name="to_ets" arity="2" since=""/>
       <fsummary>Insert all objects of a Dets table into an ETS
         table.</fsummary>
       <desc>
@@ -1153,7 +1153,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="traverse" arity="2"/>
+      <name name="traverse" arity="2" since=""/>
       <fsummary>Apply a function to all or some objects stored in a Dets
         table.</fsummary>
       <desc>
@@ -1192,7 +1192,7 @@ fun(X) -> {continue, X} end.</pre>
     </func>
 
     <func>
-      <name name="update_counter" arity="3"/>
+      <name name="update_counter" arity="3" since=""/>
       <fsummary>Update a counter object stored in a Dets table.
       </fsummary>
       <desc>

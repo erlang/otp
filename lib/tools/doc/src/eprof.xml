@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>eprof</module>
+  <module since="">eprof</module>
   <modulesummary>A Time Profiling Tool for Erlang</modulesummary>
   <description>
     <p>The module <c>eprof</c> provides a set of functions for time
@@ -40,7 +40,7 @@
   </description>
   <funcs>
     <func>
-      <name>start() -> {ok,Pid} | {error,Reason}</name>
+      <name since="">start() -> {ok,Pid} | {error,Reason}</name>
       <fsummary>Start Eprof.</fsummary>
       <type>
         <v>Pid = pid()</v>
@@ -51,9 +51,9 @@
       </desc>
     </func>
     <func>
-      <name>start_profiling(Rootset) -> profiling | {error, Reason}</name>
-      <name>start_profiling(Rootset,Pattern) -> profiling | {error, Reason}</name>
-      <name>start_profiling(Rootset,Pattern,Options) -> profiling | {error, Reason}</name>
+      <name since="">start_profiling(Rootset) -> profiling | {error, Reason}</name>
+      <name since="OTP R14B">start_profiling(Rootset,Pattern) -> profiling | {error, Reason}</name>
+      <name since="OTP R16B01">start_profiling(Rootset,Pattern,Options) -> profiling | {error, Reason}</name>
       <fsummary>Start profiling.</fsummary>
       <type>
         <v>Rootset = [atom() | pid()]</v>
@@ -79,7 +79,7 @@
       </desc>
     </func>
     <func>
-      <name>stop_profiling() -> profiling_stopped | profiling_already_stopped</name>
+      <name since="">stop_profiling() -> profiling_stopped | profiling_already_stopped</name>
       <fsummary>Stop profiling.</fsummary>
       <desc>
         <p>Stops profiling started with <c>start_profiling/1</c> or
@@ -87,14 +87,14 @@
       </desc>
     </func>
     <func>
-      <name>profile(Fun) -> profiling | {error, Reason}</name>
-      <name>profile(Fun, Options) -> profiling | {error, Reason}</name>
-      <name>profile(Rootset) -> profiling | {error, Reason}</name>
-      <name>profile(Rootset,Fun) -> {ok, Value} | {error,Reason}</name>
-      <name>profile(Rootset,Fun,Pattern) -> {ok, Value} | {error, Reason}</name>
-      <name>profile(Rootset,Module,Function,Args) -> {ok, Value} | {error, Reason}</name>
-      <name>profile(Rootset,Module,Function,Args,Pattern) -> {ok, Value} | {error, Reason}</name>
-      <name>profile(Rootset,Module,Function,Args,Pattern,Options) -> {ok, Value} | {error, Reason}</name>
+      <name since="">profile(Fun) -> profiling | {error, Reason}</name>
+      <name since="">profile(Fun, Options) -> profiling | {error, Reason}</name>
+      <name since="">profile(Rootset) -> profiling | {error, Reason}</name>
+      <name since="">profile(Rootset,Fun) -> {ok, Value} | {error,Reason}</name>
+      <name since="OTP R14B">profile(Rootset,Fun,Pattern) -> {ok, Value} | {error, Reason}</name>
+      <name since="">profile(Rootset,Module,Function,Args) -> {ok, Value} | {error, Reason}</name>
+      <name since="OTP R14B">profile(Rootset,Module,Function,Args,Pattern) -> {ok, Value} | {error, Reason}</name>
+      <name since="OTP R16B01">profile(Rootset,Module,Function,Args,Pattern,Options) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Start profiling.</fsummary>
       <type>
         <v>Rootset = [atom() | pid()]</v>
@@ -128,9 +128,9 @@
       </desc>
     </func>
     <func>
-      <name>analyze() -> ok</name>
-      <name>analyze(Type) -> ok</name>
-      <name>analyze(Type,Options) -> ok</name>
+      <name since="OTP R14B">analyze() -> ok</name>
+      <name since="OTP R14B">analyze(Type) -> ok</name>
+      <name since="OTP R14B">analyze(Type,Options) -> ok</name>
       <fsummary>Display profiling results per process.</fsummary>
       <type>
         <v>Type = procs | total</v>
@@ -152,7 +152,7 @@
       </desc>
     </func>
     <func>
-      <name>log(File) -> ok</name>
+      <name since="">log(File) -> ok</name>
       <fsummary>Activate logging of <c>eprof</c>printouts.</fsummary>
       <type>
         <v>File = atom() | string()</v>
@@ -164,7 +164,7 @@
       </desc>
     </func>
     <func>
-      <name>stop() -> stopped</name>
+      <name since="">stop() -> stopped</name>
       <fsummary>Stop Eprof.</fsummary>
       <desc>
         <p>Stops the Eprof server.</p>

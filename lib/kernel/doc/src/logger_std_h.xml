@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>logger_std_h.xml</file>
   </header>
-  <module>logger_std_h</module>
+  <module since="OTP 21.0">logger_std_h</module>
   <modulesummary>Standard handler for Logger.</modulesummary>
 
   <description>
@@ -121,7 +121,7 @@ erl -kernel logger '[{handler,default,logger_std_h,
   <funcs>
 
     <func>
-      <name name="filesync" arity="1" clause_i="1"/>
+      <name name="filesync" arity="1" clause_i="1" since="OTP 21.0"/>
       <fsummary>Writes buffered data to disk.</fsummary>
       <desc>
         <p>Write buffered data to disk.</p>

@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>memsup</module>
+  <module since="">memsup</module>
   <modulesummary>A Memory Supervisor Process</modulesummary>
   <description>
     <p><c>memsup</c> is a process which supervises the memory usage for
@@ -127,7 +127,7 @@
   </section>
   <funcs>
     <func>
-      <name>get_memory_data() -> {Total,Allocated,Worst}</name>
+      <name since="">get_memory_data() -> {Total,Allocated,Worst}</name>
       <fsummary>Get data for the memory in the system</fsummary>
       <type>
         <v>Total = Allocated = int()</v>
@@ -155,7 +155,7 @@
       </desc>
     </func>
     <func>
-      <name>get_system_memory_data() -> MemDataList</name>
+      <name since="">get_system_memory_data() -> MemDataList</name>
       <fsummary>Get system dependent memory data</fsummary>
       <type>
         <v>MemDataList = [{Tag, Size}]</v>
@@ -216,7 +216,7 @@
       </desc>
     </func>
     <func>
-      <name>get_os_wordsize() -> Wordsize</name>
+      <name since="">get_os_wordsize() -> Wordsize</name>
       <fsummary>Get the wordsize of running os.</fsummary>
       <type>
         <v>Wordsize = 32 | 64 | unsupported_os</v>
@@ -226,7 +226,7 @@
       </desc>
     </func>
     <func>
-      <name>get_check_interval() -> MS</name>
+      <name since="">get_check_interval() -> MS</name>
       <fsummary>Get time interval, in milliseconds, for the periodic memory check</fsummary>
       <type>
         <v>MS = int()</v>
@@ -237,7 +237,7 @@
       </desc>
     </func>
     <func>
-      <name>set_check_interval(Minutes) -> ok</name>
+      <name since="">set_check_interval(Minutes) -> ok</name>
       <fsummary>Set time interval, in minutes, for the periodic memory check</fsummary>
       <type>
         <v>Minutes = int()>0</v>
@@ -252,7 +252,7 @@
       </desc>
     </func>
     <func>
-      <name>get_procmem_high_watermark() -> int()</name>
+      <name since="">get_procmem_high_watermark() -> int()</name>
       <fsummary>Get threshold, in percent, for process memory allocation</fsummary>
       <desc>
         <p>Returns the threshold, in percent, for process memory
@@ -260,7 +260,7 @@
       </desc>
     </func>
     <func>
-      <name>set_procmem_high_watermark(Float) -> ok</name>
+      <name since="">set_procmem_high_watermark(Float) -> ok</name>
       <fsummary>Set threshold, as percentage represented by a float, for process memory allocation</fsummary>
       <desc>
         <p>Changes the threshold, given as a float, for process memory
@@ -273,7 +273,7 @@
       </desc>
     </func>
     <func>
-      <name>get_sysmem_high_watermark() -> int()</name>
+      <name since="">get_sysmem_high_watermark() -> int()</name>
       <fsummary>Get threshold, in percent, for system memory allocation</fsummary>
       <desc>
         <p>Returns the threshold, in percent, for system memory
@@ -281,7 +281,7 @@
       </desc>
     </func>
     <func>
-      <name>set_sysmem_high_watermark(Float) -> ok</name>
+      <name since="">set_sysmem_high_watermark(Float) -> ok</name>
       <fsummary>Set threshold, given as a float, for system memory allocation</fsummary>
       <desc>
         <p>Changes the threshold, given as a float, for system memory
@@ -294,7 +294,7 @@
       </desc>
     </func>
     <func>
-      <name>get_helper_timeout() -> Seconds</name>
+      <name since="">get_helper_timeout() -> Seconds</name>
       <fsummary>Get the timeout value, in seconds, for memory checks</fsummary>
       <type>
         <v>Seconds = int()</v>
@@ -304,7 +304,7 @@
       </desc>
     </func>
     <func>
-      <name>set_helper_timeout(Seconds) -> ok</name>
+      <name since="">set_helper_timeout(Seconds) -> ok</name>
       <fsummary>Set the timeout value, in seconds, for memory checks</fsummary>
       <type>
         <v>Seconds = int() (>= 1)</v>

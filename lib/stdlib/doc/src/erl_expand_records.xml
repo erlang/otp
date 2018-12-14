@@ -34,7 +34,7 @@
     <rev>PA1</rev>
     <file>erl_expand_records.xml</file>
   </header>
-  <module>erl_expand_records</module>
+  <module since="">erl_expand_records</module>
   <modulesummary>Expands records in a module.</modulesummary>
   <description>
     <p>This module expands records in a module.</p>
@@ -42,7 +42,7 @@
 
   <funcs>
     <func>
-      <name name="module" arity="2"/>
+      <name name="module" arity="2" since=""/>
       <fsummary>Expand all records in a module.</fsummary>
       <desc>
         <p>Expands all records in a module to use explicit tuple

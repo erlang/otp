@@ -27,7 +27,7 @@
     <date>2014-02-28</date>
     <rev>A</rev>
   </header>
-  <module>maps</module>
+  <module since="OTP 17.0">maps</module>
   <modulesummary>Maps processing functions.</modulesummary>
   <description>
     <p>This module contains functions for maps processing.</p>
@@ -49,7 +49,7 @@
 
   <funcs>
     <func>
-      <name name="filter" arity="2"/>
+      <name name="filter" arity="2" since="OTP 18.0"/>
       <fsummary>Select pairs that satisfy a predicate.</fsummary>
       <desc>
         <p>Returns a map <c><anno>Map</anno></c> for which predicate
@@ -68,7 +68,7 @@
     </func>
 
     <func>
-      <name name="find" arity="2"/>
+      <name name="find" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a tuple <c>{ok, Value}</c>, where <c><anno>Value</anno></c>
@@ -87,7 +87,7 @@
     </func>
 
     <func>
-      <name name="fold" arity="3"/>
+      <name name="fold" arity="3" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Calls <c>F(K, V, AccIn)</c> for every <c><anno>K</anno></c> to value
@@ -111,7 +111,7 @@
     </func>
 
     <func>
-      <name name="from_list" arity="1"/>
+      <name name="from_list" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Takes a list of key-value tuples elements and builds a map. The
@@ -128,7 +128,7 @@
     </func>
 
     <func>
-      <name name="get" arity="2"/>
+      <name name="get" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns value <c><anno>Value</anno></c> associated with
@@ -147,7 +147,7 @@
     </func>
 
     <func>
-      <name name="get" arity="3"/>
+      <name name="get" arity="3" since="OTP 17.1"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns value <c><anno>Value</anno></c> associated with
@@ -168,7 +168,7 @@ val1
     </func>
 
     <func>
-      <name name="is_key" arity="2"/>
+      <name name="is_key" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns <c>true</c> if map <c><anno>Map</anno></c> contains
@@ -188,7 +188,7 @@ false</code>
     </func>
 
     <func>
-      <name name="iterator" arity="1"/>
+      <name name="iterator" arity="1" since="OTP 21.0"/>
       <fsummary>Create a map iterator.</fsummary>
       <desc>
         <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
@@ -202,19 +202,19 @@ false</code>
         <code type="none">
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> I = maps:iterator(M).
-[{a,1},{b,2}]
-> {K1, V1, I2} = maps:next(I).
-{a,1,[{b,2}]}
-> {K2, V2, I3} = maps:next(I2).
-{b,2,[]}
+> I = maps:iterator(M), ok.
+ok
+> {K1, V1, I2} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I3} = maps:next(I2),{K2, V2}.
+{b,2}
 > maps:next(I3).
 none</code>
       </desc>
     </func>
 
     <func>
-      <name name="keys" arity="1"/>
+      <name name="keys" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a complete list of keys, in any order, which resides
@@ -230,7 +230,7 @@ none</code>
     </func>
 
     <func>
-      <name name="map" arity="2"/>
+      <name name="map" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Produces a new map <c><anno>Map</anno></c> by calling function
@@ -253,7 +253,7 @@ none</code>
     </func>
 
     <func>
-      <name name="merge" arity="2"/>
+      <name name="merge" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Merges two maps into a single map <c><anno>Map3</anno></c>. If two
@@ -271,7 +271,7 @@ none</code>
     </func>
 
     <func>
-      <name name="new" arity="0"/>
+      <name name="new" arity="0" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a new empty map.</p>
@@ -283,7 +283,7 @@ none</code>
     </func>
 
     <func>
-      <name name="next" arity="1"/>
+      <name name="next" arity="1" since="OTP 21.0"/>
       <fsummary>Get the next key and value from an iterator.</fsummary>
       <desc>
         <p>Returns the next key-value association in
@@ -298,21 +298,21 @@ none</code>
         <code type="none">
 > Map = #{a => 1, b => 2, c => 3}.
 #{a => 1,b => 2,c => 3}
-> Iter = maps:iterator(Map).
-[{a,1},{b,2},{c,3}]
-> {_, _, Iter1} = maps:next(Iter).
-{a,1,[{b,2},{c,3}]}
-> {_, _, Iter2} = maps:next(Iter1).
-{b,2,[{c,3}]}
-> {_, _, Iter3} = maps:next(Iter2).
-{c,3,[]}
-> maps:next(Iter3).
+> I = maps:iterator(Map), ok.
+ok
+> {K1, V1, I1} = maps:next(I), {K1, V1}.
+{a,1}
+> {K2, V2, I2} = maps:next(I1), {K2, V2}.
+{b,2}
+> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+{c,3}
+> maps:next(I3).
 none</code>
       </desc>
     </func>
 
     <func>
-      <name name="put" arity="3"/>
+      <name name="put" arity="3" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Associates <c><anno>Key</anno></c> with value
@@ -336,7 +336,7 @@ none</code>
     </func>
 
     <func>
-      <name name="remove" arity="2"/>
+      <name name="remove" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Removes the <c><anno>Key</anno></c>, if it exists, and its
@@ -356,7 +356,7 @@ none</code>
     </func>
 
     <func>
-      <name name="size" arity="1"/>
+      <name name="size" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns the number of key-value associations in
@@ -370,7 +370,7 @@ none</code>
     </func>
 
     <func>
-      <name name="take" arity="2"/>
+      <name name="take" arity="2" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
 	<p>The function removes the <c><anno>Key</anno></c>, if it
@@ -395,7 +395,7 @@ error</code>
     </func>
 
     <func>
-      <name name="to_list" arity="1"/>
+      <name name="to_list" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a list of pairs representing the key-value associations of
@@ -412,7 +412,7 @@ error</code>
     </func>
 
     <func>
-      <name name="update" arity="3"/>
+      <name name="update" arity="3" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>If <c><anno>Key</anno></c> exists in <c><anno>Map1</anno></c>, the
@@ -432,7 +432,7 @@ error</code>
     </func>
 
     <func>
-      <name name="update_with" arity="3"/>
+      <name name="update_with" arity="3" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Update a value in a <c><anno>Map1</anno></c> associated
@@ -451,7 +451,7 @@ error</code>
     </func>
 
     <func>
-      <name name="update_with" arity="4"/>
+      <name name="update_with" arity="4" since="OTP 19.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Update a value in a <c><anno>Map1</anno></c> associated
@@ -471,7 +471,7 @@ error</code>
         </func>
 
     <func>
-      <name name="values" arity="1"/>
+      <name name="values" arity="1" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a complete list of values, in arbitrary order, contained in
@@ -487,7 +487,7 @@ error</code>
     </func>
 
     <func>
-      <name name="with" arity="2"/>
+      <name name="with" arity="2" since="OTP 17.3"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a new map <c><anno>Map2</anno></c> with the keys <c>K1</c>
@@ -504,7 +504,7 @@ error</code>
     </func>
 
     <func>
-      <name name="without" arity="2"/>
+      <name name="without" arity="2" since="OTP 17.0"/>
       <fsummary></fsummary>
       <desc>
         <p>Returns a new map <c><anno>Map2</anno></c> without keys <c>K1</c>

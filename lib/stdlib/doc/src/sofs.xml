@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>sofs.xml</file>
   </header>
-  <module>sofs</module>
+  <module since="">sofs</module>
   <modulesummary>Functions for manipulating sets of sets.</modulesummary>
   <description>
     <p>This module provides operations on finite sets and
@@ -456,8 +456,8 @@ fun(S) -> sofs:partition(1, S) end
 
   <funcs>
     <func>
-      <name name="a_function" arity="1"/>
-      <name name="a_function" arity="2"/>
+      <name name="a_function" arity="1" since=""/>
+      <name name="a_function" arity="2" since=""/>
       <fsummary>Create a function.</fsummary>
       <desc>
         <p>Creates a <seealso marker="#function">function</seealso>.
@@ -470,7 +470,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="canonical_relation" arity="1"/>
+      <name name="canonical_relation" arity="1" since=""/>
       <fsummary>Return the canonical map.</fsummary>
       <desc>
         <p>Returns the binary relation containing the elements
@@ -490,7 +490,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="composite" arity="2"/>
+      <name name="composite" arity="2" since=""/>
       <fsummary>Return the composite of two functions.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#composite">composite</seealso> of 
@@ -506,7 +506,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="constant_function" arity="2"/>
+      <name name="constant_function" arity="2" since=""/>
       <fsummary>Create the function that maps each element of a
         set onto another set.</fsummary>
       <desc>
@@ -522,7 +522,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="converse" arity="1"/>
+      <name name="converse" arity="1" since=""/>
       <fsummary>Return the converse of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#converse">converse</seealso>
@@ -536,7 +536,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="difference" arity="2"/>
+      <name name="difference" arity="2" since=""/>
       <fsummary>Return the difference of two sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#difference">difference</seealso> of
@@ -545,8 +545,8 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="digraph_to_family" arity="1"/>
-      <name name="digraph_to_family" arity="2"/>
+      <name name="digraph_to_family" arity="1" since=""/>
+      <name name="digraph_to_family" arity="2" since=""/>
       <fsummary>Create a family from a directed graph.</fsummary>
       <desc>
         <p>Creates a <seealso marker="#family">family</seealso> from
@@ -565,7 +565,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="domain" arity="1"/>
+      <name name="domain" arity="1" since=""/>
       <fsummary>Return the domain of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#domain">domain</seealso> of
@@ -579,7 +579,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="drestriction" arity="2"/>
+      <name name="drestriction" arity="2" since=""/>
       <fsummary>Return a restriction of a binary relation.</fsummary>
       <desc>
         <p>Returns the difference between the binary relation
@@ -598,7 +598,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="drestriction" arity="3"/>
+      <name name="drestriction" arity="3" since=""/>
       <fsummary>Return a restriction of a relation.</fsummary>
       <desc>
         <p>Returns a subset of <c><anno>Set1</anno></c> containing those
@@ -618,7 +618,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="empty_set" arity="0"/>
+      <name name="empty_set" arity="0" since=""/>
       <fsummary>Return the untyped empty set.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">untyped empty
@@ -628,7 +628,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="extension" arity="3"/>
+      <name name="extension" arity="3" since=""/>
       <fsummary>Extend the domain of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#extension">extension</seealso> of
@@ -648,8 +648,8 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family" arity="1"/>
-      <name name="family" arity="2"/>
+      <name name="family" arity="1" since=""/>
+      <name name="family" arity="2" since=""/>
       <fsummary>Create a family of subsets.</fsummary>
       <desc>
         <p>Creates a <seealso marker="#family">family of subsets</seealso>.
@@ -662,7 +662,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_difference" arity="2"/>
+      <name name="family_difference" arity="2" since=""/>
       <fsummary>Return the difference of two families.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> and <c><anno>Family2</anno></c>
@@ -683,7 +683,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_domain" arity="1"/>
+      <name name="family_domain" arity="1" since=""/>
       <fsummary>Return a family of domains.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -704,7 +704,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_field" arity="1"/>
+      <name name="family_field" arity="1" since=""/>
       <fsummary>Return a family of fields.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -728,7 +728,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_intersection" arity="1"/>
+      <name name="family_intersection" arity="1" since=""/>
       <fsummary>Return the intersection of a family
          of sets of sets.</fsummary>
       <desc>
@@ -752,7 +752,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_intersection" arity="2"/>
+      <name name="family_intersection" arity="2" since=""/>
       <fsummary>Return the intersection of two families.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> and <c><anno>Family2</anno></c>
@@ -772,7 +772,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_projection" arity="2"/>
+      <name name="family_projection" arity="2" since=""/>
       <fsummary>Return a family of modified subsets.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -791,7 +791,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_range" arity="1"/>
+      <name name="family_range" arity="1" since=""/>
       <fsummary>Return a family of ranges.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -812,7 +812,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_specification" arity="2"/>
+      <name name="family_specification" arity="2" since=""/>
       <fsummary>Select a subset of a family using a predicate.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -837,8 +837,8 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_to_digraph" arity="1"/>
-      <name name="family_to_digraph" arity="2"/>
+      <name name="family_to_digraph" arity="1" since=""/>
+      <name name="family_to_digraph" arity="2" since=""/>
       <fsummary>Create a directed graph from a family.</fsummary>
       <desc>
         <p>Creates a directed graph from
@@ -863,7 +863,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_to_relation" arity="1"/>
+      <name name="family_to_relation" arity="1" since=""/>
       <fsummary>Create a binary relation from a family.</fsummary>
       <desc>
         <p>If <c><anno>Family</anno></c> is
@@ -881,7 +881,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_union" arity="1"/>
+      <name name="family_union" arity="1" since=""/>
       <fsummary>Return the union of a family of sets of sets.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> is
@@ -904,7 +904,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="family_union" arity="2"/>
+      <name name="family_union" arity="2" since=""/>
       <fsummary>Return the union of two families.</fsummary>
       <desc>
         <p>If <c><anno>Family1</anno></c> and <c><anno>Family2</anno></c>
@@ -926,7 +926,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="field" arity="1"/>
+      <name name="field" arity="1" since=""/>
       <fsummary>Return the field of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#field">field</seealso> of the
@@ -942,7 +942,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="from_external" arity="2"/>
+      <name name="from_external" arity="2" since=""/>
       <fsummary>Create a set.</fsummary>
       <desc>
         <p>Creates a set from the <seealso marker="#external_set">external 
@@ -955,7 +955,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="from_sets" arity="1" clause_i="1"/>
+      <name name="from_sets" arity="1" clause_i="1" since=""/>
       <fsummary>Create a set out of a list of sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">unordered
@@ -971,7 +971,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="from_sets" arity="1" clause_i="2"/>
+      <name name="from_sets" arity="1" clause_i="2" since=""/>
       <fsummary>Create an ordered set out of a tuple of sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#sets_definition">ordered
@@ -981,8 +981,8 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="from_term" arity="1"/>
-      <name name="from_term" arity="2"/>
+      <name name="from_term" arity="1" since=""/>
+      <name name="from_term" arity="2" since=""/>
       <fsummary>Create a set.</fsummary>
       <desc>
         <p><marker id="from_term"></marker>Creates an element
@@ -1031,7 +1031,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="image" arity="2"/>
+      <name name="image" arity="2" since=""/>
       <fsummary>Return the image of a set under a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#image">image</seealso> of
@@ -1047,7 +1047,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="intersection" arity="1"/>
+      <name name="intersection" arity="1" since=""/>
       <fsummary>Return the intersection of a set of sets.</fsummary>
       <desc>
         <p>Returns
@@ -1059,7 +1059,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="intersection" arity="2"/>
+      <name name="intersection" arity="2" since=""/>
       <fsummary>Return the intersection of two sets.</fsummary>
       <desc>
         <p>Returns
@@ -1069,7 +1069,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="intersection_of_family" arity="1"/>
+      <name name="intersection_of_family" arity="1" since=""/>
       <fsummary>Return the intersection of a family.</fsummary>
       <desc>
         <p>Returns the intersection of
@@ -1086,7 +1086,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="inverse" arity="1"/>
+      <name name="inverse" arity="1" since=""/>
       <fsummary>Return the inverse of a function.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#inverse">inverse</seealso>
@@ -1100,7 +1100,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="inverse_image" arity="2"/>
+      <name name="inverse_image" arity="2" since=""/>
       <fsummary>Return the inverse image of a set under
         a binary relation.</fsummary>
       <desc>
@@ -1117,7 +1117,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="is_a_function" arity="1"/>
+      <name name="is_a_function" arity="1" since=""/>
       <fsummary>Test for a function.</fsummary>
       <desc>
         <p>Returns <c>true</c> if the binary relation <c><anno>BinRel</anno></c>
@@ -1127,7 +1127,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="is_disjoint" arity="2"/>
+      <name name="is_disjoint" arity="2" since=""/>
       <fsummary>Test for disjoint sets.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Set1</anno></c>
@@ -1138,7 +1138,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="is_empty_set" arity="1"/>
+      <name name="is_empty_set" arity="1" since=""/>
       <fsummary>Test for an empty set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>AnySet</anno></c> is an empty
@@ -1147,7 +1147,7 @@ fun(S) -> sofs:partition(1, S) end
     </func>
 
     <func>
-      <name name="is_equal" arity="2"/>
+      <name name="is_equal" arity="2" since=""/>
       <fsummary>Test two sets for equality.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>AnySet1</anno></c>
@@ -1164,7 +1164,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="is_set" arity="1"/>
+      <name name="is_set" arity="1" since=""/>
       <fsummary>Test for an unordered set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>AnySet</anno></c> is
@@ -1175,7 +1175,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="is_sofs_set" arity="1"/>
+      <name name="is_sofs_set" arity="1" since=""/>
       <fsummary>Test for an unordered set.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Term</anno></c> is
@@ -1185,7 +1185,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="is_subset" arity="2"/>
+      <name name="is_subset" arity="2" since=""/>
       <fsummary>Test two sets for subset.</fsummary>
       <desc>
         <p>Returns <c>true</c> if <c><anno>Set1</anno></c> is
@@ -1195,7 +1195,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="is_type" arity="1"/>
+      <name name="is_type" arity="1" since=""/>
       <fsummary>Test for a type.</fsummary>
       <desc>
         <p>Returns <c>true</c> if term <c><anno>Term</anno></c> is
@@ -1204,7 +1204,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="join" arity="4"/>
+      <name name="join" arity="4" since=""/>
       <fsummary>Return the join of two relations.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#natural_join">natural
@@ -1221,7 +1221,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="multiple_relative_product" arity="2"/>
+      <name name="multiple_relative_product" arity="2" since=""/>
       <fsummary>Return the multiple relative product of a tuple of binary
         relations and a relation.</fsummary>
       <desc>
@@ -1242,7 +1242,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="no_elements" arity="1"/>
+      <name name="no_elements" arity="1" since=""/>
       <fsummary>Return the number of elements of a set.</fsummary>
       <desc>
         <p>Returns the number of elements of the ordered or unordered
@@ -1251,7 +1251,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="partition" arity="1"/>
+      <name name="partition" arity="1" since=""/>
       <fsummary>Return the coarsest partition given a set of sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#partition">partition</seealso> of
@@ -1268,7 +1268,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="partition" arity="2"/>
+      <name name="partition" arity="2" since=""/>
       <fsummary>Return a partition of a set.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#partition">partition</seealso> of
@@ -1284,7 +1284,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="partition" arity="3"/>
+      <name name="partition" arity="3" since=""/>
       <fsummary>Return a partition of a set.</fsummary>
       <desc>
         <p>Returns a pair of sets that, regarded as constituting a
@@ -1307,7 +1307,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="partition_family" arity="2"/>
+      <name name="partition_family" arity="2" since=""/>
       <fsummary>Return a family indexing a partition.</fsummary>
       <desc>
         <p>Returns <seealso marker="#family">family</seealso>
@@ -1328,7 +1328,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="product" arity="1"/>
+      <name name="product" arity="1" since=""/>
       <fsummary>Return the Cartesian product of a tuple of sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#Cartesian_product_tuple">Cartesian
@@ -1347,7 +1347,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="product" arity="2"/>
+      <name name="product" arity="2" since=""/>
       <fsummary>Return the Cartesian product of two sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#Cartesian_product">Cartesian
@@ -1365,7 +1365,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="projection" arity="2"/>
+      <name name="projection" arity="2" since=""/>
       <fsummary>Return a set of substituted elements.</fsummary>
       <desc>
         <p>Returns the set created by substituting each element of
@@ -1384,7 +1384,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="range" arity="1"/>
+      <name name="range" arity="1" since=""/>
       <fsummary>Return the range of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#range">range</seealso> of the
@@ -1398,8 +1398,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="relation" arity="1"/>
-      <name name="relation" arity="2"/>
+      <name name="relation" arity="1" since=""/>
+      <name name="relation" arity="2" since=""/>
       <fsummary>Create a relation.</fsummary>
       <desc>
         <p>Creates a <seealso marker="#relation">relation</seealso>.
@@ -1417,7 +1417,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="relation_to_family" arity="1"/>
+      <name name="relation_to_family" arity="1" since=""/>
       <fsummary>Create a family from a binary relation.</fsummary>
       <desc>
         <p>Returns <seealso marker="#family">family</seealso>
@@ -1435,8 +1435,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="relative_product" arity="1"/>
-      <name name="relative_product" arity="2" clause_i="1"/>
+      <name name="relative_product" arity="1" since=""/>
+      <name name="relative_product" arity="2" clause_i="1" since=""/>
       <fsummary>Return the relative product of a list of binary relations
         and a binary relation.</fsummary>
       <desc>
@@ -1466,7 +1466,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="relative_product" arity="2" clause_i="2"/>
+      <name name="relative_product" arity="2" clause_i="2" since=""/>
       <fsummary>Return the relative product of
         two binary relations.</fsummary>
       <desc>
@@ -1477,7 +1477,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="relative_product1" arity="2"/>
+      <name name="relative_product1" arity="2" since=""/>
       <fsummary>Return the relative_product of
         two binary relations.</fsummary>
       <desc>
@@ -1498,7 +1498,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="restriction" arity="2"/>
+      <name name="restriction" arity="2" since=""/>
       <fsummary>Return a restriction of a binary relation.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#restriction">restriction</seealso> of
@@ -1514,7 +1514,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="restriction" arity="3"/>
+      <name name="restriction" arity="3" since=""/>
       <fsummary>Return a restriction of a set.</fsummary>
       <desc>
         <p>Returns a subset of <c><anno>Set1</anno></c> containing those
@@ -1530,8 +1530,8 @@ true</pre>
     </func>
 
     <func>
-      <name name="set" arity="1"/>
-      <name name="set" arity="2"/>
+      <name name="set" arity="1" since=""/>
+      <name name="set" arity="2" since=""/>
       <fsummary>Create a set of atoms or any type of sets.</fsummary>
       <desc>
         <p>Creates an <seealso marker="#sets_definition">unordered
@@ -1543,7 +1543,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="specification" arity="2"/>
+      <name name="specification" arity="2" since=""/>
       <fsummary>Select a subset using a predicate.</fsummary>
       <desc>
         <p>Returns the set containing every element
@@ -1564,7 +1564,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="strict_relation" arity="1"/>
+      <name name="strict_relation" arity="1" since=""/>
       <fsummary>Return the strict relation corresponding to
         a given relation.</fsummary>
       <desc>
@@ -1580,7 +1580,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="substitution" arity="2"/>
+      <name name="substitution" arity="2" since=""/>
       <fsummary>Return a function with a given set as domain.</fsummary>
       <desc>
         <p>Returns a function, the domain of which
@@ -1629,7 +1629,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="symdiff" arity="2"/>
+      <name name="symdiff" arity="2" since=""/>
       <fsummary>Return the symmetric difference of two sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#symmetric_difference">symmetric
@@ -1645,7 +1645,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="symmetric_partition" arity="2"/>
+      <name name="symmetric_partition" arity="2" since=""/>
       <fsummary>Return a partition of two sets.</fsummary>
       <desc>
         <p>Returns a triple of sets:</p>
@@ -1666,7 +1666,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="to_external" arity="1"/>
+      <name name="to_external" arity="1" since=""/>
       <fsummary>Return the elements of a set.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#external_set">external
@@ -1675,7 +1675,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="to_sets" arity="1"/>
+      <name name="to_sets" arity="1" since=""/>
       <fsummary>Return a list or a tuple of the elements of a set.</fsummary>
       <desc>
         <p>Returns the elements of the ordered set <c><anno>ASet</anno></c>
@@ -1686,7 +1686,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="type" arity="1"/>
+      <name name="type" arity="1" since=""/>
       <fsummary>Return the type of a set.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#type">type</seealso> of an
@@ -1695,7 +1695,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="union" arity="1"/>
+      <name name="union" arity="1" since=""/>
       <fsummary>Return the union of a set of sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#union_n">union</seealso> of the
@@ -1704,7 +1704,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="union" arity="2"/>
+      <name name="union" arity="2" since=""/>
       <fsummary>Return the union of two sets.</fsummary>
       <desc>
         <p>Returns the <seealso marker="#union">union</seealso> of
@@ -1713,7 +1713,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="union_of_family" arity="1"/>
+      <name name="union_of_family" arity="1" since=""/>
       <fsummary>Return the union of a family.</fsummary>
       <desc>
         <p>Returns the union of <seealso marker="#family">family</seealso>
@@ -1727,7 +1727,7 @@ images2(SetOfSets, BinRel) ->
     </func>
 
     <func>
-      <name name="weak_relation" arity="1"/>
+      <name name="weak_relation" arity="1" since=""/>
       <fsummary>Return the weak relation corresponding to
         a given relation.</fsummary>
       <desc>

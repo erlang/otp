@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>int</module>
+  <module since="">int</module>
   <modulesummary>Interpreter Interface.</modulesummary>
   <description>
     <p>The Erlang interpreter provides mechanisms for breakpoints and
@@ -94,10 +94,10 @@
 
   <funcs>
     <func>
-      <name>i(AbsModule) -> {module,Module} | error</name>
-      <name>i(AbsModules) -> ok</name>
-      <name>ni(AbsModule) -> {module,Module} | error</name>
-      <name>ni(AbsModules) -> ok</name>
+      <name since="">i(AbsModule) -> {module,Module} | error</name>
+      <name since="">i(AbsModules) -> ok</name>
+      <name since="">ni(AbsModule) -> {module,Module} | error</name>
+      <name since="">ni(AbsModules) -> ok</name>
       <fsummary>Interpret a module.</fsummary>
       <type>
 	<v>AbsModules = [AbsModule]</v>
@@ -144,8 +144,8 @@
     </func>
 	
     <func>
-      <name>n(AbsModule) -> ok</name>
-      <name>nn(AbsModule) -> ok</name>
+      <name since="">n(AbsModule) -> ok</name>
+      <name since="">nn(AbsModule) -> ok</name>
       <fsummary>Stop interpreting a module.</fsummary>
       <type>
 	<v>AbsModule = Module | File | [Module | File]</v>
@@ -163,7 +163,7 @@
     </func>
 
     <func>
-      <name>interpreted() -> [Module]</name>
+      <name since="">interpreted() -> [Module]</name>
       <fsummary>Get all interpreted modules.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -174,7 +174,7 @@
     </func>
 
     <func>
-      <name>file(Module) -> File | {error,not_loaded}</name>
+      <name since="">file(Module) -> File | {error,not_loaded}</name>
       <fsummary>Get the filename for an interpreted module.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -187,7 +187,7 @@
     </func>
 
     <func>
-      <name>interpretable(AbsModule) -> true | {error,Reason}</name>
+      <name since="">interpretable(AbsModule) -> true | {error,Reason}</name>
       <fsummary>Check if a module can be interpreted.</fsummary>
       <type>
 	<v>AbsModule = Module | File</v>
@@ -255,9 +255,9 @@
     </func>
 
     <func>
-      <name>auto_attach() -> false | {Flags,Function}</name>
-      <name>auto_attach(false)</name>
-      <name>auto_attach(Flags, Function)</name>
+      <name since="">auto_attach() -> false | {Flags,Function}</name>
+      <name since="">auto_attach(false)</name>
+      <name since="">auto_attach(Flags, Function)</name>
       <fsummary>Get and set when and how to attach to a process.</fsummary>
       <type>
 	<v>Flags = [init | break | exit]</v>
@@ -290,8 +290,8 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>stack_trace() -> Flag</name>
-      <name>stack_trace(Flag)</name>
+      <name since="">stack_trace() -> Flag</name>
+      <name since="">stack_trace(Flag)</name>
       <fsummary>Get and set if and how to save call frames.</fsummary>
       <type>
 	<v>Flag = all | no_tail | false</v>
@@ -322,7 +322,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>break(Module, Line) -> ok | {error,break_exists}</name>
+      <name since="">break(Module, Line) -> ok | {error,break_exists}</name>
       <fsummary>Create a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -334,7 +334,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>delete_break(Module, Line) -> ok</name>
+      <name since="">delete_break(Module, Line) -> ok</name>
       <fsummary>Delete a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -346,7 +346,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>break_in(Module, Name, Arity) -> ok
+      <name since="">break_in(Module, Name, Arity) -> ok
 	| {error,function_not_found}</name>
       <fsummary>Create breakpoints in the specified function.</fsummary>
       <type>
@@ -360,7 +360,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>del_break_in(Module, Name, Arity) -> ok
+      <name since="">del_break_in(Module, Name, Arity) -> ok
 	| {error,function_not_found}</name>
       <fsummary>Delete breakpoints from the specified function.</fsummary>
       <type>
@@ -374,8 +374,8 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>no_break() -> ok</name>
-      <name>no_break(Module) -> ok</name>
+      <name since="">no_break() -> ok</name>
+      <name since="">no_break(Module) -> ok</name>
       <fsummary>Delete all breakpoints.</fsummary>
       <desc>
 	<p>Deletes all breakpoints, or all breakpoints in <c>Module</c>.</p>
@@ -383,7 +383,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>disable_break(Module, Line) -> ok</name>
+      <name since="">disable_break(Module, Line) -> ok</name>
       <fsummary>Make a breakpoint inactive.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -395,7 +395,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>enable_break(Module, Line) -> ok</name>
+      <name since="">enable_break(Module, Line) -> ok</name>
       <fsummary>Make a breakpoint active.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -407,7 +407,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>action_at_break(Module, Line, Action) -> ok</name>
+      <name since="">action_at_break(Module, Line, Action) -> ok</name>
       <fsummary>Set the trigger action of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -421,7 +421,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>test_at_break(Module, Line, Function) -> ok</name>
+      <name since="">test_at_break(Module, Line, Function) -> ok</name>
       <fsummary>Set the conditional test of a breakpoint.</fsummary>
       <type>
 	<v>Module = atom()</v>
@@ -438,7 +438,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>get_binding(Var, Bindings) -> {value,Value} | unbound</name>
+      <name since="">get_binding(Var, Bindings) -> {value,Value} | unbound</name>
       <fsummary>Retrieve a variable binding.</fsummary>
       <type>
 	<v>Var = atom()</v>
@@ -453,8 +453,8 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>all_breaks() -> [Break]</name>
-      <name>all_breaks(Module) -> [Break]</name>
+      <name since="">all_breaks() -> [Break]</name>
+      <name since="">all_breaks(Module) -> [Break]</name>
       <fsummary>Get all breakpoints.</fsummary>
       <type>
 	<v>Break = {Point,Options}</v>
@@ -474,7 +474,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>snapshot() -> [Snapshot]</name>
+      <name since="">snapshot() -> [Snapshot]</name>
       <fsummary>Get information about all processes executing interpreted
 	code.</fsummary>
       <type>
@@ -519,7 +519,7 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>clear() -> ok</name>
+      <name since="">clear() -> ok</name>
       <fsummary>Clear information about processes executing interpreted
 	code.</fsummary>
       <desc>
@@ -529,8 +529,8 @@ spawn(Module, Name, [Pid | Args])</pre>
     </func>
 
     <func>
-      <name>continue(Pid) -> ok | {error,not_interpreted}</name>
-      <name>continue(X,Y,Z) -> ok | {error,not_interpreted}</name>
+      <name since="">continue(Pid) -> ok | {error,not_interpreted}</name>
+      <name since="">continue(X,Y,Z) -> ok | {error,not_interpreted}</name>
       <fsummary>Resume process execution.</fsummary>
       <type>
 	<v>Pid = pid()</v>

@@ -871,7 +871,8 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
     Eterm list;
     Eterm item;
     int non_immed_key;
-    int max_iter = 10 * CONTEXT_REDS;
+    int reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
+    int max_iter = 16 * reds_left;
 
     if (is_nil(BIF_ARG_2)) {
 	BIF_RET(am_false);
@@ -889,14 +890,15 @@ BIF_RETTYPE lists_member_2(BIF_ALIST_2)
 	}
 	item = CAR(list_val(list));
 	if ((item == term) || (non_immed_key && eq(item, term))) {
-	    BIF_RET2(am_true, CONTEXT_REDS - max_iter/10);
+	    BIF_RET2(am_true, reds_left - max_iter/16);
 	}
 	list = CDR(list_val(list));
     }
     if (is_not_nil(list))  {
+        BUMP_REDS(BIF_P, reds_left - max_iter/16);
 	BIF_ERROR(BIF_P, BADARG);
     }
-    BIF_RET2(am_false, CONTEXT_REDS - max_iter/10);
+    BIF_RET2(am_false, reds_left - max_iter/16);
 }
 
 static BIF_RETTYPE lists_reverse_alloc(Process *c_p,

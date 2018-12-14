@@ -30,7 +30,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>systools</module>
+  <module since="">systools</module>
   <modulesummary>A Set of Release Handling Tools</modulesummary>
   <description>
     <p>This module contains functions to generate boot scripts
@@ -40,8 +40,8 @@
 
   <funcs>
     <func>
-      <name>make_relup(Name, UpFrom, DownTo) -> Result</name>
-      <name>make_relup(Name, UpFrom, DownTo, [Opt]) -> Result</name>
+      <name since="">make_relup(Name, UpFrom, DownTo) -> Result</name>
+      <name since="">make_relup(Name, UpFrom, DownTo, [Opt]) -> Result</name>
       <fsummary>Generates a release upgrade file <c>relup</c>.</fsummary>
       <type>
         <v>Name = string()</v>
@@ -136,8 +136,8 @@
     </func>
 
     <func>
-      <name>make_script(Name) -> Result</name>
-      <name>make_script(Name, [Opt]) -> Result</name>
+      <name since="">make_script(Name) -> Result</name>
+      <name since="">make_script(Name, [Opt]) -> Result</name>
       <fsummary>Generates a boot script <c>.script/.boot</c>.</fsummary>
       <type>
         <v>Name = string()</v>
@@ -263,8 +263,8 @@
     </func>
 
     <func>
-      <name>make_tar(Name) -> Result</name>
-      <name>make_tar(Name, [Opt]) -> Result</name>
+      <name since="">make_tar(Name) -> Result</name>
+      <name since="">make_tar(Name, [Opt]) -> Result</name>
       <fsummary>Creates a release package.</fsummary>
       <type>
         <v>Name = string()</v>
@@ -369,7 +369,7 @@ myapp-1/ebin/myapp.app
     </func>
 
     <func>
-      <name>script2boot(File) -> ok | error</name>
+      <name since="">script2boot(File) -> ok | error</name>
       <fsummary>Generates a binary version of a boot script.</fsummary>
       <type>
         <v>File = string()</v>

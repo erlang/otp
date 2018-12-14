@@ -34,7 +34,7 @@
     <rev></rev>
     <file>snmpa_notification_delivery_info_receiver.xml</file>
   </header>
-  <module>snmpa_notification_delivery_info_receiver</module>
+  <module since="">snmpa_notification_delivery_info_receiver</module>
   <modulesummary>
     Behaviour module for the SNMP agent notification delivery 
     information receiver.
@@ -76,7 +76,7 @@
 
   <funcs>
     <func>
-      <name>delivery_targets(Tag, Targets, Extra) -> void()</name>
+      <name since="">delivery_targets(Tag, Targets, Extra) -> void()</name>
       <fsummary>Inform about target addresses</fsummary>
       <type>
         <v>Tag = term()</v>
@@ -97,7 +97,7 @@
     </func>
 
     <func>
-      <name>delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
+      <name since="">delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
       <fsummary>Inform about delivery result</fsummary>
       <type>
         <v>Tag = term()</v>

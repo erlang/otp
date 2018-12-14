@@ -23,14 +23,14 @@
 
     <title>atomics</title>
   </header>
-  <module>atomics</module>
+  <module since="OTP 21.2">atomics</module>
   <modulesummary>Atomic Functions</modulesummary>
   <description>
     <p>This module provides a set of functions to do atomic operations towards
     mutable atomic variables. The implementation utilizes only
     atomic hardware instructions without any software level locking, which makes
     it very efficient for concurrent access. The atomics are organized into
-    arrays with the follwing semantics:</p>
+    arrays with the following semantics:</p>
     <list type="bulleted">
       <item>
 	<p>Atomics are 64 bit integers.</p>
@@ -70,7 +70,7 @@
 
   <funcs>
     <func>
-      <name name="new" arity="2"/>
+      <name name="new" arity="2" since="OTP 21.2"/>
       <fsummary>Create atomic array</fsummary>
       <desc>
         <p>Create a new atomic array of <c><anno>Arity</anno></c> atomics.</p>
@@ -89,7 +89,7 @@
     </func>
 
     <func>
-      <name name="put" arity="3"/>
+      <name name="put" arity="3" since="OTP 21.2"/>
       <fsummary>Set atomic value</fsummary>
       <desc>
         <p>Set atomic to <c><anno>Value</anno></c>.</p>
@@ -97,7 +97,7 @@
     </func>
 
     <func>
-      <name name="get" arity="2"/>
+      <name name="get" arity="2" since="OTP 21.2"/>
       <fsummary>Read atomic value</fsummary>
       <desc>
         <p>Read atomic value.</p>
@@ -105,7 +105,7 @@
     </func>
 
     <func>
-      <name name="add" arity="3"/>
+      <name name="add" arity="3" since="OTP 21.2"/>
       <fsummary>Add to atomic</fsummary>
       <desc>
         <p>Add <c><anno>Incr</anno></c> to atomic.</p>
@@ -113,7 +113,7 @@
     </func>
 
     <func>
-      <name name="add_get" arity="3"/>
+      <name name="add_get" arity="3" since="OTP 21.2"/>
       <fsummary>Atomic add and get</fsummary>
       <desc>
         <p>Atomic addition and return of the result.</p>
@@ -121,7 +121,7 @@
     </func>
 
     <func>
-      <name name="sub" arity="3"/>
+      <name name="sub" arity="3" since="OTP 21.2"/>
       <fsummary>Subtract from atomic</fsummary>
       <desc>
         <p>Subtract <c><anno>Decr</anno></c> from atomic.</p>
@@ -129,7 +129,7 @@
     </func>
 
     <func>
-      <name name="sub_get" arity="3"/>
+      <name name="sub_get" arity="3" since="OTP 21.2"/>
       <fsummary>Atomic sub and get</fsummary>
       <desc>
         <p>Atomic subtraction and return of the result.</p>
@@ -137,7 +137,7 @@
     </func>
 
     <func>
-      <name name="exchange" arity="3"/>
+      <name name="exchange" arity="3" since="OTP 21.2"/>
       <fsummary>Atomic exchange.</fsummary>
       <desc>
         <p>Atomically replaces the value of the atomic with
@@ -147,7 +147,7 @@
     </func>
     
     <func>
-    <name name="compare_exchange" arity="4"/>
+    <name name="compare_exchange" arity="4" since="OTP 21.2"/>
        <fsummary>Atomic compare and exchange.</fsummary>
        <desc>
          <p>Atomically compares the atomic with <c><anno>Expected</anno></c>,
@@ -158,7 +158,7 @@
     </func>
     
     <func>
-      <name name="info" arity="1"/>
+      <name name="info" arity="1" since="OTP 21.2"/>
       <fsummary>Get information about atomic array.</fsummary>
       <desc>
         <p>Return information about an atomic array in a map. The map

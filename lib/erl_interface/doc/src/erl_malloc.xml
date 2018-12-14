@@ -41,7 +41,7 @@
 
   <funcs>
     <func>
-      <name><ret>ETERM *</ret><nametext>erl_alloc_eterm(etype)</nametext></name>
+      <name since=""><ret>ETERM *</ret><nametext>erl_alloc_eterm(etype)</nametext></name>
       <fsummary>Allocate an ETERM structure.</fsummary>
       <type>
         <v>unsigned char etype;</v>
@@ -89,7 +89,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_eterm_release(void)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_eterm_release(void)</nametext></name>
       <fsummary>Clear the ETERM freelist.</fsummary>
       <desc>
         <p>Clears the freelist, where blocks are placed when they are
@@ -99,7 +99,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_eterm_statistics(allocated, freed)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_eterm_statistics(allocated, freed)</nametext></name>
       <fsummary>Report term allocation statistics.</fsummary>
       <type>
         <v>long *allocated;</v>
@@ -127,7 +127,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
       <fsummary>Free some memory.</fsummary>
       <type>
         <v>void *ptr;</v>
@@ -139,7 +139,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_free_array(array, size)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_free_array(array, size)</nametext></name>
       <fsummary>Free an array of ETERM structures.</fsummary>
       <type>
         <v>ETERM **array;</v>
@@ -156,7 +156,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_free_compound(t)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_free_compound(t)</nametext></name>
       <fsummary>Free an array of ETERM structures.</fsummary>
       <type>
         <v>ETERM *t;</v>
@@ -179,7 +179,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
       <fsummary>Free an ETERM structure.</fsummary>
       <type>
         <v>ETERM *t;</v>
@@ -190,7 +190,7 @@
     </func>
 
     <func>
-      <name><ret>void</ret><nametext>erl_malloc(size)</nametext></name>
+      <name since=""><ret>void</ret><nametext>erl_malloc(size)</nametext></name>
       <fsummary>Allocate some memory.</fsummary>
       <type>
         <v>long size;</v>

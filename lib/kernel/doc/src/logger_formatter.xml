@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>logger_formatter.xml</file>
   </header>
-  <module>logger_formatter</module>
+  <module since="OTP 21.0">logger_formatter</module>
   <modulesummary>Default formatter for Logger.</modulesummary>
 
   <description>
@@ -289,7 +289,7 @@ exit_reason: "It crashed"</code>
 
   <funcs>
     <func>
-      <name name="check_config" arity="1"/>
+      <name name="check_config" arity="1" since="OTP 21.0"/>
       <fsummary>Validates the given formatter configuration.</fsummary>
       <desc>
 	<p>The function is called by Logger when the formatter
@@ -310,7 +310,7 @@ exit_reason: "It crashed"</code>
       </desc>
     </func>
     <func>
-      <name name="format" arity="2"/>
+      <name name="format" arity="2" since="OTP 21.0"/>
       <fsummary>Formats the given message.</fsummary>
       <desc>
 	<p>This the formatter callback function to be called from

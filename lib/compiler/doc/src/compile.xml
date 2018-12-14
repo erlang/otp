@@ -29,7 +29,7 @@
     <rev>A</rev>
     <file>compile.sgml</file>
   </header>
-  <module>compile</module>
+  <module since="">compile</module>
   <modulesummary>Erlang Compiler</modulesummary>
   <description>
     <p>This module provides an interface to the standard Erlang
@@ -40,7 +40,7 @@
 
   <funcs>
     <func>
-      <name>env_compiler_options()</name>
+      <name since="OTP 19.0">env_compiler_options()</name>
       <fsummary>
 	Compiler options defined via the environment variable
 	<c>ERL_COMPILER_OPTIONS</c>
@@ -53,7 +53,7 @@
       </desc>
     </func>
     <func>
-      <name>file(File)</name>
+      <name since="">file(File)</name>
       <fsummary>Compiles a file.</fsummary>
       <desc>
         <p>Is the same as
@@ -63,7 +63,7 @@
     </func>
 
     <func>
-      <name>file(File, Options) -> CompRet</name>
+      <name since="">file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file.</fsummary>
       <type>
         <v>CompRet = ModRet | BinRet | ErrRet</v>
@@ -718,7 +718,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>forms(Forms)</name>
+      <name since="">forms(Forms)</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <desc>
         <p>Is the same as
@@ -728,7 +728,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>forms(Forms, Options) -> CompRet</name>
+      <name since="">forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms.</fsummary>
       <type>
         <v>Forms = [Form]</v>
@@ -749,7 +749,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>format_error(ErrorDescriptor) -> chars()</name>
+      <name since="">format_error(ErrorDescriptor) -> chars()</name>
       <fsummary>Formats an error descriptor.</fsummary>
       <type>
         <v>ErrorDescriptor = errordesc()</v>
@@ -764,7 +764,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>output_generated(Options) -> true | false</name>
+      <name since="">output_generated(Options) -> true | false</name>
       <fsummary>Determines whether the compiler generates an output file.</fsummary>
       <type>
         <v>Options = [term()]</v>
@@ -779,7 +779,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_file(File, Options) -> CompRet</name>
+      <name since="">noenv_file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
       <p>Works like <seealso marker="#file/2">file/2</seealso>,
@@ -789,7 +789,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_forms(Forms, Options) -> CompRet</name>
+      <name since="">noenv_forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
         <p>Works like <seealso marker="#forms/2">forms/2</seealso>,
@@ -799,7 +799,7 @@ module.beam: module.erl \
     </func>
 
     <func>
-      <name>noenv_output_generated(Options) -> true | false</name>
+      <name since="">noenv_output_generated(Options) -> true | false</name>
       <fsummary>Determines whether the compiler generates an output file 
       (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <type>

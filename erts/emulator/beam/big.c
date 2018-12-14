@@ -668,27 +668,25 @@ static dsize_t I_mul(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
 
 static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
 {
-    ErtsDigit d_next = *x;
     ErtsDigit d;
     ErtsDigit* r0 = r;
     ErtsDigit* s = r;
 
     if ((r + xl) == x)	/* "Inline" operation */
 	*x = 0;
-    x++;
 	
     while(xl--) {
-	ErtsDigit* y = x;
+	ErtsDigit* y;
 	ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
 	ErtsDigit b0, b1;
 	ErtsDigit z0, z1, z2;
 	ErtsDigit t;
 	dsize_t y_l = xl;
-		
+
+        d = *x;
+        x++;
+        y = x;
 	s = r;
-	d = d_next;
-	d_next = *x; 
-	x++;
 
 	DMUL(d, d, b1, b0);
 	DSUMc(*s, b0, y_3, t);

@@ -2177,6 +2177,7 @@ sys_msg_dispatcher_func(void *unused)
 {
     ErtsThrPrgrCallbacks callbacks;
     ErtsSysMsgQ *local_sys_message_queue = NULL;
+    ErtsThrPrgrData *tpd;
     int wait = 0;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -2189,7 +2190,7 @@ sys_msg_dispatcher_func(void *unused)
     callbacks.wait = sys_msg_dispatcher_wait;
     callbacks.finalize_wait = sys_msg_dispatcher_fin_wait;
 
-    erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
+    tpd = erts_thr_progress_register_managed_thread(NULL, &callbacks, 0);
 
     while (1) {
 	int end_wait = 0;
@@ -2210,8 +2211,8 @@ sys_msg_dispatcher_func(void *unused)
 	if (!sys_message_queue) {
 	    erts_mtx_unlock(&smq_mtx);
 	    end_wait = 1;
-	    erts_thr_progress_active(NULL, 0);
-	    erts_thr_progress_prepare_wait(NULL);
+	    erts_thr_progress_active(tpd, 0);
+	    erts_thr_progress_prepare_wait(tpd);
 	    erts_mtx_lock(&smq_mtx);
 	}
 
@@ -2225,8 +2226,8 @@ sys_msg_dispatcher_func(void *unused)
 	erts_mtx_unlock(&smq_mtx);
 
 	if (end_wait) {
-	    erts_thr_progress_finalize_wait(NULL);
-	    erts_thr_progress_active(NULL, 1);
+	    erts_thr_progress_finalize_wait(tpd);
+	    erts_thr_progress_active(tpd, 1);
 	}
 
 	/* Send trace messages ... */
@@ -2239,8 +2240,8 @@ sys_msg_dispatcher_func(void *unused)
 	    Process *proc = NULL;
 	    Port *port = NULL;
 
-	    if (erts_thr_progress_update(NULL))
-		erts_thr_progress_leader_update(NULL);
+	    if (erts_thr_progress_update(tpd))
+		erts_thr_progress_leader_update(tpd);
 
 #ifdef DEBUG_PRINTOUTS
 	    print_msg_type(smqp);

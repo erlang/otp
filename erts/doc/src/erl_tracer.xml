@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>erl_tracer</module>
+  <module since="OTP 19.0">erl_tracer</module>
   <modulesummary>Erlang tracer behavior.</modulesummary>
   <description>
     <p>This behavior module implements the back end of the Erlang
@@ -195,7 +195,7 @@
 
   <funcs>
     <func>
-      <name>Module:enabled(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag">
@@ -224,7 +224,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_call(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled_call(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_call">
@@ -244,7 +244,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_garbage_collection(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled_garbage_collection(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_gc">
@@ -264,7 +264,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_ports(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled_ports(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_ports">
@@ -284,7 +284,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_procs(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled_procs(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_procs">
@@ -304,7 +304,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_receive(TraceTag, TracerState, Tracee) -> Result
+      <name since="OTP 19.0">Module:enabled_receive(TraceTag, TracerState, Tracee) -> Result
       </name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -325,7 +325,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_running_ports(TraceTag, TracerState, Tracee) ->
+      <name since="OTP 19.0">Module:enabled_running_ports(TraceTag, TracerState, Tracee) ->
         Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -346,7 +346,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_running_procs(TraceTag, TracerState, Tracee) ->
+      <name since="OTP 19.0">Module:enabled_running_procs(TraceTag, TracerState, Tracee) ->
         Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -368,7 +368,7 @@
     </func>
 
     <func>
-      <name>Module:enabled_send(TraceTag, TracerState, Tracee) -> Result</name>
+      <name since="OTP 19.0">Module:enabled_send(TraceTag, TracerState, Tracee) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
         <v>TraceTag = <seealso marker="#type-trace_tag_send">
@@ -388,7 +388,7 @@
     </func>
 
     <func>
-      <name>Module:trace(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace(TraceTag, TracerState, Tracee, TraceTerm,
         Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -417,7 +417,7 @@
     </func>
 
     <func>
-      <name name="trace">Module:trace(seq_trace, TracerState, Label,
+      <name name="trace" since="OTP 19.0">Module:trace(seq_trace, TracerState, Label,
         SeqTraceInfo, Opts) -> Result</name>
       <fsummary>Check if a sequence trace event is to be generated.</fsummary>
       <type>
@@ -439,7 +439,7 @@
     </func>
 
     <func>
-      <name>Module:trace_call(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace_call(TraceTag, TracerState, Tracee, TraceTerm,
           Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -463,7 +463,7 @@
     </func>
 
     <func>
-      <name>Module:trace_garbage_collection(TraceTag, TracerState, Tracee,
+      <name since="OTP 19.0">Module:trace_garbage_collection(TraceTag, TracerState, Tracee,
         TraceTerm, Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -487,7 +487,7 @@
     </func>
 
     <func>
-      <name>Module:trace_ports(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace_ports(TraceTag, TracerState, Tracee, TraceTerm,
         Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -511,7 +511,7 @@
     </func>
 
     <func>
-      <name>Module:trace_procs(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace_procs(TraceTag, TracerState, Tracee, TraceTerm,
         Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -535,7 +535,7 @@
     </func>
 
     <func>
-      <name>Module:trace_receive(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace_receive(TraceTag, TracerState, Tracee, TraceTerm,
         Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -559,7 +559,7 @@
     </func>
 
     <func>
-      <name>Module:trace_running_ports(TraceTag, TracerState, Tracee,
+      <name since="OTP 19.0">Module:trace_running_ports(TraceTag, TracerState, Tracee,
         TraceTerm, Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -583,7 +583,7 @@
     </func>
 
     <func>
-      <name>Module:trace_running_procs(TraceTag, TracerState, Tracee,
+      <name since="OTP 19.0">Module:trace_running_procs(TraceTag, TracerState, Tracee,
         TraceTerm, Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>
@@ -607,7 +607,7 @@
     </func>
 
     <func>
-      <name>Module:trace_send(TraceTag, TracerState, Tracee, TraceTerm,
+      <name since="OTP 19.0">Module:trace_send(TraceTag, TracerState, Tracee, TraceTerm,
         Opts) -> Result</name>
       <fsummary>Check if a trace event is to be generated.</fsummary>
       <type>

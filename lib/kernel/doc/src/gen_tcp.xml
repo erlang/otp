@@ -27,7 +27,7 @@
     <date>1997-10-24</date>
     <rev>A</rev>
   </header>
-  <module>gen_tcp</module>
+  <module since="">gen_tcp</module>
   <modulesummary>Interface to TCP/IP sockets.</modulesummary>
   <description>
     <p>This module provides functions for communicating
@@ -116,8 +116,8 @@ do_recv(Sock, Bs) ->
 
   <funcs>
     <func>
-      <name name="accept" arity="1"/>
-      <name name="accept" arity="2"/>
+      <name name="accept" arity="1" since=""/>
+      <name name="accept" arity="2" since=""/>
       <fsummary>Accept an incoming connection request on a listening socket.</fsummary>
       <type_desc variable="ListenSocket">Returned by
         <seealso marker="#listen/2"><c>listen/2</c></seealso>.
@@ -163,7 +163,7 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="close" arity="1"/>
+      <name name="close" arity="1" since=""/>
       <fsummary>Close a TCP socket.</fsummary>
       <desc>
         <p>Closes a TCP socket.</p>
@@ -188,8 +188,8 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="connect" arity="3"/>
-      <name name="connect" arity="4"/>
+      <name name="connect" arity="3" since=""/>
+      <name name="connect" arity="4" since=""/>
       <fsummary>Connect to a TCP port.</fsummary>
       <desc>
         <p>Connects to a server on TCP port <c><anno>Port</anno></c> on the host
@@ -268,7 +268,7 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="controlling_process" arity="2"/>
+      <name name="controlling_process" arity="2" since=""/>
       <fsummary>Change controlling process of a socket.</fsummary>
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
@@ -292,7 +292,7 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="listen" arity="2"/>
+      <name name="listen" arity="2" since=""/>
       <fsummary>Set up a socket to listen on a port.</fsummary>
       <desc>
         <p>Sets up a socket to listen on port <c><anno>Port</anno></c> on
@@ -349,8 +349,8 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="recv" arity="2"/>
-      <name name="recv" arity="3"/>
+      <name name="recv" arity="2" since=""/>
+      <name name="recv" arity="3" since=""/>
       <fsummary>Receive a packet from a passive socket.</fsummary>
       <type_desc variable="HttpPacket">See the description of
         <c>HttpPacket</c> in
@@ -375,7 +375,7 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="send" arity="2"/>
+      <name name="send" arity="2" since=""/>
       <fsummary>Send a packet.</fsummary>
       <desc>
         <p>Sends a packet on a socket.</p>
@@ -386,7 +386,7 @@ do_recv(Sock, Bs) ->
     </func>
 
     <func>
-      <name name="shutdown" arity="2"/>
+      <name name="shutdown" arity="2" since=""/>
       <fsummary>Asynchronously close a socket.</fsummary>
       <desc>
         <p>Closes a socket in one or two directions.</p>

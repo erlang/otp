@@ -32,7 +32,7 @@
     <rev>A</rev>
     <file>logger_filters.xml</file>
   </header>
-  <module>logger_filters</module>
+  <module since="OTP 21.0">logger_filters</module>
   <modulesummary>Filters to use with Logger.</modulesummary>
 
   <description>
@@ -51,7 +51,7 @@
 
   <funcs>
     <func>
-      <name name="domain" arity="2"/>
+      <name name="domain" arity="2" since="OTP 21.0"/>
       <fsummary>Filter log events based on the domain field in
 	metadata.</fsummary>
       <desc>
@@ -152,7 +152,7 @@ ok</code>
     </func>
 
     <func>
-      <name name="level" arity="2"/>
+      <name name="level" arity="2" since="OTP 21.0"/>
       <fsummary>Filter log events based on the log level.</fsummary>
       <desc>
 	  <p>This filter provides a way of filtering log events based
@@ -212,7 +212,7 @@ ok</code>
     </func>
 
     <func>
-      <name name="progress" arity="2"/>
+      <name name="progress" arity="2" since="OTP 21.0"/>
       <fsummary>Filter progress reports from supervisor and application_controller.</fsummary>
       <desc>
 	  <p>This filter matches all progress reports
@@ -227,7 +227,7 @@ ok</code>
     </func>
 
     <func>
-      <name name="remote_gl" arity="2"/>
+      <name name="remote_gl" arity="2" since="OTP 21.0"/>
       <fsummary>Filter events with group leader on remote node.</fsummary>
       <desc>
 	  <p>This filter matches all events originating from a process

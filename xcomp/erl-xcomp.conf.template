@@ -271,4 +271,9 @@
 #   alignment.
 #erl_xcomp_posix_memalign=
 
+# * `erl_xcomp_code_model_small` - `yes|no`. Default to `no`. If `yes`, the target
+#   system must place the beam.smp executable in the lower 2 GB of memory. That is it
+#   should not use position independent executable.
+#erl_xcomp_code_model_small=
+
 ## -----------------------------------------------------------------------------

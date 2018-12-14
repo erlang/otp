@@ -85,7 +85,7 @@ xm_sig_order_proc() ->
     receive
 	may_not_reach -> exit(bad_signal_order);
 	may_reach -> ok
-    after 0 -> ok
+    after 0 -> erlang:yield()
     end,
     xm_sig_order_proc().
 

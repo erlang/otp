@@ -32,7 +32,7 @@
     <rev>PA1</rev>
     <file>common_test_app.sgml</file>
   </header>
-  <module>common_test</module> 
+  <module since="">common_test</module> 
   <modulesummary>A framework for automated testing of any target nodes.</modulesummary>
 
   <description>
@@ -68,7 +68,7 @@
 
   <funcs>
     <func>
-      <name>Module:all() -> Tests | {skip,Reason} </name>
+      <name since="">Module:all() -> Tests | {skip,Reason} </name>
       <fsummary>Returns the list of all test case groups and test cases
 	in the module.</fsummary>
       <type>
@@ -115,7 +115,7 @@
     </func>
 
     <func>
-      <name>Module:groups() -> GroupDefs</name>
+      <name since="">Module:groups() -> GroupDefs</name>
       <fsummary>Returns a list of test case group definitions.</fsummary>
       <type>
         <v>GroupDefs = [Group]</v>
@@ -140,7 +140,7 @@
     </func>
 
       <func>
-	<name>Module:suite() -> [Info] </name>
+	<name since="">Module:suite() -> [Info] </name>
 	<fsummary>Test suite info function (providing default data
 	  for the suite).</fsummary>
 	<type>
@@ -213,7 +213,7 @@
     </func>
 
       <func>
-	<name>Module:init_per_suite(Config) -> NewConfig | {skip,Reason} |
+	<name since="">Module:init_per_suite(Config) -> NewConfig | {skip,Reason} |
 	  {skip_and_save,Reason,SaveConfig}</name>
 	<fsummary>Test suite initializations.</fsummary>
 	<type>
@@ -248,7 +248,7 @@
     </func>
 
     <func>
-      <name>Module:end_per_suite(Config) -> term() | 
+      <name since="">Module:end_per_suite(Config) -> term() | 
 	{save_config,SaveConfig}</name>
       <fsummary>Test suite finalization.</fsummary>
       <type>
@@ -272,7 +272,7 @@
     </func>
 
     <func>
-      <name>Module:group(GroupName) -> [Info] </name>
+      <name since="OTP R15B">Module:group(GroupName) -> [Info] </name>
       <fsummary>Test case group information function (providing default data
         for a test case group, that is, its test cases and
         subgroups).</fsummary>
@@ -352,7 +352,7 @@
     </func>
 
       <func>
-	<name>Module:init_per_group(GroupName, Config) -> NewConfig |
+	<name since="">Module:init_per_group(GroupName, Config) -> NewConfig |
 	  {skip,Reason}</name>
 	<fsummary>Test case group initializations.</fsummary>
 	<type>
@@ -390,7 +390,7 @@
     </func>
 
       <func>
-	<name>Module:end_per_group(GroupName, Config) -> term() |
+	<name since="">Module:end_per_group(GroupName, Config) -> term() |
 	  {return_group_result,Status}</name>
 	<fsummary>Test case group finalization.</fsummary>
 	<type>
@@ -424,7 +424,7 @@
     </func>
 
       <func>
-	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
+	<name since="">Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
 	<fsummary>Test case initializations.</fsummary>
 	<type>
 	  <v> TestCase = atom()</v>
@@ -454,7 +454,7 @@
     </func>
 
       <func>
-	<name>Module:end_per_testcase(TestCase, Config) -> term() | {fail,Reason} | {save_config,SaveConfig}</name>
+	<name since="">Module:end_per_testcase(TestCase, Config) -> term() | {fail,Reason} | {save_config,SaveConfig}</name>
 	<fsummary>Test case finalization.</fsummary>
 	<type>
 	  <v>TestCase = atom()</v>
@@ -486,7 +486,7 @@
       </func>
 
     <func>
-      <name>Module:Testcase() -> [Info] </name>
+      <name since="OTP R14B">Module:Testcase() -> [Info] </name>
       <fsummary>Test case information function.</fsummary>
       <type>
 	<v>Info = {timetrap,Time} | {require,Required} | {require,Name,Required} | {userdata,UserData} | {silent_connections,Conns}</v>
@@ -560,7 +560,7 @@
     </func>
 
     <func>
-	<name>Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name since="OTP R14B">Module:Testcase(Config) ->  term() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case.</fsummary>
       <type>
 	<v>Config = SaveConfig = [{Key,Value}]</v>

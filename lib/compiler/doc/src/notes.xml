@@ -32,6 +32,61 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare internal consistency failure caused by a
+	    bug in the <c>beam_jump</c> pass. (Thanks to Simon
+	    Cornish for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-15400 Aux Id: ERL-759 </p>
+        </item>
+        <item>
+	    <p>The compiler could fail with an internal consistency
+	    check failure when compiling code that used the
+	    <c>is_function/2</c> BIF.</p>
+          <p>
+	    Own Id: OTP-15435 Aux Id: ERL-778 </p>
+        </item>
+        <item>
+	    <p>When an external fun was used, warnings for unused
+	    variables could be suppressed.</p>
+          <p>
+	    Own Id: OTP-15437 Aux Id: ERL-762 </p>
+        </item>
+        <item>
+	    <p>The compiler would crash when compiling an
+	    <c>after</c> block that called <c>erlang:raise/3</c> like
+	    this: <c>erlang:raise(Class, Stacktrace,
+	    Stacktrace)</c></p>
+          <p>
+	    Own Id: OTP-15481</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>When specified, the <c>+{source,Name}</c> option will
+	    now override the actual file name in stack traces,
+	    instead of only affecting the return value of
+	    <c>Mod:module_info()</c>.</p>
+	    <p>The <c>+deterministic</c> flag will also affect stack
+	    traces now, omitting all path information except the file
+	    name, fixing a long-standing issue where deterministic
+	    builds required deterministic paths.</p>
+          <p>
+	    Own Id: OTP-15245 Aux Id: ERL-706 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

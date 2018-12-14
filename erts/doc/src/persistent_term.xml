@@ -29,7 +29,7 @@
     <rev></rev>
     <file>persistent_term.xml</file>
   </header>
-  <module>persistent_term</module>
+  <module since="OTP 21.2">persistent_term</module>
   <modulesummary>Persistent terms.</modulesummary>
   <description>
     <p>This module is similar to <seealso
@@ -213,7 +213,7 @@ will be slower as the number of persistent terms increases.</pre>
 
   <funcs>
     <func>
-      <name name="erase" arity="1"/>
+      <name name="erase" arity="1" since="OTP 21.2"/>
       <fsummary>Erase the name for a persistent term.</fsummary>
       <desc>
         <p>Erase the name for the persistent term with key
@@ -229,7 +229,7 @@ will be slower as the number of persistent terms increases.</pre>
     </func>
 
     <func>
-      <name name="get" arity="0"/>
+      <name name="get" arity="0" since="OTP 21.2"/>
       <fsummary>Get all persistent terms.</fsummary>
       <desc>
         <p>Retrieve the keys and values for all persistent terms.
@@ -239,7 +239,7 @@ will be slower as the number of persistent terms increases.</pre>
     </func>
 
     <func>
-      <name name="get" arity="1"/>
+      <name name="get" arity="1" since="OTP 21.2"/>
       <fsummary>Get the value for a persistent term.</fsummary>
       <desc>
         <p>Retrieve the value for the persistent term associated with
@@ -256,7 +256,7 @@ will be slower as the number of persistent terms increases.</pre>
     </func>
 
     <func>
-      <name name="info" arity="0"/>
+      <name name="info" arity="0" since="OTP 21.2"/>
       <fsummary>Get information about persistent terms.</fsummary>
       <desc>
         <p>Return information about persistent terms in a map. The map
@@ -272,7 +272,7 @@ will be slower as the number of persistent terms increases.</pre>
     </func>
 
     <func>
-      <name name="put" arity="2"/>
+      <name name="put" arity="2" since="OTP 21.2"/>
       <fsummary>Store a term.</fsummary>
       <desc>
         <p>Store the value <c><anno>Value</anno></c> as a persistent term and
