@@ -203,6 +203,11 @@
           certificate_list             % CertificateEntry certificate_list<0..2^24-1>;
          }).
 
+-record(certificate_verify_1_3, {
+          algorithm, % SignatureScheme
+          signature  % signature<0..2^16-1>
+	 }).
+
 %% RFC 8446 B.3.4. Ticket Establishment
 -record(new_session_ticket, {
           ticket_lifetime,  %unit32

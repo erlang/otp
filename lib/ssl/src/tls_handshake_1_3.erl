@@ -39,6 +39,7 @@
 
 %% Create handshake messages
 -export([certificate/5,
+         certificate_verify/5,
          server_hello/4]).
 
 %%====================================================================
@@ -77,6 +78,23 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
 	{error, Error} ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
     end.
+
+%% TODO: use maybe monad for error handling!
+certificate_verify(OwnCert, PrivateKey, SignatureScheme, Messages, server) ->
+    {HashAlgo, _, _} =
+        ssl_cipher:scheme_to_components(SignatureScheme),
+
+    %% Transcript-Hash(Handshake Context, Certificate)
+    Context = [Messages, OwnCert],
+    THash = tls_v1:transcript_hash(Context, HashAlgo),
+
+    Signature = digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
+                               HashAlgo, PrivateKey),
+
+    #certificate_verify_1_3{
+       algorithm = SignatureScheme,
+       signature = Signature
+      }.
 
 %%====================================================================
 %% Encode handshake
@@ -223,6 +241,38 @@ certificate_entry(DER) ->
        extensions = #{} %% Extensions not supported.
       }.
 
+%% The digital signature is then computed over the concatenation of:
+%%   -  A string that consists of octet 32 (0x20) repeated 64 times
+%%   -  The context string
+%%   -  A single 0 byte which serves as the separator
+%%   -  The content to be signed
+%%
+%% For example, if the transcript hash was 32 bytes of 01 (this length
+%% would make sense for SHA-256), the content covered by the digital
+%% signature for a server CertificateVerify would be:
+%%
+%%    2020202020202020202020202020202020202020202020202020202020202020
+%%    2020202020202020202020202020202020202020202020202020202020202020
+%%    544c5320312e332c207365727665722043657274696669636174655665726966
+%%    79
+%%    00
+%%    0101010101010101010101010101010101010101010101010101010101010101
+digitally_sign(THash, Context, HashAlgo, PrivateKey =  #'RSAPrivateKey'{}) ->
+    Content = build_content(Context, THash),
+
+    %% The length of the Salt MUST be equal to the length of the output
+    %% of the digest algorithm.
+    PadLen = ssl_cipher:hash_size(HashAlgo),
+
+    public_key:sign(Content, HashAlgo, PrivateKey,
+                    [{rsa_padding, rsa_pkcs1_pss_padding},
+                     {rsa_pss_saltlen, PadLen}]).
+
+
+build_content(Context, THash) ->
+    <<"                                ",
+      "                                ",
+      Context/binary,?BYTE(0),THash/binary>>.
 
 %%====================================================================
 %% Handle handshake messages
@@ -263,15 +313,15 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         Cipher = Maybe(select_cipher_suite(ClientCiphers, ServerCiphers)),
         Group = Maybe(select_server_group(ServerGroups, ClientGroups)),
         Maybe(validate_key_share(ClientGroups, ClientShares)),
+
         ClientPubKey = Maybe(get_client_public_key(Group, ClientShares)),
 
-        %% Handle certificate
-        {PublicKeyAlgo, SignAlgo} = get_certificate_params(Cert),
+        {PublicKeyAlgo, SignAlgo, SignHash} = get_certificate_params(Cert),
 
         %% Check if client supports signature algorithm of server certificate
-        Maybe(check_cert_sign_algo(SignAlgo, ClientSignAlgs, ClientSignAlgsCert)),
+        Maybe(check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, ClientSignAlgsCert)),
 
-        %% Check if server supports
+        %% Select signature algorithm (used in CertificateVerify message).
         SelectedSignAlg = Maybe(select_sign_algo(PublicKeyAlgo, ClientSignAlgs, ServerSignAlgs)),
 
         %% Generate server_share
@@ -294,9 +344,9 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
         {Ref, illegal_parameter} ->
             ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, {client_hello_retry_request, _Group0}} ->
+        {Ref, {hello_retry_request, _Group0}} ->
             %% TODO
-            exit({client_hello_retry_request, not_implemented});
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, "hello_retry_request not implemented");
         {Ref, no_suitable_cipher} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
         {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
@@ -353,8 +403,13 @@ get_client_public_key(Group, ClientShares) ->
          {value, {_, _, ClientPublicKey}} ->
              {ok, ClientPublicKey};
          false ->
-             %% ClientHelloRetryRequest
-             {error, {client_hello_retry_request, Group}}
+             %% 4.1.4.  Hello Retry Request
+             %%
+             %% The server will send this message in response to a ClientHello
+             %% message if it is able to find an acceptable set of parameters but the
+             %% ClientHello does not contain sufficient information to proceed with
+             %% the handshake.
+             {error, {hello_retry_request, Group}}
      end.
 
 select_cipher_suite([], _) ->
@@ -379,22 +434,28 @@ select_cipher_suite([Cipher|ClientCiphers], ServerCiphers) ->
 %% If no "signature_algorithms_cert" extension is
 %% present, then the "signature_algorithms" extension also applies to
 %% signatures appearing in certificates.
-check_cert_sign_algo(SignAlgo, ClientSignAlgs, undefined) ->
-    maybe_lists_member(SignAlgo, ClientSignAlgs,
-                       {insufficient_security, no_suitable_signature_algorithm});
-check_cert_sign_algo(SignAlgo, _, ClientSignAlgsCert) ->
-    maybe_lists_member(SignAlgo, ClientSignAlgsCert,
-                       {insufficient_security, no_suitable_signature_algorithm}).
+
+%% Check if the signature algorithm of the server certificate is supported
+%% by the client.
+check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs, undefined) ->
+    do_check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgs);
+check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
+    do_check_cert_sign_algo(SignAlgo, SignHash, ClientSignAlgsCert).
 
 
 %% DSA keys are not supported by TLS 1.3
 select_sign_algo(dsa, _ClientSignAlgs, _ServerSignAlgs) ->
     {error, {insufficient_security, no_suitable_public_key}};
-%% TODO: Implement check for ellipctic curves!
+%% TODO: Implement support for ECDSA keys!
+select_sign_algo(_, [], _) ->
+    {error, {insufficient_security, no_suitable_signature_algorithm}};
 select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     {_, S, _} = ssl_cipher:scheme_to_components(C),
-    case PublicKeyAlgo =:= rsa andalso
-        ((S =:= rsa_pkcs1) orelse (S =:= rsa_pss_rsae) orelse (S =:= rsa_pss_pss)) andalso
+    %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
+    %% TLS handshake messages: filter sha-1 and rsa_pkcs1.
+    case ((PublicKeyAlgo =:= rsa andalso S =:= rsa_pss_rsae)
+          orelse (PublicKeyAlgo =:= rsa_pss andalso S =:= rsa_pss_rsae))
+        andalso
         lists:member(C, ServerSignAlgs) of
         true ->
             {ok, C};
@@ -403,51 +464,51 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     end.
 
 
-maybe_lists_member(Elem, List, Error) ->
-    case lists:member(Elem, List) of
+do_check_cert_sign_algo(_, _, []) ->
+    {error, {insufficient_security, no_suitable_signature_algorithm}};
+do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
+    {Hash, Sign, _Curve} = ssl_cipher:scheme_to_components(Scheme),
+    case compare_sign_algos(SignAlgo, SignHash, Sign, Hash) of
         true ->
             ok;
-        false ->
-            {error, Error}
+        _Else ->
+            do_check_cert_sign_algo(SignAlgo, SignHash, T)
     end.
 
-%% TODO: test with ecdsa, rsa_pss_rsae, rsa_pss_pss
+
+%% id-RSASSA-PSS (rsa_pss) indicates that the key may only be used for PSS signatures.
+%% TODO: Uncomment when rsa_pss signatures are supported in certificates
+%% compare_sign_algos(rsa_pss, Hash, Algo, Hash)
+%%   when Algo =:= rsa_pss_pss ->
+%%     true;
+%% rsaEncryption (rsa) allows the key to be used for any of the standard encryption or
+%% signature schemes.
+compare_sign_algos(rsa, Hash, Algo, Hash)
+  when Algo =:= rsa_pss_rsae orelse
+       Algo =:= rsa_pkcs1 ->
+    true;
+compare_sign_algos(Algo, Hash, Algo, Hash) ->
+    true;
+compare_sign_algos(_, _, _, _) ->
+    false.
+
+
 get_certificate_params(Cert) ->
     {SignAlgo0, _Param, PublicKeyAlgo0} = ssl_handshake:get_cert_params(Cert),
-    SignAlgo = public_key:pkix_sign_types(SignAlgo0),
+    {SignHash0, SignAlgo} = public_key:pkix_sign_types(SignAlgo0),
+    %% Convert hash to new format
+    SignHash = case SignHash0 of
+                   sha ->
+                       sha1;
+                   H -> H
+               end,
     PublicKeyAlgo = public_key_algo(PublicKeyAlgo0),
-    Scheme = sign_algo_to_scheme(SignAlgo),
-    {PublicKeyAlgo, Scheme}.
-
-sign_algo_to_scheme({Hash0, Sign0}) ->
-    SupportedSchemes = tls_v1:default_signature_schemes({3,4}),
-    Hash = case Hash0 of
-               sha ->
-                   sha1;
-               H ->
-                   H
-           end,
-    Sign = case Sign0 of
-               rsa ->
-                   rsa_pkcs1;
-               S ->
-                   S
-           end,
-    sign_algo_to_scheme(Hash, Sign, SupportedSchemes).
-%%
-sign_algo_to_scheme(_, _, []) ->
-    not_found;
-sign_algo_to_scheme(H, S, [Scheme|T]) ->
-    {Hash, Sign, _Curve} = ssl_cipher:scheme_to_components(Scheme),
-    case H =:= Hash andalso S =:= Sign of
-        true ->
-            Scheme;
-        false ->
-            sign_algo_to_scheme(H, S, T)
-    end.
+    {PublicKeyAlgo, SignAlgo, SignHash}.
 
 
 %% Note: copied from ssl_handshake
+public_key_algo(?'id-RSASSA-PSS') ->
+    rsa_pss;
 public_key_algo(?rsaEncryption) ->
     rsa;
 public_key_algo(?'id-ecPublicKey') ->

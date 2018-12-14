@@ -159,21 +159,22 @@ negotiated(internal,
            #state{connection_states = ConnectionStates0,
                   session = #session{session_id = SessionId,
                                      own_certificate = OwnCert},
-                  cert_db = CertDbHandle,
-                  cert_db_ref = CertDbRef,
                   ssl_options = #ssl_options{} = SslOpts,
                   key_share = KeyShare,
                   tls_handshake_history = HHistory0,
-                  static_env = #static_env{socket = Socket,
-                                           transport_cb = Transport}}, _Module) ->
-
+                  private_key = CertPrivateKey,
+                  static_env = #static_env{
+                                  cert_db = CertDbHandle,
+                                  cert_db_ref = CertDbRef,
+                                  socket = Socket,
+                                  transport_cb = Transport}}, _Module) ->
     %% Create server_hello
     %% Extensions: supported_versions, key_share, (pre_shared_key)
     ServerHello = tls_handshake_1_3:server_hello(SessionId, KeyShare,
                                                  ConnectionStates0, Map),
     %% Update handshake_history (done in encode!)
     %% Encode handshake
-    {BinMsg, ConnectionStates, HHistory} =
+    {BinMsg, ConnectionStates1, HHistory1} =
         tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates0, HHistory0),
     %% Send server_hello
     tls_connection:send(Transport, Socket, BinMsg),
@@ -187,7 +188,7 @@ negotiated(internal,
     ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
 
     #{security_parameters := SecParamsR} =
-        ssl_record:pending_connection_state(ConnectionStates, read),
+        ssl_record:pending_connection_state(ConnectionStates1, read),
     #security_parameters{prf_algorithm = HKDFAlgo,
                          cipher_suite = CipherSuite} = SecParamsR,
 
@@ -196,6 +197,7 @@ negotiated(internal,
 
     ClientKey = maps:get(client_share, Map),        %% Raw data?! What about EC?
     SelectedGroup = maps:get(group, Map),
+    SignatureScheme = maps:get(sign_alg, Map),
 
     PrivateKey = get_server_private_key(KeyShare),  %% #'ECPrivateKey'{}
 
@@ -203,11 +205,11 @@ negotiated(internal,
     HandshakeSecret = tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret),
 
     %% Calculate [sender]_handshake_traffic_secret
-    {Messages, _} =  HHistory,
+    {Messages1, _} =  HHistory1,
     ClientHSTrafficSecret =
-        tls_v1:client_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
+        tls_v1:client_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages1)),
     ServerHSTrafficSecret =
-        tls_v1:server_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
+        tls_v1:server_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages1)),
 
     %% Calculate traffic keys
     #{cipher := Cipher} = ssl_cipher_format:suite_definition(CipherSuite),
@@ -215,8 +217,8 @@ negotiated(internal,
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
 
     %% Update pending connection state
-    PendingRead0 = ssl_record:pending_connection_state(ConnectionStates0, read),
-    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates0, write),
+    PendingRead0 = ssl_record:pending_connection_state(ConnectionStates1, read),
+    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates1, write),
 
     PendingRead = update_conn_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
     PendingWrite = update_conn_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
@@ -224,16 +226,28 @@ negotiated(internal,
     %% Update pending and copy to current (activate)
     %% All subsequent handshake messages are encrypted
     %% ([sender]_handshake_traffic_secret)
-    ConnectionStates1 = ConnectionStates0#{current_read => PendingRead,
+    ConnectionStates2 = ConnectionStates1#{current_read => PendingRead,
                                            current_write => PendingWrite,
                                            pending_read => PendingRead,
                                            pending_write => PendingWrite},
 
-    %% Create Certificate, CertificateVerify
+    %% Create Certificate
     Certificate = tls_handshake_1_3:certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
-    io:format("### Certificate: ~p~n", [Certificate]),
 
-    %% CertificateVerify = tls_handshake_1_3:certificate_verify(),
+    %% Encode Certificate
+    {_CertificateBin, _ConnectionStates2, HHistory2} =
+        tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates1, HHistory1),
+
+    %% Create CertificateVerify
+
+    {Messages2, _} =  HHistory2,
+
+    %% Use selected signature_alg from here, HKDF only used for key_schedule
+    CertificateVerify = tls_handshake_1_3:certificate_verify(OwnCert, CertPrivateKey, SignatureScheme,
+                                                             Messages2, server),
+    io:format("### CertificateVerify: ~p~n", [CertificateVerify]),
+
+    %% Encode CertificateVerify
 
     %% Send Certificate, CertifricateVerify
 
