@@ -73,7 +73,9 @@ all() ->
      emulator,
      remote,
      remote_emulator,
-     config].
+     config,
+     restart_after,
+     terminate].
 
 %%%-----------------------------------------------------------------
 %%% Test cases
@@ -173,8 +175,61 @@ config(_Config) ->
 config(cleanup,_Config) ->
     ok.
 
+restart_after(Config) ->
+    Restart = 3000,
+    ok = logger:update_proxy_config(#{overload_kill_enable => true,
+                                      overload_kill_qlen => 10,
+                                      overload_kill_restart_after => Restart}),
+    Proxy = whereis(logger_proxy),
+    Proxy = erlang:system_info(system_logger),
+    Ref = erlang:monitor(process,Proxy),
+    spawn(fun() ->
+                  [logger_proxy ! {log,debug,
+                                   [{test_case,?FUNCTION_NAME},
+                                    {line,?LINE}],
+                                   L2=?LOC} || _ <- lists:seq(1,100)]
+          end),
+    receive
+        {'DOWN',Ref,_,_,_Reason} ->
+            undefined = erlang:system_info(system_logger),
+            timer:sleep(Restart),
+            poll_restarted(10)
+    after 5000 ->
+            ct:fail(proxy_not_terminated)
+    end,
+    ok.
+
+%% Test that system_logger flag is set to logger process if
+%% logger_proxy terminates for other reason than overloaded.
+terminate(Config) ->
+    Logger = whereis(logger),
+    Proxy = whereis(logger_proxy),
+    Proxy = erlang:system_info(system_logger),
+    Ref = erlang:monitor(process,Proxy),
+    ok = logger_olp:stop(Proxy),
+    receive
+        {'DOWN',Ref,_,_,_Reason} ->
+            Logger = erlang:system_info(system_logger),
+            logger_proxy:restart(),
+            poll_restarted(10)
+    after 5000 ->
+            ct:fail(proxy_not_terminated)
+    end,
+    ok.
+
 %%%-----------------------------------------------------------------
 %%% Internal functions
+
+poll_restarted(0) ->
+    ct:fail(proxy_not_restarted);
+poll_restarted(N) ->
+    timer:sleep(1000),
+    case whereis(logger_proxy) of
+        undefined ->
+            poll_restarted(N-1);
+        Pid ->
+            ok
+    end.
 
 %% Logger handler callback
 log(#{meta:=Meta},#{config:=Pid}) ->
