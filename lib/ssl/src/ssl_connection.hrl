@@ -101,7 +101,7 @@
                 %% The mecahnism is also usefull in TLS although we do not
                 %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
                 flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.
-                erl_dist_data = #{} :: map(),
+                erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
                 protocol_specific = #{}      :: map()
                }).
 
