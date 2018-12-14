@@ -972,7 +972,7 @@ is_correct_padding(GenBlockCipher, {3, 1}, false) ->
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
     Len == byte_size(Padding) andalso
-		list_to_binary(lists:duplicate(Len, Len)) == Padding.
+        binary:copy(?byte(Len), Len) == Padding.
 
 get_padding(Length, BlockSize) ->
     get_padding_aux(BlockSize, Length rem BlockSize).
@@ -981,7 +981,7 @@ get_padding_aux(_, 0) ->
     {0, <<>>};
 get_padding_aux(BlockSize, PadLength) ->
     N = BlockSize - PadLength,
-    {N, list_to_binary(lists:duplicate(N, N))}.
+    {N, binary:copy(?byte(N), N)}.
 
 random_iv(IV) ->
     IVSz = byte_size(IV),

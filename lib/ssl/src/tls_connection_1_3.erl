@@ -162,8 +162,8 @@ negotiated(internal,
                   ssl_options = #ssl_options{} = SslOpts,
                   key_share = KeyShare,
                   tls_handshake_history = HHistory0,
-                  transport_cb = Transport,
-                  socket = Socket}, _Module) ->
+                  static_env = #static_env{socket = Socket,
+                                           transport_cb = Transport}}, _Module) ->
 
     %% Create server_hello
     %% Extensions: supported_versions, key_share, (pre_shared_key)

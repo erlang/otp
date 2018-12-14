@@ -29,7 +29,7 @@
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2, send_alert/2,
-         send_and_ack_alert/2, setopts/2, renegotiate/1,
+         send_and_ack_alert/2, setopts/2, renegotiate/1, downgrade/2,
          update_connection_state/3, dist_tls_socket/1, dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -126,6 +126,21 @@ renegotiate(Pid) ->
 %%--------------------------------------------------------------------
 update_connection_state(Pid, NewState, Version) ->
     gen_statem:cast(Pid, {new_write, NewState, Version}).
+
+%%--------------------------------------------------------------------
+-spec downgrade(pid(), integer()) -> {ok, ssl_record:connection_state()}
+                                         | {error, timeout}.
+%% Description: So TLS connection process can synchronize the 
+%% encryption state to be used when sending application data. 
+%%--------------------------------------------------------------------
+downgrade(Pid, Timeout) ->
+    try gen_statem:call(Pid, downgrade, Timeout) of
+        Result ->
+            Result    
+    catch
+        _:_ ->
+            {error, timeout}
+    end.
 %%--------------------------------------------------------------------
 -spec dist_handshake_complete(pid(), node(), term()) -> ok. 
 %%  Description: Erlang distribution callback 
@@ -242,6 +257,9 @@ connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData,
      [{reply,From,ok}]};
+connection({call, From}, downgrade, #data{connection_states = 
+                                              #{current_write := Write}} = StateData) ->
+    {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 %%

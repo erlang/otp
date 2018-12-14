@@ -52,7 +52,7 @@
 
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
-	 handle_normal_shutdown/3, stop/2, stop_and_reply/3,
+	 handle_normal_shutdown/3, 
          handle_trusted_certs_db/1]).
 
 %% Data handling
@@ -336,8 +336,8 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 %% Alert and close handling
 %%====================================================================
 handle_own_alert(Alert, _, StateName,
-		 #state{role = Role,
-                        protocol_cb = Connection,
+		 #state{static_env = #static_env{role = Role,
+                                                 protocol_cb = Connection},
                         ssl_options = SslOpts} = State) ->
     try %% Try to tell the other side
         send_alert(Alert, StateName, State)
@@ -352,58 +352,71 @@ handle_own_alert(Alert, _, StateName,
     catch _:_ ->
 	    ok
     end,
-    stop({shutdown, own_alert}, State).
+    {stop, {shutdown, own_alert}, State}.
 
-handle_normal_shutdown(Alert, _, #state{socket = Socket,
-					transport_cb = Transport,
-					protocol_cb = Connection,
+handle_normal_shutdown(Alert, _, #state{static_env = #static_env{role = Role,
+                                                                 socket = Socket,
+                                                                 transport_cb = Transport,
+                                                                 protocol_cb = Connection,
+                                                                 tracker = Tracker},
 					start_or_recv_from = StartFrom,
-					tracker = Tracker,
-					role = Role, renegotiation = {false, first}} = State) ->
+                                        renegotiation = {false, first}} = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker,Socket, StartFrom, Alert, Role, Connection);
 
-handle_normal_shutdown(Alert, StateName, #state{socket = Socket,
-						socket_options = Opts,
-						transport_cb = Transport,
-						protocol_cb = Connection,
-						user_application = {_Mon, Pid},
-						tracker = Tracker,
-						start_or_recv_from = RecvFrom, role = Role} = State) ->
+handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
+                                                                         socket = Socket,
+                                                                         transport_cb = Transport,
+                                                                         protocol_cb = Connection,
+                                                                         tracker = Tracker},
+                                                                         socket_options = Opts,
+                                                                         user_application = {_Mon, Pid},
+						start_or_recv_from = RecvFrom} = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, Connection).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName,
-	     #state{socket = Socket, transport_cb = Transport, 
-		    protocol_cb = Connection,
-		    ssl_options = SslOpts, start_or_recv_from = From, host = Host,
-		    port = Port, session = Session, user_application = {_Mon, Pid},
-		    role = Role, socket_options = Opts, 
-                    tracker = Tracker} = State) ->
+	     #state{static_env = #static_env{role = Role,
+                                             socket = Socket,
+                                             host = Host,
+                                             port = Port,
+                                             tracker = Tracker,
+                                             transport_cb = Transport,
+                                             protocol_cb = Connection},
+		    ssl_options = SslOpts,
+                    start_or_recv_from = From,
+                    session = Session, user_application = {_Mon, Pid},
+		    socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
     log_alert(SslOpts#ssl_options.log_level, Role, Connection:protocol_name(), 
               StateName, Alert#alert{role = opposite_role(Role)}),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
-    stop(normal, State);
+    {stop, {shutdown, normal}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     StateName, State) -> 
+	     downgrade= StateName, State) -> 
+    {next_state, StateName, State, [{next_event, internal, Alert}]};
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
+	    StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
-    stop({shutdown, peer_close}, State);
-
+    {stop,{shutdown, peer_close}, State};
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{role = Role, ssl_options = SslOpts, protocol_cb = Connection, 
+	     #state{static_env = #static_env{role = Role,
+                                             protocol_cb = Connection},
+                    ssl_options = SslOpts,
                     renegotiation = {true, internal}} = State) ->
     log_alert(SslOpts#ssl_options.log_level, Role, 
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     handle_normal_shutdown(Alert, StateName, State),
-    stop({shutdown, peer_close}, State);
+    {stop,{shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, connection = StateName, 
-	     #state{role = Role,
-                    ssl_options = SslOpts, renegotiation = {true, From},
-		    protocol_cb = Connection} = State0) ->
+	     #state{static_env = #static_env{role = Role,
+                                             protocol_cb = Connection},
+                    ssl_options = SslOpts,
+                    renegotiation = {true, From}
+		   } = State0) ->
     log_alert(SslOpts#ssl_options.log_level,  Role,
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     gen_statem:reply(From, {error, renegotiation_rejected}),
@@ -411,9 +424,11 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     Connection:next_event(connection, no_record, State#state{renegotiation = undefined});
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{role = Role,
-                    ssl_options = SslOpts, renegotiation = {true, From},
-		    protocol_cb = Connection} = State0) ->
+	     #state{static_env = #static_env{role = Role,
+                                             protocol_cb = Connection},
+                    ssl_options = SslOpts,
+                    renegotiation = {true, From}
+                   } = State0) ->
     log_alert(SslOpts#ssl_options.log_level, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
@@ -424,7 +439,9 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
 
 %% Gracefully log and ignore all other warning alerts
 handle_alert(#alert{level = ?WARNING} = Alert, StateName,
-	     #state{ssl_options = SslOpts, protocol_cb = Connection, role = Role} = State) ->
+	     #state{static_env = #static_env{role = Role,
+                                             protocol_cb = Connection},
+                    ssl_options = SslOpts} = State) ->
     log_alert(SslOpts#ssl_options.log_level, Role,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
@@ -433,7 +450,6 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%====================================================================
 %% Data handling
 %%====================================================================
-
 passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connection) -> 
     case Buffer of
 	<<>> ->
@@ -448,16 +464,16 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connectio
             end
     end.
 
-read_application_data(Data, #state{user_application = {_Mon, Pid},
-				   socket = Socket,
-				   protocol_cb = Connection,
-				   transport_cb = Transport,
+read_application_data(Data, #state{static_env = #static_env{socket = Socket,
+                                                            protocol_cb = Connection,
+                                                            transport_cb = Transport,
+                                                            tracker = Tracker},
+                                   user_application = {_Mon, Pid},
 				   socket_options = SOpts,
 				   bytes_to_read = BytesToRead,
 				   start_or_recv_from = RecvFrom,
 				   timer = Timer,
-				   user_data_buffer = Buffer0,
-				   tracker = Tracker} = State0) ->
+				   user_data_buffer = Buffer0} = State0) ->
     Buffer1 = if 
 		  Buffer0 =:= <<>> -> Data;
 		  Data =:= <<>> -> Buffer0;
@@ -502,11 +518,11 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(Connection:pids(State0),
                                  Transport, Socket, SOpts, Buffer1, Pid, RecvFrom, Tracker, Connection),
-            stop(normal, State0)
+            {stop, {shutdown, normal}, State0}
     end.
 
 dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := undefined,
-                                                   dist_buffer := DistBuff} = DistData} = State) ->
+                                                          dist_buffer := DistBuff} = DistData} = State) ->
     {no_record, State#state{erl_dist_data = DistData#{dist_buffer => [ClientData, DistBuff]}}};
 dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := DHandle,
                                                    dist_buffer := DistBuff} = ErlDistData,
@@ -522,7 +538,7 @@ dist_app_data(ClientData, #state{erl_dist_data = #{dist_handle := DHandle,
         _ -> %% We have more data
             read_application_data(<<>>, State)
     catch error:_ ->
-            stop(State, disconnect)
+            {stop, State, disconnect}
     end.
 
 merge_dist_data(<<>>, ClientData) ->
@@ -579,7 +595,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 ssl_config(Opts, Role, State) ->
     ssl_config(Opts, Role, State, new).
 
-ssl_config(Opts, Role, State0, Type) ->
+ssl_config(Opts, Role, #state{static_env = InitStatEnv0} =State0, Type) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
            fileref_db_handle := FileRefHandle, 
@@ -591,13 +607,16 @@ ssl_config(Opts, Role, State0, Type) ->
 	ssl_config:init(Opts, Role), 
     TimeStamp = erlang:monotonic_time(),
     Session = State0#state.session,
+
     State = State0#state{session = Session#session{own_certificate = OwnCert,
                                                    time_stamp = TimeStamp},
-                         file_ref_db = FileRefHandle,
-                         cert_db_ref = Ref,
-                         cert_db = CertDbHandle,
-                         crl_db = CRLDbHandle,
-                         session_cache = CacheHandle,
+                         static_env = InitStatEnv0#static_env{
+                                        file_ref_db = FileRefHandle,
+                                        cert_db_ref = Ref,
+                                        cert_db = CertDbHandle,
+                                        crl_db = CRLDbHandle,
+                                        session_cache = CacheHandle
+                                       },
                          private_key = Key,
                          diffie_hellman_params = DHParams,
                          ssl_options = Opts},
@@ -624,7 +643,8 @@ init({call, From}, {start, Timeout}, State0, Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, From),
     Connection:next_event(hello, no_record, State0#state{start_or_recv_from = From, timer = Timer});
 init({call, From}, {start, {Opts, EmOpts}, Timeout}, 
-     #state{role = Role, ssl_options = OrigSSLOptions,
+     #state{static_env = #static_env{role = Role},
+            ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0, Connection) ->
     try 
         SslOpts = ssl:handle_options(Opts, OrigSSLOptions),
@@ -633,7 +653,7 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
 	     State#state{ssl_options = SslOpts, 
                          socket_options = new_emulated(EmOpts, SockOpts)}, Connection)
     catch throw:Error ->
-	    stop_and_reply(normal, {reply, From, {error, Error}}, State0)
+	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
 init({call, From}, {new_user, _} = Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
@@ -649,7 +669,7 @@ init(_Type, _Event, _State, _Connection) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 error({call, From}, {close, _}, State, _Connection) ->
-    stop_and_reply(normal, {reply, From, ok}, State);
+    {stop_and_reply, {shutdown, normal}, {reply, From, ok}, State};
 error({call, From}, _Msg, State, _Connection) ->
     {next_state, ?FUNCTION_NAME, State, [{reply, From, {error, closed}}]}.
 
@@ -672,10 +692,11 @@ user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _
     gen_statem:reply(From, ok),
     handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
                      Version, ?FUNCTION_NAME, State);
-user_hello({call, From}, {handshake_continue, NewOptions, Timeout}, #state{hello = Hello,
-                                                                           role = Role,
-                                                                           start_or_recv_from = RecvFrom,
-                                                                           ssl_options = Options0} = State0, _Connection) ->
+user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
+           #state{hello = Hello,
+                  static_env = #static_env{role = Role},
+                  start_or_recv_from = RecvFrom,
+                  ssl_options = Options0} = State0, _Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     Options = ssl:handle_options(NewOptions, Options0#ssl_options{handshake = full}),
     State = ssl_config(Options, Role, State0, continue),
@@ -694,7 +715,7 @@ user_hello(_, _, _, _) ->
 abbreviated({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 abbreviated(internal, #finished{verify_data = Data} = Finished,
-	    #state{role = server,
+	    #state{static_env = #static_env{role = server},
 		   negotiated_version = Version,
 		   expecting_finished = true,
 		   tls_handshake_history = Handshake,
@@ -714,7 +735,8 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 abbreviated(internal, #finished{verify_data = Data} = Finished,
-	    #state{role = client, tls_handshake_history = Handshake0,
+	    #state{static_env = #static_env{role = client},
+                   tls_handshake_history = Handshake0,
 		   session = #session{master_secret = MasterSecret},
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State0, Connection) ->
@@ -735,7 +757,8 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
 abbreviated(internal, #next_protocol{selected_protocol = SelectedProtocol},
-	    #state{role = server, expecting_next_protocol_negotiation = true} = State,
+	    #state{static_env = #static_env{role = server},
+                   expecting_next_protocol_negotiation = true} = State,
 	    Connection) ->
     Connection:next_event(?FUNCTION_NAME, no_record, 
 			  State#state{negotiated_protocol = SelectedProtocol,
@@ -765,32 +788,34 @@ certify({call, From}, Msg, State, Connection) ->
 certify(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
-	#state{role = server, negotiated_version = Version,
+	#state{static_env = #static_env{role = server},
+               negotiated_version = Version,
 	       ssl_options = #ssl_options{verify = verify_peer,
 					  fail_if_no_peer_cert = true}} =
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE),
     handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
-	#state{role = server,
+	#state{static_env = #static_env{role = server},
 	       ssl_options = #ssl_options{verify = verify_peer,
 					  fail_if_no_peer_cert = false}} =
 	State0, Connection) ->
     Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_requested = false});
 certify(internal, #certificate{},
-	#state{role = server,
+	#state{static_env = #static_env{role = server},
 	       negotiated_version = Version,
 	       ssl_options = #ssl_options{verify = verify_none}} =
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
     handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate{} = Cert,
-        #state{negotiated_version = Version,
-	       role = Role,
-               host = Host,
-	       cert_db = CertDbHandle,
-	       cert_db_ref = CertDbRef,
-	       crl_db = CRLDbInfo,
+        #state{static_env = #static_env{
+                               role = Role,
+                               host = Host,
+                               cert_db = CertDbHandle,
+                               cert_db_ref = CertDbRef,
+                               crl_db = CRLDbInfo},
+               negotiated_version = Version,
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
 			       Opts, CRLDbInfo, Role, Host) of
@@ -801,7 +826,8 @@ certify(internal, #certificate{} = Cert,
             handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
-        #state{role = client, negotiated_version = Version,
+        #state{static_env = #static_env{role = client},
+               negotiated_version = Version,
 	       key_algorithm = Alg,
 	       public_key_info = PubKeyInfo,
                session = Session,
@@ -835,7 +861,8 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 	    end
     end;
 certify(internal, #certificate_request{},
-	#state{role = client, negotiated_version = Version,
+	#state{static_env = #static_env{role = client},
+               negotiated_version = Version,
                key_algorithm = Alg} = State, _)
   when Alg == dh_anon; Alg == ecdh_anon;
        Alg == psk; Alg == dhe_psk; Alg == ecdhe_psk; Alg == rsa_psk;
@@ -843,20 +870,19 @@ certify(internal, #certificate_request{},
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
                      Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate_request{},
-	#state{session = #session{own_certificate = undefined},
-	       role = client} = State, Connection) ->
+	#state{static_env = #static_env{role = client},
+               session = #session{own_certificate = undefined}} = State, Connection) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail 
     %% or accept the connection by its own preference. No signature algorihms needed as there is
     %% no certificate to verify.
     Connection:next_event(?FUNCTION_NAME, no_record, State#state{client_certificate_requested = true});
 certify(internal, #certificate_request{} = CertRequest,
-	#state{session = #session{own_certificate = Cert},
-	       role = client,
-	       ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
-	       negotiated_version = Version} = State, Connection) ->
-    case ssl_handshake:select_hashsign(CertRequest, Cert,
-                                       SupportedHashSigns,
-                                       ssl:tls_version(Version)) of
+	#state{static_env = #static_env{role = client},
+               session = #session{own_certificate = Cert},
+                ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
+               negotiated_version = Version} = State, Connection) ->
+    case ssl_handshake:select_hashsign(CertRequest, Cert, 
+                                       SupportedHashSigns, ssl:tls_version(Version)) of
 	#alert {} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 	NegotiatedHashSign -> 	
@@ -866,12 +892,12 @@ certify(internal, #certificate_request{} = CertRequest,
     end;
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(internal, #server_hello_done{},
-	#state{session = #session{master_secret = undefined},
+	#state{static_env = #static_env{role = client},
+               session = #session{master_secret = undefined},
 	       negotiated_version = Version,
 	       psk_identity = PSKIdentity,
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
 	       premaster_secret = undefined,
-	       role = client,
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == psk ->
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup) of
@@ -883,12 +909,12 @@ certify(internal, #server_hello_done{},
 	    client_certify_and_key_exchange(State, Connection)
     end;
 certify(internal, #server_hello_done{},
-	#state{session = #session{master_secret = undefined},
+	#state{static_env = #static_env{role = client},
+               session = #session{master_secret = undefined},
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
 	       negotiated_version = {Major, Minor} = Version,
 	       psk_identity = PSKIdentity,
 	       premaster_secret = undefined,
-	       role = client,
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
@@ -904,11 +930,11 @@ certify(internal, #server_hello_done{},
     end;
 %% Master secret was determined with help of server-key exchange msg
 certify(internal, #server_hello_done{}, 
-	#state{session = #session{master_secret = MasterSecret} = Session,
+	#state{static_env = #static_env{role = client},
+           session = #session{master_secret = MasterSecret} = Session,
 	       connection_states = ConnectionStates0,
 	       negotiated_version = Version,
-	       premaster_secret = undefined,
-	       role = client} = State0, Connection) ->
+	       premaster_secret = undefined} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
@@ -919,11 +945,11 @@ certify(internal, #server_hello_done{},
     end;
 %% Master secret is calculated from premaster_secret
 certify(internal, #server_hello_done{},
-	#state{session = Session0,
+	#state{static_env = #static_env{role = client},
+               session = Session0,
 	       connection_states = ConnectionStates0,
 	       negotiated_version = Version,
-	       premaster_secret = PremasterSecret,
-	       role = client} = State0, Connection) ->
+	       premaster_secret = PremasterSecret} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), PremasterSecret,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
@@ -935,7 +961,7 @@ certify(internal, #server_hello_done{},
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 certify(internal = Type, #client_key_exchange{} = Msg,
-	#state{role = server,
+	#state{static_env = #static_env{role = server},
 	       client_certificate_requested = true,
 	       ssl_options = #ssl_options{fail_if_no_peer_cert = true}} = State, 
 	Connection) ->
@@ -965,7 +991,7 @@ cipher(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 cipher(internal, #certificate_verify{signature = Signature, 
 				     hashsign_algorithm = CertHashSign},
-       #state{role = server,
+       #state{static_env = #static_env{role = server},
 	      key_algorithm = KexAlg,
 	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
@@ -986,16 +1012,17 @@ cipher(internal, #certificate_verify{signature = Signature,
     end;
 %% client must send a next protocol message if we are expecting it
 cipher(internal, #finished{},
-       #state{role = server, expecting_next_protocol_negotiation = true,
+       #state{static_env = #static_env{role = server},
+              expecting_next_protocol_negotiation = true,
 	      negotiated_protocol = undefined, negotiated_version = Version} = State0,
        _Connection) ->
     handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, ?FUNCTION_NAME, State0);
 cipher(internal, #finished{verify_data = Data} = Finished,
-       #state{negotiated_version = Version,
-	      host = Host,
-	      port = Port,
-	      role = Role,
-	      expecting_finished = true,
+       #state{static_env = #static_env{role = Role,
+                                       host = Host,
+                                       port = Port},
+              negotiated_version = Version,
+              expecting_finished = true,
 	      session = #session{master_secret = MasterSecret}
 	      = Session0,
               ssl_options = SslOpts,
@@ -1015,12 +1042,13 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 %% only allowed to send next_protocol message after change cipher spec
 %% & before finished message and it is not allowed during renegotiation
 cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
-       #state{role = server, expecting_next_protocol_negotiation = true,
-	      expecting_finished = true} = State, Connection) ->
-    Connection:next_event(?FUNCTION_NAME, no_record, 
-			  State#state{expecting_next_protocol_negotiation = false,
-                                      negotiated_protocol = SelectedProtocol
-                                     });
+       #state{static_env = #static_env{role = server},
+              expecting_next_protocol_negotiation = true,
+	      expecting_finished = true} = State0, Connection) ->
+    {Record, State} = 
+	Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
+    Connection:next_event(?FUNCTION_NAME, Record, 
+			  State#state{expecting_next_protocol_negotiation = false});
 cipher(internal, #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
 	   State, Connection) ->
     ConnectionStates =
@@ -1037,13 +1065,15 @@ cipher(Type, Msg, State, Connection) ->
 			gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 connection({call, RecvFrom}, {recv, N, Timeout},  
-	   #state{protocol_cb = Connection,  socket_options =
-		      #socket_options{active = false}} = State0, Connection) ->
+	   #state{static_env = #static_env{protocol_cb = Connection},
+                  socket_options =
+                      #socket_options{active = false}} = State0, Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     passive_receive(State0#state{bytes_to_read = N,
                                  start_or_recv_from = RecvFrom, 
                                  timer = Timer}, ?FUNCTION_NAME, Connection);
-connection({call, From}, renegotiate, #state{protocol_cb = Connection} = State, 
+
+connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = Connection}} = State,
 	   Connection) ->
     Connection:renegotiate(State#state{renegotiation = {true, From}}, []);
 connection({call, From}, peer_certificate, 
@@ -1064,7 +1094,7 @@ connection({call, From}, negotiated_protocol,
 		    [{reply, From, {ok, SelectedProtocol}}]);
 connection({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
-connection(cast, {internal_renegotiate, WriteState}, #state{protocol_cb = Connection,
+connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = Connection},
                                                             connection_states = ConnectionStates} 
            = State, Connection) -> 
     Connection:renegotiate(State#state{renegotiation = {true, internal},
@@ -1093,22 +1123,6 @@ connection(Type, Msg, State, Connection) ->
 		#state{}, tls_connection | dtls_connection) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
-	  #state{transport_cb = Transport, socket = Socket,
-		 downgrade = {Pid, From}} = State, _) ->
-    tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
-    Transport:controlling_process(Socket, Pid),
-    gen_statem:reply(From, {ok, Socket}),
-    stop(normal, State);
-downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
-    gen_statem:reply(From, {error, timeout}),
-    stop(normal, State);
-downgrade(
-  info, {CloseTag, Socket},
-  #state{socket = Socket, close_tag = CloseTag, downgrade = {_, From}} =
-      State, _) ->
-    gen_statem:reply(From, {error, CloseTag}),
-    stop(normal, State);
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
 
@@ -1117,10 +1131,11 @@ downgrade(Type, Event, State, Connection) ->
 %% common or unexpected events for the state.
 %%--------------------------------------------------------------------
 handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, connection = StateName,  
-		    #state{role = client} = State, _) ->
+		    #state{static_env = #static_env{role = client}} = State, _) ->
     %% Should not be included in handshake history
     {next_state, StateName, State#state{renegotiation = {true, peer}}, [{next_event, internal, Handshake}]};
-handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName, #state{role = client}, _) 
+handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
+                    #state{static_env = #static_env{role = client}}, _)
   when StateName =/= connection ->
     {keep_state_and_data};
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
@@ -1136,23 +1151,9 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
     {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
      [{next_event, internal, Handshake}]};
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 
-    Connection:handle_common_event(internal, TLSorDTLSRecord, StateName, State);
+    Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event(internal, {application_data, Data}, StateName, State0, Connection) ->
-    case read_application_data(Data, State0) of
-	{stop, _, _} = Stop->
-            Stop;
-	{Record, State1} ->
-            case Connection:next_event(StateName, Record, State1) of
-                {next_state, StateName, State} ->
-                    hibernate_after(StateName, State, []);
-                {next_state, StateName, State, Actions} -> 
-                    hibernate_after(StateName, State, Actions);
-                {stop, _, _} = Stop ->
-                    Stop
-            end 
-    end;
 handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, 
 		    #state{negotiated_version = Version} = State,  _) ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, 
@@ -1165,28 +1166,18 @@ handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} 
 handle_call({application_data, _Data}, _, _, _, _) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
     {keep_state_and_data, [postpone]};
-handle_call({close, {Pid, Timeout}}, From, StateName, State0, Connection) when is_pid(Pid) ->
-    %% terminate will send close alert to peer
-    State = State0#state{downgrade = {Pid, From}},
-    Connection:terminate(downgrade, StateName, State),
-    %% User downgrades connection
-    %% When downgrading an TLS connection to a transport connection
-    %% we must recive the close alert from the peer before releasing the 
-    %% transport socket.
-    {next_state, downgrade, State#state{terminated = true}, [{timeout, Timeout, downgrade}]};
 handle_call({close, _} = Close, From, StateName, State, _Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
     Result = terminate(Close, StateName, State),
-    stop_and_reply(
-      {shutdown, normal},
-      {reply, From, Result}, State#state{terminated = true});
+    {stop_and_reply,
+     {shutdown, normal},
+     {reply, From, Result}, State#state{terminated = true}};
 handle_call({shutdown, read_write = How}, From, StateName,
-	    #state{transport_cb = Transport,
-		   socket = Socket} = State, _) ->
-
+	    #state{static_env = #static_env{transport_cb = Transport,
+                                            socket = Socket}} = State, _) ->
     try send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-                       StateName, State) of
+                   StateName, State) of
         _ -> 
             case Transport:shutdown(Socket, How) of
                 ok ->
@@ -1199,8 +1190,8 @@ handle_call({shutdown, read_write = How}, From, StateName,
             Return
     end;
 handle_call({shutdown, How0}, From, StateName,
-	    #state{transport_cb = Transport,
-		   socket = Socket} = State, _) ->
+	    #state{static_env = #static_env{transport_cb = Transport,
+                                            socket = Socket}} = State, _) ->
     case Transport:shutdown(Socket, How0) of
 	ok ->
 	    {next_state, StateName, State, [{reply, From, ok}]};
@@ -1225,15 +1216,16 @@ handle_call({new_user, User}, From, StateName,
     {next_state, StateName, State#state{user_application = {NewMon,User}},
      [{reply, From, ok}]};
 handle_call({get_opts, OptTags}, From, _,
-		  #state{socket = Socket,
-			 transport_cb = Transport,
+            #state{static_env = #static_env{socket = Socket,
+                                            transport_cb = Transport},
 			 socket_options = SockOpts}, Connection) ->
     OptsReply = get_socket_opts(Connection, Transport, Socket, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
 handle_call({set_opts, Opts0}, From, StateName, 
-	    #state{socket_options = Opts1, 
-			 socket = Socket,
-			 transport_cb = Transport} = State0, Connection) ->
+	    #state{static_env =  #static_env{socket = Socket,
+                                            transport_cb = Transport},
+                   socket_options = Opts1
+                  } = State0, Connection) ->
     {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
     State = State0#state{socket_options = Opts},
     handle_active_option(Opts#socket_options.active, StateName, From, Reply, State);
@@ -1274,22 +1266,25 @@ handle_call(_,_,_,_,_) ->
     {keep_state_and_data, [postpone]}.
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
-	    #state{socket = Socket, transport_cb = Transport,
-		   protocol_cb = Connection,
-		   start_or_recv_from = StartFrom, role = Role,
-		   error_tag = ErrorTag,
-		   tracker = Tracker} = State)  when StateName =/= connection ->
+	    #state{static_env = #static_env{role = Role,
+                                            socket = Socket,
+                                            transport_cb = Transport,
+                                            error_tag = ErrorTag,
+                                            tracker = Tracker,
+                                            protocol_cb = Connection},
+		   start_or_recv_from = StartFrom
+		  } = State)  when StateName =/= connection ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker,Socket, 
 	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, Connection),
-    stop(normal, State);
+    {stop, {shutdown, normal}, State};
 
-handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
-							  error_tag = ErrorTag} = State)  ->
+handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{socket = Socket,
+                                                                                   error_tag = ErrorTag}} = State)  ->
     Report = io_lib:format("SSL: Socket error: ~p ~n", [Reason]),
     ?LOG_ERROR(Report),
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    stop(normal, State);
+    {stop, {shutdown,normal}, State};
 
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
             #state{user_application = {MonitorRef, _Pid},
@@ -1297,7 +1292,7 @@ handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
     {stop, {shutdown, Reason}};
 handle_info({'DOWN', MonitorRef, _, _, _}, _,
             #state{user_application = {MonitorRef, _Pid}}) ->
-    {stop, normal};
+    {stop, {shutdown, normal}};
 handle_info({'EXIT', Pid, _Reason}, StateName,
             #state{user_application = {_MonitorRef, Pid}} = State) ->
     %% It seems the user application has linked to us
@@ -1305,22 +1300,22 @@ handle_info({'EXIT', Pid, _Reason}, StateName,
     {next_state, StateName, State};
 %%% So that terminate will be run when supervisor issues shutdown
 handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
-    stop(shutdown, State);
-handle_info({'EXIT', Socket, normal}, _StateName, #state{socket = Socket} = State) ->
+    {stop, shutdown, State};
+handle_info({'EXIT', Socket, normal}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
     %% Handle as transport close"
-    stop({shutdown, transport_closed}, State);
-handle_info({'EXIT', Socket, Reason}, _StateName, #state{socket = Socket} = State) ->
-    stop({shutdown, Reason}, State);
+    {stop,{shutdown, transport_closed}, State};
+handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
+    {stop,{shutdown, Reason}, State};
 
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}};
 
 handle_info({cancel_start_or_recv, StartFrom}, StateName,
 	    #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
-    stop_and_reply(
-      {shutdown, user_timeout},
-      {reply, StartFrom, {error, timeout}},
-      State#state{timer = undefined});
+    {stop_and_reply,
+     {shutdown, user_timeout},
+     {reply, StartFrom, {error, timeout}},
+     State#state{timer = undefined}};
 handle_info({cancel_start_or_recv, RecvFrom}, StateName, 
 	    #state{start_or_recv_from = RecvFrom} = State) when RecvFrom =/= undefined ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
@@ -1329,7 +1324,7 @@ handle_info({cancel_start_or_recv, RecvFrom}, StateName,
 handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
     {next_state, StateName, State#state{timer = undefined}};
 
-handle_info(Msg, StateName, #state{socket = Socket, error_tag = Tag} = State) ->
+handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = Tag}} = State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [{Msg, Tag, Socket}]),
     ?LOG_NOTICE(Report),
     {next_state, StateName, State}.
@@ -1346,14 +1341,15 @@ terminate(_, _, #state{terminated = true}) ->
     %% before run by gen_statem which will end up here
     ok;
 terminate({shutdown, transport_closed} = Reason, 
-	  _StateName, #state{protocol_cb = Connection,
-			     socket = Socket, transport_cb = Transport} = State) ->
+	  _StateName, #state{static_env = #static_env{protocol_cb = Connection,
+                                                      socket = Socket,
+                                                      transport_cb = Transport}} = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined);
 terminate({shutdown, own_alert}, _StateName, #state{
-						protocol_cb = Connection,
-						socket = Socket, 
-						transport_cb = Transport} = State) ->
+						static_env = #static_env{protocol_cb = Connection,
+                                                                         socket = Socket,
+                                                                         transport_cb = Transport}} = State) ->
     handle_trusted_certs_db(State),
     case application:get_env(ssl, alert_timeout) of
 	{ok, Timeout} when is_integer(Timeout) ->
@@ -1361,23 +1357,27 @@ terminate({shutdown, own_alert}, _StateName, #state{
 	_ ->
 	    Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined, undefined)
     end;
-terminate(downgrade = Reason, connection, #state{protocol_cb = Connection,
-                                        transport_cb = Transport, socket = Socket
-                                       } = State) ->
+terminate({shutdown, downgrade = Reason}, downgrade, #state{static_env = #static_env{protocol_cb = Connection,
+                                                                                     transport_cb = Transport,
+                                                                                     socket = Socket}
+                                                           } = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined);
-terminate(Reason, connection, #state{protocol_cb = Connection,
+terminate(Reason, connection, #state{static_env = #static_env{
+                                                     protocol_cb = Connection,
+                                                     transport_cb = Transport,
+                                                     socket = Socket},
                                      connection_states = ConnectionStates,
-                                     ssl_options = #ssl_options{padding_check = Check},
-                                     transport_cb = Transport, socket = Socket
+                                     ssl_options = #ssl_options{padding_check = Check}
                                     } = State) ->
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
     %% Send the termination ALERT if possible
-    catch (Connection:send_alert_in_connection(Alert, State)),
+    catch (ok = Connection:send_alert_in_connection(Alert, State)),
     Connection:close({timeout, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates, Check);
-terminate(Reason, _StateName, #state{transport_cb = Transport, protocol_cb = Connection,
-				     socket = Socket 
+terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Transport,
+                                                              protocol_cb = Connection,
+                                                              socket = Socket}
 				    } = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined, undefined).
@@ -1411,15 +1411,15 @@ format_status(terminate, [_, StateName, State]) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-send_alert(Alert, connection, #state{protocol_cb = Connection} = State) ->
+send_alert(Alert, connection, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
      Connection:send_alert_in_connection(Alert, State);
-send_alert(Alert, _, #state{protocol_cb = Connection} = State) ->
+send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:send_alert(Alert, State).
 
-connection_info(#state{sni_hostname = SNIHostname, 
-		       session = #session{session_id = SessionId,
+connection_info(#state{static_env = #static_env{protocol_cb = Connection},
+                       sni_hostname = SNIHostname,
+                       session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite, ecc = ECCCurve},
-		       protocol_cb = Connection,
 		       negotiated_version =  {_,_} = Version, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
@@ -1599,9 +1599,10 @@ handle_peer_cert_key(client, _,
 handle_peer_cert_key(_, _, _, _, State) ->
     State.
 
-certify_client(#state{client_certificate_requested = true, role = client,
-		      cert_db = CertDbHandle,
-                      cert_db_ref = CertDbRef,
+certify_client(#state{static_env = #static_env{role = client,
+                                               cert_db = CertDbHandle,
+                                               cert_db_ref = CertDbRef},
+                      client_certificate_requested = true,
 		      session = #session{own_certificate = OwnCert}}
 	       = State, Connection) ->
     Certificate = ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, client),
@@ -1609,7 +1610,8 @@ certify_client(#state{client_certificate_requested = true, role = client,
 certify_client(#state{client_certificate_requested = false} = State, _) ->
     State.
 
-verify_client_cert(#state{client_certificate_requested = true, role = client,
+verify_client_cert(#state{static_env = #static_env{role = client},
+                          client_certificate_requested = true,
 			  negotiated_version = Version,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
@@ -1729,8 +1731,8 @@ certify_server(#state{key_algorithm = Algo} = State, _) when Algo == dh_anon;
 							     Algo == ecdhe_psk; 
 							     Algo == srp_anon  ->
     State;
-certify_server(#state{cert_db = CertDbHandle,
-		      cert_db_ref = CertDbRef,
+certify_server(#state{static_env = #static_env{cert_db = CertDbHandle,
+                                               cert_db_ref = CertDbRef},
 		      session = #session{own_certificate = OwnCert}} = State, Connection) ->
     case ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, server) of
 	Cert = #certificate{} ->
@@ -1739,9 +1741,9 @@ certify_server(#state{cert_db = CertDbHandle,
 	    throw(Alert)
     end.
 
-key_exchange(#state{role = server, key_algorithm = rsa} = State,_) ->
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa} = State,_) ->
     State;
-key_exchange(#state{role = server, key_algorithm = Algo,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    private_key = PrivateKey,
@@ -1762,12 +1764,14 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 					       PrivateKey}),
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
-key_exchange(#state{role = server, private_key = #'ECPrivateKey'{parameters = ECCurve} = Key, key_algorithm = Algo,
+key_exchange(#state{static_env = #static_env{role = server},
+                    private_key = #'ECPrivateKey'{parameters = ECCurve} = Key,
+                    key_algorithm = Algo,
                    session = Session} = State, _)
   when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
     State#state{diffie_hellman_keys = Key,
                 session = Session#session{ecc = ECCurve}};
-key_exchange(#state{role = server, key_algorithm = Algo,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
 		    session = #session{ecc = ECCCurve},
@@ -1789,10 +1793,10 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 				       PrivateKey}),
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = ECDHKeys};
-key_exchange(#state{role = server, key_algorithm = psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk,
 		    ssl_options = #ssl_options{psk_identity = undefined}} = State, _) ->
     State;
-key_exchange(#state{role = server, key_algorithm = psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1809,7 +1813,7 @@ key_exchange(#state{role = server, key_algorithm = psk,
 				      ServerRandom,
 						       PrivateKey}),
     Connection:queue_handshake(Msg, State0);
-key_exchange(#state{role = server, key_algorithm = dhe_psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    hashsign_algorithm = HashSignAlgo,
 		    diffie_hellman_params = #'DHParameter'{} = Params,
@@ -1830,7 +1834,7 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
 				       PrivateKey}),
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
-key_exchange(#state{role = server, key_algorithm = ecdhe_psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = ecdhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1851,10 +1855,10 @@ key_exchange(#state{role = server, key_algorithm = ecdhe_psk,
 				       PrivateKey}),
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = ECDHKeys};
-key_exchange(#state{role = server, key_algorithm = rsa_psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa_psk,
 		    ssl_options = #ssl_options{psk_identity = undefined}} = State, _) ->
     State;
-key_exchange(#state{role = server, key_algorithm = rsa_psk,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    hashsign_algorithm = HashSignAlgo,
 		    private_key = PrivateKey,
@@ -1871,7 +1875,7 @@ key_exchange(#state{role = server, key_algorithm = rsa_psk,
 				       ServerRandom,
 				       PrivateKey}),
     Connection:queue_handshake(Msg, State0);
-key_exchange(#state{role = server, key_algorithm = Algo,
+key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    ssl_options = #ssl_options{user_lookup_fun = LookupFun},
 		    hashsign_algorithm = HashSignAlgo,
 		    session = #session{srp_username = Username},
@@ -1901,14 +1905,14 @@ key_exchange(#state{role = server, key_algorithm = Algo,
     State = Connection:queue_handshake(Msg, State0),
     State#state{srp_params = SrpParams,
 		srp_keys = Keys};
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    key_algorithm = rsa,
 		    public_key_info = PublicKeyInfo,
 		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret} = State0, Connection) ->
     Msg = rsa_key_exchange(ssl:tls_version(Version), PremasterSecret, PublicKeyInfo),
     Connection:queue_handshake(Msg, State0);
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    key_algorithm = Algorithm,
 		    negotiated_version = Version,
 		    diffie_hellman_keys = {DhPubKey, _}
@@ -1919,7 +1923,7 @@ key_exchange(#state{role = client,
     Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version), {dh, DhPubKey}),
     Connection:queue_handshake(Msg, State0);
 
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    key_algorithm = Algorithm,
 		    negotiated_version = Version,
                     session = Session,
@@ -1929,14 +1933,14 @@ key_exchange(#state{role = client,
        Algorithm == ecdh_anon ->
     Msg = ssl_handshake:key_exchange(client, ssl:tls_version(Version), {ecdh, Key}),
     Connection:queue_handshake(Msg, State0#state{session = Session#session{ecc = ECCurve}});
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    ssl_options = SslOpts,
 		    key_algorithm = psk,
 		    negotiated_version = Version} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version), 
 				      {psk, SslOpts#ssl_options.psk_identity}),
     Connection:queue_handshake(Msg, State0);
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    ssl_options = SslOpts,
 		    key_algorithm = dhe_psk,
 		    negotiated_version = Version,
@@ -1946,7 +1950,7 @@ key_exchange(#state{role = client,
 				       SslOpts#ssl_options.psk_identity, DhPubKey}),
     Connection:queue_handshake(Msg, State0);
 
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    ssl_options = SslOpts,
 		    key_algorithm = ecdhe_psk,
 		    negotiated_version = Version,
@@ -1956,7 +1960,7 @@ key_exchange(#state{role = client,
 				       SslOpts#ssl_options.psk_identity, ECDHKeys}),
     Connection:queue_handshake(Msg, State0);
 
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
 		    public_key_info = PublicKeyInfo,
@@ -1966,7 +1970,7 @@ key_exchange(#state{role = client,
     Msg = rsa_psk_key_exchange(ssl:tls_version(Version), SslOpts#ssl_options.psk_identity,
 			       PremasterSecret, PublicKeyInfo),
     Connection:queue_handshake(Msg, State0);
-key_exchange(#state{role = client,
+key_exchange(#state{static_env = #static_env{role = client},
 		    key_algorithm = Algorithm,
 		    negotiated_version = Version,
 		    srp_keys = {ClientPubKey, _}}
@@ -2016,11 +2020,11 @@ request_client_cert(#state{key_algorithm = Alg} = State, _)
        Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
     State;
 
-request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
-						      signature_algs = SupportedHashSigns},
-			   connection_states = ConnectionStates0,
-			   cert_db = CertDbHandle,
-			   cert_db_ref = CertDbRef,
+request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
+                                                    cert_db_ref = CertDbRef},
+                           ssl_options = #ssl_options{verify = verify_peer,
+                                                      signature_algs = SupportedHashSigns},
+                           connection_states = ConnectionStates0,
 			   negotiated_version = Version} = State0, Connection) ->
     #{security_parameters :=
 	  #security_parameters{cipher_suite = CipherSuite}} =
@@ -2065,7 +2069,7 @@ finalize_handshake(State0, StateName, Connection) ->
     State = next_protocol(State2, Connection),
     finished(State, StateName, Connection).
 
-next_protocol(#state{role = server} = State, _) ->
+next_protocol(#state{static_env = #static_env{role = server}} = State, _) ->
     State;
 next_protocol(#state{negotiated_protocol = undefined} = State, _) ->
     State;
@@ -2078,7 +2082,8 @@ next_protocol(#state{negotiated_protocol = NextProtocol} = State0, Connection) -
 cipher_protocol(State, Connection) ->
     Connection:queue_change_cipher(#change_cipher_spec{}, State).
 
-finished(#state{role = Role, negotiated_version = Version,
+finished(#state{static_env = #static_env{role = Role},
+                negotiated_version = Version,
 		session = Session,
                 connection_states = ConnectionStates0,
                 tls_handshake_history = Handshake0} = State0, StateName, Connection) ->
@@ -2157,8 +2162,9 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 
 master_secret(#alert{} = Alert, _) ->
     Alert;
-master_secret(PremasterSecret, #state{session = Session,
-				      negotiated_version = Version, role = Role,
+master_secret(PremasterSecret, #state{static_env = #static_env{role = Role},
+                                      session = Session,
+				      negotiated_version = Version,
 				      connection_states = ConnectionStates0} = State) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), PremasterSecret,
 				     ConnectionStates0, Role) of
@@ -2376,18 +2382,18 @@ handle_trusted_certs_db(#state{ssl_options =
 				   #ssl_options{cacertfile = <<>>, cacerts = []}}) ->
     %% No trusted certs specified
     ok;
-handle_trusted_certs_db(#state{cert_db_ref = Ref,
-			       cert_db = CertDb,
-			       ssl_options = #ssl_options{cacertfile = <<>>}}) when CertDb =/= undefined ->
-    %% Certs provided as DER directly cannot be shared
+handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
+                                                        cert_db = CertDb},
+                               ssl_options = #ssl_options{cacertfile = <<>>}}) when CertDb =/= undefined ->
+    %% Certs provided as DER directly can not be shared
     %% with other connections and it is safe to delete them when the connection ends.
     ssl_pkix_db:remove_trusted_certs(Ref, CertDb);
-handle_trusted_certs_db(#state{file_ref_db = undefined}) ->
+handle_trusted_certs_db(#state{static_env = #static_env{file_ref_db = undefined}}) ->
     %% Something went wrong early (typically cacertfile does not
     %% exist) so there is nothing to handle
     ok;
-handle_trusted_certs_db(#state{cert_db_ref = Ref,
-			       file_ref_db = RefDb,
+handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
+                                                        file_ref_db = RefDb},
 			       ssl_options = #ssl_options{cacertfile = File}}) ->
     case ssl_pkix_db:ref_count(Ref, RefDb, -1) of
 	0 ->
@@ -2450,19 +2456,22 @@ host_id(_, Host, _) ->
     Host.
 
 handle_new_session(NewId, CipherSuite, Compression, 
-		   #state{session = Session0,
-			  protocol_cb = Connection} = State0) ->
+		   #state{static_env = #static_env{protocol_cb = Connection},
+                          session = Session0
+			 } = State0) ->
     Session = Session0#session{session_id = NewId,
 			       cipher_suite = CipherSuite,
 			       compression_method = Compression},
     Connection:next_event(certify, no_record, State0#state{session = Session}).
 
-handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
-				      negotiated_version = Version,
-				      host = Host, port = Port,
-				      protocol_cb = Connection,
-				      session_cache = Cache,
-				      session_cache_cb = CacheCb} = State) ->
+handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
+                                                               port = Port,
+                                                               protocol_cb = Connection,
+                                                               session_cache = Cache,
+                                                               session_cache_cb = CacheCb},
+                                      connection_states = ConnectionStates0,
+				      negotiated_version = Version
+                                     } = State) ->
     Session = CacheCb:lookup(Cache, {{Host, Port}, SessId}),
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
@@ -2519,8 +2528,8 @@ ssl_options_list([Key | Keys], [Value | Values], Acc) ->
 handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
 
-handle_active_option(_, connection = StateName0, To, Reply, #state{protocol_cb = Connection,
-							      user_data_buffer = <<>>} = State0) ->
+handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = #static_env{protocol_cb = Connection},
+                                                                   user_data_buffer = <<>>} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of
 	{next_state, StateName, State} ->
 	    hibernate_after(StateName, State, [{reply, To, Reply}]);
@@ -2534,7 +2543,8 @@ handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = 
     {next_state, StateName, State, [{reply, To, Reply}]};
 
 %% user_data_buffer =/= <<>>
-handle_active_option(_, StateName0, To, Reply, #state{protocol_cb = Connection} = State0) -> 
+handle_active_option(_, StateName0, To, Reply,
+                     #state{static_env = #static_env{protocol_cb = Connection}} = State0) ->
     case read_application_data(<<>>, State0) of
 	{stop, _, _} = Stop ->
 	    Stop;
@@ -2715,7 +2725,7 @@ invalidate_session(server, _, Port, Session) ->
 
 handle_sni_extension(undefined, State) ->
     State;
-handle_sni_extension(#sni{hostname = Hostname}, State0) ->
+handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{role = Role} = InitStatEnv0} = State0) ->
     NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
     case NewOptions of
 	undefined ->
@@ -2729,14 +2739,16 @@ handle_sni_extension(#sni{hostname = Hostname}, State0) ->
                    private_key := Key,
                    dh_params := DHParams,
                    own_certificate := OwnCert}} =
-                 ssl_config:init(NewOptions, State0#state.role),
+                 ssl_config:init(NewOptions, Role),
              State0#state{
                session = State0#state.session#session{own_certificate = OwnCert},
-               file_ref_db = FileRefHandle,
-               cert_db_ref = Ref,
-               cert_db = CertDbHandle,
-               crl_db = CRLDbHandle,
-               session_cache = CacheHandle,
+               static_env = InitStatEnv0#static_env{
+                                        file_ref_db = FileRefHandle,
+                                        cert_db_ref = Ref,
+                                        cert_db = CertDbHandle,
+                                        crl_db = CRLDbHandle,
+                                        session_cache = CacheHandle
+                                       },
                private_key = Key,
 	      diffie_hellman_params = DHParams,
 	      ssl_options = NewOptions,
@@ -2764,12 +2776,6 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
-
-stop(Reason, State) ->
-    {stop, Reason, State}.
-
-stop_and_reply(Reason, Replies, State) ->
-    {stop_and_reply, Reason, Replies, State}.
 
 is_dist_up(#{dist_handle := Handle}) when Handle =/= undefined ->
     true;
