@@ -128,7 +128,48 @@ remote_emulator(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 
 config(_Config) ->
-    {skip,not_yet_implemented}.
+    C1 = #{sync_mode_qlen:=SQ,
+           drop_mode_qlen:=DQ} = logger:get_proxy_config(),
+
+    %% Update the existing config with these two values
+    SQ1 = SQ+1,
+    DQ1 = DQ+1,
+    ok = logger:update_proxy_config(#{sync_mode_qlen=>SQ1,
+                                      drop_mode_qlen=>DQ1}),
+    C2 = logger:get_proxy_config(),
+    C2 = C1#{sync_mode_qlen:=SQ1,
+             drop_mode_qlen:=DQ1},
+
+    %% Update the existing again with only one value
+    SQ2 = SQ+2,
+    ok = logger:update_proxy_config(#{sync_mode_qlen=>SQ2}),
+    C3 = logger:get_proxy_config(),
+    C3 = C2#{sync_mode_qlen:=SQ2},
+
+    %% Set the config, i.e. merge with defaults
+    ok = logger:set_proxy_config(#{sync_mode_qlen=>SQ1}),
+    C4 = logger:get_proxy_config(),
+    C4 = C1#{sync_mode_qlen:=SQ1},
+
+    %% Reset to default
+    ok = logger:set_proxy_config(#{}),
+    C5 = logger:get_proxy_config(),
+    C5 = logger_proxy:get_default_config(),
+
+    %% Errors
+    {error,{invalid_olp_config,_}} =
+        logger:set_proxy_config(#{faulty_key=>1}),
+    {error,{invalid_olp_config,_}} =
+        logger:set_proxy_config(#{sync_mode_qlen=>infinity}),
+    {error,{invalid_config,[]}} = logger:set_proxy_config([]),
+
+    {error,{invalid_olp_config,_}} =
+        logger:update_proxy_config(#{faulty_key=>1}),
+    {error,{invalid_olp_config,_}} =
+        logger:update_proxy_config(#{sync_mode_qlen=>infinity}),
+    {error,{invalid_config,[]}} = logger:update_proxy_config([]),
+
+    ok.
 config(cleanup,_Config) ->
     ok.
 

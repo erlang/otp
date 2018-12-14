@@ -43,11 +43,14 @@
          get_module_level/0, get_module_level/1,
          set_primary_config/1, set_primary_config/2,
          set_handler_config/2, set_handler_config/3,
+         set_proxy_config/1,
          update_primary_config/1,
          update_handler_config/2, update_handler_config/3,
+         update_proxy_config/1,
          update_formatter_config/2, update_formatter_config/3,
          get_primary_config/0, get_handler_config/1,
          get_handler_config/0, get_handler_ids/0, get_config/0,
+         get_proxy_config/0,
          add_handlers/1]).
 
 %% Private configuration
@@ -122,6 +125,18 @@
                           {filters,log | stop,[{filter_id(),filter()}]} |
                           {module_level,level(),[module()]}].
 
+-type olp_config() :: #{sync_mode_qlen => non_neg_integer(),
+                        drop_mode_qlen => pos_integer(),
+                        flush_qlen => pos_integer(),
+                        burst_limit_enable => boolean(),
+                        burst_limit_max_count => pos_integer(),
+                        burst_limit_window_time => pos_integer(),
+                        overload_kill_enable => boolean(),
+                        overload_kill_qlen => pos_integer(),
+                        overload_kill_mem_size => pos_integer(),
+                        overload_kill_restart_after =>
+                            non_neg_integer() | infinity}.
+
 -export_type([log_event/0,
               level/0,
               report/0,
@@ -137,7 +152,8 @@
               filter_arg/0,
               filter_return/0,
               config_handler/0,
-              formatter_config/0]).
+              formatter_config/0,
+              olp_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -390,6 +406,7 @@ set_primary_config(Key,Value) ->
 set_primary_config(Config) ->
     logger_server:set_config(primary,Config).
 
+
 -spec set_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: handler_id(),
       Level :: level() | all | none,
@@ -418,6 +435,14 @@ set_handler_config(HandlerId,Key,Value) ->
       Config :: handler_config().
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
+
+-spec set_proxy_config(Config) -> ok | {error,term()} when
+      Config :: olp_config().
+set_proxy_config(Config) when is_map(Config) ->
+    Defaults = logger_proxy:get_default_config(),
+    logger_olp:set_opts(logger_proxy,maps:merge(Defaults,Config));
+set_proxy_config(Config) ->
+    {error,{invalid_config,Config}}.
 
 -spec update_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
@@ -453,6 +478,13 @@ update_handler_config(HandlerId,Key,Value) ->
 update_handler_config(HandlerId,Config) ->
     logger_server:update_config(HandlerId,Config).
 
+-spec update_proxy_config(Config) -> ok | {error,term()} when
+      Config :: olp_config().
+update_proxy_config(Config) when is_map(Config) ->
+    logger_olp:set_opts(logger_proxy,Config);
+update_proxy_config(Config) ->
+    {error,{invalid_config,Config}}.
+
 -spec get_primary_config() -> Config when
       Config :: primary_config().
 get_primary_config() ->
@@ -485,6 +517,11 @@ get_handler_config() ->
 get_handler_ids() ->
     {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
     HandlerIds.
+
+-spec get_proxy_config() -> Config when
+      Config :: olp_config().
+get_proxy_config() ->
+    logger_olp:get_opts(logger_proxy).
 
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
@@ -606,10 +643,12 @@ unset_process_metadata() ->
 
 -spec get_config() -> #{primary=>primary_config(),
                         handlers=>[handler_config()],
+                        proxy=>olp_config(),
                         module_levels=>[{module(),level() | all | none}]}.
 get_config() ->
     #{primary=>get_primary_config(),
       handlers=>get_handler_config(),
+      proxy=>get_proxy_config(),
       module_levels=>lists:keysort(1,get_module_level())}.
 
 -spec internal_init_logger() -> ok | {error,term()}.

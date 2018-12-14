@@ -693,8 +693,10 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  with <seealso marker="#logger_sasl_compatible">
 	    <c>logger_sasl_compatible</c></seealso>.</p>
 	<p>With this parameter, you can modify or disable the default
-	  handler, add custom handlers and primary logger filters, and
-	  set log levels per module.</p>
+	  handler, add custom handlers and primary logger filters, set
+	  log levels per module, and modify
+	  the <seealso marker="#proxy">proxy</seealso>
+	  configuration.</p>
 	<p><c>Config</c> is any (zero or more) of the following:</p>
 	<taglist>
           <tag><c>{handler, default, undefined}</c></tag>
@@ -745,6 +747,14 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 		logger:set_module_level(Module, Level)</seealso></pre>
 	    <p>for each <c>Module</c>.</p>
 	    <p>Multiple entries of this type are allowed.</p>
+	  </item>
+	  <tag><c>{proxy, ProxyConfig}</c></tag>
+	  <item>
+	    <p>Sets the proxy configuration, equivalent to calling</p>
+	    <pre><seealso marker="logger#set_proxy_config/1">
+		logger:set_proxy_config(ProxyConfig)
+	    </seealso></pre>
+	    <p>Only one entry of this type is allowed.</p>
 	  </item>
 	</taglist>
 	<p>See
@@ -1334,9 +1344,50 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
   </section>
 
   <section>
+    <marker id="proxy"/>
+    <title>Logger Proxy</title>
+    <p>The Logger proxy is an Erlang process which is part of the
+      Kernel application's supervision tree. During startup, the proxy
+      process registers itself as the <c>system_logger</c>, meaning
+      that log events produced by the emulator are sent to this
+      process.</p>
+    <p>When a log event is issued on a process which has its group
+      leader on a remote node, Logger automatically forwards the log
+      event to the group leader's node. To achieve this, it first
+      sends the log event as an Erlang message from the original
+      client process to the proxy on the local node, and the proxy in
+      turn forwards the event to the proxy on the remote node.</p>
+    <p>When receiving a log event, either from the emulator or from a
+      remote node, the proxy calls the Logger API to log the event.</p>
+    <p>The proxy process is overload protected in the same way as
+      described in
+      section <seealso marker="#overload_protection">Protecting the
+      Handler from Overload</seealso>, but with the following default
+      values:</p>
+    <code>
+    #{sync_mode_qlen => 500,
+      drop_mode_qlen => 1000,
+      flush_qlen => 5000,
+      burst_limit_enable => false,
+      overload_kill_enable => false}</code>
+    <p>For log events from the emulator, synchronous message passing
+      mode is not applicable, since all messages are passed
+      asynchronously by the emulator. Drop mode is achieved by setting
+      the <c>system_logger</c> to <c>undefined</c>, forcing the
+      emulator to drop events until it is set back to the proxy pid
+      again.</p>
+    <p>The proxy uses <seealso marker="erts:erlang#send_nosuspend/2">
+	<c>erlang:send_nosuspend/2</c></seealso> when sending log
+      events to a remote node. If the message could not be sent
+      without suspending the sender, it is dropped. This is to avoid
+      blocking the proxy process.</p>
+  </section>
+
+  <section>
     <title>See Also</title>
     <p>
       <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
+      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
       <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
       <seealso marker="logger"><c>logger(3)</c></seealso>,
       <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seealso>,

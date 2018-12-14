@@ -20,7 +20,7 @@
 -module(logger_proxy).
 
 %% API
--export([start_link/0, restart/0, log/2, child_spec/0]).
+-export([start_link/0, restart/0, log/2, child_spec/0, get_default_config/0]).
 
 %% logger_olp callbacks
 -export([init/1, handle_load/2, handle_info/2, terminate/2,
@@ -69,11 +69,7 @@ start_link() ->
     %%
     %% Burst limit is disabled, since this is only a proxy and we
     %% don't want to limit bursts twice (here and in the handler).
-    Opts = #{sync_mode_qlen=>500,
-             drop_mode_qlen=>1000,
-             flush_qlen=>5000,
-             burst_limit_enable=>false},
-    logger_olp:start_link(?SERVER,?MODULE,[],Opts).
+    logger_olp:start_link(?SERVER,?MODULE,[],get_default_config()).
 
 %% Fun used for restarting this process after it has been killed due
 %% to overload (must set overload_kill_enable=>true in opts)
@@ -96,6 +92,13 @@ child_spec() ->
       shutdown => 2000,
       type     => worker,
       modules  => [?MODULE]}.
+
+get_default_config() ->
+    OlpDefault = logger_olp:get_default_opts(),
+    OlpDefault#{sync_mode_qlen=>500,
+                drop_mode_qlen=>1000,
+                flush_qlen=>5000,
+                burst_limit_enable=>false}.
 
 %%%===================================================================
 %%% gen_server callbacks

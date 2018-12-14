@@ -47,16 +47,7 @@
 
 -opaque olp_ref() :: {atom(),pid(),ets:tid()}.
 
--type options() :: #{sync_mode_qlen => integer(),
-                     drop_mode_qlen => integer(),
-                     flush_qlen => integer(),
-                     burst_limit_enable => boolean(),
-                     burst_limit_max_count => integer(),
-                     burst_limit_window_time => integer(),
-                     overload_kill_enable => boolean(),
-                     overload_kill_qlen => integer(),
-                     overload_kill_mem_size => integer(),
-                     overload_kill_restart_after => integer()}.
+-type options() :: logger:olp_config().
 
 %%%-----------------------------------------------------------------
 %%% API
