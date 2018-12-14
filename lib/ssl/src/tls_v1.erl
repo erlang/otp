@@ -747,7 +747,9 @@ ecc_curves(_Minor, TLSCurves) ->
 
 -spec groups(4 | all | default) -> [group()].
 groups(all) ->
-    [secp256r1,
+    [x25519,
+     x448,
+     secp256r1,
      secp384r1,
      secp521r1,
      ffdhe2048,
@@ -756,27 +758,33 @@ groups(all) ->
      ffdhe6144,
      ffdhe8192];
 groups(default) ->
-    [secp256r1,
-     secp384r1,
-     secp521r1,
-     ffdhe2048];
+    [x25519,
+     x448,
+     secp256r1,
+     secp384r1];
 groups(Minor) ->
     TLSGroups = groups(all),
     groups(Minor, TLSGroups).
 %%
 -spec groups(4, [group()]) -> [group()].
 groups(_Minor, TLSGroups) ->
-    %% TODO: Adding FFDHE groups to crypto?
-    CryptoGroups = crypto:ec_curves() ++ [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192],
+    CryptoGroups = supported_groups(),
     lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
 
 default_groups(Minor) ->
     TLSGroups = groups(default),
     groups(Minor, TLSGroups).
 
+supported_groups() ->
+    %% TODO: Add new function to crypto?
+    proplists:get_value(curves,  crypto:supports()) ++
+        [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
+
 group_to_enum(secp256r1) -> 23;
 group_to_enum(secp384r1) -> 24;
 group_to_enum(secp521r1) -> 25;
+group_to_enum(x25519)    -> 29;
+group_to_enum(x448)      -> 30;
 group_to_enum(ffdhe2048) -> 256;
 group_to_enum(ffdhe3072) -> 257;
 group_to_enum(ffdhe4096) -> 258;
@@ -786,6 +794,8 @@ group_to_enum(ffdhe8192) -> 260.
 enum_to_group(23) -> secp256r1;
 enum_to_group(24) -> secp384r1;
 enum_to_group(25) -> secp521r1;
+enum_to_group(29) -> x25519;
+enum_to_group(30) -> x448;
 enum_to_group(256) -> ffdhe2048;
 enum_to_group(257) -> ffdhe3072;
 enum_to_group(258) -> ffdhe4096;

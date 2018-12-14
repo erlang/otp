@@ -269,14 +269,19 @@ get_private_key(#key_share_entry{
     PrivateKey.
 
 
-%% DH
+%% X25519, X448
+calculate_shared_secret(OthersKey, MyKey, Group)
+  when is_binary(OthersKey) andalso is_binary(MyKey) andalso
+       (Group =:= x25519 orelse Group =:= x448)->
+    crypto:compute_key(ecdh, OthersKey, MyKey, Group);
+%% FFDHE
 calculate_shared_secret(OthersKey, MyKey, Group)
   when is_binary(OthersKey) andalso is_binary(MyKey) ->
     Params = #'DHParameter'{prime = P} = ssl_dh_groups:dh_params(Group),
     S = public_key:compute_key(OthersKey, MyKey, Params),
     Size = byte_size(binary:encode_unsigned(P)),
     ssl_cipher:add_zero_padding(S, Size);
-%% ECDH
+%% ECDHE
 calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
   when is_binary(OthersKey) ->
     Point = #'ECPoint'{point = OthersKey},

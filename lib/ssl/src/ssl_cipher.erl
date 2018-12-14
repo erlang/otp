@@ -681,10 +681,9 @@ hash_size(sha) ->
 hash_size(sha256) ->
     32;
 hash_size(sha384) ->
-    48.
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha512) ->
-%    64.
+    48;
+hash_size(sha512) ->
+    64.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -888,8 +887,8 @@ scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
 scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
-%% scheme_to_components(ed25519) -> {undefined, undefined, undefined};
-%% scheme_to_components(ed448) -> {undefined, undefined, undefined};
+scheme_to_components(ed25519) -> {undefined, undefined, undefined};
+scheme_to_components(ed448) -> {undefined, undefined, undefined};
 scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
@@ -1231,6 +1230,10 @@ generate_key_exchange(secp384r1) ->
     public_key:generate_key({namedCurve, secp384r1});
 generate_key_exchange(secp521r1) ->
     public_key:generate_key({namedCurve, secp521r1});
+generate_key_exchange(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_key_exchange(x448) ->
+    crypto:generate_key(ecdh, x448);
 generate_key_exchange(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 
