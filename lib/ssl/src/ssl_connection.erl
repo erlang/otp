@@ -356,8 +356,8 @@ handle_normal_shutdown(Alert, _, #state{static_env = #static_env{role = Role,
                                                                  transport_cb = Transport,
                                                                  protocol_cb = Connection,
                                                                  tracker = Tracker},
-					start_or_recv_from = StartFrom,
-                                        renegotiation = {false, first}} = State) ->
+                                        handshake_env = #handshake_env{renegotiation = {false, first}},
+					start_or_recv_from = StartFrom} = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker,Socket, StartFrom, Alert, Role, Connection);
 
@@ -401,8 +401,8 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
-                    ssl_options = SslOpts,
-                    renegotiation = {true, internal}} = State) ->
+                    handshake_env = #handshake_env{renegotiation = {true, internal}},
+                    ssl_options = SslOpts} = State) ->
     log_alert(SslOpts#ssl_options.log_alert, Role, 
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     handle_normal_shutdown(Alert, StateName, State),
@@ -411,26 +411,26 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, connection = StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
-                    ssl_options = SslOpts,
-                    renegotiation = {true, From}
+                    handshake_env = #handshake_env{renegotiation = {true, From}} = HsEnv,
+                    ssl_options = SslOpts                 
 		   } = State0) ->
     log_alert(SslOpts#ssl_options.log_alert,  Role,
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     gen_statem:reply(From, {error, renegotiation_rejected}),
     State = Connection:reinit_handshake_data(State0),
-    Connection:next_event(connection, no_record, State#state{renegotiation = undefined});
+    Connection:next_event(connection, no_record, State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}});
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{static_env = #static_env{role = Role,
                                              protocol_cb = Connection},
-                    ssl_options = SslOpts,
-                    renegotiation = {true, From}
+                    handshake_env = #handshake_env{renegotiation = {true, From}} = HsEnv,
+                    ssl_options = SslOpts
 		  } = State0) ->
     log_alert(SslOpts#ssl_options.log_alert,  Role,
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     gen_statem:reply(From, {error, renegotiation_rejected}),
     %% Go back to connection!
-    State = Connection:reinit(State0#state{renegotiation = undefined}),
+    State = Connection:reinit(State0#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}}),
     Connection:next_event(connection, no_record, State);
 
 %% Gracefully log and ignore all other warning alerts
@@ -607,7 +607,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 ssl_config(Opts, Role, State) ->
     ssl_config(Opts, Role, State, new).
 
-ssl_config(Opts, Role, #state{static_env = InitStatEnv0} =State0, Type) ->
+ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
+                              handshake_env = HsEnv} = State0, Type) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
            fileref_db_handle := FileRefHandle, 
@@ -634,8 +635,8 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0} =State0, Type) ->
                          ssl_options = Opts},
     case Type of
         new ->
-            Handshake = ssl_handshake:init_handshake_history(),
-            State#state{tls_handshake_history = Handshake};
+            Hist = ssl_handshake:init_handshake_history(),
+            State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}};
         continue ->
             State
     end.
@@ -728,15 +729,15 @@ abbreviated({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = server},
+                   handshake_env = #handshake_env{tls_handshake_history = Hist},
 		   negotiated_version = Version,
 		   expecting_finished = true,
-		   tls_handshake_history = Handshake,
 		   session = #session{master_secret = MasterSecret},
 		   connection_states = ConnectionStates0} =
 		State0, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished, client,
 					 get_current_prf(ConnectionStates0, write),
-					 MasterSecret, Handshake) of
+					 MasterSecret, Hist) of
         verified ->
 	    ConnectionStates =
 		ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
@@ -748,13 +749,13 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
     end;
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = client},
-                   tls_handshake_history = Handshake0,
+                   handshake_env = #handshake_env{tls_handshake_history = Hist0},
 		   session = #session{master_secret = MasterSecret},
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State0, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished, server,
 					 get_pending_prf(ConnectionStates0, write),
-					 MasterSecret, Handshake0) of
+					 MasterSecret, Hist0) of
         verified ->
 	    ConnectionStates1 =
 		ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
@@ -1003,18 +1004,18 @@ cipher(info, Msg, State, _) ->
 cipher(internal, #certificate_verify{signature = Signature, 
 				     hashsign_algorithm = CertHashSign},
        #state{static_env = #static_env{role = server},
+              handshake_env = #handshake_env{tls_handshake_history = Hist},
 	      key_algorithm = KexAlg,
 	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
-	      session = #session{master_secret = MasterSecret},
-	      tls_handshake_history = Handshake
+	      session = #session{master_secret = MasterSecret}
 	     } = State, Connection) ->
     
     TLSVersion = ssl:tls_version(Version),
     %% Use negotiated value if TLS-1.2 otherwhise return default
     HashSign = negotiated_hashsign(CertHashSign, KexAlg, PublicKeyInfo, TLSVersion),
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
-					  TLSVersion, HashSign, MasterSecret, Handshake) of
+					  TLSVersion, HashSign, MasterSecret, Hist) of
 	valid ->
 	    Connection:next_event(?FUNCTION_NAME, no_record,
 				  State#state{cert_hashsign_algorithm = HashSign});
@@ -1038,11 +1039,11 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 	      = Session0,
               ssl_options = SslOpts,
 	      connection_states = ConnectionStates0,
-	      tls_handshake_history = Handshake0} = State, Connection) ->
+	      handshake_env = #handshake_env{tls_handshake_history = Hist}} = State, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished,
 					 opposite_role(Role),
 					 get_current_prf(ConnectionStates0, read),
-					 MasterSecret, Handshake0) of
+					 MasterSecret, Hist) of
         verified ->
 	    Session = handle_session(Role, SslOpts, Host, Port, Session0),
 	    cipher_role(Role, Data, Session, 
@@ -1084,9 +1085,10 @@ connection({call, RecvFrom}, {recv, N, Timeout},
                                  start_or_recv_from = RecvFrom, 
                                  timer = Timer}, ?FUNCTION_NAME, Connection);
 
-connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = Connection}} = State,
+connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = Connection},
+                                             handshake_env = HsEnv} = State,
 	   Connection) ->
-    Connection:renegotiate(State#state{renegotiation = {true, From}}, []);
+    Connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, From}}}, []);
 connection({call, From}, peer_certificate, 
 	   #state{session = #session{peer_certificate = Cert}} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State, [{reply, From,  {ok, Cert}}]); 
@@ -1106,9 +1108,10 @@ connection({call, From}, negotiated_protocol,
 connection({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static_env{protocol_cb = Connection},
+                                                            handshake_env = HsEnv,
                                                             connection_states = ConnectionStates} 
            = State, Connection) -> 
-    Connection:renegotiate(State#state{renegotiation = {true, internal},
+    Connection:renegotiate(State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, internal}},
                                        connection_states = ConnectionStates#{current_write => WriteState}}, []);
 connection(cast, {dist_handshake_complete, DHandle},
            #state{ssl_options = #ssl_options{erl_dist = true},
@@ -1141,15 +1144,17 @@ downgrade(Type, Event, State, Connection) ->
 %% common or unexpected events for the state.
 %%--------------------------------------------------------------------
 handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, connection = StateName,  
-		    #state{static_env = #static_env{role = client}} = State, _) ->
+		    #state{static_env = #static_env{role = client}, 
+                           handshake_env = HsEnv} = State, _) ->
     %% Should not be included in handshake history
-    {next_state, StateName, State#state{renegotiation = {true, peer}}, [{next_event, internal, Handshake}]};
+    {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, peer}}},
+     [{next_event, internal, Handshake}]};
 handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
                     #state{static_env = #static_env{role = client}}, _)
   when StateName =/= connection ->
     keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{tls_handshake_history = Hs0} = State0,
+		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv} = State0,
 		    Connection) ->
    
     PossibleSNI = Connection:select_sni_extension(Handshake),
@@ -1157,8 +1162,9 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
     State = handle_sni_extension(PossibleSNI, State0),
-    HsHist = ssl_handshake:update_handshake_history(Hs0, Raw),
-    {next_state, StateName, State#state{tls_handshake_history = HsHist}, 
+
+    Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
+    {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}}, 
      [{next_event, internal, Handshake}]};
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
@@ -1321,7 +1327,7 @@ handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}};
 
 handle_info({cancel_start_or_recv, StartFrom}, StateName,
-	    #state{renegotiation = {false, first}} = State) when StateName =/= connection ->
+	    #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) when StateName =/= connection ->
     {stop_and_reply,
      {shutdown, user_timeout},
      {reply, StartFrom, {error, timeout}},
@@ -1406,7 +1412,7 @@ format_status(terminate, [_, StateName, State]) ->
     [{data, [{"State", {StateName, State#state{connection_states = ?SECRET_PRINTOUT,
 					       protocol_buffers =  ?SECRET_PRINTOUT,
 					       user_data_buffer = ?SECRET_PRINTOUT,
-					       tls_handshake_history =  ?SECRET_PRINTOUT,
+					       handshake_env =  ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
 					       private_key =  ?SECRET_PRINTOUT,
 					       diffie_hellman_params = ?SECRET_PRINTOUT,
@@ -1562,16 +1568,16 @@ certify_client(#state{client_certificate_requested = false} = State, _) ->
     State.
 
 verify_client_cert(#state{static_env = #static_env{role = client},
+                          handshake_env = #handshake_env{tls_handshake_history = Hist},
                           client_certificate_requested = true,
 			  negotiated_version = Version,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificate = OwnCert},
-			  cert_hashsign_algorithm = HashSign,
-			  tls_handshake_history = Handshake0} = State, Connection) ->
+			  cert_hashsign_algorithm = HashSign} = State, Connection) ->
 
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret,
-						 ssl:tls_version(Version), HashSign, PrivateKey, Handshake0) of
+						 ssl:tls_version(Version), HashSign, PrivateKey, Hist) of
         #certificate_verify{} = Verified ->
            Connection:queue_handshake(Verified, State);
 	ignore ->
@@ -1607,7 +1613,9 @@ server_certify_and_key_exchange(State0, Connection) ->
     request_client_cert(State2, Connection).
 
 certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS},
-			    #state{private_key = Key, client_hello_version = {Major, Minor} = Version} = State, Connection) ->
+			    #state{private_key = Key, 
+                                   handshake_env = #handshake_env{client_hello_version = {Major, Minor} = Version}}
+                            = State, Connection) ->
     FakeSecret = make_premaster_secret(Version, rsa),
     %% Countermeasure for Bleichenbacher attack always provide some kind of premaster secret
     %% and fail handshake later.RFC 5246 section 7.4.7.1.
@@ -2034,14 +2042,15 @@ cipher_protocol(State, Connection) ->
     Connection:queue_change_cipher(#change_cipher_spec{}, State).
 
 finished(#state{static_env = #static_env{role = Role},
+                handshake_env = #handshake_env{tls_handshake_history = Hist},
                 negotiated_version = Version,
 		session = Session,
-                connection_states = ConnectionStates0,
-                tls_handshake_history = Handshake0} = State0, StateName, Connection) ->
+                connection_states = ConnectionStates0} = State0, 
+         StateName, Connection) ->
     MasterSecret = Session#session.master_secret,
     Finished = ssl_handshake:finished(ssl:tls_version(Version), Role,
 				       get_current_prf(ConnectionStates0, write),
-				       MasterSecret, Handshake0),
+				       MasterSecret, Hist),
     ConnectionStates = save_verify_data(Role, Finished, ConnectionStates0, StateName),
     Connection:send_handshake(Finished, State0#state{connection_states =
 								 ConnectionStates}).
@@ -2369,7 +2378,7 @@ handle_trusted_certs_db(#state{static_env = #static_env{cert_db_ref = Ref,
 	    ok
     end.
 
-prepare_connection(#state{renegotiation = Renegotiate, 
+prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegotiate}, 
 			  start_or_recv_from = RecvFrom} = State0, Connection) 
   when Renegotiate =/= {false, first}, 
        RecvFrom =/= undefined ->
@@ -2379,18 +2388,18 @@ prepare_connection(State0, Connection) ->
     State = Connection:reinit(State0),
     {no_record, ack_connection(State)}.
 
-ack_connection(#state{renegotiation = {true, Initiater}} = State) when Initiater == peer;
-                                                                       Initiater == internal ->
-    State#state{renegotiation = undefined};
-ack_connection(#state{renegotiation = {true, From}} = State) ->    
+ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, Initiater}} = HsEnv} = State) when Initiater == peer;
+                                                                                                               Initiater == internal ->
+    State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}};
+ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, From}} = HsEnv} = State) ->    
     gen_statem:reply(From, ok),
-    State#state{renegotiation = undefined};
-ack_connection(#state{renegotiation = {false, first}, 
+    State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}};
+ack_connection(#state{handshake_env = #handshake_env{renegotiation = {false, first}} = HsEnv, 
 		      start_or_recv_from = StartFrom,
 		      timer = Timer} = State) when StartFrom =/= undefined ->
     gen_statem:reply(StartFrom, connected),
     cancel_timer(Timer),
-    State#state{renegotiation = undefined, 
+    State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}, 
 		start_or_recv_from = undefined, timer = undefined};
 ack_connection(State) ->
     State.
