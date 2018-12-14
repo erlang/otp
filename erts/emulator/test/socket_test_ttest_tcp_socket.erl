@@ -134,10 +134,7 @@ maybe_start_stats_timer(#{stats_to       := Pid,
                           stats_interval := T},
                         Reader) when is_pid(Pid) ->
     erlang:start_timer(T, Pid, {stats, T, "reader", Reader});
-maybe_start_stats_timer(O, _) ->
-    io:format("NO STATS: "
-              "~n   ~p"
-              "~n", [O]),
+maybe_start_stats_timer(_O, _) ->
     ok.
 
 controlling_process(#{sock := Sock, reader := Pid}, NewPid) ->

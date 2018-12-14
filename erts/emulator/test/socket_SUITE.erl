@@ -121,7 +121,17 @@
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp4/1,
          traffic_ping_pong_small_sendmsg_and_recvmsg_udp6/1,
          traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4/1,
-         traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1
+         traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6/1,
+
+         %% Time Test
+         ttest_sgenf_cgenf_small_tcp4/1,
+         ttest_sgenf_cgenf_small_tcp6/1%% ,
+
+         %% ttest_sgenf_cgenf_medium_tcp4/1,
+         %% ttest_sgenf_cgenf_medium_tcp6/1,
+
+         %% ttest_sgenf_cgenf_large_tcp4/1,
+         %% ttest_sgenf_cgenf_large_tcp6/1
 
          %% Tickets
         ]).
@@ -148,8 +158,9 @@
 
 -define(TT(T),   ct:timetrap(T)).
 
--define(LIB,     socket_test_lib).
--define(LOGGER,  socket_test_logger).
+-define(LIB,       socket_test_lib).
+-define(TTEST_LIB, socket_test_ttest_lib).
+-define(LOGGER,    socket_test_logger).
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
@@ -170,7 +181,8 @@ all() ->
     [
      {group, api},
      {group, socket_closure},
-     {group, traffic}
+     {group, traffic},
+     {group, ttest}
      %% {group, tickets}
     ].
 
@@ -184,7 +196,8 @@ groups() ->
      {sc_local_close,      [], sc_lc_cases()},
      {sc_remote_close,     [], sc_rc_cases()},
      {sc_remote_shutdown,  [], sc_rs_cases()},
-     {traffic,             [], traffic_cases()}
+     {traffic,             [], traffic_cases()},
+     {ttest,               [], ttest_cases()}
      %% {tickets,             [], ticket_cases()}
     ].
      
@@ -325,6 +338,19 @@ traffic_cases() ->
      traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
      traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6
+    ].
+
+
+ttest_cases() ->
+    [
+     ttest_sgenf_cgenf_small_tcp4,
+     ttest_sgenf_cgenf_small_tcp6%% ,
+
+     %% ttest_sgenf_cgenf_medium_tcp4,
+     %% ttest_sgenf_cgenf_medium_tcp6,
+
+     %% ttest_sgenf_cgenf_large_tcp4,
+     %% ttest_sgenf_cgenf_large_tcp6
     ].
 
 
@@ -8482,9 +8508,6 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                      true ->
                           ok
                   end,
-
-
-
                   ok = socket:setopt(Sock, otp, rcvbuf, 8*1024)
           end,
     traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
@@ -10134,6 +10157,539 @@ tpp_udp_sock_close(Sock) ->
     end.
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case uses the time test (ttest) utility to implement a 
+%% ping-pong like test case.
+
+ttest_sgenf_cgenf_small_tcp4(suite) ->
+    [];
+ttest_sgenf_cgenf_small_tcp4(doc) ->
+    [];
+ttest_sgenf_cgenf_small_tcp4(_Config) when is_list(_Config) ->
+    ttest_tcp(ttest_sgenf_cgenf_small_tcp4,
+              inet,
+              gen, false,
+              gen, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 
+
+ttest_sgenf_cgenf_small_tcp6(suite) ->
+    [];
+ttest_sgenf_cgenf_small_tcp6(doc) ->
+    [];
+ttest_sgenf_cgenf_small_tcp6(_Config) when is_list(_Config) ->
+    ttest_tcp(ttest_sgenf_cgenf_small_tcp6,
+              inet6,
+              gen, false,
+              gen, false,
+              1, 200).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ttest_tcp(TC,
+          Domain,
+          ServerMod, ServerActive,
+          ClientMod, ClientActive,
+          MsgID, MaxOutstanding) ->
+    Runtime = ?SECS(60),
+    tc_try(TC,
+           fun() ->
+                   if (Domain =/= inet) ->  not_yet_implemented(); true -> ok end,
+                   ?TT(Runtime + ?SECS(60)),
+                   InitState = #{domain          => Domain,
+                                 msg_id          => MsgID,
+                                 max_outstanding => MaxOutstanding,
+                                 runtime         => Runtime,
+                                 server_mod      => ServerMod,
+                                 server_active   => ServerActive,
+                                 client_mod      => ClientMod,
+                                 client_active   => ClientActive},
+                   ok = ttest_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test is run with the following combinations:
+%% (this does not take the message size into consideration)
+%% server(gen,  false) - client(gen,  false)
+%% server(gen,  false) - client(gen,  once)
+%% server(gen,  false) - client(gen,  true)
+%% server(gen,  false) - client(sock, false)
+%% server(gen,  false) - client(sock, once)
+%% server(gen,  false) - client(sock, true)
+%% server(gen,  once)  - client(gen,  false)
+%% server(gen,  once)  - client(gen,  once)
+%% server(gen,  once)  - client(gen,  true)
+%% server(gen,  once)  - client(sock, false)
+%% server(gen,  once)  - client(sock, once)
+%% server(gen,  once)  - client(sock, true)
+%% server(gen,  true)  - client(gen,  false)
+%% server(gen,  true)  - client(gen,  once)
+%% server(gen,  true)  - client(gen,  true)
+%% server(gen,  true)  - client(sock, false)
+%% server(gen,  true)  - client(sock, once)
+%% server(gen,  true)  - client(sock, true)
+%% server(sock, false) - client(gen,  false)
+%% server(sock, false) - client(gen,  once)
+%% server(sock, false) - client(gen,  true)
+%% server(sock, false) - client(sock, false)
+%% server(sock, false) - client(sock, once)
+%% server(sock, false) - client(sock, true)
+%% server(sock, once)  - client(gen,  false)
+%% server(sock, once)  - client(gen,  once)
+%% server(sock, once)  - client(gen,  true)
+%% server(sock, once)  - client(sock, false)
+%% server(sock, once)  - client(sock, once)
+%% server(sock, once)  - client(sock, true)
+%% server(sock, true)  - client(gen,  false)
+%% server(sock, true)  - client(gen,  once)
+%% server(sock, true)  - client(gen,  true)
+%% server(sock, true)  - client(sock, false)
+%% server(sock, true)  - client(sock, once)
+%% server(sock, true)  - client(sock, true)
+
+ttest_tcp(InitState) ->
+    ServerSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+
+         %% *** Init part ***
+         #{desc => "create node",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, server) of
+                               {ok, Node} ->
+                                   {ok, State#{node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor server node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "start ttest (remote) server",
+           cmd  => fun(#{mod    := Mod,
+                         active := Active,
+                         node   := Node} = State) ->
+                           case ttest_tcp_server_start(Node, Mod, Active) of
+                               {ok, {{Pid, _MRef}, {Addr, Port}}} ->
+                                   {ok, State#{rserver => Pid,
+                                               addr    => Addr,
+                                               port    => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester,
+                         addr   := Addr,
+                         port   := Port}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, {Addr, Port}),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester  := Tester, 
+                         rserver := RServer} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester,
+                                                     [{rserver, RServer}]) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         %% The remote server is in a accept, with a timeout of 5 seconds,
+         %% so may have to wait a bit...
+         #{desc => "order (remote) ttest server terminate",
+           cmd  => fun(#{node    := _Node,
+                         rserver := RServer}) ->
+                           ttest_tcp_server_stop(RServer),
+                           ok
+                   end},
+         #{desc => "await ttest (remote) server termination",
+           cmd  => fun(#{rserver := RServer} = State) ->
+                           ?SEV_AWAIT_TERMINATION(RServer),
+                           State1 = maps:remove(rserver, State),
+                           {ok, State1}
+                   end},
+         #{desc => "stop (server) node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await (server) node termination",
+           cmd  => fun(#{node := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(node, State)}
+                           end
+                   end},
+
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, {ServerAddr, ServerPort}} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester      => Tester,
+                                       server_addr => ServerAddr,
+                                       server_port => ServerPort}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+
+         %% *** Init part ***
+         #{desc => "create node",
+           cmd  => fun(#{host := Host} = State) ->
+                           case start_node(Host, client) of
+                               {ok, Node} ->
+                                   {ok, State#{node => Node}};
+                               {error, Reason, _} ->
+                                   {error, Reason}
+                           end
+                   end},
+         #{desc => "monitor client node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           true = erlang:monitor_node(Node, true),
+                           ok
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+
+         %% The actual test
+         #{desc => "await continue (ttest)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, ttest),
+                           ok
+                   end},
+         #{desc => "start ttest (remote) client",
+           cmd  => fun(#{node            := Node,
+                         mod             := Mod,
+                         active          := Active,
+                         msg_id          := MsgID,
+                         max_outstanding := MaxOutstanding,
+                         runtime         := RunTime,
+                         server_addr     := Addr,
+                         server_port     := Port} = State) ->
+                           Self   = self(),
+                           Notify =
+                               fun(Result) ->
+                                       ?SEV_ANNOUNCE_READY(Self, ttest, Result)
+                               end,                           
+                           case ttest_tcp_client_start(Node, Notify,
+                                                       Mod, Active,
+                                                       Addr, Port,
+                                                       MsgID, MaxOutstanding,
+                                                       RunTime) of
+                               {ok, {Pid, _MRef}} ->
+                                   {ok, State#{rclient => Pid}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await ttest ready",
+           cmd  => fun(#{tester  := Tester,
+                         rclient := RClient} = State) ->
+                           %% TTestResult = ?SEV_AWAIT_READY(RClient, rclient, ttest, 
+                           %%                                [{tester, Tester}]),
+                           case ?SEV_AWAIT_READY(RClient, rclient, ttest, 
+                                                 [{tester, Tester}]) of
+                             {ok, Result} ->
+                                 {ok, State#{result => Result}};
+                             {error, _} = ERROR ->
+                                 ERROR
+                         end
+                   end},
+         #{desc => "await ttest (remote) client termination",
+           cmd  => fun(#{rclient := RClient} = State) ->
+                           ?SEV_AWAIT_TERMINATION(RClient),
+                           State1 = maps:remove(rclient, State),
+                           {ok, State1}
+                   end},
+         #{desc => "announce ready (ttest)",
+           cmd  => fun(#{tester := Tester,
+                         result := Result} = State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, ttest, Result),
+                           {ok, maps:remove(result, State)}
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate (from tester)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "stop (client) node",
+           cmd  => fun(#{node := Node} = _State) ->
+                           stop_node(Node)
+                   end},
+         #{desc => "await (client) node termination",
+           cmd  => fun(#{node := Node} = State) ->
+                           receive
+                               {nodedown, Node} ->
+                                   {ok, maps:remove(node, State)}
+                           end
+                   end},
+
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, {Addr, Port}} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_addr => Addr,
+                                       server_port => Port}}
+                   end},
+
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client      := Pid,
+                         server_addr := Addr,
+                         server_port := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, {Addr, Port}),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Client, client, init)
+                   end},
+ 
+         %% The actual test
+         #{desc => "order client continue (ttest)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, ttest),
+                           ok
+                   end},
+         #{desc => "await client ready (ttest)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = State) ->
+                           case ?SEV_AWAIT_READY(Client, client, ttest,
+                                                 [{server, Server}]) of
+                               {ok, Result} ->
+                                   {ok, State#{result => Result}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Terminate server ***
+         #{desc => "order client terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client down",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client,    State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server down",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           ok
+                   end},
+
+         
+         %% Present the results
+         #{desc => "present the results",
+           cmd  => fun(#{result := Result} = State) ->
+                           case Result of
+                               #{status  := ok,
+                                 runtime := RunTime,
+                                 cnt     := Cnt,
+                                 bcnt    := BCnt} ->
+                                   ?SEV_IPRINT(
+                                      "TTest results: "
+                                      "~n   Run Time:                    ~s"
+                                      "~n   Byte Count:                  ~s"
+                                      "~n   Number of message exchanges: ~s"
+                                      "~n~n",
+                                      [
+                                       ?TTEST_LIB:format_time(RunTime),
+                                       if ((BCnt =:= 0) orelse (RunTime =:= 0)) ->
+                                               ?TTEST_LIB:format("~w, ~w",
+                                                                 [BCnt, RunTime]);
+                                          true ->
+                                               ?TTEST_LIB:format("~p => ~p byte / ms",
+                                                                 [BCnt, BCnt div RunTime])
+                                       end,
+                                       if (RunTime =:= 0) ->
+                                               "-";
+                                          true ->
+                                               ?TTEST_LIB:format("~p => ~p iterations / ms",
+                                                                 [Cnt, Cnt div RunTime])
+                                       end
+                                      ]),
+                                   {ok, maps:remove(result, State)};
+
+                               #{status  := Failure,
+                                 runtime := RunTime,
+                                 sid     := SID,
+                                 rid     := RID,
+                                 scnt    := SCnt,
+                                 rcnt    := RCnt,
+                                 bcnt    := BCnt,
+                                 num     := Num} ->
+                                   ?SEV_EPRINT("Time Test failed: "
+                                               "~n   ~p"
+                                               "~n"
+                                               "~nwhen"
+                                               "~n"
+                                               "~n   Run Time:       ~s"
+                                               "~n   Send ID:        ~p"
+                                               "~n   Recv ID:        ~p"
+                                               "~n   Send Count:     ~p"
+                                               "~n   Recv Count:     ~p"
+                                               "~n   Byte Count:     ~p"
+                                               "~n   Num Iterations: ~p",
+                                               [Failure,
+                                                ?TTEST_LIB:format_time(RunTime),
+                                                SID, RID, SCnt, RCnt, BCnt, Num]),
+                                   {error, Failure}
+                           end
+                   end},
+
+         %% This is just so that the printout above shall have time to come
+         %% out before then end of the test case.
+         ?SEV_SLEEP(?SECS(1)),
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    ServerInitState = #{host   => local_host(),
+                        domain => maps:get(domain,        InitState),
+                        mod    => maps:get(server_mod,    InitState),
+                        active => maps:get(server_active, InitState)},
+    Server          = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("start client evaluator"),
+    ClientInitState = #{host            => local_host(),
+                        domain          => maps:get(domain,          InitState),
+                        mod             => maps:get(client_mod,      InitState),
+                        active          => maps:get(client_active,   InitState),
+                        msg_id          => maps:get(msg_id,          InitState),
+                        max_outstanding => maps:get(max_outstanding, InitState),
+                        runtime         => maps:get(runtime,         InitState)},
+    Client          = ?SEV_START("client", ClientSeq, ClientInitState),
+    
+    i("start 'tester' evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+ttest_tcp_server_start(Node, gen, Active) ->
+    Transport = socket_test_ttest_tcp_gen,
+    socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active);
+ttest_tcp_server_start(Node, sock, Active) ->
+    TransportMod = socket_test_ttest_tcp_socket,
+    Transport    = {TransportMod, #{method => plain}},
+    socket_test_ttest_tcp_server:start_monitor(Node, Transport, Active).
+
+ttest_tcp_server_stop(Pid) ->
+    socket_test_ttest_tcp_server:stop(Pid).
+
+ttest_tcp_client_start(Node,
+                       Notify,
+                       gen,
+                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    Transport = socket_test_ttest_tcp_gen,
+    socket_test_ttest_tcp_client:start_monitor(Node,
+                                               Notify,
+                                               Transport,
+                                               Active,
+                                               Addr, Port,
+                                               MsgID, MaxOutstanding, RunTime);
+ttest_tcp_client_start(Node,
+                       Notify,
+                       sock,
+                       Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    TransportMod = socket_test_ttest_tcp_socket,
+    Transport    = {TransportMod, #{method => plain}},
+    socket_test_ttest_tcp_client:start_monitor(Node,
+                                               Notify,
+                                               Transport,
+                                               Active,
+                                               Addr, Port,
+                                               MsgID, MaxOutstanding, RunTime).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 start_node(Host, NodeName) ->
@@ -10406,7 +10962,7 @@ tc_which_name() ->
             Name
     end.
     
-    
+   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 l2a(S) when is_list(S) ->

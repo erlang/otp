@@ -34,15 +34,25 @@
 -module(socket_test_ttest_tcp_server).
 
 -export([
-         start_monitor/2,
+         %% This are for the test suite
+         start_monitor/3,
+
+         %% This are for starting in a shell when run "manually"
+         start/2,
+
          stop/1
+        ]).
+
+%% Internal exports
+-export([
+         do_start/3
         ]).
 
 -include_lib("kernel/include/inet.hrl").
 -include("socket_test_ttest.hrl").
 
--define(ACC_TIMEOUT,  10000).
--define(RECV_TIMEOUT, 10000).
+-define(ACC_TIMEOUT,  5000).
+-define(RECV_TIMEOUT, 5000).
 
 -define(LIB,            socket_test_ttest_lib).
 -define(I(F),           ?LIB:info(F)).
@@ -56,28 +66,51 @@
 
 %% ==========================================================================
 
-start_monitor(Transport, Active) 
-  when (is_atom(Transport) orelse is_tuple(Transport)) andalso
-       (is_boolean(Active) orelse (Active =:= once)) ->
-    Self        = self(),
-    ServerInit  = fun() -> put(sname, "server"),
-                           server_init(Self, Transport, Active)
-                  end,
-    {Pid, MRef} = spawn_monitor(ServerInit),
-    receive
-        {'DOWN', MRef, process, Pid, normal} ->
-            ok;
-        {'DOWN', MRef, process, Pid, Reason} ->
-	    {error, {exit, Reason}};
-
-        {?MODULE, Pid, {ok, Port}} ->
-	    erlang:demonitor(MRef, [flush]),
-            {ok, {Pid, MRef, Port}};
-        {?MODULE, Pid, {error, _} = ERROR} ->
-	    erlang:demonitor(MRef, [flush]),
+start_monitor(Node, Transport, Active) when (Node =/= node()) ->
+    case rpc:call(Node, ?MODULE, do_start, [self(), Transport, Active]) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, AddrPort}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {{Pid, MRef}, AddrPort}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+start_monitor(_, Transport, Active) ->
+    case do_start(self(), Transport, Active) of
+        {ok, {Pid, AddrPort}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {{Pid, MRef}, AddrPort}};
+        {error, _} = ERROR ->
             ERROR
     end.
+            
 
+
+start(Transport, Active) ->
+    do_start(self(), Transport, Active).
+
+
+do_start(Parent, Transport, Active)
+  when is_pid(Parent) andalso
+       (is_atom(Transport) orelse is_tuple(Transport)) andalso
+       (is_boolean(Active) orelse (Active =:= once)) ->
+    Starter    = self(),
+    ServerInit = fun() -> put(sname, "server"),
+                          server_init(Starter, Parent, Transport, Active)
+                 end,
+    {Pid, MRef} = spawn_monitor(ServerInit),
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            {error, Reason};
+        {?MODULE, Pid, {ok, AddrPort}} ->
+            erlang:demonitor(MRef),
+            {ok, {Pid, AddrPort}};
+        {?MODULE, Pid, {error, _} = ERROR} ->
+            erlang:demonitor(MRef, [flush]),
+            ERROR
+    end.
+    
 
 stop(Pid) when is_pid(Pid) ->
     req(Pid, stop).
@@ -85,22 +118,23 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-server_init(Parent, Transport, Active) ->
+server_init(Starter, Parent, Transport, Active) ->
     ?I("init -> entry with"
-       "~n   Parent: ~p"
+       "~n   Starter:   ~p"
+       "~n   Parent:    ~p"
        "~n   Transport: ~p"
-       "~n   Active:    ~p", [Parent, Transport, Active]),
+       "~n   Active:    ~p", [Starter, Parent, Transport, Active]),
     {Mod, Listen, StatsInterval} = process_transport(Transport, Active),
     case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
-                {ok, Port} = OK ->
+                {ok, Port} ->
 		    Addr = which_addr(), % This is just for convenience
                     ?I("init -> listening on:"
                        "~n   Addr: ~p (~s)"
                        "~n   Port: ~w"
                        "~n", [Addr, inet:ntoa(Addr), Port]),
-                    Parent ! {?MODULE, self(), OK},
+                    Starter ! {?MODULE, self(), {ok, {Addr, Port}}},
                     server_loop(#{parent         => Parent,
 				  mod            => Mod,
                                   active         => Active,

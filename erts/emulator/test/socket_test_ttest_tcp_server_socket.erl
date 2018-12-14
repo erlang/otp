@@ -31,7 +31,15 @@
 -define(MOD(M),        {?TRANSPORT_MOD, #{method => M}}).
 
 start_monitor(Method, Active) ->
-    socket_test_ttest_tcp_server:start_monitor(?MOD(Method), Active).
+    case socket_test_ttest_tcp_server:start_monitor(node(),
+                                                    ?MOD(Method),
+                                                    Active) of
+        {ok, {Pid, AddrPort}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef, AddrPort}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 stop(Pid) ->
     socket_test_ttest_tcp_server:stop(Pid).
