@@ -149,6 +149,7 @@
 -define(TT(T),   ct:timetrap(T)).
 
 -define(LIB,     socket_test_lib).
+-define(LOGGER,  socket_test_logger).
 
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
@@ -335,15 +336,19 @@ traffic_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
+    ?LOGGER:start(),
     Config.
 
 end_per_suite(_) ->
+    ?LOGGER:stop(),
     ok.
 
 init_per_testcase(_TC, Config) ->
+    ?LOGGER:start(),
     Config.
 
 end_per_testcase(_TC, Config) ->
+    ?LOGGER:stop(),
     Config.
 
 
@@ -1798,6 +1803,10 @@ api_to_connect_tcp(InitState) ->
                                                  [{tester, Tester}]) of
                                {ok, ok = _Result} ->
                                    {ok, maps:remove(connect_limit, State)};
+                               {ok, {error, {connect_limit_reached,R,L}}} ->
+                                   {skip,
+                                    ?LIB:f("Connect limit reached ~w: ~w",
+                                           [L, R])};
                                {ok, Result} ->
                                    Result;
                                {error, _} = ERROR ->
@@ -1911,7 +1920,7 @@ api_to_connect_tcp(InitState) ->
                          client := Client} = _State) ->
                            case ?SEV_AWAIT_READY(Client, client, connect,
                                                  [{server, Server}]) of
-                               {ok, _} ->
+                               ok ->
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
@@ -1968,25 +1977,25 @@ api_to_connect_tcp(InitState) ->
 
 api_toc_tcp_client_start(Node) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> api_toc_tcp_client(Self, GL) end,
+    Fun  = fun() -> api_toc_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
 
-api_toc_tcp_client(Parent, GL) ->
-    api_toc_tcp_client_init(Parent, GL),
+api_toc_tcp_client(Parent) ->
+    api_toc_tcp_client_init(Parent),
     ServerSA = api_toc_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     api_toc_tcp_client_announce_ready(Parent, init),
     {To, ConLimit} = api_toc_tcp_client_await_continue(Parent, connect),
     Result = api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit),
+    ?SEV_IPRINT("result: ~p", [Result]),
     api_toc_tcp_client_announce_ready(Parent, connect, Result),
     Reason = api_toc_tcp_client_await_terminate(Parent),
     exit(Reason).
 
-api_toc_tcp_client_init(Parent, GL) ->
+api_toc_tcp_client_init(Parent) ->
+    put(sname, "rclient"),
     %% i("api_toc_tcp_client_init -> entry"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ok.
 
 api_toc_tcp_client_await_start(Parent) ->
@@ -3670,6 +3679,7 @@ sc_lc_receive_response_tcp(InitState) ->
                    end},
          #{desc => "close the connection socket",
            cmd  => fun(#{csock := Sock} = State) ->
+                           %% ok = socket:setopt(Sock, otp, debug, true),
                            case socket:close(Sock) of
                                ok ->
                                    {ok, maps:remove(csock, State)};
@@ -3709,7 +3719,8 @@ sc_lc_receive_response_tcp(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
-    %% The point of this is to perform the recv for which we are testing the reponse
+    %% The point of this is to perform the recv for which
+    %% we are testing the reponse.
     HandlerSeq =
         [
          %% *** Wait for start order part ***
@@ -3757,7 +3768,8 @@ sc_lc_receive_response_tcp(InitState) ->
                                    ?SEV_EPRINT("Unexpected data received"),
                                    {error, unexpected_success};
                                {error, closed} ->
-                                   ?SEV_IPRINT("received expected 'closed' result"),
+                                   ?SEV_IPRINT("received expected 'closed' "
+                                               "result"),
                                    State1 = maps:remove(sock, State),
                                    {ok, State1};
                                {error, Reason} = ERROR ->
@@ -5805,13 +5817,12 @@ sc_rc_receive_response_tcp(InitState) ->
 
 sc_rc_tcp_client_start(Node) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> sc_rc_tcp_client(Self, GL) end,
+    Fun  = fun() -> sc_rc_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
 
 
-sc_rc_tcp_client(Parent, GL) ->
-    sc_rc_tcp_client_init(Parent, GL),
+sc_rc_tcp_client(Parent) ->
+    sc_rc_tcp_client_init(Parent),
     ServerSA = sc_rc_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = sc_rc_tcp_client_create(Domain),
@@ -5824,12 +5835,13 @@ sc_rc_tcp_client(Parent, GL) ->
     sc_rc_tcp_client_close(Sock),
     sc_rc_tcp_client_announce_ready(Parent, close),
     Reason = sc_rc_tcp_client_await_terminate(Parent),
+    ?SEV_IPRINT("terminate"),
     exit(Reason).
 
-sc_rc_tcp_client_init(Parent, GL) ->
-    i("sc_rc_tcp_client_init -> entry"),
+sc_rc_tcp_client_init(Parent) ->
+    put(sname, "rclient"),
+    ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ok.
 
 sc_rc_tcp_client_await_start(Parent) ->
@@ -6632,13 +6644,12 @@ sc_rs_send_shutdown_receive_tcp(InitState) ->
 
 sc_rs_tcp_client_start(Node, Send) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> sc_rs_tcp_client(Self, Send, GL) end,
+    Fun  = fun() -> sc_rs_tcp_client(Self, Send) end,
     erlang:spawn(Node, Fun).
 
 
-sc_rs_tcp_client(Parent, Send, GL) ->
-    sc_rs_tcp_client_init(Parent, GL),
+sc_rs_tcp_client(Parent, Send) ->
+    sc_rs_tcp_client_init(Parent),
     ServerSA = sc_rs_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = sc_rs_tcp_client_create(Domain),
@@ -6657,12 +6668,13 @@ sc_rs_tcp_client(Parent, Send, GL) ->
     sc_rs_tcp_client_close(Sock),
     sc_rs_tcp_client_announce_ready(Parent, close),
     Reason = sc_rs_tcp_client_await_terminate(Parent),
+    ?SEV_IPRINT("terminate"),
     exit(Reason).
 
-sc_rs_tcp_client_init(Parent, GL) ->
-    i("sc_rs_tcp_client_init -> entry"),
+sc_rs_tcp_client_init(Parent) ->
+    put(sname, "rclient"),
+    ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ok.
 
 sc_rs_tcp_client_await_start(Parent) ->
@@ -7781,12 +7793,11 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
 
 traffic_snr_tcp_client_start(Node) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> traffic_snr_tcp_client(Self, GL) end,
+    Fun  = fun() -> traffic_snr_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
 
-traffic_snr_tcp_client(Parent, GL) ->
-    {Sock, ServerSA} = traffic_snr_tcp_client_init(Parent, GL),
+traffic_snr_tcp_client(Parent) ->
+    {Sock, ServerSA} = traffic_snr_tcp_client_init(Parent),
     traffic_snr_tcp_client_announce_ready(Parent, init),
     traffic_snr_tcp_client_await_continue(Parent, connect),
     traffic_snr_tcp_client_connect(Sock, ServerSA),
@@ -7815,10 +7826,10 @@ traffic_snr_tcp_client_send_loop(Parent, Sock) ->
             exit({await_continue, Reason})
     end.
 
-traffic_snr_tcp_client_init(Parent, GL) ->
-    i("traffic_snr_tcp_client_init -> entry"),
+traffic_snr_tcp_client_init(Parent) ->
+    put(sname, "rclient"),
+    ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ServerSA = traffic_snr_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = traffic_snr_tcp_client_create(Domain),
@@ -8145,8 +8156,9 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config)
     Num = ?TPP_MEDIUM_NUM,
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
            fun() ->
+                   not_yet_implemented(),
                    ?TT(?SECS(45)),
-                   InitState = #{domain => inet,
+                   InitState = #{domain => inet6,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendto_and_recvfrom_udp(InitState)
@@ -8200,7 +8212,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) 
            fun() ->
                    not_yet_implemented(),
                    ?TT(?SECS(20)),
-                   InitState = #{domain => inet,
+                   InitState = #{domain => inet6,
                                  msg    => Msg,
                                  num    => Num},
                    ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
@@ -8470,6 +8482,9 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                      true ->
                           ok
                   end,
+
+
+
                   ok = socket:setopt(Sock, otp, rcvbuf, 8*1024)
           end,
     traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
@@ -9108,12 +9123,11 @@ tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
 
 tpp_tcp_client_create(Node) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> tpp_tcp_client(Self, GL) end,
+    Fun  = fun() -> tpp_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
 
-tpp_tcp_client(Parent, GL) ->
-    tpp_tcp_client_init(Parent, GL),
+tpp_tcp_client(Parent) ->
+    tpp_tcp_client_init(Parent),
     {ServerSA, BufInit, Send, Recv} = tpp_tcp_client_await_start(Parent),
     Domain   = maps:get(family, ServerSA),
     Sock     = tpp_tcp_client_sock_open(Domain, BufInit),
@@ -9130,11 +9144,10 @@ tpp_tcp_client(Parent, GL) ->
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
-tpp_tcp_client_init(Parent, GL) ->
+tpp_tcp_client_init(Parent) ->
     put(sname, "rclient"),
     ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ok.
 
 tpp_tcp_client_await_start(Parent) ->
@@ -9361,20 +9374,23 @@ traffic_ping_pong_sendmsg_and_recvmsg_udp(InitState) ->
 traffic_ping_pong_send_and_receive_udp(#{msg := Msg} = InitState) ->
     Fun = fun(Sock) -> 
                   {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
-                  if (RcvSz < size(Msg)) ->
+                  if (RcvSz =< (8+size(Msg))) ->
+                          i("adjust socket rcvbuf buffer size"),
                           ok = socket:setopt(Sock, socket, rcvbuf, 1024+size(Msg));
                      true ->
                           ok
                   end,
                   {ok, SndSz} = socket:getopt(Sock, socket, sndbuf),
-                  if (SndSz < size(Msg)) ->
+                  if (SndSz =< (8+size(Msg))) ->
+                          i("adjust socket sndbuf buffer size"),
                           ok = socket:setopt(Sock, socket, sndbuf, 1024+size(Msg));
                      true ->
                           ok
                   end,
                   {ok, OtpRcvBuf} = socket:getopt(Sock, otp, rcvbuf),
                   if
-                      (OtpRcvBuf < size(Msg)) ->
+                      (OtpRcvBuf =< (8+size(Msg))) ->
+                          i("adjust otp rcvbuf buffer size"),
                           ok = socket:setopt(Sock, otp, rcvbuf, 1024+size(Msg));
                       true ->
                           ok
@@ -9836,6 +9852,7 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
+
     i("start server evaluator"),
     ServerInitState = #{domain   => maps:get(domain,   InitState),
                         recv     => maps:get(recv,     InitState),
@@ -9883,7 +9900,8 @@ tpp_udp_server_handler_init(Parent) ->
     ok.
 
 tpp_udp_server_handler_msg_exchange(Sock, Send, Recv) ->
-    tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv, 0, 0, 0, undefined).
+    tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
+                                             0, 0, 0, undefined).
 
 tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv, 
                                          N, Sent, Received, Start) ->
@@ -9919,7 +9937,8 @@ tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
         %%             exit({'ping-send', Reason, N})
         %%     end;
         {error, closed} ->
-            ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
+            ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w",
+                        [N, Sent, Received]),
             Stop = ?LIB:timestamp(),
             {N, Sent, Received, Start, Stop};
         {error, RReason} ->
@@ -9932,36 +9951,45 @@ tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
 
 tpp_udp_client_handler_create(Node) ->
     Self = self(),
-    GL   = group_leader(),
-    Fun  = fun() -> tpp_udp_client_handler(Self, GL) end,
+    Fun  = fun() -> put(sname, "chandler"), tpp_udp_client_handler(Self) end,
     erlang:spawn(Node, Fun).
 
-tpp_udp_client_handler(Parent, GL) ->
-    tpp_udp_client_handler_init(Parent, GL),
+tpp_udp_client_handler(Parent) ->
+    tpp_udp_client_handler_init(Parent),
+    ?SEV_IPRINT("await start command"),
     {ServerSA, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    ?SEV_IPRINT("start command with"
+                "~n   ServerSA: ~p", [ServerSA]),
     Domain   = maps:get(family, ServerSA),
     Sock     = tpp_udp_sock_open(Domain, BufInit),
     tpp_udp_sock_bind(Sock, Domain),
+    ?SEV_IPRINT("announce ready", []),
     tpp_udp_handler_announce_ready(Parent, init),
     {InitMsg, Num} = tpp_udp_handler_await_continue(Parent, send),
+    ?SEV_IPRINT("received continue with"
+                "~n   Num: ~p", [Num]),
     Result = tpp_udp_client_handler_msg_exchange(Sock, ServerSA, 
                                                  Send, Recv, InitMsg, Num),
+    ?SEV_IPRINT("ready"),
     tpp_udp_handler_announce_ready(Parent, send, Result),
+    ?SEV_IPRINT("await terminate"),
     Reason = tpp_udp_handler_await_terminate(Parent),
+    ?SEV_IPRINT("terminate with ~p", [Reason]),
     tpp_udp_sock_close(Sock),
     ?SEV_IPRINT("terminating"),
     exit(Reason).
 
-tpp_udp_client_handler_init(Parent, GL) ->
+tpp_udp_client_handler_init(Parent) ->
     put(sname, "chandler"),
     ?SEV_IPRINT("init"),
     _MRef = erlang:monitor(process, Parent),
-    group_leader(self(), GL),
     ok.
 
-tpp_udp_client_handler_msg_exchange(Sock, ServerSA, Send, Recv, InitMsg, Num) ->
+tpp_udp_client_handler_msg_exchange(Sock, ServerSA,
+                                    Send, Recv, InitMsg, Num) ->
     Start = ?LIB:timestamp(),
-    tpp_udp_client_handler_msg_exchange_loop(Sock, ServerSA, Send, Recv, InitMsg, 
+    tpp_udp_client_handler_msg_exchange_loop(Sock, ServerSA,
+                                             Send, Recv, InitMsg,
                                              Num, 0, 0, 0, Start).
 
 tpp_udp_client_handler_msg_exchange_loop(_Sock, _Dest, _Send, _Recv, _Msg,
@@ -9969,16 +9997,14 @@ tpp_udp_client_handler_msg_exchange_loop(_Sock, _Dest, _Send, _Recv, _Msg,
                                          Start) ->
     Stop = ?LIB:timestamp(),
     {Sent, Received, Start, Stop};
-tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv, Data, 
+tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv, Data,
                                          Num, N, Sent, Received, Start) ->
-    %% d("tpp_udp_client_handler_msg_exchange_loop(~w,~w) try send", [Num,N]),
     case tpp_udp_send_req(Sock, Send, Data, Dest) of
         {ok, SendSz} ->
-            %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
-            %%   "now try recv", [Num,N]),
             case tpp_udp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz, Dest} ->
-                    tpp_udp_client_handler_msg_exchange_loop(Sock, Dest, Send, Recv,
+                    tpp_udp_client_handler_msg_exchange_loop(Sock, Dest,
+                                                             Send, Recv,
                                                              NewData, Num, N+1,
                                                              Sent+SendSz, 
                                                              Received+RecvSz, 
@@ -10008,54 +10034,16 @@ tpp_udp_recv(Sock, Recv, Tag) ->
             %%             "~n   Source:     ~p"
             %%             "~n   Tag:        ~p"
             %%             "~n   Sz:         ~p"
-            %%             "~n   size(Data): ~p", [Source, Tag, Sz, size(Data)]),
+            %%             "~n   size(Data): ~p",
+            %%             [Source, Tag, Sz, size(Data)]),
             {ok, Data, size(Msg), Source};
-        {ok, {Source, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg}} ->
-            %% ?SEV_IPRINT("tpp_udp_recv -> got part: "
-            %%             "~n   Source:     ~p"
-            %%             "~n   Tag:        ~p"
-            %%             "~n   Sz:         ~p"
-            %%             "~n   size(Data): ~p", [Source, Tag, Sz, size(Data)]),
-            Remains = Sz - size(Data),
-            tpp_tcp_recv(Sock, Source, Recv, Tag, Remains, size(Msg), [Data]);
+        {ok, {_Source, <<Tag:32/integer, Sz:32/integer, Data/binary>>}} ->
+            {error, {invalid_msg, Sz, size(Data)}};
         {ok, {_, <<Tag:32/integer, _/binary>>}} ->
             {error, {invalid_msg_tag, Tag}};
         {error, _} = ERROR ->
             ERROR
     end.
-
-%% We match against Source since we only communicate with one peer
-tpp_tcp_recv(Sock, Source, Recv, Tag, Remaining, AccSz, Acc) ->
-    %% ?SEV_IPRINT("tpp_tcp_recv -> entry with"
-    %%             "~n   Tag:       ~p"
-    %%             "~n   Remaining: ~p"
-    %%             "~n   AccSz:     ~p"
-    %%             "~n   RcvBuf:    ~p"
-    %%             "~n   SndBuf:    ~p", 
-    %%             [Tag, Remaining, AccSz, 
-    %%              socket:getopt(Sock, socket, rcvbuf),
-    %%              socket:getopt(Sock, socket, sndbuf)]),
-    case Recv(Sock, Remaining) of
-        {ok, {Source, Data}} when (Remaining =:= size(Data)) ->
-            %% ?SEV_IPRINT("tpp_udp_recv -> got rest: "
-            %%             "~n   Source:     ~p"
-            %%             "~n   size(Data): ~p", [Source, size(Data)]),
-            %% We got the rest
-            TotSz = AccSz + size(Data),
-            {ok, 
-             erlang:iolist_to_binary(lists:reverse([Data | Acc])), 
-             TotSz, Source};
-        {ok, {Source, Data}} when (Remaining > size(Data)) ->
-            %% ?SEV_IPRINT("tpp_udp_recv -> got part of rest: "
-            %%             "~n   Source:     ~p"
-            %%             "~n   size(Data): ~p", [Source, size(Data)]),
-            tpp_tcp_recv(Sock, Source, Recv, Tag, 
-                         Remaining - size(Data), AccSz + size(Data),     
-                         [Data | Acc]);
-        {error, _} = ERROR ->
-            ERROR
-    end.
-
 
 tpp_udp_send_req(Sock, Send, Data, Dest) ->
     tpp_udp_send(Sock, Send, ?TPP_REQUEST, Data, Dest).
@@ -10069,15 +10057,6 @@ tpp_udp_send(Sock, Send, Tag, Data, Dest) ->
     tpp_udp_send_msg(Sock, Send, Msg, Dest, 0).
 
 tpp_udp_send_msg(Sock, Send, Msg, Dest, AccSz) when is_binary(Msg) ->
-    %% d("tpp_udp_send_msg -> entry with"
-    %%   "~n   size(Msg): ~p"
-    %%   "~n   Dest:      ~p"
-    %%   "~n   AccSz:     ~p"
-    %%   "~n   RcvBuf:    ~p"
-    %%   "~n   SndBuf:    ~p", 
-    %%   [size(Msg), Dest, AccSz, 
-    %%    socket:getopt(Sock, socket, rcvbuf),
-    %%    socket:getopt(Sock, socket, sndbuf)]),
     case Send(Sock, Msg, Dest) of
         ok ->
             {ok, AccSz+size(Msg)};
@@ -10161,6 +10140,14 @@ start_node(Host, NodeName) ->
     UniqueNodeName = f("~w_~w", [NodeName, erlang:system_time(millisecond)]),
     case do_start_node(Host, UniqueNodeName) of
         {ok, _} = OK ->
+            global:sync(),
+            %% i("Node ~p started: "
+            %%    "~n   Nodes:        ~p"
+            %%    "~n   Logger:       ~p"
+            %%    "~n   Global Names: ~p",
+            %%    [NodeName, nodes(),
+            %%     global:whereis_name(socket_test_logger),
+            %%     global:registered_names()]),
             OK;
         {error, Reason, _} ->
             {error, Reason}

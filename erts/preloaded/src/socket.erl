@@ -1331,7 +1331,7 @@ do_accept(LSockRef, Timeout) ->
                 {select, LSockRef, AccRef, ready_input} ->
                     do_accept(LSockRef, next_timeout(TS, Timeout));
 
-                {nif_abort, AccRef, Reason} ->
+                {'$socket', _, abort, {AccRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1408,7 +1408,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {nif_abort, SendRef, Reason} ->
+                {'$socket', _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1421,7 +1421,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {nif_abort, SendRef, Reason} ->
+                {'$socket', _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1513,7 +1513,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
                     do_sendto(SockRef, Data, Dest, EFlags,
                               next_timeout(TS, Timeout));
 
-                {nif_abort, SendRef, Reason} ->
+                {'$socket', _, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1525,7 +1525,11 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
             receive
                 {select, SockRef, SendRef, ready_output} ->
                     do_sendto(SockRef, Data, Dest, EFlags, 
-                              next_timeout(TS, Timeout))
+                              next_timeout(TS, Timeout));
+
+                {'$socket', _, abort, {SendRef, Reason}} ->
+                    {error, Reason}
+
             after Timeout ->
                     cancel(SockRef, sendto, SendRef),
                     {error, timeout}
@@ -1773,9 +1777,8 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             Bin,
                             next_timeout(TS, Timeout));
 
-                {nif_abort, RecvRef, Reason} ->
+                {'$socket', _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
-
 
             after NewTimeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1794,9 +1797,8 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             <<Acc/binary, Bin/binary>>,
                             next_timeout(TS, Timeout));
 
-                {nif_abort, RecvRef, Reason} ->
+                {'$socket', _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
-
 
             after NewTimeout ->
                     cancel(SockRef, recv, RecvRef),
@@ -1805,6 +1807,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
 
         %% We return with the accumulated binary (if its non-empty)
         {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
+            %% CAN WE REALLY DO THIS? THE NIF HAS SELECTED!! OR?
             {ok, Acc};
 
         {error, eagain} ->
@@ -1819,7 +1822,7 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                             Acc,
                             next_timeout(TS, Timeout));
 
-                {nif_abort, RecvRef, Reason} ->
+                {'$socket', _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1850,7 +1853,8 @@ do_recv(SockRef, RecvRef, 0 = _Length, _Eflags, Acc, _Timeout) ->
     %% any waiting reader.
     cancel(SockRef, recv, RecvRef),
     {ok, Acc};
-do_recv(_SockRef, _RecvRef, _Length, _EFlags, Acc, _Timeout) when (size(Acc) > 0) ->
+do_recv(_SockRef, _RecvRef, _Length, _EFlags, Acc, _Timeout)
+  when (size(Acc) > 0) ->
     {error, {timeout, Acc}};
 do_recv(_SockRef, _RecvRef, _Length, _EFlags, _Acc, _Timeout) ->
     {error, timeout}.
@@ -1957,8 +1961,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
                     do_recvfrom(SockRef, BufSz, EFlags,
                                 next_timeout(TS, Timeout));
 
-                {nif_abort, RecvRef, Reason} ->
-                    %% p("received nif-abort: ~p", [Reason]),
+                {'$socket', _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2062,7 +2065,7 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
                     do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
                                next_timeout(TS, Timeout));
 
-                {nif_abort, RecvRef, Reason} ->
+                {'$socket', _, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2107,7 +2110,8 @@ do_close(SockRef) ->
         {ok, CloseRef} ->
             %% We must wait
             receive
-		{close, CloseRef} ->
+                {'$socket', _, close, CloseRef} ->
+%%		{close, CloseRef} ->
                     %% <KOLLA>
                     %%
                     %% WHAT HAPPENS IF THIS PROCESS IS KILLED

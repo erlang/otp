@@ -27,11 +27,13 @@
          formated_timestamp/0,
          format_timestamp/1,
 
+         %% String and format
+         f/2,
+
          %% Skipping
          not_yet_implemented/0,
          skip/1
         ]).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,6 +62,12 @@ format_timestamp({_N1, _N2, _N3} = TS) ->
     lists:flatten(FormatTS).
 
    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 not_yet_implemented() ->

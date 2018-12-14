@@ -76,6 +76,7 @@
 %% ============================================================================
 
 -define(LIB,                    socket_test_lib).
+-define(LOGGER,                 socket_test_logger).
 
 -define(EXTRA_NOTHING,          '$nothing').
 -define(ANNOUNCEMENT_START,     '$start').
@@ -122,6 +123,8 @@ loop(ID, [#{desc := Desc,
             loop(ID + 1, Cmds, State);
         {ok, NewState} ->
             loop(ID + 1, Cmds, NewState);
+        {skip, Reason} ->
+            exit({skip, Reason});
         {error, Reason} ->
             eprint("command ~w failed: "
                    "~n   Reason: ~p", [ID, Reason]),
@@ -160,6 +163,8 @@ await_finish(Evs, Fails) ->
                     iprint("unknown process ~p died (normal)", [Pid]),
                     await_finish(Evs, Fails)
                 end;
+        {'DOWN', _MRef, process, Pid, {skip, Reason}} ->
+            ?LIB:skip(Reason);
         {'DOWN', _MRef, process, Pid, Reason} ->
             case lists:keysearch(Pid, #ev.pid, Evs) of
                 {value, #ev{name = Name}} ->
@@ -486,6 +491,5 @@ print(Prefix, F, A) ->
             SName ->
                 f("[~s][~p]", [SName, self()])
         end,
-    FStr = f("[~s]~s ~s" ++ F, [?LIB:formated_timestamp(), IDStr, Prefix | A]),
-    io:format(user, FStr ++ "~n", []),
-    io:format(FStr, []).
+    ?LOGGER:format("[~s]~s ~s" ++ F,
+                   [?LIB:formated_timestamp(), IDStr, Prefix | A]).
