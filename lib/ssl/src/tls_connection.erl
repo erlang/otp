@@ -885,7 +885,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
     #ssl_options{beast_mitigation = BeastMitigation,
                  erl_dist = IsErlDist} = SSLOptions,
     ConnectionStates = tls_record:init_connection_states(Role, BeastMitigation),
-    ErlDistData = erl_dist_data(IsErlDist),
     SessionCacheCb = case application:get_env(ssl, session_cb) of
 			 {ok, Cb} when is_atom(Cb) ->
 			    Cb;
@@ -917,7 +916,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        socket_options = SocketOptions,
        ssl_options = SSLOptions,
        session = #session{is_resumable = new},
-       erl_dist_data = ErlDistData,
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_application = {UserMonitor, User},
@@ -931,12 +929,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                              active_n_toggle => true
                             }
       }.
-
-erl_dist_data(true) ->
-    #{dist_handle => undefined,
-      dist_buffer => <<>>};
-erl_dist_data(false) ->
-    #{}.
 
 initialize_tls_sender(#state{static_env = #static_env{
                                              role = Role,
