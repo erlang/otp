@@ -343,8 +343,28 @@ BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
 	size = sys_strlen(c);
 	res = new_binary(BIF_P, (byte *)c, size);
     } else {
+        Eterm* xp = big_val(BIF_ARG_1);
 	byte* bytes;
 	Uint n = 0;
+
+        if (BIG_SIZE(xp) > 4) {
+            /* This could take a very long time, reschedule us to a dirty cpu
+             * scheduler if we aren't already on one. */
+            ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+            if (esdp->type == ERTS_SCHED_NORMAL) {
+                Eterm args[1];
+                args[0] = BIF_ARG_1;
+                return erts_schedule_bif(BIF_P,
+                                         args,
+                                         BIF_I,
+                                         integer_to_binary_1,
+                                         ERTS_SCHED_DIRTY_CPU,
+                                         am_erlang,
+                                         am_integer_to_binary,
+                                         1);
+            }
+        }
 
 	/* Here we also have multiple copies of buffers
 	 * due to new_binary interface
@@ -389,8 +409,29 @@ BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
 
         res = new_binary(BIF_P, (byte *)c, size);
     } else {
+        Eterm* xp = big_val(BIF_ARG_1);
         byte* bytes;
         Uint n;
+
+        if (BIG_SIZE(xp) > 4) {
+            /* This could take a very long time, reschedule us to a dirty cpu
+             * scheduler if we aren't already on one. */
+            ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+            if (esdp->type == ERTS_SCHED_NORMAL) {
+                Eterm args[2];
+                args[0] = BIF_ARG_1;
+                args[1] = BIF_ARG_2;
+                return erts_schedule_bif(BIF_P,
+                                         args,
+                                         BIF_I,
+                                         integer_to_binary_2,
+                                         ERTS_SCHED_DIRTY_CPU,
+                                         am_erlang,
+                                         am_integer_to_binary,
+                                         2);
+            }
+        }
 
         size = big_integer_estimate(BIF_ARG_1, base) - 1; /* remove null */
 
