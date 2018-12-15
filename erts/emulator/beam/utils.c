@@ -3709,16 +3709,17 @@ char* Sint_to_buf(Sint n, struct Sint_buf *buf)
 
 /*
 ** Convert an integer to a byte list in given base
-** return pointer to converted stuff (need not to be at start of buf!)
+** return size of converted stuff
 */
-char* Sint_to_buf_by_base(Sint n, char *s, Uint base)
+int Sint_to_buf_by_base(Sint n, char **buf, size_t buf_size, Uint base)
 {
-    char *p = &s[s[0] - 1];
+	char *p = &(*buf)[buf_size - 1];
     int sign = 0;
+	int size = 0;
 
-    *p-- = '\0'; /* null terminate */
     if (n == 0) {
         *p-- = '0';
+		size++;
     } else if (n < 0) {
         sign = 1;
         n = -n;
@@ -3733,14 +3734,19 @@ char* Sint_to_buf_by_base(Sint n, char *s, Uint base)
             *p-- = 'A' + (digit - 10);
         }
 
+		size++;
+
         n /= base;
     }
 
     if (sign) {
         *p-- = '-';
+		size++;
     }
 
-    return p + 1;
+	*buf = p + 1;
+
+    return size;
 }
 
 /* Build a list of integers in some safe memory area

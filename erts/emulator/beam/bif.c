@@ -2883,18 +2883,11 @@ BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
     }
 
     if (is_small(BIF_ARG_1)) {
-        #if defined(ARCH_64)
-            char s[65];
-        #else
-            char s[33];
-        #endif
+        char s[128];
 
-        char *c;
+        char *c = s;
 
-        s[0] = sizeof(s);
-
-        c = Sint_to_buf_by_base(signed_val(BIF_ARG_1), s, base);
-        n = sys_strlen(c);
+        n = Sint_to_buf_by_base(signed_val(BIF_ARG_1), &c, sizeof(s), base);
 
         need = 2 * n;
 

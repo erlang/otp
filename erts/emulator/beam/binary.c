@@ -394,18 +394,11 @@ BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
     }
 
     if (is_small(BIF_ARG_1)) {
-        #if defined(ARCH_64)
-            char s[65];
-        #else
-            char s[33];
-        #endif
+        char s[128];
 
-        char *c;
-
-        s[0] = sizeof(s);
-
-        c = Sint_to_buf_by_base(signed_val(BIF_ARG_1), s, base);
-        size = sys_strlen(c);
+        char *c = s;
+		
+		size = Sint_to_buf_by_base(signed_val(BIF_ARG_1), &c, sizeof(s), base);
 
         res = new_binary(BIF_P, (byte *)c, size);
     } else {
