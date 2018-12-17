@@ -838,42 +838,30 @@ controlling_process(Config) when is_list(Config) ->
     ClientMsg = "Server hello",
     ServerMsg = "Client hello",
    
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
-			   {mfa, {?MODULE, 
-				  controlling_process_result, [self(),
-							       ServerMsg]}},
-			   {options, ServerOpts}]),
+    Server = ssl_test_lib:start_server([
+                                        {node, ServerNode}, {port, 0}, 
+                                        {from, self()}, 
+                                        {mfa, {?MODULE, 
+                                               controlling_process_result, [self(),
+                                                                            ServerMsg]}},
+                                        {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
-					{host, Hostname},
-		   {from, self()}, 
+    {Client, CSocket} = ssl_test_lib:start_client([return_socket,
+                                                   {node, ClientNode}, {port, Port}, 
+                                                   {host, Hostname},
+                                        {from, self()}, 
 			   {mfa, {?MODULE, 
 				  controlling_process_result, [self(),
 							       ClientMsg]}},
 			   {options, ClientOpts}]),
-   
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
     
-    receive 
-	{ssl, _, "S"} ->
-	    receive_s_rizzo_duong_beast();
-	{ssl, _, ServerMsg} ->
-	    receive 
-		{ssl, _, ClientMsg} ->
-		    ok
-	    end;
-	{ssl, _, "C"} ->
-	    receive_c_rizzo_duong_beast();
-	{ssl, _, ClientMsg} ->
-	      receive 
-		  {ssl, _, ServerMsg} ->
-		      ok
-	      end;
-	Unexpected ->
-	    ct:fail(Unexpected)
-    end,
+    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
+           [self(), Client, Server]),
+    
+    ServerMsg = ssl_test_lib:active_recv(CSocket, length(ServerMsg)),
+    %% We do not have the TLS server socket but all messages form the client
+    %% socket are now read, so ramining are form the server socket
+    ClientMsg = ssl_active_recv(length(ClientMsg)),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -4137,6 +4125,8 @@ rizzo(Config) when is_list(Config) ->
                                          {cipher, 
                                           fun(rc4_128) -> 
                                                   false;
+                                             (chacha20_poly1305) ->
+                                                  false;
                                              (_) -> 
                                                   true 
                                           end}]),
@@ -4640,19 +4630,24 @@ recv_close(Socket) ->
 
 send_recv_result_active_rizzo(Socket) ->
     ssl:send(Socket, "Hello world"),
-    receive 
-	{ssl, Socket, "H"} ->
-	    receive 
-		{ssl, Socket, "ello world"} ->
-		    ok
-	    end
-    end.
+    "Hello world" = ssl_test_lib:active_recv(Socket, 11),
+    ok.
 
 send_recv_result_active_no_rizzo(Socket) ->
     ssl:send(Socket, "Hello world"),
+    "Hello world" = ssl_test_lib:active_recv(Socket, 11),
+    ok.
+
+
+ssl_active_recv(N) ->
+    ssl_active_recv(N, []).
+
+ssl_active_recv(0, Acc) ->
+    Acc;
+ssl_active_recv(N, Acc) ->
     receive 
-	{ssl, Socket, "Hello world"} ->
-	    ok
+	{ssl, _, Bytes} ->
+            ssl_active_recv(N-length(Bytes),  Acc ++ Bytes)
     end.
 
 result_ok(_Socket) ->
@@ -4676,16 +4671,7 @@ renegotiate_reuse_session(Socket, Data) ->
     renegotiate(Socket, Data).
 
 renegotiate_immediately(Socket) ->
-    receive
-	{ssl, Socket, "Hello world"} ->
-	    ok;
-	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-	{ssl, Socket, "H"} ->
-	    receive
-		{ssl, Socket, "ello world"} ->
-		    ok
-	    end
-    end,
+    _ = ssl_test_lib:active_recv(Socket, 11),
     ok = ssl:renegotiate(Socket),  
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
@@ -4695,17 +4681,7 @@ renegotiate_immediately(Socket) ->
     ok.
 
 renegotiate_rejected(Socket) ->
-    receive
-	{ssl, Socket, "Hello world"} ->
-	    ok;
-	%% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-	{ssl, Socket, "H"} ->
-
-	    receive
-		{ssl, Socket, "ello world"} ->
-		    ok
-	    end
-    end,
+    _ = ssl_test_lib:active_recv(Socket, 11),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
@@ -4880,17 +4856,11 @@ session_loop(Sess) ->
 	    
 
 erlang_ssl_receive(Socket, Data) ->
-    receive
-	{ssl, Socket, Data} ->
-	    io:format("Received ~p~n",[Data]),
-	    ok;
-	{ssl, Socket, Byte} when length(Byte) == 1 ->  %% Handle 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-	    io:format("Received ~p~n",[Byte]),
-	    erlang_ssl_receive(Socket, tl(Data));
-	Other ->
-	    ct:fail({unexpected_message, Other})
-    after timer:seconds(?SEC_RENEGOTIATION_TIMEOUT) * test_server:timetrap_scale_factor() ->
-	    ct:fail({did_not_get, Data})
+    case ssl_test_lib:active_recv(Socket, length(Data)) of
+        Data ->
+            ok;
+        Other ->
+            ct:fail({{expected, Data}, {got, Other}})
     end.
 
 receive_msg(_) ->
@@ -4907,28 +4877,6 @@ controlling_process_result(Socket, Pid, Msg) ->
     ssl:send(Socket, Msg),
     no_result_msg.
 
-receive_s_rizzo_duong_beast() ->
-    receive
-	{ssl, _, "erver hello"} ->
-	    receive
-		{ssl, _, "C"} ->
-		    receive
-			{ssl, _, "lient hello"} ->
-			    ok
-		    end
-	    end
-    end.
-receive_c_rizzo_duong_beast() ->
-    receive
-	{ssl, _, "lient hello"} ->
-	    receive
-		{ssl, _, "S"} ->
-		    receive
-			{ssl, _, "erver hello"} ->
-			    ok
-		    end
-	    end
-    end.
 
 controller_dies_result(_Socket, _Pid, _Msg) ->
     receive Result -> Result end.
