@@ -1728,12 +1728,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
  */
 int big_decimal_estimate(Wterm x)
 {
-    Eterm* xp = big_val(x);
-    int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
-    int lg10 = ((lg+1)*28/93)+1;
-
-    if (BIG_SIGN(xp)) lg10++;	/* add sign */
-    return lg10+1;		/* add null */
+    return big_integer_estimate(x, 10);
 }
 
 /*
@@ -1743,67 +1738,10 @@ int big_integer_estimate(Wterm x, Uint base)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
-    int lgBase = ((lg + 1) * lookup_log2(base)) + 1;
+    int lgBase = ((lg + 1) / lookup_log2(base)) + 1;
 
     if (BIG_SIGN(xp)) lgBase++;	/* add sign */
     return lgBase + 1;		/* add null */
-}
-
-/*
-** Convert a bignum into a string of decimal numbers
-*/
-
-static Uint write_big(Wterm x, void (*write_func)(void *, char), void *arg)
-{
-    Eterm* xp = big_val(x);
-    ErtsDigit* dx = BIG_V(xp);
-    dsize_t xl = BIG_SIZE(xp);
-    short sign = BIG_SIGN(xp);
-    ErtsDigit rem;
-    Uint n = 0;
-    const Uint digits_per_Sint = get_digits_per_signed_int(10);
-    const Sint largest_pow_of_base = get_largest_power_of_base(10);
-
-    if (xl == 1 && *dx < largest_pow_of_base) {
-	rem = *dx;
-	if (rem == 0) {
-	    (*write_func)(arg, '0'); n++;
-	} else {
-	    while(rem) {
-		(*write_func)(arg, (rem % 10) + '0'); n++;
-		rem /= 10;
-	    }
-	}
-    } else {
-	ErtsDigit* tmp  = (ErtsDigit*) erts_alloc(ERTS_ALC_T_TMP,
-					      sizeof(ErtsDigit)*xl);
-	dsize_t tmpl = xl;
-
-	MOVE_DIGITS(tmp, dx, xl);
-
-	while(1) {
-            tmpl = D_div(tmp, tmpl, largest_pow_of_base, tmp, &rem);
-	    if (tmpl == 1 && *tmp == 0) {
-		while(rem) {
-		    (*write_func)(arg, (rem % 10)+'0'); n++;
-		    rem /= 10;
-		}
-		break;
-	    } else {
-                Uint i = digits_per_Sint;
-		while(i--) {
-		    (*write_func)(arg, (rem % 10)+'0'); n++;
-		    rem /= 10;
-		}
-	    }
-	}
-	erts_free(ERTS_ALC_T_TMP, (void *) tmp);
-    }
-
-    if (sign) {
-	(*write_func)(arg, '-'); n++;
-    }
-    return n;
 }
 
 /*
@@ -1887,6 +1825,14 @@ static Uint write_big_by_base(Wterm x, void (*write_func)(void *, char),
     return n;
 }
 
+/*
+** Convert a bignum into a string of decimal numbers
+*/
+static Uint write_big(Wterm x, void (*write_func)(void *, char), void *arg)
+{
+    return write_big_by_base(x, write_func, arg, 10);
+}
+
 struct big_list__ {
     Eterm *hp;
     Eterm res;
@@ -1902,12 +1848,7 @@ write_list(void *arg, char c)
 
 Eterm erts_big_to_list(Eterm x, Eterm **hpp)
 {
-    struct big_list__ bl;
-    bl.hp = *hpp;
-    bl.res = NIL;
-    write_big(x, write_list, (void *) &bl);
-    *hpp = bl.hp;
-    return bl.res;
+    return erts_big_to_list_by_base(x, hpp, 10);
 }
 
 Eterm erts_big_to_list_by_base(Eterm x, Eterm **hpp, Uint base)
@@ -1941,11 +1882,7 @@ char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz)
 
 Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz)
 {
-    char *big_str = buf + buf_sz;
-    Uint n;
-    n = write_big(x, write_string, (void *) &big_str);
-    ASSERT(buf <= big_str && big_str <= buf + buf_sz);
-    return n;
+    return erts_big_to_binary_bytes_by_base(x, buf, buf_sz, 10);
 }
 
 Uint erts_big_to_binary_bytes_by_base(Eterm x, char *buf, Uint buf_sz, Uint base)
