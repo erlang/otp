@@ -238,6 +238,7 @@ HANDLE_APPLY_FUN_ERROR() {
 }
 
 DISPATCH_FUN(I) {
+    //| -no_next
     SET_I($I);
     Dispatchfun();
 }
@@ -299,6 +300,7 @@ i_call_fun_last(Fun, Deallocate) {
 }
 
 return() {
+    //| -no_next
     SET_I(c_p->cp);
     DTRACE_RETURN_FROM_PC(c_p);
 
@@ -951,6 +953,7 @@ build_stacktrace() {
 }
 
 raw_raise() {
+    //| -no_prefetch
     Eterm class = x(0);
     Eterm value = x(1);
     Eterm stacktrace = x(2);
