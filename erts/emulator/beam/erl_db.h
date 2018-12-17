@@ -111,7 +111,7 @@ typedef enum {
 } ErtsDbSpinCount;
 
 void init_db(ErtsDbSpinCount);
-int erts_db_process_exiting(Process *, ErtsProcLocks);
+int erts_db_process_exiting(Process *, ErtsProcLocks, void **);
 int erts_db_execute_free_fixation(Process*, DbFixation*);
 void db_info(fmtfn_t, void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, void *), void *);

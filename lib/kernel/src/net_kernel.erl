@@ -1126,14 +1126,22 @@ do_disconnect(Node, State) ->
 	    {false, State}
     end.
 
-
 disconnect_pid(Pid, State) ->
     exit(Pid, disconnect),
+
+    %% This code used to only use exit + recv 'EXIT' to sync,
+    %% but since OTP-22 links are no longer broken atomically
+    %% so the exit message below can arrive before any remaining
+    %% exit messages have killed the distribution port
+    Ref = erlang:monitor(process, Pid),
     %% Sync wait for connection to die!!!
     receive
-	{'EXIT',Pid,Reason} ->
-	    {_,State1} = handle_exit(Pid, Reason, State),
-	    {true, State1}
+        {'DOWN',Ref,_,_,_} ->
+            receive
+                {'EXIT',Pid,Reason} ->
+                    {_,State1} = handle_exit(Pid, Reason, State),
+                    {true, State1}
+            end
     end.
 
 %%

@@ -275,6 +275,7 @@ type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
 type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
+type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 

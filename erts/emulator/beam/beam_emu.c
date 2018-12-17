@@ -885,19 +885,22 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #include "beam_warm.h"
 
  OpCase(normal_exit): {
-     SWAPOUT;
+     HEAVY_SWAPOUT;
      c_p->freason = EXC_NORMAL;
      c_p->arity = 0; /* In case this process will ever be garbed again. */
      ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_do_exit_process(c_p, am_normal);
      ERTS_REQ_PROC_MAIN_LOCK(c_p);
+     HEAVY_SWAPIN;
      goto do_schedule;
  }
 
  OpCase(continue_exit): {
+     HEAVY_SWAPOUT;
      ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_continue_exit_process(c_p);
      ERTS_REQ_PROC_MAIN_LOCK(c_p);
+     HEAVY_SWAPIN;
      goto do_schedule;
  }
 

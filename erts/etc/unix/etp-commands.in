@@ -2096,7 +2096,7 @@ define etp-process-info-int
     end
   end
   printf "  Current function: "
-  if ($etp_proc->current)
+  if ($etp_proc->current && !($etp_proc->state.counter & 0x800))
     etp-1 $etp_proc->current->module
     printf ":"
     etp-1 $etp_proc->current->function
@@ -2167,7 +2167,7 @@ define etp-processes-int
     set $invalid_proc = &erts_invalid_process
     set $proc_decentile = $proc_max_ix / 10
     set $proc_printile = $proc_decentile
-    while $proc_ix < $proc_max_ix && $proc_cnt > 0
+    while $proc_ix < $proc_max_ix && $proc_cnt >= 0
       set $proc = (Process *) *((UWord *) ($proc_tab + $proc_ix))
       if ($proc != ((Process *) 0) && $proc != $invalid_proc)
         printf "---\n"
