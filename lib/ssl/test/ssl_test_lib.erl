@@ -1461,19 +1461,10 @@ cipher_result(Socket, Result) ->
     %% Importante to send two packets here
     %% to properly test "cipher state" handling
     ssl:send(Socket, "Hello\n"),
-    receive 
-	{ssl, Socket, "H"} ->
-	    ssl:send(Socket, " world\n"),
-	    receive_rizzo_duong_beast();
-	{ssl, Socket, "Hello\n"} ->
-	    ssl:send(Socket, " world\n"),
-	    receive
-		{ssl, Socket, " world\n"} ->
-		    ok
-	    end;       
-	Other ->
-	    {unexpected, Other}
-    end.
+    "Hello\n" = active_recv(Socket, length( "Hello\n")),
+    ssl:send(Socket, " world\n"),
+    " world\n" = active_recv(Socket, length(" world\n")),
+    ok.
 
 session_info_result(Socket) ->
     {ok, Info} = ssl:connection_information(Socket,  [session_id, cipher_suite]),
@@ -1620,6 +1611,17 @@ send_recv_result_active_once(Socket) ->
 	    end;
 	{ssl, Socket, "Hello world"} ->
 	    ok
+    end.
+
+active_recv(Socket, N) ->
+    active_recv(Socket, N, []).
+
+active_recv(_Socket, 0, Acc) ->
+    Acc;
+active_recv(Socket, N, Acc) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            active_recv(Socket, N-length(Bytes),  Acc ++ Bytes)
     end.
 
 is_sane_ecc(openssl) ->
