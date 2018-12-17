@@ -67,9 +67,9 @@ cases(gen_server) ->
       [simple, simple_timer, simple_mon, simple_timer_mon,
        generic, generic_timer];
 cases(gen_statem) ->
-    [generic, generic_fsm, generic_fsm_transit,
-     generic_statem, generic_statem_transit,
-     generic_statem_complex].
+    [generic, generic_log, generic_log100, generic_fsm, generic_fsm_transit,
+     generic_statem, generic_statem_log, generic_statem_log100,
+     generic_statem_transit, generic_statem_complex].
 
 init_per_group(gen_server, Config) ->
     compile_servers(Config),
@@ -294,11 +294,23 @@ simple_timer_mon(Config) when is_list(Config) ->
 generic(Config) when is_list(Config) ->
     comment(do_tests(generic, single_small, Config)).
 
+generic_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_log, single_small, Config)).
+
+generic_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_log100, single_small, Config)).
+
 generic_timer(Config) when is_list(Config) ->
     comment(do_tests(generic_timer, single_small, Config)).
 
 generic_statem(Config) when is_list(Config) ->
     comment(do_tests(generic_statem, single_small, Config)).
+
+generic_statem_log(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log, single_small, Config)).
+
+generic_statem_log100(Config) when is_list(Config) ->
+    comment(do_tests(generic_statem_log100, single_small, Config)).
 
 generic_statem_transit(Config) when is_list(Config) ->
     comment(do_tests(generic_statem_transit, single_small, Config)).
@@ -371,9 +383,9 @@ norm(T, Ref) ->
 
 do_tests(Test, ParamSet, Config) ->
     BenchmarkSuite = ?config(benchmark_suite, Config),
-    {Client, ServerMod} = bench(Test),
+    {Client, ServerMod, ServerArg} = bench(Test),
     {Parallelism, Message} = bench_params(ParamSet),
-    Fun = create_clients(Message, ServerMod, Client, Parallelism),
+    Fun = create_clients(Message, ServerMod, ServerArg, Client, Parallelism),
     {TotalLoops, AllPidTime} = run_test(Fun),
     try ?CALLS_PER_LOOP * round((1000 * TotalLoops) / AllPidTime) of
         PerSecond ->
@@ -488,27 +500,35 @@ generic_fsm_transit_client(N, M, P) ->
     generic_fsm_transit_client(N+1, M, P).
 
 bench(simple) ->
-    {fun simple_client/3, simple_server};
+    {fun simple_client/3, simple_server, term};
 bench(simple_timer) ->
-    {fun simple_client_timer/3, simple_server_timer};
+    {fun simple_client_timer/3, simple_server_timer, term};
 bench(simple_mon) ->
-    {fun simple_client_mon/3, simple_server_mon};
+    {fun simple_client_mon/3, simple_server_mon, term};
 bench(simple_timer_mon) ->
-    {fun simple_client_timer_mon/3, simple_server_timer_mon};
+    {fun simple_client_timer_mon/3, simple_server_timer_mon, term};
 bench(generic) ->
-    {fun generic_client/3, generic_server};
+    {fun generic_client/3, generic_server, [term]};
+bench(generic_log) ->
+    {fun generic_client/3, generic_server, [term,{debug,[log]}]};
+bench(generic_log100) ->
+    {fun generic_client/3, generic_server, [term,{debug,[{log,100}]}]};
 bench(generic_timer) ->
-    {fun generic_timer_client/3, generic_server_timer};
+    {fun generic_timer_client/3, generic_server_timer, term};
 bench(generic_statem) ->
-    {fun generic_statem_client/3, generic_statem};
+    {fun generic_statem_client/3, generic_statem, [term]};
+bench(generic_statem_log) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[log]}]};
+bench(generic_statem_log100) ->
+    {fun generic_statem_client/3, generic_statem, [term,{debug,[{log,100}]}]};
 bench(generic_statem_transit) ->
-    {fun generic_statem_transit_client/3, generic_statem};
+    {fun generic_statem_transit_client/3, generic_statem, [term]};
 bench(generic_statem_complex) ->
-    {fun generic_statem_complex_client/3, generic_statem_complex};
+    {fun generic_statem_complex_client/3, generic_statem_complex, term};
 bench(generic_fsm) ->
-    {fun generic_fsm_client/3, generic_fsm};
+    {fun generic_fsm_client/3, generic_fsm, term};
 bench(generic_fsm_transit) ->
-    {fun generic_fsm_transit_client/3, generic_fsm}.
+    {fun generic_fsm_transit_client/3, generic_fsm, term}.
 
 %% -> {Parallelism, MessageTerm}
 bench_params(single_small) -> {1, small()};
@@ -536,10 +556,9 @@ parallelism() ->
         _ -> 1
     end.
 
-create_clients(M, ServerMod, Client, Parallel) ->
+create_clients(M, ServerMod, ServerArg, Client, Parallel) ->
     fun() ->
-            State = term,
-            ServerPid = ServerMod:start(State),
+            ServerPid = ServerMod:start(ServerArg),
             PidRefs = [spawn_monitor(fun() -> Client(0, M, ServerPid) end) ||
                           _ <- lists:seq(1, Parallel)],
             timer:sleep(?MAX_TIME),

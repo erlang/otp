@@ -55,6 +55,14 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
+%% *** STDLIB added in OTP 22 ***
+
+obsolete_1(sys, get_debug, 3) ->
+    {deprecated,
+     "Deprecated function. "
+     "Incorrectly documented and in fact only for internal use. "
+     "Can often be replaced with sys:get_log/1."};
+
 %% *** STDLIB added in OTP 20 ***
 
 obsolete_1(gen_fsm, start, 3) ->

@@ -586,7 +586,12 @@ enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
 enter_loop(Module, Opts, State, Data, Server, Actions) ->
     is_atom(Module) orelse error({atom,Module}),
     Parent = gen:get_parent(),
-    enter(Module, Opts, State, Data, Server, Actions, Parent).
+    Name = gen:get_proc_name(Server),
+    Debug = gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen:hibernate_after(Opts),
+    enter(
+      Parent, Debug, Module, Name, HibernateAfterTimeout,
+      State, Data, Actions).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -658,11 +663,10 @@ send(Proc, Msg) ->
     ok.
 
 %% Here the init_it/6 and enter_loop/5,6,7 functions converge
-enter(Module, Opts, State, Data, Server, Actions, Parent) ->
+enter(
+  Parent, Debug, Module, Name, HibernateAfterTimeout,
+  State, Data, Actions) ->
     %% The values should already have been type checked
-    Name = gen:get_proc_name(Server),
-    Debug = gen:debug_options(Name, Opts),
-    HibernateAfterTimeout = gen:hibernate_after(Opts),
     Events = [],
     Event = {internal,init_state},
     %% We enforce {postpone,false} to ensure that
@@ -676,7 +680,7 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
            data = Data,
            hibernate_after = HibernateAfterTimeout},
     CallEnter = true,
-    NewDebug = ?sys_debug(Debug, {Name,State}, {enter,Event,State}),
+    NewDebug = ?sys_debug(Debug, Name, {enter,State}),
     case call_callback_mode(S) of
 	#state{} = NewS ->
 	    loop_event_actions_list(
@@ -695,18 +699,24 @@ enter(Module, Opts, State, Data, Server, Actions, Parent) ->
 init_it(Starter, self, ServerRef, Module, Args, Opts) ->
     init_it(Starter, self(), ServerRef, Module, Args, Opts);
 init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
+    Name = gen:get_proc_name(ServerRef),
+    Debug = gen:debug_options(Name, Opts),
+    HibernateAfterTimeout = gen:hibernate_after(Opts),
     try Module:init(Args) of
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Opts)
+	    init_result(
+              Starter, Parent, ServerRef, Module, Result,
+              Name, Debug, HibernateAfterTimeout)
     catch
 	Result ->
-	    init_result(Starter, Parent, ServerRef, Module, Result, Opts);
+	    init_result(
+              Starter, Parent, ServerRef, Module, Result,
+              Name, Debug, HibernateAfterTimeout);
 	Class:Reason:Stacktrace ->
-	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
-	      Class, Reason, Stacktrace,
+	      Class, Reason, Stacktrace, Debug,
 	      #state{name = Name},
 	      []),
 	    erlang:raise(Class, Reason, Stacktrace)
@@ -715,14 +725,20 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 %%---------------------------------------------------------------------------
 %% gen callbacks helpers
 
-init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
+init_result(
+  Starter, Parent, ServerRef, Module, Result,
+  Name, Debug, HibernateAfterTimeout) ->
     case Result of
 	{ok,State,Data} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, [], Parent);
+            enter(
+              Parent, Debug, Module, Name, HibernateAfterTimeout,
+              State, Data, []);
 	{ok,State,Data,Actions} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
-	    enter(Module, Opts, State, Data, ServerRef, Actions, Parent);
+            enter(
+              Parent, Debug, Module, Name, HibernateAfterTimeout,
+              State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
 	    proc_lib:init_ack(Starter, {error,Reason}),
@@ -732,12 +748,11 @@ init_result(Starter, Parent, ServerRef, Module, Result, Opts) ->
 	    proc_lib:init_ack(Starter, ignore),
 	    exit(normal);
 	_ ->
-	    Name = gen:get_proc_name(ServerRef),
 	    gen:unregister_name(ServerRef),
 	    Error = {bad_return_from_init,Result},
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    error_info(
-	      error, Error, ?STACKTRACE(),
+	      error, Error, ?STACKTRACE(), Debug,
 	      #state{name = Name},
 	      []),
 	    exit(Error)
@@ -792,7 +807,7 @@ format_status(
   [PDict,SysState,Parent,Debug,
    #state{name = Name, postponed = P} = S]) ->
     Header = gen:format_status_header("Status for state machine", Name),
-    Log = sys:get_debug(log, Debug, []),
+    Log = sys:get_log(Debug),
     [{header,Header},
      {data,
       [{"Status",SysState},
@@ -812,34 +827,46 @@ format_status(
 sys_debug(Debug, NameState, Entry) ->
   sys:handle_debug(Debug, fun print_event/3, NameState, Entry).
 
-print_event(Dev, {in,Event}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
-      [Name,event_string(Event),State]);
-print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp send ~tp to ~p from state ~tp~n",
-      [Name,Reply,To,State]);
-print_event(Dev, {terminate,Reason}, {Name,State}) ->
-    io:format(
-      Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
-      [Name,Reason,State]);
-print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
-    StateString =
-	case NextState of
-	    State ->
-		io_lib:format("~tp", [State]);
-	    _ ->
-		io_lib:format("~tp => ~tp", [State,NextState])
-	end,
-    io:format(
-      Dev, "*DBG* ~tp ~tw ~ts in state ~ts~n",
-      [Name,Tag,event_string(Event),StateString]).
+print_event(Dev, SystemEvent, Name) ->
+    case SystemEvent of
+        {in,Event,State} ->
+            io:format(
+              Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
+              [Name,event_string(Event),State]);
+        {code_change,Event,State} ->
+            io:format(
+              Dev, "*DBG* ~tp receive ~ts after code change in state ~tp~n",
+              [Name,event_string(Event),State]);
+        {out,Reply,{To,_Tag}} ->
+            io:format(
+              Dev, "*DBG* ~tp send ~tp to ~tw~n",
+              [Name,Reply,To]);
+        {enter,State} ->
+            io:format(
+              Dev, "*DBG* ~tp enter in state ~tp~n",
+              [Name,State]);
+        {terminate,Reason,State} ->
+            io:format(
+              Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
+              [Name,Reason,State]);
+        {Tag,Event,State,NextState}
+          when Tag =:= postpone; Tag =:= consume ->
+            StateString =
+                case NextState of
+                    State ->
+                        io_lib:format("~tp", [State]);
+                    _ ->
+                        io_lib:format("~tp => ~tp", [State,NextState])
+                end,
+            io:format(
+              Dev, "*DBG* ~tp ~tw ~ts in state ~ts~n",
+              [Name,Tag,event_string(Event),StateString])
+    end.
 
 event_string(Event) ->
     case Event of
 	{{call,{Pid,_Tag}},Request} ->
-	    io_lib:format("call ~tp from ~w", [Request,Pid]);
+	    io_lib:format("call ~tp from ~tw", [Request,Pid]);
 	{EventType,EventContent} ->
 	    io_lib:format("~tw ~tp", [EventType,EventContent])
     end.
@@ -981,7 +1008,14 @@ loop_receive_result(Parent, ?not_sys_debug, S, Type, Content) ->
     loop_event(Parent, ?not_sys_debug, S, Events, Type, Content);
 loop_receive_result(
   Parent, Debug, #state{name = Name, state = State} = S, Type, Content) ->
-    NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+    Event = {Type,Content},
+    NewDebug =
+        case S#state.callback_mode of
+            undefined ->
+                sys_debug(Debug, Name, {code_change,Event,State});
+            _ ->
+                sys_debug(Debug, Name, {in,Event,State})
+        end,
     %% Here is the queue of not yet handled events created
     Events = [],
     loop_event(Parent, NewDebug, S, Events, Type, Content).
@@ -1291,13 +1325,13 @@ parse_actions_reply(
              ?STACKTRACE(), Debug]
     end;
 parse_actions_reply(
-  StateCall, Debug, #state{name = Name, state = State} = S,
+  StateCall, Debug, #state{name = Name} = S,
   Actions, TransOpts, From, Reply) ->
     %%
     case from(From) of
         true ->
             reply(From, Reply),
-            NewDebug = sys_debug(Debug, {Name,State}, {out,Reply,From}),
+            NewDebug = sys_debug(Debug, Name, {out,Reply,From}),
             parse_actions(StateCall, NewDebug, S, Actions, TransOpts);
         false ->
             [error,
@@ -1326,7 +1360,7 @@ parse_actions_next_event(
   Actions, TransOpts, Type, Content) ->
     case event_type(Type) of
         true when StateCall ->
-            NewDebug = sys_debug(Debug, {Name,State}, {in,{Type,Content}}),
+            NewDebug = sys_debug(Debug, Name, {in,{Type,Content},State}),
             NextEventsR = TransOpts#trans_opts.next_events_r,
             parse_actions(
               StateCall, NewDebug, S, Actions,
@@ -1443,14 +1477,14 @@ loop_event_done(
 	    true ->
 		[?sys_debug(
                     Debug_0,
-                    {S#state.name,State},
-                    {postpone,Event_0,NextState}),
+                    S#state.name,
+                    {postpone,Event_0,State,NextState}),
 		 Event_0|P_0];
 	    false ->
 		[?sys_debug(
                     Debug_0,
-                    {S#state.name,State},
-                    {consume,Event_0,NextState})|P_0]
+                    S#state.name,
+                    {consume,Event_0,State,NextState})|P_0]
 	end,
     {Events_2,P_2,
      Timers_2} =
@@ -1475,9 +1509,11 @@ loop_event_done(
     %% Place next events last in reversed queue
     Events_3R = lists:reverse(Events_2, NextEventsR),
     %% Enqueue immediate timeout events
-    Events_4R =	prepend_timeout_events(TimeoutEvents, Events_3R),
+    [Debug_2|Events_4R] =
+        prepend_timeout_events(
+          NextState, Debug_1, S, TimeoutEvents, Events_3R),
     loop_event_done(
-      Parent, Debug_1,
+      Parent, Debug_2,
       S#state{
         state = NextState,
         data = NewData,
@@ -1814,22 +1850,31 @@ parse_timers(
 %% so if there are enqueued events before the event timer
 %% timeout 0 event - the event timer is cancelled hence no event.
 %%
-%% Other (state_timeout) timeout 0 events that are after
-%% the event timer timeout 0 events are considered to
+%% Other (state_timeout and {timeout,Name}) timeout 0 events
+%% that are after an event timer timeout 0 event are considered to
 %% belong to timers that were started after the event timer
 %% timeout 0 event fired, so they do not cancel the event timer.
 %%
-prepend_timeout_events([], EventsR) ->
-    EventsR;
-prepend_timeout_events([{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
-    prepend_timeout_events(TimeoutEvents, [TimeoutEvent]);
-prepend_timeout_events([{timeout,_}|TimeoutEvents], EventsR) ->
+prepend_timeout_events(_NextState, Debug, _S, [], EventsR) ->
+    [Debug|EventsR];
+prepend_timeout_events(
+  NextState, Debug, S, [{timeout,_} = TimeoutEvent|TimeoutEvents], []) ->
+    prepend_timeout_events(
+      NextState,
+      sys_debug(Debug, S#state.name, {in,TimeoutEvent,NextState}),
+      S, TimeoutEvents, [TimeoutEvent]);
+prepend_timeout_events(
+  NextState, Debug, S, [{timeout,_}|TimeoutEvents], EventsR) ->
     %% Ignore since there are other events in queue
     %% so they have cancelled the event timeout 0.
-    prepend_timeout_events(TimeoutEvents, EventsR);
-prepend_timeout_events([TimeoutEvent|TimeoutEvents], EventsR) ->
+    prepend_timeout_events(NextState, Debug, S, TimeoutEvents, EventsR);
+prepend_timeout_events(
+  NextState, Debug, S, [TimeoutEvent|TimeoutEvents], EventsR) ->
     %% Just prepend all others
-    prepend_timeout_events(TimeoutEvents, [TimeoutEvent|EventsR]).
+    prepend_timeout_events(
+      NextState,
+      sys_debug(Debug, S#state.name, {in,TimeoutEvent,NextState}),
+      S, TimeoutEvents, [TimeoutEvent|EventsR]).
 
 
 
@@ -1846,18 +1891,24 @@ do_reply_then_terminate(
 do_reply_then_terminate(
   Class, Reason, Stacktrace, Debug, S, Q, [R|Rs]) ->
     case R of
-	{reply,{_To,_Tag}=From,Reply} ->
-            reply(From, Reply),
-            NewDebug =
-                ?sys_debug(
-                   Debug,
-                   begin
-                       #state{name = Name, state = State} = S,
-                       {Name,State}
-                   end,
-                   {out,Reply,From}),
-	    do_reply_then_terminate(
-	      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
+        {reply,From,Reply} ->
+            case from(From) of
+                true ->
+                    reply(From, Reply),
+                    NewDebug =
+                        ?sys_debug(
+                           Debug,
+                           S#state.name,
+                           {out,Reply,From}),
+                    do_reply_then_terminate(
+                      Class, Reason, Stacktrace, NewDebug, S, Q, Rs);
+                false ->
+                    terminate(
+                      error,
+                      {bad_reply_action_from_state_function,R},
+                      ?STACKTRACE(),
+                      Debug, S, Q)
+            end;
 	_ ->
 	    terminate(
 	      error,
@@ -1877,8 +1928,7 @@ terminate(
 	    catch
 		_ -> ok;
 		C:R:ST ->
-		    error_info(C, R, ST, S, Q),
-		    sys:print_log(Debug),
+		    error_info(C, R, ST, Debug, S, Q),
 		    erlang:raise(C, R, ST)
 	    end;
 	false ->
@@ -1893,8 +1943,7 @@ terminate(
 	    {shutdown,_} ->
                 terminate_sys_debug(Debug, S, State, Reason);
 	    _ ->
-		error_info(Class, Reason, Stacktrace, S, Q),
-		sys:print_log(Debug)
+		error_info(Class, Reason, Stacktrace, Debug, S, Q)
 	end,
     case Stacktrace of
 	[] ->
@@ -1904,17 +1953,18 @@ terminate(
     end.
 
 terminate_sys_debug(Debug, S, State, Reason) ->
-    ?sys_debug(Debug, {S#state.name,State}, {terminate,Reason}).
+    ?sys_debug(Debug, S#state.name, {terminate,Reason,State}).
 
 
 error_info(
-  Class, Reason, Stacktrace,
+  Class, Reason, Stacktrace, Debug,
   #state{
      name = Name,
      callback_mode = CallbackMode,
      state_enter = StateEnter,
      postponed = P} = S,
   Q) ->
+    Log = sys:get_log(Debug),
     ?LOG_ERROR(#{label=>{gen_statem,terminate},
                  name=>Name,
                  queue=>Q,
@@ -1922,10 +1972,36 @@ error_info(
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), S),
-                 reason=>{Class,Reason,Stacktrace}},
+                 log=>Log,
+                 reason=>{Class,Reason,Stacktrace},
+                 client_info=>client_stacktrace(Q)},
                #{domain=>[otp],
                  report_cb=>fun gen_statem:format_log/1,
                  error_logger=>#{tag=>error}}).
+
+client_stacktrace([]) ->
+    undefined;
+client_stacktrace([{{call,{Pid,_Tag}},_Req}|_]) when is_pid(Pid) ->
+    if
+        node(Pid) =:= node() ->
+            case
+                process_info(Pid, [current_stacktrace, registered_name])
+            of
+                undefined ->
+                    {Pid,dead};
+                [{current_stacktrace, Stacktrace},
+                 {registered_name, []}] ->
+                    {Pid,{Pid,Stacktrace}};
+                [{current_stacktrace, Stacktrace},
+                 {registered_name, Name}] ->
+                    {Pid,{Name,Stacktrace}}
+            end;
+        true ->
+            {Pid,remote}
+    end;
+client_stacktrace([_|_]) ->
+    undefined.
+
 
 format_log(#{label:={gen_statem,terminate},
              name:=Name,
@@ -1934,7 +2010,9 @@ format_log(#{label:={gen_statem,terminate},
              callback_mode:=CallbackMode,
              state_enter:=StateEnter,
              state:=FmtData,
-             reason:={Class,Reason,Stacktrace}}) ->
+             log:=Log,
+             reason:={Class,Reason,Stacktrace},
+             client_info:=ClientInfo}) ->
     {FixedReason,FixedStacktrace} =
 	case Stacktrace of
 	    [{M,F,Args,_}|ST]
@@ -1954,14 +2032,12 @@ format_log(#{label:={gen_statem,terminate},
 			    true ->
 				{Reason,Stacktrace};
 			    false ->
-				{{'function not exported',{M,F,Arity}},
-				 ST}
+				{{'function not exported',{M,F,Arity}},ST}
 			end
 		end;
 	    _ -> {Reason,Stacktrace}
 	end,
-    [LimitedP, LimitedFmtData, LimitedFixedReason] =
-        [error_logger:limit_term(D) || D <- [P, FmtData, FixedReason]],
+    {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -1988,27 +2064,47 @@ format_log(#{label:={gen_statem,terminate},
          case FixedStacktrace of
              [] -> "";
              _ -> "** Stacktrace =~n**  ~tp~n"
-         end,
+         end ++
+         case Log of
+             [] -> "";
+             _ -> "** Log =~n**  ~tp~n"
+         end ++ ClientFmt,
      [Name |
       case Q of
           [] -> [];
-          [Event|_] -> [Event]
+          [Event|_] -> [error_logger:limit_term(Event)]
       end] ++
-         [LimitedFmtData,
-          Class,LimitedFixedReason,
+         [error_logger:limit_term(FmtData),
+          Class,error_logger:limit_term(FixedReason),
           CBMode] ++
          case Q of
-             [_|[_|_] = Events] -> [Events];
+             [_|[_|_] = Events] -> [error_logger:limit_term(Events)];
              _ -> []
          end ++
          case P of
              [] -> [];
-             _ -> [LimitedP]
+             _ -> [error_logger:limit_term(P)]
          end ++
          case FixedStacktrace of
              [] -> [];
-             _ -> [FixedStacktrace]
-         end}.
+             _ -> [error_logger:limit_term(FixedStacktrace)]
+         end ++
+         case Log of
+             [] -> [];
+             _ -> [[error_logger:limit_term(T) || T <- Log]]
+         end ++ ClientArgs}.
+
+format_client_log(undefined) ->
+    {"", []};
+format_client_log({Pid,dead}) ->
+    {"** Client ~p is dead~n", [Pid]};
+format_client_log({Pid,remote}) ->
+    {"** Client ~p is remote on node ~p~n", [Pid, node(Pid)]};
+format_client_log({_Pid,{Name,Stacktrace}}) ->
+    {"** Client ~tp stacktrace~n"
+     "** ~tp~n",
+     [Name, error_logger:limit_term(Stacktrace)]}.
+
 
 %% Call Module:format_status/2 or return a default value
 format_status(
