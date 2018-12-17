@@ -94,7 +94,8 @@ security_parameters_1_3(SecParams, CipherSuite) ->
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
-      prf_algorithm = PrfHashAlg}.  %% HKDF hash algorithm
+      prf_algorithm = PrfHashAlg,  %% HKDF hash algorithm
+      cipher_type = ?AEAD}.
 
 %%--------------------------------------------------------------------
 -spec cipher_init(cipher_enum(), binary(), binary()) -> #cipher_state{}.

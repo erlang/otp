@@ -27,6 +27,7 @@
 
 -include("tls_handshake_1_3.hrl").
 -include("ssl_alert.hrl").
+-include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -41,6 +42,8 @@
 -export([certificate/5,
          certificate_verify/5,
          server_hello/4]).
+
+-export([do_negotiated/2]).
 
 %%====================================================================
 %% Create handshake messages
@@ -326,7 +329,6 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
 
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
-
         _Ret = #{cipher => Cipher,
                 group => Group,
                 sign_alg => SelectedSignAlg,
@@ -354,6 +356,177 @@ handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Ref, {insufficient_security, no_suitable_public_key}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
     end.
+
+
+do_negotiated(#{client_share := ClientKey,
+                group := SelectedGroup,
+                sign_alg := SignatureScheme
+               } = Map,
+              #{connection_states := ConnectionStates0,
+                session_id := SessionId,
+                own_certificate := OwnCert,
+                cert_db := CertDbHandle,
+                cert_db_ref := CertDbRef,
+                ssl_options := SslOpts,
+                key_share := KeyShare,
+                tls_handshake_history := HHistory0,
+                transport_cb := Transport,
+                socket := Socket,
+                private_key := CertPrivateKey}) ->
+    {Ref,Maybe} = maybe(),
+
+    try
+        %% Create server_hello
+        %% Extensions: supported_versions, key_share, (pre_shared_key)
+        ServerHello = server_hello(SessionId, KeyShare, ConnectionStates0, Map),
+
+        %% Update handshake_history (done in encode!)
+        %% Encode handshake
+        {BinMsg, ConnectionStates1, HHistory1} =
+            tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates0, HHistory0),
+        %% Send server_hello
+        tls_connection:send(Transport, Socket, BinMsg),
+        log_handshake(SslOpts, ServerHello),
+        log_tls_record(SslOpts, BinMsg),
+        ConnectionStates2 = calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
+                                                          HHistory1, ConnectionStates1),
+        %% Create Certificate
+        Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
+
+        %% Encode Certificate
+        {_, _ConnectionStates3, HHistory2} =
+            tls_connection:encode_handshake(Certificate, {3,4}, ConnectionStates2, HHistory1),
+        %% log_handshake(SslOpts, Certificate),
+
+        %% Create CertificateVerify
+        {Messages, _} =  HHistory2,
+
+        %% Use selected signature_alg from here, HKDF only used for key_schedule
+        CertificateVerify =
+            tls_handshake_1_3:certificate_verify(OwnCert, CertPrivateKey, SignatureScheme,
+                                                 Messages, server),
+        io:format("### CertificateVerify: ~p~n", [CertificateVerify]),
+
+        %% Encode CertificateVerify
+
+        %% Send Certificate, CertifricateVerify
+
+        %% Send finished
+
+        %% Next record/Next event
+
+        Maybe(not_implemented())
+
+
+    catch
+        {Ref, {state_not_implemented, negotiated}} ->
+            %% TODO
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, "state not implemented")
+    end.
+
+
+%% TODO: Remove this function!
+not_implemented() ->
+    {error, negotiated}.
+
+
+log_handshake(SslOpts, Message) ->
+    Msg = #{direction => outbound,
+            protocol => 'handshake',
+            message => Message},
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Msg, #{domain => [otp,ssl,handshake]}).
+
+
+log_tls_record(SslOpts, BinMsg) ->
+    Report = #{direction => outbound,
+               protocol => 'tls_record',
+               message => BinMsg},
+    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}).
+
+
+calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, HHistory, ConnectionStates) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         cipher_suite = CipherSuite} = SecParamsR,
+
+    %% Calculate handshake_secret
+    EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, <<>>}),
+
+    PrivateKey = get_server_private_key(KeyShare),  %% #'ECPrivateKey'{}
+
+    IKM = calculate_shared_secret(ClientKey, PrivateKey, SelectedGroup),
+    HandshakeSecret = tls_v1:key_schedule(handshake_secret, HKDFAlgo, IKM, EarlySecret),
+
+    %% Calculate [sender]_handshake_traffic_secret
+    {Messages, _} =  HHistory,
+    ClientHSTrafficSecret =
+        tls_v1:client_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
+    ServerHSTrafficSecret =
+        tls_v1:server_handshake_traffic_secret(HKDFAlgo, HandshakeSecret, lists:reverse(Messages)),
+
+    %% Calculate traffic keys
+    #{cipher := Cipher} = ssl_cipher_format:suite_definition(CipherSuite),
+    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
+
+    %% Update pending connection state
+    PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
+    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
+
+    PendingRead = update_conn_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
+    PendingWrite = update_conn_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+
+    %% Update pending and copy to current (activate)
+    %% All subsequent handshake messages are encrypted
+    %% ([sender]_handshake_traffic_secret)
+    #{current_read => PendingRead,
+      current_write => PendingWrite,
+      pending_read => PendingRead,
+      pending_write => PendingWrite}.
+
+
+get_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
+    get_private_key(ServerShare).
+
+get_private_key(#key_share_entry{
+                   key_exchange = #'ECPrivateKey'{} = PrivateKey}) ->
+    PrivateKey;
+get_private_key(#key_share_entry{
+                      key_exchange =
+                          {_, PrivateKey}}) ->
+    PrivateKey.
+
+%% X25519, X448
+calculate_shared_secret(OthersKey, MyKey, Group)
+  when is_binary(OthersKey) andalso is_binary(MyKey) andalso
+       (Group =:= x25519 orelse Group =:= x448)->
+    crypto:compute_key(ecdh, OthersKey, MyKey, Group);
+%% FFDHE
+calculate_shared_secret(OthersKey, MyKey, Group)
+  when is_binary(OthersKey) andalso is_binary(MyKey) ->
+    Params = #'DHParameter'{prime = P} = ssl_dh_groups:dh_params(Group),
+    S = public_key:compute_key(OthersKey, MyKey, Params),
+    Size = byte_size(binary:encode_unsigned(P)),
+    ssl_cipher:add_zero_padding(S, Size);
+%% ECDHE
+calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
+  when is_binary(OthersKey) ->
+    Point = #'ECPoint'{point = OthersKey},
+    public_key:compute_key(Point, MyKey).
+
+
+update_conn_state(ConnectionState = #{security_parameters := SecurityParameters0},
+                  HandshakeSecret, Key, IV) ->
+    %% Store secret
+    SecurityParameters = SecurityParameters0#security_parameters{
+                           master_secret = HandshakeSecret},
+    ConnectionState#{security_parameters => SecurityParameters,
+                     cipher_state => cipher_init(Key, IV)}.
+
+
+cipher_init(Key, IV) ->
+    #cipher_state{key = Key, iv = IV, tag_len = 16}.
 
 
 %% If there is no overlap between the received
