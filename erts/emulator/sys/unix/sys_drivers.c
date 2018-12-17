@@ -807,6 +807,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA,
                        sizeof(ErtsSysForkerProto));
         memset(proto, 0, sizeof(ErtsSysForkerProto));
+        proto->magic_number = FORKER_MAGIC_NUMBER;
         proto->action = ErtsSysForkerProtoAction_Start;
         proto->u.start.fds[0] = ofd[0];
         proto->u.start.fds[1] = ifd[1];
@@ -839,6 +840,7 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
 
+    ERTS_ASSERT(proto->magic_number == FORKER_MAGIC_NUMBER);
     ASSERT(len == sizeof(*proto));
     ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
 
@@ -1382,7 +1384,8 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
             return;
         }
 
-        ASSERT(proto.action == ErtsSysForkerProtoAction_Go);
+        ERTS_ASSERT(proto.magic_number == FORKER_MAGIC_NUMBER);
+        ERTS_ASSERT(proto.action == ErtsSysForkerProtoAction_Go);
         dd->pid = proto.u.go.os_pid;
 
         if (dd->pid == -1) {
@@ -1776,7 +1779,8 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
     if (res == 0)
         erts_exit(ERTS_DUMP_EXIT, "erl_child_setup closed\n");
 
-    ASSERT(res == sizeof(*proto));
+    ERTS_ASSERT(res == sizeof(*proto));
+    ERTS_ASSERT(proto->magic_number == FORKER_MAGIC_NUMBER);
 
 #ifdef FORKER_PROTO_START_ACK
     if (proto->action == ErtsSysForkerProtoAction_StartAck) {
@@ -1791,6 +1795,7 @@ static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
         SysIOVec *iov = driver_peekq(port_num, &vlen);
         ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
 
+        ERTS_ASSERT(proto->magic_number == FORKER_MAGIC_NUMBER);
         close(proto->u.start.fds[0]);
         close(proto->u.start.fds[1]);
         if (proto->u.start.fds[1] != proto->u.start.fds[2])
@@ -1825,12 +1830,13 @@ static void forker_ready_output(ErlDrvData e, ErlDrvEvent fd)
         int vlen;
         SysIOVec *iov = driver_peekq(port_num, &vlen);
         ErtsSysForkerProto *proto = (ErtsSysForkerProto *)iov[0].iov_base;
-        ASSERT(iov[0].iov_len >= (sizeof(*proto)));
+        ERTS_ASSERT(iov[0].iov_len >= (sizeof(*proto)));
+        ERTS_ASSERT(proto->magic_number == FORKER_MAGIC_NUMBER);
         if (sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
                           proto->u.start.fds, 3, 0) < 0) {
             if (errno == ERRNO_BLOCK)
                 return;
-            erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+            erts_exit(ERTS_ABORT_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
         }
 #ifndef FORKER_PROTO_START_ACK
         close(proto->u.start.fds[0]);
@@ -1851,6 +1857,8 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
     ErlDrvPort port_num = (ErlDrvPort)e;
     int res;
 
+    ERTS_ASSERT(proto->magic_number == FORKER_MAGIC_NUMBER);
+
     driver_enq(port_num, buf, len);
     if (driver_sizeq(port_num) > sizeof(*proto)) {
         return 0;
@@ -1862,7 +1870,7 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
             driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
             return 0;
         }
-        erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+        erts_exit(ERTS_ABORT_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
     }
 
 #ifndef FORKER_PROTO_START_ACK
