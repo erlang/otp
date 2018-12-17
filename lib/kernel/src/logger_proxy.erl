@@ -20,7 +20,7 @@
 -module(logger_proxy).
 
 %% API
--export([start_link/0, restart/0, log/2, child_spec/0, get_default_config/0]).
+-export([start_link/0, restart/0, log/1, child_spec/0, get_default_config/0]).
 
 %% logger_olp callbacks
 -export([init/1, handle_load/2, handle_info/2, terminate/2,
@@ -32,8 +32,7 @@
 
 %%%-----------------------------------------------------------------
 %%% API
--spec log(Olp, RemoteLog) -> ok when
-      Olp :: logger_olp:olp_ref(),
+-spec log(RemoteLog) -> ok when
       RemoteLog :: {remote,node(),LogEvent},
       LogEvent :: {log,Level,Format,Args,Meta} |
                   {log,Level,StringOrReport,Meta},
@@ -42,7 +41,8 @@
       Args :: list(term()),
       StringOrReport :: unicode:chardata() | logger:report(),
       Meta :: logger:metadata().
-log(Olp, RemoteLog) ->
+log(RemoteLog) ->
+    Olp = persistent_term:get(?MODULE),
     case logger_olp:get_pid(Olp) =:= self() of
         true ->
             %% This happens when the log event comes from the
@@ -107,7 +107,7 @@ get_default_config() ->
 init([]) ->
     process_flag(trap_exit, true),
     _ = erlang:system_flag(system_logger,self()),
-    logger_server:set_proxy_ref(logger_olp:get_ref()),
+    persistent_term:put(?MODULE,logger_olp:get_ref()),
     {ok,no_state}.
 
 %% Log event to send to the node where the group leader of it's client resides

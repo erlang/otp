@@ -937,14 +937,13 @@ log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
     %% (function or macro).
     Meta = add_default_metadata(
              maps:merge(Location,maps:merge(proc_meta(),Meta0))),
-    Tid = tid(),
     case node(maps:get(gl,Meta)) of
         Node when Node=/=node() ->
-            log_remote(Node,Level,Msg,Meta,Tid),
-            do_log_allowed(Level,Msg,Meta,Tid);
+            log_remote(Node,Level,Msg,Meta);
         _ ->
-            do_log_allowed(Level,Msg,Meta,Tid)
-    end.
+            ok
+    end,
+    do_log_allowed(Level,Msg,Meta,tid()).
 
 do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
   when ?IS_LEVEL(Level),
@@ -967,13 +966,13 @@ do_log_allowed(Level,String,Meta,Tid)
 tid() ->
     ets:whereis(?LOGGER_TABLE).
 
-log_remote(Node,Level,{Format,Args},Meta,Tid) ->
-    log_remote(Node,{log,Level,Format,Args,Meta},Tid);
-log_remote(Node,Level,Msg,Meta,Tid) ->
-    log_remote(Node,{log,Level,Msg,Meta},Tid).
+log_remote(Node,Level,{Format,Args},Meta) ->
+    log_remote(Node,{log,Level,Format,Args,Meta});
+log_remote(Node,Level,Msg,Meta) ->
+    log_remote(Node,{log,Level,Msg,Meta}).
 
-log_remote(Node,Request,Tid) ->
-    logger_proxy:log(logger_server:get_proxy_ref(Tid),{remote,Node,Request}),
+log_remote(Node,Request) ->
+    logger_proxy:log({remote,Node,Request}),
     ok.
 
 add_default_metadata(Meta) ->
