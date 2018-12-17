@@ -227,7 +227,7 @@ bld_magic_ref_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
           }).
 */
 
-static void do_calc_mon_size(ErtsMonitor *mon, void *vpsz)
+static int do_calc_mon_size(ErtsMonitor *mon, void *vpsz, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     Uint *psz = vpsz;
@@ -238,7 +238,8 @@ static void do_calc_mon_size(ErtsMonitor *mon, void *vpsz)
     else
         *psz += is_immed(mon->other.item) ? 0 : NC_HEAP_SIZE(mon->other.item);
 
-    *psz += 9; /* CONS + 6-tuple */ 
+    *psz += 9; /* CONS + 6-tuple */
+    return 1;
 }
 
 typedef struct {
@@ -248,7 +249,7 @@ typedef struct {
     Eterm tag;
 } MonListContext;
 
-static void do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc)
+static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     MonListContext *pmlc = vpmlc;
@@ -319,6 +320,7 @@ static void do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc)
     pmlc->hp += 7;
     pmlc->res = CONS(pmlc->hp, tup, pmlc->res);
     pmlc->hp += 2;
+    return 1;
 }
 
 static Eterm 
@@ -328,7 +330,7 @@ make_monitor_list(Process *p, int tree, ErtsMonitor *root, Eterm tail)
     Uint sz = 0;
     MonListContext mlc;
     void (*foreach)(ErtsMonitor *,
-                    void (*)(ErtsMonitor *, void *),
+                    ErtsMonitorFunc,
                     void *);
 
     foreach = tree ? erts_monitor_tree_foreach : erts_monitor_list_foreach;
@@ -354,7 +356,7 @@ make_monitor_list(Process *p, int tree, ErtsMonitor *root, Eterm tail)
           }).
 */
 
-static void calc_lnk_size(ErtsLink *lnk, void *vpsz)
+static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
 {
     Uint *psz = vpsz;
     Uint sz = 0;
@@ -364,7 +366,8 @@ static void calc_lnk_size(ErtsLink *lnk, void *vpsz)
 
     *psz += sz;
     *psz += is_immed(lnk->other.item) ? 0 : size_object(lnk->other.item);
-    *psz += 7; /* CONS + 4-tuple */ 
+    *psz += 7; /* CONS + 4-tuple */
+    return 1;
 }
 
 typedef struct {
@@ -374,7 +377,7 @@ typedef struct {
     Eterm tag;
 } LnkListContext;
 
-static void make_one_lnk_element(ErtsLink *lnk, void * vpllc)
+static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
 {
     LnkListContext *pllc = vpllc;
     Eterm tup, t, pid, id;
@@ -411,6 +414,7 @@ static void make_one_lnk_element(ErtsLink *lnk, void * vpllc)
     pllc->hp += 5;
     pllc->res = CONS(pllc->hp, tup, pllc->res);
     pllc->hp += 2;
+    return 1;
 }
 
 static Eterm 
@@ -420,7 +424,7 @@ make_link_list(Process *p, int tree, ErtsLink *root, Eterm tail)
     Uint sz = 0;
     LnkListContext llc;
     void (*foreach)(ErtsLink *,
-                    void (*)(ErtsLink *, void *),
+                    ErtsLinkFunc,
                     void *);
 
     foreach = tree ? erts_link_tree_foreach : erts_link_list_foreach;
@@ -519,16 +523,17 @@ do {							\
     }							\
  } while (0)
 
-static void collect_one_link(ErtsLink *lnk, void *vmicp)
+static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
     EXTEND_MONITOR_INFOS(micp);
     micp->mi[micp->mi_i].entity.term = lnk->other.item;
     micp->sz += 2 + NC_HEAP_SIZE(lnk->other.item);
     micp->mi_i++;
+    return 1;
 } 
 
-static void collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp)
+static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
 {
     if (erts_monitor_is_origin(mon)) {
         MonitorInfoCollection *micp = vmicp;
@@ -573,9 +578,10 @@ static void collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp)
             break;
         }
     }
+    return 1;
 }
 
-static void collect_one_target_monitor(ErtsMonitor *mon, void *vmicp)
+static int collect_one_target_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
  
@@ -612,8 +618,8 @@ static void collect_one_target_monitor(ErtsMonitor *mon, void *vmicp)
         default:
             break;
         }
-
     }
+    return 1;
 }
 
 typedef struct {
@@ -653,8 +659,8 @@ do {									\
     }									\
  } while (0)
 
-static void
-collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp)
+static int
+collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 {
     if (mon->type == ERTS_MON_TYPE_SUSPEND) {
         Sint count;
@@ -678,6 +684,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp)
 
 	smicp->smi_i++;
     }
+    return 1;
 }
 
 /*
@@ -3144,14 +3151,16 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
-static void monitor_size(ErtsMonitor *mon, void *vsz)
+static int monitor_size(ErtsMonitor *mon, void *vsz, Sint reds)
 {
     *((Uint *) vsz) = erts_monitor_size(mon);
+    return 1;
 }
 
-static void link_size(ErtsMonitor *lnk, void *vsz)
+static int link_size(ErtsMonitor *lnk, void *vsz, Sint reds)
 {
     *((Uint *) vsz) = erts_link_size(lnk);
+    return 1;
 }
 
 /**********************************************************************/ 

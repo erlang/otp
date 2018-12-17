@@ -404,5 +404,4 @@ extern Uint erts_dist_cache_size(void);
 
 extern Sint erts_abort_connection_rwunlock(DistEntry *dep);
 
-
 #endif

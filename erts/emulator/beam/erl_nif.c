@@ -2357,12 +2357,13 @@ rmon_refc_read(ErtsResourceMonitors *rms)
     return rms->refc & ERTS_RESOURCE_REFC_MASK;
 }
 
-static void dtor_demonitor(ErtsMonitor* mon, void* context)
+static int dtor_demonitor(ErtsMonitor* mon, void* context, Sint reds)
 {
     ASSERT(erts_monitor_is_origin(mon));
     ASSERT(is_internal_pid(mon->other.item));
 
     erts_proc_sig_send_demonitor(mon);
+    return 1;
 }
 
 #  define NIF_RESOURCE_DTOR &nif_resource_dtor

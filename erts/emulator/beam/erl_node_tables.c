@@ -1544,16 +1544,18 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
     mdp->origin.flags |= ERTS_ML_FLG_DBG_VISITED;
 }
 
-static void insert_monitor(ErtsMonitor *mon, void *idp)
+static int insert_monitor(ErtsMonitor *mon, void *idp, Sint reds)
 {
     Eterm id = *((Eterm *) idp);
     insert_monitor_data(mon, MONITOR_REF, id);
+    return 1;
 }
 
-static void clear_visited_monitor(ErtsMonitor *mon, void *p)
+static int clear_visited_monitor(ErtsMonitor *mon, void *p, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     mdp->origin.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    return 1;
 }
 
 static void
@@ -1621,16 +1623,18 @@ static void insert_link_data(ErtsLink *lnk, int type, Eterm id)
     ldp->a.flags |= ERTS_ML_FLG_DBG_VISITED;
 }
 
-static void insert_link(ErtsLink *lnk, void *idp)
+static int insert_link(ErtsLink *lnk, void *idp, Sint reds)
 {
     Eterm id = *((Eterm *) idp);
     insert_link_data(lnk, LINK_REF, id);
+    return 1;
 }
 
-static void clear_visited_link(ErtsLink *lnk, void *p)
+static int clear_visited_link(ErtsLink *lnk, void *p, Sint reds)
 {
     ErtsLinkData *ldp = erts_link_to_data(lnk);
     ldp->a.flags &= ~ERTS_ML_FLG_DBG_VISITED;
+    return 1;
 }
 
 static void
@@ -1798,18 +1802,20 @@ insert_sig_offheap(ErlOffHeap *ohp, void *arg)
     insert_offheap(ohp, SIGNAL_REF, proc->common.id);
 }
 
-static void
-insert_sig_monitor(ErtsMonitor *mon, void *arg)
+static int
+insert_sig_monitor(ErtsMonitor *mon, void *arg, Sint reds)
 {
     Process *proc = arg;
     insert_monitor_data(mon, SIGNAL_REF, proc->common.id);
+    return 1;
 }
 
-static void
-insert_sig_link(ErtsLink *lnk, void *arg)
+static int
+insert_sig_link(ErtsLink *lnk, void *arg, Sint reds)
 {
     Process *proc = arg;
     insert_link_data(lnk, SIGNAL_REF, proc->common.id);
+    return 1;
 }
 
 static void

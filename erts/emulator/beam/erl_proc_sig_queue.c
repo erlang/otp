@@ -3590,9 +3590,10 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
 
 
 int
-erts_proc_sig_handle_exit(Process *c_p, int *redsp)
+erts_proc_sig_handle_exit(Process *c_p, Sint *redsp)
 {
-    int cnt, limit;
+    int cnt;
+    Sint limit;
     ErtsMessage *sig, ***next_nm_sig;
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
@@ -3673,7 +3674,7 @@ erts_proc_sig_handle_exit(Process *c_p, int *redsp)
         case ERTS_SIG_Q_OP_MONITOR: {
             ErtsProcExitContext pectxt = {c_p, am_noproc};
             erts_proc_exit_handle_monitor((ErtsMonitor *) sig,
-                                          (void *) &pectxt);
+                                          (void *) &pectxt, -1);
             cnt += 4;
             break;
         }
@@ -3687,7 +3688,7 @@ erts_proc_sig_handle_exit(Process *c_p, int *redsp)
 
         case ERTS_SIG_Q_OP_LINK: {
             ErtsProcExitContext pectxt = {c_p, am_noproc};
-            erts_proc_exit_handle_link((ErtsLink *) sig, (void *) &pectxt);
+            erts_proc_exit_handle_link((ErtsLink *) sig, (void *) &pectxt, -1);
             break;
         }
 
@@ -4449,8 +4450,8 @@ void
 erts_proc_sig_debug_foreach_sig(Process *c_p,
                                 void (*msg_func)(ErtsMessage *, void *),
                                 void (*oh_func)(ErlOffHeap *, void *),
-                                void (*mon_func)(ErtsMonitor *, void *),
-                                void (*lnk_func)(ErtsLink *, void *),
+                                ErtsMonitorFunc mon_func,
+                                ErtsLinkFunc lnk_func,
                                 void *arg)
 {
     ErtsMessage *queue[] = {c_p->sig_qs.first, c_p->sig_qs.cont, c_p->sig_inq.first};
@@ -4486,13 +4487,13 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     case ERTS_LNK_TYPE_PORT:
                     case ERTS_LNK_TYPE_PROC:
                     case ERTS_LNK_TYPE_DIST_PROC:
-                        lnk_func((ErtsLink *) sig, arg);
+                        lnk_func((ErtsLink *) sig, arg, -1);
                         break;
                     case ERTS_MON_TYPE_PORT:
                     case ERTS_MON_TYPE_PROC:
                     case ERTS_MON_TYPE_DIST_PROC:
                     case ERTS_MON_TYPE_NODE:
-                        mon_func((ErtsMonitor *) sig, arg);
+                        mon_func((ErtsMonitor *) sig, arg, -1);
                         break;
                     default:
                         ERTS_INTERNAL_ERROR("Unexpected sig type");
@@ -4513,7 +4514,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     /* Fall through... */
 
                 case ERTS_SIG_Q_OP_MONITOR:
-                    mon_func((ErtsMonitor *) sig, arg);
+                    mon_func((ErtsMonitor *) sig, arg, -1);
                     break;
 
                 case ERTS_SIG_Q_OP_UNLINK:
@@ -4525,7 +4526,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     /* Fall through... */
 
                 case ERTS_SIG_Q_OP_LINK:
-                    lnk_func((ErtsLink *) sig, arg);
+                    lnk_func((ErtsLink *) sig, arg, -1);
                     break;
 
                 case ERTS_SIG_Q_OP_GROUP_LEADER: {

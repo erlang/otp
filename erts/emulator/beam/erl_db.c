@@ -3912,7 +3912,7 @@ struct free_fixations_ctx
     SWord cnt;
 };
 
-static void free_fixations_op(DbFixation* fix, void* vctx)
+static int free_fixations_op(DbFixation* fix, void* vctx, Sint reds)
 {
     struct free_fixations_ctx* ctx = (struct free_fixations_ctx*) vctx;
     erts_aint_t diff;
@@ -3949,6 +3949,7 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
         ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     }
     ctx->cnt++;
+    return 1;
 }
 
 int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
@@ -4093,7 +4094,7 @@ struct fixing_procs_info_ctx
     Eterm list;
 };
 
-static void fixing_procs_info_op(DbFixation* fix, void* vctx)
+static int fixing_procs_info_op(DbFixation* fix, void* vctx, Sint reds)
 {
     struct fixing_procs_info_ctx* ctx = (struct fixing_procs_info_ctx*) vctx;
     Eterm* hp;
@@ -4103,6 +4104,7 @@ static void fixing_procs_info_op(DbFixation* fix, void* vctx)
     tpl = TUPLE2(hp, fix->procs.p->common.id, make_small(fix->counter));
     hp += 3;
     ctx->list = CONS(hp, tpl, ctx->list);
+    return 1;
 }
 
 static Eterm table_info(Process* p, DbTable* tb, Eterm What)

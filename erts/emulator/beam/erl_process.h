@@ -1820,8 +1820,8 @@ typedef struct {
     Process *c_p;
     Eterm reason;
 } ErtsProcExitContext;
-void erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt);
-void erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt);
+int erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds);
+int erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds);
 
 Eterm erts_get_process_priority(erts_aint32_t state);
 Eterm erts_set_process_priority(Process *p, Eterm prio);

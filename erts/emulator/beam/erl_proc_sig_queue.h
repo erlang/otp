@@ -740,7 +740,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
  *                              queue.
  */
 int
-erts_proc_sig_handle_exit(Process *c_p, int *redsp);
+erts_proc_sig_handle_exit(Process *c_p, Sint *redsp);
 
 /**
  *
@@ -970,8 +970,8 @@ void
 erts_proc_sig_debug_foreach_sig(Process *c_p,
                                 void (*msg_func)(ErtsMessage *, void *),
                                 void (*oh_func)(ErlOffHeap *, void *),
-                                void (*mon_func)(ErtsMonitor *, void *),
-                                void (*lnk_func)(ErtsLink *, void *),
+                                ErtsMonitorFunc mon_func,
+                                ErtsLinkFunc lnk_func,
                                 void *arg);
 
 extern Process *erts_dirty_process_signal_handler;

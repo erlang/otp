@@ -185,20 +185,22 @@ get_suspended_on_de(DistEntry *dep, erts_aint32_t unset_qflgs)
     }
 }
 
-#define ERTS_MON_LNK_FIRE_LIMIT 100
+#define ERTS_MON_LNK_FIRE_REDS 40
 
-static void monitor_connection_down(ErtsMonitor *mon, void *unused)
+static int monitor_connection_down(ErtsMonitor *mon, void *unused, Sint reds)
 {
     if (erts_monitor_is_origin(mon))
         erts_proc_sig_send_demonitor(mon);
     else
         erts_proc_sig_send_monitor_down(mon, am_noconnection);
+    return ERTS_MON_LNK_FIRE_REDS;
 }
 
-static void link_connection_down(ErtsLink *lnk, void *vdist)
+static int link_connection_down(ErtsLink *lnk, void *vdist, Sint reds)
 {
     erts_proc_sig_send_link_exit(NULL, THE_NON_VALUE, lnk,
                                  am_noconnection, NIL);
+    return ERTS_MON_LNK_FIRE_REDS;
 }
 
 typedef enum {
@@ -226,35 +228,35 @@ con_monitor_link_cleanup(void *vcmlcp)
     ErtsConMonLnkCleanup *cmlcp = vcmlcp;
     ErtsMonLnkDist *dist = cmlcp->dist;
     ErtsSchedulerData *esdp;
-    int yield;
+    int reds = CONTEXT_REDS;
 
     switch (cmlcp->state) {
     case ERTS_CML_CLEANUP_STATE_LINKS:
-        yield = erts_link_list_foreach_delete_yielding(&dist->links,
-                                                       link_connection_down,
-                                                       NULL, &cmlcp->yield_state,
-                                                       ERTS_MON_LNK_FIRE_LIMIT);
-        if (yield)
+        reds = erts_link_list_foreach_delete_yielding(&dist->links,
+                                                      link_connection_down,
+                                                      NULL, &cmlcp->yield_state,
+                                                      reds);
+        if (reds <= 0)
             break;
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_MONITORS;
     case ERTS_CML_CLEANUP_STATE_MONITORS:
-        yield = erts_monitor_list_foreach_delete_yielding(&dist->monitors,
-                                                          monitor_connection_down,
-                                                          NULL, &cmlcp->yield_state,
-                                                          ERTS_MON_LNK_FIRE_LIMIT);
-        if (yield)
+        reds = erts_monitor_list_foreach_delete_yielding(&dist->monitors,
+                                                         monitor_connection_down,
+                                                         NULL, &cmlcp->yield_state,
+                                                         reds);
+        if (reds <= 0)
             break;
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_ONAME_MONITORS;
     case ERTS_CML_CLEANUP_STATE_ONAME_MONITORS:
-        yield = erts_monitor_tree_foreach_delete_yielding(&dist->orig_name_monitors,
-                                                          monitor_connection_down,
-                                                          NULL, &cmlcp->yield_state,
-                                                          ERTS_MON_LNK_FIRE_LIMIT/2);
-        if (yield)
+        reds = erts_monitor_tree_foreach_delete_yielding(&dist->orig_name_monitors,
+                                                         monitor_connection_down,
+                                                         NULL, &cmlcp->yield_state,
+                                                         reds);
+        if (reds <= 0)
             break;
 
         cmlcp->dist = NULL;
@@ -1188,7 +1190,6 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 #elif defined(VALGRIND)
 #include <valgrind/valgrind.h>
 #include <valgrind/memcheck.h>
-
 #  define PURIFY_MSG(msg)                                                    \
     VALGRIND_PRINTF("%s, line %d: %s", __FILE__, __LINE__, msg)
 #else
@@ -2891,7 +2892,7 @@ struct print_to_data {
     void *arg;
 };
 
-static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
+static int doit_print_monitor_info(ErtsMonitor *mon, void *vptdp, Sint reds)
 {
     fmtfn_t to = ((struct print_to_data *) vptdp)->to;
     void *arg = ((struct print_to_data *) vptdp)->arg;
@@ -2914,6 +2915,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
         else
 	    erts_print(to, arg, "%T\n", mdep->md.origin.other.item);
     }
+    return 1;
 }    
 
 static void print_monitor_info(fmtfn_t to, void *arg, DistEntry *dep)
@@ -2929,12 +2931,13 @@ static void print_monitor_info(fmtfn_t to, void *arg, DistEntry *dep)
     }
 }
 
-static void doit_print_link_info(ErtsLink *lnk, void *vptdp)
+static int doit_print_link_info(ErtsLink *lnk, void *vptdp, Sint reds)
 {
     struct print_to_data *ptdp = vptdp;
     ErtsLink *lnk2 = erts_link_to_other(lnk, NULL);
     erts_print(ptdp->to, ptdp->arg, "Remote link: %T %T\n",
 	       lnk2->other.item, lnk->other.item);
+    return 1;
 }
 
 static void print_link_info(fmtfn_t to, void *arg, DistEntry *dep)
@@ -4150,8 +4153,8 @@ typedef struct {
     Uint i;
 } ErtsNodesMonitorContext;
 
-static void
-save_nodes_monitor(ErtsMonitor *mon, void *vctxt)
+static int
+save_nodes_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
 {
     ErtsNodesMonitorContext *ctxt = vctxt;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
@@ -4163,6 +4166,7 @@ save_nodes_monitor(ErtsMonitor *mon, void *vctxt)
     ctxt->nmdp[ctxt->i].options = mdp->origin.other.item;
 
     ctxt->i++;
+    return 1;
 }
 
 static void
@@ -4295,8 +4299,8 @@ typedef struct {
 } ErtsNodesMonitorInfoContext;
 
 
-static void
-nodes_monitor_info(ErtsMonitor *mon, void *vctxt)
+static int
+nodes_monitor_info(ErtsMonitor *mon, void *vctxt, Sint reds)
 {
     ErtsMonitorDataExtended *mdep;
     ErtsNodesMonitorInfoContext *ctxt = vctxt;
@@ -4343,6 +4347,7 @@ nodes_monitor_info(ErtsMonitor *mon, void *vctxt)
     ctxt->hpp = hpp;
     ctxt->szp = szp;
     ctxt->res = res;
+    return 1;
 }
 
 Eterm
