@@ -51,6 +51,7 @@ typedef unsigned long long ErtsSysPortId;
 #endif
 
 typedef struct ErtsSysForkerProto_ {
+    enum { FORKER_MAGIC_NUMBER = 0xbe6affe1 } magic_number;
     enum {
         ErtsSysForkerProtoAction_Start,
         ErtsSysForkerProtoAction_StartAck,

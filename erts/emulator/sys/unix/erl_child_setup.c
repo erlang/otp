@@ -92,7 +92,6 @@ static void ABORT(const char* fmt, ...)
     abort();
 }
 
-#ifdef DEBUG
 void
 erl_assert_error(const char* expr, const char* func, const char* file, int line)
 {
@@ -102,7 +101,6 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     fflush(stderr);
     abort();
 }
-#endif
 
 void sys_sigblock(int sig)
 {
@@ -230,8 +228,9 @@ start_new_child(int pipes[])
         ErtsSysForkerProto proto;
         res = read(pipes[0], &proto, sizeof(proto));
         if (res > 0) {
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
-            ASSERT(res == sizeof(proto));
+            ERTS_ASSERT(proto.magic_number == FORKER_MAGIC_NUMBER);
+            ERTS_ASSERT(proto.action == ErtsSysForkerProtoAction_Ack);
+            ERTS_ASSERT(res == sizeof(proto));
         }
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
@@ -467,6 +466,9 @@ main(int argc, char *argv[])
                 if (errno == EINTR)
                     continue;
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
+                if (errno != ECONNRESET) {
+                    ABORT("Unexpected read error %d from beam", errno);
+                }
                 _exit(0);
             }
 
@@ -476,8 +478,9 @@ main(int argc, char *argv[])
             }
             /* Since we use unix domain sockets and send the entire data in
                one go we *should* get the entire payload at once. */
-            ASSERT(res == sizeof(proto));
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Start);
+            ERTS_ASSERT(res == sizeof(proto));
+            ERTS_ASSERT(proto.magic_number == FORKER_MAGIC_NUMBER);
+            ERTS_ASSERT(proto.action == ErtsSysForkerProtoAction_Start);
 
             sys_sigblock(SIGCHLD);
 
@@ -519,6 +522,7 @@ main(int argc, char *argv[])
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
             }
 
+            proto.magic_number = FORKER_MAGIC_NUMBER;
             proto.u.sigchld.port_id = get_port_id((pid_t)(ibuff[0]));
 
             if (proto.u.sigchld.port_id == THE_NON_VALUE)
