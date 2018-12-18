@@ -1131,7 +1131,7 @@ handle_common_event(internal, {handshake, {#hello_request{} = Handshake, _}}, co
 handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
                     #state{static_env = #static_env{role = client}}, _)
   when StateName =/= connection ->
-    {keep_state_and_data};
+    keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{tls_handshake_history = Hs0} = State0,
 		    Connection) ->
