@@ -96,16 +96,16 @@ start_monitor(Node, Notify, Transport, Active, Addr, Port, 3 = MsgID) ->
 start_monitor(Node, Notify, Transport, Active, Addr, Port,
               MsgID, MaxOutstanding, RunTime)
   when (Node =/= node()) ->
-    ?I("start_monitor -> entry with"
-       "~n   Node:           ~p"
-       "~n   Transport:      ~p"
-       "~n   Active:         ~p"
-       "~n   Addr:           ~p"
-       "~n   Port:           ~p"
-       "~n   MsgID:          ~p"
-       "~n   MaxOutstanding: ~p"
-       "~n   RunTime:        ~p",
-       [Node, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
+    %% ?I("start_monitor -> entry with"
+    %%    "~n   Node:           ~p"
+    %%    "~n   Transport:      ~p"
+    %%    "~n   Active:         ~p"
+    %%    "~n   Addr:           ~p"
+    %%    "~n   Port:           ~p"
+    %%    "~n   MsgID:          ~p"
+    %%    "~n   MaxOutstanding: ~p"
+    %%    "~n   RunTime:        ~p",
+    %%    [Node, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
     Args = [self(), Notify,
             Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime],
     case rpc:call(Node, ?MODULE, do_start, Args) of
@@ -181,16 +181,16 @@ do_start(Parent, Notify,
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->
-    ?I("do_start -> entry with"
-       "~n   Parent:         ~p"
-       "~n   Transport:      ~p"
-       "~n   Active:         ~p"
-       "~n   Addr:           ~p"
-       "~n   Port:           ~p"
-       "~n   MsgID:          ~p"
-       "~n   MaxOutstanding: ~p"
-       "~n   RunTime:        ~p",
-       [Parent, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
+    %% ?I("do_start -> entry with"
+    %%    "~n   Parent:         ~p"
+    %%    "~n   Transport:      ~p"
+    %%    "~n   Active:         ~p"
+    %%    "~n   Addr:           ~p"
+    %%    "~n   Port:           ~p"
+    %%    "~n   MsgID:          ~p"
+    %%    "~n   MaxOutstanding: ~p"
+    %%    "~n   RunTime:        ~p",
+    %%    [Parent, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
     Starter = self(),
     Init = fun() -> put(sname, "client"),
                     init(Starter, 
@@ -224,8 +224,6 @@ init(Starter,
      Transport, Active, Addr, Port,
      MsgID, MaxOutstanding, RunTime) ->
     ?I("init with"
-       "~n   Starter:              ~p"
-       "~n   Parent:               ~p"
        "~n   Transport:            ~p"
        "~n   Active:               ~p"
        "~n   Addr:                 ~s"
@@ -233,9 +231,7 @@ init(Starter,
        "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
        "~n   Max Outstanding:      ~p"
        "~n   (Suggested) Run Time: ~p ms",
-       [Starter,
-        Parent,
-        Transport, Active, inet:ntoa(Addr), Port,
+       [Transport, Active, inet:ntoa(Addr), Port,
         MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]),
     {Mod, Connect} = process_transport(Transport),
     case Connect(Addr, Port) of

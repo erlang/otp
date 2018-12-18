@@ -119,18 +119,16 @@ stop(Pid) when is_pid(Pid) ->
 %% ==========================================================================
 
 server_init(Starter, Parent, Transport, Active) ->
-    ?I("init -> entry with"
-       "~n   Starter:   ~p"
-       "~n   Parent:    ~p"
+    ?I("init with"
        "~n   Transport: ~p"
-       "~n   Active:    ~p", [Starter, Parent, Transport, Active]),
+       "~n   Active:    ~p", [Transport, Active]),
     {Mod, Listen, StatsInterval} = process_transport(Transport, Active),
     case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
                 {ok, Port} ->
 		    Addr = which_addr(), % This is just for convenience
-                    ?I("init -> listening on:"
+                    ?I("listening on:"
                        "~n   Addr: ~p (~s)"
                        "~n   Port: ~w"
                        "~n", [Addr, inet:ntoa(Addr), Port]),
