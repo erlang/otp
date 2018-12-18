@@ -428,7 +428,7 @@ handler_process_data(<<?TTEST_TAG:32,
     <<Body:SZ/binary, Rest2/binary>> = Rest,
     case handler_send_reply(Mod, Sock, ID, Body) of
  	ok ->
- 	    handler_process_data(Rest2, Mod, Sock, MCnt+1, BCnt+SZ, ID);
+ 	    handler_process_data(Rest2, Mod, Sock, MCnt+1, BCnt+16+SZ, ID);
  	{error, _} = ERROR ->
  	    ERROR
     end;
