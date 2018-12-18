@@ -126,6 +126,9 @@ unsigned_limits(Config) when is_list(Config) ->
     Min = atomics:add_get(Ref, 1, 1),
     Max = atomics:sub_get(Ref, 1, 1),
 
+    atomics:put(Ref, 1, Max),
+    io:format("Max=~p~n", [atomics:get(Ref, 1)]),
+
     {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, Max+1)),
     IncrMin = -(1 bsl (Bits-1)),
     ok = atomics:put(Ref, 1, -IncrMin),
