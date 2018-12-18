@@ -42,6 +42,15 @@
 #include "erl_map.h"
 
 static Eterm double_to_integer(Process* p, double x);
+static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3);
+static Export erlang_length_export;
+
+void erts_init_bif_guard(void)
+{
+    erts_init_trap_export(&erlang_length_export,
+			  am_erlang, am_length, 3,
+			  &erlang_length_trap);
+}
 
 BIF_RETTYPE abs_1(BIF_ALIST_1)
 {
@@ -192,26 +201,113 @@ BIF_RETTYPE round_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+/*
+ * This version of length/1 is called from native code and apply/3.
+ */
+
 BIF_RETTYPE length_1(BIF_ALIST_1)
+{
+    Eterm args[3];
+
+    /*
+     * Arrange argument registers the way expected by
+     * erts_trapping_length_1(). We save the original argument in
+     * args[2] in case an error should signaled.
+     */
+
+    args[0] = BIF_ARG_1;
+    args[1] = make_small(0);
+    args[2] = BIF_ARG_1;
+    return erlang_length_trap(BIF_P, args, A__I);
+}
+
+static BIF_RETTYPE erlang_length_trap(BIF_ALIST_3)
+{
+    Eterm res;
+
+    res = erts_trapping_length_1(BIF_P, BIF__ARGS);
+    if (is_value(res)) {        /* Success. */
+        BIF_RET(res);
+    } else {                    /* Trap or error. */
+        if (BIF_P->freason == TRAP) {
+            /*
+             * The available reductions were exceeded. Trap.
+             */
+            BIF_TRAP3(&erlang_length_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+        } else {
+            /*
+             * Signal an error. The original argument was tucked away in BIF_ARG_3.
+             */
+            ERTS_BIF_ERROR_TRAPPED1(BIF_P, BIF_P->freason,
+                                    bif_export[BIF_length_1], BIF_ARG_3);
+        }
+    }
+}
+
+/*
+ * Trappable helper function for calculating length/1.
+ *
+ * When calling this function, entries in args[] should be set up as
+ * follows:
+ *
+ *   args[0] = List to calculate length for.
+ *   args[1] = Length accumulator (tagged integer).
+ *
+ * If the return value is a tagged integer, the length was calculated
+ * successfully.
+ *
+ * Otherwise, if return value is THE_NON_VALUE and p->freason is TRAP,
+ * the available reductions were exceeded and this function must be called
+ * again after rescheduling. args[0] and args[1] have been updated to
+ * contain the next part of the list and length so far, respectively.
+ *
+ * Otherwise, if return value is THE_NON_VALUE, the list did not end
+ * in an empty list (and p->freason is BADARG).
+ */
+
+Eterm erts_trapping_length_1(Process* p, Eterm* args)
 {
     Eterm list;
     Uint i;
-     
-    if (is_nil(BIF_ARG_1)) 
-	BIF_RET(SMALL_ZERO);
-    if (is_not_list(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    list = BIF_ARG_1;
-    i = 0;
-    while (is_list(list)) {
-	i++;
+    Uint max_iter;
+    Uint saved_max_iter;
+
+#if defined(DEBUG) || defined(VALGRIND)
+    max_iter = 50;
+#else
+    max_iter = ERTS_BIF_REDS_LEFT(p) * 16;
+#endif
+    saved_max_iter = max_iter;
+    ASSERT(max_iter > 0);
+
+    list = args[0];
+    i = unsigned_val(args[1]);
+    while (is_list(list) && max_iter != 0) {
 	list = CDR(list_val(list));
+	i++, max_iter--;
     }
-    if (is_not_nil(list))  {
-	BIF_ERROR(BIF_P, BADARG);
+
+    if (is_list(list)) {
+        /*
+         * We have exceeded the alloted number of iterations.
+         * Save the result so far and signal a trap.
+         */
+        args[0] = list;
+        args[1] = make_small(i);
+        p->freason = TRAP;
+        BUMP_ALL_REDS(p);
+        return THE_NON_VALUE;
+    } else if (is_not_nil(list))  {
+        /* Error. Should be NIL. */
+	BIF_ERROR(p, BADARG);
     }
-    BIF_RET(make_small(i));
+
+    /*
+     * We reached the end of the list successfully. Bump reductions
+     * and return result.
+     */
+    BUMP_REDS(p, saved_max_iter / 16);
+    return make_small(i);
 }
 
 /* returns the size of a tuple or a binary */

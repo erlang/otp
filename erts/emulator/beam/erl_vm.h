@@ -41,8 +41,8 @@
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
 /*
- * The new arithmetic operations need some extra X registers in the register array.
- * so does the gc_bif's (i_gc_bif3 need 3 extra).
+ * The new trapping length/1 implementation need 3 extra registers in the
+ * register array.
  */
 #define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 

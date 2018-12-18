@@ -497,6 +497,7 @@ static erts_atomic32_t trace_control_word;
 /* This needs to be here, before the bif table... */
 
 static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1);
+static Eterm db_length_1(BIF_ALIST_1);
 
 /*
 ** The table of callable bif's, i e guard bif's and 
@@ -603,7 +604,7 @@ static DMCGuardBif guard_tab[] =
     },
     {
 	am_length,
-	&length_1,
+	&db_length_1,
 	1,
 	DBIF_ALL
     },
@@ -969,6 +970,26 @@ BIF_RETTYPE db_set_trace_control_word(Process *p, Eterm new)
 BIF_RETTYPE db_set_trace_control_word_1(BIF_ALIST_1)
 {
     BIF_RET(db_set_trace_control_word(BIF_P, BIF_ARG_1));
+}
+
+/*
+ * Implementation of length/1 for match specs (non-trapping).
+ */
+static Eterm db_length_1(BIF_ALIST_1)
+{
+    Eterm list;
+    Uint i;
+
+    list = BIF_ARG_1;
+    i = 0;
+    while (is_list(list)) {
+	i++;
+	list = CDR(list_val(list));
+    }
+    if (is_not_nil(list)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(make_small(i));
 }
 
 static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1)
