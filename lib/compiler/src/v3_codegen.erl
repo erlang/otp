@@ -79,13 +79,9 @@ function(#k_fdef{anno=#k{a=Anno},func=Name,arity=Arity,
     try
         #k_match{} = Kb,                   %Assertion.
 
-        %% Try to suppress the stack frame unless it is
-        %% really needed.
-        Body0 = avoid_stack_frame(Kb),
-
         %% Annotate kernel records with variable usage.
         Vdb0 = init_vars(As),
-        {Body,_,Vdb} = body(Body0, 1, Vdb0),
+        {Body,_,Vdb} = body(Kb, 1, Vdb0),
 
         %% Generate the BEAM assembly code.
         {Asm,EntryLabel,St} = cg_fun(Body, As, Vdb, AtomMod,
@@ -97,136 +93,6 @@ function(#k_fdef{anno=#k{a=Anno},func=Name,arity=Arity,
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end.
-
-
-%% avoid_stack_frame(Kernel) -> Kernel'
-%%  If possible, avoid setting up a stack frame. Functions
-%%  that only do matching, calls to guard BIFs, and tail-recursive
-%%  calls don't need a stack frame.
-
-avoid_stack_frame(#k_match{body=Body}=M) ->
-    try
-        M#k_match{body=avoid_stack_frame_1(Body)}
-    catch
-        impossible ->
-            M
-    end.
-
-avoid_stack_frame_1(#k_alt{first=First0,then=Then0}=Alt) ->
-    First = avoid_stack_frame_1(First0),
-    Then = avoid_stack_frame_1(Then0),
-    Alt#k_alt{first=First,then=Then};
-avoid_stack_frame_1(#k_bif{op=Op}=Bif) ->
-    case Op of
-        #k_internal{} ->
-            %% Most internal BIFs clobber the X registers.
-            throw(impossible);
-        _ ->
-            Bif
-    end;
-avoid_stack_frame_1(#k_break{anno=Anno,args=Args}) ->
-    #k_guard_break{anno=Anno,args=Args};
-avoid_stack_frame_1(#k_guard_break{}=Break) ->
-    Break;
-avoid_stack_frame_1(#k_enter{}=Enter) ->
-    %% Tail-recursive calls don't need a stack frame.
-    Enter;
-avoid_stack_frame_1(#k_guard{clauses=Cs0}=Guard) ->
-    Cs = avoid_stack_frame_list(Cs0),
-    Guard#k_guard{clauses=Cs};
-avoid_stack_frame_1(#k_guard_clause{guard=G0,body=B0}=C) ->
-    G = avoid_stack_frame_1(G0),
-    B = avoid_stack_frame_1(B0),
-    C#k_guard_clause{guard=G,body=B};
-avoid_stack_frame_1(#k_match{anno=A,vars=Vs,body=B0,ret=Ret}) ->
-    %% Use #k_guard_match{} instead to avoid saving the X registers
-    %% to the stack before matching.
-    B = avoid_stack_frame_1(B0),
-    #k_guard_match{anno=A,vars=Vs,body=B,ret=Ret};
-avoid_stack_frame_1(#k_guard_match{body=B0}=M) ->
-    B = avoid_stack_frame_1(B0),
-    M#k_guard_match{body=B};
-avoid_stack_frame_1(#k_protected{arg=Arg0}=Prot) ->
-    Arg = avoid_stack_frame_1(Arg0),
-    Prot#k_protected{arg=Arg};
-avoid_stack_frame_1(#k_put{}=Put) ->
-    Put;
-avoid_stack_frame_1(#k_return{}=Ret) ->
-    Ret;
-avoid_stack_frame_1(#k_select{var=#k_var{anno=Vanno},types=Types0}=Select) ->
-    case member(reuse_for_context, Vanno) of
-        false ->
-            Types = avoid_stack_frame_list(Types0),
-            Select#k_select{types=Types};
-        true ->
-            %% Including binary patterns that overwrite the register containing
-            %% the binary with the match context may not be safe. For example,
-            %% bs_match_SUITE:bin_tail_e/1 with inlining will be rejected by
-            %% beam_validator.
-            %%
-            %% Essentially the following code is produced:
-            %%
-            %% bs_match {x,0} => {x,0}
-            %% ...
-            %% bs_match {x,0} => {x,1}  %% ILLEGAL
-            %%
-            %% A bs_match instruction will only accept a match context as the
-            %% source operand if the source and destination registers are the
-            %% the same (as in the first bs_match instruction above).
-            %% The second bs_match instruction is therefore illegal.
-            %%
-            %% This situation is avoided if there is a stack frame:
-            %%
-            %% move {x,0} => {y,0}
-            %% bs_match {x,0} => {x,0}
-            %% ...
-            %% bs_match {y,0} => {x,1}  %% LEGAL
-            %%
-            throw(impossible)
-    end;
-avoid_stack_frame_1(#k_seq{arg=#k_call{anno=Anno,op=Op}=Call,
-                           body=#k_break{args=BrArgs0}}=Seq) ->
-    case Op of
-        #k_remote{mod=#k_atom{val=Mod},
-                  name=#k_atom{val=Name},
-                  arity=Arity} ->
-            case erl_bifs:is_exit_bif(Mod, Name, Arity) of
-                false ->
-                    %% Will clobber X registers. Must have a stack frame.
-                    throw(impossible);
-                true ->
-                    %% The call to this BIF will never return. It is safe
-                    %% to suppress the stack frame.
-                    Bif = #k_bif{anno=Anno,
-                                 op=#k_internal{name=guard_error,arity=1},
-                                 args=[Call],ret=[]},
-                    BrArgs = lists:duplicate(length(BrArgs0), #k_nil{}),
-                    GB = #k_guard_break{anno=#k{us=[],ns=[],a=[]},args=BrArgs},
-                    Seq#k_seq{arg=Bif,body=GB}
-            end;
-        _ ->
-            %% Will clobber X registers. Must have a stack frame.
-            throw(impossible)
-    end;
-avoid_stack_frame_1(#k_seq{arg=A0,body=B0}=Seq) ->
-    A = avoid_stack_frame_1(A0),
-    B = avoid_stack_frame_1(B0),
-    Seq#k_seq{arg=A,body=B};
-avoid_stack_frame_1(#k_test{}=Test) ->
-    Test;
-avoid_stack_frame_1(#k_type_clause{values=Values0}=TC) ->
-    Values = avoid_stack_frame_list(Values0),
-    TC#k_type_clause{values=Values};
-avoid_stack_frame_1(#k_val_clause{body=B0}=VC) ->
-    B = avoid_stack_frame_1(B0),
-    VC#k_val_clause{body=B};
-avoid_stack_frame_1(_Body) ->
-    throw(impossible).
-
-avoid_stack_frame_list([H|T]) ->
-    [avoid_stack_frame_1(H)|avoid_stack_frame_list(T)];
-avoid_stack_frame_list([]) -> [].
-
 
 %% This pass creates beam format annotated with variable lifetime
 %% information.  Each thing is given an index and for each variable we
