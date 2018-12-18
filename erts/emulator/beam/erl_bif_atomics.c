@@ -133,7 +133,7 @@ static ERTS_INLINE Eterm bld_atomic(Process* proc, AtomicsRef* p,
         if ((Uint64)val <= MAX_SMALL)
             return make_small((Sint) val);
         else {
-            Uint hsz = ERTS_UINT64_HEAP_SIZE(val);
+            Uint hsz = ERTS_UINT64_HEAP_SIZE((Uint64)val);
             Eterm* hp = HAlloc(proc, hsz);
             return erts_uint64_to_big(val, &hp);
         }
