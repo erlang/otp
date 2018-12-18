@@ -55,6 +55,17 @@
 
 %% ==========================================================================
 
+%% This does not really work. Its just a placeholder for the time beeing...
+
+%% getopt(Sock, Opt) when is_atom(Opt) ->
+%%     socket:getopt(Sock, socket, Opt).
+
+%% setopt(Sock, Opt, Value) when is_atom(Opt) ->
+%%     socket:setopts(Sock, socket, Opt, Value).
+
+
+%% ==========================================================================
+
 accept(#{sock := LSock, opts := #{method := Method} = Opts}) ->
     case socket:accept(LSock) of
 	{ok, Sock} ->

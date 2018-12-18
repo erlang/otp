@@ -528,8 +528,13 @@ recv_reply_message3(_Mod, Sock, ID, Acc) ->
 			      (Tag =:= socket) ->
             process_acc_data(ID, <<Acc/binary, Msg/binary>>)
         
-    %% after ?RECV_TIMEOUT ->
-    %%         {error, timeout}
+    after ?RECV_TIMEOUT ->
+            ?I("timeout when"
+               "~n   ID:        ~p"
+               "~n   size(Acc): ~p",
+               [ID, size(Acc)]),
+            %% {error, timeout}
+            recv_reply_message3(_Mod, Sock, ID, Acc)
     end.
 
 

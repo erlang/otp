@@ -38,6 +38,20 @@
 
 %% ==========================================================================
 
+%% getopt(Sock, Opt) when is_atom(Opt) ->
+%%     case inet:getopts(Sock, [Opt]) of
+%%         {ok, [{Opt, Value}]} ->
+%%             {ok, Value};
+%%         {error, _} = ERROR ->
+%%             ERROR
+%%     end.
+
+%% setopt(Sock, Opt, Value) when is_atom(Opt) ->
+%%     inet:setopts(Sock, [{Opt, Value}]).
+
+
+%% ==========================================================================
+
 accept(Sock) ->
     case gen_tcp:accept(Sock) of
 	{ok, NewSock} ->
@@ -65,7 +79,7 @@ close(Sock) ->
 
 
 connect(Addr, Port) ->
-    Opts = [binary, {packet, raw}, {active, false}], 
+    Opts = [binary, {packet, raw}, {active, false}, {buffer, 32*1024}], 
     case gen_tcp:connect(Addr, Port, Opts) of
 	{ok, Sock} ->
 	    {ok, Sock};
@@ -82,7 +96,8 @@ listen() ->
     listen(0).
 
 listen(Port) when is_integer(Port) andalso (Port >= 0) ->
-    Opts = [binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false}],
+    Opts = [binary, {ip, {0,0,0,0}}, {packet, raw}, {active, false},
+            {buffer, 32*1024}],
     case gen_tcp:listen(Port, Opts) of
 	{ok, Sock} ->
 	    {ok, Sock};

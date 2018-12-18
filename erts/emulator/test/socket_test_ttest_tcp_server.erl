@@ -349,11 +349,12 @@ handler_loop(State) ->
     handler_loop( handler_handle_message( handler_recv_message(State) ) ).
 
 %% When passive, we read *one* request and then attempt to reply to it.
-handler_recv_message(#{mod    := Mod,
-		       sock   := Sock,
-                       active := false,
-                       mcnt   := MCnt,
-                       bcnt   := BCnt} = State) ->
+handler_recv_message(#{mod        := Mod,
+		       sock       := Sock,
+                       active     := false,
+                       mcnt       := MCnt,
+                       bcnt       := BCnt,
+                       last_reply := LID} = State) ->
     case handler_recv_message2(Mod, Sock) of
         {ok, {MsgSz, ID, Body}} ->
             handler_send_reply(Mod, Sock, ID, Body),
@@ -363,6 +364,10 @@ handler_recv_message(#{mod    := Mod,
         {error, closed} ->
             handler_done(State);
         {error, timeout} ->
+	    ?I("timeout when: "
+               "~n   MCnt: ~p"
+               "~n   BCnt: ~p"
+               "~n   LID:  ~p", [MCnt, BCnt, LID]),
             State
     end;
 
@@ -403,6 +408,11 @@ handler_recv_message(#{mod        := Mod,
             end;
 
         {error, timeout} ->
+	    ?I("timeout when: "
+               "~n   MCnt:      ~p"
+               "~n   BCnt:      ~p"
+               "~n   LID:       ~p"
+               "~n   size(Acc): ~p", [MCnt, BCnt, LID, size(Acc)]),
             State
     end.
 
@@ -443,7 +453,6 @@ handler_recv_message2(Mod, Sock) ->
                     exit({recv, body, ID, SZ, BReason})
             end;
         {error, timeout} = ERROR ->
-	    ?I("timeout"),
             ERROR;
         {error, closed} = ERROR ->
             ERROR;
