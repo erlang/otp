@@ -84,7 +84,7 @@ all(suite) ->
        fail_post_suite_cth, skip_pre_suite_cth, skip_pre_end_cth,
        skip_pre_init_tc_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
-       state_update_cth, options_cth, same_id_cth,
+       state_update_cth, update_result_cth, options_cth, same_id_cth,
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
        no_init_suite_config, no_init_config, no_end_config,
        failed_sequence, repeat_force_stop, config_clash,
@@ -208,6 +208,10 @@ update_config_cth(Config) when is_list(Config) ->
 state_update_cth(Config) when is_list(Config) ->
     do_test(state_update_cth, "ct_cth_fail_one_skip_one_SUITE.erl",
 	    [state_update_cth,state_update_cth],Config).
+
+update_result_cth(Config) ->
+    do_test(update_result_cth, "ct_cth_update_result_post_end_tc_SUITE.erl",
+            [update_result_post_end_tc_cth],Config).
 
 options_cth(Config) when is_list(Config) ->
     do_test(options_cth, "ct_cth_empty_SUITE.erl",
@@ -1091,6 +1095,106 @@ test_events(state_update_cth) ->
 				 post_init_per_suite,pre_init_per_suite,
 				 init]
 			       )]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(update_result_cth) ->
+    Suite = ct_cth_update_result_post_end_tc_SUITE,
+    [
+     {?eh,start_logging,'_'},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{'_',init,['_',[]]}},
+     {?eh,tc_start,{Suite,init_per_suite}},
+     {?eh,tc_done,{Suite,init_per_suite,ok}},
+
+     {?eh,tc_start,{Suite,tc_ok_to_fail}},
+     {?eh,cth,{'_',post_end_per_testcase,[Suite,tc_ok_to_fail,'_',ok,[]]}},
+     {?eh,tc_done,{Suite,tc_ok_to_fail,{failed,{error,"Test failure"}}}},
+     {?eh,cth,{'_',on_tc_fail,'_'}},
+     {?eh,test_stats,{0,1,{0,0}}},
+
+     {?eh,tc_start,{Suite,tc_ok_to_skip}},
+     {?eh,cth,{'_',post_end_per_testcase,[Suite,tc_ok_to_skip,'_',ok,[]]}},
+     {?eh,tc_done,{Suite,tc_ok_to_skip,{skipped,"Test skipped"}}},
+     {?eh,cth,{'_',on_tc_skip,'_'}},
+     {?eh,test_stats,{0,1,{1,0}}},
+
+     {?eh,tc_start,{Suite,tc_fail_to_ok}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,tc_fail_to_ok,'_',
+                {error,{test_case_failed,"should be changed to ok"}},[]]}},
+     {?eh,tc_done,{Suite,tc_fail_to_ok,ok}},
+     {?eh,test_stats,{1,1,{1,0}}},
+
+     {?eh,tc_start,{Suite,tc_fail_to_skip}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,tc_fail_to_skip,'_',
+                {error,{test_case_failed,"should be changed to skip"}},[]]}},
+     {?eh,tc_done,{Suite,tc_fail_to_skip,{skipped,"Test skipped"}}},
+     {?eh,cth,{'_',on_tc_skip,'_'}},
+     {?eh,test_stats,{1,1,{2,0}}},
+
+     {?eh,tc_start,{Suite,tc_timetrap_to_ok}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,tc_timetrap_to_ok,'_',{timetrap_timeout,3000},[]]}},
+     {?eh,tc_done,{Suite,tc_timetrap_to_ok,ok}},
+     {?eh,test_stats,{2,1,{2,0}}},
+
+     {?eh,tc_start,{Suite,tc_timetrap_to_skip}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,tc_timetrap_to_skip,'_',{timetrap_timeout,3000},[]]}},
+     {?eh,tc_done,{Suite,tc_timetrap_to_skip,{skipped,"Test skipped"}}},
+     {?eh,cth,{'_',on_tc_skip,'_'}},
+     {?eh,test_stats,{2,1,{3,0}}},
+
+     {?eh,tc_start,{Suite,tc_skip_to_fail}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,tc_skip_to_fail,'_',
+                {skip,"should be changed to fail"},[]]}},
+     {?eh,tc_done,{Suite,tc_skip_to_fail,{failed,{error,"Test failure"}}}},
+     {?eh,cth,{'_',on_tc_fail,'_'}},
+     {?eh,test_stats,{2,2,{3,0}}},
+
+     {?eh,tc_start,{Suite,end_fail_to_fail}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,end_fail_to_fail,'_',
+                {failed,
+                 {Suite,end_per_testcase,
+                  {'EXIT',{test_case_failed,"change result when end fails"}}}},[]]}},
+     {?eh,tc_done,{Suite,end_fail_to_fail,{failed,{error,"Test failure"}}}},
+     {?eh,cth,{'_',on_tc_fail,'_'}},
+     {?eh,test_stats,{2,3,{3,0}}},
+
+     {?eh,tc_start,{Suite,end_fail_to_skip}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,end_fail_to_skip,'_',
+                {failed,
+                 {Suite,end_per_testcase,
+                  {'EXIT',{test_case_failed,"change result when end fails"}}}},[]]}},
+     {?eh,tc_done,{Suite,end_fail_to_skip,{skipped,"Test skipped"}}},
+     {?eh,cth,{'_',on_tc_skip,'_'}},
+     {?eh,test_stats,{2,3,{4,0}}},
+
+     {?eh,tc_start,{Suite,end_timetrap_to_fail}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,end_timetrap_to_fail,'_',
+                {failed,{Suite,end_per_testcase,{timetrap_timeout,3000}}},[]]}},
+     {?eh,tc_done,{Suite,end_timetrap_to_fail,{failed,{error,"Test failure"}}}},
+     {?eh,cth,{'_',on_tc_fail,'_'}},
+     {?eh,test_stats,{2,4,{4,0}}},
+
+     {?eh,tc_start,{Suite,end_timetrap_to_skip}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [Suite,end_timetrap_to_skip,'_',
+                {failed,{Suite,end_per_testcase,{timetrap_timeout,3000}}},[]]}},
+     {?eh,tc_done,{Suite,end_timetrap_to_skip,{skipped,"Test skipped"}}},
+     {?eh,cth,{'_',on_tc_skip,'_'}},
+     {?eh,test_stats,{2,4,{5,0}}},
+
+     {?eh,tc_start,{Suite,end_per_suite}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,cth,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
