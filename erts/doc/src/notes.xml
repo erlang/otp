@@ -1947,6 +1947,22 @@
 
 </section>
 
+<section><title>Erts 9.2.0.1</title>
+
+  <section><title>Improvements and New Features</title>
+  <list>
+    <item>
+      <p>
+	Extra internal consistency checks wrt communication with
+      erl_child_setup process.</p>
+      <p>
+      Own Id: OTP-15488 Aux Id: ERIERL-231 </p>
+    </item>
+  </list>
+  </section>
+
+</section>
+  
 <section><title>Erts 9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
