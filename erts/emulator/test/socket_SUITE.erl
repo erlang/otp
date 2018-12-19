@@ -1444,11 +1444,20 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "get protocol",
            cmd  => fun(#{socket := Sock} = State) ->
-                           Res = socket:getopt(Sock, socket, protocol),
-                           {ok, {State, Res}}
+			   case socket:supports(options, socket, protocol) of
+			       true ->
+				   Res = socket:getopt(Sock, socket, protocol),
+				   {ok, {State, Res}};
+			       false ->
+				   {ok, {State, not_supported}}
+			   end
                    end},
          #{desc => "validate protocol",
-           cmd  => fun({#{protocol := Protocol} = State, {ok, Protocol}}) ->
+           cmd  => fun({State, not_supported}) ->
+			   ?SEV_IPRINT("socket option 'protocol' "
+				       "not supported"),
+                           {ok, State};
+                      ({#{protocol := Protocol} = State, {ok, Protocol}}) ->
                            {ok, State};
                       ({#{protocol := ExpProtocol}, {ok, Protocol}}) ->
                            {error, {unexpected_type, ExpProtocol, Protocol}};
