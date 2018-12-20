@@ -25,7 +25,9 @@
 
 #include "common.h"
 
+#include "bn.h"
 #include "engine.h"
+#include "rsa.h"
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
@@ -55,14 +57,12 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -98,7 +98,6 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
 static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 		      EC_GROUP *group, EC_POINT **pptr);
 #endif
-static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn);
 
 static int library_refc = 0; /* number of users of this dynamic library */
 static int library_initialized = 0;
@@ -2168,48 +2167,6 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-
-static int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
-{
-    ErlNifBinary bin;
-    int sz;
-    if (!enif_inspect_binary(env,term,&bin)) {
-	return 0;
-    }
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(bin.data, bin.size);
-    sz = bin.size - 4;
-    if (sz < 0 || get_int32(bin.data) != sz) {
-	return 0;
-    }
-    *bnp = BN_bin2bn(bin.data+4, sz, NULL);
-    return 1;
-}
-
-static int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
-{
-    ErlNifBinary bin;
-    if (!enif_inspect_binary(env,term,&bin)) {
-	return 0;
-    }
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(bin.data, bin.size);
-    *bnp = BN_bin2bn(bin.data, bin.size, NULL);
-    return 1;
-}
-
-static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
-{
-    int bn_len;
-    unsigned char *bin_ptr;
-    ERL_NIF_TERM term;
-
-    /* Copy the bignum into an erlang binary. */
-    bn_len = BN_num_bytes(bn);
-    bin_ptr = enif_make_new_binary(env, bn_len, &term);
-    BN_bn2bin(bn, bin_ptr);
-
-    return term;
-}
-
 static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Range) */
     BIGNUM *bn_range, *bn_rand;
@@ -2256,46 +2213,6 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
     BN_free(bn_rand);
     BN_free(bn_from);
     BN_free(bn_to);
-    return ret;
-}
-
-static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Base,Exponent,Modulo,bin_hdr) */
-    BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo=NULL, *bn_result;
-    BN_CTX *bn_ctx;
-    unsigned char* ptr;
-    unsigned dlen;
-    unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
-    unsigned extra_byte;
-    ERL_NIF_TERM ret;
-
-    if (!get_bn_from_bin(env, argv[0], &bn_base)
-	|| !get_bn_from_bin(env, argv[1], &bn_exponent)
-	|| !get_bn_from_bin(env, argv[2], &bn_modulo)
-	|| !enif_get_uint(env,argv[3],&bin_hdr) || (bin_hdr & ~4)) {
-
-	if (bn_base) BN_free(bn_base);
-	if (bn_exponent) BN_free(bn_exponent);
-	if (bn_modulo) BN_free(bn_modulo);
-	return enif_make_badarg(env);
-    }
-    bn_result = BN_new();
-    bn_ctx = BN_CTX_new();
-    BN_mod_exp(bn_result, bn_base, bn_exponent, bn_modulo, bn_ctx);
-    dlen = BN_num_bytes(bn_result);
-    extra_byte = bin_hdr && BN_is_bit_set(bn_result, dlen*8-1);
-    ptr = enif_make_new_binary(env, bin_hdr+extra_byte+dlen, &ret);
-    if (bin_hdr) {
-	put_int32(ptr, extra_byte+dlen);
-	ptr[4] = 0; /* extra zeroed byte to ensure a positive mpint */
-	ptr += bin_hdr + extra_byte;
-    }
-    BN_bn2bin(bn_result, ptr);
-    BN_free(bn_result);
-    BN_CTX_free(bn_ctx);
-    BN_free(bn_modulo);
-    BN_free(bn_exponent);
-    BN_free(bn_base);
     return ret;
 }
 
@@ -2411,63 +2328,6 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
 #endif
 }
 
-static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
-{
-    /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
-    ERL_NIF_TERM head, tail;
-    BIGNUM *e, *n, *d;
-    BIGNUM *p, *q;
-    BIGNUM *dmp1, *dmq1, *iqmp;
-
-    if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_bin(env, head, &e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &n)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &d)) {
-	return 0;
-    }
-    (void) RSA_set0_key(rsa, n, e, d);
-    if (enif_is_empty_list(env, tail)) {
-	return 1;
-    }
-    if (!enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &q)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dmp1)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dmq1)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &iqmp)
-	|| !enif_is_empty_list(env, tail)) {
-	return 0;
-    }
-    (void) RSA_set0_factors(rsa, p, q);
-    (void) RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp);
-    return 1;
-}
-
-
-static int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
-{
-    /* key=[E,N] */
-    ERL_NIF_TERM head, tail;
-    BIGNUM *e, *n;
-
-    if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_bin(env, head, &e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &n)
-        || !enif_is_empty_list(env, tail)) {
-	return 0;
-    }
-
-    (void) RSA_set0_key(rsa, n, e, NULL);
-    return 1;
-}
-
 #ifdef HAVE_EDDSA
  static int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
@@ -2559,119 +2419,6 @@ static int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
     DSA_set0_pqg(dsa, dsa_p, dsa_q, dsa_g);
     DSA_set0_key(dsa, dsa_y, NULL);
     return 1;
-}
-
-/* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
-static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
-{
-    ERL_NIF_TERM result[8];
-    const BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
-
-    /* Return at least [E,N,D] */
-    n = NULL; e = NULL; d = NULL;
-    RSA_get0_key(rsa, &n, &e, &d);
-
-    result[0] = bin_from_bn(env, e);  // Exponent E
-    result[1] = bin_from_bn(env, n);  // Modulus N = p*q
-    result[2] = bin_from_bn(env, d);  // Exponent D
-
-    /* Check whether the optional additional parameters are available */
-    p = NULL; q = NULL;
-    RSA_get0_factors(rsa, &p, &q);
-    dmp1 = NULL; dmq1 = NULL; iqmp = NULL;
-    RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
-
-    if (p && q && dmp1 && dmq1 && iqmp) {
-	result[3] = bin_from_bn(env, p);     // Factor p
-	result[4] = bin_from_bn(env, q);     // Factor q
-	result[5] = bin_from_bn(env, dmp1);  // D mod (p-1)
-	result[6] = bin_from_bn(env, dmq1);  // D mod (q-1)
-	result[7] = bin_from_bn(env, iqmp);  // (1/q) mod p
-
-	return enif_make_list_from_array(env, result, 8);
-    } else {
-	return enif_make_list_from_array(env, result, 3);
-    }
-}
-
-static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
-{
-    ErlNifEnv *env = BN_GENCB_get_arg(ctxt);
-
-    if (!enif_is_current_process_alive(env)) {
-	return 0;
-    } else {
-	return 1;
-    }
-}
-
-static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (ModulusSize, PublicExponent) */
-    int modulus_bits;
-    BIGNUM *pub_exp, *three;
-    RSA *rsa;
-    int success;
-    ERL_NIF_TERM result;
-    BN_GENCB *intr_cb;
-#ifndef HAVE_OPAQUE_BN_GENCB
-    BN_GENCB intr_cb_buf;
-#endif
-
-    if (!enif_get_int(env, argv[0], &modulus_bits) || modulus_bits < 256) {
-	return enif_make_badarg(env);
-    }
-
-    if (!get_bn_from_bin(env, argv[1], &pub_exp)) {
-	return enif_make_badarg(env);
-    }
-
-    /* Make sure the public exponent is large enough (at least 3).
-     * Without this, RSA_generate_key_ex() can run forever. */
-    three = BN_new();
-    BN_set_word(three, 3);
-    success = BN_cmp(pub_exp, three);
-    BN_free(three);
-    if (success < 0) {
-	BN_free(pub_exp);
-	return enif_make_badarg(env);
-    }
-
-    /* For large keys, prime generation can take many seconds. Set up
-     * the callback which we use to test whether the process has been
-     * interrupted. */
-#ifdef HAVE_OPAQUE_BN_GENCB
-    intr_cb = BN_GENCB_new();
-#else
-    intr_cb = &intr_cb_buf;
-#endif
-    BN_GENCB_set(intr_cb, check_erlang_interrupt, env);
-
-    rsa = RSA_new();
-    success = RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb);
-    BN_free(pub_exp);
-
-#ifdef HAVE_OPAQUE_BN_GENCB
-    BN_GENCB_free(intr_cb);
-#endif
-
-    if (!success) {
-        RSA_free(rsa);
-	return atom_error;
-    }
-
-    result = put_rsa_private_key(env, rsa);
-    RSA_free(rsa);
-
-    return result;
-}
-
-static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    /* RSA key generation can take a long time (>1 sec for a large
-     * modulus), so schedule it as a CPU-bound operation. */
-    return enif_schedule_nif(env, "rsa_generate_key",
-			     ERL_NIF_DIRTY_JOB_CPU_BOUND,
-			     rsa_generate_key, argc, argv);
 }
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -3232,22 +2979,6 @@ out:
     return key;
 }
 
-
-static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
-{
-    unsigned dlen;
-    unsigned char* ptr;
-    ERL_NIF_TERM ret;
-
-    if (!bn)
-	    return atom_undefined;
-
-    dlen = BN_num_bytes(bn);
-    ptr = enif_make_new_binary(env, dlen, &ret);
-    BN_bn2bin(bn, ptr);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(ptr, dlen);
-    return ret;
-}
 
 static ERL_NIF_TERM point2term(ErlNifEnv* env,
 			       const EC_GROUP *group,
