@@ -91,6 +91,7 @@ all_versions_tests() ->
      erlang_server_openssl_client_anon_with_cert,
      erlang_server_openssl_client_reuse_session,
      erlang_client_openssl_server_renegotiate,
+     erlang_client_openssl_server_renegotiate_after_client_data,
      erlang_client_openssl_server_nowrap_seqnum,
      erlang_server_openssl_client_nowrap_seqnum,
      erlang_client_openssl_server_no_server_ca_cert,
@@ -794,6 +795,51 @@ erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
     true = port_command(OpensslPort, OpenSslData),
     
     ssl_test_lib:check_result(Client, ok), 
+
+     %% Clean close down!   Server needs to be closed first !!
+    ssl_test_lib:close_port(OpensslPort),
+    ssl_test_lib:close(Client),
+     process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+erlang_client_openssl_server_renegotiate_after_client_data() ->
+    [{doc,"Test erlang client when openssl server issuses a renegotiate after reading client data"}].
+erlang_client_openssl_server_renegotiate_after_client_data(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    ErlData = "From erlang to openssl",
+    OpenSslData = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Version = ssl_test_lib:protocol_version(Config),
+
+    Exe = "openssl",
+    Args = ["s_server", "-accept", integer_to_list(Port),
+            ssl_test_lib:version_flag(Version),
+            "-cert", CertFile, "-key", KeyFile, "-msg"],
+
+    OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args),
+
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE,
+                                               send_wait_send, [[ErlData, OpenSslData]]}},
+                                         {options, ClientOpts}]),
+
+    true = port_command(OpensslPort, ?OPENSSL_RENEGOTIATE),
+    ct:sleep(?SLEEP),
+    true = port_command(OpensslPort, OpenSslData),
+
+    ssl_test_lib:check_result(Client, ok),
 
      %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close_port(OpensslPort),
@@ -1924,6 +1970,12 @@ server_sent_garbage(Socket) ->
 	    {error, closed} == ssl:send(Socket, "data")
 	    
     end.
+
+send_wait_send(Socket, [ErlData, OpenSslData]) ->
+    ssl:send(Socket, ErlData),
+    ct:sleep(?SLEEP),
+    ssl:send(Socket, ErlData),
+    erlang_ssl_receive(Socket, OpenSslData).
     
 check_openssl_sni_support(Config) ->
     HelpText = os:cmd("openssl s_client --help"),
