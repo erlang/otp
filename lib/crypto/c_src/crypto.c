@@ -34,6 +34,7 @@
 #include "engine.h"
 #include "hash.h"
 #include "hmac.h"
+#include "rand.h"
 #include "rc4.h"
 #include "rsa.h"
 #include "srp.h"
@@ -54,9 +55,6 @@ static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NI
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -68,8 +66,6 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
 
 static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -1422,73 +1418,6 @@ static ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NI
     return enif_raise_exception(env, atom_notsup);
 #endif
 };
-
-
-static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes) */
-    unsigned bytes;
-    unsigned char* data;
-    ERL_NIF_TERM ret;
-
-    if (!enif_get_uint(env, argv[0], &bytes)) {
-	return enif_make_badarg(env);
-    }
-    data = enif_make_new_binary(env, bytes, &ret);
-    if ( RAND_bytes(data, bytes) != 1) {
-        return atom_false;
-    }
-    ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
-    return ret;
-}
-
-static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Range) */
-    BIGNUM *bn_range, *bn_rand;
-    ERL_NIF_TERM ret;
-
-    if(!get_bn_from_bin(env, argv[0], &bn_range)) {
-        return enif_make_badarg(env);
-    }
-
-    bn_rand = BN_new();
-    if (BN_rand_range(bn_rand, bn_range) != 1) {
-        ret = atom_false;
-    }
-    else {
-        ret = bin_from_bn(env, bn_rand);
-    }
-    BN_free(bn_rand);
-    BN_free(bn_range);
-    return ret;
-}
-
-static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Lo,Hi) */
-    BIGNUM *bn_from = NULL, *bn_to, *bn_rand;
-    unsigned char* data;
-    unsigned dlen;
-    ERL_NIF_TERM ret;
-
-    if (!get_bn_from_mpint(env, argv[0], &bn_from)
-	|| !get_bn_from_mpint(env, argv[1], &bn_rand)) {
-	if (bn_from) BN_free(bn_from);
-	return enif_make_badarg(env);
-    }
-
-    bn_to = BN_new();
-    BN_sub(bn_to, bn_rand, bn_from);
-    BN_pseudo_rand_range(bn_rand, bn_to);
-    BN_add(bn_rand, bn_rand, bn_from);
-    dlen = BN_num_bytes(bn_rand);
-    data = enif_make_new_binary(env, dlen+4, &ret);
-    put_int32(data, dlen);
-    BN_bn2bin(bn_rand, data+4);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(data+4, dlen);
-    BN_free(bn_rand);
-    BN_free(bn_from);
-    BN_free(bn_to);
-    return ret;
-}
 
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data1, Data2) */
@@ -3194,16 +3123,3 @@ static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NI
     if (pkey) EVP_PKEY_free(pkey);
     return enif_make_badarg(env);
 }
-
-/*================================================================*/
-
-static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    ErlNifBinary seed_bin;
-
-    if (!enif_inspect_binary(env, argv[0], &seed_bin))
-        return enif_make_badarg(env);
-    RAND_seed(seed_bin.data,seed_bin.size);
-    return atom_ok;
-}
-

@@ -82,6 +82,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/engine$(TYPEMARKER).o \
 	$(OBJDIR)/hash$(TYPEMARKER).o \
 	$(OBJDIR)/hmac$(TYPEMARKER).o \
+	$(OBJDIR)/rand$(TYPEMARKER).o \
 	$(OBJDIR)/rc4$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o \
 	$(OBJDIR)/srp$(TYPEMARKER).o
