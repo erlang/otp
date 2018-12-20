@@ -288,7 +288,9 @@ run_client(Opts) ->
     end.
 
 client_loop(Node, Host, Port, Pid, Transport, Options, Opts) ->
-    case rpc:call(Node, Transport, connect, [Host, Port, Options]) of
+    Timeout = proplists:get_value(timeout, Options, infinity),
+    case rpc:call(Node, Transport, connect, [Host, Port,
+                                             proplists:delete(timeout,Options), Timeout]) of
 	{ok, Socket} ->
 	    Pid ! {connected, Socket},
 	    ct:log("~p:~p~nClient: connected~n", [?MODULE,?LINE]),

@@ -505,13 +505,10 @@ init_per_testcase(raw_ssl_option, Config) ->
 
 init_per_testcase(handshake_continue_timeout, Config) ->
 	ct:timetrap({seconds, 5}),
-    case proplists:get_value(protocol, Config) of
-	dtls ->
-            {skip, "Not yet supported on DTLS sockets"};
-	_ ->
-	    ssl_test_lib:ct_log_supported_protocol_versions(Config),
-	    Config
-    end;
+	ssl_test_lib:ct_log_supported_protocol_versions(Config),
+	Config;
+
+
 init_per_testcase(accept_pool, Config) ->
     ct:timetrap({seconds, 5}),
     case proplists:get_value(protocol, Config) of
@@ -700,9 +697,8 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{timeout, 5},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {from, self()},
+                                        {timeout, 1},
                                         {options, ssl_test_lib:ssl_options([{reuseaddr, true}, {handshake, hello}],
                                                                            Config)},
                                         {continue_options, proplists:delete(reuseaddr, ServerOpts)}
@@ -710,18 +706,15 @@ handshake_continue_timeout(Config) when is_list(Config) ->
 
     Port = ssl_test_lib:inet_port(Server),
 
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
+
+    {connect_failed, _} = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+                                        {host, Hostname},
                                         {from, self()},
-                                        {timeout, 10},
-                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options, ClientOpts}
-                                      ]),
+                                        {options, [{timeout, 5} | proplists:delete(reuseaddr, ClientOpts)]}
+                                                    ]),
 
     ssl_test_lib:check_result(Server, {error,timeout}),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
 hello_client_cancel() ->
