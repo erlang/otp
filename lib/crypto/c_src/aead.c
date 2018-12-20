@@ -1,6 +1,5 @@
 #include "aead.h"
 #include "aes.h"
-#include "chacha20.h"
 
 ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In) */
