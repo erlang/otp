@@ -72,7 +72,8 @@ OBJDIR = $(PRIVDIR)/obj/$(TARGET)
 LIBDIR = $(PRIVDIR)/lib/$(TARGET)
 
 CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
-	$(OBJDIR)/atoms$(TYPEMARKER).o
+	$(OBJDIR)/atoms$(TYPEMARKER).o \
+	$(OBJDIR)/engine$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile
 CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
