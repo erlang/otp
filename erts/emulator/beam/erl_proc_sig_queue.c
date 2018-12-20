@@ -3812,7 +3812,6 @@ clear_seq_trace_token(ErtsMessage *sig)
 void
 erts_proc_sig_clear_seq_trace_tokens(Process *c_p)
 {
-    ASSERT(erts_thr_progress_is_blocking());
     erts_proc_sig_fetch(c_p);
     ERTS_FOREACH_SIG_PRIVQS(c_p, sig, clear_seq_trace_token(sig));
 }

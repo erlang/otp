@@ -4490,11 +4490,12 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         ERTS_TRACER_CLEAR(&old_seq_tracer);
 
         BIF_RET(ret);
-    } else if (BIF_ARG_1 == make_small(1)) {
+    } else if (BIF_ARG_1 == am_reset_seq_trace) {
 	int i, max;
-	erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_thr_progress_block();
 
+        erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+        erts_thr_progress_block();
+        
 	max = erts_ptab_max(&erts_proc);
 	for (i = 0; i < max; i++) {
 	    Process *p = erts_pix2proc(i);
@@ -4506,13 +4507,14 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 #endif
 		p->seq_trace_clock = 0;
 		p->seq_trace_lastcnt = 0;
-
+                erts_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_MSGQ);
                 erts_proc_sig_clear_seq_trace_tokens(p);
+                erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_MSGQ);
 	    }
 	}
 
-	erts_thr_progress_unblock();
-	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+        erts_thr_progress_unblock();
+        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(am_true);
     } else if (BIF_ARG_1 == am_scheduler_wall_time) {

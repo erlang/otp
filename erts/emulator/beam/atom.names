@@ -546,6 +546,7 @@ atom reload
 atom rem
 atom report_errors
 atom reset
+atom reset_seq_trace
 atom restart
 atom return_from
 atom return_to
