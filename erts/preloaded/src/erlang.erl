@@ -2534,7 +2534,7 @@ subtract(_,_) ->
                         %% These are deliberately not documented
 			(internal_cpu_topology, term()) -> term();
                         (sequential_tracer, pid() | port() | {module(), term()} | false) -> pid() | port() | false;
-                        (1,0) -> true.
+                        (reset_seq_trace,true) -> true.
 
 system_flag(_Flag, _Value) ->
     erlang:nif_error(undefined).
