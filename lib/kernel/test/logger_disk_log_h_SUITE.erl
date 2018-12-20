@@ -647,13 +647,8 @@ sync(Config) ->
     {ok,#{config := HConfig}} = logger:get_handler_config(?MODULE),
     HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
     ok = logger:update_handler_config(?MODULE, config, HConfig1),
-
     no_repeat = maps:get(filesync_repeat_interval,
                          maps:get(cb_state,logger_disk_log_h:info(?MODULE))),
-    %% The following timer is to make sure the time from last log
-    %% ("first") to next ("second") is long enough, so the a flush is
-    %% triggered by the idle timeout between "fourth" and "fifth".
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
 
     start_tracer([{logger_disk_log_h,disk_log_write,3},
                   {disk_log,sync,1}],
@@ -663,10 +658,10 @@ sync(Config) ->
                   {disk_log,sync}]),
 
     logger:notice("second", ?domain),
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
+    timer:sleep(?IDLE_DETECT_TIME*2),
     logger:notice("third", ?domain),
     %% wait for automatic disk_log_sync
-    check_tracer(?IDLE_DETECT_TIME_MSEC*2),
+    check_tracer(?IDLE_DETECT_TIME*2),
 
     try_read_file(Log, {ok,<<"first\nsecond\nthird\n">>}, 1000),
     

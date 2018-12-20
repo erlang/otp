@@ -65,11 +65,9 @@
 -define(FILESYNC_REPEAT_INTERVAL, 5000).
 %%-define(FILESYNC_REPEAT_INTERVAL, no_repeat).
 
-%% This is the time after last message received that we think/hope
-%% that the handler has an empty mailbox (no new log request has
-%% come in).
--define(IDLE_DETECT_TIME_MSEC, 100).
--define(IDLE_DETECT_TIME_USEC, 100000).
+%% This is the time in milliseconds after last load message received
+%% that we notify the callback about being idle.
+-define(IDLE_DETECT_TIME, 100).
 
 %% Default disk log option values
 -define(DISK_LOG_TYPE, wrap).

@@ -673,10 +673,6 @@ sync(Config) ->
                                       #{filesync_repeat_interval => no_repeat}),
     no_repeat = maps:get(filesync_repeat_interval,
                          maps:get(cb_state, logger_std_h:info(?MODULE))),
-    %% The following timer is to make sure the time from last log
-    %% ("second") to next ("third") is long enough, so the a flush is
-    %% triggered by the idle timeout between "thrid" and "fourth".
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
     start_tracer([{logger_std_h, write_to_dev, 5},
                   {file, datasync, 1}],
                  [{logger_std_h, write_to_dev, <<"third\n">>},
@@ -685,10 +681,10 @@ sync(Config) ->
                   {file,datasync}]),
     logger:notice("third", ?domain),
     %% wait for automatic filesync
-    timer:sleep(?IDLE_DETECT_TIME_MSEC*2),
+    timer:sleep(?IDLE_DETECT_TIME*2),
     logger:notice("fourth", ?domain),
     %% wait for automatic filesync
-    check_tracer(?IDLE_DETECT_TIME_MSEC*2),
+    check_tracer(?IDLE_DETECT_TIME*2),
 
     %% switch repeated filesync on and verify that the looping works
     SyncInt = 1000,

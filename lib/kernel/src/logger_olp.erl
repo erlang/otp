@@ -188,6 +188,7 @@ init([Name,Module,Args,Options]) ->
                     %% (sending) the option data with each message
                     State0 = ?merge_with_stats(
                                 Options#{id => Name,
+                                         idle=> true,
                                          module => Module,
                                          mode_ref => ModeRef,
                                          mode => async,
@@ -216,34 +217,35 @@ init([Name,Module,Args,Options]) ->
 
 %% This is the synchronous load event.
 handle_call({'$olp_load', Msg}, _From, State) ->
-    {Result,State1} = do_load(Msg, call, State),
+    {Result,State1} = do_load(Msg, call, State#{idle=>false}),
     %% Result == ok | dropped
-    {reply,Result, State1};
+    reply_return(Result,State1);
 
 handle_call(get_ref,_From,#{id:=Name,mode_ref:=ModeRef}=State) ->
-    {reply,{Name,self(),ModeRef},State};
+    reply_return({Name,self(),ModeRef},State);
 
 handle_call({set_opts,Opts0},_From,State) ->
     Opts = maps:merge(maps:with(?OPT_KEYS,State),Opts0),
     case check_opts(Opts) of
         ok ->
-            {reply, ok, maps:merge(State,Opts)};
+            reply_return(ok, maps:merge(State,Opts));
         Error ->
-            {reply, Error, State}
+            reply_return(Error, State)
     end;
 
 handle_call(get_opts,_From,State) ->
-    {reply, maps:with(?OPT_KEYS,State), State};
+    reply_return(maps:with(?OPT_KEYS,State), State);
 
 handle_call(info, _From, State) ->
-    {reply, State, State};
+    reply_return(State, State);
 
 handle_call(reset, _From, #{module:=Module,cb_state:=CBState}=State) ->
     State1 = ?merge_with_stats(State),
     CBState1 = try_callback_call(Module,reset_state,[CBState],CBState),
-    {reply, ok, State1#{last_qlen => 0,
-                        last_load_ts => ?timestamp(),
-                        cb_state => CBState1}};
+    reply_return(ok, State1#{idle => true,
+                             last_qlen => 0,
+                             last_load_ts => ?timestamp(),
+                             cb_state => CBState1});
 
 handle_call(stop, _From, State) ->
     {stop, {shutdown,stopped}, ok, State};
@@ -251,37 +253,36 @@ handle_call(stop, _From, State) ->
 handle_call(Msg, From, #{module:=Module,cb_state:=CBState}=State) ->
     case try_callback_call(Module,handle_call,[Msg, From, CBState]) of
         {reply,Reply,CBState1} ->
-            {reply,Reply,State#{cb_state=>CBState1}};
-        {reply,Reply,CBState1,Timeout}->
-            {reply,Reply,State#{cb_state=>CBState1},Timeout};
+            reply_return(Reply,State#{cb_state=>CBState1});
         {noreply,CBState1} ->
-            {noreply,State#{cb_state=>CBState1}};
-        {noreply,CBState1,Timeout} ->
-            {noreply,State#{cb_state=>CBState1},Timeout}
+            noreply_return(State#{cb_state=>CBState1})
     end.
 
 %% This is the asynchronous load event.
 handle_cast({'$olp_load', Msg}, State) ->
-    {_Result,State1} = do_load(Msg, cast, State),
-    {noreply,State1};
+    {_Result,State1} = do_load(Msg, cast, State#{idle=>false}),
+    noreply_return(State1);
 
 handle_cast(Msg, #{module:=Module, cb_state:=CBState} = State) ->
     case try_callback_call(Module,handle_cast,[Msg, CBState]) of
         {noreply,CBState1} ->
-            {noreply,State#{cb_state=>CBState1}};
-        {noreply,CBState1,Timeout} ->
-            {noreply,State#{cb_state=>CBState1},Timeout}
+            noreply_return(State#{cb_state=>CBState1})
     end.
 
+handle_info(timeout, #{mode_ref:=_ModeRef, mode:=Mode} = State) ->
+    State1 = notify(idle,State),
+    State2 = maybe_notify_mode_change(async,State1),
+    {noreply, State2#{idle => true,
+                      mode => ?change_mode(_ModeRef, Mode, async),
+                      burst_msg_count => 0}};
 handle_info(Msg, #{module := Module, cb_state := CBState} = State) ->
     case try_callback_call(Module,handle_info,[Msg, CBState]) of
         {noreply,CBState1} ->
-            {noreply,State#{cb_state=>CBState1}};
-        {noreply,CBState1,Timeout} ->
-            {noreply,State#{cb_state=>CBState1},Timeout};
+            noreply_return(State#{cb_state=>CBState1});
         {load,CBState1} ->
-            {_,State1} = do_load(Msg, cast, State#{cb_state=>CBState1}),
-            {noreply,State1}
+            {_,State1} = do_load(Msg, cast, State#{idle=>false,
+                                                   cb_state=>CBState1}),
+            noreply_return(State1)
     end.
 
 terminate({shutdown,{overloaded,_QLen,_Mem}},
@@ -368,7 +369,7 @@ flush(T1, State=#{id := _Name, mode := Mode, last_load_ts := _T0, mode_ref := Mo
 
     State2 = ?update_max_time(?diff_time(T1,_T0),State1),
     State3 = ?update_max_qlen(QLen1,State2),
-    State4 = maybe_notify_mode_change(async,QLen1,State3),
+    State4 = maybe_notify_mode_change(async,State3),
     {dropped,?update_other(flushed,FLUSHED,NewFlushed,
                            State4#{mode => ?change_mode(ModeRef,Mode,async),
                                    last_qlen => QLen1,
@@ -379,9 +380,8 @@ handle_load(Mode, T1, Msg, _CallOrCast,
       State = #{id := _Name,
                 module := Module,
                 cb_state := CBState,
-                mode_ref := ModeRef,
                 last_qlen := LastQLen,
-                last_load_ts := T0}) ->
+                last_load_ts := _T0}) ->
     %% check if we need to limit the number of writes
     %% during a burst of log events
     {DoWrite,State1} = limit_burst(State),
@@ -397,28 +397,11 @@ handle_load(Mode, T1, Msg, _CallOrCast,
         end,
     State2 = State1#{cb_state=>CBState1},
 
-    %% Check if the time since the previous load message is long
-    %% enough - and the queue length small enough - to assume the
-    %% mailbox has been emptied, and if so, reset mode to async. Note
-    %% that this is the best we can do to detect an idle handler
-    %% without setting a timer after each log call/cast. If the time
-    %% between two consecutive log events is fast and no new event
-    %% comes in after the last one, idle state won't be detected!
-    Time = ?diff_time(T1,T0),
-    State3 =
-        if (LastQLen1 < ?FILESYNC_OK_QLEN) andalso
-           (Time > ?IDLE_DETECT_TIME_USEC) ->
-                S1 = notify(idle,State2),
-                S2 = maybe_notify_mode_change(async,LastQLen1,S1),
-                S2#{mode => ?change_mode(ModeRef, Mode, async),
-                    burst_msg_count => 0};
-           true ->
-                State2#{mode => Mode}
-        end,
+    State3 = State2#{mode => Mode},
     State4 = ?update_calls_or_casts(_CallOrCast,1,State3),
     State5 = ?update_max_qlen(LastQLen1,State4),
     State6 =
-        ?update_max_time(Time,
+        ?update_max_time(?diff_time(T1,_T0),
                          State5#{last_qlen := LastQLen1,
                                  last_load_ts => T1}),
     State7 = case Result of
@@ -525,7 +508,7 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
         end,
     State1 = ?update_other(drops,DROPS,_NewDrops,State),
     State2 = ?update_max_qlen(QLen,State1),
-    State3 = maybe_notify_mode_change(Mode1,QLen,State2),
+    State3 = maybe_notify_mode_change(Mode1,State2),
     {Mode1, QLen, Mem,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State3#{last_qlen => QLen})}.
@@ -596,13 +579,13 @@ overload_levels_ok(Options) ->
     FQL = maps:get(flush_qlen, Options, ?FLUSH_QLEN),
     (DMQL > 1) andalso (SMQL =< DMQL) andalso (DMQL =< FQL).
 
-maybe_notify_mode_change(drop,_QLen,#{mode:=Mode0}=State)
+maybe_notify_mode_change(drop,#{mode:=Mode0}=State)
   when Mode0=/=drop ->
     notify({mode_change,Mode0,drop},State);
-maybe_notify_mode_change(Mode1,_QLen,#{mode:=drop}=State)
+maybe_notify_mode_change(Mode1,#{mode:=drop}=State)
   when Mode1==async; Mode1==sync ->
     notify({mode_change,drop,Mode1},State);
-maybe_notify_mode_change(_,_,State) ->
+maybe_notify_mode_change(_,State) ->
     State.
 
 notify(Note,#{module:=Module,cb_state:=CBState}=State) ->
@@ -624,3 +607,13 @@ try_callback_call(Module, Function, Args, DefRet) ->
                     erlang:raise(error,undef,S)
             end
     end.
+
+noreply_return(#{idle:=true}=State) ->
+    {noreply,State};
+noreply_return(#{idle:=false}=State) ->
+    {noreply,State,?IDLE_DETECT_TIME}.
+
+reply_return(Reply,#{idle:=true}=State) ->
+    {reply,Reply,State};
+reply_return(Reply,#{idle:=false}=State) ->
+    {reply,Reply,State,?IDLE_DETECT_TIME}.
