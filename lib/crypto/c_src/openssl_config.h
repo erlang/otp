@@ -307,4 +307,11 @@ do {							\
 #define PRINTF_ERR1(FMT,A1)
 #define PRINTF_ERR2(FMT,A1,A2)
 
+#ifdef FIPS_SUPPORT
+/* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
+#define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
+#else
+#define CHECK_NO_FIPS_MODE()
+#endif
+
 #endif /* E_OPENSSL_CONFIG_H__ */
