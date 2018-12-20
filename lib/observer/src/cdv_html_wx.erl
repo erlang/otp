@@ -79,14 +79,14 @@ handle_info(active, #state{panel=HtmlWin,delayed_fetch=Callback}=State)
     observer_lib:sync_destroy_progress_dialog(),
     wx_misc:beginBusyCursor(),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
-    cdv_wx:set_status(TW),
+    cdv_wx_set_status(State, TW),
     wx_misc:endBusyCursor(),
     {noreply, State#state{expand_table=Tab,
                           delayed_fetch=undefined,
                           trunc_warn=TW}};
 
 handle_info(active, State) ->
-    cdv_wx:set_status(State#state.trunc_warn),
+    cdv_wx_set_status(State, State#state.trunc_warn),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -164,3 +164,10 @@ expand(Id,Callback,#state{expand_wins=Opened0, app=App}=State) ->
 		Opened0
 	end,
     State#state{expand_wins=Opened}.
+
+cdv_wx_set_status(#state{app = cdv}, Status) ->
+    %% this module is used by the observer when cdw_wx isn't started
+    %% only try to set status when used by cdv
+    cdv_wx:set_status(Status);
+cdv_wx_set_status(_, _) ->
+    ok.
