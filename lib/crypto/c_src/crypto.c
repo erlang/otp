@@ -37,6 +37,7 @@
 #include "engine.h"
 #include "hash.h"
 #include "hmac.h"
+#include "info.h"
 #include "poly1305.h"
 #include "rand.h"
 #include "rc4.h"
@@ -49,7 +50,6 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_N
 static void unload(ErlNifEnv* env, void* priv_data);
 
 /* The NIFs: */
-static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -171,39 +171,6 @@ static int verify_lib_version(void)
     }
     return 1;
 }
-
-#ifdef HAVE_DYNAMIC_CRYPTO_LIB
-
-# if defined(DEBUG)
-static char crypto_callback_name[] = "crypto_callback.debug";
-# elif defined(VALGRIND)
-static char crypto_callback_name[] = "crypto_callback.valgrind";
-# else
-static char crypto_callback_name[] = "crypto_callback";
-# endif
-
-static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
-{
-    int i;
-
-    for (i = bin->size; i > 0; i--) {
-	if (bin->data[i-1] == '/')
-	    break;
-    }
-    if (i + strlen(newfile) >= bufsz) {
-	PRINTF_ERR0("CRYPTO: lib name too long");
-	return 0;
-    }
-    memcpy(buf, bin->data, i);
-    strcpy(buf+i, newfile);
-    return 1;
-}
-
-static void error_handler(void* null, const char* errstr)
-{
-    PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
-}
-#endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
@@ -668,33 +635,6 @@ static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 			    enif_make_list_from_array(env, algo_curve,  curve_cnt),
 			    enif_make_list_from_array(env, algo_rsa_opts, rsa_opts_cnt)
                             );
-}
-
-static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    /* [{<<"OpenSSL">>,9470143,<<"OpenSSL 0.9.8k 25 Mar 2009">>}] */
-
-    static const char libname[] = "OpenSSL";
-    unsigned name_sz = strlen(libname);
-    const char* ver = SSLeay_version(SSLEAY_VERSION);
-    unsigned ver_sz = strlen(ver);
-    ERL_NIF_TERM name_term, ver_term;
-    int ver_num = OPENSSL_VERSION_NUMBER;
-    /* R16:
-     * Ignore library version number from SSLeay() and instead show header
-     * version. Otherwise user might try to call a function that is implemented
-     * by a newer library but not supported by the headers used at compile time.
-     * Example: DES_ede3_cfb_encrypt in 0.9.7i but not in 0.9.7d.
-     *
-     * Version string is still from library though.
-     */
-
-    memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);
-    memcpy(enif_make_new_binary(env, ver_sz, &ver_term), ver, ver_sz);
-
-    return enif_make_list1(env, enif_make_tuple3(env, name_term,
-						 enif_make_int(env, ver_num),
-						 ver_term));
 }
 
 static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
