@@ -200,24 +200,21 @@ $(LIBDIR)/crypto_callback$(TYPEMARKER).dll: $(CALLBACK_OBJS)
 endif
 
 
-clean:
-	rm -f $(LIBDIR)/crypto.@DED_EXT@
-	rm -f $(LIBDIR)/crypto.debug.@DED_EXT@
-	rm -f $(LIBDIR)/crypto.valgrind.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.debug.@DED_EXT@
-	rm -f $(LIBDIR)/crypto_callback.valgrind.@DED_EXT@
-	rm -f $(LIBDIR)/otp_test_engine.@DED_EXT@
-	rm -f $(OBJDIR)/crypto.o
-	rm -f $(OBJDIR)/crypto_static.o
-	rm -f $(OBJDIR)/crypto.debug.o
-	rm -f $(OBJDIR)/crypto_static.debug.o
-	rm -f $(OBJDIR)/crypto.valgrind.o
-	rm -f $(OBJDIR)/crypto_static.valgrind.o
-	rm -f $(OBJDIR)/crypto_callback.o
-	rm -f $(OBJDIR)/crypto_callback.debug.o
-	rm -f $(OBJDIR)/crypto_callback.valgrind.o
-	rm -f $(OBJDIR)/otp_test_engine.o
+CLEAN_OBJS_RAW = $(CRYPTO_OBJS) $(CALLBACK_OBJS) $(CRYPTO_STATIC_OBJS) $(TEST_ENGINE_OBJS)
+CLEAN_OBJS_O = $(patsubst %.debug.o,%.o,$(CLEAN_OBJS_RAW:.valgrind.o=.o))
+
+CLEAN_LIBS_RAW = $(NIF_LIB) $(CALLBACK_LIB) $(TEST_ENGINE_LIB)
+CLEAN_LIBS_SO = $(patsubst %.debug.@DED_EXT@,%.@DED_EXT@,$(CLEAN_LIBS_RAW:.valgrind.@DED_EXT@=.@DED_EXT@))
+
+clean_dynamic_libs:
+	rm -f $(CLEAN_LIBS_SO)
+	rm -f $(foreach T,.valgrind.@DED_EXT@ .debug.@DED_EXT@,$(CLEAN_LIBS_SO:.@DED_EXT@=$T))
+
+clean_objs:
+	rm -f $(CLEAN_OBJS_O)
+	rm -f $(foreach T,.valgrind.o .debug.o,$(CLEAN_OBJS_O:.o=$T))
+
+clean: clean_objs clean_dynamic_libs
 	rm -f core *~
 
 docs:
