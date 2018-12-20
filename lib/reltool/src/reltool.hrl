@@ -61,6 +61,7 @@
                           | {app_name(), app_type()}
                           | {app_name(), [incl_app()]}
                           | {app_name(), app_type(), [incl_app()]}.
+-type rel_opt()          :: {load_dot_erlang, boolean()}.
 -type mod()              :: {incl_cond, incl_cond()}
                           | {debug_info, debug_info()}.
 -type app()              :: {vsn, app_vsn()}
@@ -92,6 +93,8 @@
                           | {lib_dirs, [lib_dir()]}
                           | {boot_rel, boot_rel()}
                           | {rel, rel_name(), rel_vsn(), [rel_app()]}
+                          | {rel, rel_name(), rel_vsn(),
+                             [rel_app()], [rel_opt()]}
                           | {relocatable, relocatable()}
                           | {erts, app()}
                           | {escript, escript_file(), [escript()]}

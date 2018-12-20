@@ -1483,6 +1483,18 @@ decode(#sys{rels = Rels} = Sys, [{rel, Name, Vsn, RelApps} | SysKeyVals])
     Rel = #rel{name = Name, vsn = Vsn, rel_apps = []},
     Rel2 = decode(Rel, RelApps),
     decode(Sys#sys{rels = [Rel2 | Rels]}, SysKeyVals);
+decode(#sys{rels = Rels} = Sys, [{rel, Name, Vsn, RelApps, Opts} | SysKeyVals])
+  when is_list(Name), is_list(Vsn), is_list(RelApps), is_list(Opts) ->
+    Rel1 = lists:foldl(fun(Opt, Rel0) ->
+        case Opt of
+            {load_dot_erlang, Value} when is_boolean(Value) ->
+                Rel0#rel{load_dot_erlang = Value};
+            _ ->
+                reltool_utils:throw_error("Illegal rel option: ~tp", [Opt])
+        end
+    end, #rel{name = Name, vsn = Vsn, rel_apps = []}, Opts),
+    Rel2 = decode(Rel1, RelApps),
+    decode(Sys#sys{rels = [Rel2 | Rels]}, SysKeyVals);
 decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
     Sys3 =
         case Key of

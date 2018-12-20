@@ -108,12 +108,8 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
 		    || A <- Apps, A#app.is_escript],
     DefaultRels = reltool_utils:default_rels(),
-    RelsItems =
-	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
-	    R <- Rels],
-    DefaultRelsItems =
-	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
-	    R <- DefaultRels],
+    RelsItems = [do_gen_config(R, InclDefs) || R <- Rels],
+    DefaultRelsItems = [do_gen_config(R, InclDefs) || R <- DefaultRels],
     RelsItems2 =
 	case InclDefs of
 	    true  -> RelsItems;
@@ -201,11 +197,20 @@ do_gen_config(#mod{name = Name,
 	_ ->
 	    []
     end;
-do_gen_config(#rel{name = _Name,
-		   vsn = _Vsn,
-		   rel_apps = RelApps},
-	      InclDefs) ->
-    [do_gen_config(RA, InclDefs) || RA <- RelApps];
+do_gen_config(#rel{name = Name,
+                   vsn = Vsn,
+                   rel_apps = RelApps,
+                   load_dot_erlang = LoadDotErlang},
+              InclDefs) ->
+    RelAppsConfig = [do_gen_config(RA, InclDefs) || RA <- RelApps],
+    if
+        LoadDotErlang =:= false ->
+            {rel, Name, Vsn, RelAppsConfig, [{load_dot_erlang, false}]};
+        InclDefs =:= true ->
+            {rel, Name, Vsn, RelAppsConfig, [{load_dot_erlang, true}]};
+        LoadDotErlang =:= true ->
+            {rel, Name, Vsn, RelAppsConfig}
+    end;
 do_gen_config(#rel_app{name = Name,
 		       app_type = Type,
 		       incl_apps = InclApps},
