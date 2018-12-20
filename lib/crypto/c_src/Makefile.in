@@ -79,6 +79,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/cmac$(TYPEMARKER).o \
 	$(OBJDIR)/dh$(TYPEMARKER).o \
 	$(OBJDIR)/digest$(TYPEMARKER).o \
+	$(OBJDIR)/dss$(TYPEMARKER).o \
 	$(OBJDIR)/eddsa$(TYPEMARKER).o \
 	$(OBJDIR)/engine$(TYPEMARKER).o \
 	$(OBJDIR)/hash$(TYPEMARKER).o \
