@@ -449,18 +449,7 @@ all() ->
      {group, api},
      {group, socket_closure},
      {group, traffic},
-     {group, ttest},
-     {group, ttest_sgenf_cgen},
-     {group, ttest_sgenf_csock},
-     {group, ttest_sgeno_cgen},
-     {group, ttest_sgeno_csock},
-     {group, ttest_sgent_cgen},
-     {group, ttest_sgent_csock},
-     {group, ttest_ssockf_cgen},
-     {group, ttest_ssockf_csock},
-     {group, ttest_ssocko_cgen},
-     {group, ttest_ssocko_csock},
-     {group, ttest_ssockt_cgen}
+     {group, ttest}
 
      %% {group, tickets}
     ].
@@ -477,6 +466,7 @@ groups() ->
      {sc_remote_shutdown,  [], sc_rs_cases()},
      {traffic,             [], traffic_cases()},
      {ttest,               [], ttest_cases()},
+     {ttest_sgenf,         [], ttest_sgenf_cases()},
      {ttest_sgenf_cgen,    [], ttest_sgenf_cgen_cases()},
      {ttest_sgenf_cgenf,   [], ttest_sgenf_cgenf_cases()},
      {ttest_sgenf_cgeno,   [], ttest_sgenf_cgeno_cases()},
@@ -485,6 +475,7 @@ groups() ->
      {ttest_sgenf_csockf,  [], ttest_sgenf_csockf_cases()},
      {ttest_sgenf_csocko,  [], ttest_sgenf_csocko_cases()},
      {ttest_sgenf_csockt,  [], ttest_sgenf_csockt_cases()},
+     {ttest_sgeno,         [], ttest_sgeno_cases()},
      {ttest_sgeno_cgen,    [], ttest_sgeno_cgen_cases()},
      {ttest_sgeno_cgenf,   [], ttest_sgeno_cgenf_cases()},
      {ttest_sgeno_cgeno,   [], ttest_sgeno_cgeno_cases()},
@@ -493,6 +484,7 @@ groups() ->
      {ttest_sgeno_csockf,  [], ttest_sgeno_csockf_cases()},
      {ttest_sgeno_csocko,  [], ttest_sgeno_csocko_cases()},
      {ttest_sgeno_csockt,  [], ttest_sgeno_csockt_cases()},
+     {ttest_sgent,         [], ttest_sgent_cases()},
      {ttest_sgent_cgen,    [], ttest_sgent_cgen_cases()},
      {ttest_sgent_cgenf,   [], ttest_sgent_cgenf_cases()},
      {ttest_sgent_cgeno,   [], ttest_sgent_cgeno_cases()},
@@ -501,6 +493,7 @@ groups() ->
      {ttest_sgent_csockf,  [], ttest_sgent_csockf_cases()},
      {ttest_sgent_csocko,  [], ttest_sgent_csocko_cases()},
      {ttest_sgent_csockt,  [], ttest_sgent_csockt_cases()},
+     {ttest_ssockf,        [], ttest_ssockf_cases()},
      {ttest_ssockf_cgen,   [], ttest_ssockf_cgen_cases()},
      {ttest_ssockf_cgenf,  [], ttest_ssockf_cgenf_cases()},
      {ttest_ssockf_cgeno,  [], ttest_ssockf_cgeno_cases()},
@@ -509,6 +502,7 @@ groups() ->
      {ttest_ssockf_csockf, [], ttest_ssockf_csockf_cases()},
      {ttest_ssockf_csocko, [], ttest_ssockf_csocko_cases()},
      {ttest_ssockf_csockt, [], ttest_ssockf_csockt_cases()},
+     {ttest_ssocko,        [], ttest_ssocko_cases()},
      {ttest_ssocko_cgen,   [], ttest_ssocko_cgen_cases()},
      {ttest_ssocko_cgenf,  [], ttest_ssocko_cgenf_cases()},
      {ttest_ssocko_cgeno,  [], ttest_ssocko_cgeno_cases()},
@@ -517,6 +511,7 @@ groups() ->
      {ttest_ssocko_csockf, [], ttest_ssocko_csockf_cases()},
      {ttest_ssocko_csocko, [], ttest_ssocko_csocko_cases()},
      {ttest_ssocko_csockt, [], ttest_ssocko_csockt_cases()},
+     {ttest_ssockt,        [], ttest_ssockt_cases()},
      {ttest_ssockt_cgen,   [], ttest_ssockt_cgen_cases()},
      {ttest_ssockt_cgenf,  [], ttest_ssockt_cgenf_cases()},
      {ttest_ssockt_cgeno,  [], ttest_ssockt_cgeno_cases()},
@@ -672,55 +667,32 @@ traffic_cases() ->
 ttest_cases() ->
     [
      %% Server: transport = gen_tcp, active = false
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_sgenf_cgen},
-
-     %% Server: transport = gen_tcp, active = false
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_sgenf_csock},
+     {group, ttest_sgenf},
 
      %% Server: transport = gen_tcp, active = once
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_sgeno_cgen},
-
-     %% Server: transport = gen_tcp, active = once
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_sgeno_csock},
+     {group, ttest_sgeno},
 
      %% Server: transport = gen_tcp, active = true
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_sgent_cgen},
-
-     %% Server: transport = gen_tcp, active = true
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_sgent_csock},
+     {group, ttest_sgent},
 
      %% Server: transport = socket(tcp), active = false
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_ssockf_cgen},
-
-     %% Server: transport = socket(tcp), active = false
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_ssockf_csock},
+     {group, ttest_ssockf},
 
      %% Server: transport = socket(tcp), active = once
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_ssocko_cgen},
-
-     %% Server: transport = socket(tcp), active = once
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_ssocko_csock},
+     {group, ttest_ssocko},
 
      %% Server: transport = socket(tcp), active = true
-     %% Client: transport = gen_tcp (active = false, once and true)
-     {group, ttest_ssockt_cgen},
-
-     %% Server: transport = socket(tcp), active = true
-     %% Client: transport = socket(tcp) (active = false, once and true)
-     {group, ttest_ssockt_csock}
+     {group, ttest_ssockt}
 
     ].
 
+
+%% Server: transport = gen_tcp, active = false
+ttest_sgenf_cases() ->
+    [
+     {group, ttest_sgenf_cgen},
+     {group, ttest_sgenf_csock}
+    ].
 
 %% Server: transport = gen_tcp, active = false
 %% Client: transport = gen_tcp
@@ -816,6 +788,13 @@ ttest_sgenf_csockt_cases() ->
 
      ttest_sgenf_csockt_large_tcp4,
      ttest_sgenf_csockt_large_tcp6
+    ].
+
+%% Server: transport = gen_tcp, active = once
+ttest_sgeno_cases() ->
+    [
+     {group, ttest_sgeno_cgen},
+     {group, ttest_sgeno_csock}
     ].
 
 %% Server: transport = gen_tcp, active = once
@@ -915,6 +894,13 @@ ttest_sgeno_csockt_cases() ->
     ].
 
 %% Server: transport = gen_tcp, active = true
+ttest_sgent_cases() ->
+    [
+     {group, ttest_sgent_cgen},
+     {group, ttest_sgent_csock}
+    ].
+
+%% Server: transport = gen_tcp, active = true
 %% Client: transport = gen_tcp
 ttest_sgent_cgen_cases() ->
     [
@@ -1008,6 +994,13 @@ ttest_sgent_csockt_cases() ->
 
      ttest_sgent_csockt_large_tcp4,
      ttest_sgent_csockt_large_tcp6
+    ].
+
+%% Server: transport = socket(tcp), active = false
+ttest_ssockf_cases() ->
+    [
+     {group, ttest_ssockf_cgen},
+     {group, ttest_ssockf_csock}
     ].
 
 %% Server: transport = socket(tcp), active = false
@@ -1113,6 +1106,13 @@ ttest_ssockf_csockt_cases() ->
     ].
 
 %% Server: transport = socket(tcp), active = once
+ttest_ssocko_cases() ->
+    [
+     {group, ttest_ssocko_cgen},
+     {group, ttest_ssocko_csock}
+    ].
+
+%% Server: transport = socket(tcp), active = once
 %% Client: transport = gen_tcp
 ttest_ssocko_cgen_cases() ->
     [
@@ -1212,6 +1212,13 @@ ttest_ssocko_csockt_cases() ->
 
      ttest_ssocko_csockt_large_tcp4,
      ttest_ssocko_csockt_large_tcp6
+    ].
+
+%% Server: transport = socket(tcp), active = true
+ttest_ssockt_cases() ->
+    [
+     {group, ttest_ssockt_cgen},
+     {group, ttest_ssockt_csock}
     ].
 
 %% Server: transport = socket(tcp), active = true
