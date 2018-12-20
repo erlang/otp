@@ -691,7 +691,7 @@ connection(internal, #hello_request{},
     try tls_sender:peer_renegotiate(Pid) of
         {ok, Write} ->
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-                                               Cache, CacheCb, Renegotiation, Cert),
+                                               Cache, CacheCb, Renegotiation, Cert, undefined),
             {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write}}),
             next_event(hello, no_record, State#state{session = Session0#session{session_id
                                                                       = Hello#client_hello.session_id}}, Actions)
