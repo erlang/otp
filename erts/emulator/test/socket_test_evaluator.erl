@@ -153,6 +153,7 @@ await_finish([], Fails) ->
     Fails;
 await_finish(Evs, Fails) ->
     receive
+        %% Successfull termination of evaluator
         {'DOWN', _MRef, process, Pid, normal} ->
             case lists:keysearch(Pid, #ev.pid, Evs) of
                 {value, #ev{name = Name}} ->
@@ -163,8 +164,20 @@ await_finish(Evs, Fails) ->
                     iprint("unknown process ~p died (normal)", [Pid]),
                     await_finish(Evs, Fails)
                 end;
+
+        %% The evaluator can skip the teat case:
         {'DOWN', _MRef, process, Pid, {skip, Reason}} ->
+            case lists:keysearch(Pid, #ev.pid, Evs) of
+                {value, #ev{name = Name}} ->
+                    iprint("evaluator '~s' (~p) issued SKIP: "
+                           "~n   ~p", [Name, Pid, Reason]);
+                false ->
+                    iprint("unknown process ~p issued SKIP: "
+                           "~n   ~p", [Pid, Reason])
+            end,
             ?LIB:skip(Reason);
+
+        %% Evaluator failed
         {'DOWN', _MRef, process, Pid, Reason} ->
             case lists:keysearch(Pid, #ev.pid, Evs) of
                 {value, #ev{name = Name}} ->
@@ -260,6 +273,12 @@ announce(To, Announcement, Slogan, Extra)
   when is_pid(To) andalso 
        is_atom(Announcement) andalso  
        is_atom(Slogan) ->
+    %% iprint("announce -> entry with: "
+    %%        "~n   To:           ~p"
+    %%        "~n   Announcement: ~p"
+    %%        "~n   Slogan:       ~p"
+    %%        "~n   Extra:        ~p", 
+    %%        [To, Announcement, Slogan, Extra]),
     To ! {Announcement, self(), Slogan, Extra},
     ok.
 

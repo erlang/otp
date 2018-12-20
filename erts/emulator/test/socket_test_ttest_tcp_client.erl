@@ -41,8 +41,17 @@
 -module(socket_test_ttest_tcp_client).
 
 -export([
-         start_monitor/4, start_monitor/5, start_monitor/7,
+         %% These are for the test suite
+         start_monitor/6, start_monitor/7, start_monitor/9,
+
+         %% These are for starting in a shell when run "manually"
+         start/4, start/5, start/7,
          stop/1
+        ]).
+
+%% Internal exports
+-export([
+         do_start/9
         ]).
 
 -include_lib("kernel/include/inet.hrl").
@@ -71,66 +80,135 @@
 
 %% ==========================================================================
 
-start_monitor(Transport, Active, Addr, Port) ->
-    start_monitor(Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
+start_monitor(Node, Notify, Transport, Active, Addr, Port) ->
+    start_monitor(Node, Notify, Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
 
-%% RunTime is in number of ms.
-start_monitor(Transport, Active, Addr, Port, 1 = MsgID) ->
-    start_monitor(Transport, Active, Addr, Port, MsgID,
-		  ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
-start_monitor(Transport, Active, Addr, Port, 2 = MsgID) ->
-    start_monitor(Transport, Active, Addr, Port, MsgID,
-		  ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
-start_monitor(Transport, Active, Addr, Port, 3 = MsgID) ->
-    start_monitor(Transport, Active, Addr, Port, MsgID,
-		  ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
+start_monitor(Node, Notify, Transport, Active, Addr, Port, 1 = MsgID) ->
+    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+                  ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
+start_monitor(Node, Notify, Transport, Active, Addr, Port, 2 = MsgID) ->
+    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+                  ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
+start_monitor(Node, Notify, Transport, Active, Addr, Port, 3 = MsgID) ->
+    start_monitor(Node, Notify, Transport, Active, Addr, Port, MsgID,
+                  ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
 
--spec start_monitor(Transport,
-		    Active,
-                    Addr,
-                    Port,
-                    MsgID,
-                    MaxOutstanding,
-                    RunTime) -> term() when
+start_monitor(Node, Notify, Transport, Active, Addr, Port,
+              MsgID, MaxOutstanding, RunTime)
+  when (Node =/= node()) ->
+    %% ?I("start_monitor -> entry with"
+    %%    "~n   Node:           ~p"
+    %%    "~n   Transport:      ~p"
+    %%    "~n   Active:         ~p"
+    %%    "~n   Addr:           ~p"
+    %%    "~n   Port:           ~p"
+    %%    "~n   MsgID:          ~p"
+    %%    "~n   MaxOutstanding: ~p"
+    %%    "~n   RunTime:        ~p",
+    %%    [Node, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
+    Args = [self(), Notify,
+            Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime],
+    case rpc:call(Node, ?MODULE, do_start, Args) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, Pid} when is_pid(Pid) ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+start_monitor(_, Notify, Transport, Active, Addr, Port,
+              MsgID, MaxOutstanding, RunTime) ->
+    case do_start(self(), Notify,
+                  Transport, Active, Addr, Port,
+                  MsgID, MaxOutstanding, RunTime) of
+        {ok, Pid} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {Pid, MRef}};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+
+start(Transport, Active, Addr, Port) ->
+    start(Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
+
+start(Transport, Active, Addr, Port, 1 = MsgID) ->
+    start(Transport, Active, Addr, Port, MsgID,
+          ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
+start(Transport, Active, Addr, Port, 2 = MsgID) ->
+    start(Transport, Active, Addr, Port, MsgID,
+          ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
+start(Transport, Active, Addr, Port, 3 = MsgID) ->
+    start(Transport, Active, Addr, Port, MsgID,
+          ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
+
+start(Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    Notify = fun(R) -> present_results(R) end,
+    do_start(self(), Notify,
+             Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime).
+                      
+
+-spec do_start(Parent,
+               Notify,
+               Transport,
+               Active,
+               Addr,
+               Port,
+               MsgID,
+               MaxOutstanding,
+               RunTime) -> {ok, Pid} | {error, Reason} when
+      Parent         :: pid(),
+      Notify         :: function(),
       Transport      :: atom() | tuple(),
       Active         :: active(),
       Addr           :: inet:ip_address(),
       Port           :: inet:port_number(),
       MsgID          :: msg_id(),
       MaxOutstanding :: max_outstanding(),
-      RunTime        :: runtime().
+      RunTime        :: runtime(),
+      Pid            :: pid(),
+      Reason         :: term().
 
-%% RunTime is in number of ms.
-start_monitor(Transport, Active, Addr, Port,
-              MsgID, MaxOutstanding, RunTime) 
-  when (is_atom(Transport) orelse is_tuple(Transport)) andalso
+do_start(Parent, Notify,
+         Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime)
+  when is_pid(Parent) andalso
+       is_function(Notify) andalso
+       (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
        is_tuple(Addr) andalso 
        (is_integer(Port) andalso (Port > 0)) andalso
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->
-    Self       = self(),
-    ClientInit = fun() -> put(sname, "client"),
-                          init(Self,
-                               Transport, Active, Addr, Port,
-                               MsgID, MaxOutstanding, RunTime)
-                 end,
-    {Pid, MRef} = spawn_monitor(ClientInit),
+    %% ?I("do_start -> entry with"
+    %%    "~n   Parent:         ~p"
+    %%    "~n   Transport:      ~p"
+    %%    "~n   Active:         ~p"
+    %%    "~n   Addr:           ~p"
+    %%    "~n   Port:           ~p"
+    %%    "~n   MsgID:          ~p"
+    %%    "~n   MaxOutstanding: ~p"
+    %%    "~n   RunTime:        ~p",
+    %%    [Parent, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
+    Starter = self(),
+    Init = fun() -> put(sname, "client"),
+                    init(Starter, 
+                         Parent,
+                         Notify,
+                         Transport, Active, Addr, Port,
+                         MsgID, MaxOutstanding, RunTime)
+           end,
+    {Pid, MRef} = spawn_monitor(Init),
     receive
-        {?MODULE, Pid, ok} ->
-	    erlang:demonitor(MRef, [flush]),
-            {ok, {Pid, MRef}};
-
-        {?MODULE, Pid, {error, _} = ERROR} ->
-	    erlang:demonitor(MRef, [flush]),
-            ERROR;
-
-        {'DOWN', MRef, process, Pid, normal} ->
-            ok;
         {'DOWN', MRef, process, Pid, Reason} ->
-	    {error, {exit, Reason}}
-
+            {error, Reason};
+        {?MODULE, Pid, ok} ->
+            erlang:demonitor(MRef),
+            {ok, Pid};
+        {?MODULE, Pid, {error, _} = ERROR} ->
+            erlang:demonitor(MRef, [flush]),
+            ERROR
     end.
 
 
@@ -141,10 +219,11 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-init(Parent, Transport, Active, Addr, Port,
+init(Starter,
+     Parent, Notify,
+     Transport, Active, Addr, Port,
      MsgID, MaxOutstanding, RunTime) ->
     ?I("init with"
-       "~n   Parent:               ~p"
        "~n   Transport:            ~p"
        "~n   Active:               ~p"
        "~n   Addr:                 ~s"
@@ -152,14 +231,13 @@ init(Parent, Transport, Active, Addr, Port,
        "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
        "~n   Max Outstanding:      ~p"
        "~n   (Suggested) Run Time: ~p ms",
-       [Parent,
-        Transport, Active, inet:ntoa(Addr), Port,
+       [Transport, Active, inet:ntoa(Addr), Port,
         MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]),
     {Mod, Connect} = process_transport(Transport),
     case Connect(Addr, Port) of
         {ok, Sock} ->
             ?I("connected"),
-            Parent ! {?MODULE, self(), ok},
+            Starter ! {?MODULE, self(), ok},
 	    initial_activation(Mod, Sock, Active),
             Results = loop(#{slogan          => run,
 			     runtime         => RunTime,
@@ -178,7 +256,7 @@ init(Parent, Transport, Active, Addr, Port,
 			     bcnt            => 0,
 			     num             => undefined,
 			     acc             => <<>>}),
-            present_results(Results),
+            Notify(Results),
             (catch Mod:close(Sock)),
             exit(normal);
         {error, Reason} ->
@@ -446,8 +524,13 @@ recv_reply_message3(_Mod, Sock, ID, Acc) ->
 			      (Tag =:= socket) ->
             process_acc_data(ID, <<Acc/binary, Msg/binary>>)
         
-    %% after ?RECV_TIMEOUT ->
-    %%         {error, timeout}
+    after ?RECV_TIMEOUT ->
+            ?I("timeout when"
+               "~n   ID:        ~p"
+               "~n   size(Acc): ~p",
+               [ID, size(Acc)]),
+            %% {error, timeout}
+            recv_reply_message3(_Mod, Sock, ID, Acc)
     end.
 
 

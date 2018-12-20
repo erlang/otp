@@ -21,6 +21,8 @@
 -module(socket_test_lib).
 
 -export([
+         pi/1, pi/2, pi/3,
+
          %% Time stuff
          timestamp/0,
          tdiff/2,
@@ -34,6 +36,22 @@
          not_yet_implemented/0,
          skip/1
         ]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pi(Item) when is_atom(Item) ->
+    pi(self(), Item).
+
+pi(Pid, Item) when is_pid(Pid) andalso is_atom(Item) ->
+    {Item, Info} = process_info(Pid, Item),
+    Info;
+pi(Node, Pid) when is_pid(Pid) ->
+    rpc:call(Node, erlang, process_info, [Pid]).
+
+pi(Node, Pid, Item) when is_pid(Pid) andalso is_atom(Item) ->
+    rpc:call(Node, erlang, process_info, [Pid, Item]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -95,5 +95,17 @@ print(F, A) ->
     print(?LIB:f(F, A)).
 
 print(Str) ->
-    io:format(user, Str ++ "~n", []),
-    io:format(Str, []).
+    try
+        begin
+            io:format(user, Str ++ "~n", []),
+            io:format(Str, [])
+        end
+    catch
+        _:_:_ ->
+            io:format(user,
+                      "~nFailed Format message:"
+                      "~n~p~n", [Str]),
+            io:format("~nFailed Format message:"
+                      "~n~p~n", [Str])
+    end.
+            

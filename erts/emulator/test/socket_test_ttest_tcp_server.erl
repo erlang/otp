@@ -34,15 +34,25 @@
 -module(socket_test_ttest_tcp_server).
 
 -export([
-         start_monitor/2,
+         %% This are for the test suite
+         start_monitor/3,
+
+         %% This are for starting in a shell when run "manually"
+         start/2,
+
          stop/1
+        ]).
+
+%% Internal exports
+-export([
+         do_start/3
         ]).
 
 -include_lib("kernel/include/inet.hrl").
 -include("socket_test_ttest.hrl").
 
--define(ACC_TIMEOUT,  10000).
--define(RECV_TIMEOUT, 10000).
+-define(ACC_TIMEOUT,  5000).
+-define(RECV_TIMEOUT, 5000).
 
 -define(LIB,            socket_test_ttest_lib).
 -define(I(F),           ?LIB:info(F)).
@@ -56,28 +66,51 @@
 
 %% ==========================================================================
 
-start_monitor(Transport, Active) 
-  when (is_atom(Transport) orelse is_tuple(Transport)) andalso
-       (is_boolean(Active) orelse (Active =:= once)) ->
-    Self        = self(),
-    ServerInit  = fun() -> put(sname, "server"),
-                           server_init(Self, Transport, Active)
-                  end,
-    {Pid, MRef} = spawn_monitor(ServerInit),
-    receive
-        {'DOWN', MRef, process, Pid, normal} ->
-            ok;
-        {'DOWN', MRef, process, Pid, Reason} ->
-	    {error, {exit, Reason}};
-
-        {?MODULE, Pid, {ok, Port}} ->
-	    erlang:demonitor(MRef, [flush]),
-            {ok, {Pid, MRef, Port}};
-        {?MODULE, Pid, {error, _} = ERROR} ->
-	    erlang:demonitor(MRef, [flush]),
+start_monitor(Node, Transport, Active) when (Node =/= node()) ->
+    case rpc:call(Node, ?MODULE, do_start, [self(), Transport, Active]) of
+        {badrpc, _} = Reason ->
+            {error, Reason};
+        {ok, {Pid, AddrPort}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {{Pid, MRef}, AddrPort}};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+start_monitor(_, Transport, Active) ->
+    case do_start(self(), Transport, Active) of
+        {ok, {Pid, AddrPort}} ->
+            MRef = erlang:monitor(process, Pid),
+            {ok, {{Pid, MRef}, AddrPort}};
+        {error, _} = ERROR ->
             ERROR
     end.
+            
 
+
+start(Transport, Active) ->
+    do_start(self(), Transport, Active).
+
+
+do_start(Parent, Transport, Active)
+  when is_pid(Parent) andalso
+       (is_atom(Transport) orelse is_tuple(Transport)) andalso
+       (is_boolean(Active) orelse (Active =:= once)) ->
+    Starter    = self(),
+    ServerInit = fun() -> put(sname, "server"),
+                          server_init(Starter, Parent, Transport, Active)
+                 end,
+    {Pid, MRef} = spawn_monitor(ServerInit),
+    receive
+        {'DOWN', MRef, process, Pid, Reason} ->
+            {error, Reason};
+        {?MODULE, Pid, {ok, AddrPort}} ->
+            erlang:demonitor(MRef),
+            {ok, {Pid, AddrPort}};
+        {?MODULE, Pid, {error, _} = ERROR} ->
+            erlang:demonitor(MRef, [flush]),
+            ERROR
+    end.
+    
 
 stop(Pid) when is_pid(Pid) ->
     req(Pid, stop).
@@ -85,22 +118,21 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-server_init(Parent, Transport, Active) ->
-    ?I("init -> entry with"
-       "~n   Parent: ~p"
+server_init(Starter, Parent, Transport, Active) ->
+    ?I("init with"
        "~n   Transport: ~p"
-       "~n   Active:    ~p", [Parent, Transport, Active]),
+       "~n   Active:    ~p", [Transport, Active]),
     {Mod, Listen, StatsInterval} = process_transport(Transport, Active),
     case Listen(0) of
         {ok, LSock} ->
             case Mod:port(LSock) of
-                {ok, Port} = OK ->
+                {ok, Port} ->
 		    Addr = which_addr(), % This is just for convenience
-                    ?I("init -> listening on:"
+                    ?I("listening on:"
                        "~n   Addr: ~p (~s)"
                        "~n   Port: ~w"
                        "~n", [Addr, inet:ntoa(Addr), Port]),
-                    Parent ! {?MODULE, self(), OK},
+                    Starter ! {?MODULE, self(), {ok, {Addr, Port}}},
                     server_loop(#{parent         => Parent,
 				  mod            => Mod,
                                   active         => Active,
@@ -315,11 +347,12 @@ handler_loop(State) ->
     handler_loop( handler_handle_message( handler_recv_message(State) ) ).
 
 %% When passive, we read *one* request and then attempt to reply to it.
-handler_recv_message(#{mod    := Mod,
-		       sock   := Sock,
-                       active := false,
-                       mcnt   := MCnt,
-                       bcnt   := BCnt} = State) ->
+handler_recv_message(#{mod        := Mod,
+		       sock       := Sock,
+                       active     := false,
+                       mcnt       := MCnt,
+                       bcnt       := BCnt,
+                       last_reply := LID} = State) ->
     case handler_recv_message2(Mod, Sock) of
         {ok, {MsgSz, ID, Body}} ->
             handler_send_reply(Mod, Sock, ID, Body),
@@ -329,6 +362,10 @@ handler_recv_message(#{mod    := Mod,
         {error, closed} ->
             handler_done(State);
         {error, timeout} ->
+	    ?I("timeout when: "
+               "~n   MCnt: ~p"
+               "~n   BCnt: ~p"
+               "~n   LID:  ~p", [MCnt, BCnt, LID]),
             State
     end;
 
@@ -369,6 +406,11 @@ handler_recv_message(#{mod        := Mod,
             end;
 
         {error, timeout} ->
+	    ?I("timeout when: "
+               "~n   MCnt:      ~p"
+               "~n   BCnt:      ~p"
+               "~n   LID:       ~p"
+               "~n   size(Acc): ~p", [MCnt, BCnt, LID, size(Acc)]),
             State
     end.
 
@@ -386,7 +428,7 @@ handler_process_data(<<?TTEST_TAG:32,
     <<Body:SZ/binary, Rest2/binary>> = Rest,
     case handler_send_reply(Mod, Sock, ID, Body) of
  	ok ->
- 	    handler_process_data(Rest2, Mod, Sock, MCnt+1, BCnt+SZ, ID);
+ 	    handler_process_data(Rest2, Mod, Sock, MCnt+1, BCnt+16+SZ, ID);
  	{error, _} = ERROR ->
  	    ERROR
     end;
@@ -409,7 +451,6 @@ handler_recv_message2(Mod, Sock) ->
                     exit({recv, body, ID, SZ, BReason})
             end;
         {error, timeout} = ERROR ->
-	    ?I("timeout"),
             ERROR;
         {error, closed} = ERROR ->
             ERROR;
