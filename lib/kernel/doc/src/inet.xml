@@ -1007,13 +1007,34 @@ get_tcpi_sacked(Sock) ->
             <marker id="option-linger"></marker>
           </item>
           <tag><c>{linger, {true|false, Seconds}}</c></tag>
-          <item>
+	  <item>
             <p>Determines the time-out, in seconds, for flushing unsent data
-              in the <c>close/1</c> socket call. If the first component of
-              the value tuple is <c>false</c>, the second is ignored. This
-              means that <c>close/1</c> returns immediately, not waiting
-              for data to be flushed. Otherwise, the second component is
-              the flushing time-out, in seconds.</p>
+              in the <c>close/1</c> socket call. </p>
+	    <p>The first component is if linger is enabled, the second component
+	    is the flushing time-out, in seconds. There are 3 alternatives:</p>
+	    <taglist>
+	      <tag><c>{false, _}</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 returns immediately,
+		not waiting for data to be flushed, with closing
+		happening in the background.</p>
+	      </item>
+	      <tag><c>{true, 0}</c></tag>
+	      <item>
+		<p>Aborts the connection when it is closed.
+		Discards any data still remaining in the send buffers
+		and sends RST to the peer.</p>
+		<p>This avoids TCP's TIME_WAIT state, but leaves open
+		the possibility that another "incarnation" of this connection
+		being created.</p>
+	      </item>
+	      <tag><c>{true, Time} when Time > 0</c></tag>
+	      <item>
+		<p>close/1 or shutdown/2 will not return until
+		all queued messages for the socket have been successfully
+		sent or the linger timeout (Time) has been reached.</p>
+	      </item>
+	    </taglist>
           </item>
           <tag><c>{low_msgq_watermark, Size}</c></tag>
           <item>
