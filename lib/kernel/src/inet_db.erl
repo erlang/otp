@@ -1223,7 +1223,9 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 			    {ok, B, _} -> B;
 			    _ -> <<>>
 			end;
-		    _ -> <<>>
+		    _ ->
+			ets:insert(Db, {TagTm, times()}),
+			<<>>
 		end,
 	    handle_set_file(ParseFun, Bin, From, State);
 	false -> {reply,error,State}
