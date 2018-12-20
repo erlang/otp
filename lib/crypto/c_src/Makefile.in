@@ -83,7 +83,8 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/hash$(TYPEMARKER).o \
 	$(OBJDIR)/hmac$(TYPEMARKER).o \
 	$(OBJDIR)/rc4$(TYPEMARKER).o \
-	$(OBJDIR)/rsa$(TYPEMARKER).o
+	$(OBJDIR)/rsa$(TYPEMARKER).o \
+	$(OBJDIR)/srp$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile
 CRYPTO_STATIC_OBJS = $(OBJDIR)/crypto_static$(TYPEMARKER).o\
