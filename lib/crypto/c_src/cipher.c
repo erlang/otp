@@ -1,0 +1,82 @@
+#include "cipher.h"
+
+#ifdef OPENSSL_NO_DES
+#define COND_NO_DES_PTR(Ptr) (NULL)
+#else
+#define COND_NO_DES_PTR(Ptr) (Ptr)
+#endif
+
+static struct cipher_type_t cipher_types[] =
+{
+    {{"rc2_cbc"},
+#ifndef OPENSSL_NO_RC2
+     {&EVP_rc2_cbc}
+#else
+     {NULL}
+#endif
+    },
+    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
+    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
+    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
+    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}},
+    {{"des_ede3_cbf"}, /* Misspelled, retained */
+#ifdef HAVE_DES_ede3_cfb_encrypt
+     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+#else
+     {NULL}
+#endif
+    },
+    {{"des_ede3_cfb"},
+#ifdef HAVE_DES_ede3_cfb_encrypt
+     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+#else
+     {NULL}
+#endif
+    },
+    {{"blowfish_cbc"}, {&EVP_bf_cbc}},
+    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}},
+    {{"blowfish_ofb64"}, {&EVP_bf_ofb}},
+    {{"blowfish_ecb"}, {&EVP_bf_ecb}},
+    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16},
+    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24},
+    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32},
+    {{"aes_cbc128"}, {&EVP_aes_128_cbc}},
+    {{"aes_cbc256"}, {&EVP_aes_256_cbc}},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}},
+    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16},
+    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24},
+    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32},
+    {{NULL}}
+};
+
+#ifdef HAVE_EVP_AES_CTR
+ErlNifResourceType* evp_cipher_ctx_rtype;
+
+void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
+    EVP_CIPHER_CTX_free(ctx->ctx);
+}
+#endif
+
+void init_cipher_types(ErlNifEnv* env)
+{
+    struct cipher_type_t* p = cipher_types;
+
+    for (p = cipher_types; p->type.str; p++) {
+	p->type.atom = enif_make_atom(env, p->type.str);
+	if (p->cipher.funcp)
+	    p->cipher.p = p->cipher.funcp();
+    }
+    p->type.atom = atom_false; /* end marker */
+}
+
+struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
+{
+    struct cipher_type_t* p = NULL;
+    for (p = cipher_types; p->type.atom != atom_false; p++) {
+	if (type == p->type.atom && (!p->key_len || key_len == p->key_len)) {
+	    return p;
+	}
+    }
+    return NULL;
+}
