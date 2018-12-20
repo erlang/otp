@@ -77,6 +77,7 @@ CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/cipher$(TYPEMARKER).o \
 	$(OBJDIR)/digest$(TYPEMARKER).o \
 	$(OBJDIR)/engine$(TYPEMARKER).o \
+	$(OBJDIR)/hash$(TYPEMARKER).o \
 	$(OBJDIR)/hmac$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o
