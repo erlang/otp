@@ -29,7 +29,7 @@
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2, send_alert/2,
-         send_and_ack_alert/2, setopts/2, renegotiate/1, downgrade/2,
+         send_and_ack_alert/2, setopts/2, renegotiate/1, peer_renegotiate/1, downgrade/2,
          update_connection_state/3, dist_tls_socket/1, dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -118,6 +118,15 @@ setopts(Pid, Opts) ->
 renegotiate(Pid) ->
     %% Needs error handling for external API
     call(Pid, renegotiate).
+
+%%--------------------------------------------------------------------
+-spec peer_renegotiate(pid()) -> {ok, WriteState::map()} | {error, term()}.
+%% Description: So TLS connection process can synchronize the 
+%% encryption state to be used when handshaking.
+%%--------------------------------------------------------------------
+peer_renegotiate(Pid) ->
+     gen_statem:call(Pid, renegotiate, ?DEFAULT_TIMEOUT).
+
 %%--------------------------------------------------------------------
 -spec update_connection_state(pid(), WriteState::map(), tls_record:tls_version()) -> ok. 
 %% Description: So TLS connection process can synchronize the 

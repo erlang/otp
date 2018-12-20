@@ -620,12 +620,34 @@ connection(internal, #hello_request{},
                                            port = Port,
                                            session_cache = Cache,
                                            session_cache_cb = CacheCb},
+                  renegotiation = {Renegotiation, peer},
+		  session = #session{own_certificate = Cert} = Session0,
+		  ssl_options = SslOpts, 
+                  protocol_specific = #{sender := Pid},
+		  connection_states = ConnectionStates} = State0) ->
+    try tls_sender:peer_renegotiate(Pid) of
+        {ok, Write} ->
+            Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
+                                               Cache, CacheCb, Renegotiation, Cert),
+            {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write}}),
+            next_event(hello, no_record, State#state{session = Session0#session{session_id
+                                                                      = Hello#client_hello.session_id}}, Actions)
+        catch 
+            _:_ ->
+                {stop, {shutdown, sender_blocked}, State0}
+        end;
+connection(internal, #hello_request{},
+	   #state{static_env = #static_env{role = client,
+                                           host = Host,
+                                           port = Port,
+                                           session_cache = Cache,
+                                           session_cache_cb = CacheCb},
                   renegotiation = {Renegotiation, _},
 		  session = #session{own_certificate = Cert} = Session0,
-		  ssl_options = SslOpts,                
+		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-				       Cache, CacheCb, Renegotiation, Cert),
+                                       Cache, CacheCb, Renegotiation, Cert),
     {State, Actions} = send_handshake(Hello, State0),
     next_event(hello, no_record, State#state{session = Session0#session{session_id
                                                                         = Hello#client_hello.session_id}}, Actions);
@@ -655,6 +677,7 @@ connection(internal, #client_hello{},
     send_alert_in_connection(Alert, State0),
     State = Connection:reinit_handshake_data(State0),
     next_event(?FUNCTION_NAME, no_record, State);
+
 connection(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
