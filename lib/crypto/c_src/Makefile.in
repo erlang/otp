@@ -74,6 +74,7 @@ LIBDIR = $(PRIVDIR)/lib/$(TARGET)
 CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
+	$(OBJDIR)/digest$(TYPEMARKER).o \
 	$(OBJDIR)/engine$(TYPEMARKER).o \
 	$(OBJDIR)/rsa$(TYPEMARKER).o
 CALLBACK_OBJS = $(OBJDIR)/crypto_callback$(TYPEMARKER).o

@@ -26,6 +26,7 @@
 #include "common.h"
 
 #include "bn.h"
+#include "digest.h"
 #include "engine.h"
 #include "rsa.h"
 
@@ -91,7 +92,6 @@ static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
-static void init_digest_types(ErlNifEnv* env);
 static void init_cipher_types(ErlNifEnv* env);
 #ifdef HAVE_EC
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
@@ -191,85 +191,6 @@ struct hmac_context
     HMAC_CTX* ctx;
 };
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
-
-struct digest_type_t {
-    union {
-	const char*  str;        /* before init, NULL for end-of-table */
-	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
-    }type;
-    union {
-	const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
-	const EVP_MD* p;               /* after init, NULL if notsup */
-    }md;
-};
-
-static struct digest_type_t digest_types[] =
-{
-    {{"md4"}, {&EVP_md4}},
-    {{"md5"}, {&EVP_md5}},
-    {{"ripemd160"}, {&EVP_ripemd160}},
-    {{"sha"}, {&EVP_sha1}},
-    {{"sha224"},
-#ifdef HAVE_SHA224
-     {&EVP_sha224}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha256"},
-#ifdef HAVE_SHA256
-     {&EVP_sha256}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha384"},
-#ifdef HAVE_SHA384
-     {&EVP_sha384}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha512"},
-#ifdef HAVE_SHA512
-     {&EVP_sha512}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha3_224"},
-#ifdef HAVE_SHA3_224
-     {&EVP_sha3_224}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha3_256"},
-#ifdef HAVE_SHA3_256
-     {&EVP_sha3_256}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha3_384"},
-#ifdef HAVE_SHA3_384
-     {&EVP_sha3_384}
-#else
-     {NULL}
-#endif
-    },
-    {{"sha3_512"},
-#ifdef HAVE_SHA3_512
-     {&EVP_sha3_512}
-#else
-     {NULL}
-#endif
-    },
-
-    {{NULL}}
-};
-
-static struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
 
 struct cipher_type_t {
     union {
@@ -2216,18 +2137,6 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
     return ret;
 }
 
-static void init_digest_types(ErlNifEnv* env)
-{
-    struct digest_type_t* p = digest_types;
-
-    for (p = digest_types; p->type.str; p++) {
-	p->type.atom = enif_make_atom(env, p->type.str);
-	if (p->md.funcp)
-	    p->md.p = p->md.funcp();
-    }
-    p->type.atom = atom_false;  /* end marker */
-}
-
 static void init_cipher_types(ErlNifEnv* env)
 {
     struct cipher_type_t* p = cipher_types;
@@ -2238,17 +2147,6 @@ static void init_cipher_types(ErlNifEnv* env)
 	    p->cipher.p = p->cipher.funcp();
     }
     p->type.atom = atom_false; /* end marker */
-}
-
-static struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
-{
-    struct digest_type_t* p = NULL;
-    for (p = digest_types; p->type.atom != atom_false; p++) {
-	if (type == p->type.atom) {
-	    return p;
-	}
-    }
-    return NULL;
 }
 
 static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
