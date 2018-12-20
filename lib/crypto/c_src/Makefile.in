@@ -72,6 +72,7 @@ OBJDIR = $(PRIVDIR)/obj/$(TARGET)
 LIBDIR = $(PRIVDIR)/lib/$(TARGET)
 
 CRYPTO_OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o \
+	$(OBJDIR)/aead$(TYPEMARKER).o \
 	$(OBJDIR)/aes$(TYPEMARKER).o \
 	$(OBJDIR)/atoms$(TYPEMARKER).o \
 	$(OBJDIR)/bn$(TYPEMARKER).o \
