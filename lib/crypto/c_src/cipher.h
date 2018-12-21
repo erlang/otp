@@ -40,9 +40,9 @@ extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
 };
-
-void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx);
 #endif
+
+int init_cipher_ctx(ErlNifEnv *env);
 
 void init_cipher_types(ErlNifEnv* env);
 struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);

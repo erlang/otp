@@ -73,10 +73,25 @@ static struct cipher_type_t cipher_types[] =
 #ifdef HAVE_EVP_AES_CTR
 ErlNifResourceType* evp_cipher_ctx_rtype;
 
-void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
+static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
     EVP_CIPHER_CTX_free(ctx->ctx);
 }
 #endif
+
+int init_cipher_ctx(ErlNifEnv *env) {
+#ifdef HAVE_EVP_AES_CTR
+    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
+                                                   (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
+                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   NULL);
+    if (evp_cipher_ctx_rtype == NULL) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
+        return 0;
+    }
+#endif
+
+    return 1;
+}
 
 void init_cipher_types(ErlNifEnv* env)
 {
