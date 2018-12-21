@@ -223,6 +223,8 @@ start(OlpOpts0, #{id := Name, module:=Module, config:=HConfig} = Config0) ->
 init(#{id := Name, module := Module, config := HConfig}) ->
     process_flag(trap_exit, true),
 
+    ?init_test_hooks(),
+
     case Module:init(Name, HConfig) of
         {ok,HState} ->
             %% Storing common config in state to avoid copying

@@ -24,6 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
+-include_lib("kernel/src/logger_olp.hrl").
 -include_lib("kernel/src/logger_h_common.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include_lib("kernel/include/file.hrl").

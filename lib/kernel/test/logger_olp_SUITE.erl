@@ -21,7 +21,7 @@
 
 -compile(export_all).
 
--include_lib("kernel/src/logger_h_common.hrl").
+-include_lib("kernel/src/logger_olp.hrl").
 
 suite() ->
     [{timetrap,{seconds,30}}].

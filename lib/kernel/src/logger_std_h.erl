@@ -36,6 +36,8 @@
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
          filter_config/1]).
 
+-define(DEFAULT_CALL_TIMEOUT, 5000).
+
 %%%===================================================================
 %%% API
 %%%===================================================================

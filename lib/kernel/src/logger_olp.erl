@@ -20,7 +20,7 @@
 -module(logger_olp).
 -behaviour(gen_server).
 
--include("logger_h_common.hrl").
+-include("logger_olp.hrl").
 -include("logger_internal.hrl").
 
 %% API
@@ -172,7 +172,6 @@ init([Name,Module,Args,Options]) ->
     register(Name, self()),
     process_flag(message_queue_data, off_heap),
 
-    ?init_test_hooks(),
     ?start_observation(Name),
 
     try ets:new(Name, [public]) of
@@ -324,7 +323,7 @@ call({_Name, Pid, _ModeRef},Msg) ->
     call(Pid, Msg);
 call(Server, Msg) ->
     try
-        gen_server:call(Server, Msg, ?DEFAULT_CALL_TIMEOUT)
+        gen_server:call(Server, Msg)
     catch
         _:{timeout,_} -> {error,busy}
     end.

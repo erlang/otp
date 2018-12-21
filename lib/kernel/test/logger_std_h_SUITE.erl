@@ -25,10 +25,15 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("kernel/src/logger_internal.hrl").
 -include_lib("kernel/src/logger_h_common.hrl").
+-include_lib("kernel/src/logger_olp.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include_lib("kernel/include/file.hrl").
 
--define(check_no_log, [] = test_server:messages_get()).
+-define(check_no_log,
+        begin
+            timer:sleep(?IDLE_DETECT_TIME*2),
+            [] = test_server:messages_get()
+        end).
 -define(check(Expected),
         receive
             {log,Expected} ->
@@ -420,10 +425,13 @@ crash_std_h(Config,Func,Var,Type,Log) ->
 %% logger would send the log event to the logger process here instead
 %% of logging it itself.
 log_on_remote_node(Node,Msg) ->
+    Pid = self(),
     _ = spawn_link(Node,
                    fun() -> erlang:group_leader(whereis(user),self()),
-                            logger:notice(Msg)
+                            logger:notice(Msg),
+                            Pid ! done
                    end),
+    receive done -> ok end,
     ok.
 
 
