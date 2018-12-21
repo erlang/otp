@@ -21,12 +21,17 @@
 #include "engine.h"
 
 #ifdef HAS_ENGINE_SUPPORT
-ErlNifResourceType* engine_ctx_rtype;
+struct engine_ctx {
+    ENGINE *engine;
+    char *id;
+};
+
+static ErlNifResourceType* engine_ctx_rtype;
 
 static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
 static int zero_terminate(ErlNifBinary bin, char **buf);
 
-void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
+static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
     PRINTF_ERR0("engine_ctx_dtor");
     if(ctx->id) {
         PRINTF_ERR1("  non empty ctx->id=%s", ctx->id);
@@ -74,6 +79,21 @@ static int zero_terminate(ErlNifBinary bin, char **buf) {
     return 1;
 }
 #endif /* HAS_ENGINE_SUPPORT */
+
+int init_engine_ctx(ErlNifEnv *env) {
+#ifdef HAS_ENGINE_SUPPORT
+    engine_ctx_rtype = enif_open_resource_type(env, NULL, "ENGINE_CTX",
+                                                   (ErlNifResourceDtor*) engine_ctx_dtor,
+                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   NULL);
+    if (engine_ctx_rtype == NULL) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
+        return 0;
+    }
+#endif
+
+    return 1;
+}
 
 ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (EngineId) */

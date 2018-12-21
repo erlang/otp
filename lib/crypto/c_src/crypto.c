@@ -190,17 +190,9 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_cipher_ctx(env)) {
         return __LINE__;
     }
-
-#ifdef HAS_ENGINE_SUPPORT
-    engine_ctx_rtype = enif_open_resource_type(env, NULL, "ENGINE_CTX",
-                                                   (ErlNifResourceDtor*) engine_ctx_dtor,
-                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-                                                   NULL);
-    if (!engine_ctx_rtype) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
+    if (!init_engine_ctx(env)) {
         return __LINE__;
     }
-#endif
 
     if (library_initialized) {
 	/* Repeated loading of this library (module upgrade).

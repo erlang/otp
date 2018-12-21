@@ -24,17 +24,11 @@
 #include "common.h"
 
 #ifdef HAS_ENGINE_SUPPORT
-struct engine_ctx {
-    ENGINE *engine;
-    char *id;
-};
-
-extern ErlNifResourceType* engine_ctx_rtype;
-
 int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE **e);
 char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key);
-void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx);
 #endif /* HAS_ENGINE_SUPPORT */
+
+int init_engine_ctx(ErlNifEnv *env);
 
 ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
