@@ -444,6 +444,8 @@
 -define(TPP_MEDIUM_NUM, 1000).
 -define(TPP_LARGE_NUM,  100).
 
+-define(TTEST_RUNTIME,  ?SECS(10)).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -15923,10 +15925,12 @@ ttest_tcp(TC,
           ServerMod, ServerActive,
           ClientMod, ClientActive,
           MsgID, MaxOutstanding) ->
-    Runtime = ?SECS(60),
+    Runtime = ?TTEST_RUNTIME,
     tc_try(TC,
            fun() ->
                    if (Domain =/= inet) ->  not_yet_implemented(); true -> ok end,
+                   %% This may be overkill, depending on the runtime,
+                   %% but better safe then sorry...
                    ?TT(Runtime + ?SECS(60)),
                    InitState = #{domain          => Domain,
                                  msg_id          => MsgID,
@@ -15941,45 +15945,6 @@ ttest_tcp(TC,
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% This test is run with the following combinations:
-%% (this does not take the message size into consideration)
-%% server(gen,  false) - client(gen,  false)
-%% server(gen,  false) - client(gen,  once)
-%% server(gen,  false) - client(gen,  true)
-%% server(gen,  false) - client(sock, false)
-%% server(gen,  false) - client(sock, once)
-%% server(gen,  false) - client(sock, true)
-%% server(gen,  once)  - client(gen,  false)
-%% server(gen,  once)  - client(gen,  once)
-%% server(gen,  once)  - client(gen,  true)
-%% server(gen,  once)  - client(sock, false)
-%% server(gen,  once)  - client(sock, once)
-%% server(gen,  once)  - client(sock, true)
-%% server(gen,  true)  - client(gen,  false)
-%% server(gen,  true)  - client(gen,  once)
-%% server(gen,  true)  - client(gen,  true)
-%% server(gen,  true)  - client(sock, false)
-%% server(gen,  true)  - client(sock, once)
-%% server(gen,  true)  - client(sock, true)
-%% server(sock, false) - client(gen,  false)
-%% server(sock, false) - client(gen,  once)
-%% server(sock, false) - client(gen,  true)
-%% server(sock, false) - client(sock, false)
-%% server(sock, false) - client(sock, once)
-%% server(sock, false) - client(sock, true)
-%% server(sock, once)  - client(gen,  false)
-%% server(sock, once)  - client(gen,  once)
-%% server(sock, once)  - client(gen,  true)
-%% server(sock, once)  - client(sock, false)
-%% server(sock, once)  - client(sock, once)
-%% server(sock, once)  - client(sock, true)
-%% server(sock, true)  - client(gen,  false)
-%% server(sock, true)  - client(gen,  once)
-%% server(sock, true)  - client(gen,  true)
-%% server(sock, true)  - client(sock, false)
-%% server(sock, true)  - client(sock, once)
-%% server(sock, true)  - client(sock, true)
 
 ttest_tcp(InitState) ->
     ServerSeq =
