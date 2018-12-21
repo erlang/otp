@@ -32,17 +32,17 @@
  * we don't have to sprinkle ifdefs throughout the code.
  */
 
-static HMAC_CTX *HMAC_CTX_new(void);
-static void HMAC_CTX_free(HMAC_CTX *ctx);
+static INLINE HMAC_CTX *HMAC_CTX_new(void);
+static INLINE void HMAC_CTX_free(HMAC_CTX *ctx);
 
-static HMAC_CTX *HMAC_CTX_new()
+static INLINE HMAC_CTX *HMAC_CTX_new()
 {
     HMAC_CTX *ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__);
     HMAC_CTX_init(ctx);
     return ctx;
 }
 
-static void HMAC_CTX_free(HMAC_CTX *ctx)
+static INLINE void HMAC_CTX_free(HMAC_CTX *ctx)
 {
     HMAC_CTX_cleanup(ctx);
     CRYPTO_free(ctx);
