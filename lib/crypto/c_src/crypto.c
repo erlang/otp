@@ -202,7 +202,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 
     if (!init_atoms(env, tpl_array[2], load_info)) {
-        return 0;
+        return __LINE__;
     }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
