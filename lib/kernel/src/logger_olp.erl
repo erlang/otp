@@ -255,7 +255,11 @@ handle_call(Msg, From, #{module:=Module,cb_state:=CBState}=State) ->
         {reply,Reply,CBState1} ->
             reply_return(Reply,State#{cb_state=>CBState1});
         {noreply,CBState1} ->
-            noreply_return(State#{cb_state=>CBState1})
+            noreply_return(State#{cb_state=>CBState1});
+        {stop, Reason, Reply, CBState1} ->
+            {stop, Reason, Reply, State#{cb_state=>CBState1}};
+        {stop, Reason, CBState1} ->
+            {stop, Reason, State#{cb_state=>CBState1}}
     end.
 
 %% This is the asynchronous load event.
@@ -266,7 +270,9 @@ handle_cast({'$olp_load', Msg}, State) ->
 handle_cast(Msg, #{module:=Module, cb_state:=CBState} = State) ->
     case try_callback_call(Module,handle_cast,[Msg, CBState]) of
         {noreply,CBState1} ->
-            noreply_return(State#{cb_state=>CBState1})
+            noreply_return(State#{cb_state=>CBState1});
+        {stop, Reason, CBState1} ->
+            {stop, Reason, State#{cb_state=>CBState1}}
     end.
 
 handle_info(timeout, #{mode_ref:=_ModeRef, mode:=Mode} = State) ->
@@ -279,6 +285,8 @@ handle_info(Msg, #{module := Module, cb_state := CBState} = State) ->
     case try_callback_call(Module,handle_info,[Msg, CBState]) of
         {noreply,CBState1} ->
             noreply_return(State#{cb_state=>CBState1});
+        {stop, Reason, CBState1} ->
+            {stop, Reason, State#{cb_state=>CBState1}};
         {load,CBState1} ->
             {_,State1} = do_load(Msg, cast, State#{idle=>false,
                                                    cb_state=>CBState1}),
