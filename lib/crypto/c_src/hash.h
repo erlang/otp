@@ -23,14 +23,7 @@
 
 #include "common.h"
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-struct evp_md_ctx {
-    EVP_MD_CTX* ctx;
-};
-extern ErlNifResourceType* evp_md_ctx_rtype;
-
-void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx);
-#endif
+int init_hash_ctx(ErlNifEnv *env);
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

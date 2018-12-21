@@ -26,13 +26,32 @@
 #define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-/* Define resource types for OpenSSL context structures. */
-ErlNifResourceType* evp_md_ctx_rtype;
+struct evp_md_ctx {
+    EVP_MD_CTX* ctx;
+};
 
-void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
+/* Define resource types for OpenSSL context structures. */
+static ErlNifResourceType* evp_md_ctx_rtype;
+
+static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
     EVP_MD_CTX_free(ctx->ctx);
 }
 #endif
+
+int init_hash_ctx(ErlNifEnv* env) {
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
+                                               (ErlNifResourceDtor*) evp_md_ctx_dtor,
+                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                               NULL);
+    if (evp_md_ctx_rtype == NULL) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
+        return 0;
+    }
+#endif
+
+    return 1;
+}
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */

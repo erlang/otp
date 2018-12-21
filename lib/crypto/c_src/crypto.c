@@ -184,17 +184,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_hmac_ctx(env)) {
 	return __LINE__;
     }
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
-    evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
-                                               (ErlNifResourceDtor*) evp_md_ctx_dtor,
-                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-                                               NULL);
-    if (!evp_md_ctx_rtype) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
+    if (!init_hash_ctx(env)) {
         return __LINE__;
     }
-#endif
+
 #ifdef HAVE_EVP_AES_CTR
     evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
