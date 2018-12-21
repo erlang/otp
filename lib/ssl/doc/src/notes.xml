@@ -27,6 +27,27 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed renegotiation bug. Client did not handle server
+	    initiated renegotiation correctly after rewrite to two
+	    connection processes, due to ERL-622 commit
+	    d87ac1c55188f5ba5cdf72384125d94d42118c18. This could
+	    manifest it self as a " bad_record_mac" alert.</p>
+          <p>
+	    Also included are some optimizations</p>
+          <p>
+	    Own Id: OTP-15489 Aux Id: ERL-308 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

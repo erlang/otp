@@ -31,6 +31,45 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug on big endian architectures when changing file
+	    permissions or ownership with <c>file:change_mode</c>,
+	    <c>change_owner</c>, <c>change_group</c> or
+	    <c>write_file_info</c>. Bug exists since OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-15485</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>atomics</c> with option
+	    <c>{signed,false}</c> when returned values are <c>(1 bsl
+	    63)</c> or larger. Could cause heap corruption leading to
+	    VM crash or other unpleasant symptoms. Bug exists since
+	    OTP-21.2 when module <c>atomics</c> was introduced.</p>
+          <p>
+	    Own Id: OTP-15486 Aux Id: PR-2061 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in operator <c>band</c> of two negative
+	    operands causing erroneous result if the absolute value
+	    of one of the operands have the lowest <c>N*W</c> bits as
+	    zero and the other absolute value is not larger than
+	    <c>N*W</c> bits. <c>N</c> is an integer of 1 or larger
+	    and <c>W</c> is 32 or 64 depending on word size.</p>
+          <p>
+	    Own Id: OTP-15487 Aux Id: ERL-804 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
