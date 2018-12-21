@@ -1583,35 +1583,22 @@ v_1_2_check(ecdh_rsa, ecdh_ecdsa) ->
 v_1_2_check(_, _) ->
     false.
 
-send_recv_result_active(Socket) ->
-    ssl:send(Socket, "Hello world"),
-    receive
-	{ssl, Socket, "H"} ->
-	    receive
-		{ssl, Socket, "ello world"} ->
-		    ok
-	    end;
-	{ssl, Socket, "Hello world"} ->
-	    ok
-    end.
-
 send_recv_result(Socket) ->
-    ssl:send(Socket, "Hello world"),
-    {ok,"Hello world"} = ssl:recv(Socket, 11),
+    Data =  "Hello world",
+    ssl:send(Socket, Data),
+    {ok, Data} = ssl:recv(Socket, length(Data)),
+    ok.
+
+send_recv_result_active(Socket) ->
+    Data =  "Hello world",
+    ssl:send(Socket, Data),
+    Data = active_recv(Socket, length(Data)),
     ok.
 
 send_recv_result_active_once(Socket) ->
-    ssl:send(Socket, "Hello world"),
-    receive
-	{ssl, Socket, "H"} ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    receive
-		{ssl, Socket, "ello world"} ->
-		    ok
-	    end;
-	{ssl, Socket, "Hello world"} ->
-	    ok
-    end.
+    Data = "Hello world",
+    ssl:send(Socket, Data),
+    active_once_recv_list(Socket, length(Data)).
 
 active_recv(Socket, N) ->
     active_recv(Socket, N, []).
@@ -1624,6 +1611,44 @@ active_recv(Socket, N, Acc) ->
             active_recv(Socket, N-length(Bytes),  Acc ++ Bytes)
     end.
 
+active_once_recv(_Socket, 0) ->
+    ok;
+active_once_recv(Socket, N) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_recv(Socket, N-byte_size(Bytes))
+    end.
+
+active_once_recv_list(_Socket, 0) ->
+    ok;
+active_once_recv_list(Socket, N) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_recv_list(Socket, N-length(Bytes))
+    end.
+recv_disregard(_Socket, 0) ->
+    ok;
+recv_disregard(Socket, N) ->
+    {ok, Bytes} = ssl:recv(Socket, 0),
+    recv_disregard(Socket, N-byte_size(Bytes)).
+
+active_disregard(_Socket, 0) ->
+    ok;
+active_disregard(Socket, N) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            active_disregard(Socket, N-byte_size(Bytes))
+    end.
+active_once_disregard(_Socket, 0) ->
+    ok;
+active_once_disregard(Socket, N) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_disregard(Socket, N-byte_size(Bytes))
+    end.
 is_sane_ecc(openssl) ->
     case os:cmd("openssl version") of
 	"OpenSSL 1.0.0a" ++ _ -> % Known bug in openssl
