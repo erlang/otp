@@ -130,6 +130,10 @@ loop(ID, [#{desc := Desc,
                    "~n   Reason: ~p", [ID, Reason]),
             exit({command_failed, ID, Reason, State})
     catch
+        throw:{skip, R} = E:_ ->
+            eprint("command ~w skip: "
+                   "~n   Skip Reason: ~p", [ID, R]),
+            exit(E);
         C:E:S ->
             eprint("command ~w crashed: "
                    "~n   Class:      ~p"
@@ -150,6 +154,8 @@ await_finish(Evs) ->
 await_finish([], []) ->
     ok;
 await_finish([], Fails) ->
+    ?SEV_EPRINT("Fails: "
+		"~n   ~p", [Fails]),
     Fails;
 await_finish(Evs, Fails) ->
     receive
@@ -443,8 +449,12 @@ await(ExpPid, Name, Announcement, Slogan, OtherPids)
             ok;
         {Announcement, Pid, Slogan, Extra} when (Pid =:= ExpPid) ->
             {ok, Extra};
+        {'DOWN', _, process, Pid, {skip, SkipReason}} when (Pid =:= ExpPid) ->
+            iprint("Unexpected SKIP from ~w (~p): "
+                   "~n   ~p", [Name, Pid, SkipReason]),
+            ?LIB:skip({Name, SkipReason});
         {'DOWN', _, process, Pid, Reason} when (Pid =:= ExpPid) ->
-            eprint("Unexpected DOWN regarding ~w ~p: "
+            eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, Reason]),
             {error, {unexpected_exit, Name}};
         {'DOWN', _, process, OtherPid, Reason} ->
@@ -476,7 +486,7 @@ pi(Pid, Item) ->
 check_down(Pid, DownReason, Pids) ->
     case lists:keymember(Pid, 1, Pids) of
         {value, {_, Name}} ->
-            eprint("Unexpected DOWN regarding ~w ~p: "
+            eprint("Unexpected DOWN from ~w (~p): "
                    "~n   ~p", [Name, Pid, DownReason]),
             {error, {unexpected_exit, Name}};
         false ->
