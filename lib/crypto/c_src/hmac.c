@@ -21,7 +21,28 @@
 #include "hmac.h"
 #include "digest.h"
 
-ErlNifResourceType* hmac_context_rtype;
+struct hmac_context
+{
+    ErlNifMutex* mtx;
+    int alive;
+    HMAC_CTX* ctx;
+};
+
+static ErlNifResourceType* hmac_context_rtype;
+
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
+
+int init_hmac_ctx(ErlNifEnv *env) {
+    hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
+						 (ErlNifResourceDtor*) hmac_context_dtor,
+						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+						 NULL);
+    if (hmac_context_rtype == NULL) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
+        return 0;
+    }
+    return 1;
+}
 
 ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) or (Type, Key, Data, MacSize) */
@@ -61,7 +82,7 @@ ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
-void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 {
     if (obj->alive) {
 	HMAC_CTX_free(obj->ctx);

@@ -23,15 +23,7 @@
 
 #include "common.h"
 
-struct hmac_context
-{
-    ErlNifMutex* mtx;
-    int alive;
-    HMAC_CTX* ctx;
-};
-
-extern ErlNifResourceType* hmac_context_rtype;
-void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
+int init_hmac_ctx(ErlNifEnv *env);
 
 ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

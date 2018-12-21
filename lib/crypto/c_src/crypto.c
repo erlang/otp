@@ -181,14 +181,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return __LINE__;
     }
 
-    hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
-						 (ErlNifResourceDtor*) hmac_context_dtor,
-						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-						 NULL);
-    if (!hmac_context_rtype) {
-	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
+    if (!init_hmac_ctx(env)) {
 	return __LINE__;
     }
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
