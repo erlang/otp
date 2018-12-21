@@ -15198,9 +15198,11 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
             case IPTOS_RELIABILITY:
                 *eCMsgHdrData = esock_atom_reliability;
                 break;
+#if defined(IPTOS_MINCOST)
             case IPTOS_MINCOST:
                 *eCMsgHdrData = esock_atom_mincost;
                 break;
+#endif
             default:
                 *eCMsgHdrData = MKUI(env, tos);
                 break;
@@ -15467,9 +15469,11 @@ BOOLEAN_T decode_ip_tos(ErlNifEnv* env, ERL_NIF_TERM eVal, int* val)
         } else if (COMPARE(eVal, esock_atom_reliability) == 0) {
             *val   = IPTOS_RELIABILITY;
             result = TRUE;
+#if defined(IPTOS_MINCOST)
         } else if (COMPARE(eVal, esock_atom_mincost) == 0) {
             *val   = IPTOS_MINCOST;
             result = TRUE;
+#endif
         } else {
             *val   = -1;
             result = FALSE;
@@ -15781,9 +15785,11 @@ ERL_NIF_TERM encode_ip_tos(ErlNifEnv* env, int val)
         result = esock_make_ok2(env, esock_atom_reliability);
         break;
 
+#if defined(IPTOS_MINCOST)
     case IPTOS_MINCOST:
         result = esock_make_ok2(env, esock_atom_mincost);
         break;
+#endif
 
     default:
         result = esock_make_ok2(env, MKI(env, val));

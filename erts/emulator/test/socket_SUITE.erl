@@ -18,7 +18,14 @@
 %% %CopyrightEnd%
 %%
 
+%% Run the entire test suite: 
 %% ts:run(emulator, socket_SUITE, [batch]).
+%%
+%% Run a specific group:
+%% ts:run(emulator, socket_SUITE, {group, foo}, [batch]).
+%%
+%% Run a specific test case:
+%% ts:run(emulator, socket_SUITE, foo, [batch]).
 
 -module(socket_SUITE).
 
@@ -433,9 +440,9 @@
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
 -define(TPP_LARGE,  lists:flatten(lists:duplicate(1024, ?TPP_MEDIUM))).
 
--define(TPP_SMALL_NUM,  100000).
--define(TPP_MEDIUM_NUM, 100000).
--define(TPP_LARGE_NUM,  1000).
+-define(TPP_SMALL_NUM,  10000).
+-define(TPP_MEDIUM_NUM, 1000).
+-define(TPP_LARGE_NUM,  100).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1444,11 +1451,20 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "get protocol",
            cmd  => fun(#{socket := Sock} = State) ->
-                           Res = socket:getopt(Sock, socket, protocol),
-                           {ok, {State, Res}}
+			   case socket:supports(options, socket, protocol) of
+			       true ->
+				   Res = socket:getopt(Sock, socket, protocol),
+				   {ok, {State, Res}};
+			       false ->
+				   {ok, {State, not_supported}}
+			   end
                    end},
          #{desc => "validate protocol",
-           cmd  => fun({#{protocol := Protocol} = State, {ok, Protocol}}) ->
+           cmd  => fun({State, not_supported}) ->
+			   ?SEV_IPRINT("socket option 'protocol' "
+				       "not supported"),
+                           {ok, State};
+                      ({#{protocol := Protocol} = State, {ok, Protocol}}) ->
                            {ok, State};
                       ({#{protocol := ExpProtocol}, {ok, Protocol}}) ->
                            {error, {unexpected_type, ExpProtocol, Protocol}};
@@ -2727,6 +2743,7 @@ api_to_connect_tcp(InitState) ->
                    end},
          #{desc => "create node",
            cmd  => fun(#{host := Host} = State) ->
+			   ?SEV_IPRINT("try create node on ~p", [Host]),
                            case start_node(Host, client) of
                                {ok, Node} ->
                                    ?SEV_IPRINT("client node ~p started",
@@ -9466,14 +9483,34 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
 traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
     Fun = fun(Sock) -> 
                   {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
+		  ?SEV_IPRINT("RcvBuf is ~p (needs atleast ~p)", 
+			      [RcvSz, 16+size(Msg)]),
                   if (RcvSz < size(Msg)) ->
-                          ok = socket:setopt(Sock, socket, rcvbuf, 1024+size(Msg));
+                          case socket:setopt(Sock,
+					     socket, rcvbuf, 1024+size(Msg)) of
+			      ok ->
+				  ok;
+			      {error, enobufs} ->
+				  skip({failed_change, rcvbuf});
+			      {error, Reason1} ->
+				  ?FAIL({rcvbuf, Reason1})
+			  end;
                      true ->
                           ok
                   end,
                   {ok, SndSz} = socket:getopt(Sock, socket, sndbuf),
+		  ?SEV_IPRINT("SndBuf is ~p (needs atleast ~p)", 
+			      [SndSz, 16+size(Msg)]),
                   if (SndSz < size(Msg)) ->
-                          ok = socket:setopt(Sock, socket, sndbuf, 1024+size(Msg));
+                          case socket:setopt(Sock,
+					     socket, sndbuf, 1024+size(Msg)) of
+			      ok ->
+				  ok;
+			      {error, enobufs} ->
+				  skip({failed_change, sndbuf});
+			      {error, Reason2} ->
+				  ?FAIL({sndbuf, Reason2})
+			  end;
                      true ->
                           ok
                   end,
@@ -9915,7 +9952,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                    Result2 = erlang:delete_element(1, Result),
                                    {ok, State#{server_result => Result2}};
                                {ok, BadResult} ->
-                                   ?SEV_EPRINT("bad sever result: "
+                                   ?SEV_EPRINT("bad server result: "
                                                "~n   ~p", [BadResult]),
                                    {error, {invalid_server_result, BadResult}};
                                {error, _} = ERROR ->
@@ -10157,10 +10194,10 @@ tpp_tcp_client_await_continue(Parent, Slogan) ->
     ?SEV_IPRINT("await continue (~p)", [Slogan]),
     case ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan) of
         ok ->
-            %% ?SEV_IPRINT("continue (~p): ok", [Slogan]),
+            ?SEV_IPRINT("continue (~p): ok", [Slogan]),
             ok;
         {ok, Data} ->
-            %% ?SEV_IPRINT("continue (~p): ok with data", [Slogan]),
+            ?SEV_IPRINT("continue (~p): ok with data", [Slogan]),
             Data;
         {error, Reason} ->
             ?SEV_EPRINT("continue (~p): error"
@@ -16517,7 +16554,11 @@ sock_close(Sock) ->
 local_host() ->
     try net_adm:localhost() of
         Host when is_list(Host) ->
-            list_to_atom(Host)
+	    %% Convert to shortname if long
+	    case string:tokens(Host, [$.]) of
+		[H|_] ->
+		    list_to_atom(H)
+	    end
     catch
         C:E:S ->
             erlang:raise(C, E, S)
@@ -16537,7 +16578,9 @@ which_local_addr(Domain) ->
 
 which_addr(_Domain, []) ->
     ?FAIL(no_address);
-which_addr(Domain, [{Name, IFO}|_IFL]) when (Name =/= "lo") ->
+which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
+    which_addr(Domain, IFL);
+which_addr(Domain, [{_Name, IFO}|_IFL]) ->
     which_addr2(Domain, IFO);
 which_addr(Domain, [_|IFL]) ->
     which_addr(Domain, IFL).
