@@ -2470,7 +2470,7 @@ restart:
 	case matchProcessDump: {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
             ASSERT(c_p == self);
-	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p);
+	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p, ERTS_PROC_LOCK_MAIN);
 	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str,
 				dsbufp->str_len);
 	    erts_destroy_tmp_dsbuf(dsbufp);

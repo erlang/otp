@@ -962,7 +962,7 @@ void init_break_handler(void);
 void erts_set_ignore_break(void);
 void erts_replace_intr(void);
 void process_info(fmtfn_t, void *);
-void print_process_info(fmtfn_t, void *, Process*);
+void print_process_info(fmtfn_t, void *, Process*, ErtsProcLocks);
 void info(fmtfn_t, void *);
 void loaded(fmtfn_t, void *);
 void erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size);
