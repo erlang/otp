@@ -297,6 +297,18 @@ do_set_emulated_opts([], Opts) ->
     Opts;
 do_set_emulated_opts([{mode, Value} | Rest], Opts) ->
     do_set_emulated_opts(Rest,  Opts#socket_options{mode = Value}); 
+do_set_emulated_opts([{active, N0} | Rest], Opts=#socket_options{active = Active}) when is_integer(N0) ->
+    N = case Active of
+        N1 when is_integer(N1), N0 + N1 =< 0 ->
+            false;
+        N1 when is_integer(N1) ->
+            N0 + N1;
+        _ when N0 =< 0 ->
+            false;
+        _ ->
+            N0
+    end,
+    do_set_emulated_opts(Rest,  Opts#socket_options{active = N});
 do_set_emulated_opts([{active, Value} | Rest], Opts) ->
     do_set_emulated_opts(Rest,  Opts#socket_options{active = Value}).
 
