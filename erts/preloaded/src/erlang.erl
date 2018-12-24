@@ -3395,17 +3395,13 @@ get_cookie() ->
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_list(I, 10) ->
-    erlang:integer_to_list(I);
-integer_to_list(I, Base) ->
+integer_to_list(_I, _Base) ->
     erlang:nif_error(undefined).
 
 -spec integer_to_binary(Integer, Base) -> binary() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_binary(I, 10) ->
-    erlang:integer_to_binary(I);
-integer_to_binary(I, Base) ->
+integer_to_binary(_I, _Base) ->
     erlang:nif_error(undefined).
 
 
