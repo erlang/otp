@@ -928,6 +928,7 @@ Erlang code.
                           [af_type_variable() | abstract_type()]}. % [V, T]
 
 -type af_singleton_integer_type() :: af_integer()
+                                   | af_character()
                                    | af_unary_op(af_singleton_integer_type())
                                    | af_binary_op(af_singleton_integer_type()).
 
