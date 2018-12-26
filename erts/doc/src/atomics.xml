@@ -85,6 +85,8 @@
 	  bsl 64)-1</c>.</p>
 	  </item>
 	</taglist>
+        <p>Atomics are not tied to the current process and are automatically
+        garbage collected when they are no longer referenced.</p>
       </desc>
     </func>
 
