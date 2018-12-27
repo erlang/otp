@@ -901,6 +901,12 @@ handle_alerts([], Result) ->
     Result;
 handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
+handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
+              {next_state, connection = StateName, #state{user_data_buffer = Buffer,
+                                                          protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
+                   State}) when (Buffer =/= <<>>) orelse
+                                (CTs =/= []) -> 
+    {next_state, StateName, State#state{terminated = true}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->
