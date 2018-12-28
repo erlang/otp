@@ -37,6 +37,7 @@
 	 cli/1,
 	 close/1,
 	 daemon_already_started/1, 
+         daemon_error_closes_port/1,
 	 daemon_opt_fd/1,
 	 multi_daemon_opt_fd/1,
 	 double_close/1, 
@@ -108,6 +109,7 @@ all() ->
      {group, internal_error},
      {group, rsa_host_key_is_actualy_ecdsa},
      daemon_already_started,
+     daemon_error_closes_port,
      double_close,
      daemon_opt_fd,
      multi_daemon_opt_fd,
@@ -795,6 +797,24 @@ daemon_already_started(Config) when is_list(Config) ->
 						     {failfun,
 						      fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a failed daemon start does not leave the port open
+daemon_error_closes_port(Config) ->
+    GoodSystemDir = proplists:get_value(data_dir, Config),
+    Port = ssh_test_lib:inet_port(),
+    {error,_} = ssh_test_lib:daemon(Port, []), % No system dir
+    case ssh_test_lib:daemon(Port, [{system_dir, GoodSystemDir}]) of
+        {error,eaddrinuse} ->
+            {fail, "Port leakage"};
+        {error,Error} ->
+            ct:log("Strange error: ~p",[Error]),
+            {fail, "Strange error"};
+        {Pid, _Host, Port} ->
+            %% Ok
+            ssh:stop_daemon(Pid)
+    end.
+    
 
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly
