@@ -872,7 +872,7 @@ Erlang code.
 -type af_fun_type() :: {'type', anno(), 'fun', []}
                      | {'type', anno(), 'fun', [{'type', anno(), 'any'} |
                                                 abstract_type()]}
-                     | {'type', anno(), 'fun', af_function_type()}.
+                     | af_function_type().
 
 -type af_integer_range_type() ::
         {'type', anno(), 'range', [af_singleton_integer_type()]}.
