@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed port leakage if a ssh:daemon call failed.</p>
+          <p>
+	    Own Id: OTP-15397 Aux Id: ERL-801 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
