@@ -1159,8 +1159,11 @@ static dsize_t I_band(ErtsDigit* x, dsize_t xl, short xsgn,
 		*r++ = ~c1 & ~c2;
 		x++; y++;
 	    }
-	    while(xl--)
-		*r++ = ~*x++;
+	    while(xl--) {
+                DSUBb(*x,0,b1,c1);
+                *r++ = ~c1;
+		x++;
+            }
 	}
     }
     return I_btrail(r0, r, sign);
