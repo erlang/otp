@@ -43,7 +43,9 @@ suite() ->
      {timetrap,{seconds,40}}].
 
 all() -> 
-    [{group, all_tests}].
+    [{group, all_tests},
+     daemon_already_started
+    ].
 
 groups() ->
     [{all_tests, [parallel], [{group, ssh_renegotiate_SUITE},
@@ -799,6 +801,24 @@ daemon_already_started(Config) when is_list(Config) ->
 						     {failfun,
 						      fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a failed daemon start does not leave the port open
+daemon_error_closes_port(Config) ->
+    GoodSystemDir = proplists:get_value(data_dir, Config),
+    Port = ssh_test_lib:inet_port(),
+    {error,_} = ssh_test_lib:daemon(Port, []), % No system dir
+    case ssh_test_lib:daemon(Port, [{system_dir, GoodSystemDir}]) of
+        {error,eaddrinuse} ->
+            {fail, "Port leakage"};
+        {error,Error} ->
+            ct:log("Strange error: ~p",[Error]),
+            {fail, "Strange error"};
+        {Pid, _Host, Port} ->
+            %% Ok
+            ssh:stop_daemon(Pid)
+    end.
+    
 
 %%--------------------------------------------------------------------
 %%% check that known_hosts is updated correctly
