@@ -809,6 +809,14 @@ valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
+valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
+    validate_src([Src], Vst),
+    Type = case get_term_type(Src, Vst) of
+               cons -> cons;
+               nil -> nil;
+               _ -> list
+           end,
+    set_aliased_type(Type, Src, branch_state(Lbl, Vst));
 valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     Vst = branch_state(Lbl, Vst0),
     case Src of
@@ -819,6 +827,13 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
 	    Vst0;
 	_ ->
 	    kill_state(Vst0)
+    end;
+valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
+    case get_term_type(Src, Vst) of
+        list ->
+            branch_state(Lbl, set_type_reg(cons, Src, Vst));
+        _ ->
+            branch_state(Lbl, Vst)
     end;
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
@@ -1536,6 +1551,8 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% nil			Empty list: []
 %%
+%% list                 List: [] or [_|_]
+%%
 %% {tuple,[Sz]}		Tuple. An element has been accessed using
 %%              	element/2 or setelement/3 so that it is known that
 %%              	the type is a tuple of size at least Sz.
@@ -2118,6 +2135,14 @@ return_type_1(erlang, setelement, 3, Vst) ->
 	{integer,I} -> upgrade_tuple_type({tuple,[I]}, TupleType);
 	_ -> TupleType
     end;
+return_type_1(erlang, '++', 2, Vst) ->
+    case get_term_type({x,0}, Vst) =:= cons orelse
+        get_term_type({x,1}, Vst) =:= cons of
+        true -> cons;
+        false -> list
+    end;
+return_type_1(erlang, '--', 2, _Vst) ->
+    list;
 return_type_1(erlang, F, A, _) ->
     return_type_erl(F, A);
 return_type_1(math, F, A, _) ->

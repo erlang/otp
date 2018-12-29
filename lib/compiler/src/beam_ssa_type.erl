@@ -542,6 +542,14 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
                 {_,_} ->
                     #t_tuple{}
             end;
+        {erlang,'++',[List1,List2]} ->
+            case get_type(List1, Ts) =:= cons orelse
+                get_type(List2, Ts) =:= cons of
+                true -> cons;
+                false -> list
+            end;
+        {erlang,'--',[_,_]} ->
+            list;
         {math,_,_} ->
             case is_math_bif(Name, length(Args)) of
                 false -> any;
@@ -885,6 +893,8 @@ infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
         true ->
             []
     end;
+infer_type({bif,element}, [#b_var{}=Position,#b_var{}=Tuple], _Ds) ->
+    [{Position,t_integer()},{Tuple,#t_tuple{}}];
 infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ds) ->
     Def = maps:get(Src, Ds),
     Type = get_type(Lit, #{}),
@@ -895,10 +905,20 @@ infer_type({bif,Bif}, [#b_var{}=Src]=Args, _Ds) ->
         any -> [];
         T -> [{Src,T}]
     end;
+infer_type({bif,binary_part}, [#b_var{}=Src,_], _Ds) ->
+    [{Src,{binary,8}}];
 infer_type({bif,is_map_key}, [_,#b_var{}=Src], _Ds) ->
     [{Src,map}];
 infer_type({bif,map_get}, [_,#b_var{}=Src], _Ds) ->
     [{Src,map}];
+infer_type({bif,Bif}, [_,_]=Args, _Ds) ->
+    case inferred_bif_type(Bif, Args) of
+        any -> [];
+        T -> [{A,T} || #b_var{}=A <- Args]
+    end;
+infer_type({bif,binary_part}, [#b_var{}=Src,Pos,Len], _Ds) ->
+    [{Src,{binary,8}}|
+     [{V,t_integer()} || #b_var{}=V <- [Pos,Len]]];
 infer_type(bs_start_match, [#b_var{}=Bin], _Ds) ->
     [{Bin,{binary,1}}];
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ds) ->
@@ -969,6 +989,7 @@ inferred_bif_type(is_number, [_]) -> number;
 inferred_bif_type(is_tuple, [_]) -> #t_tuple{};
 inferred_bif_type(abs, [_]) -> number;
 inferred_bif_type(bit_size, [_]) -> {binary,1};
+inferred_bif_type('bnot', [_]) -> t_integer();
 inferred_bif_type(byte_size, [_]) -> {binary,1};
 inferred_bif_type(ceil, [_]) -> number;
 inferred_bif_type(float, [_]) -> number;
@@ -976,10 +997,25 @@ inferred_bif_type(floor, [_]) -> number;
 inferred_bif_type(hd, [_]) -> cons;
 inferred_bif_type(length, [_]) -> list;
 inferred_bif_type(map_size, [_]) -> map;
+inferred_bif_type('not', [_]) -> t_boolean();
 inferred_bif_type(round, [_]) -> number;
 inferred_bif_type(trunc, [_]) -> number;
 inferred_bif_type(tl, [_]) -> cons;
 inferred_bif_type(tuple_size, [_]) -> #t_tuple{};
+inferred_bif_type('and', [_,_]) -> t_boolean();
+inferred_bif_type('or', [_,_]) -> t_boolean();
+inferred_bif_type('xor', [_,_]) -> t_boolean();
+inferred_bif_type('band', [_,_]) -> t_integer();
+inferred_bif_type('bor', [_,_]) -> t_integer();
+inferred_bif_type('bsl', [_,_]) -> t_integer();
+inferred_bif_type('bsr', [_,_]) -> t_integer();
+inferred_bif_type('bxor', [_,_]) -> t_integer();
+inferred_bif_type('div', [_,_]) -> t_integer();
+inferred_bif_type('rem', [_,_]) -> t_integer();
+inferred_bif_type('+', [_,_]) -> number;
+inferred_bif_type('-', [_,_]) -> number;
+inferred_bif_type('*', [_,_]) -> number;
+inferred_bif_type('/', [_,_]) -> number;
 inferred_bif_type(_, _) -> any.
 
 infer_tuple_size(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
