@@ -654,8 +654,8 @@ new_options_in_accept(Config) when is_list(Config) ->
 handshake_continue() ->
     [{doc, "Test API function ssl:handshake_continue/3"}].
 handshake_continue(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -714,7 +714,7 @@ hello_client_cancel(Config) when is_list(Config) ->
 hello_server_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
 hello_server_cancel(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -756,8 +756,8 @@ prf(Config) when is_list(Config) ->
 secret_connection_info() ->
     [{doc,"Test the API function ssl:connection_information/2"}].
 secret_connection_info(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -1446,8 +1446,8 @@ cipher_suites_mix() ->
 
 cipher_suites_mix(Config) when is_list(Config) -> 
     CipherSuites = [{dhe_rsa,aes_128_cbc,sha256,sha256}, {dhe_rsa,aes_128_cbc,sha}],
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -2358,8 +2358,8 @@ invalid_options() ->
     [{doc,"Test what happens when we give invalid options"}].
        
 invalid_options(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Check = fun(Client, Server, {versions, [sslv2, sslv3]} = Option) ->
@@ -2374,27 +2374,28 @@ invalid_options(Config) when is_list(Config) ->
 					      {error, {options, Option}})
 	    end,
 
-    TestOpts = [{versions, [sslv2, sslv3]}, 
-		{verify, 4}, 
-		{verify_fun, function},
-		{fail_if_no_peer_cert, 0}, 
-		{verify_client_once, 1},
-		{depth, four}, 
-		{certfile, 'cert.pem'}, 
-		{keyfile,'key.pem' }, 
-		{password, foo},
-		{cacertfile, ""}, 
-		{dhfile,'dh.pem' },
-		{ciphers, [{foo, bar, sha, ignore}]},
-		{reuse_session, foo},
-		{reuse_sessions, 0},
-		{renegotiate_at, "10"},
-		{mode, depech},
-		{packet, 8.0},
-		{packet_size, "2"},
-		{header, a},
-		{active, trice},
-		{key, 'key.pem' }],
+    TestOpts = 
+         [{versions, [sslv2, sslv3]}, 
+          {verify, 4}, 
+          {verify_fun, function},
+          {fail_if_no_peer_cert, 0}, 
+          {verify_client_once, 1},
+          {depth, four}, 
+          {certfile, 'cert.pem'}, 
+          {keyfile,'key.pem' }, 
+          {password, foo},
+          {cacertfile, ""}, 
+          {dhfile,'dh.pem' },
+          {ciphers, [{foo, bar, sha, ignore}]},
+          {reuse_session, foo},
+          {reuse_sessions, 0},
+          {renegotiate_at, "10"},
+          {mode, depech},
+          {packet, 8.0},
+          {packet_size, "2"},
+          {header, a},
+          {active, trice},
+          {key, 'key.pem' }],
 
     [begin
 	 Server =
@@ -4486,8 +4487,8 @@ tcp_send_recv_result(Socket) ->
     ok.
 
 basic_verify_test_no_close(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -4962,16 +4963,16 @@ run_suites(Ciphers, Config, Type) ->
     {ClientOpts, ServerOpts} =
 	case Type of
 	    rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
                  [{ciphers, Ciphers} |
-                  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+                  ssl_test_lib:ssl_options(server_rsa_opts, Config)]};
 	    dsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_dsa_verify_opts, Config),
                  [{ciphers, Ciphers} |
 		 ssl_test_lib:ssl_options(server_dsa_opts, Config)]};
 	    anonymous ->
 		%% No certs in opts!
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options([], Config)]};
 	    psk ->
@@ -5001,38 +5002,38 @@ run_suites(Ciphers, Config, Type) ->
 		{ssl_test_lib:ssl_options(client_srp_dsa, Config),
 		 ssl_test_lib:ssl_options(server_srp_dsa, Config)};
 	    ecdsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
                  [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]};
 	    ecdh_rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_ecdh_rsa_opts, Config),
 		 ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)};
 	    rc4_rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+		  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config)]};
 	    rc4_ecdh_rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_ecdh_rsa_opts, Config),
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)]};
 	    rc4_ecdsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]};
 	    des_dhe_rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
 		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
 	    des_rsa ->
-		{ssl_test_lib:ssl_options(client_verification_opts, Config),
+		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
-		  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+		  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config)]};
             chacha_rsa ->
-                {ssl_test_lib:ssl_options(client_verification_opts, Config),
+                {ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
                  [{ciphers, Ciphers} |
-                  ssl_test_lib:ssl_options(server_verification_opts, Config)]};
+                  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config)]};
             chacha_ecdsa ->
-               	{ssl_test_lib:ssl_options(client_verification_opts, Config),
+               	{ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
                  [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]} 
 	end,

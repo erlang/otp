@@ -1044,7 +1044,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 					 get_current_prf(ConnectionStates0, read),
 					 MasterSecret, Handshake0) of
         verified ->
-	    Session = register_session(Role, host_id(Role, Host, SslOpts), Port, Session0),
+	    Session = handle_session(Role, SslOpts, Host, Port, Session0),
 	    cipher_role(Role, Data, Session, 
 			State#state{expecting_finished = false}, Connection);
         #alert{} = Alert ->
@@ -2406,6 +2406,12 @@ session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
 session_handle_params(_, Session) ->
     Session.
 
+handle_session(Role = server, SslOpts, Host, Port, Session0) ->
+    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0);
+handle_session(Role = client, #ssl_options{verify = verify_peer} = SslOpts, Host, Port, Session0) ->
+    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0);
+handle_session(client, _, _, _, Session0) ->
+    Session0.
 
 register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},

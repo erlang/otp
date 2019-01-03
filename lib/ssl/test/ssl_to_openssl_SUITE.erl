@@ -762,8 +762,8 @@ erlang_client_openssl_server_renegotiate() ->
     [{doc,"Test erlang client when openssl server issuses a renegotiate"}].
 erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -772,12 +772,14 @@ erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
 
     Port = ssl_test_lib:inet_port(node()),
     CertFile = proplists:get_value(certfile, ServerOpts),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
 
     Exe = "openssl",
     Args = ["s_server", "-accept", integer_to_list(Port),  
             ssl_test_lib:version_flag(Version),
+            "-CAfile", CaCertFile,
             "-cert", CertFile, "-key", KeyFile, "-msg"],
     
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
@@ -807,7 +809,7 @@ erlang_client_openssl_server_renegotiate_after_client_data() ->
     [{doc,"Test erlang client when openssl server issuses a renegotiate after reading client data"}].
 erlang_client_openssl_server_renegotiate_after_client_data(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -816,6 +818,7 @@ erlang_client_openssl_server_renegotiate_after_client_data(Config) when is_list(
     OpenSslData = "From openssl to erlang",
 
     Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
@@ -823,6 +826,7 @@ erlang_client_openssl_server_renegotiate_after_client_data(Config) when is_list(
     Exe = "openssl",
     Args = ["s_server", "-accept", integer_to_list(Port),
             ssl_test_lib:version_flag(Version),
+            "-CAfile", CaCertFile,
             "-cert", CertFile, "-key", KeyFile, "-msg"],
 
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args),
@@ -857,7 +861,7 @@ erlang_client_openssl_server_nowrap_seqnum() ->
       " to lower treashold substantially."}].
 erlang_client_openssl_server_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -866,12 +870,14 @@ erlang_client_openssl_server_nowrap_seqnum(Config) when is_list(Config) ->
     N = 10,
 
     Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
     Exe = "openssl",
     Args = ["s_server", "-accept", integer_to_list(Port),
             ssl_test_lib:version_flag(Version),
+            "-CAfile", CaCertFile,
             "-cert", CertFile, "-key", KeyFile, "-msg"],
 
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
@@ -900,7 +906,7 @@ erlang_server_openssl_client_nowrap_seqnum() ->
       " to lower treashold substantially."}].
 erlang_server_openssl_client_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1836,6 +1842,7 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
     Data = "From openssl to erlang",
 
     Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
@@ -1843,6 +1850,7 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
     Exe = "openssl",
     Args = ["s_server", "-msg", "-nextprotoneg", "http/1.1,spdy/2", "-accept", integer_to_list(Port),
 	    ssl_test_lib:version_flag(Version),
+            "-CAfile", CaCertFile,
 	    "-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
 
