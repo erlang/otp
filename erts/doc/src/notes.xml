@@ -1625,6 +1625,26 @@
 
 </section>
 
+<section><title>Erts 9.3.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in operator <c>band</c> of two negative
+	    operands causing erroneous result if the absolute value
+	    of one of the operands have the lowest <c>N*W</c> bits as
+	    zero and the other absolute value is not larger than
+	    <c>N*W</c> bits. <c>N</c> is an integer of 1 or larger
+	    and <c>W</c> is 32 or 64 depending on word size.</p>
+          <p>
+	    Own Id: OTP-15487 Aux Id: ERL-804 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.6</title>
 
     <section><title>Improvements and New Features</title>
