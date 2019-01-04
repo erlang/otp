@@ -25,33 +25,51 @@ ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 {/* (Key, IV) */
 #if defined(HAVE_CHACHA20)
     ErlNifBinary     key_bin, ivec_bin;
-    struct evp_cipher_ctx *ctx;
+    struct evp_cipher_ctx *ctx = NULL;
     const EVP_CIPHER *cipher;
     ERL_NIF_TERM     ret;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-        || !enif_inspect_binary(env, argv[1], &ivec_bin)
-        || key_bin.size != 32
-        || ivec_bin.size != 16) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
+        goto bad_arg;
+    if (key_bin.size != 32)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[1], &ivec_bin))
+        goto bad_arg;
+    if (ivec_bin.size != 16)
+        goto bad_arg;
 
     cipher = EVP_chacha20();
 
-    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
-    ctx->ctx = EVP_CIPHER_CTX_new();
+    if ((ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
+        goto err;
+    if ((ctx->ctx = EVP_CIPHER_CTX_new()) == NULL)
+        goto err;
 
+    if (EVP_CipherInit_ex(ctx->ctx, cipher, NULL,
+                          key_bin.data, ivec_bin.data, 1) != 1)
+        goto err;
+    if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1)
+        goto err;
 
-    EVP_CipherInit_ex(ctx->ctx, cipher, NULL,
-                      key_bin.data, ivec_bin.data, 1);
-    EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
     ret = enif_make_resource(env, ctx);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
     enif_release_resource(ctx);
     return ret;
+
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
-};
+}
 
 ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (State, Data) */
