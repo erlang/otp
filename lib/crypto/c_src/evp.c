@@ -24,54 +24,76 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     /*    (Curve, PeerBin, MyBin) */
 {
 #ifdef HAVE_ED_CURVE_DH
+    ERL_NIF_TERM ret;
     int type;
     EVP_PKEY_CTX *ctx = NULL;
     ErlNifBinary peer_bin, my_bin, key_bin;
     EVP_PKEY *peer_key = NULL, *my_key = NULL;
     size_t max_size;
+    int key_bin_alloc = 0;
 
-    if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
-    else if (argv[0] == atom_x448) type = EVP_PKEY_X448;
-    else return enif_make_badarg(env);
+    if (argc != 3)
+        goto bad_arg;
 
-    if (!enif_inspect_binary(env, argv[1], &peer_bin) ||
-        !enif_inspect_binary(env, argv[2], &my_bin)) 
-        goto return_badarg;
+    if (argv[0] == atom_x25519)
+        type = EVP_PKEY_X25519;
+    else if (argv[0] == atom_x448)
+        type = EVP_PKEY_X448;
+    else
+        goto bad_arg;
 
-    if (!(my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) ||
-        !(ctx = EVP_PKEY_CTX_new(my_key, NULL))) 
-        goto return_badarg;
+    if (!enif_inspect_binary(env, argv[1], &peer_bin))
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[2], &my_bin))
+        goto bad_arg;
 
-    if (!EVP_PKEY_derive_init(ctx)) 
-        goto return_badarg;
+    if ((my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) == NULL)
+        goto err;
+    if ((ctx = EVP_PKEY_CTX_new(my_key, NULL)) == NULL)
+        goto err;
 
-    if (!(peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) ||
-        !EVP_PKEY_derive_set_peer(ctx, peer_key)) 
-        goto return_badarg;
+    if (EVP_PKEY_derive_init(ctx) != 1)
+        goto err;
 
-    if (!EVP_PKEY_derive(ctx, NULL, &max_size)) 
-        goto return_badarg;
+    if ((peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) == NULL)
+        goto err;
+    if (EVP_PKEY_derive_set_peer(ctx, peer_key) != 1)
+        goto err;
 
-    if (!enif_alloc_binary(max_size, &key_bin) ||
-        !EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size)) 
-        goto return_badarg;
+    if (EVP_PKEY_derive(ctx, NULL, &max_size) != 1)
+        goto err;
+
+    if (!enif_alloc_binary(max_size, &key_bin))
+        goto err;
+    key_bin_alloc = 1;
+    if (EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size) != 1)
+        goto err;
 
     if (key_bin.size < max_size) {
-        size_t actual_size = key_bin.size;
-        if (!enif_realloc_binary(&key_bin, actual_size)) 
-            goto return_badarg;
+        if (!enif_realloc_binary(&key_bin, (size_t)key_bin.size))
+            goto err;
     }
 
-    EVP_PKEY_free(my_key);
-    EVP_PKEY_free(peer_key);
-    EVP_PKEY_CTX_free(ctx);
-    return enif_make_binary(env, &key_bin);
+    ret = enif_make_binary(env, &key_bin);
+    key_bin_alloc = 0;
+    goto done;
 
-return_badarg:
-    if (my_key)   EVP_PKEY_free(my_key);
-    if (peer_key) EVP_PKEY_free(peer_key);
-    if (ctx)      EVP_PKEY_CTX_free(ctx);
-    return enif_make_badarg(env);
+ bad_arg:
+ err:
+    if (key_bin_alloc)
+        enif_release_binary(&key_bin);
+    ret = enif_make_badarg(env);
+
+ done:
+    if (my_key)
+        EVP_PKEY_free(my_key);
+    if (peer_key)
+        EVP_PKEY_free(peer_key);
+    if (ctx)
+        EVP_PKEY_CTX_free(ctx);
+
+    return ret;
+
 #else
     return atom_notsup;
 #endif
