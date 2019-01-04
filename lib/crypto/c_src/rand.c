@@ -130,12 +130,19 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 }
 
 ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+{/* (Seed) */
     ErlNifBinary seed_bin;
 
+    if (argc != 1)
+        goto bad_arg;
     if (!enif_inspect_binary(env, argv[0], &seed_bin))
-        return enif_make_badarg(env);
-    RAND_seed(seed_bin.data,seed_bin.size);
-    return atom_ok;
-}
+        goto bad_arg;
+    if (seed_bin.size > INT_MAX)
+        goto bad_arg;
 
+    RAND_seed(seed_bin.data, (int)seed_bin.size);
+    return atom_ok;
+
+ bad_arg:
+    return enif_make_badarg(env);
+}
