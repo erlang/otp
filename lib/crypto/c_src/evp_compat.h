@@ -200,8 +200,11 @@ DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
 static INLINE void
 DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
 {
-    if (pub_key) *pub_key = dh->pub_key;
-    if (priv_key) *priv_key = dh->priv_key;
+    if (pub_key)
+        *pub_key = dh->pub_key;
+
+    if (priv_key)
+        *priv_key = dh->priv_key;
 }
 
 #endif /* E_EVP_COMPAT_H__ */
