@@ -219,29 +219,49 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned int req_len = 0;
     unsigned int mac_len;
 
-    if (!enif_get_resource(env,argv[0],hmac_context_rtype, (void**)&obj)
-	|| (argc == 2 && !enif_get_uint(env, argv[1], &req_len))) {
-	return enif_make_badarg(env);
+    if (argc != 1 && argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+        goto bad_arg;
+    if (argc == 2) {
+        if (!enif_get_uint(env, argv[1], &req_len))
+            goto bad_arg;
     }
 
     enif_mutex_lock(obj->mtx);
-    if (!obj->alive) {
-	enif_mutex_unlock(obj->mtx);
-	return enif_make_badarg(env);
-    }
+    if (!obj->alive)
+        goto err;
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    if (!HMAC_Final(obj->ctx, mac_buf, &mac_len))
+        goto err;
+#else
+    // In ancient versions of OpenSSL, this was a void function.
     HMAC_Final(obj->ctx, mac_buf, &mac_len);
-    HMAC_CTX_free(obj->ctx);
+#endif
+
+    if (obj->ctx)
+        HMAC_CTX_free(obj->ctx);
     obj->alive = 0;
-    enif_mutex_unlock(obj->mtx);
 
     if (argc == 2 && req_len < mac_len) {
         /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
-    mac_bin = enif_make_new_binary(env, mac_len, &ret);
-    memcpy(mac_bin, mac_buf, mac_len);
+    if ((mac_bin = enif_make_new_binary(env, mac_len, &ret)) == NULL)
+        goto err;
 
+    memcpy(mac_bin, mac_buf, mac_len);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_mutex_unlock(obj->mtx);
     return ret;
 }
 
