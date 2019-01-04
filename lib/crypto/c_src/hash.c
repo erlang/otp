@@ -175,25 +175,37 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     EVP_MD_CTX        *new_ctx;
     ERL_NIF_TERM  ret;
     unsigned      ret_size;
+    unsigned char     *outp;
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
     ret_size = (unsigned)EVP_MD_CTX_size(ctx->ctx);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
 
-    new_ctx = EVP_MD_CTX_new();
-    if (!EVP_MD_CTX_copy(new_ctx, ctx->ctx) ||
-        !EVP_DigestFinal(new_ctx,
-                         enif_make_new_binary(env, ret_size, &ret),
-                         &ret_size)) {
-	EVP_MD_CTX_free(new_ctx);
-        return atom_notsup;
-    }
-    EVP_MD_CTX_free(new_ctx);
-    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
+    if ((new_ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_MD_CTX_copy(new_ctx, ctx->ctx) != 1)
+        goto err;
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
+        goto err;
+    if (EVP_DigestFinal(new_ctx, outp, &ret_size) != 1)
+        goto err;
 
+    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (new_ctx)
+        EVP_MD_CTX_free(new_ctx);
     return ret;
 }
 
