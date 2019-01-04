@@ -315,26 +315,48 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     const ERL_NIF_TERM *state_term;
     unsigned char * ivec2_buf;
     unsigned char * ecount2_buf;
+    unsigned char *outp;
 
-    if (!enif_get_tuple(env, argv[0], &state_arity, &state_term)
-        || state_arity != 4
-        || !enif_inspect_iolist_as_binary(env, state_term[0], &key_bin)
-        || AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key) != 0
-        || !enif_inspect_binary(env, state_term[1], &ivec_bin) || ivec_bin.size != 16
-        || !enif_inspect_binary(env, state_term[2], &ecount_bin) || ecount_bin.size != AES_BLOCK_SIZE
-        || !enif_get_uint(env, state_term[3], &num)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &text_bin)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_tuple(env, argv[0], &state_arity, &state_term))
+        goto bad_arg;
+    if (state_arity != 4)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, state_term[0], &key_bin))
+        goto bad_arg;
+    if (key_bin.size > INT_MAX / 8)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, state_term[1], &ivec_bin))
+        goto bad_arg;
+    if (ivec_bin.size != 16)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, state_term[2], &ecount_bin))
+        goto bad_arg;
+    if (ecount_bin.size != AES_BLOCK_SIZE)
+        goto bad_arg;
+    if (!enif_get_uint(env, state_term[3], &num))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &text_bin))
+        goto bad_arg;
 
-    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term);
-    ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term);
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (AES_set_encrypt_key(key_bin.data, (int)key_bin.size * 8, &aes_key) != 0)
+        goto bad_arg;
+
+    if ((ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term)) == NULL)
+        goto err;
+    if ((ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term)) == NULL)
+        goto err;
 
     memcpy(ivec2_buf, ivec_bin.data, 16);
     memcpy(ecount2_buf, ecount_bin.data, ecount_bin.size);
 
+    if ((outp = enif_make_new_binary(env, text_bin.size, &cipher_term)) == NULL)
+        goto err;
+
     AES_ctr128_encrypt((unsigned char *) text_bin.data,
-		       enif_make_new_binary(env, text_bin.size, &cipher_term),
+                       outp,
 		       text_bin.size, &aes_key, ivec2_buf, ecount2_buf, &num);
 
     num2_term = enif_make_uint(env, num);
@@ -342,6 +364,10 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     ret = enif_make_tuple2(env, new_state_term, cipher_term);
     CONSUME_REDS(env,text_bin);
     return ret;
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
 }
 #endif /* !HAVE_EVP_AES_CTR */
 
