@@ -64,7 +64,8 @@ ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     if (!BN_rand_range(bn_rand, bn_range))
         goto err;
 
-    ret = bin_from_bn(env, bn_rand);
+    if ((ret = bin_from_bn(env, bn_rand)) == atom_error)
+        goto err;
     goto done;
 
  bad_arg:
