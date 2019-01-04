@@ -573,26 +573,38 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret, result;
     ENGINE *engine;
     ErlNifBinary engine_bin;
-    struct engine_ctx *ctx;
+    struct engine_ctx *ctx = NULL;
 
-    engine = ENGINE_get_first();
-    if(!engine) {
-        enif_alloc_binary(0, &engine_bin);
+    if (argc != 1)
+        goto bad_arg;
+
+    if ((engine = ENGINE_get_first()) == NULL) {
+        if (!enif_alloc_binary(0, &engine_bin))
+            goto err;
         engine_bin.size = 0;
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+        goto err;
     ctx->engine = engine;
     ctx->id = NULL;
 
-    ret = enif_make_resource(env, ctx);
-    enif_release_resource(ctx);
+    result = enif_make_resource(env, ctx);
+    ret = enif_make_tuple2(env, atom_ok, result);
+    goto done;
 
-    return enif_make_tuple2(env, atom_ok, ret);
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_release_resource(ctx);
+    return ret;
+
 #else
     return atom_notsup;
 #endif
