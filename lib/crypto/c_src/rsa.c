@@ -120,18 +120,35 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {
     /* key=[E,N] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *e, *n;
+    BIGNUM *e = NULL, *n = NULL;
 
-    if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_bin(env, head, &e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &n)
-        || !enif_is_empty_list(env, tail)) {
-	return 0;
-    }
+    if (!enif_get_list_cell(env, key, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &e))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &n))
+        goto bad_arg;
+    if (!enif_is_empty_list(env, tail))
+        goto bad_arg;
 
-    (void) RSA_set0_key(rsa, n, e, NULL);
+    if (!RSA_set0_key(rsa, n, e, NULL))
+        goto err;
+    /* rsa now owns n and e */
+    n = NULL;
+    e = NULL;
+
     return 1;
+
+ bad_arg:
+ err:
+    if (e)
+        BN_free(e);
+    if (n)
+        BN_free(n);
+
+    return 0;
 }
 
 /* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
