@@ -382,95 +382,99 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     unsigned int method;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_register_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
-    // Get Method
-    if (!enif_get_uint(env, argv[1], &method)) {
-        PRINTF_ERR0("engine_register_nif Leaved: Parameter Method not an uint");
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
+    if (!enif_get_uint(env, argv[1], &method))
+        goto bad_arg;
 
     switch(method)
     {
 #ifdef ENGINE_METHOD_RSA
     case ENGINE_METHOD_RSA:
         if (!ENGINE_register_RSA(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_DSA
     case ENGINE_METHOD_DSA:
         if (!ENGINE_register_DSA(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_DH
     case ENGINE_METHOD_DH:
         if (!ENGINE_register_DH(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_RAND
     case ENGINE_METHOD_RAND:
         if (!ENGINE_register_RAND(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_ECDH
     case ENGINE_METHOD_ECDH:
         if (!ENGINE_register_ECDH(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_ECDSA
     case ENGINE_METHOD_ECDSA:
         if (!ENGINE_register_ECDSA(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_STORE
     case ENGINE_METHOD_STORE:
         if (!ENGINE_register_STORE(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_CIPHERS
     case ENGINE_METHOD_CIPHERS:
         if (!ENGINE_register_ciphers(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_DIGESTS
     case ENGINE_METHOD_DIGESTS:
         if (!ENGINE_register_digests(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_PKEY_METHS
     case ENGINE_METHOD_PKEY_METHS:
         if (!ENGINE_register_pkey_meths(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_PKEY_ASN1_METHS
     case ENGINE_METHOD_PKEY_ASN1_METHS:
         if (!ENGINE_register_pkey_asn1_meths(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
 #ifdef ENGINE_METHOD_EC
     case ENGINE_METHOD_EC:
         if (!ENGINE_register_EC(ctx->engine))
-            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+            goto failed;
         break;
 #endif
     default:
-        return  enif_make_tuple2(env, atom_error, atom_engine_method_not_supported);
-        break;
+        return enif_make_tuple2(env, atom_error, atom_engine_method_not_supported);
     }
+
     return atom_ok;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ failed:
+    return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+
 #else
     return atom_notsup;
 #endif
