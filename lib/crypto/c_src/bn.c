@@ -52,13 +52,24 @@ int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 
 int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 {
+    BIGNUM *ret;
     ErlNifBinary bin;
-    if (!enif_inspect_binary(env,term,&bin)) {
-	return 0;
-    }
+
+    if (!enif_inspect_binary(env, term, &bin))
+        goto err;
+    if (bin.size > INT_MAX)
+        goto err;
+
     ERL_VALGRIND_ASSERT_MEM_DEFINED(bin.data, bin.size);
-    *bnp = BN_bin2bn(bin.data, bin.size, NULL);
+
+    if ((ret = BN_bin2bn(bin.data, (int)bin.size, NULL)) == NULL)
+        goto err;
+
+    *bnp = ret;
     return 1;
+
+ err:
+    return 0;
 }
 
 ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
