@@ -64,28 +64,36 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary         data;
     ERL_NIF_TERM         ret;
     unsigned             ret_size;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
+    if ((md = digp->md.p) == NULL)
+        goto err;
 
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
-    if (!EVP_Digest(data.data, data.size,
-                    enif_make_new_binary(env, ret_size, &ret), &ret_size,
-                    md, NULL)) {
-        return atom_notsup;
-    }
+
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
+        goto err;
+    if (EVP_Digest(data.data, data.size, outp, &ret_size, md, NULL) != 1)
+        goto err;
+
     ASSERT(ret_size == (unsigned)EVP_MD_size(md));
 
     CONSUME_REDS(env, data);
     return ret;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
