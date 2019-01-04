@@ -1339,39 +1339,53 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 { /* (Algorithm, PrivKey | KeyMap) */
-    EVP_PKEY *pkey;
-    ERL_NIF_TERM alg = argv[0];
+    ERL_NIF_TERM ret;
+    EVP_PKEY *pkey = NULL;
+    RSA *rsa = NULL;
+    DSA *dsa = NULL;
     ERL_NIF_TERM result[8];
-    if (get_pkey_private_key(env, alg, argv[1], &pkey) != PKEY_OK) {
-	return enif_make_badarg(env);
-    }
 
-    if (alg == atom_rsa) {
+    if (argc != 2)
+        goto bad_arg;
+    if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK)
+        goto bad_arg;
+
+    if (argv[0] == atom_rsa) {
         const BIGNUM *n = NULL, *e = NULL, *d = NULL;
-        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
-        if (rsa) {
-            RSA_get0_key(rsa, &n, &e, &d);
-            result[0] = bin_from_bn(env, e);  // Exponent E
-            result[1] = bin_from_bn(env, n);  // Modulus N = p*q
-            RSA_free(rsa);
-            EVP_PKEY_free(pkey);
-            return enif_make_list_from_array(env, result, 2);
-        }
+
+        if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+            goto err;
+
+        RSA_get0_key(rsa, &n, &e, &d);
+
+        // Exponent E
+        if ((result[0] = bin_from_bn(env, e)) == atom_error)
+            goto err;
+        // Modulus N = p*q
+        if ((result[1] = bin_from_bn(env, n)) == atom_error)
+            goto err;
+
+        ret = enif_make_list_from_array(env, result, 2);
 
     } else if (argv[0] == atom_dss) {
         const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
-        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
-        if (dsa) {
-            DSA_get0_pqg(dsa, &p, &q, &g);
-            DSA_get0_key(dsa, &pub_key, NULL);
-            result[0] = bin_from_bn(env, p);
-            result[1] = bin_from_bn(env, q);
-            result[2] = bin_from_bn(env, g);
-            result[3] = bin_from_bn(env, pub_key);
-	    DSA_free(dsa);
-            EVP_PKEY_free(pkey);
-            return enif_make_list_from_array(env, result, 4);
-        }
+
+        if ((dsa = EVP_PKEY_get1_DSA(pkey)) == NULL)
+            goto err;
+
+        DSA_get0_pqg(dsa, &p, &q, &g);
+        DSA_get0_key(dsa, &pub_key, NULL);
+
+        if ((result[0] = bin_from_bn(env, p)) == atom_error)
+            goto err;
+        if ((result[1] = bin_from_bn(env, q)) == atom_error)
+            goto err;
+        if ((result[2] = bin_from_bn(env, g)) == atom_error)
+            goto err;
+        if ((result[3] = bin_from_bn(env, pub_key)) == atom_error)
+            goto err;
+
+        ret = enif_make_list_from_array(env, result, 4);
 
     } else if (argv[0] == atom_ecdsa) {
 #if defined(HAVE_EC)
@@ -1408,8 +1422,24 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_list_from_array(env, ..., ...);
         */
 #endif
+        goto bad_arg;
+    } else {
+        goto bad_arg;
     }
 
-    if (pkey) EVP_PKEY_free(pkey);
-    return enif_make_badarg(env);
+    goto done;
+
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    if (rsa)
+        RSA_free(rsa);
+    if (dsa)
+        DSA_free(dsa);
+    if (pkey)
+        EVP_PKEY_free(pkey);
+
+    return ret;
 }
