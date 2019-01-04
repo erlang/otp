@@ -789,7 +789,10 @@ ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {/* () */
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM method_array[12];
-    int i = 0;
+    unsigned int i = 0;
+
+    if (argc != 0)
+        return enif_make_badarg(env);
 
 #ifdef ENGINE_METHOD_RSA
     method_array[i++] = atom_engine_method_rsa;
