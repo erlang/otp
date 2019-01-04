@@ -487,15 +487,12 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned int method;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
-    // Get Method
-    if (!enif_get_uint(env, argv[1], &method)) {
-        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter Method not an uint");
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
+    if (!enif_get_uint(env, argv[1], &method))
+        goto bad_arg;
 
     switch(method)
     {
@@ -562,7 +559,12 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     default:
         break;
     }
+
     return atom_ok;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
 #else
     return atom_notsup;
 #endif
