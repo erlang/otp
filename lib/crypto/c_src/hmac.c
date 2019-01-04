@@ -51,35 +51,53 @@ ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned char        buff[EVP_MAX_MD_SIZE];
     unsigned             size = 0, req_size = 0;
     ERL_NIF_TERM         ret;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &key) ||
-        !enif_inspect_iolist_as_binary(env, argv[2], &data) ||
-        (argc == 4 && !enif_get_uint(env, argv[3], &req_size))) {
-        return enif_make_badarg(env);
+    if (argc != 3 && argc != 4)
+        goto bad_arg;
+
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &data))
+        goto bad_arg;
+    if (argc == 4) {
+        if (!enif_get_uint(env, argv[3], &req_size))
+            goto bad_arg;
     }
 
-    if (!digp->md.p ||
-        !HMAC(digp->md.p,
-              key.data, key.size,
-              data.data, data.size,
-              buff, &size)) {
-        return atom_notsup;
-    }
+    if (digp->md.p == NULL)
+        goto err;
+    if (HMAC(digp->md.p,
+             key.data, (int)key.size,
+             data.data, data.size,
+             buff, &size) == NULL)
+        goto err;
+
     ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
     CONSUME_REDS(env, data);
 
     if (argc == 4) {
-        if (req_size <= size) {
-            size = req_size;
-        }
-        else {
-            return enif_make_badarg(env);
-        }
+        if (req_size > size)
+            goto bad_arg;
+
+        size = req_size;
     }
-    memcpy(enif_make_new_binary(env, size, &ret), buff, size);
+
+    if ((outp = enif_make_new_binary(env, size, &ret)) == NULL)
+        goto err;
+
+    memcpy(outp, buff, size);
     return ret;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
