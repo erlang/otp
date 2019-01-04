@@ -84,12 +84,16 @@ char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
 }
 
 static int zero_terminate(ErlNifBinary bin, char **buf) {
-    *buf = enif_alloc(bin.size+1);
-    if (!*buf)
-        return 0;
+    if ((*buf = enif_alloc(bin.size + 1)) == NULL)
+        goto err;
+
     memcpy(*buf, bin.data, bin.size);
-    *(*buf+bin.size) = 0;
+    *(*buf + bin.size) = 0;
+
     return 1;
+
+ err:
+    return 0;
 }
 #endif /* HAS_ENGINE_SUPPORT */
 
