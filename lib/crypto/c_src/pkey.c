@@ -88,67 +88,83 @@ static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
 				unsigned char *md_value, const EVP_MD **mdp,
 				unsigned char **tbsp, size_t *tbslenp)
 {
-    int i;
+    int i, ret;
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
     ErlNifBinary tbs_bin;
-    EVP_MD_CTX *mdctx;
-    const EVP_MD *md = *mdp;
-    unsigned char *tbs = *tbsp;
-    size_t tbslen = *tbslenp;
+    EVP_MD_CTX *mdctx = NULL;
+    const EVP_MD *md;
+    unsigned char *tbs;
+    size_t tbslen;
     unsigned int tbsleni;
 
-    if ((i = get_pkey_digest_type(env, algorithm, type, &md)) != PKEY_OK) {
-	return i;
-    }
+    md = *mdp;
+    tbs = *tbsp;
+    tbslen = *tbslenp;
+
+    if ((i = get_pkey_digest_type(env, algorithm, type, &md)) != PKEY_OK)
+        return i;
+
     if (enif_get_tuple(env, data, &tpl_arity, &tpl_terms)) {
-	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-	    || !enif_inspect_binary(env, tpl_terms[1], &tbs_bin)
-	    || (md != NULL && tbs_bin.size != EVP_MD_size(md))) {
-	    return PKEY_BADARG;
-	}
+        if (tpl_arity != 2)
+            goto bad_arg;
+        if (tpl_terms[0] != atom_digest)
+            goto bad_arg;
+        if (!enif_inspect_binary(env, tpl_terms[1], &tbs_bin))
+            goto bad_arg;
+        if (tbs_bin.size > INT_MAX)
+            goto bad_arg;
+        if (md != NULL) {
+            if ((int)tbs_bin.size != EVP_MD_size(md))
+                goto bad_arg;
+        }
+
         /* We have a digest (= hashed text) in tbs_bin */
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else if (md == NULL) {
-	if (!enif_inspect_binary(env, data, &tbs_bin)) {
-	    return PKEY_BADARG;
-	}
+        if (!enif_inspect_binary(env, data, &tbs_bin))
+            goto bad_arg;
+
         /* md == NULL, that is no hashing because DigestType argument was atom_none */
 	tbs = tbs_bin.data;
 	tbslen = tbs_bin.size;
     } else {
-	if (!enif_inspect_binary(env, data, &tbs_bin)) {
-	    return PKEY_BADARG;
-	}
+        if (!enif_inspect_binary(env, data, &tbs_bin))
+            goto bad_arg;
+
         /* We have the cleartext in tbs_bin and the hash algo info in md */
 	tbs = md_value;
-	mdctx = EVP_MD_CTX_create();
-	if (!mdctx) {
-	    return PKEY_BADARG;
-	}
+
+        if ((mdctx = EVP_MD_CTX_create()) == NULL)
+            goto err;
+
         /* Looks well, now hash the plain text into a digest according to md */
-	if (EVP_DigestInit_ex(mdctx, md, NULL) <= 0) {
-	    EVP_MD_CTX_destroy(mdctx);
-	    return PKEY_BADARG;
-	}
-	if (EVP_DigestUpdate(mdctx, tbs_bin.data, tbs_bin.size) <= 0) {
-	    EVP_MD_CTX_destroy(mdctx);
-	    return PKEY_BADARG;
-	}
-	if (EVP_DigestFinal_ex(mdctx, tbs, &tbsleni) <= 0) {
-	    EVP_MD_CTX_destroy(mdctx);
-	    return PKEY_BADARG;
-	}
-	tbslen = (size_t)(tbsleni);
-	EVP_MD_CTX_destroy(mdctx);
+        if (EVP_DigestInit_ex(mdctx, md, NULL) != 1)
+            goto err;
+        if (EVP_DigestUpdate(mdctx, tbs_bin.data, tbs_bin.size) != 1)
+            goto err;
+        if (EVP_DigestFinal_ex(mdctx, tbs, &tbsleni) != 1)
+            goto err;
+
+        tbslen = (size_t)tbsleni;
     }
 
     *mdp = md;
     *tbsp = tbs;
     *tbslenp = tbslen;
 
-    return PKEY_OK;
+    ret = PKEY_OK;
+    goto done;
+
+ bad_arg:
+ err:
+    ret = PKEY_BADARG;
+
+ done:
+    if (mdctx)
+        EVP_MD_CTX_destroy(mdctx);
+    return ret;
 }
 
 static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
