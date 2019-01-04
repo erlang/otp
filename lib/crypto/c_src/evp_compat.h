@@ -37,7 +37,11 @@ static INLINE void HMAC_CTX_free(HMAC_CTX *ctx);
 
 static INLINE HMAC_CTX *HMAC_CTX_new()
 {
-    HMAC_CTX *ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__);
+    HMAC_CTX *ctx;
+
+    if ((ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__)) == NULL)
+        return NULL;
+
     HMAC_CTX_init(ctx);
     return ctx;
 }
