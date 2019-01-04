@@ -29,38 +29,91 @@ int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
-    BIGNUM *e, *n, *d;
-    BIGNUM *p, *q;
-    BIGNUM *dmp1, *dmq1, *iqmp;
+    BIGNUM *e = NULL, *n = NULL, *d = NULL;
+    BIGNUM *p = NULL, *q = NULL;
+    BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
 
-    if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_bin(env, head, &e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &n)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &d)) {
-	return 0;
-    }
-    (void) RSA_set0_key(rsa, n, e, d);
-    if (enif_is_empty_list(env, tail)) {
-	return 1;
-    }
-    if (!enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &q)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dmp1)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dmq1)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &iqmp)
-	|| !enif_is_empty_list(env, tail)) {
-	return 0;
-    }
-    (void) RSA_set0_factors(rsa, p, q);
-    (void) RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp);
+    if (!enif_get_list_cell(env, key, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &e))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &n))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &d))
+        goto bad_arg;
+
+    if (!RSA_set0_key(rsa, n, e, d))
+        goto err;
+    /* rsa now owns n, e, and d */
+    n = NULL;
+    e = NULL;
+    d = NULL;
+
+    if (enif_is_empty_list(env, tail))
+        return 1;
+
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &p))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &q))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &dmp1))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &dmq1))
+        goto bad_arg;
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &iqmp))
+        goto bad_arg;
+    if (!enif_is_empty_list(env, tail))
+        goto bad_arg;
+
+    if (!RSA_set0_factors(rsa, p, q))
+        goto err;
+    /* rsa now owns p and q */
+    p = NULL;
+    q = NULL;
+
+    if (!RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp))
+        goto err;
+    /* rsa now owns dmp1, dmq1, and iqmp */
+    dmp1 = NULL;
+    dmq1 = NULL;
+    iqmp = NULL;
+
     return 1;
+
+ bad_arg:
+ err:
+    if (e)
+        BN_free(e);
+    if (n)
+        BN_free(n);
+    if (d)
+        BN_free(d);
+    if (p)
+        BN_free(p);
+    if (q)
+        BN_free(q);
+    if (dmp1)
+        BN_free(dmp1);
+    if (dmq1)
+        BN_free(dmq1);
+    if (iqmp)
+        BN_free(iqmp);
+
+    return 0;
 }
 
 int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
