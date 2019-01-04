@@ -51,22 +51,33 @@ ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Range) */
-    BIGNUM *bn_range, *bn_rand;
+    BIGNUM *bn_range = NULL, *bn_rand = NULL;
     ERL_NIF_TERM ret;
 
-    if(!get_bn_from_bin(env, argv[0], &bn_range)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[0], &bn_range))
+        goto bad_arg;
 
-    bn_rand = BN_new();
-    if (BN_rand_range(bn_rand, bn_range) != 1) {
-        ret = atom_false;
-    }
-    else {
-        ret = bin_from_bn(env, bn_rand);
-    }
-    BN_free(bn_rand);
-    BN_free(bn_range);
+    if ((bn_rand = BN_new()) == NULL)
+        goto err;
+    if (!BN_rand_range(bn_rand, bn_range))
+        goto err;
+
+    ret = bin_from_bn(env, bn_rand);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_false;
+
+ done:
+    if (bn_rand)
+        BN_free(bn_rand);
+    if (bn_range)
+        BN_free(bn_range);
     return ret;
 }
 
