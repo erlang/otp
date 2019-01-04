@@ -101,24 +101,33 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     struct digest_type_t *digp = NULL;
-    struct evp_md_ctx    *ctx;
+    struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (digp->md.p == NULL)
+        goto err;
 
-    ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
-    ctx->ctx = EVP_MD_CTX_new();
-    if (!EVP_DigestInit(ctx->ctx, digp->md.p)) {
-        enif_release_resource(ctx);
-        return atom_notsup;
-    }
+    if ((ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+        goto err;
+    if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
+        goto err;
+
     ret = enif_make_resource(env, ctx);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
     enif_release_resource(ctx);
     return ret;
 }
