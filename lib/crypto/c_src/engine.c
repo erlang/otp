@@ -736,46 +736,52 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
     const ERL_NIF_TERM *tmp_tuple;
     ErlNifBinary tmpbin;
     int arity;
-    char* tmpstr;
+    char *tuple1 = NULL, *tuple2 = NULL;
 
-    if(!enif_is_empty_list(env, term)) {
-        if(!enif_get_list_cell(env, term, &head, &tail)) {
-            cmds[i] = NULL;
-            return -1;
-        } else {
-            if(!enif_get_tuple(env, head, &arity, &tmp_tuple)  || arity != 2) {
-                cmds[i] = NULL;
-                return -1;
-            } else {
-                if(!enif_inspect_binary(env, tmp_tuple[0], &tmpbin)) {
-                    cmds[i] = NULL;
-                    return -1;
-                } else {
-                    tmpstr = enif_alloc(tmpbin.size+1);
-                    (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
-                    tmpstr[tmpbin.size] = '\0';
-                    cmds[i++] = tmpstr;
-                }
-                if(!enif_inspect_binary(env, tmp_tuple[1], &tmpbin)) {
-                    cmds[i] = NULL;
-                    return -1;
-                } else {
-                    if(tmpbin.size == 0)
-                        cmds[i++] = NULL;
-                    else {
-                        tmpstr = enif_alloc(tmpbin.size+1);
-                        (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
-                        tmpstr[tmpbin.size] = '\0';
-                        cmds[i++] = tmpstr;
-                    }
-                }
-                return get_engine_load_cmd_list(env, tail, cmds, i);
-            }
-        }
-    } else {
+    if (enif_is_empty_list(env, term)) {
         cmds[i] = NULL;
         return 0;
     }
+
+    if (!enif_get_list_cell(env, term, &head, &tail))
+        goto err;
+    if (!enif_get_tuple(env, head, &arity, &tmp_tuple))
+        goto err;
+    if (arity != 2)
+        goto err;
+    if (!enif_inspect_binary(env, tmp_tuple[0], &tmpbin))
+        goto err;
+
+    if ((tuple1 = enif_alloc(tmpbin.size + 1)) == NULL)
+        goto err;
+
+    (void) memcpy(tuple1, tmpbin.data, tmpbin.size);
+    tuple1[tmpbin.size] = '\0';
+    cmds[i] = tuple1;
+    i++;
+
+    if (!enif_inspect_binary(env, tmp_tuple[1], &tmpbin))
+        goto err;
+
+    if (tmpbin.size == 0) {
+        cmds[i] = NULL;
+    } else {
+        if ((tuple2 = enif_alloc(tmpbin.size + 1)) == NULL)
+            goto err;
+        (void) memcpy(tuple2, tmpbin.data, tmpbin.size);
+        tuple2[tmpbin.size] = '\0';
+        cmds[i] = tuple2;
+    }
+    i++;
+    return get_engine_load_cmd_list(env, tail, cmds, i);
+
+ err:
+    if (tuple1 != NULL) {
+        i--;
+        enif_free(tuple1);
+    }
+    cmds[i] = NULL;
+    return -1;
 }
 #endif /* HAS_ENGINE_SUPPORT */
 
