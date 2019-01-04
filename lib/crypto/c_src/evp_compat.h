@@ -55,8 +55,9 @@ static INLINE void HMAC_CTX_free(HMAC_CTX *ctx)
     CRYPTO_free(ctx);
 }
 
+/* Renamed in 1.1.0 */
 #define EVP_MD_CTX_new() EVP_MD_CTX_create()
-#define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
+#define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy((ctx))
 
 static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb);
 
