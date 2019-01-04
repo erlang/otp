@@ -30,21 +30,30 @@ char *crypto_callback_name = "crypto_callback.valgrind";
 char *crypto_callback_name = "crypto_callback";
 # endif
 
-int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
+int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newfile)
 {
-    int i;
+    size_t i;
+    size_t newlen;
 
     for (i = bin->size; i > 0; i--) {
 	if (bin->data[i-1] == '/')
 	    break;
     }
-    if (i + strlen(newfile) >= bufsz) {
-	PRINTF_ERR0("CRYPTO: lib name too long");
-	return 0;
-    }
+
+    newlen = strlen(newfile);
+    if (i > SIZE_MAX - newlen)
+        goto err;
+
+    if (i + newlen >= bufsz)
+        goto err;
+
     memcpy(buf, bin->data, i);
     strcpy(buf+i, newfile);
+
     return 1;
+
+ err:
+    return 0;
 }
 
 void error_handler(void* null, const char* errstr)

@@ -26,7 +26,7 @@
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 extern char *crypto_callback_name;
 
-int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile);
+int change_basename(ErlNifBinary* bin, char* buf, size_t bufsz, const char* newfile);
 void error_handler(void* null, const char* errstr);
 #endif
 
