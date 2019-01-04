@@ -69,11 +69,17 @@ char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
     ERL_NIF_TERM tmp_term;
     ErlNifBinary pwd_bin;
     char *pwd = NULL;
-    if (enif_get_map_value(env, key, atom_password, &tmp_term) &&
-        enif_inspect_binary(env, tmp_term, &pwd_bin) &&
-        zero_terminate(pwd_bin, &pwd)
-        ) return pwd;
 
+    if (!enif_get_map_value(env, key, atom_password, &tmp_term))
+        goto err;
+    if (!enif_inspect_binary(env, tmp_term, &pwd_bin))
+        goto err;
+    if (!zero_terminate(pwd_bin, &pwd))
+        goto err;
+
+    return pwd;
+
+ err:
     return NULL;
 }
 
