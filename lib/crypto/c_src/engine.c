@@ -328,16 +328,22 @@ ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_add_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
-    if (!ENGINE_add(ctx->engine)) {
-        PRINTF_ERR0("engine_add_nif Leaved: {error, add_engine_failed}");
-        return enif_make_tuple2(env, atom_error, atom_add_engine_failed);
-    }
+    if (!ENGINE_add(ctx->engine))
+        goto failed;
+
     return atom_ok;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ failed:
+    return enif_make_tuple2(env, atom_error, atom_add_engine_failed);
+
 #else
     return atom_notsup;
 #endif
