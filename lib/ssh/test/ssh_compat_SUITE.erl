@@ -1126,7 +1126,24 @@ prepare_local_directory(ServerRootDir) ->
      "chmod 222 unreadable_file",
      "exit"].
 
+
 check_local_directory(ServerRootDir) ->
+    TimesToTry = 3,  % sleep 0.5, 1, 2 and then 4 secs (7.5s in total)
+    check_local_directory(ServerRootDir, 500, TimesToTry-1).
+
+check_local_directory(ServerRootDir, SleepTime, N) ->
+    case do_check_local_directory(ServerRootDir) of
+        {error,Error} when N>0 ->
+            %% Could be that the erlang side is faster and the docker's operations
+            %% are not yet finalized.
+            %% Sleep for a while and retry a few times:
+            timer:sleep(SleepTime),
+            check_local_directory(ServerRootDir, 2*SleepTime, N-1);
+        Other ->
+            Other
+    end.
+
+do_check_local_directory(ServerRootDir) ->
     case lists:sort(ok(file:list_dir(ServerRootDir)) -- [".",".."]) of
         ["ex_tst1","mydir","tst2"] ->
             {ok,Expect} = file:read_file(filename:join(ServerRootDir,"ex_tst1")),
@@ -1160,6 +1177,7 @@ check_local_directory(ServerRootDir) ->
             ct:log("Directory ~s~n~p",[ServerRootDir,Other]),
             {error,{bad_dir_contents,"/"}}
     end.
+
 
 call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir) ->
     {DockerIP,DockerPort} = ip_port(Config),
