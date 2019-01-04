@@ -27,15 +27,26 @@ ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned char* data;
     ERL_NIF_TERM ret;
 
-    if (!enif_get_uint(env, argv[0], &bytes)) {
-	return enif_make_badarg(env);
-    }
-    data = enif_make_new_binary(env, bytes, &ret);
-    if ( RAND_bytes(data, bytes) != 1) {
-        return atom_false;
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_uint(env, argv[0], &bytes))
+        goto bad_arg;
+    if (bytes > INT_MAX)
+        goto bad_arg;
+
+    if ((data = enif_make_new_binary(env, bytes, &ret)) == NULL)
+        goto err;
+    if (RAND_bytes(data, (int)bytes) != 1)
+        goto err;
+
     ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
     return ret;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_false;
 }
 
 ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
