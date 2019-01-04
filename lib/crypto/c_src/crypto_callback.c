@@ -64,11 +64,16 @@ static void nomem(size_t size, const char* op)
 
 static void* crypto_alloc(size_t size CCB_FILE_LINE_ARGS)
 {
-    void *ret = enif_alloc(size);
+    void *ret;
 
-    if (!ret && size)
-	nomem(size, "allocate");
+    if ((ret = enif_alloc(size)) == NULL)
+        goto err;
     return ret;
+
+ err:
+    if (size)
+	nomem(size, "allocate");
+    return NULL;
 }
 static void* crypto_realloc(void* ptr, size_t size CCB_FILE_LINE_ARGS)
 {
