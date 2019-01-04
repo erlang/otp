@@ -84,12 +84,13 @@ ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
     if ((bin_ptr = enif_make_new_binary(env, (size_t)bn_len, &term)) == NULL)
         goto err;
 
-    BN_bn2bin(bn, bin_ptr);
+    if (BN_bn2bin(bn, bin_ptr) < 0)
+        goto err;
 
     return term;
 
  err:
-    return enif_make_badarg(env);
+    return atom_error;
 }
 
 ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
