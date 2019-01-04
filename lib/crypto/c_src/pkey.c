@@ -68,13 +68,16 @@ static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
     struct digest_type_t *digp = NULL;
     *md = NULL;
 
-    if (type == atom_none && algorithm == atom_rsa) return PKEY_OK;
+    if (type == atom_none && algorithm == atom_rsa)
+        return PKEY_OK;
 #ifdef HAVE_EDDSA
-    if (algorithm == atom_eddsa) return PKEY_OK;
+    if (algorithm == atom_eddsa)
+        return PKEY_OK;
 #endif
-    digp = get_digest_type(type);
-    if (!digp) return PKEY_BADARG;
-    if (!digp->md.p) return PKEY_NOTSUP;
+    if ((digp = get_digest_type(type)) == NULL)
+        return PKEY_BADARG;
+    if (digp->md.p == NULL)
+        return PKEY_NOTSUP;
 
     *md = digp->md.p;
     return PKEY_OK;
