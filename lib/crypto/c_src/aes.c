@@ -72,22 +72,39 @@ ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned char ivec_clone[16]; /* writable copy */
     int new_ivlen = 0;
     ERL_NIF_TERM ret;
+    unsigned char *outp;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-        || !(key.size == 16 || key.size == 24 || key.size == 32)
-        || !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
-        || !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 4)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key))
+        goto bad_arg;
+    if (key.size != 16 && key.size != 24 && key.size != 32)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[1], &ivec))
+        goto bad_arg;
+    if (ivec.size != 16)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &text))
+        goto bad_arg;
 
     memcpy(ivec_clone, ivec.data, 16);
-    AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
+
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (AES_set_encrypt_key(key.data, (int)key.size * 8, &aes_key) != 0)
+        goto err;
+
+    if ((outp = enif_make_new_binary(env, text.size, &ret)) == NULL)
+        goto err;
     AES_cfb128_encrypt((unsigned char *) text.data,
-                       enif_make_new_binary(env, text.size, &ret),
+                       outp,
                        text.size, &aes_key, ivec_clone, &new_ivlen,
                        (argv[3] == atom_true));
     CONSUME_REDS(env,text);
     return ret;
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
 }
 
 ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
