@@ -172,23 +172,42 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
+    ERL_NIF_TERM ret;
     ErlNifBinary data;
-    struct hmac_context* obj;
+    struct hmac_context *obj = NULL;
 
-    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-	return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
     enif_mutex_lock(obj->mtx);
-    if (!obj->alive) {
-	enif_mutex_unlock(obj->mtx);
-	return enif_make_badarg(env);
-    }
+    if (!obj->alive)
+        goto err;
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    if (!HMAC_Update(obj->ctx, data.data, data.size))
+        goto err;
+#else
+    // In ancient versions of OpenSSL, this was a void function.
     HMAC_Update(obj->ctx, data.data, data.size);
-    enif_mutex_unlock(obj->mtx);
+#endif
 
     CONSUME_REDS(env,data);
-    return argv[0];
+    ret = argv[0];
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_mutex_unlock(obj->mtx);
+    return ret;
 }
 
 ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
