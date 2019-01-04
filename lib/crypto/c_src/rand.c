@@ -83,29 +83,49 @@ ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Lo,Hi) */
-    BIGNUM *bn_from = NULL, *bn_to, *bn_rand;
+    BIGNUM *bn_from = NULL, *bn_to = NULL, *bn_rand = NULL;
     unsigned char* data;
-    unsigned dlen;
+    int dlen;
     ERL_NIF_TERM ret;
 
-    if (!get_bn_from_mpint(env, argv[0], &bn_from)
-	|| !get_bn_from_mpint(env, argv[1], &bn_rand)) {
-	if (bn_from) BN_free(bn_from);
-	return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!get_bn_from_mpint(env, argv[0], &bn_from))
+        goto bad_arg;
+    if (!get_bn_from_mpint(env, argv[1], &bn_rand))
+        goto bad_arg;
 
-    bn_to = BN_new();
-    BN_sub(bn_to, bn_rand, bn_from);
-    BN_pseudo_rand_range(bn_rand, bn_to);
-    BN_add(bn_rand, bn_rand, bn_from);
-    dlen = BN_num_bytes(bn_rand);
-    data = enif_make_new_binary(env, dlen+4, &ret);
+    if ((bn_to = BN_new()) == NULL)
+        goto err;
+
+    if (!BN_sub(bn_to, bn_rand, bn_from))
+        goto err;
+    if (!BN_pseudo_rand_range(bn_rand, bn_to))
+        goto err;
+    if (!BN_add(bn_rand, bn_rand, bn_from))
+        goto err;
+
+    if ((dlen = BN_num_bytes(bn_rand)) < 0)
+        goto err;
+    if ((data = enif_make_new_binary(env, (size_t)dlen+4, &ret)) == NULL)
+        goto err;
+
     put_int32(data, dlen);
     BN_bn2bin(bn_rand, data+4);
     ERL_VALGRIND_MAKE_MEM_DEFINED(data+4, dlen);
-    BN_free(bn_rand);
-    BN_free(bn_from);
-    BN_free(bn_to);
+    goto done;
+
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    if (bn_rand)
+        BN_free(bn_rand);
+    if (bn_from)
+        BN_free(bn_from);
+    if (bn_to)
+        BN_free(bn_to);
     return ret;
 }
 
