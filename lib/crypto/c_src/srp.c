@@ -24,57 +24,87 @@
 ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Multiplier, Verifier, Generator, Exponent, Prime) */
     BIGNUM *bn_verifier = NULL;
-    BIGNUM *bn_exponent = NULL, *bn_generator = NULL, *bn_prime = NULL, *bn_multiplier = NULL, *bn_result;
-    BN_CTX *bn_ctx;
+    BIGNUM *bn_exponent = NULL, *bn_generator = NULL, *bn_prime = NULL, *bn_multiplier = NULL, *bn_result = NULL;
+    BN_CTX *bn_ctx = NULL;
     unsigned char* ptr;
-    unsigned dlen;
+    int dlen;
     ERL_NIF_TERM ret;
 
     CHECK_NO_FIPS_MODE();
 
-    if (!get_bn_from_bin(env, argv[0], &bn_multiplier)
-	|| !get_bn_from_bin(env, argv[1], &bn_verifier)
-	|| !get_bn_from_bin(env, argv[2], &bn_generator)
-	|| !get_bn_from_bin(env, argv[3], &bn_exponent)
-	|| !get_bn_from_bin(env, argv[4], &bn_prime)) {
-	if (bn_multiplier) BN_free(bn_multiplier);
-	if (bn_verifier) BN_free(bn_verifier);
-	if (bn_generator) BN_free(bn_generator);
-	if (bn_exponent) BN_free(bn_exponent);
-	if (bn_prime) BN_free(bn_prime);
-	return enif_make_badarg(env);
-    }
+    if (argc != 5)
+        goto bad_arg;
 
-    bn_result = BN_new();
-    bn_ctx = BN_CTX_new();
+    if (!get_bn_from_bin(env, argv[0], &bn_multiplier))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[1], &bn_verifier))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[2], &bn_generator))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[3], &bn_exponent))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[4], &bn_prime))
+        goto bad_arg;
+
+    if ((bn_result = BN_new()) == NULL)
+        goto err;
+    if ((bn_ctx = BN_CTX_new()) == NULL)
+        goto err;
 
     /* B = k*v + g^b % N */
 
     /* k * v */
-    BN_mod_mul(bn_multiplier, bn_multiplier, bn_verifier, bn_prime, bn_ctx);
+    if (!BN_mod_mul(bn_multiplier, bn_multiplier, bn_verifier, bn_prime, bn_ctx))
+        goto err;
 
     /* g^b % N */
-    BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx);
+    if (!BN_mod_exp(bn_result, bn_generator, bn_exponent, bn_prime, bn_ctx))
+        goto err;
 
     /* k*v + g^b % N */
-    BN_mod_add(bn_result, bn_result, bn_multiplier, bn_prime, bn_ctx);
+    if (!BN_mod_add(bn_result, bn_result, bn_multiplier, bn_prime, bn_ctx))
+        goto err;
 
     /* check that B % N != 0, reuse bn_multiplier */
-    BN_nnmod(bn_multiplier, bn_result, bn_prime, bn_ctx);
-    if (BN_is_zero(bn_multiplier)) {
-	ret = atom_error;
-    } else {
-	dlen = BN_num_bytes(bn_result);
-	ptr = enif_make_new_binary(env, dlen, &ret);
-	BN_bn2bin(bn_result, ptr);
-    }
-    BN_free(bn_result);
-    BN_CTX_free(bn_ctx);
-    BN_free(bn_prime);
-    BN_free(bn_generator);
-    BN_free(bn_multiplier);
-    BN_free(bn_exponent);
-    BN_free(bn_verifier);
+    if (!BN_nnmod(bn_multiplier, bn_result, bn_prime, bn_ctx))
+        goto err;
+
+    if (BN_is_zero(bn_multiplier))
+        goto err;
+
+    if ((dlen = BN_num_bytes(bn_result)) < 0)
+        goto err;
+    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+        goto err;
+
+    if (BN_bn2bin(bn_result, ptr) < 0)
+        goto err;
+
+    goto done;
+
+ bad_arg:
+    ret = enif_make_badarg(env);
+    goto done;
+
+ err:
+    ret = atom_error;
+
+ done:
+    if (bn_multiplier)
+        BN_free(bn_multiplier);
+    if (bn_verifier)
+        BN_free(bn_verifier);
+    if (bn_generator)
+        BN_free(bn_generator);
+    if (bn_exponent)
+        BN_free(bn_exponent);
+    if (bn_prime)
+        BN_free(bn_prime);
+    if (bn_result)
+        BN_free(bn_result);
+    if (bn_ctx)
+        BN_CTX_free(bn_ctx);
+
     return ret;
 }
 
