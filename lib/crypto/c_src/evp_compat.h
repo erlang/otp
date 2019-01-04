@@ -149,8 +149,11 @@ DSA_get0_pqg(const DSA *dsa, const BIGNUM **p, const BIGNUM **q, const BIGNUM **
 static INLINE void
 DSA_get0_key(const DSA *dsa, const BIGNUM **pub_key, const BIGNUM **priv_key)
 {
-    if (pub_key) *pub_key = dsa->pub_key;
-    if (priv_key) *priv_key = dsa->priv_key;
+    if (pub_key)
+        *pub_key = dsa->pub_key;
+
+    if (priv_key)
+        *priv_key = dsa->priv_key;
 }
 
 
