@@ -302,16 +302,21 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     size_t               ctx_size   = 0;
     update_fun           ctx_update = 0;
 
-    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
-        arity != 2 ||
-        !(digp = get_digest_type(tuple[0])) ||
-        !enif_inspect_binary(env, tuple[1], &ctx) ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-        return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple))
+        goto bad_arg;
+    if (arity != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(tuple[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, tuple[1], &ctx))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
+    if (digp->md.p == NULL)
+        goto err;
 
     switch (EVP_MD_type(digp->md.p))
     {
@@ -356,21 +361,29 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_update);
 
-    if (ctx.size != ctx_size) {
-        return enif_make_badarg(env);
-    }
+    if (ctx.size != ctx_size)
+        goto bad_arg;
 
-    ctx_buff = enif_make_new_binary(env, ctx_size, &new_ctx);
+    if ((ctx_buff = enif_make_new_binary(env, ctx_size, &new_ctx)) == NULL)
+        goto err;
     memcpy(ctx_buff, ctx.data, ctx_size);
-    ctx_update(ctx_buff, data.data, data.size);
+
+    if (ctx_update(ctx_buff, data.data, data.size) != 1)
+        goto err;
 
     CONSUME_REDS(env, data);
     return enif_make_tuple2(env, tuple[0], new_ctx);
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
