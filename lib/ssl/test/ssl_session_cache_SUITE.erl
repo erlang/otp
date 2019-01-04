@@ -48,7 +48,8 @@ all() ->
      session_cache_process_list,
      session_cache_process_mnesia,
      client_unique_session,
-     max_table_size
+     max_table_size,
+     save_specific_session
      ].
 
 groups() ->
@@ -94,7 +95,10 @@ init_per_testcase(session_cleanup, Config) ->
 init_per_testcase(client_unique_session, Config) ->
     ct:timetrap({seconds, 40}),
     Config;
-
+init_per_testcase(save_specific_session, Config) ->
+    ssl_test_lib:clean_start(),
+    ct:timetrap({seconds, 5}),
+    Config;
 init_per_testcase(max_table_size, Config) ->
     ssl:stop(),
     application:load(ssl),
@@ -138,7 +142,7 @@ end_per_testcase(max_table_size, Config) ->
     end_per_testcase(default_action, Config);
 end_per_testcase(Case, Config) when Case == session_cache_process_list;
 				    Case == session_cache_process_mnesia ->
-    ets:delete(ssl_test),
+    catch ets:delete(ssl_test),
     Config;
 end_per_testcase(_, Config) ->
     Config.
@@ -248,6 +252,68 @@ session_cache_process_mnesia() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
 session_cache_process_mnesia(Config) when is_list(Config) ->
     session_cache_process(mnesia,Config).
+
+%%--------------------------------------------------------------------
+save_specific_session() ->
+    [{doc, "Test that we can save a specific client session"
+     }].
+save_specific_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, ClientOpts}]),
+    Server ! listen,
+    
+    Client2 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),    
+    SessionID1 =
+        receive 
+            {Client1, S1} ->
+                S1
+        end,
+    
+    SessionID2 =
+        receive 
+            {Client2, S2} ->
+                S2
+        end,
+    
+    true = SessionID1 =/= SessionID2,
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ClientCache = element(2, State),
+    2 = ssl_session_cache:size(ClientCache),
+
+    Server ! listen,
+
+    Client3 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_session, SessionID2} | ClientOpts]}]), 
+    receive 
+        {Client3, SessionID2} ->
+            ok;
+        {Client3, SessionID3}->
+            ct:fail({got, SessionID3, expected, SessionID2});
+        Other ->
+            ct:fail({got,Other})
+    end.
 
 %%--------------------------------------------------------------------
 
@@ -422,9 +488,10 @@ session_loop(Sess) ->
 %%--------------------------------------------------------------------
 
 session_cache_process(_Type,Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
-    ssl_basic_SUITE:reuse_session([{client_opts, ClientOpts}, {server_opts, ServerOpts}| Config]).
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
+
 
 clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
     %% Make sure session is registered

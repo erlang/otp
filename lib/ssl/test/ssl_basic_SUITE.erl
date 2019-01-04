@@ -2688,175 +2688,69 @@ ciphers_ecdh_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
 reuse_session(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client0 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-		      {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),   
-    SessionInfo = 
-	receive
-	    {Server, Info} ->
-		Info
-	end,
-       
-    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode},
-				   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
-    receive
-	{Client1, SessionInfo} ->
-	    ok;
-	{Client1, Other} ->
-	    ct:log("Expected: ~p,  Unexpected: ~p~n",
-			       [SessionInfo, Other]),
-	    ct:fail(session_not_reused)
-    end,
-    
-    Server !  {listen, {mfa, {ssl_test_lib, no_result, []}}},
-    
-    Client2 =
-	ssl_test_lib:start_client([{node, ClientNode},
-		      {port, Port}, {host, Hostname},
-			    {mfa, {ssl_test_lib, session_info_result, []}},
-		      {from, self()},  {options, [{reuse_sessions, false}
-						  | ClientOpts]}]),   
-    receive
-	{Client2, SessionInfo} ->
-	    ct:fail(
-	      session_reused_when_session_reuse_disabled_by_client);
-	{Client2, _} ->
-	    ok
-    end,
-    
-    ssl_test_lib:close(Server),
-
-    Server1 = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {options, [{reuse_sessions, false} | ServerOpts]}]),
-    
-    Port1 = ssl_test_lib:inet_port(Server1),
-    Client3 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port1}, {host, Hostname},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {from, self()},  {options, ClientOpts}]), 
-
-    SessionInfo1 = 
-	receive
-	    {Server1, Info1} ->
-		Info1
-	end,
-       
-    Server1 ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
-    
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-
-    Client4 = 
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port1}, {host, Hostname},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
-    
-    receive
-	{Client4, SessionInfo1} ->
-	    ct:fail(
-	      session_reused_when_session_reuse_disabled_by_server);
-	{Client4, _Other} ->
-	    ct:log("OTHER: ~p ~n", [_Other]),
-	    ok
-    end,
-
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client0),
-    ssl_test_lib:close(Client1),
-    ssl_test_lib:close(Client2),
-    ssl_test_lib:close(Client3),
-    ssl_test_lib:close(Client4).
-
+    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 %%--------------------------------------------------------------------
 reuse_session_expired() ->
     [{doc,"Test sessions is not reused when it has expired"}].
 reuse_session_expired(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client0 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-		      {port, Port}, {host, Hostname},
-			    {mfa, {ssl_test_lib, no_result, []}},
-		      {from, self()},  {options, ClientOpts}]),   
-    SessionInfo = 
-	receive
-	    {Server, Info} ->
-		Info
-	end,
-
-    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
     
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-		      {port, Port}, {host, Hostname},
-		      {mfa, {ssl_test_lib, session_info_result, []}},
-		      {from, self()},  {options, ClientOpts}]),    
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+    
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+    Server0 ! listen,
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, ClientOpts}]),    
+    
+    SID = receive
+              {Client0, Id0} ->
+                  Id0
+          end,
+       
     receive
-	{Client1, SessionInfo} ->
-	    ok;
-	{Client1, Other} ->
-	    ct:log("Expected: ~p,  Unexpected: ~p~n",
-			       [SessionInfo, Other]),
-	    ct:fail(session_not_reused)
+        {Client1, SID} ->
+            ok
+    after ?SLEEP ->
+              ct:fail(session_not_reused)
     end,
     
-    Server ! listen,
-
+    Server0 ! listen,
+    
     %% Make sure session is unregistered due to expiration
-    ct:sleep((?EXPIRE+1)),
-    [{session_id, Id} |_] = SessionInfo,
+    ct:sleep((?EXPIRE*2)),
 
-    make_sure_expired(Hostname, Port, Id),
+    make_sure_expired(Hostname, Port0, SID),
     
     Client2 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
+				   {port, Port0}, {host, Hostname},
+				   {mfa, {ssl_test_lib, session_id, []}},
 				   {from, self()}, {options, ClientOpts}]),   
     receive
-	{Client2, SessionInfo} ->
+	{Client2, SID} ->
 	    ct:fail(session_reused_when_session_expired);
 	{Client2, _} ->
 	    ok
     end,
     process_flag(trap_exit, false),
-    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client0),
     ssl_test_lib:close(Client1),
     ssl_test_lib:close(Client2).
@@ -2865,16 +2759,16 @@ make_sure_expired(Host, Port, Id) ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    Cache = element(2, State),
+    ClientCache = element(2, State),
 
-    case ssl_session_cache:lookup(Cache, {{Host,  Port}, Id}) of
+    case ssl_session_cache:lookup(ClientCache, {{Host,  Port}, Id}) of
 	undefined ->
-	   ok;
+   	   ok; 
 	#session{is_resumable = false} ->
-	   ok;
+   	   ok;
 	_ ->
 	    ct:sleep(?SLEEP),
-	    make_sure_expired(Host, Port, Id)
+            make_sure_expired(Host, Port, Id)
     end.     
 
 %%--------------------------------------------------------------------
