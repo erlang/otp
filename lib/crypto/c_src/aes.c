@@ -280,17 +280,29 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 {/* (Key, IVec) */
     ErlNifBinary key_bin, ivec_bin;
     ERL_NIF_TERM ecount_bin;
+    unsigned char *outp;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-        || !enif_inspect_binary(env, argv[1], &ivec_bin)
-        || !(key_bin.size == 16 || key_bin.size == 24 || key_bin.size ==32)
-        || ivec_bin.size != 16) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
+        goto bad_arg;
+    if (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[1], &ivec_bin))
+        goto bad_arg;
+    if (ivec_bin.size != 16)
+        goto bad_arg;
 
-    memset(enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin),
-           0, AES_BLOCK_SIZE);
+    if ((outp = enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin)) == NULL)
+        goto err;
+
+    memset(outp, 0, AES_BLOCK_SIZE);
+
     return enif_make_tuple4(env, argv[0], argv[1], ecount_bin, enif_make_int(env, 0));
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
 }
 
 ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
