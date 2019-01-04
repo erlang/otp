@@ -161,17 +161,25 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #ifdef HAVE_EC
 ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
 {
-    unsigned dlen;
+    int dlen;
     unsigned char* ptr;
     ERL_NIF_TERM ret;
 
-    if (!bn)
-	    return atom_undefined;
+    if (bn == NULL)
+        return atom_undefined;
 
     dlen = BN_num_bytes(bn);
-    ptr = enif_make_new_binary(env, dlen, &ret);
+    if (dlen < 0)
+        goto err;
+    if ((ptr = enif_make_new_binary(env, (size_t)dlen, &ret)) == NULL)
+        goto err;
+
     BN_bn2bin(bn, ptr);
+
     ERL_VALGRIND_MAKE_MEM_DEFINED(ptr, dlen);
     return ret;
+
+ err:
+    return enif_make_badarg(env);
 }
 #endif
