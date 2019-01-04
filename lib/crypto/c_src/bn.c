@@ -79,11 +79,17 @@ ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
     ERL_NIF_TERM term;
 
     /* Copy the bignum into an erlang binary. */
-    bn_len = BN_num_bytes(bn);
-    bin_ptr = enif_make_new_binary(env, bn_len, &term);
+    if ((bn_len = BN_num_bytes(bn)) < 0)
+        goto err;
+    if ((bin_ptr = enif_make_new_binary(env, (size_t)bn_len, &term)) == NULL)
+        goto err;
+
     BN_bn2bin(bn, bin_ptr);
 
     return term;
+
+ err:
+    return enif_make_badarg(env);
 }
 
 ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
