@@ -302,58 +302,64 @@ int get_ec_key(ErlNifEnv* env,
     EC_POINT *pub_key = NULL;
     EC_GROUP *group = NULL;
 
-    if (!(priv == atom_undefined || get_bn_from_bin(env, priv, &priv_key))
-	|| !(pub == atom_undefined || enif_is_binary(env, pub))) {
-	goto out_err;
+    if (priv != atom_undefined) {
+        if (!get_bn_from_bin(env, priv, &priv_key))
+            goto err;
+    }
+    if (pub != atom_undefined) {
+        if (!enif_is_binary(env, pub))
+            goto err;
     }
 
-    key = ec_key_new(env, curve);
+    if ((key = ec_key_new(env, curve)) == NULL)
+        goto err;
 
-    if (!key) {
-	goto out_err;
-    }
-
-    if (!group)
-	group = EC_GROUP_dup(EC_KEY_get0_group(key));
+    if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
+        goto err;
 
     if (term2point(env, pub, group, &pub_key)) {
-	    if (!EC_KEY_set_public_key(key, pub_key)) {
-		    goto out_err;
-	    }
-    }
-    if (priv != atom_undefined
-	&& !BN_is_zero(priv_key)) {
-	    if (!EC_KEY_set_private_key(key, priv_key))
-		    goto out_err;
-
-	    /* calculate public key (if necessary) */
-	    if (EC_KEY_get0_public_key(key) == NULL)
-	    {
-		    /* the public key was not included in the SEC1 private
-		     * key => calculate the public key */
-		    pub_key = EC_POINT_new(group);
-		    if (pub_key == NULL
-			|| !EC_POINT_copy(pub_key, EC_GROUP_get0_generator(group))
-			|| !EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, NULL)
-			|| !EC_KEY_set_public_key(key, pub_key))
-			    goto out_err;
-	    }
+        if (!EC_KEY_set_public_key(key, pub_key))
+            goto err;
     }
 
-    goto out;
+    if (priv != atom_undefined && !BN_is_zero(priv_key)) {
+        if (!EC_KEY_set_private_key(key, priv_key))
+            goto err;
 
-out_err:
-    if (key) EC_KEY_free(key);
+        /* calculate public key (if necessary) */
+        if (EC_KEY_get0_public_key(key) == NULL) {
+            /* the public key was not included in the SEC1 private
+             * key => calculate the public key */
+            if ((pub_key = EC_POINT_new(group)) == NULL)
+                goto err;
+            if (!EC_POINT_copy(pub_key, EC_GROUP_get0_generator(group)))
+                goto err;
+            if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, NULL))
+                goto err;
+            if (!EC_KEY_set_public_key(key, pub_key))
+                goto err;
+        }
+    }
+    goto done;
+
+ err:
+    if (key)
+        EC_KEY_free(key);
     key = NULL;
 
-out:
+ done:
     /* some OpenSSL structures are mem-dup'ed into the key,
        so we have to free our copies here */
-    if (priv_key) BN_clear_free(priv_key);
-    if (pub_key) EC_POINT_free(pub_key);
-    if (group) EC_GROUP_free(group);
-    if (!key)
-	return 0;
+    if (priv_key)
+        BN_clear_free(priv_key);
+    if (group)
+        EC_GROUP_free(group);
+    if (pub_key)
+        EC_POINT_free(pub_key);
+
+    if (key == NULL)
+        return 0;
+
     *res = key;
     return 1;
 }
