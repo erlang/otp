@@ -2406,6 +2406,7 @@ session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
 session_handle_params(_, Session) ->
     Session.
 
+
 register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},
     ssl_manager:register_session(Host, Port, Session),

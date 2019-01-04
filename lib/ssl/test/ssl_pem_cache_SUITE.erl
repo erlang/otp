@@ -44,11 +44,8 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    %% make rsa certs using oppenssl
-	    {ok, _} =  make_certs:all(proplists:get_value(data_dir, Config0),
-				      proplists:get_value(priv_dir, Config0)),
-	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    ssl_test_lib:cert_options(Config1)
+	    %% make rsa certs  
+            ssl_test_lib:make_rsa_cert(Config0)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -86,8 +83,8 @@ pem_cleanup() ->
     [{doc, "Test pem cache invalidate mechanism"}].
 pem_cleanup(Config)when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_verification_opts, Config),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
@@ -118,8 +115,8 @@ invalid_insert() ->
 invalid_insert(Config)when is_list(Config) ->      
     process_flag(trap_exit, true),
     
-    ClientOpts = proplists:get_value(client_verification_opts, Config),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     BadClientOpts = [{cacertfile, "tmp/does_not_exist.pem"} | proplists:delete(cacertfile, ClientOpts)],
     Server =
