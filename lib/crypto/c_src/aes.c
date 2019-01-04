@@ -374,47 +374,69 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 #ifdef HAVE_GCM_EVP_DECRYPT_BUG
 ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In,Tag) */
-    GCM128_CONTEXT *ctx;
+    GCM128_CONTEXT *ctx = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     AES_KEY aes_key;
     unsigned char *outp;
-    ERL_NIF_TERM out;
+    ERL_NIF_TERM out, ret;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
-        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
-        || !enif_inspect_binary(env, argv[2], &iv) || iv.size == 0
-        || !enif_inspect_iolist_as_binary(env, argv[3], &aad)
-        || !enif_inspect_iolist_as_binary(env, argv[4], &in)
-        || !enif_inspect_iolist_as_binary(env, argv[5], &tag)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 6)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX / 8)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[2], &iv))
+        goto bad_arg;
+    if (iv.size == 0)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &aad))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[4], &in))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[5], &tag))
+        goto bad_arg;
 
-    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
-        return atom_error;
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (AES_set_encrypt_key(key.data, (int)key.size * 8, &aes_key) != 0)
+        goto bad_arg;
+
+    if ((ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)) == NULL)
+        goto err;
 
     CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
 
-    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
-        goto out_err;
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size) != 0)
+        goto err;
 
-    outp = enif_make_new_binary(env, in.size, &out);
+    if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
+        goto err;
 
-    /* decrypt */
-    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
-            goto out_err;
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size) != 0)
+        goto err;
 
     /* calculate and check the tag */
-    if (CRYPTO_gcm128_finish(ctx, tag.data, tag.size))
-            goto out_err;
+    /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+    if (CRYPTO_gcm128_finish(ctx, tag.data, tag.size) != 0)
+        goto err;
 
-    CRYPTO_gcm128_release(ctx);
     CONSUME_REDS(env, in);
+    ret = out;
+    goto done;
 
-    return out;
+ bad_arg:
+    ret = enif_make_badarg(env);
+    goto done;
 
-out_err:
-    CRYPTO_gcm128_release(ctx);
-    return atom_error;
+ err:
+    ret = atom_error;
+
+ done:
+    if (ctx)
+        CRYPTO_gcm128_release(ctx);
+    return ret;
 }
 #endif /* HAVE_GCM_EVP_DECRYPT_BUG */
 
