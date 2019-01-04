@@ -696,28 +696,34 @@ ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 #ifdef HAS_ENGINE_SUPPORT
     ErlNifBinary engine_name_bin;
     const char *engine_name;
-    int size;
+    size_t size;
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_get_id_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
-    engine_name = ENGINE_get_name(ctx->engine);
-    if (!engine_name) {
-        enif_alloc_binary(0, &engine_name_bin);
+    if ((engine_name = ENGINE_get_name(ctx->engine)) == NULL) {
+        if (!enif_alloc_binary(0, &engine_name_bin))
+            goto err;
         engine_name_bin.size = 0;
         return enif_make_binary(env, &engine_name_bin);
     }
 
     size = strlen(engine_name);
-    enif_alloc_binary(size, &engine_name_bin);
+    if (!enif_alloc_binary(size, &engine_name_bin))
+        goto err;
     engine_name_bin.size = size;
     memcpy(engine_name_bin.data, engine_name, size);
 
     return enif_make_binary(env, &engine_name_bin);
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
+
 #else
     return atom_notsup;
 #endif
