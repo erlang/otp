@@ -174,11 +174,9 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
     const EVP_MD *opt_md;
-    int i;
 
-    if (!enif_is_list(env, options)) {
-	return PKEY_BADARG;
-    }
+    if (!enif_is_list(env, options))
+        goto bad_arg;
 
     /* defaults */
     if (algorithm == atom_rsa) {
@@ -187,56 +185,66 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 	opt->rsa_pss_saltlen = -2;
     }
 
-    if (enif_is_empty_list(env, options)) {
+    if (enif_is_empty_list(env, options))
 	return PKEY_OK;
-    }
 
-    if (algorithm == atom_rsa) {
-	tail = options;
-	while (enif_get_list_cell(env, tail, &head, &tail)) {
-	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
-		if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
-		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
-		    if (i != PKEY_OK) {
-			return i;
-		    }
-		    opt->rsa_mgf1_md = opt_md;
-		} else if (tpl_terms[0] == atom_rsa_padding) {
-		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
-			opt->rsa_padding = RSA_PKCS1_PADDING;
-                    } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) {
+    if (algorithm != atom_rsa)
+        goto bad_arg;
+
+    tail = options;
+    while (enif_get_list_cell(env, tail, &head, &tail)) {
+        if (!enif_get_tuple(env, head, &tpl_arity, &tpl_terms))
+            goto bad_arg;
+        if (tpl_arity != 2)
+            goto bad_arg;
+
+        if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+            int result;
+
+            result = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            if (result != PKEY_OK)
+                return result;
+
+            opt->rsa_mgf1_md = opt_md;
+
+        } else if (tpl_terms[0] == atom_rsa_padding) {
+            if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
+                opt->rsa_padding = RSA_PKCS1_PADDING;
+
+            } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) {
 #ifdef HAVE_RSA_PKCS1_PSS_PADDING
-                        opt->rsa_padding = RSA_PKCS1_PSS_PADDING;
-                        if (opt->rsa_mgf1_md == NULL) {
-                            opt->rsa_mgf1_md = md;
-                        }
+                opt->rsa_padding = RSA_PKCS1_PSS_PADDING;
+                if (opt->rsa_mgf1_md == NULL)
+                    opt->rsa_mgf1_md = md;
 #else
-                        return PKEY_NOTSUP;
+                return PKEY_NOTSUP;
 #endif
-		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
-			opt->rsa_padding = RSA_X931_PADDING;
-		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
-			opt->rsa_padding = RSA_NO_PADDING;
-		    } else {
-			return PKEY_BADARG;
-		    }
-		} else if (tpl_terms[0] == atom_rsa_pss_saltlen) {
-		    if (!enif_get_int(env, tpl_terms[1], &(opt->rsa_pss_saltlen))
-			|| opt->rsa_pss_saltlen < -2) {
-			return PKEY_BADARG;
-		    }
-		} else {
-		    return PKEY_BADARG;
-		}
-	    } else {
-		return PKEY_BADARG;
-	    }
-	}
-    } else {
-	return PKEY_BADARG;
+
+            } else if (tpl_terms[1] == atom_rsa_x931_padding) {
+                opt->rsa_padding = RSA_X931_PADDING;
+
+            } else if (tpl_terms[1] == atom_rsa_no_padding) {
+                opt->rsa_padding = RSA_NO_PADDING;
+
+            } else {
+                goto bad_arg;
+            }
+
+        } else if (tpl_terms[0] == atom_rsa_pss_saltlen) {
+            if (!enif_get_int(env, tpl_terms[1], &(opt->rsa_pss_saltlen)))
+                goto bad_arg;
+            if (opt->rsa_pss_saltlen < -2)
+                goto bad_arg;
+
+        } else {
+            goto bad_arg;
+        }
     }
 
     return PKEY_OK;
+
+ bad_arg:
+    return PKEY_BADARG;
 }
 
 static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
