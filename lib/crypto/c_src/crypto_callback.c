@@ -77,12 +77,18 @@ static void* crypto_alloc(size_t size CCB_FILE_LINE_ARGS)
 }
 static void* crypto_realloc(void* ptr, size_t size CCB_FILE_LINE_ARGS)
 {
-    void* ret = enif_realloc(ptr, size);
+    void* ret;
 
-    if (!ret && size)
-	nomem(size, "reallocate");
+    if ((ret = enif_realloc(ptr, size)) == NULL)
+        goto err;
     return ret;
+
+ err:
+    if (size)
+	nomem(size, "reallocate");
+    return NULL;
 }
+
 static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 {
     enif_free(ptr);
