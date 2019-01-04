@@ -190,12 +190,15 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_AEAD)
-    EVP_CIPHER_CTX *ctx;
+    EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned char *outp;
-    ERL_NIF_TERM type, out;
+    ERL_NIF_TERM type, out, ret;
     int len, ctx_ctrl_set_ivlen, ctx_ctrl_set_tag;
+
+    if (argc != 6)
+        goto bad_arg;
 
     type = argv[0];
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)
@@ -203,92 +206,146 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return aes_gcm_decrypt_NO_EVP(env, argc, argv);
 #endif
 
-    if (!enif_is_atom(env, type)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &key)
-	|| !enif_inspect_binary(env, argv[2], &iv)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &in)
-	|| !enif_inspect_iolist_as_binary(env, argv[5], &tag)) {
-	return enif_make_badarg(env);
-    }
+    if (!enif_is_atom(env, type))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[2], &iv))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &aad))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[4], &in))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[5], &tag))
+        goto bad_arg;
+
+    if (tag.size > INT_MAX
+        || key.size > INT_MAX
+        || iv.size > INT_MAX
+        || in.size > INT_MAX
+        || aad.size > INT_MAX)
+        goto bad_arg;
 
     /* Use cipher_type some day.  Must check block_encrypt|decrypt first */
 #if defined(HAVE_GCM)
     if (type == atom_aes_gcm) {
-        if (iv.size > 0) {
-            ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
-            ctx_ctrl_set_tag = EVP_CTRL_GCM_SET_TAG;
-            if (key.size == 16)      cipher = EVP_aes_128_gcm();
-            else if (key.size == 24) cipher = EVP_aes_192_gcm();
-            else if (key.size == 32) cipher = EVP_aes_256_gcm();
-            else enif_make_badarg(env);
-        } else
-            enif_make_badarg(env);
+        if (iv.size == 0)
+            goto bad_arg;
+
+        ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
+        ctx_ctrl_set_tag = EVP_CTRL_GCM_SET_TAG;
+
+        switch (key.size) {
+        case 16:
+            cipher = EVP_aes_128_gcm();
+            break;
+        case 24:
+            cipher = EVP_aes_192_gcm();
+            break;
+        case 32:
+            cipher = EVP_aes_256_gcm();
+            break;
+        default:
+            goto bad_arg;
+        }
     } else
 #endif
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
-        if (iv.size > 0) {
-            ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
-            if (key.size == 16)      cipher = EVP_aes_128_ccm();
-            else if (key.size == 24) cipher = EVP_aes_192_ccm();
-            else if (key.size == 32) cipher = EVP_aes_256_ccm();
-            else enif_make_badarg(env);
-        } else
-            enif_make_badarg(env);
+        if (iv.size == 0)
+            goto bad_arg;
+
+        ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
+        ctx_ctrl_set_tag = EVP_CTRL_CCM_SET_TAG;
+
+        switch (key.size) {
+        case 16:
+            cipher = EVP_aes_128_ccm();
+            break;
+        case 24:
+            cipher = EVP_aes_192_ccm();
+            break;
+        case 32:
+            cipher = EVP_aes_256_ccm();
+            break;
+        default:
+            goto bad_arg;
+        }
     } else
 #endif
 #if defined(HAVE_CHACHA20_POLY1305)
     if (type == atom_chacha20_poly1305) {
-        if ((key.size == 32)
-            && (1 <= iv.size && iv.size <= 16)
-            && tag.size == 16
-            ) {
-            ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
-            ctx_ctrl_set_tag = EVP_CTRL_AEAD_SET_TAG;
-            cipher = EVP_chacha20_poly1305();
-        } else enif_make_badarg(env);
+        if (key.size != 32)
+            goto bad_arg;
+        if (iv.size < 1 || iv.size > 16)
+            goto bad_arg;
+        if (tag.size != 16)
+            goto bad_arg;
+
+        ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
+        ctx_ctrl_set_tag = EVP_CTRL_AEAD_SET_TAG;
+
+        cipher = EVP_chacha20_poly1305();
     } else
 #endif
         return enif_raise_exception(env, atom_notsup);
 
-    outp = enif_make_new_binary(env, in.size, &out);
+    if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
+        goto err;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(ctx,  ctx_ctrl_set_ivlen, iv.size, NULL) != 1) goto out_err;
-
-#if defined(HAVE_CCM)
-    if (type == atom_aes_ccm) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag.size, tag.data) != 1) goto out_err;
-    }
-#endif
-
-    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
+        goto err;
+    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1)
+        goto err;
+    if (EVP_CIPHER_CTX_ctrl(ctx,  ctx_ctrl_set_ivlen, (int)iv.size, NULL) != 1)
+        goto err;
 
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
-        if (1 != EVP_DecryptUpdate(ctx, NULL, &len, NULL, in.size)) goto out_err;
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, (int)tag.size, tag.data) != 1)
+            goto err;
     }
 #endif
 
-    if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1) goto out_err;
-    if (EVP_DecryptUpdate(ctx, outp, &len, in.data, in.size) != 1) goto out_err;
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto err;
+
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (EVP_DecryptUpdate(ctx, NULL, &len, NULL, (int)in.size) != 1)
+            goto err;
+    }
+#endif
+
+    if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
+        goto err;
+    if (EVP_DecryptUpdate(ctx, outp, &len, in.data, (int)in.size) != 1)
+        goto err;
 
 #if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
     if (type == atom_aes_gcm) {
-         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, tag.size, tag.data) != 1) goto out_err;
-         if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1) goto out_err;
+        if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
+             goto err;
+        if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
+            goto err;
     }
 #endif
-    EVP_CIPHER_CTX_free(ctx);
-
     CONSUME_REDS(env, in);
-    return out;
+    ret = out;
+    goto done;
 
-out_err:
-    EVP_CIPHER_CTX_free(ctx);
-    return atom_error;
+ bad_arg:
+    ret = enif_make_badarg(env);
+    goto done;
+
+ err:
+    ret = atom_error;
+
+ done:
+    if (ctx)
+        EVP_CIPHER_CTX_free(ctx);
+    return ret;
+
 #else
     return enif_raise_exception(env, atom_notsup);
 #endif
