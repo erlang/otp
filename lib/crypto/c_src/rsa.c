@@ -155,33 +155,41 @@ int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
 {
     ERL_NIF_TERM result[8];
-    const BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
+    const BIGNUM *n = NULL, *e = NULL, *d = NULL, *p = NULL, *q = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
 
     /* Return at least [E,N,D] */
-    n = NULL; e = NULL; d = NULL;
     RSA_get0_key(rsa, &n, &e, &d);
 
-    result[0] = bin_from_bn(env, e);  // Exponent E
-    result[1] = bin_from_bn(env, n);  // Modulus N = p*q
-    result[2] = bin_from_bn(env, d);  // Exponent D
+    if ((result[0] = bin_from_bn(env, e)) == atom_error)  // Exponent E
+        goto err;
+    if ((result[1] = bin_from_bn(env, n)) == atom_error)  // Modulus N = p*q
+        goto err;
+    if ((result[2] = bin_from_bn(env, d)) == atom_error)  // Exponent D
+        goto err;
 
     /* Check whether the optional additional parameters are available */
-    p = NULL; q = NULL;
     RSA_get0_factors(rsa, &p, &q);
-    dmp1 = NULL; dmq1 = NULL; iqmp = NULL;
     RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
 
     if (p && q && dmp1 && dmq1 && iqmp) {
-	result[3] = bin_from_bn(env, p);     // Factor p
-	result[4] = bin_from_bn(env, q);     // Factor q
-	result[5] = bin_from_bn(env, dmp1);  // D mod (p-1)
-	result[6] = bin_from_bn(env, dmq1);  // D mod (q-1)
-	result[7] = bin_from_bn(env, iqmp);  // (1/q) mod p
+        if ((result[3] = bin_from_bn(env, p)) == atom_error)     // Factor p
+            goto err;
+        if ((result[4] = bin_from_bn(env, q)) == atom_error)     // Factor q
+            goto err;
+        if ((result[5] = bin_from_bn(env, dmp1)) == atom_error)  // D mod (p-1)
+            goto err;
+        if ((result[6] = bin_from_bn(env, dmq1)) == atom_error)  // D mod (q-1)
+            goto err;
+        if ((result[7] = bin_from_bn(env, iqmp)) == atom_error)  // (1/q) mod p
+            goto err;
 
 	return enif_make_list_from_array(env, result, 8);
     } else {
 	return enif_make_list_from_array(env, result, 3);
     }
+
+ err:
+    return enif_make_badarg(env);
 }
 
 static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
