@@ -171,19 +171,26 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 #ifdef OPENSSL_THREADS
 	if (nlocks > 0) {
 	    int i;
-	    lock_vec = enif_alloc(nlocks*sizeof(*lock_vec));
-	    if (lock_vec==NULL) return NULL;
-	    memset(lock_vec, 0, nlocks*sizeof(*lock_vec));
-	    
+
+            if ((size_t)nlocks > SIZE_MAX / sizeof(*lock_vec))
+                goto err;
+            if ((lock_vec = enif_alloc((size_t)nlocks * sizeof(*lock_vec))) == NULL)
+                goto err;
+
+            memset(lock_vec, 0, (size_t)nlocks * sizeof(*lock_vec));
+
 	    for (i=nlocks-1; i>=0; --i) {
-		lock_vec[i] = enif_rwlock_create("crypto_stat");
-		if (lock_vec[i]==NULL) return NULL;
+		if ((lock_vec[i] = enif_rwlock_create("crypto_stat")) == NULL)
+                    goto err;
 	    }
 	}
 #endif
 	is_initialized = 1;
     }
     return &the_struct;
+
+ err:
+    return NULL;
 }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
