@@ -613,31 +613,41 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret, result;
     ENGINE *engine;
     ErlNifBinary engine_bin;
-    struct engine_ctx *ctx, *next_ctx;
+    struct engine_ctx *ctx, *next_ctx = NULL;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_get_next_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
-    engine = ENGINE_get_next(ctx->engine);
-    if (!engine) {
-        enif_alloc_binary(0, &engine_bin);
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
+
+    if ((engine = ENGINE_get_next(ctx->engine)) == NULL) {
+        if (!enif_alloc_binary(0, &engine_bin))
+            goto err;
         engine_bin.size = 0;
         return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
     }
 
-    next_ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    if ((next_ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+        goto err;
     next_ctx->engine = engine;
     next_ctx->id = NULL;
 
-    ret = enif_make_resource(env, next_ctx);
-    enif_release_resource(next_ctx);
+    result = enif_make_resource(env, next_ctx);
+    ret = enif_make_tuple2(env, atom_ok, result);
+    goto done;
 
-    return enif_make_tuple2(env, atom_ok, ret);
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_release_resource(next_ctx);
+    return ret;
+
 #else
     return atom_notsup;
 #endif
