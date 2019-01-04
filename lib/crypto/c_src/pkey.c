@@ -367,87 +367,123 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
 			       EVP_PKEY **pkey)
 {
+    EVP_PKEY *result = NULL;
+    RSA *rsa = NULL;
+    DSA *dsa = NULL;
+#if defined(HAVE_EC)
+    EC_KEY *ec = NULL;
+#endif
+    char *id = NULL;
+    char *password = NULL;
+
     if (enif_is_map(env, key)) {
 #ifdef HAS_ENGINE_SUPPORT
         /* Use key stored in engine */
         ENGINE *e;
-        char *id = NULL;
-        char *password;
 
         if (!get_engine_and_key_id(env, key, &id, &e))
-            return PKEY_BADARG;
+            goto err;
+
         password = get_key_password(env, key);
-        *pkey = ENGINE_load_public_key(e, id, NULL, password);
-        if (password) enif_free(password);
-        enif_free(id);
-        if (!pkey)
-            return PKEY_BADARG;
+        result = ENGINE_load_public_key(e, id, NULL, password);
+
 #else
         return PKEY_BADARG;
 #endif
     } else  if (algorithm == atom_rsa) {
-	RSA *rsa = RSA_new();
+        if ((rsa = RSA_new()) == NULL)
+            goto err;
 
-	if (!get_rsa_public_key(env, key, rsa)) {
-	    RSA_free(rsa);
-	    return PKEY_BADARG;
-	}
+        if (!get_rsa_public_key(env, key, rsa))
+            goto err;
 
-	*pkey = EVP_PKEY_new();
-	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
-	    EVP_PKEY_free(*pkey);
-	    RSA_free(rsa);
-	    return PKEY_BADARG;
-	}
+        if ((result = EVP_PKEY_new()) == NULL)
+            goto err;
+        if (EVP_PKEY_assign_RSA(result, rsa) != 1)
+            goto err;
+        /* On success, result owns rsa */
+        rsa = NULL;
+
     } else if (algorithm == atom_ecdsa) {
 #if defined(HAVE_EC)
-	EC_KEY *ec = NULL;
 	const ERL_NIF_TERM *tpl_terms;
 	int tpl_arity;
 
-	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
-	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
-	    && get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec)) {
+        if (!enif_get_tuple(env, key, &tpl_arity, &tpl_terms))
+            goto err;
+        if (tpl_arity != 2)
+            goto err;
+        if (!enif_is_tuple(env, tpl_terms[0]))
+            goto err;
+        if (!enif_is_binary(env, tpl_terms[1]))
+            goto err;
+        if (!get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec))
+            goto err;
 
-	    *pkey = EVP_PKEY_new();
-	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
-		EVP_PKEY_free(*pkey);
-		EC_KEY_free(ec);
-		return PKEY_BADARG;
-	    }
-	} else {
-	    return PKEY_BADARG;
-	}
+        if ((result = EVP_PKEY_new()) == NULL)
+            goto err;
+
+        if (EVP_PKEY_assign_EC_KEY(result, ec) != 1)
+            goto err;
+        /* On success, result owns ec */
+        ec = NULL;
+
 #else
 	return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_eddsa) {
 #if defined(HAVE_EDDSA)
-        if (!get_eddsa_key(env, 1, key, pkey)) {
-            return PKEY_BADARG;
-        }
+        if (!get_eddsa_key(env, 1, key, &result))
+            goto err;
+
 #else
-     return PKEY_NOTSUP;  
+	return PKEY_NOTSUP;
 #endif
     } else if (algorithm == atom_dss) {
-	DSA *dsa = DSA_new();
+        if ((dsa = DSA_new()) == NULL)
+            goto err;
 
-	if (!get_dss_public_key(env, key, dsa)) {
-	    DSA_free(dsa);
-	    return PKEY_BADARG;
-	}
+        if (!get_dss_public_key(env, key, dsa))
+            goto err;
 
-	*pkey = EVP_PKEY_new();
-	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
-	    EVP_PKEY_free(*pkey);
-	    DSA_free(dsa);
-	    return PKEY_BADARG;
-	}
+        if ((result = EVP_PKEY_new()) == NULL)
+            goto err;
+        if (EVP_PKEY_assign_DSA(result, dsa) != 1)
+            goto err;
+        /* On success, result owns dsa */
+        dsa = NULL;
+
     } else {
 	return PKEY_BADARG;
     }
 
-    return PKEY_OK;
+    goto done;
+
+ err:
+    if (result)
+        EVP_PKEY_free(result);
+    result = NULL;
+
+ done:
+    if (password)
+        enif_free(password);
+    if (id)
+        enif_free(id);
+    if (rsa)
+        RSA_free(rsa);
+    if (dsa)
+        DSA_free(dsa);
+#ifdef HAVE_EC
+    if (ec)
+        EC_KEY_free(ec);
+#endif
+
+    if (result == NULL) {
+        return PKEY_BADARG;
+    } else {
+        *pkey = result;
+        return PKEY_OK;
+    }
 }
 
 ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
