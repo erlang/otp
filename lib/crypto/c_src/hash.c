@@ -134,26 +134,38 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    struct evp_md_ctx   *ctx, *new_ctx;
+    struct evp_md_ctx   *ctx, *new_ctx = NULL;
     ErlNifBinary data;
     ERL_NIF_TERM ret;
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx) ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
 
-    new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
-    new_ctx->ctx = EVP_MD_CTX_new();
-    if (!EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) ||
-        !EVP_DigestUpdate(new_ctx->ctx, data.data, data.size)) {
-        enif_release_resource(new_ctx);
-        return atom_notsup;
-    }
+    if ((new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+        goto err;
+    if ((new_ctx->ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) != 1)
+        goto err;
+    if (EVP_DigestUpdate(new_ctx->ctx, data.data, data.size) != 1)
+        goto err;
 
     ret = enif_make_resource(env, new_ctx);
-    enif_release_resource(new_ctx);
     CONSUME_REDS(env, data);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    enif_release_resource(new_ctx);
     return ret;
 }
 
