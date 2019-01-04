@@ -272,30 +272,54 @@ do_insert_rec(Tid, Rec, InPlace, InitBy, LogV) ->
 	    end
     end,
     D = Rec#commit.disc_copies,
-    ExtOps = commit_ext(Rec),
+    ExtOps = commit_ext(Rec, InitBy),
+    InsertExtOps =
+        fun (StorageSem) ->
+                maps:fold(fun (Ext, Ops, _) ->
+                                  case storage_semantics(Ext) of
+                                      StorageSem ->
+                                          insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV);
+                                      _ ->
+                                          ignore
+                                  end
+                          end,
+                          ignore,
+                          ExtOps)
+        end,
     insert_ops(Tid, disc_copies, D, InPlace, InitBy, LogV),
-    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-	{Ext, Ops} <- ExtOps,
-	storage_semantics(Ext) == disc_copies],
+    InsertExtOps(disc_copies),
     case InitBy of
 	startup ->
 	    DO = Rec#commit.disc_only_copies,
 	    insert_ops(Tid, disc_only_copies, DO, InPlace, InitBy, LogV),
-	    [insert_ops(Tid, Ext, Ops, InPlace, InitBy, LogV) ||
-		{Ext, Ops} <- ExtOps, storage_semantics(Ext) == disc_only_copies];
+            InsertExtOps(disc_only_copies);
 	_ ->
 	    ignore
     end.
 
-commit_ext(#commit{ext = []}) -> [];
-commit_ext(#commit{ext = Ext}) ->
+commit_ext(#commit{ext = []}, _) -> #{};
+commit_ext(#commit{ext = Ext}, InitBy) ->
     case lists:keyfind(ext_copies, 1, Ext) of
-	{_, C} ->
-	    lists:foldl(fun({Ext0, Op}, D) ->
-				orddict:append(Ext0, Op, D)
-			end, orddict:new(), C);
-	false -> []
+	{_, C} when InitBy == startup ->
+            lists:foldr(fun prepend/2, #{}, C);
+        {_, C} ->
+            filter_foldr_disc_copies(C);
+        false ->
+            #{}
     end.
+
+filter_foldr_disc_copies([]) ->
+    #{};
+filter_foldr_disc_copies([{Ext, _} = E | C]) ->
+    case storage_semantics(Ext) of
+        disc_copies ->
+            prepend(E, filter_foldr_disc_copies(C));
+        _ ->
+            filter_foldr_disc_copies(C)
+    end.
+
+prepend({Key, Val}, Map) ->
+    maps:update_with(Key, fun (Vals) -> [Val | Vals] end, [Val], Map).
 
 update(_Tid, [], _DumperMode) ->
     dumped;
