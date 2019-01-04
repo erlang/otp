@@ -49,16 +49,20 @@ int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE *
     struct engine_ctx *ctx;
     ErlNifBinary key_id_bin;
 
-    if (!enif_get_map_value(env, key, atom_engine, &engine_res) ||
-        !enif_get_resource(env, engine_res, engine_ctx_rtype, (void**)&ctx) ||
-        !enif_get_map_value(env, key, atom_key_id, &key_id_term) ||
-        !enif_inspect_binary(env, key_id_term, &key_id_bin)) {
-        return 0;
-    }
-    else {
-        *e = ctx->engine;
-        return zero_terminate(key_id_bin, id);
-    }
+    if (!enif_get_map_value(env, key, atom_engine, &engine_res))
+        goto err;
+    if (!enif_get_resource(env, engine_res, engine_ctx_rtype, (void**)&ctx))
+        goto err;
+    if (!enif_get_map_value(env, key, atom_key_id, &key_id_term))
+        goto err;
+    if (!enif_inspect_binary(env, key_id_term, &key_id_bin))
+        goto err;
+
+    *e = ctx->engine;
+    return zero_terminate(key_id_bin, id);
+
+ err:
+    return 0;
 }
 
 char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
