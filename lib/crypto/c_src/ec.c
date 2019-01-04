@@ -268,29 +268,29 @@ static ERL_NIF_TERM point2term(ErlNifEnv* env,
 
 int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pptr)
 {
-    int ret = 0;
     ErlNifBinary bin;
-    EC_POINT *point;
+    EC_POINT *point = NULL;
 
-    if (!enif_inspect_binary(env,term,&bin)) {
-        return 0;
-    }
+    if (!enif_inspect_binary(env, term, &bin))
+        goto err;
 
-    if ((*pptr = point = EC_POINT_new(group)) == NULL) {
-	return 0;
-    }
+    if ((point = EC_POINT_new(group)) == NULL)
+        goto err;
 
     /* set the point conversion form */
     EC_GROUP_set_point_conversion_form(group, (point_conversion_form_t)(bin.data[0] & ~0x01));
 
     /* extract the ec point */
-    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL)) {
-	EC_POINT_free(point);
-	*pptr = NULL;
-    } else
-	ret = 1;
+    if (!EC_POINT_oct2point(group, point, bin.data, bin.size, NULL))
+        goto err;
 
-    return ret;
+    *pptr = point;
+    return 1;
+
+ err:
+    if (point)
+        EC_POINT_free(point);
+    return 0;
 }
 
 int get_ec_key(ErlNifEnv* env,
