@@ -89,6 +89,11 @@
 #  undef FIPS_SUPPORT
 # endif
 
+/* LibreSSL has never supported the custom mem functions */
+#ifndef HAS_LIBRESSL
+#  define HAS_CRYPTO_MEM_FUNCTIONS
+#endif
+
 # if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS

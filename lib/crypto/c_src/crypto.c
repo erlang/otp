@@ -166,20 +166,24 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int vernum;
     ErlNifBinary lib_bin;
     char lib_buf[1000];
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    void *handle;
+#endif
 
     if (!verify_lib_version())
 	return __LINE__;
 
     /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
-    if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
-	|| tpl_arity != 3
-	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 302
-	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
-
-	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-	return __LINE__;
-    }
+    if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array))
+        return __LINE__;
+    if (tpl_arity != 3)
+        return __LINE__;
+    if (!enif_get_int(env, tpl_array[0], &vernum))
+        return __LINE__;
+    if (vernum != 302)
+        return __LINE__;
+    if (!enif_inspect_binary(env, tpl_array[1], &lib_bin))
+        return __LINE__;
 
     if (!init_hmac_ctx(env)) {
 	return __LINE__;
@@ -206,19 +210,13 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
-    {
-	void* handle;
-	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
-	    return __LINE__;
-	}
-	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	    return __LINE__;
-	}
-	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
-							   &error_handler, NULL))) {
-	    return __LINE__;
-	}
-    }
+    if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name))
+        return __LINE__;
+    if ((handle = enif_dlopen(lib_buf, &error_handler, NULL)) == NULL)
+        return __LINE__;
+    if ((funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
+                                                       &error_handler, NULL)) == NULL)
+        return __LINE__;
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
 #endif
@@ -238,7 +236,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return __LINE__;
     }
 
-    CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
+#ifdef HAS_CRYPTO_MEM_FUNCTIONS
+    if (!CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free))
+        return __LINE__;
+#endif
 
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
