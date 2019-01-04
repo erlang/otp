@@ -251,38 +251,38 @@ ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine, Commands) */
 #ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret = atom_ok;
+    ERL_NIF_TERM ret;
     unsigned int cmds_len = 0;
     char **cmds = NULL;
     struct engine_ctx *ctx;
-    int i, optional = 0;
+    unsigned int i;
+    int optional = 0;
+    int cmds_loaded = 0;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
     PRINTF_ERR1("Engine Id:  %s\r\n", ENGINE_get_id(ctx->engine));
-
     // Get Command List
-    if(!enif_get_list_length(env, argv[1], &cmds_len)) {
-        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Bad Command List");
-        return enif_make_badarg(env);
-    } else {
-        cmds_len *= 2; // Key-Value list from erlang
-        cmds = enif_alloc((cmds_len+1)*sizeof(char*));
-        if(get_engine_load_cmd_list(env, argv[1], cmds, 0)) {
-            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Couldn't read Command List");
-            ret = enif_make_badarg(env);
-            goto error;
-        }
-    }
+    if (!enif_get_list_length(env, argv[1], &cmds_len))
+        goto bad_arg;
 
-    if(!enif_get_int(env, argv[2], &optional)) {
-        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter optional not an integer");
-        return enif_make_badarg(env);
-    }
+    if (cmds_len > (UINT_MAX / 2) - 1)
+        goto err;
+    cmds_len *= 2; // Key-Value list from erlang
+
+    if ((size_t)cmds_len + 1 > SIZE_MAX / sizeof(char*))
+        goto err;
+    if ((cmds = enif_alloc((cmds_len + 1) * sizeof(char*))) == NULL)
+        goto err;
+    if (get_engine_load_cmd_list(env, argv[1], cmds, 0))
+        goto err;
+    cmds_loaded = 1;
+    if (!enif_get_int(env, argv[2], &optional))
+        goto err;
 
     for(i = 0; i < cmds_len; i+=2) {
         PRINTF_ERR2("Cmd:  %s:%s\r\n",
@@ -292,18 +292,31 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
             PRINTF_ERR2("Command failed:  %s:%s\r\n",
                         cmds[i] ? cmds[i] : "(NULL)",
                         cmds[i+1] ? cmds[i+1] : "(NULL)");
-            //ENGINE_free(ctx->engine);
-            ret = enif_make_tuple2(env, atom_error, atom_ctrl_cmd_failed);
-            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: {error, ctrl_cmd_failed}");
-            goto error;
+            goto cmd_failed;
         }
     }
+    ret = atom_ok;
+    goto done;
 
- error:
-    for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
-        enif_free(cmds[i]);
-    enif_free(cmds);
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+    goto done;
+
+ cmd_failed:
+    ret = enif_make_tuple2(env, atom_error, atom_ctrl_cmd_failed);
+
+ done:
+    if (cmds_loaded) {
+        for (i = 0; cmds != NULL && cmds[i] != NULL; i++)
+            enif_free(cmds[i]);
+    }
+
+    if (cmds != NULL)
+        enif_free(cmds);
+
     return ret;
+
 #else
     return atom_notsup;
 #endif
