@@ -48,6 +48,9 @@ static INLINE HMAC_CTX *HMAC_CTX_new()
 
 static INLINE void HMAC_CTX_free(HMAC_CTX *ctx)
 {
+    if (ctx == NULL)
+        return;
+
     HMAC_CTX_cleanup(ctx);
     CRYPTO_free(ctx);
 }
