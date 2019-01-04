@@ -205,62 +205,71 @@ static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
 
 static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (ModulusSize, PublicExponent) */
+    ERL_NIF_TERM ret;
     int modulus_bits;
-    BIGNUM *pub_exp, *three;
-    RSA *rsa;
-    int success;
-    ERL_NIF_TERM result;
-    BN_GENCB *intr_cb;
+    BIGNUM *pub_exp = NULL, *three = NULL;
+    RSA *rsa = NULL;
+    BN_GENCB *intr_cb = NULL;
 #ifndef HAVE_OPAQUE_BN_GENCB
     BN_GENCB intr_cb_buf;
 #endif
 
-    if (!enif_get_int(env, argv[0], &modulus_bits) || modulus_bits < 256) {
-	return enif_make_badarg(env);
-    }
-
-    if (!get_bn_from_bin(env, argv[1], &pub_exp)) {
-	return enif_make_badarg(env);
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if (!enif_get_int(env, argv[0], &modulus_bits))
+        goto bad_arg;
+    if (modulus_bits < 256)
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[1], &pub_exp))
+        goto bad_arg;
 
     /* Make sure the public exponent is large enough (at least 3).
      * Without this, RSA_generate_key_ex() can run forever. */
-    three = BN_new();
-    BN_set_word(three, 3);
-    success = BN_cmp(pub_exp, three);
-    BN_free(three);
-    if (success < 0) {
-	BN_free(pub_exp);
-	return enif_make_badarg(env);
-    }
+    if ((three = BN_new()) == NULL)
+        goto err;
+    if (!BN_set_word(three, 3))
+        goto err;
+    if (BN_cmp(pub_exp, three) < 0)
+        goto err;
 
     /* For large keys, prime generation can take many seconds. Set up
      * the callback which we use to test whether the process has been
      * interrupted. */
 #ifdef HAVE_OPAQUE_BN_GENCB
-    intr_cb = BN_GENCB_new();
+    if ((intr_cb = BN_GENCB_new()) == NULL)
+        goto err;
 #else
     intr_cb = &intr_cb_buf;
 #endif
     BN_GENCB_set(intr_cb, check_erlang_interrupt, env);
 
-    rsa = RSA_new();
-    success = RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb);
-    BN_free(pub_exp);
+    if ((rsa = RSA_new()) == NULL)
+        goto err;
 
+    if (!RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb))
+        goto err;
+
+    ret = put_rsa_private_key(env, rsa);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_error;
+
+ done:
+    if (pub_exp)
+        BN_free(pub_exp);
+    if (three)
+        BN_free(three);
 #ifdef HAVE_OPAQUE_BN_GENCB
-    BN_GENCB_free(intr_cb);
+    if (intr_cb)
+        BN_GENCB_free(intr_cb);
 #endif
-
-    if (!success) {
+    if (rsa)
         RSA_free(rsa);
-	return atom_error;
-    }
-
-    result = put_rsa_private_key(env, rsa);
-    RSA_free(rsa);
-
-    return result;
+    return ret;
 }
 
 ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
