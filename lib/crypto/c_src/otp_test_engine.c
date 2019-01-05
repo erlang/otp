@@ -193,7 +193,6 @@ static int test_digest_ids[] = {NID_md5};
 
 static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
         const int **nids, int nid) {
-    int ok = 1;
     if (!digest) {
         *nids = test_digest_ids;
         fprintf(stderr, "Digest is empty! Nid:%d\r\n", nid);
@@ -204,33 +203,43 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
 #ifdef OLD
         *digest = &test_engine_md5_method;
 #else
-        EVP_MD *md = EVP_MD_meth_new(NID_md5, NID_undef);
-        if (!md ||
-            !EVP_MD_meth_set_result_size(md, MD5_DIGEST_LENGTH) ||
-            !EVP_MD_meth_set_flags(md, 0) ||
-            !EVP_MD_meth_set_init(md,  test_engine_md5_init) ||
-            !EVP_MD_meth_set_update(md,  test_engine_md5_update) ||
-            !EVP_MD_meth_set_final(md,  test_engine_md5_final) ||
-            !EVP_MD_meth_set_copy(md,  NULL) ||
-            !EVP_MD_meth_set_cleanup(md,  NULL) ||
-            !EVP_MD_meth_set_input_blocksize(md, MD5_CBLOCK) ||
-            !EVP_MD_meth_set_app_datasize(md, sizeof(EVP_MD *) + sizeof(MD5_CTX)) ||
-            !EVP_MD_meth_set_ctrl(md, NULL))
-            {
-                ok = 0;
-                *digest = NULL;
-            } else
-            {
-                *digest = md;
-            }
+        EVP_MD *md;
+
+        if ((md = EVP_MD_meth_new(NID_md5, NID_undef)) == NULL)
+            goto err;
+        if (EVP_MD_meth_set_result_size(md, MD5_DIGEST_LENGTH) != 1)
+            goto err;
+        if (EVP_MD_meth_set_flags(md, 0) != 1)
+            goto err;
+        if (EVP_MD_meth_set_init(md, test_engine_md5_init) != 1)
+            goto err;
+        if (EVP_MD_meth_set_update(md, test_engine_md5_update) != 1)
+            goto err;
+        if (EVP_MD_meth_set_final(md, test_engine_md5_final) != 1)
+            goto err;
+        if (EVP_MD_meth_set_copy(md, NULL) != 1)
+            goto err;
+        if (EVP_MD_meth_set_cleanup(md, NULL) != 1)
+            goto err;
+        if (EVP_MD_meth_set_input_blocksize(md, MD5_CBLOCK) != 1)
+            goto err;
+        if (EVP_MD_meth_set_app_datasize(md, sizeof(EVP_MD *) + sizeof(MD5_CTX)) != 1)
+            goto err;
+        if (EVP_MD_meth_set_ctrl(md, NULL) != 1)
+            goto err;
+
+        *digest = md;
 #endif
     }
     else {
-        ok = 0;
-        *digest = NULL;
+        goto err;
     }
     
-    return ok;
+    return 1;
+
+ err:
+    *digest = NULL;
+    return 0;
 }
 
 static int bind_helper(ENGINE * e, const char *id)
