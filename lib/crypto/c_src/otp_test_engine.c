@@ -155,15 +155,15 @@ static int test_engine_md5_update(EVP_MD_CTX *ctx,const void *data, size_t count
 
 static int test_engine_md5_final(EVP_MD_CTX *ctx,unsigned char *md) {
 #ifdef OLD
-    int ret;
-
     fprintf(stderr, "MD5 final size of EVP_MD: %lu\r\n", sizeof(EVP_MD));
-    ret = MD5_Final(md, data(ctx));
+    if (!MD5_Final(md, data(ctx)))
+        goto err;
 
-    if (ret > 0) {
-         add_test_data(md, MD5_DIGEST_LENGTH);
-    }
-    return ret;
+    add_test_data(md, MD5_DIGEST_LENGTH);
+    return 1;
+
+ err:
+    return 0;
 #else
     fprintf(stderr, "MD5 final\r\n");
     add_test_data(md, MD5_DIGEST_LENGTH);
