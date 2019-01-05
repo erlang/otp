@@ -37,11 +37,14 @@ int init_hmac_ctx(ErlNifEnv *env) {
 						 (ErlNifResourceDtor*) hmac_context_dtor,
 						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
 						 NULL);
-    if (hmac_context_rtype == NULL) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
-        return 0;
-    }
+    if (hmac_context_rtype == NULL)
+        goto err;
+
     return 1;
+
+ err:
+    PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
+    return 0;
 }
 
 ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
