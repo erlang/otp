@@ -308,11 +308,16 @@
 #define MAX_BYTES_TO_NIF 20000
 
 #define CONSUME_REDS(NifEnv, Ibin)			\
-do {							\
-    int _cost = ((Ibin).size  * 100) / MAX_BYTES_TO_NIF;\
+do {                                                    \
+    size_t _cost = (Ibin).size;                         \
+    if (_cost > SIZE_MAX / 100)                         \
+        _cost = 100;                                    \
+    else                                                \
+        _cost = (_cost * 100) / MAX_BYTES_TO_NIF;       \
+                                                        \
     if (_cost) {                                        \
         (void) enif_consume_timeslice((NifEnv),		\
-	          (_cost > 100) ? 100 : _cost);		\
+                (_cost > 100) ? 100 : (int)_cost);      \
     }                                                   \
  } while (0)
 
