@@ -387,11 +387,10 @@ int test_rsa_sign(int dtype,
                   /* The key */
                   const RSA *rsa)
 {
-    int slen;
     fprintf(stderr, "test_rsa_sign (dtype=%i) called m_len=%u *siglen=%u\r\n", dtype, m_len, *siglen);
     if (!sigret) {
         fprintf(stderr, "sigret = NULL\r\n");
-        return -1;
+        goto err;
     }
 
     /* {int i;
@@ -403,14 +402,20 @@ int test_rsa_sign(int dtype,
 
     if ((sizeof(fake_flag) == m_len)
         && bcmp(m,fake_flag,m_len) == 0) {
+        int slen;
+
         printf("To be faked\r\n");
         /* To be faked */
-        slen = RSA_size(rsa);
-        add_test_data(sigret, slen); /* The signature is 0,1,2...255,0,1... */
-        *siglen = slen; /* Must set this. Why? */
+        if ((slen = RSA_size(rsa)) < 0)
+            goto err;
+        add_test_data(sigret, (unsigned int)slen); /* The signature is 0,1,2...255,0,1... */
+        *siglen = (unsigned int)slen; /* Must set this. Why? */
         return 1; /* 1 = success */
     }
     return 0;
+
+ err:
+    return -1;
 }
 
 int test_rsa_verify(int dtype, 
