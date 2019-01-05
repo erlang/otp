@@ -324,7 +324,7 @@ EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void 
         fprintf(stderr, "Contents of file \"%s\":\r\n",id);
         f = fopen(id, "r");
         { /* Print the contents of the key file */
-            char c;
+            int c;
             while (!feof(f)) {
                 switch (c=fgetc(f)) {
                 case '\n':
