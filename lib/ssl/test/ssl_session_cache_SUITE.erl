@@ -161,8 +161,7 @@ client_unique_session(Config) when is_list(Config) ->
 				   {tcp_options, [{active, false}]},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, client_unique_session, 20),
+    LastClient = clients_start(Server, ClientNode, Hostname, Port, ClientOpts, 20),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -267,7 +266,7 @@ max_table_size(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     LastClient = clients_start(Server, 
-			    ClientNode, Hostname, Port, ClientOpts, max_table_size, 20),
+			    ClientNode, Hostname, Port, ClientOpts, 20),
     receive 
 	{LastClient, {ok, _}} ->
 	    ok
@@ -427,22 +426,22 @@ session_cache_process(_Type,Config) when is_list(Config) ->
     ServerOpts = proplists:get_value(server_rsa_opts, Config),
     ssl_basic_SUITE:reuse_session([{client_opts, ClientOpts}, {server_opts, ServerOpts}| Config]).
 
-clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, Test, 0) ->
+clients_start(_Server, ClientNode, Hostname, Port, ClientOpts, 0) ->
     %% Make sure session is registered
     ct:sleep(?SLEEP * 2),
     ssl_test_lib:start_client([{node, ClientNode},
 			       {port, Port}, {host, Hostname},
 			       {mfa, {?MODULE, connection_info_result, []}},
-			       {from, self()},  {options, test_copts(Test, 0, ClientOpts)}]);
-clients_start(Server, ClientNode, Hostname, Port, ClientOpts, Test, N) ->
+			       {from, self()},  {options, ClientOpts}]);
+clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N) ->
     spawn_link(ssl_test_lib, start_client, 
 	       [[{node, ClientNode},
 		 {port, Port}, {host, Hostname},
 		 {mfa, {ssl_test_lib, no_result, []}},
-		 {from, self()},  {options, test_copts(Test, N, ClientOpts)}]]),
+		 {from, self()},  {options, ClientOpts}]]),
     Server ! listen,
     wait_for_server(),
-    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, Test, N-1).
+    clients_start(Server, ClientNode, Hostname, Port, ClientOpts, N-1).
 	
 connection_info_result(Socket) ->
     ssl:connection_information(Socket, [protocol, cipher_suite]).
@@ -479,21 +478,3 @@ get_delay_timers() ->
     
 wait_for_server() ->
     ct:sleep(100).	
-
-
-test_copts(_, 0, ClientOpts) ->
-      ClientOpts;		 
-test_copts(max_table_size, N, ClientOpts) ->
-    Version = tls_record:highest_protocol_version([]),		   
-    CipherSuites = %%lists:map(fun(X) -> ssl_cipher_format:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))),
-[ Y|| Y = {Alg,_, _, _} <- lists:map(fun(X) -> ssl_cipher_format:suite_definition(X) end, ssl_cipher:filter_suites(ssl_cipher:suites(Version))), Alg =/=  ecdhe_ecdsa,  Alg =/=  ecdh_ecdsa, Alg =/=  ecdh_rsa, Alg =/=  ecdhe_rsa, Alg =/= dhe_dss, Alg =/= dss], 
-    case length(CipherSuites) of 
-        M when M >= N ->		      
-          Cipher = lists:nth(N, CipherSuites),
-	  ct:pal("~p",[Cipher]),
-          [{ciphers, [Cipher]} | ClientOpts];
-       _ -> 	   		 
-        ClientOpts
-    end;
-test_copts(_, _, ClientOpts) ->
-     ClientOpts.
