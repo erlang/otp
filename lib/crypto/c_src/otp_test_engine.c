@@ -245,32 +245,40 @@ static int test_engine_digest_selector(ENGINE *e, const EVP_MD **digest,
 static int bind_helper(ENGINE * e, const char *id)
 {
 #if defined(FAKE_RSA_IMPL)
-    test_rsa_method = RSA_meth_new("OTP test RSA method", 0);
-    if (test_rsa_method == NULL) {
+    if ((test_rsa_method = RSA_meth_new("OTP test RSA method", 0)) == NULL) {
         fprintf(stderr, "RSA_meth_new failed\r\n");
-        return 0;
+        goto err;
     }
 #endif /* if defined(FAKE_RSA_IMPL) */
 
-    if (!ENGINE_set_id(e, test_engine_id)
-        || !ENGINE_set_name(e, test_engine_name)
-        || !ENGINE_set_init_function(e, test_init)
-        || !ENGINE_set_digests(e, &test_engine_digest_selector)
-        /* For testing of key storage in an Engine: */
-        || !ENGINE_set_load_privkey_function(e, &test_privkey_load)
-        || !ENGINE_set_load_pubkey_function(e, &test_pubkey_load)
-        )
-        return 0;
+    if (!ENGINE_set_id(e, test_engine_id))
+        goto err;
+    if (!ENGINE_set_name(e, test_engine_name))
+        goto err;
+    if (!ENGINE_set_init_function(e, test_init))
+        goto err;
+    if (!ENGINE_set_digests(e, &test_engine_digest_selector))
+        goto err;
+    /* For testing of key storage in an Engine: */
+    if (!ENGINE_set_load_privkey_function(e, &test_privkey_load))
+        goto err;
+    if (!ENGINE_set_load_pubkey_function(e, &test_pubkey_load))
+        goto err;
 
 #if defined(FAKE_RSA_IMPL)
-    if ( !ENGINE_set_RSA(e, test_rsa_method) ) {
-        RSA_meth_free(test_rsa_method);
-        test_rsa_method = NULL;
-        return 0;
-    }
+    if (!ENGINE_set_RSA(e, test_rsa_method))
+        goto err;
 #endif /* if defined(FAKE_RSA_IMPL) */
 
     return 1;
+
+ err:
+#if defined(FAKE_RSA_IMPL)
+    if (test_rsa_method)
+        RSA_meth_free(test_rsa_method);
+    test_rsa_method = NULL;
+#endif
+    return 0;
 }
 
 IMPLEMENT_DYNAMIC_CHECK_FN();
