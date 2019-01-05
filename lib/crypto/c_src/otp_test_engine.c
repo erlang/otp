@@ -376,7 +376,7 @@ int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password)
 /* RSA sign. This returns a fixed string so the test case can test that it was called
    instead of the cryptolib default RSA sign */
 
-unsigned char fake_flag[] = {255,3,124,180,35,10,180,151,101,247,62,59,80,122,220,
+static unsigned char fake_flag[] = {255,3,124,180,35,10,180,151,101,247,62,59,80,122,220,
                              142,24,180,191,34,51,150,112,27,43,142,195,60,245,213,80,179};
 
 int test_rsa_sign(int dtype, 
