@@ -83,7 +83,7 @@ static struct digest_type_t digest_types[] =
 #endif
     },
 
-    {{NULL}}
+    {{NULL}, {NULL}}
 };
 
 void init_digest_types(ErlNifEnv* env)
