@@ -34,40 +34,40 @@ static struct cipher_type_t cipher_types[] =
 #else
      {NULL}
 #endif
-    },
-    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
-    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
-    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
-    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}},
+    ,0},
+    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0},
+    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0},
+    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0},
+    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}, 0},
     {{"des_ede3_cbf"}, /* Misspelled, retained */
 #ifdef HAVE_DES_ede3_cfb_encrypt
      {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
 #else
      {NULL}
 #endif
-    },
+     ,0},
     {{"des_ede3_cfb"},
 #ifdef HAVE_DES_ede3_cfb_encrypt
      {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
 #else
      {NULL}
 #endif
-    },
-    {{"blowfish_cbc"}, {&EVP_bf_cbc}},
-    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}},
-    {{"blowfish_ofb64"}, {&EVP_bf_ofb}},
-    {{"blowfish_ecb"}, {&EVP_bf_ecb}},
+     ,0},
+    {{"blowfish_cbc"}, {&EVP_bf_cbc}, 0},
+    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0},
+    {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0},
+    {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0},
     {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16},
     {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24},
     {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32},
-    {{"aes_cbc128"}, {&EVP_aes_128_cbc}},
-    {{"aes_cbc256"}, {&EVP_aes_256_cbc}},
-    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}},
-    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}},
+    {{"aes_cbc128"}, {&EVP_aes_128_cbc}, 0},
+    {{"aes_cbc256"}, {&EVP_aes_256_cbc}, 0},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 0},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 0},
     {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16},
     {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24},
     {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32},
-    {{NULL}}
+    {{NULL},{NULL},0}
 };
 
 #ifdef HAVE_EVP_AES_CTR
