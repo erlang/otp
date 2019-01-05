@@ -88,13 +88,15 @@ int init_cipher_ctx(ErlNifEnv *env) {
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                    NULL);
-    if (evp_cipher_ctx_rtype == NULL) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
-        return 0;
-    }
+    if (evp_cipher_ctx_rtype == NULL)
+        goto err;
 #endif
 
     return 1;
+
+ err:
+    PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
+    return 0;
 }
 
 void init_cipher_types(ErlNifEnv* env)
