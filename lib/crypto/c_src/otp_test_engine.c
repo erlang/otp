@@ -21,8 +21,10 @@
 #ifdef _WIN32
 #define OPENSSL_OPT_WINDLL
 #endif
+
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include <openssl/md5.h>
 #include <openssl/rsa.h>
@@ -344,23 +346,28 @@ EVP_PKEY* test_key_load(ENGINE *eng, const char *id, UI_METHOD *ui_method, void 
 
 int pem_passwd_cb_fun(char *buf, int size, int rwflag, void *password) 
 { 
-    int i;
+    size_t i;
+
+    if (size < 0)
+        return 0;
 
     fprintf(stderr, "In pem_passwd_cb_fun\r\n");
     if (!password)
         return 0;
 
     i = strlen(password);
-    if (i < size) {
-        /* whole pwd (incl terminating 0) fits */
-        fprintf(stderr, "Got FULL pwd %d(%d) chars\r\n", i, size);
-        memcpy(buf, (char*)password, i+1);
-        return i+1;
-    } else {
-        fprintf(stderr, "Got TO LONG pwd %d(%d) chars\r\n", i, size);
-        /* meaningless with a truncated password */
-        return 0;
-    }
+    if (i >= (size_t)size || i > INT_MAX - 1)
+        goto err;
+
+    /* whole pwd (incl terminating 0) fits */
+    fprintf(stderr, "Got FULL pwd %zu(%d) chars\r\n", i, size);
+    memcpy(buf, (char*)password, i+1);
+    return (int)i+1;
+
+ err:
+    fprintf(stderr, "Got TO LONG pwd %zu(%d) chars\r\n", i, size);
+    /* meaningless with a truncated password */
+    return 0;
 }
 
 #endif
