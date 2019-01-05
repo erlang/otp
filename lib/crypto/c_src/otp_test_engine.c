@@ -87,13 +87,12 @@ static int test_init(ENGINE *e) {
     printf("OTP Test Engine Initializatzion!\r\n");
     
 #if defined(FAKE_RSA_IMPL)
-    if (    !RSA_meth_set_finish(test_rsa_method, test_rsa_free)
-            || !RSA_meth_set_sign(test_rsa_method, test_rsa_sign)
-            || !RSA_meth_set_verify(test_rsa_method, test_rsa_verify)
-            ) {
-        fprintf(stderr, "Setup RSA_METHOD failed\r\n");
-        return 0;
-    }
+    if (!RSA_meth_set_finish(test_rsa_method, test_rsa_free))
+        goto err;
+    if (!RSA_meth_set_sign(test_rsa_method, test_rsa_sign))
+        goto err;
+    if (!RSA_meth_set_verify(test_rsa_method, test_rsa_verify))
+        goto err;
 #endif /* if defined(FAKE_RSA_IMPL) */
 
     /* Load all digest and cipher algorithms. Needed for password protected private keys */
@@ -101,6 +100,10 @@ static int test_init(ENGINE *e) {
     OpenSSL_add_all_digests();
 
     return 111;
+
+ err:
+    fprintf(stderr, "Setup RSA_METHOD failed\r\n");
+    return 0;
 }
 
 static void add_test_data(unsigned char *md, unsigned int len)
