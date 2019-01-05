@@ -48,13 +48,15 @@ int init_hash_ctx(ErlNifEnv* env) {
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                NULL);
-    if (evp_md_ctx_rtype == NULL) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
-        return 0;
-    }
+    if (evp_md_ctx_rtype == NULL)
+        goto err;
 #endif
 
     return 1;
+
+ err:
+    PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
+    return 0;
 }
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
