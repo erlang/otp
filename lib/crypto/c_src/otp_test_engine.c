@@ -430,8 +430,13 @@ int test_rsa_verify(int dtype,
 
     if ((sizeof(fake_flag) == m_len)
         && bcmp(m,fake_flag,m_len) == 0) {
+        int size;
+
+        if ((size = RSA_size(rsa)) < 0)
+            return 0;
+
         printf("To be faked\r\n");
-        return (siglen ==  RSA_size(rsa)) 
+        return (siglen == (unsigned int)size)
             && chk_test_data(sigret, siglen);
     }
     return 0;
