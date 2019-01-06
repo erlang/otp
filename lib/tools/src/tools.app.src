@@ -21,6 +21,7 @@
  [{description, "DEVTOOLS  CXC 138 16"},
   {vsn, "%VSN%"},
   {modules, [cover,
+	     cprof,
 	     eprof,
 	     fprof,
 	     instrument,
