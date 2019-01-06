@@ -683,3 +683,4 @@ atom x86
 atom yes
 atom yield
 atom nifs
+atom packet_spec packet_spec_extra_bytes u8 u16 u16le u32 u32le varint

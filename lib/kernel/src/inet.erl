@@ -737,7 +737,7 @@ options() ->
     [
      tos, tclass, priority, reuseaddr, keepalive, dontroute, linger,
      broadcast, sndbuf, recbuf, nodelay, ipv6_v6only,
-     buffer, header, active, packet, deliver, mode,
+     buffer, header, active, packet, packet_spec, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
      exit_on_close, high_watermark, low_watermark,
      high_msgq_watermark, low_msgq_watermark,
@@ -758,7 +758,7 @@ stats() ->
 connect_options() ->
     [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      recvtos, recvtclass, ttl, recvttl,
-     header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
+     header, active, packet, packet_spec, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
      show_econnreset, bind_to_device].

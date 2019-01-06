@@ -818,6 +818,8 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
+#define INET_LOPT_PACKET_SPEC       49
+#define INET_LOPT_PACKET_SPEC_EXTRA_BYTES 50
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1305,6 +1307,7 @@ struct _tcp_descriptor {
     inet_async_multi_op *multi_last;
     MultiTimerData *mtd;       /* Timer structures for multiple accept */
     MultiTimerData *mtd_cache; /* A cache for timer allocations */
+    packet_spec_t  spec;
 #ifdef HAVE_SENDFILE
     struct {
         ErlDrvSizeT ioq_skip;   /* The number of bytes in the queue at the time
@@ -6696,6 +6699,58 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    continue;
 #endif
 
+	case INET_LOPT_PACKET_SPEC:
+      if (desc->sprotocol == IPPROTO_TCP) {
+          int i = 0;
+          tcp_descriptor *tdesc = (tcp_descriptor *) desc;
+          tdesc->spec.min_len = 0;
+          for (i = 0; i < len && 0 != (unsigned char) ptr[i+1]; i++) {
+              switch (get_int8(ptr)) {
+                  case 1:
+                      tdesc->spec.min_len += 1;
+                      tdesc->spec.packet_spec[i] = 1;
+                      break;
+                  case 8:
+                      tdesc->spec.min_len += 1;
+                      tdesc->spec.packet_spec[i] = 8;
+                      break;
+                  case 16:
+                      tdesc->spec.min_len += 2;
+                      tdesc->spec.packet_spec[i] = 16;
+                      break;
+                  case 17:
+                      tdesc->spec.min_len += 2;
+                      tdesc->spec.packet_spec[i] = 17;
+                      break;
+                  case 32:
+                      tdesc->spec.min_len += 4;
+                      tdesc->spec.packet_spec[i] = 32;
+                      break;
+                  case 33:
+                      tdesc->spec.min_len += 4;
+                      tdesc->spec.packet_spec[i] = 33;
+                      break;
+                  default:
+                      return -1;
+              }
+              ptr++;
+              len--;
+          }
+          tdesc->spec.packet_spec[i] = 0;
+          ptr++;
+          len--;
+      }
+      break;
+
+  case INET_LOPT_PACKET_SPEC_EXTRA_BYTES:
+      DEBUGF(("inet_set_opts(%ld): s=%d, PACKET_SPEC_EXTRA_BYTES=%d\r\n",
+                  (long)desc->port, desc->s, ival));
+      if (desc->sprotocol == IPPROTO_TCP) {
+          tcp_descriptor *tdesc = (tcp_descriptor *) desc;
+          tdesc->spec.extra_bytes = (unsigned int)ival;
+      }
+      continue;
+
 	case INET_OPT_RAW:
 	    if (len < 8) {
 		return -1;
@@ -10668,7 +10723,7 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
 
     tlen = packet_get_length(desc->inet.htype, ptr, n, 
                              desc->inet.psize, desc->i_bufsz,
-                             desc->inet.delimiter, &desc->http_state);
+                             desc->inet.delimiter, &desc->http_state, &desc->spec);
 
     DEBUGF(("tcp_remain(%ld): s=%d, n=%d, nfill=%d nsz=%d, tlen %d\r\n",
 	    (long)desc->inet.port, desc->inet.s, n, nfill, nsz, tlen));

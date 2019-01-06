@@ -27,15 +27,15 @@
 -export([all/0, suite/0,groups/0,
          init_per_testcase/2,end_per_testcase/2,
          basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
-         otp_9389/1, otp_9389_line/1]).
+         otp_9389/1, otp_9389_line/1, packet_spec/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
-all() -> 
+all() ->
     [basic, packet_size, neg, http, line, ssl, otp_8536,
-     otp_9389, otp_9389_line].
+     otp_9389, otp_9389_line, packet_spec].
 
 groups() -> 
     [].
@@ -588,3 +588,72 @@ otp_9389_line(Config) when is_list(Config) ->
     {ok, Line2, Rest2} = erlang:decode_packet(line, Rest1, Opts),
     {error, invalid} = erlang:decode_packet(line, Rest2, Opts),
     ok.
+
+
+gen_spec_value(u8) ->
+    rand:uniform(256) - 1;
+gen_spec_value(u16) ->
+    rand:uniform(65536) - 1;
+gen_spec_value(u16le) ->
+    rand:uniform(65536) - 1;
+gen_spec_value(u32) ->
+    rand:uniform(4294967296) - 1;
+gen_spec_value(u32le) ->
+    rand:uniform(4294967296) - 1;
+gen_spec_value(varint) ->
+    gen_spec_value(u32).
+
+encode_varint(I) when is_integer(I), I >= 0, I =< 127 ->
+    <<I>>;
+encode_varint(I) when is_integer(I), I > 127 ->
+    <<1:1, (I band 127):7, (encode_varint(I bsr 7))/binary>>;
+encode_varint(I) when is_integer(I), I < 0 ->
+    erlang:error({badarg, I}).
+
+gen_spec_binary(u8, Val) ->
+    <<Val:8/integer-unsigned>>;
+gen_spec_binary(u16, Val) ->
+    <<Val:16/integer-unsigned-big>>;
+gen_spec_binary(u16le, Val) ->
+    <<Val:16/integer-unsigned-little>>;
+gen_spec_binary(u32, Val) ->
+    <<Val:32/integer-unsigned-big>>;
+gen_spec_binary(u32le, Val) ->
+    <<Val:32/integer-unsigned-little>>;
+gen_spec_binary(varint ,Val) ->
+    <<(encode_varint(Val))/binary>>.
+
+gen_spec_binary_rest(u8) ->
+    crypto:strong_rand_bytes(rand:uniform(10));
+gen_spec_binary_rest(_) ->
+    crypto:strong_rand_bytes(rand:uniform(5)).
+
+gen_spec_packet(Spec) ->
+    {SpecHead, [SpecLast]} = lists:split(length(Spec) - 1, Spec),
+    ValueHead = [gen_spec_value(T) || T <- SpecHead],
+    Data = gen_spec_binary_rest(SpecLast),
+    ValueLast = gen_spec_binary(SpecLast, byte_size(Data)),
+    Bins = [gen_spec_binary(S, V) || {S, V} <- lists:zip(SpecHead, ValueHead)] ++ [ValueLast] ++ [Data],
+    lists:foldr(fun(B, Acc) ->
+                        <<B/binary, Acc/binary>>
+                end, <<>>, Bins).
+
+packet_spec(Config) when is_list(Config) ->
+    GenSpec = fun() ->
+                      Types = [u8, varint, u16, u16le, u32, u32le],
+                      %% Max packet_specs is 10
+                      SpecLen = rand:uniform(10),
+                      [lists:nth(rand:uniform(length(Types)), Types) || _ <- lists:seq(1, SpecLen)]
+              end,
+    TestSpec = fun(Spec) ->
+                       Packet = gen_spec_packet(Spec),
+                       DataRest = <<"not part of packet">>,
+                       {ok, Packet, DataRest} = erlang:decode_packet(packet_spec,
+                                                                     <<Packet/binary, DataRest/binary>>,
+                                                                     [{packet_spec, Spec}])
+               end,
+    %% Test some number of random spec sequences
+    lists:foreach(fun(_) ->
+                          Spec = GenSpec(),
+                          TestSpec(Spec)
+                  end, lists:seq(1, 100)).
