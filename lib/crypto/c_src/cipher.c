@@ -74,7 +74,11 @@ static struct cipher_type_t cipher_types[] =
 ErlNifResourceType* evp_cipher_ctx_rtype;
 
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
-    EVP_CIPHER_CTX_free(ctx->ctx);
+    if (ctx == NULL)
+        return;
+
+    if (ctx->ctx)
+        EVP_CIPHER_CTX_free(ctx->ctx);
 }
 #endif
 
