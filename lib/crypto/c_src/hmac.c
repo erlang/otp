@@ -84,11 +84,17 @@ ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 {
+    if (obj == NULL)
+        return;
+
     if (obj->alive) {
-	HMAC_CTX_free(obj->ctx);
+        if (obj->ctx)
+            HMAC_CTX_free(obj->ctx);
 	obj->alive = 0;
     }
-    enif_mutex_destroy(obj->mtx);
+
+    if (obj->mtx != NULL)
+        enif_mutex_destroy(obj->mtx);
 }
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
