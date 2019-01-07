@@ -508,11 +508,8 @@ close_our_file({_,Fd}, FileMod, FS0) ->
     FS1.
 
 %%% stat: do the stat
-stat(Vsn, ReqId, Data, State, F) when Vsn =< 3->
-    <<?UINT32(BLen), BPath:BLen/binary>> = Data,
-    stat(ReqId, unicode:characters_to_list(BPath), State, F);
-stat(Vsn, ReqId, Data, State, F) when Vsn >= 4->
-    <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(_Flags)>> = Data,
+stat(Vsn, ReqId, Data, State, F) ->
+    <<?UINT32(BLen), BPath:BLen/binary, _/binary>> = Data,
     stat(ReqId, unicode:characters_to_list(BPath), State, F).
 
 fstat(Vsn, ReqId, Data, State) when Vsn =< 3->
