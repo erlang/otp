@@ -167,21 +167,22 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Engine) */
 #ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret = atom_ok;
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_init_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
-    if (!ENGINE_init(ctx->engine)) {
-        //ERR_print_errors_fp(stderr);
-        PRINTF_ERR0("engine_init_nif Leaved: {error, engine_init_failed}");
-        return enif_make_tuple2(env, atom_error, atom_engine_init_failed);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
-    return ret;
+    if (!ENGINE_init(ctx->engine))
+        return enif_make_tuple2(env, atom_error, atom_engine_init_failed);
+
+    return atom_ok;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
 #else
     return atom_notsup;
 #endif
