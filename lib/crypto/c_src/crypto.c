@@ -1478,106 +1478,280 @@ static void init_algorithms_types(ErlNifEnv* env)
     // Validated algorithms first
     algo_curve_cnt = 0;
 #if defined(HAVE_EC)
+# ifdef NID_secp160k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160k1");
+# endif
+# ifdef NID_secp160r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r1");
+# endif
+# ifdef NID_secp160r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r2");
+# endif
+# ifdef NID_X9_62_prime192v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192r1");
+# endif
+# ifdef NID_secp192k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192k1");
+# endif
+# ifdef NID_secp224k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224k1");
+# endif
+# ifdef NID_secp224r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224r1");
+# endif
+# ifdef NID_secp256k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256k1");
+# endif
+# ifdef NID_X9_62_prime256v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256r1");
+# endif
+# ifdef NID_secp384r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp384r1");
+# endif
+# ifdef NID_secp521r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp521r1");
+# endif
+# ifdef NID_X9_62_prime192v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v1");
+# endif
+# ifdef NID_X9_62_prime192v2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v2");
+# endif
+# ifdef NID_X9_62_prime192v3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v3");
+# endif
+# ifdef NID_X9_62_prime239v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v1");
+# endif
+# ifdef NID_X9_62_prime239v2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v2");
+# endif
+# ifdef NID_X9_62_prime239v3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v3");
+# endif
+# ifdef NID_X9_62_prime256v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime256v1");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls7
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls7");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls9
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls9");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls12
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls12");
+# endif
+# ifdef NID_brainpoolP160r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160r1");
+# endif
+# ifdef NID_brainpoolP160t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160t1");
+# endif
+# ifdef NID_brainpoolP192r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192r1");
+# endif
+# ifdef NID_brainpoolP192t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192t1");
+# endif
+# ifdef NID_brainpoolP224r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224r1");
+# endif
+# ifdef NID_brainpoolP224t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224t1");
+# endif
+# ifdef NID_brainpoolP256r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256r1");
+# endif
+# ifdef NID_brainpoolP256t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256t1");
+# endif
+# ifdef NID_brainpoolP320r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320r1");
+# endif
+# ifdef NID_brainpoolP320t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320t1");
+# endif
+# ifdef NID_brainpoolP384r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384r1");
+# endif
+# ifdef NID_brainpoolP384t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384t1");
+# endif
+# ifdef NID_brainpoolP512r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512r1");
+# endif
+# ifdef NID_brainpoolP512t1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512t1");
+# endif
 #if !defined(OPENSSL_NO_EC2M)
+# ifdef NID_sect163k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163k1");
+# endif
+# ifdef NID_sect163r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r1");
+# endif
+# ifdef NID_sect163r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r2");
+# endif
+# ifdef NID_sect193r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r1");
+# endif
+# ifdef NID_sect193r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r2");
+# endif
+# ifdef NID_sect233k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233k1");
+# endif
+# ifdef NID_sect233r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233r1");
+# endif
+# ifdef NID_sect239k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect239k1");
+# endif
+# ifdef NID_sect283k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283k1");
+# endif
+# ifdef NID_sect283r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283r1");
+# endif
+# ifdef NID_sect409k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409k1");
+# endif
+# ifdef NID_sect409r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409r1");
+# endif
+# ifdef NID_sect571k1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571k1");
+# endif
+# ifdef NID_sect571r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571r1");
+# endif
+# ifdef NID_X9_62_c2pnb163v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v1");
+# endif
+# ifdef NID_X9_62_c2pnb163v2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v2");
+# endif
+# ifdef NID_X9_62_c2pnb163v3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v3");
+# endif
+# ifdef NID_X9_62_c2pnb176v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb176v1");
+# endif
+# ifdef NID_X9_62_c2tnb191v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v1");
+# endif
+# ifdef NID_X9_62_c2tnb191v2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v2");
+# endif
+# ifdef NID_X9_62_c2tnb191v3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v3");
+# endif
+# ifdef NID_X9_62_c2pnb208w1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb208w1");
+# endif
+# ifdef NID_X9_62_c2tnb239v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v1");
+# endif
+# ifdef NID_X9_62_c2tnb239v2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v2");
+# endif
+# ifdef NID_X9_62_c2tnb239v3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v3");
+# endif
+# ifdef NID_X9_62_c2pnb272w1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb272w1");
+# endif
+# ifdef NID_X9_62_c2pnb304w1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb304w1");
+# endif
+# ifdef NID_X9_62_c2tnb359v1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb359v1");
+# endif
+# ifdef NID_X9_62_c2pnb368w1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb368w1");
+# endif
+# ifdef NID_X9_62_c2tnb431r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb431r1");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls3");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls5
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls5");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls10
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls10");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls11
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls11");
+# endif
 #endif
 #endif
     // Non-validated algorithms follow
     algo_curve_fips_cnt = algo_curve_cnt;
 #if defined(HAVE_EC)
+# ifdef NID_secp112r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r1");
+# endif
+# ifdef NID_secp112r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r2");
+# endif
+# ifdef NID_secp128r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r1");
+# endif
+# ifdef NID_secp128r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r2");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls6
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls6");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls8
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls8");
+# endif
 #if !defined(OPENSSL_NO_EC2M)
+# ifdef NID_sect113r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r1");
+# endif
+# ifdef NID_sect113r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r2");
+# endif
+# ifdef NID_sect131r1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r1");
+# endif
+# ifdef NID_sect131r2
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r2");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls1
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls1");
+# endif
+# ifdef NID_wap_wsg_idm_ecid_wtls4
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls4");
+# endif
+# ifdef NID_ipsec3
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec3");
+# endif
+# ifdef NID_ipsec4
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec4");
+# endif
 #endif
 #endif
     //--
 #ifdef HAVE_EDDSA
+# ifdef NID_ED25519
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed25519");
+# endif
+# ifdef NID_ED448
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed448");
+# endif
 #endif
 #ifdef HAVE_ED_CURVE_DH
+# ifdef NID_X25519
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
+# endif
+# ifdef NID_X448
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
+# endif
 #endif
 
     // Validated algorithms first
