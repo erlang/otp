@@ -21,7 +21,7 @@
 -module(persistent_term_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0,suite/0,
+-export([all/0,suite/0,init_per_suite/1,end_per_suite/1,
 	 basic/1,purging/1,sharing/1,get_trapping/1,
          info/1,info_trapping/1,killed_while_trapping/1,
          off_heap_values/1,keys/1,collisions/1,
@@ -39,39 +39,49 @@ all() ->
      killed_while_trapping,off_heap_values,keys,collisions,
      init_restart].
 
+init_per_suite(Config) ->
+    %% Put a term in the dict so that we know that the testcases handle
+    %% stray terms left by stdlib or other test suites.
+    persistent_term:put(init_per_suite, {?MODULE}),
+    Config.
+
+end_per_suite(Config) ->
+    persistent_term:erase(init_per_suite),
+    Config.
+
 basic(_Config) ->
     Chk = chk(),
     N = 777,
     Seq = lists:seq(1, N),
-    par(2, N, Seq),
-    seq(3, Seq),
-    seq(3, Seq),                                %Same values.
+    par(2, N, Seq, Chk),
+    seq(3, Seq, Chk),
+    seq(3, Seq, Chk),                                %Same values.
     _ = [begin
              Key = {?MODULE,{key,I}},
              true = persistent_term:erase(Key),
              false = persistent_term:erase(Key),
              {'EXIT',{badarg,_}} = (catch persistent_term:get(Key))
          end || I <- Seq],
-    [] = [P || {{?MODULE,_},_}=P <- persistent_term:get()],
+    [] = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     chk(Chk).
 
-par(C, N, Seq) ->
+par(C, N, Seq, Chk) ->
     _ = [spawn_link(fun() ->
                             ok = persistent_term:put({?MODULE,{key,I}},
                                                      {value,C*I})
                     end) || I <- Seq],
-    Result = wait(N),
+    Result = wait(N, Chk),
     _ = [begin
              Double = C*I,
              {{?MODULE,{key,I}},{value,Double}} = Res
          end || {I,Res} <- lists:zip(Seq, Result)],
     ok.
 
-seq(C, Seq) ->
+seq(C, Seq, Chk) ->
     _ = [ok = persistent_term:put({?MODULE,{key,I}}, {value,C*I}) ||
             I <- Seq],
-    All = persistent_term:get(),
-    All = [P || {{?MODULE,_},_}=P <- persistent_term:get()],
+    All = pget(Chk),
+    All = [P || {{?MODULE,_},_}=P <- All],
     All = [{Key,persistent_term:get(Key)} || {Key,_} <- All],
     Result = lists:sort(All),
     _ = [begin
@@ -80,15 +90,15 @@ seq(C, Seq) ->
          end || {I,Res} <- lists:zip(Seq, Result)],
     ok.
 
-wait(N) ->
-    All = [P || {{?MODULE,_},_}=P <- persistent_term:get()],
+wait(N, Chk) ->
+    All = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     case length(All) of
         N ->
             All = [{Key,persistent_term:get(Key)} || {Key,_} <- All],
             lists:sort(All);
         _ ->
             receive after 10 -> ok end,
-            wait(N)
+            wait(N, Chk)
     end.
 
 %% Make sure that terms that have been erased are copied into all
@@ -200,23 +210,23 @@ get_trapping(_Config) ->
             _ -> 1000
         end,
     spawn_link(fun() -> get_trapping_create(N) end),
-    All = do_get_trapping(N, []),
+    All = do_get_trapping(N, [], Chk),
     N = get_trapping_check_result(lists:sort(All), 1),
     erlang:garbage_collect(),
     get_trapping_erase(N),
     chk(Chk).
 
-do_get_trapping(N, Prev) ->
-    case persistent_term:get() of
+do_get_trapping(N, Prev, Chk) ->
+    case pget(Chk) of
         Prev when length(Prev) >= N ->
             All = [P || {{?MODULE,{get_trapping,_}},_}=P <- Prev],
             case length(All) of
                 N -> All;
-                _ -> do_get_trapping(N, Prev)
+                _ -> do_get_trapping(N, Prev, Chk)
             end;
         New ->
             receive after 1 -> ok end,
-            do_get_trapping(N, New)
+            do_get_trapping(N, New, Chk)
     end.
 
 get_trapping_create(0) ->
@@ -331,25 +341,25 @@ info_trapping(_Config) ->
             _ -> 1000
         end,
     spawn_link(fun() -> info_trapping_create(N) end),
-    All = do_info_trapping(N, 0),
+    All = do_info_trapping(N, 0, Chk),
     N = info_trapping_check_result(lists:sort(All), 1),
     erlang:garbage_collect(),
     info_trapping_erase(N),
     chk(Chk).
 
-do_info_trapping(N, PrevMem) ->
+do_info_trapping(N, PrevMem, Chk) ->
     case info_info() of
-        {N,Mem} ->
+        {M,Mem} when M >= N ->
             true = Mem >= PrevMem,
-            All = [P || {{?MODULE,{info_trapping,_}},_}=P <- persistent_term:get()],
+            All = [P || {{?MODULE,{info_trapping,_}},_}=P <- pget(Chk)],
             case length(All) of
                 N -> All;
-                _ -> do_info_trapping(N, PrevMem)
+                _ -> do_info_trapping(N, PrevMem, Chk)
             end;
         {_,Mem} ->
             true = Mem >= PrevMem,
             receive after 1 -> ok end,
-            do_info_trapping(N, Mem)
+            do_info_trapping(N, Mem, Chk)
     end.
 
 info_trapping_create(0) ->
@@ -462,17 +472,17 @@ collisions(_Config) ->
     _ = [V = persistent_term:get(K) || {K,V} <- Kvs],
 
     %% Now delete the persistent terms in random order.
-    collisions_delete(lists:keysort(2, Kvs)),
+    collisions_delete(lists:keysort(2, Kvs), Chk),
 
     chk(Chk).
 
-collisions_delete([{Key,Val}|Kvs]) ->
+collisions_delete([{Key,Val}|Kvs], Chk) ->
     Val = persistent_term:get(Key),
     true = persistent_term:erase(Key),
-    true = lists:sort(persistent_term:get()) =:= lists:sort(Kvs),
+    true = lists:sort(pget(Chk)) =:= lists:sort(Kvs),
     _ = [V = persistent_term:get(K) || {K,V} <- Kvs],
-    collisions_delete(Kvs);
-collisions_delete([]) ->
+    collisions_delete(Kvs, Chk);
+collisions_delete([], _) ->
     ok.
 
 colliding_keys() ->
@@ -589,15 +599,16 @@ do_test_init_restart_cmd(File) ->
 %% and after each test case.
 
 chk() ->
-    persistent_term:info().
+    {persistent_term:info(), persistent_term:get()}.
 
-chk(Chk) ->
-    Chk = persistent_term:info(),
+chk({Info, _Initial} = Chk) ->
+    Info = persistent_term:info(),
     Key = {?MODULE,?FUNCTION_NAME},
-    ok = persistent_term:put(Key, {term,Chk}),
+    ok = persistent_term:put(Key, {term,Info}),
     Term = persistent_term:get(Key),
     true = persistent_term:erase(Key),
     chk_not_stuck(Term),
+    [persistent_term:erase(K) || {K, _} <- pget(Chk)],
     ok.
 
 chk_not_stuck(Term) ->
@@ -612,3 +623,6 @@ chk_not_stuck(Term) ->
         _ ->
             ok
     end.
+
+pget({_, Initial}) ->
+    persistent_term:get() -- Initial.
