@@ -2077,6 +2077,13 @@ mnesia:create_table(employee,
       <fsummary>Starts a local Mnesia system.</fsummary>
       <desc>
       <marker id="start"></marker>
+        <p>Mnesia startup is asynchronous. The function call
+	        <c>mnesia:start()</c> returns the atom <c>ok</c> and then
+          starts to initialize the different tables. Depending on the
+          size of the database, this can take some time, and the
+          application programmer must wait for the tables that the
+          application needs before they can be used. This is achieved
+          by using the function <c>mnesia:wait_for_tables/2</c>.</p>
         <p>The startup procedure for a set of Mnesia nodes is a
           fairly complicated operation. A Mnesia system consists
           of a set of nodes, with Mnesia started locally on all
