@@ -46,7 +46,7 @@
 -define(MIN_READLINE_SIZE, 256).
 -define(LARGEFILESIZE, (1 bsl 63)).
 
--export([copy/3]).
+-export([copy/3, start/0]).
 
 -include("file_int.hrl").
 
@@ -85,14 +85,21 @@ is_translatable(_) ->
 
 %% This is a janitor process used to close files whose controlling process has
 %% died. The emulator will be torn down if this is killed.
-delayed_close_loop() ->
+start() ->
+    helper_loop().
+
+helper_loop() ->
     receive
         {close, FRef} when is_reference(FRef) -> delayed_close_nif(FRef);
         _ -> ok
     end,
-    delayed_close_loop().
+    helper_loop().
 
-%%
+on_load() ->
+    %% This is spawned as a system process to prevent init:restart/0 from
+    %% killing it.
+    Pid = erts_internal:spawn_system_process(?MODULE, start, []),
+    ok = erlang:load_nif(atom_to_list(?MODULE), Pid).
 
 %% Returns {error, Reason} | {ok, BytesCopied}
 copy(#file_descriptor{module = ?MODULE} = Source,
@@ -102,14 +109,6 @@ copy(#file_descriptor{module = ?MODULE} = Source,
        is_atom(Length) ->
     %% XXX Should be moved down to the driver for optimization.
     file:copy_opened(Source, Dest, Length).
-
-on_load() ->
-    Pid = spawn(fun() ->
-                    process_flag(trap_exit, true),
-                    delayed_close_loop()
-                end),
-    true = register(erts_prim_file, Pid),
-    ok = erlang:load_nif(atom_to_list(?MODULE), Pid).
 
 open(Name, Modes) ->
     %% The try/catch pattern seen here is used throughout the file to adhere to
