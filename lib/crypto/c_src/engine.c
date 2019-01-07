@@ -32,6 +32,9 @@ static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, cha
 static int zero_terminate(ErlNifBinary bin, char **buf);
 
 static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
+    if (ctx == NULL)
+        return;
+
     PRINTF_ERR0("engine_ctx_dtor");
     if(ctx->id) {
         PRINTF_ERR1("  non empty ctx->id=%s", ctx->id);
