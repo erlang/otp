@@ -378,6 +378,13 @@ untuplify(Config) when is_list(Config) ->
     %% We do this to cover sys_core_fold:unalias_pat/1.
     {1,2,3,4,alias,{[1,2],{3,4},alias}} = untuplify_1([1,2], {3,4}, alias),
     error = untuplify_1([1,2], {3,4}, 42),
+
+    %% Test that a previous bug in v3_codegen is gone. (The sinking of
+    %% stack frames into only the case arms that needed them was not always
+    %% safe.)
+    [33, -1, -33, 1] = untuplify_2(32, 65),
+    {33, 1, -33, -1} = untuplify_2(65, 32),
+
     ok.
 
 untuplify_1(A, B, C) ->
@@ -388,6 +395,21 @@ untuplify_1(A, B, C) ->
 	    CantMatch;
 	_ ->
 	    error
+    end.
+
+untuplify_2(V1, V2) ->
+    {D1,D2,D3,D4} =
+        if V1 > V2 ->
+                %% The 1 value was overwritten by the value of V2-V1.
+                {V1-V2,  1,  V2-V1, -1};
+           true ->
+                {V2-V1, -1, V1-V2,  1}
+        end,
+    if
+        D2 > D4 ->
+            {D1, D2, D3, D4};
+        true ->
+            [D1, D2, D3, D4]
     end.
 
 %% Coverage of beam_dead:shortcut_boolean_label/4.
