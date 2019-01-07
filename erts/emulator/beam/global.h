@@ -131,6 +131,7 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);
+ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env);
 
 
 /* Driver handle (wrapper for old plain handle) */

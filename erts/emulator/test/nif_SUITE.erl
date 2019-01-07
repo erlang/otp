@@ -497,79 +497,82 @@ t_on_load(Config) when is_list(Config) ->
 
 select(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
-    select_do(0, make_ref(), make_ref()),
+    select_do(0, make_ref(), make_ref(), null),
 
     RefBin = list_to_binary(lists:duplicate(100, $x)),
-    select_do(?ERL_NIF_SELECT_CUSTOM_MSG,
-              small, {a, tuple, with, "some", RefBin}),
+    [select_do(?ERL_NIF_SELECT_CUSTOM_MSG,
+               small, {a, tuple, with, "some", RefBin}, MSG_ENV)
+     || MSG_ENV <- [null, alloc_env]],
     ok.
 
-select_do(Flag, Ref, Ref2) ->
+select_do(Flag, Ref, Ref2, MSG_ENV) ->
+    io:format("select_do(~p, ~p, ~p)\n", [Ref, Ref2, MSG_ENV]),
+
     {{R, R_ptr}, {W, W_ptr}} = pipe_nif(),
     ok = write_nif(W, <<"hej">>),
     <<"hej">> = read_nif(R, 3),
 
     %% Wait for read
     eagain = read_nif(R, 3),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref,MSG_ENV),
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
     receive_ready(R, Ref, ready_input),
-    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag,R,self(),Ref2),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag,R,self(),Ref2,MSG_ENV),
     receive_ready(R, Ref2, ready_input),
     Papa = self(),
     Pid = spawn_link(fun() ->
                              receive_ready(R, Ref, ready_input),
                              Papa ! {self(), done}
                      end),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, Pid, Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, Pid, Ref,MSG_ENV),
     {Pid, done} = receive_any(1000),
 
     %% Cancel read
-    0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
+    0 = select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
     <<"hej">> = read_nif(R, 3),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref, MSG_ENV),
     ?ERL_NIF_SELECT_READ_CANCELLED =
-        select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref),
+        select_nif(R,?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL,R,null,Ref,null),
     ok = write_nif(W, <<"hej again">>),
     [] = flush(0),
     <<"hej again">> = read_nif(R, 9),
 
     %% Wait for write
     Written = write_full(W, $a),
-    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, self(), Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, self(), Ref, MSG_ENV),
     [] = flush(0),
     Written = read_nif(R,byte_size(Written)),
     receive_ready(W, Ref, ready_output),
 
     %% Cancel write
-    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
     Written2 = write_full(W, $b),
-    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, null, Ref),
+    0 = select_nif(W, ?ERL_NIF_SELECT_WRITE bor Flag, W, null, Ref, MSG_ENV),
     ?ERL_NIF_SELECT_WRITE_CANCELLED =
-        select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref),
+        select_nif(W, ?ERL_NIF_SELECT_WRITE bor ?ERL_NIF_SELECT_CANCEL, W, null, Ref, null),
     Written2 = read_nif(R,byte_size(Written2)),
     [] = flush(0),
 
     %% Close write and wait for EOF
     eagain = read_nif(R, 1),
-    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref)),
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
     [{fd_resource_stop, W_ptr, _}] = flush(),
     {1, {W_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(W),
     [] = flush(0),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref, MSG_ENV),
     receive_ready(R, Ref, ready_input),
     eof = read_nif(R,1),
 
-    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref)),
+    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
-    select_2(Flag, Ref, Ref2).
+    select_2(Flag, Ref, Ref2, MSG_ENV).
 
-select_2(Flag, Ref1, Ref2) ->
+select_2(Flag, Ref1, Ref2, MSG_ENV) ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
 
@@ -577,8 +580,8 @@ select_2(Flag, Ref1, Ref2) ->
 
     %% Change ref
     eagain = read_nif(R, 1),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref2),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref2, MSG_ENV),
 
     [] = flush(0),
     ok = write_nif(W, <<"hej">>),
@@ -587,10 +590,10 @@ select_2(Flag, Ref1, Ref2) ->
 
     %% Change pid
     eagain = read_nif(R, 1),
-    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
     Papa = self(),
     spawn_link(fun() ->
-                       0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1),
+                       0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, null, Ref1, MSG_ENV),
                        [] = flush(0),
                        Papa ! sync,
                        receive_ready(R, Ref1, ready_input),
@@ -602,13 +605,13 @@ select_2(Flag, Ref1, Ref2) ->
     done = receive_any(),
     [] = flush(0),
 
-    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1)),
+    check_stop_ret(select_nif(R,?ERL_NIF_SELECT_STOP,R,null,Ref1, null)),
     [{fd_resource_stop, R_ptr, _}] = flush(),
     {1, {R_ptr,_}} = last_fd_stop_call(),
     true = is_closed_nif(R),
 
     %% Stop without previous read/write select
-    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1),
+    ?ERL_NIF_SELECT_STOP_CALLED = select_nif(W,?ERL_NIF_SELECT_STOP,W,null,Ref1,null),
     [{fd_resource_stop, W_ptr, 1}] = flush(),
     {1, {W_ptr,1}} = last_fd_stop_call(),
     true = is_closed_nif(W),
@@ -634,7 +637,7 @@ select_steal_child_process(Parent, RFd) ->
     Ref2 = make_ref(),
 
     %% Try to select from the child pid (steal from parent)
-    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
     ?assertEqual([], flush(0)),
     ?assertEqual(eagain, read_nif(R2Fd, 1)),
 
@@ -642,7 +645,7 @@ select_steal_child_process(Parent, RFd) ->
     Parent ! {self(), stage1}, % signal parent to send the <<"stolen1">>
 
     %% Receive <<"stolen1">> via enif_select
-    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2)),
+    ?assertEqual(0, select_nif(R2Fd, ?ERL_NIF_SELECT_READ, R2Fd, null, Ref2, null)),
     ?assertMatch([{select, R2Fd, Ref2, ready_input}], flush()),
     ?assertEqual(<<"stolen1">>, read_nif(R2Fd, 7)),
 
@@ -660,7 +663,7 @@ select_steal(Config) when is_list(Config) ->
     {{RFd, RPtr}, {WFd, WPtr}} = pipe_nif(),
 
     %% Bind the socket to current pid in enif_select
-    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref)),
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, null, Ref, null)),
     ?assertEqual([], flush(0)),
 
     %% Spawn a process and do some stealing
@@ -674,15 +677,15 @@ select_steal(Config) when is_list(Config) ->
     ?assertMatch([{Pid, done}], flush(1)),  % synchronize with the child
 
     %% Try to select from the parent pid (steal back)
-    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref)),
+    ?assertEqual(0, select_nif(RFd, ?ERL_NIF_SELECT_READ, RFd, Pid, Ref, null)),
 
     %% Ensure that no data is hanging and close.
     %% Rfd is stolen at this point.
-    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref)),
+    check_stop_ret(select_nif(WFd, ?ERL_NIF_SELECT_STOP, WFd, null, Ref, null)),
     ?assertMatch([{fd_resource_stop, WPtr, _}], flush()),
     {1, {WPtr, 1}} = last_fd_stop_call(),
 
-    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref)),
+    check_stop_ret(select_nif(RFd, ?ERL_NIF_SELECT_STOP, RFd, null, Ref, null)),
     ?assertMatch([{fd_resource_stop, RPtr, _}], flush()),
     {1, {RPtr, _DirectCall}} = last_fd_stop_call(),
 
@@ -3406,7 +3409,7 @@ term_to_binary_nif(_, _) -> ?nif_stub.
 binary_to_term_nif(_, _, _) -> ?nif_stub.
 port_command_nif(_, _) -> ?nif_stub.
 format_term_nif(_,_) -> ?nif_stub.
-select_nif(_,_,_,_,_) -> ?nif_stub.
+select_nif(_,_,_,_,_,_) -> ?nif_stub.
 dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.

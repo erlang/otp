@@ -54,7 +54,7 @@
 ** 2.13: 20.1 add enif_ioq
 ** 2.14: 21.0 add enif_ioq_peek_head, enif_(mutex|cond|rwlock|thread)_name
 **                enif_vfprintf, enif_vsnprintf, enif_make_map_from_arrays
-** 2.15: 22.0 ERL_NIF_SELECT_CANCEL
+** 2.15: 22.0 ERL_NIF_SELECT_CANCEL, enif_select_(read|write)
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 15

@@ -596,11 +596,11 @@ static void prepare_select_msg(struct erts_nif_select_event* e,
                                Eterm recipient,
                                ErtsResource* resource,
                                Eterm msg,
+                               ErlNifEnv* msg_env,
                                Eterm event_atom)
 {
     ErtsMessage* mp;
     Eterm* hp;
-    Eterm* hp_start;
     Uint hsz;
 
     if (is_not_nil(e->pid)) {
@@ -609,14 +609,20 @@ static void prepare_select_msg(struct erts_nif_select_event* e,
     }
 
     if (mode & ERL_NIF_SELECT_CUSTOM_MSG) {
-        hsz = size_object(msg);
-        mp = erts_alloc_message(hsz, &hp);
-        hp_start = hp;
-        ERL_MESSAGE_TERM(mp) = copy_struct(msg, hsz, &hp, &mp->hfrag.off_heap);
+        if (msg_env) {
+            mp = erts_create_message_from_nif_env(msg_env);
+            ERL_MESSAGE_TERM(mp) = msg;
+        }
+        else {
+            hsz = size_object(msg);
+            mp = erts_alloc_message(hsz, &hp);
+            ERL_MESSAGE_TERM(mp) = copy_struct(msg, hsz, &hp, &mp->hfrag.off_heap);
+        }
     }
     else {
         ErtsBinary* bin;
         Eterm resource_term, ref_term, tuple;
+        Eterm* hp_start;
 
          /* {select, Resource, Ref, EventAtom} */
         hsz = 5 + ERTS_MAGIC_REF_THING_SIZE;
@@ -643,8 +649,8 @@ static void prepare_select_msg(struct erts_nif_select_event* e,
         tuple = TUPLE4(hp, am_select, resource_term, ref_term, event_atom);
         hp += 5;
         ERL_MESSAGE_TERM(mp) = tuple;
+        ASSERT(hp == hp_start + hsz); (void)hp_start;
     }
-    ASSERT(hp == hp_start + hsz); (void)hp_start;
 
     ASSERT(is_not_nil(recipient));
     e->pid = recipient;
@@ -1027,12 +1033,21 @@ done_unknown:
 }
 
 int
-enif_select(ErlNifEnv* env,
-            ErlNifEvent e,
-            enum ErlNifSelectFlags mode,
-            void* obj,
-            const ErlNifPid* pid,
-            Eterm msg)
+enif_select(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags mode,
+            void* obj, const ErlNifPid* pid, Eterm msg)
+{
+    return enif_select_x(env, e, mode, obj, pid, msg, NULL);
+}
+
+
+int
+enif_select_x(ErlNifEnv* env,
+              ErlNifEvent e,
+              enum ErlNifSelectFlags mode,
+              void* obj,
+              const ErlNifPid* pid,
+              Eterm msg,
+              ErlNifEnv* msg_env)
 {
     int on;
     ErtsResource* resource = DATA_TO_RESOURCE(obj);
@@ -1177,11 +1192,12 @@ enif_select(ErlNifEnv* env,
         ASSERT(state->driver.stop.resource == resource);
         if (mode & ERL_DRV_READ) {
             prepare_select_msg(&state->driver.nif->in, mode, recipient,
-                               resource, msg, am_ready_input);
+                               resource, msg, msg_env, am_ready_input);
+            msg_env = NULL;
         }
         if (mode & ERL_DRV_WRITE) {
             prepare_select_msg(&state->driver.nif->out, mode, recipient,
-                               resource, msg, am_ready_output);
+                               resource, msg, msg_env, am_ready_output);
         }
         ret = 0;
     }
