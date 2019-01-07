@@ -995,12 +995,18 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 }
 
 static size_t size_of_RSA(EVP_PKEY *pkey) {
-    size_t tmplen;
-    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
-    if (rsa == NULL) return 0;
-    tmplen = RSA_size(rsa);
-    RSA_free(rsa);
-    return tmplen;
+    int ret = 0;
+    RSA *rsa = NULL;
+
+    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL)
+        goto err;
+    ret = RSA_size(rsa);
+
+ err:
+    if (rsa)
+        RSA_free(rsa);
+
+    return (ret < 0) ? 0 : (size_t)ret;
 }
 
 ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
