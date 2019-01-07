@@ -2171,7 +2171,7 @@ enc_opt_val([{packet_spec, Specs}|Opts], Acc) ->
                             (u32) -> <<32:8>>;
                             (u32le) -> <<33:8>>;
                             (varint) -> <<1:8>>
-                         end, Specs) ++ <<0:8>>,
+                         end, Specs) ++ [<<0:8>>],
     enc_opt_val(Opts, [list_to_binary([<<?INET_LOPT_PACKET_SPEC:8, 0:32>>|EncSpecs])|Acc]);
 enc_opt_val([{Opt,Val}|Opts], Acc) ->
     enc_opt_val(Opts, Acc, Opt, Val);
