@@ -115,37 +115,50 @@ int init_engine_ctx(ErlNifEnv *env) {
 ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (EngineId) */
 #ifdef HAS_ENGINE_SUPPORT
-    ERL_NIF_TERM ret;
+    ERL_NIF_TERM ret, result;
     ErlNifBinary engine_id_bin;
-    char *engine_id;
+    char *engine_id = NULL;
     ENGINE *engine;
-    struct engine_ctx *ctx;
+    struct engine_ctx *ctx = NULL;
 
     // Get Engine Id
-    if(!enif_inspect_binary(env, argv[0], &engine_id_bin)) {
-        PRINTF_ERR0("engine_by_id_nif Leaved: badarg");
-        return enif_make_badarg(env);
-    } else {
-        engine_id = enif_alloc(engine_id_bin.size+1);
-        (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
-        engine_id[engine_id_bin.size] = '\0';
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
+        goto bad_arg;
 
-    engine = ENGINE_by_id(engine_id);
-    if(!engine) {
-        enif_free(engine_id);
+    if ((engine_id = enif_alloc(engine_id_bin.size+1)) == NULL)
+        goto err;
+    (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
+    engine_id[engine_id_bin.size] = '\0';
+
+    if ((engine = ENGINE_by_id(engine_id)) == NULL) {
         PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
-        return enif_make_tuple2(env, atom_error, atom_bad_engine_id);
+        ret = enif_make_tuple2(env, atom_error, atom_bad_engine_id);
+        goto done;
     }
 
-    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    if ((ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx))) == NULL)
+        goto err;
     ctx->engine = engine;
     ctx->id = engine_id;
+    /* ctx now owns engine_id */
+    engine_id = NULL;
 
-    ret = enif_make_resource(env, ctx);
+    result = enif_make_resource(env, ctx);
+    ret = enif_make_tuple2(env, atom_ok, result);
+    goto done;
+
+ bad_arg:
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    if (engine_id)
+        enif_free(engine_id);
     enif_release_resource(ctx);
+    return ret;
 
-    return enif_make_tuple2(env, atom_ok, ret);
 #else
     return atom_notsup;
 #endif
