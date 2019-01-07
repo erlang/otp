@@ -173,8 +173,6 @@ extern int erts_dio_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
 #define ERTS_RUNQ_FLG_HALTING \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
-#define ERTS_RUNQ_FLG_CHECKIO \
-  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 11))
 
 #define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 12)
 

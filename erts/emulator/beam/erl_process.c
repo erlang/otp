@@ -344,6 +344,7 @@ erts_sched_stat_t erts_sched_stat;
 static erts_tsd_key_t ERTS_WRITE_UNLIKELY(sched_data_key);
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
+static erts_atomic32_t function_calls;
 static erts_atomic32_t doing_sys_schedule;
 #endif
 static erts_atomic32_t no_empty_run_queues;
@@ -3251,6 +3252,7 @@ poll_thread(void *arg)
 static ERTS_INLINE void
 clear_sys_scheduling(void)
 {
+    erts_atomic32_set_relb(&function_calls, 0);
     erts_atomic32_set_mb(&doing_sys_schedule, 0);
 }
 
@@ -3271,28 +3273,6 @@ prepare_for_sys_schedule(void)
         clear_sys_scheduling();
     }
     return 0;
-}
-
-static void
-check_io_timer(void *null)
-{
-    ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    if (prepare_for_sys_schedule()) {
-        erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT);
-        clear_sys_scheduling();
-    }
-
-    /* The timer is cleared if this schedulers run-queue became empty
-       or if the CHECKIO flag was cleared. The CHECKIO flags is cleared
-       when a check_balance assigns another scheduler to be the poller in
-       the overload scenario. */
-    if ((ERTS_RUNQ_FLGS_GET_NOB(esdp->run_queue) & (ERTS_RUNQ_FLG_OUT_OF_WORK|ERTS_RUNQ_FLG_CHECKIO))
-        == ERTS_RUNQ_FLG_CHECKIO) {
-        erts_start_timer_callback(ERTS_POLL_SCHEDULER_POLLING_TIMEOUT,
-                                  check_io_timer, NULL);
-    } else {
-        ERTS_RUNQ_FLGS_UNSET(esdp->run_queue, ERTS_RUNQ_FLG_CHECKIO);
-    }
 }
 
 #else
@@ -3406,6 +3386,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                         current_time = erts_get_monotonic_time(esdp);
                     }
                 }
+                *fcalls = 0;
                 clear_sys_scheduling();
             } else {
                 if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
@@ -4661,15 +4642,6 @@ check_balance(ErtsRunQueue *c_rq)
     if (blnc_no_rqs == 1) {
 	c_rq->check_balance_reds = INT_MAX;
 	erts_atomic32_set_nob(&balance_info.checking_balance, 0);
-#if ERTS_POLL_USE_SCHEDULER_POLLING
-	c_rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
-        if ((ERTS_RUNQ_FLGS_GET_NOB(c_rq) & (ERTS_RUNQ_FLG_OUT_OF_WORK|ERTS_RUNQ_FLG_CHECKIO))
-             == 0) {
-            ERTS_RUNQ_FLGS_SET(c_rq, ERTS_RUNQ_FLG_CHECKIO);
-            erts_start_timer_callback(ERTS_POLL_SCHEDULER_POLLING_TIMEOUT, check_io_timer, NULL);
-        }
-        ERTS_RUNQ_FLGS_UNSET(c_rq, ERTS_RUNQ_FLGS_MIGRATION_INFO);
-#endif
 	return;
     }
 
@@ -5189,19 +5161,6 @@ erts_fprintf(stderr, "--------------------------------\n");
     /* Publish new migration paths... */
     erts_atomic_set_wb(&erts_migration_paths, (erts_aint_t) new_mpaths);
 
-#if ERTS_POLL_USE_SCHEDULER_POLLING
-    if (full_scheds == current_active) {
-        ERTS_ASSERT(full_scheds <= current_active);
-        /* All active schedulers ran for full, we need to do active polling,
-           so we setup a timer that does active polling */
-        if (!(ERTS_RUNQ_FLGS_GET_NOB(c_rq) & ERTS_RUNQ_FLG_CHECKIO)) {
-            /* Active polling is not running, start it */
-            erts_start_timer_callback(ERTS_POLL_SCHEDULER_POLLING_TIMEOUT, check_io_timer, NULL);
-        }
-        run_queue_info[c_rq->ix].flags |= ERTS_RUNQ_FLG_CHECKIO;
-    }
-#endif
-
     /* Reset balance statistics in all online queues */
     for (qix = 0; qix < blnc_no_rqs; qix++) {
 	Uint32 flags = run_queue_info[qix].flags;
@@ -5211,8 +5170,6 @@ erts_fprintf(stderr, "--------------------------------\n");
 	ASSERT(!(flags & ERTS_RUNQ_FLG_OUT_OF_WORK));
 	if (rq->waiting)
 	    flags |= ERTS_RUNQ_FLG_OUT_OF_WORK;
-        if (rq != c_rq)
-            flags &= ~ERTS_RUNQ_FLG_CHECKIO;
 
 	rq->full_reds_history_sum
 	    = run_queue_info[qix].full_reds_history_sum;
@@ -5222,7 +5179,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 	ERTS_DBG_CHK_FULL_REDS_HISTORY(rq);
 
 	rq->out_of_work_count = 0;
-	(void) ERTS_RUNQ_FLGS_READ_BSET(rq, ERTS_RUNQ_FLGS_MIGRATION_INFO|ERTS_RUNQ_FLG_CHECKIO, flags);
+	(void) ERTS_RUNQ_FLGS_READ_BSET(rq, ERTS_RUNQ_FLGS_MIGRATION_INFO, flags);
 	rq->max_len = erts_atomic32_read_dirty(&rq->len);
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {
 	    ErtsRunQueueInfo *rqi;
@@ -5873,6 +5830,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_RUNQS, size_runqs);
 #if ERTS_POLL_USE_SCHEDULER_POLLING
     erts_atomic32_init_nob(&doing_sys_schedule, 0);
+    erts_atomic32_init_nob(&function_calls, 0);
 #endif
     erts_atomic32_init_nob(&no_empty_run_queues, 0);
 
@@ -9217,7 +9175,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
     Process *proxy_p = NULL;
     ErtsRunQueue *rq;
     int context_reds;
-    int fcalls;
+    int fcalls = 0;
     int actual_reds;
     int reds;
     Uint32 flags;
@@ -9290,6 +9248,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	if (reds < ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST)
 	    reds = ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST;
 	esdp->virtual_reds = 0;
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+        fcalls = (int) erts_atomic32_add_read_acqb(&function_calls, reds);
+#endif
 
 	ASSERT(esdp && esdp == erts_get_scheduler_data());
 
@@ -9507,7 +9469,33 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    non_empty_runq(rq);
 
 	    goto check_activities_to_run;
-	}
+	} else if (is_normal_sched &&
+                   fcalls > (2 * context_reds) &&
+                   prepare_for_sys_schedule()) {
+            ErtsMonotonicTime current_time;
+	    /*
+	     * Schedule system-level activities.
+	     */
+
+	    ERTS_MSACC_PUSH_STATE_CACHED_M();
+
+	    erts_runq_unlock(rq);
+
+            ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_CHECK_IO);
+            LTTNG2(scheduler_poll, esdp->no, 1);
+
+	    erts_check_io(esdp->ssi->psi, ERTS_POLL_NO_TIMEOUT);
+	    ERTS_MSACC_POP_STATE_M();
+
+	    current_time = erts_get_monotonic_time(esdp);
+	    if (current_time >= erts_next_timeout_time(esdp->next_tmo_ref))
+		erts_bump_timers(esdp->timer_wheel, current_time);
+
+	    erts_runq_lock(rq);
+	    fcalls = 0;
+	    clear_sys_scheduling();
+	    goto continue_check_activities_to_run;
+        }
 
         if (flags & ERTS_RUNQ_FLG_MISC_OP)
 	    exec_misc_ops(rq);
