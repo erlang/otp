@@ -236,22 +236,34 @@ static ERL_NIF_TERM point2term(ErlNifEnv* env,
 			       const EC_POINT *point,
 			       point_conversion_form_t form)
 {
-    unsigned dlen;
+    ERL_NIF_TERM ret;
+    size_t dlen;
     ErlNifBinary bin;
+    int bin_alloc = 0;
 
-    dlen = EC_POINT_point2oct(group, point, form, NULL, 0, NULL);
-    if (dlen == 0)
+    if ((dlen = EC_POINT_point2oct(group, point, form, NULL, 0, NULL)) == 0)
 	return atom_undefined;
 
     if (!enif_alloc_binary(dlen, &bin))
-	return enif_make_badarg(env);
+        goto err;
+    bin_alloc = 1;
 
-    if (!EC_POINT_point2oct(group, point, form, bin.data, bin.size, NULL)) {
-	enif_release_binary(&bin);
-	return enif_make_badarg(env);
-    }
+    if (!EC_POINT_point2oct(group, point, form, bin.data, bin.size, NULL))
+        goto err;
+
     ERL_VALGRIND_MAKE_MEM_DEFINED(bin.data, bin.size);
-    return enif_make_binary(env, &bin);
+
+    ret = enif_make_binary(env, &bin);
+    bin_alloc = 0;
+    goto done;
+
+ err:
+    if (bin_alloc)
+        enif_release_binary(&bin);
+    ret = enif_make_badarg(env);
+
+ done:
+    return ret;
 }
 
 int term2point(ErlNifEnv* env, ERL_NIF_TERM term, EC_GROUP *group, EC_POINT **pptr)
