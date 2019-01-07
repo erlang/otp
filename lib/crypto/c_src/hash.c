@@ -34,7 +34,11 @@ struct evp_md_ctx {
 static ErlNifResourceType* evp_md_ctx_rtype;
 
 static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
-    EVP_MD_CTX_free(ctx->ctx);
+    if (ctx == NULL)
+        return;
+
+    if (ctx->ctx)
+        EVP_MD_CTX_free(ctx->ctx);
 }
 #endif
 
