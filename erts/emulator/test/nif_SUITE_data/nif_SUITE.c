@@ -2486,7 +2486,8 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enum ErlNifSelectFlags mode;
     void* obj;
     ErlNifPid nifpid, *pid = NULL;
-    ERL_NIF_TERM ref;
+    ERL_NIF_TERM ref_or_msg;
+    ErlNifEnv* msg_env = NULL;
     int retval;
 
     if (!get_fd(env, argv[0], &fdr)
@@ -2501,11 +2502,27 @@ static ERL_NIF_TERM select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	    return enif_make_badarg(env);
 	pid = &nifpid;
     }
-    ref = argv[4];
+    ref_or_msg = argv[4];
+    if (argv[5] != atom_null) {
+        msg_env = enif_alloc_env();
+        ref_or_msg = enif_make_copy(msg_env, ref_or_msg);
+    }
 
     fdr->was_selected = 1;
     enif_self(env, &fdr->pid);
-    retval = enif_select(env, fdr->fd, mode, obj, pid, ref);
+    switch (mode) {
+    case ERL_NIF_SELECT_CUSTOM_MSG | ERL_NIF_SELECT_READ:
+        retval = enif_select_read(env, fdr->fd, obj, pid, ref_or_msg, msg_env);
+        break;
+    case ERL_NIF_SELECT_CUSTOM_MSG | ERL_NIF_SELECT_WRITE:
+        retval = enif_select_write(env, fdr->fd, obj, pid, ref_or_msg, msg_env);
+        break;
+    default:
+        retval = enif_select(env, fdr->fd, mode, obj, pid, ref_or_msg);
+    }
+
+    if (msg_env)
+        enif_free_env(msg_env);
 
     return enif_make_int(env, retval);
 }
@@ -3565,7 +3582,7 @@ static ErlNifFunc nif_funcs[] =
     {"binary_to_term_nif", 3, binary_to_term},
     {"port_command_nif", 2, port_command},
     {"format_term_nif", 2, format_term},
-    {"select_nif", 5, select_nif},
+    {"select_nif", 6, select_nif},
 #ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
     {"write_nif", 2, write_nif},

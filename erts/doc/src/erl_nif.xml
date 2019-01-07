@@ -3063,6 +3063,11 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
 	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
 	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
 	  is ready for reading or writing.</p>
+	<note><p>For complete control over the message format use the newer functions
+	  <seealso marker="#enif_select_read"><c>enif_select_read</c></seealso> or
+	  <seealso marker="#enif_select_write"><c>enif_select_write</c></seealso>
+	  introduced in erts-11.0 (OTP-22.0).</p>
+	</note>
 	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
 	<p>Argument <c>obj</c> is a resource object obtained from
           <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
@@ -3153,6 +3158,34 @@ if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
 	  <c>ERL_NIF_SELECT_WRITE_CANCELLED</c> were introduced in erts-11.0
 	  (OTP-22.0).</p>
 	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>enif_select_read(ErlNifEnv* env, ErlNifEvent event, void* obj,
+      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env)</nametext>
+      </name>
+      <name since="OTP 22.0"><ret>int</ret>
+      <nametext>enif_select_write(ErlNifEnv* env, ErlNifEvent event, void* obj,
+      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env)</nametext>
+      </name>
+      <fsummary>Manage subscription on IO event.</fsummary>
+      <desc>
+	<p>These are variants of <seealso marker="#enif_select">enif_select</seealso>
+	where you can supply your own message term <c>msg</c> that will be sent to
+	the process instead of the predefined tuple <c>{select,_,_,_}.</c></p>
+        <p>Argument <c>msg_env</c> must either be <c>NULL</c> or the environment of
+	<c>msg</c> allocated with <seealso marker="#enif_alloc_env">
+	<c>enif_alloc_env</c></seealso>. If argument <c>msg_env</c> is
+	<c>NULL</c> the term <c>msg</c> will be copied, otherwise both
+	<c>msg</c> and <c>msg_env</c> will be invalidated by a successful call
+	to <c>enif_select_read</c> or <c>enif_select_write</c>.</p>
+	<p>Apart from the message format <c>enif_select_read</c> and
+	<c>enif_select_write</c> behaves exactly the same as <seealso
+	marker="#enif_select">enif_select</seealso> with argument <c>mode</c> as
+	either <c>ERL_NIF_SELECT_READ</c> or <c>ERL_NIF_SELECT_WRITE</c>. To
+	cancel or close events use <seealso marker="#enif_select">enif_select</seealso>.</p>
       </desc>
     </func>
 

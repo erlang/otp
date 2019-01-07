@@ -707,6 +707,29 @@ error:
     return reds;
 }
 
+/** @brief Create a message with the content of process independent \c msg_env.
+ *  Invalidates \c msg_env.
+ */
+ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env)
+{
+    struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
+    ErtsMessage* mp;
+
+    flush_env(msg_env);
+    mp = erts_alloc_message(0, NULL);
+    mp->data.heap_frag = menv->env.heap_frag;
+    ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
+    if (mp->data.heap_frag != NULL) {
+        /* Move all offheap's from phony proc to the first fragment.
+           Quick and dirty... */
+        ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
+        mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
+        clear_offheap(&MSO(&menv->phony_proc));
+        menv->env.heap_frag = NULL;
+        MBUF(&menv->phony_proc) = NULL;
+    }
+    return mp;
+}
 
 int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
@@ -803,20 +826,8 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             }
 #endif
         }
-        flush_env(msg_env);
-        mp = erts_alloc_message(0, NULL);
+        mp = erts_create_message_from_nif_env(msg_env);
         ERL_MESSAGE_TOKEN(mp) = token;
-        mp->data.heap_frag = menv->env.heap_frag;
-        ASSERT(mp->data.heap_frag == MBUF(&menv->phony_proc));
-        if (mp->data.heap_frag != NULL) {
-            /* Move all offheap's from phony proc to the first fragment.
-               Quick and dirty... */
-            ASSERT(!is_offheap(&mp->data.heap_frag->off_heap));
-            mp->data.heap_frag->off_heap = MSO(&menv->phony_proc);
-            clear_offheap(&MSO(&menv->phony_proc));
-            menv->env.heap_frag = NULL;
-            MBUF(&menv->phony_proc) = NULL;
-        }
     } else {
         erts_literal_area_t litarea;
 	ErlOffHeap *ohp;

@@ -532,9 +532,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 
     if ((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	goto in_message_fragment;
-    else if (
-	*plp & ERTS_PROC_LOCK_MAIN
-	) {
+    else if (*plp & ERTS_PROC_LOCK_MAIN) {
     try_on_heap:
 	if (((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	    || (pp->flags & F_DISABLE_GC)
