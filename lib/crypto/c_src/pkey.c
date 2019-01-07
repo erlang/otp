@@ -890,11 +890,9 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
     const ERL_NIF_TERM *tpl_terms;
     int tpl_arity;
     const EVP_MD *opt_md;
-    int i;
 
-    if (!enif_is_list(env, options)) {
-	return PKEY_BADARG;
-    }
+    if (!enif_is_list(env, options))
+        goto bad_arg;
 
     /* defaults */
     if (algorithm == atom_rsa) {
@@ -906,79 +904,94 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 	opt->signature_md = NULL;
     }
 
-    if (enif_is_empty_list(env, options)) {
-	return PKEY_OK;
-    }
+    if (enif_is_empty_list(env, options))
+        return PKEY_OK;
 
-    if (algorithm == atom_rsa) {
-	tail = options;
-	while (enif_get_list_cell(env, tail, &head, &tail)) {
-	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
-		if (tpl_terms[0] == atom_rsa_padding
-                    || tpl_terms[0] == atom_rsa_pad /* Compatibility */
-                    ) {
-		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
-			opt->rsa_padding = RSA_PKCS1_PADDING;
+    if (algorithm != atom_rsa)
+        goto bad_arg;
+
+    tail = options;
+    while (enif_get_list_cell(env, tail, &head, &tail)) {
+        if (!enif_get_tuple(env, head, &tpl_arity, &tpl_terms))
+            goto bad_arg;
+        if (tpl_arity != 2)
+            goto bad_arg;
+
+        if (tpl_terms[0] == atom_rsa_padding
+            || tpl_terms[0] == atom_rsa_pad /* Compatibility */
+            ) {
+            if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
+                opt->rsa_padding = RSA_PKCS1_PADDING;
+
 #ifdef HAVE_RSA_OAEP_PADDING
-		    } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
-			opt->rsa_padding = RSA_PKCS1_OAEP_PADDING;
+            } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
+                opt->rsa_padding = RSA_PKCS1_OAEP_PADDING;
 #endif
+
 #ifdef HAVE_RSA_SSLV23_PADDING
-		    } else if (tpl_terms[1] == atom_rsa_sslv23_padding) {
-			opt->rsa_padding = RSA_SSLV23_PADDING;
+            } else if (tpl_terms[1] == atom_rsa_sslv23_padding) {
+                opt->rsa_padding = RSA_SSLV23_PADDING;
 #endif
-		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
-			opt->rsa_padding = RSA_X931_PADDING;
-		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
-			opt->rsa_padding = RSA_NO_PADDING;
-		    } else {
-			return PKEY_BADARG;
-		    }
-		} else if (tpl_terms[0] == atom_signature_md && enif_is_atom(env, tpl_terms[1])) {
-		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
-		    if (i != PKEY_OK) {
-			return i;
-		    }
-		    opt->signature_md = opt_md;
-		} else if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+
+            } else if (tpl_terms[1] == atom_rsa_x931_padding) {
+                opt->rsa_padding = RSA_X931_PADDING;
+
+            } else if (tpl_terms[1] == atom_rsa_no_padding) {
+                opt->rsa_padding = RSA_NO_PADDING;
+
+            } else {
+                goto bad_arg;
+            }
+
+        } else if (tpl_terms[0] == atom_signature_md && enif_is_atom(env, tpl_terms[1])) {
+            int i;
+            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            if (i != PKEY_OK) {
+                return i;
+            }
+            opt->signature_md = opt_md;
+
+        } else if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+            int i;
 #ifndef HAVE_RSA_MGF1_MD
-		    if (tpl_terms[1] != atom_sha)
-			return PKEY_NOTSUP;
+            if (tpl_terms[1] != atom_sha)
+                return PKEY_NOTSUP;
 #endif
-		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
-		    if (i != PKEY_OK) {
-			return i;
-		    }
-		    opt->rsa_mgf1_md = opt_md;
-		} else if (tpl_terms[0] == atom_rsa_oaep_label
-			   && enif_inspect_binary(env, tpl_terms[1], &(opt->rsa_oaep_label))) {
+            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            if (i != PKEY_OK) {
+                return i;
+            }
+            opt->rsa_mgf1_md = opt_md;
+
+        } else if (tpl_terms[0] == atom_rsa_oaep_label
+                   && enif_inspect_binary(env, tpl_terms[1], &(opt->rsa_oaep_label))) {
 #ifdef HAVE_RSA_OAEP_MD
-		    continue;
+            continue;
 #else
-		    return PKEY_NOTSUP;
+            return PKEY_NOTSUP;
 #endif
-		} else if (tpl_terms[0] == atom_rsa_oaep_md && enif_is_atom(env, tpl_terms[1])) {
+
+        } else if (tpl_terms[0] == atom_rsa_oaep_md && enif_is_atom(env, tpl_terms[1])) {
+            int i;
 #ifndef HAVE_RSA_OAEP_MD
-		    if (tpl_terms[1] != atom_sha)
-			return PKEY_NOTSUP;
+            if (tpl_terms[1] != atom_sha)
+                return PKEY_NOTSUP;
 #endif
-		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
-		    if (i != PKEY_OK) {
-			return i;
-		    }
-		    opt->rsa_oaep_md = opt_md;
-		} else {
-		    return PKEY_BADARG;
-		}
-	    } else {
-		return PKEY_BADARG;
-	    }
-	}
-    } else {
-	return PKEY_BADARG;
+            i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+            if (i != PKEY_OK) {
+                return i;
+            }
+            opt->rsa_oaep_md = opt_md;
+
+        } else {
+            goto bad_arg;
+        }
     }
 
     return PKEY_OK;
+
+ bad_arg:
+    return PKEY_BADARG;
 }
 
 static size_t size_of_RSA(EVP_PKEY *pkey) {
