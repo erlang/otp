@@ -1996,13 +1996,13 @@ reserve_zregs(Blocks, Intervals, Res) ->
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
     case {Val,Last} of
-        {#b_literal{val=Arity},#b_br{}} when Arity bsr 32 =:= 0 ->
+        {#b_literal{val=Arity},#b_br{bool=#b_var{}}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
             reserve_zreg_1(Dst, ShortLived, A0);
         {_,_} ->
-            %% Either the arity is too big, or the boolean value from
-            %% '=:=' will be returned.
+            %% Either the arity is too big, or the boolean value is not
+            %% used in a conditional branch.
             A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
