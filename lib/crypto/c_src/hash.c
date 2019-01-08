@@ -218,14 +218,14 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM         ctx;
     size_t               ctx_size = 0;
     init_fun             ctx_init = 0;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (digp->md.p == NULL)
+        goto err;
 
     switch (EVP_MD_type(digp->md.p))
     {
@@ -270,13 +270,24 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_init);
 
-    ctx_init(enif_make_new_binary(env, ctx_size, &ctx));
+    if ((outp = enif_make_new_binary(env, ctx_size, &ctx)) == NULL)
+        goto err;
+
+    if (ctx_init(outp) != 1)
+        goto err;
+
     return enif_make_tuple2(env, argv[0], ctx);
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
