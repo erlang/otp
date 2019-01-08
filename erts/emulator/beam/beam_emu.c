@@ -3256,9 +3256,11 @@ erts_gc_update_record(Process *p, Eterm *reg, Uint live, Eterm source,
     dst_elements = HEAP_TOP(p);
     HEAP_TOP(p) += tuple_size;
 
+    /* Copy the entire tuple, and then start updating at the first altered
+     * value. */
     sys_memcpy(dst_elements, src_elements, sizeof(Eterm) * tuple_size);
 
-    for (index = 0; index < update_count; index += 2) {
+    while (index < update_count) {
         SWord update_index;
         Eterm new_value;
 
@@ -3266,6 +3268,7 @@ erts_gc_update_record(Process *p, Eterm *reg, Uint live, Eterm source,
         GET_TERM(updates[index+1], new_value);
 
         dst_elements[update_index] = new_value;
+        index += 2;
     }
 
     return make_tuple(dst_elements);

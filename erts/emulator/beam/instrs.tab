@@ -609,6 +609,7 @@ set_tuple_element(Element, Tuple, Offset) {
 }
 
 i_update_record(Src, Dst, Live, N) {
+    //| -no_next
     Eterm res;
 
     HEAVY_SWAPOUT;
