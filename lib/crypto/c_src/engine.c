@@ -217,13 +217,19 @@ ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
-        PRINTF_ERR0("engine_finish_nif Leaved: Parameter not an engine resource object");
-        return enif_make_badarg(env);
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
-    ENGINE_finish(ctx->engine);
+    if (!ENGINE_finish(ctx->engine))
+        goto err;
     return atom_ok;
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
+
 #else
     return atom_notsup;
 #endif
