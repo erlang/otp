@@ -113,36 +113,54 @@ ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     ErlNifBinary key_bin, ivec_bin, data_bin;
     AES_KEY aes_key;
     unsigned char ivec[32];
-    int i;
+    int type;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;
 
     CHECK_NO_FIPS_MODE();
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-       || (key_bin.size != 16 && key_bin.size != 32)
-       || !enif_inspect_binary(env, argv[1], &ivec_bin)
-       || ivec_bin.size != 32
-       || !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
-       || data_bin.size % 16 != 0) {
-
-       return enif_make_badarg(env);
-    }
+    if (argc != 4)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
+        goto bad_arg;
+    if (key_bin.size != 16 && key_bin.size != 32)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, argv[1], &ivec_bin))
+        goto bad_arg;
+    if (ivec_bin.size != 32)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &data_bin))
+        goto bad_arg;
+    if (data_bin.size % 16 != 0)
+        goto bad_arg;
 
     if (argv[3] == atom_true) {
-       i = AES_ENCRYPT;
-       AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+       type = AES_ENCRYPT;
+       /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+       if (AES_set_encrypt_key(key_bin.data, (int)key_bin.size * 8, &aes_key) != 0)
+           goto err;
     }
     else {
-       i = AES_DECRYPT;
-       AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+       type = AES_DECRYPT;
+       /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
+       if (AES_set_decrypt_key(key_bin.data, (int)key_bin.size * 8, &aes_key) != 0)
+           goto err;
     }
 
-    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
+    if ((ret_ptr = enif_make_new_binary(env, data_bin.size, &ret)) == NULL)
+        goto err;
+
     memcpy(ivec, ivec_bin.data, 32); /* writable copy */
-    AES_ige_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
+
+    AES_ige_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, type);
+
     CONSUME_REDS(env,data_bin);
     return ret;
+
+ bad_arg:
+ err:
+    return enif_make_badarg(env);
+
 #else
     return atom_notsup;
 #endif
