@@ -1833,7 +1833,7 @@ check_conf() ->
 			       {error, {Line, _Mod, Str}} ->
 				   throw({error, {FName, Line, Str}})
 			   end
-		   end, [], lists:foldr(fun erlang:'++'/2, [], Files))};
+		   end, [], lists:append(Files))};
 	_ -> {ok, []}
     end.
 
