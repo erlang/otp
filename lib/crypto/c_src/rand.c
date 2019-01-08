@@ -111,7 +111,7 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if ((data = enif_make_new_binary(env, (size_t)dlen+4, &ret)) == NULL)
         goto err;
 
-    put_int32(data, dlen);
+    put_uint32(data, (unsigned int)dlen);
     BN_bn2bin(bn_rand, data+4);
     ERL_VALGRIND_MAKE_MEM_DEFINED(data+4, dlen);
     goto done;

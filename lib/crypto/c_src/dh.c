@@ -140,10 +140,10 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         goto err;
 
     if (mpint) {
-        put_int32(pub_ptr, pub_len);
+        put_uint32(pub_ptr, (unsigned int)pub_len);
         pub_ptr += 4;
 
-        put_int32(prv_ptr, prv_len);
+        put_uint32(prv_ptr, (unsigned int)prv_len);
         prv_ptr += 4;
     }
 

@@ -296,11 +296,11 @@
                       (((unsigned char*) (s))[2] << 8)  | \
                       (((unsigned char*) (s))[3]))
 
-#define put_int32(s,i) \
-{ (s)[0] = (char)(((i) >> 24) & 0xff);\
-  (s)[1] = (char)(((i) >> 16) & 0xff);\
-  (s)[2] = (char)(((i) >> 8) & 0xff);\
-  (s)[3] = (char)((i) & 0xff);\
+#define put_uint32(s,i) \
+{ (s)[0] = (unsigned char)(((i) >> 24) & 0xff);\
+  (s)[1] = (unsigned char)(((i) >> 16) & 0xff);\
+  (s)[2] = (unsigned char)(((i) >> 8) & 0xff);\
+  (s)[3] = (unsigned char)((i) & 0xff);\
 }
 
 /* This shall correspond to the similar macro in crypto.erl */

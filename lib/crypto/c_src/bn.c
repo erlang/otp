@@ -133,7 +133,7 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto err;
 
     if (bin_hdr) {
-        put_int32(ptr, extra_byte + (unsigned int)dlen);
+        put_uint32(ptr, extra_byte + (unsigned int)dlen);
         ptr[4] = 0; /* extra zeroed byte to ensure a positive mpint */
         ptr += bin_hdr + extra_byte;
     }
