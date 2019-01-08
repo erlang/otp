@@ -1,8 +1,8 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +14,13 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
 %% File    : xmerl_sax_parser.erl
 %% Description : XML SAX parse API module.
 %%
-%% Created :  4 Jun 2008 
+%% Created :  4 Jun 2008
 %%----------------------------------------------------------------------
 -module(xmerl_sax_parser).
 
@@ -72,9 +72,9 @@ file(Name,Options) ->
 	    CL = filename:absname(Dir),
             File = filename:basename(Name),
 	    ContinuationFun = fun default_continuation_cb/1,
-            Res = stream(<<>>, 
+            Res = stream(<<>>,
                          [{continuation_fun, ContinuationFun},
-                          {continuation_state, FD}, 
+                          {continuation_state, FD},
                           {current_location, CL},
                           {entity, File}
                           |Options],
@@ -101,39 +101,39 @@ stream(Xml, Options, InputType) when is_list(Xml), is_list(Options) ->
     State = parse_options(Options, initial_state()),
     case State#xmerl_sax_parser_state.file_type of
 	dtd ->
-	    xmerl_sax_parser_list:parse_dtd(Xml, 
+	    xmerl_sax_parser_list:parse_dtd(Xml,
 					    State#xmerl_sax_parser_state{encoding = list,
 									 input_type = InputType});
 	normal ->
-	    xmerl_sax_parser_list:parse(Xml, 
+	    xmerl_sax_parser_list:parse(Xml,
 					State#xmerl_sax_parser_state{encoding = list,
 								     input_type = InputType})
     end;
 stream(Xml, Options, InputType) when is_binary(Xml), is_list(Options) ->
-    case parse_options(Options, initial_state()) of 
+    case parse_options(Options, initial_state()) of
 	{error, Reason} -> {error, Reason};
 	State ->
-	    ParseFunction = 
+	    ParseFunction =
 		case  State#xmerl_sax_parser_state.file_type of
 		    dtd ->
 			parse_dtd;
 		    normal ->
 			parse
 		end,
-                try 
+                try
                     {Xml1, State1} = detect_charset(Xml, State),
                      parse_binary(Xml1,
                                   State1#xmerl_sax_parser_state{input_type = InputType},
                                   ParseFunction)
                 catch
                     throw:{fatal_error, {State2, Reason}} ->
-                      {fatal_error, 
+                      {fatal_error,
                        {
                          State2#xmerl_sax_parser_state.current_location,
-                         State2#xmerl_sax_parser_state.entity, 
+                         State2#xmerl_sax_parser_state.entity,
                          1
                         },
-                       Reason, [], 
+                       Reason, [],
                        State2#xmerl_sax_parser_state.event_state}
               end
     end.
@@ -157,7 +157,7 @@ parse_binary(Xml, #xmerl_sax_parser_state{encoding={utf16,big}}=State, F) ->
     xmerl_sax_parser_utf16be:F(Xml, State);
 parse_binary(Xml, #xmerl_sax_parser_state{encoding=latin1}=State, F) ->
     xmerl_sax_parser_latin1:F(Xml, State);
-parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, State) -> 
+parse_binary(_, #xmerl_sax_parser_state{encoding=Enc}, State) ->
     ?fatal_error(State, lists:flatten(io_lib:format("Charcter set ~p not supported", [Enc]))).
 
 %%----------------------------------------------------------------------
@@ -177,9 +177,9 @@ initial_state() ->
 %%----------------------------------------------------------------------
 %% Function: parse_options(Options, State)
 %% Input:    Options = [Option]
-%%           Option = {event_state, term()} | {event_fun, fun()} | 
+%%           Option = {event_state, term()} | {event_fun, fun()} |
 %%                    {continuation_state, term()} | {continuation_fun, fun()} |
-%%                    {encoding, Encoding} | {file_type, FT} 
+%%                    {encoding, Encoding} | {file_type, FT}
 %%           FT = normal | dtd
 %%           Encoding = utf8 | utf16le | utf16be | list | iso8859
 %%           State = #xmerl_sax_parser_state{}
@@ -200,7 +200,7 @@ parse_options([{file_type, FT} |Options], State) when FT==normal; FT==dtd ->
     parse_options(Options, State#xmerl_sax_parser_state{file_type = FT});
 parse_options([{encoding, E} |Options], State) ->
     case check_encoding_option(E) of
-	{error, Reason} -> 
+	{error, Reason} ->
 	    {error, Reason};
 	Enc ->
 	    parse_options(Options, State#xmerl_sax_parser_state{encoding = Enc})
@@ -231,7 +231,7 @@ check_encoding_option(E) ->
 %% Description: Detects which character set is used in a binary stream.
 %%----------------------------------------------------------------------
 detect_charset(<<>>, #xmerl_sax_parser_state{continuation_fun = undefined} = State) ->
-    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+    ?fatal_error(State, "Can't detect character encoding due to lack of indata");
 detect_charset(<<>>, State) ->
     cf(<<>>, State, fun detect_charset/2);
 detect_charset(Bytes, State) ->
@@ -269,22 +269,14 @@ detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D>> = Xml, State) ->
     cf(Xml, State, fun detect_charset_1/2);
 detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml2/binary>>, State) ->
     {Xml3, State1} = read_until_end_of_xml_directive(Xml2, State),
-    case parse_xml_directive(Xml3) of
-	{error, Reason} ->
-	    ?fatal_error(State, Reason);
-	AttrList ->
-	    case lists:keysearch("encoding", 1, AttrList) of
-		{value, {_, E}} ->
-		    case convert_encoding(E) of
-			{error, Reason} ->
-			    ?fatal_error(State, Reason);
-			Enc ->
-			    {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>, 
-                             State1#xmerl_sax_parser_state{encoding=Enc}}
-		    end;
-		_ ->
-		    {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>, State1}
-	    end
+    AttrList = parse_xml_directive(Xml3, State),
+    case lists:keysearch("encoding", 1, AttrList) of
+        {value, {_, E}} ->
+            Enc = convert_encoding(E, State),
+            {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>,
+             State1#xmerl_sax_parser_state{encoding=Enc}};
+        _ ->
+            {<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml3/binary>>, State1}
     end;
 detect_charset_1(Xml, State) ->
     {Xml, State}.
@@ -295,7 +287,7 @@ detect_charset_1(Xml, State) ->
 %% Output:  utf8 | iso8859
 %% Description: Converting 7,8 bit and utf8 encoding strings to internal format.
 %%----------------------------------------------------------------------
-convert_encoding(Enc) -> %% Just for 7,8 bit + utf8
+convert_encoding(Enc, State) -> %% Just for 7,8 bit + utf8
     case string:to_lower(Enc) of
 	"utf-8" -> utf8;
 	"us-ascii" -> utf8;
@@ -309,19 +301,19 @@ convert_encoding(Enc) -> %% Just for 7,8 bit + utf8
 	"iso-8859-7" -> latin1;
 	"iso-8859-8" -> latin1;
 	"iso-8859-9" -> latin1;
-	_ -> {error, "Unknown encoding: " ++ Enc}
+	_ -> ?fatal_error(State, "Unknown encoding: " ++ Enc)
     end.
 
 %%----------------------------------------------------------------------
 %% Function: parse_xml_directive(Xml)
 %% Input:  Xml = binary()
 %%         Acc = list()
-%% Output:  
+%% Output:
 %% Description: Parsing the xml declaration from the input stream.
 %%----------------------------------------------------------------------
-parse_xml_directive(<<C, Rest/binary>>) when ?is_whitespace(C) ->
-   parse_xml_directive_1(Rest, []).
-    
+parse_xml_directive(<<C, Rest/binary>>, State) when ?is_whitespace(C) ->
+   parse_xml_directive_1(Rest, [], State).
+
 %%----------------------------------------------------------------------
 %% Function: parse_xml_directive_1(Xml, Acc) -> [{Name, Value}]
 %% Input:  Xml = binary()
@@ -331,20 +323,20 @@ parse_xml_directive(<<C, Rest/binary>>) when ?is_whitespace(C) ->
 %% Output: see above
 %% Description: Parsing the xml declaration from the input stream.
 %%----------------------------------------------------------------------
-parse_xml_directive_1(<<C, Rest/binary>>, Acc) when ?is_whitespace(C) ->
-    parse_xml_directive_1(Rest, Acc);
-parse_xml_directive_1(<<"?>", _/binary>>, Acc) ->
+parse_xml_directive_1(<<C, Rest/binary>>, Acc, State) when ?is_whitespace(C) ->
+    parse_xml_directive_1(Rest, Acc, State);
+parse_xml_directive_1(<<"?>", _/binary>>, Acc, _State) ->
     Acc;
-parse_xml_directive_1(<<C, Rest/binary>>, Acc) when 97 =< C, C =< 122 ->
+parse_xml_directive_1(<<C, Rest/binary>>, Acc, State) when 97 =< C, C =< 122 ->
     {Name, Rest1} = parse_name(Rest, [C]),
-    Rest2 = parse_eq(Rest1),
-    {Value, Rest3} = parse_value(Rest2),
-    parse_xml_directive_1(Rest3, [{Name, Value} |Acc]);
-parse_xml_directive_1(_, _) ->
-    {error, "Unknown attribute in xml directive"}.
+    Rest2 = parse_eq(Rest1, State),
+    {Value, Rest3} = parse_value(Rest2, State),
+    parse_xml_directive_1(Rest3, [{Name, Value} |Acc], State);
+parse_xml_directive_1(_, _, State) ->
+    ?fatal_error(State, "Unknown attribute in xml directive").
 
 %%----------------------------------------------------------------------
-%% Function: parse_xml_directive_1(Xml, Acc) -> Name
+%% Function: parse_name(Xml, Acc) -> Name
 %% Input:   Xml = binary()
 %%          Acc = string()
 %% Output:  Name = string()
@@ -361,10 +353,12 @@ parse_name(Rest, Acc) ->
 %% Output:  Rest = binary()
 %% Description: Reads an '=' from the stream.
 %%----------------------------------------------------------------------
-parse_eq(<<C, Rest/binary>>) when ?is_whitespace(C) ->
-    parse_eq(Rest);
-parse_eq(<<"=", Rest/binary>>) ->
-    Rest.
+parse_eq(<<C, Rest/binary>>, State) when ?is_whitespace(C) ->
+    parse_eq(Rest, State);
+parse_eq(<<"=", Rest/binary>>, _State) ->
+    Rest;
+parse_eq(_, State) ->
+    ?fatal_error(State, "expecting = or whitespace").
 
 %%----------------------------------------------------------------------
 %% Function: parse_value(Xml) -> {Value, Rest}
@@ -373,10 +367,12 @@ parse_eq(<<"=", Rest/binary>>) ->
 %%          Rest = binary()
 %% Description: Parsing an attribute value from the stream.
 %%----------------------------------------------------------------------
-parse_value(<<C, Rest/binary>>) when ?is_whitespace(C) ->
-    parse_value(Rest);
-parse_value(<<C, Rest/binary>>) when C == $'; C == $" ->
-    parse_value_1(Rest, C, []).
+parse_value(<<C, Rest/binary>>, State) when ?is_whitespace(C) ->
+    parse_value(Rest, State);
+parse_value(<<C, Rest/binary>>, _State) when C == $'; C == $" ->
+    parse_value_1(Rest, C, []);
+parse_value(_, State) ->
+    ?fatal_error(State, "\', \" or whitespace expected").
 
 %%----------------------------------------------------------------------
 %% Function: parse_value_1(Xml, Stop, Acc) -> {Value, Rest}
@@ -431,7 +427,7 @@ read_until_end_of_xml_directive(Rest, State) ->
         nomatch ->
             case cf(Rest, State) of
                 {<<>>, _} ->
-                    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+                    ?fatal_error(State, "Can't detect character encoding due to lack of indata");
                 {NewBytes, NewState} ->
                     read_until_end_of_xml_directive(NewBytes, NewState)
             end;
@@ -450,9 +446,9 @@ read_until_end_of_xml_directive(Rest, State) ->
 %%              input stream and calls the fun in NextCall.
 %%----------------------------------------------------------------------
 cf(_Rest, #xmerl_sax_parser_state{continuation_fun = undefined} = State) ->
-    ?fatal_error(State, "Continuation function undefined"); 
+    ?fatal_error(State, "Continuation function undefined");
 cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State) ->
-    Result = 
+    Result =
 	try
 	    CFun(CState)
 	catch
@@ -463,9 +459,9 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 	end,
     case Result of
 	{<<>>, _} ->
-	    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+	    ?fatal_error(State, "Can't detect character encoding due to lack of indata");
 	{NewBytes, NewContState} ->
-            {<<Rest/binary, NewBytes/binary>>,  
+            {<<Rest/binary, NewBytes/binary>>,
              State#xmerl_sax_parser_state{continuation_state = NewContState}}
     end.
 
@@ -479,10 +475,10 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 %%              input stream and calls the fun in NextCall.
 %%----------------------------------------------------------------------
 cf(_Rest, #xmerl_sax_parser_state{continuation_fun = undefined} = State, _) ->
-    ?fatal_error(State, "Continuation function undefined"); 
-cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State, 
+    ?fatal_error(State, "Continuation function undefined");
+cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = CState} = State,
    NextCall) ->
-    Result = 
+    Result =
 	try
 	    CFun(CState)
 	catch
@@ -493,8 +489,8 @@ cf(Rest, #xmerl_sax_parser_state{continuation_fun = CFun, continuation_state = C
 	end,
     case Result of
 	{<<>>, _} ->
-	    ?fatal_error(State, "Can't detect character encoding due to lack of indata"); 
+	    ?fatal_error(State, "Can't detect character encoding due to lack of indata");
 	{NewBytes, NewContState} ->
-	    NextCall(<<Rest/binary, NewBytes/binary>>,  
+	    NextCall(<<Rest/binary, NewBytes/binary>>,
 		     State#xmerl_sax_parser_state{continuation_state = NewContState})
     end.
