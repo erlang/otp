@@ -2008,6 +2008,14 @@ reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
              #b_switch{}, ShortLived, A) ->
     reserve_zreg_1(Dst, ShortLived, A);
+reserve_zreg([#b_set{op={bif,'xor'}}], _Last, _ShortLived, A) ->
+    %% There is no short, easy way to rewrite 'xor' to a series of
+    %% test instructions.
+    A;
+reserve_zreg([#b_set{op={bif,is_record}}], _Last, _ShortLived, A) ->
+    %% There is no short, easy way to rewrite is_record/2 to a series of
+    %% test instructions.
+    A;
 reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A0) ->
     IsZReg = case Op of
                  bs_match_string -> true;
