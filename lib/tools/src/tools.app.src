@@ -27,6 +27,7 @@
 	     instrument,
 	     lcnt,
 	     make,
+	     tags,
 	     xref,
 	     xref_base,
 	     xref_compiler,
