@@ -1071,8 +1071,8 @@ cg_block([#cg_set{op={bif,Name},dst=Dst0,args=Args0}]=Is0, {Dst0,Fail}, St0) ->
         {z,_} ->
             %% The result of the BIF call will only be used once. Convert to
             %% a test instruction.
-            Test = bif_to_test(Name, Args, ensure_label(Fail, St0)),
-            {Test,St0};
+            {Test,St1} = bif_to_test(Name, Args, ensure_label(Fail, St0), St0),
+            {Test,St1};
         _ ->
             %% Must explicitly call the BIF since the result will be used
             %% more than once.
@@ -1268,6 +1268,14 @@ cg_copy_1([], _St) -> [].
                           element(1, Val) =:= float orelse
                           element(1, Val) =:= atom orelse
                           element(1, Val) =:= literal)).
+
+bif_to_test('or', [V1,V2], {f,Lbl}=Fail, St0) when Lbl =/= 0 ->
+    {SuccLabel,St} = new_label(St0),
+    {[{test,is_eq_exact,{f,SuccLabel},[V1,{atom,false}]},
+      {test,is_eq_exact,Fail,[V2,{atom,true}]},
+      {label,SuccLabel}],St};
+bif_to_test(Op, Args, Fail, St) ->
+    {bif_to_test(Op, Args, Fail),St}.
 
 bif_to_test('and', [V1,V2], Fail) ->
     [{test,is_eq_exact,Fail,[V1,{atom,true}]},
@@ -2017,9 +2025,7 @@ is_gc_bif(Bif, Args) ->
 %% new_label(St) -> {L,St}.
 
 new_label(#cg{lcount=Next}=St) ->
-    %% Advance the label counter by 2 to allow us to create
-    %% a label for 'or' by incrementing an existing label.
-    {Next,St#cg{lcount=Next+2}}.
+    {Next,St#cg{lcount=Next+1}}.
 
 %% call_line(tail|body, Func, Anno) -> [] | [{line,...}].
 %%  Produce a line instruction if it will be needed by the
