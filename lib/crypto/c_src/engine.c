@@ -238,6 +238,9 @@ ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
 #ifdef HAS_ENGINE_SUPPORT
+    if (argc != 0)
+        return enif_make_badarg(env);
+
     ENGINE_load_dynamic();
     return atom_ok;
 #else
