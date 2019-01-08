@@ -186,61 +186,105 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (OthersPublicKey, MyPrivateKey, DHParams=[P,G]) */
-    BIGNUM *other_pub_key = NULL,
-        *dh_p = NULL,
-        *dh_g = NULL;
-    DH *dh_priv = DH_new();
+    BIGNUM *other_pub_key = NULL;
+    BIGNUM *dh_p = NULL;
+    BIGNUM *dh_g = NULL;
+    BIGNUM *dummy_pub_key = NULL;
+    BIGNUM *priv_key = NULL;
+    DH *dh_priv = NULL;
+    ERL_NIF_TERM head, tail, ret;
+    ErlNifBinary ret_bin;
+    int size;
+    int ret_bin_alloc = 0;
+    int dh_size;
 
     /* Check the arguments and get
           my private key (dh_priv),
           the peer's public key (other_pub_key),
           the parameters p & q
     */
+    if (argc != 3)
+        goto bad_arg;
 
-    {
-        BIGNUM *dummy_pub_key = NULL,
-               *priv_key = NULL;
-        ERL_NIF_TERM head, tail;
+    if (!get_bn_from_bin(env, argv[0], &other_pub_key))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, argv[1], &priv_key))
+        goto bad_arg;
 
-        if (!get_bn_from_bin(env, argv[0], &other_pub_key)
-            || !get_bn_from_bin(env, argv[1], &priv_key)
-            || !enif_get_list_cell(env, argv[2], &head, &tail)
-            || !get_bn_from_bin(env, head, &dh_p)
-            || !enif_get_list_cell(env, tail, &head, &tail)
-            || !get_bn_from_bin(env, head, &dh_g)
-            || !enif_is_empty_list(env, tail)
+    if (!enif_get_list_cell(env, argv[2], &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &dh_p))
+        goto bad_arg;
 
-            /* Note: DH_set0_key() does not allow setting only the
-             * private key, although DH_compute_key() does not use the
-             * public key. Work around this limitation by setting
-             * the public key to a copy of the private key.
-             */
-            || !(dummy_pub_key = BN_dup(priv_key))
-            || !DH_set0_key(dh_priv, dummy_pub_key, priv_key)
-            || !DH_set0_pqg(dh_priv, dh_p, NULL, dh_g)
-            ) {
-            if (dh_p) BN_free(dh_p);
-            if (dh_g) BN_free(dh_g);
-            if (other_pub_key) BN_free(other_pub_key);
-            if (dummy_pub_key) BN_free(dummy_pub_key);
-            if (priv_key) BN_free(priv_key);
-            return enif_make_badarg(env);
-        }
+    if (!enif_get_list_cell(env, tail, &head, &tail))
+        goto bad_arg;
+    if (!get_bn_from_bin(env, head, &dh_g))
+        goto bad_arg;
+
+    if (!enif_is_empty_list(env, tail))
+        goto bad_arg;
+
+    /* Note: DH_set0_key() does not allow setting only the
+     * private key, although DH_compute_key() does not use the
+     * public key. Work around this limitation by setting
+     * the public key to a copy of the private key.
+     */
+    if ((dummy_pub_key = BN_dup(priv_key)) == NULL)
+        goto err;
+    if ((dh_priv = DH_new()) == NULL)
+        goto err;
+
+    if (!DH_set0_key(dh_priv, dummy_pub_key, priv_key))
+        goto err;
+    /* dh_priv owns dummy_pub_key and priv_key now */
+    dummy_pub_key = NULL;
+    priv_key = NULL;
+
+    if (!DH_set0_pqg(dh_priv, dh_p, NULL, dh_g))
+        goto err;
+    /* dh_priv owns dh_p and dh_g now */
+    dh_p = NULL;
+    dh_g = NULL;
+
+    if ((dh_size = DH_size(dh_priv)) < 0)
+        goto err;
+    if (!enif_alloc_binary((size_t)dh_size, &ret_bin))
+        goto err;
+    ret_bin_alloc = 1;
+
+    if ((size = DH_compute_key(ret_bin.data, other_pub_key, dh_priv)) < 0)
+        goto err;
+    if (size == 0)
+        goto err;
+
+    if ((size_t)size != ret_bin.size) {
+        if (!enif_realloc_binary(&ret_bin, (size_t)size))
+            goto err;
     }
-    {
-        ErlNifBinary ret_bin;
-        int size;
 
-        enif_alloc_binary(DH_size(dh_priv), &ret_bin);
-        size = DH_compute_key(ret_bin.data, other_pub_key, dh_priv);
+    ret = enif_make_binary(env, &ret_bin);
+    ret_bin_alloc = 0;
+    goto done;
+
+ bad_arg:
+ err:
+    if (ret_bin_alloc)
+        enif_release_binary(&ret_bin);
+    ret = enif_make_badarg(env);
+
+ done:
+    if (other_pub_key)
         BN_free(other_pub_key);
+    if (priv_key)
+        BN_free(priv_key);
+    if (dh_p)
+        BN_free(dh_p);
+    if (dh_g)
+        BN_free(dh_g);
+    if (dummy_pub_key)
+        BN_free(dummy_pub_key);
+    if (dh_priv)
         DH_free(dh_priv);
-        if (size<=0) {
-            enif_release_binary(&ret_bin);
-            return atom_error;
-        }
 
-        if (size != ret_bin.size) enif_realloc_binary(&ret_bin, size);
-        return enif_make_binary(env, &ret_bin);
-    }
+    return ret;
 }
