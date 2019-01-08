@@ -373,31 +373,41 @@ ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     const EC_GROUP *group;
     const EC_POINT *public_key;
     ERL_NIF_TERM priv_key;
-    ERL_NIF_TERM pub_key = atom_undefined;
+    ERL_NIF_TERM pub_key;
+    ERL_NIF_TERM ret;
 
     if (!get_ec_key(env, argv[0], argv[1], atom_undefined, &key))
-	goto badarg;
+        goto bad_arg;
 
     if (argv[1] == atom_undefined) {
 	if (!EC_KEY_generate_key(key))
-	    goto badarg;
+            goto err;
     }
 
     group = EC_KEY_get0_group(key);
     public_key = EC_KEY_get0_public_key(key);
 
-    if (group && public_key) {
-	pub_key = point2term(env, group, public_key,
-			     EC_KEY_get_conv_form(key));
-    }
-    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
-    EC_KEY_free(key);
-    return enif_make_tuple2(env, pub_key, priv_key);
+    if (group == NULL || public_key == NULL) {
+        pub_key = atom_undefined;
 
-badarg:
+    } else {
+        pub_key = point2term(env, group, public_key,
+                             EC_KEY_get_conv_form(key));
+    }
+
+    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    ret = enif_make_tuple2(env, pub_key, priv_key);
+    goto done;
+
+ err:
+ bad_arg:
+    ret = make_badarg_maybe(env);
+
+ done:
     if (key)
-	EC_KEY_free(key);
-    return make_badarg_maybe(env);
+        EC_KEY_free(key);
+    return ret;
+
 #else
     return atom_notsup;
 #endif
