@@ -204,5 +204,4 @@ dump_persistent_terms() ->
 create_persistent_terms() ->
     persistent_term:put({?MODULE,first}, {pid,42.0}),
     persistent_term:put({?MODULE,second}, [1,2,3]),
-    persistent_term:get().
-
+    {persistent_term:get({?MODULE,first}),persistent_term:get({?MODULE,second})}.

@@ -615,9 +615,8 @@ special(File,Procs) ->
 
 	    #proc{dict=Dict} = ProcDetails,
             %% io:format("~p\n", [Dict]),
-            Pts1 = crashdump_helper:create_persistent_terms(),
-            Pts2 = proplists:get_value(pts,Dict),
-            true = lists:sort(Pts1) =:= lists:sort(Pts2),
+            Pts = crashdump_helper:create_persistent_terms(),
+            Pts = proplists:get_value(pts,Dict),
             io:format("  persistent terms ok",[]),
             ok;
 	_ ->
