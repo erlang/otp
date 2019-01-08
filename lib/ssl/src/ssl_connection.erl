@@ -1199,7 +1199,7 @@ handle_call({shutdown, read_write = How}, From, StateName,
                 ok ->
                     {next_state, StateName, State#state{terminated = true}, [{reply, From, ok}]};
                 Error ->
-                    {stop, StateName, State#state{terminated = true}, [{reply, From, Error}]}
+                    {stop_and_reply, {shutdown, normal}, {reply, From, Error}, State#state{terminated = true}}
             end
     catch
         throw:Return ->
@@ -1212,7 +1212,7 @@ handle_call({shutdown, How0}, From, StateName,
 	ok ->
 	    {next_state, StateName, State, [{reply, From, ok}]};
 	Error ->
-            {stop, StateName, State, [{reply, From, Error}]}
+            {stop_and_reply, {shutdown, normal}, {reply, From, Error}, State}
     end;
 handle_call({recv, _N, _Timeout}, From, _,  
 		  #state{socket_options = 
