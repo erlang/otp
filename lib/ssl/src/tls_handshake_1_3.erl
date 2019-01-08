@@ -388,14 +388,24 @@ do_negotiated(#{client_share := ClientKey,
         tls_connection:send(Transport, Socket, BinMsg),
         log_handshake(SslOpts, ServerHello),
         log_tls_record(SslOpts, BinMsg),
-        ConnectionStates2 = calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
-                                                          HHistory1, ConnectionStates1),
+
+        %% ConnectionStates2 = calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
+        %%                                                   HHistory1, ConnectionStates1),
+        {HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV} =
+            calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
+                                          HHistory1, ConnectionStates1),
+        ConnectionStates2 =
+            update_pending_connection_states(ConnectionStates1, HandshakeSecret,
+                                             ReadKey, ReadIV, WriteKey, WriteIV),
+        ConnectionStates3 =
+            ssl_record:step_encryption_state(ConnectionStates2),
+
         %% Create Certificate
         Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
 
         %% Encode Certificate
-        {_, _ConnectionStates3, HHistory2} =
-            tls_connection:encode_handshake(Certificate, {3,4}, ConnectionStates2, HHistory1),
+        {_, _ConnectionStates4, HHistory2} =
+            tls_connection:encode_handshake(Certificate, {3,4}, ConnectionStates3, HHistory1),
         %% log_handshake(SslOpts, Certificate),
 
         %% Create CertificateVerify
@@ -415,19 +425,19 @@ do_negotiated(#{client_share := ClientKey,
 
         %% Next record/Next event
 
-        Maybe(not_implemented())
+        Maybe(not_implemented(negotiated))
 
 
     catch
-        {Ref, {state_not_implemented, negotiated}} ->
+        {Ref, {state_not_implemented, State}} ->
             %% TODO
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, "state not implemented")
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
     end.
 
 
 %% TODO: Remove this function!
-not_implemented() ->
-    {error, negotiated}.
+not_implemented(State) ->
+    {error, {state_not_implemented, State}}.
 
 
 log_handshake(SslOpts, Message) ->
@@ -452,7 +462,6 @@ calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, HHistory, Conn
 
     %% Calculate handshake_secret
     EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, <<>>}),
-
     PrivateKey = get_server_private_key(KeyShare),  %% #'ECPrivateKey'{}
 
     IKM = calculate_shared_secret(ClientKey, PrivateKey, SelectedGroup),
@@ -470,20 +479,22 @@ calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, HHistory, Conn
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
 
-    %% Update pending connection state
-    PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
-    PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
+    {HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV}.
 
-    PendingRead = update_conn_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
-    PendingWrite = update_conn_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+    %% %% Update pending connection state
+    %% PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
+    %% PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
 
-    %% Update pending and copy to current (activate)
-    %% All subsequent handshake messages are encrypted
-    %% ([sender]_handshake_traffic_secret)
-    #{current_read => PendingRead,
-      current_write => PendingWrite,
-      pending_read => PendingRead,
-      pending_write => PendingWrite}.
+    %% PendingRead = update_conn_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
+    %% PendingWrite = update_conn_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+
+    %% %% Update pending and copy to current (activate)
+    %% %% All subsequent handshake messages are encrypted
+    %% %% ([sender]_handshake_traffic_secret)
+    %% #{current_read => PendingRead,
+    %%   current_write => PendingWrite,
+    %%   pending_read => PendingRead,
+    %%   pending_write => PendingWrite}.
 
 
 get_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
@@ -516,13 +527,22 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     public_key:compute_key(Point, MyKey).
 
 
-update_conn_state(ConnectionState = #{security_parameters := SecurityParameters0},
-                  HandshakeSecret, Key, IV) ->
+update_pending_connection_states(CS = #{pending_read := PendingRead0,
+                                pending_write := PendingWrite0},
+                         HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV) ->
+    PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
+    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+    CS#{pending_read => PendingRead,
+        pending_write => PendingWrite}.
+
+update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
+                        HandshakeSecret, Key, IV) ->
     %% Store secret
     SecurityParameters = SecurityParameters0#security_parameters{
                            master_secret = HandshakeSecret},
     ConnectionState#{security_parameters => SecurityParameters,
                      cipher_state => cipher_init(Key, IV)}.
+
 
 
 cipher_init(Key, IV) ->

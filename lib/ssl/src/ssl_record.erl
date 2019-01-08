@@ -39,7 +39,8 @@
 	 set_renegotiation_flag/2,
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
-	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1]).
+	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1,
+         step_encryption_state/1]).
 
 %% Compression
 -export([compress/3, uncompress/3, compressions/0]).
@@ -116,6 +117,20 @@ activate_pending_connection_state(#{current_write := Current,
     States#{current_write => NewCurrent,
 	    pending_write => NewPending
 	   }.
+
+%%--------------------------------------------------------------------
+-spec step_encryption_state(connection_states()) -> connection_states().
+%%
+%% Description: Activates the next encyrption state (e.g. handshake
+%% encryption).
+%%--------------------------------------------------------------------
+step_encryption_state(#{pending_read := PendingRead,
+                        pending_write := PendingWrite} = States) ->
+    NewRead = PendingRead#{sequence_number => 0},
+    NewWrite = PendingWrite#{sequence_number => 0},
+    States#{current_read => NewRead,
+            current_write => NewWrite}.
+
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},

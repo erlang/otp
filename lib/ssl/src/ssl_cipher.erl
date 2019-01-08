@@ -44,7 +44,8 @@
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1, signature_scheme/1,
-         scheme_to_components/1, hash_size/1, effective_key_bits/1]).
+         scheme_to_components/1, hash_size/1, effective_key_bits/1,
+         key_material/1]).
 
 %% RFC 8446 TLS 1.3
 -export([generate_client_shares/1, generate_server_share/1, add_zero_padding/2]).
