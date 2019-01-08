@@ -37,7 +37,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() -> 
-    [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
+    [{timetrap, {minutes, 1}},
+     {ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [
