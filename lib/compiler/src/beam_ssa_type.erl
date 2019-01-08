@@ -153,8 +153,15 @@ opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
             Sub = Sub0#{Dst=>Lit},
             opt_is(Is, Ts0, Ds0, Ls, Sub, Acc);
         #b_var{}=Var ->
-            Sub = Sub0#{Dst=>Var},
-            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc)
+            case Is of
+                [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] ->
+                    %% We must remove this 'succeeded' instruction.
+                    Sub = Sub0#{Dst=>Var,SuccDst=>#b_literal{val=true}},
+                    opt_is([], Ts0, Ds0, Ls, Sub, Acc);
+                _ ->
+                    Sub = Sub0#{Dst=>Var},
+                    opt_is(Is, Ts0, Ds0, Ls, Sub, Acc)
+            end
     end;
 opt_is([], Ts, Ds, _Ls, Sub, Acc) ->
     {reverse(Acc),Ts,Ds,Sub}.
