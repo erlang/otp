@@ -499,8 +499,8 @@ start_dummy("http"= Protocol, Config) ->
     Conf = [
 	    %%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen,  crypto:rand_bytes(1000000)}},
-	    {small, {gen,  crypto:rand_bytes(1000)}},
+	    {big, {gen,  crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen,  crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive,  ?config(keep_alive, Config)}
 	   ],
@@ -519,8 +519,8 @@ start_dummy("https" = Protocol, Config) ->
     Opts = [{active, true}, {nodelay, true}, {reuseaddr, true} | SSLOpts],
     Conf = [%%{big, filename:join(DataDir, "1M_file")},
 	    %%{small, filename:join(DataDir, "1k_file")},
-	    {big, {gen, crypto:rand_bytes(1000000)}},
-	    {small, {gen, crypto:rand_bytes(1000)}},
+	    {big, {gen, crypto:strong_rand_bytes(1000000)}},
+	    {small, {gen, crypto:strong_rand_bytes(1000)}},
 	    {http_version, HTTPVersion},
 	    {keep_alive, ?config(keep_alive, Config)}
 	   ],
