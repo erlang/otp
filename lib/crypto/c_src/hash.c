@@ -395,20 +395,24 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     int                  arity;
     struct digest_type_t *digp = NULL;
     const EVP_MD         *md;
-    void                 *new_ctx;
+    void                 *new_ctx = NULL;
     size_t               ctx_size  = 0;
     final_fun            ctx_final = 0;
+    unsigned char        *outp;
 
-    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
-        arity != 2 ||
-        !(digp = get_digest_type(tuple[0])) ||
-        !enif_inspect_binary(env, tuple[1], &ctx)) {
-        return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
+    if (argc != 1)
+        goto bad_arg;
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple))
+        goto bad_arg;
+    if (arity != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(tuple[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, tuple[1], &ctx))
+        goto bad_arg;
+
+    if ((md = digp->md.p) == NULL)
+        goto err;
 
     switch (EVP_MD_type(md))
     {
@@ -453,21 +457,36 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_final);
 
-    if (ctx.size != ctx_size) {
-        return enif_make_badarg(env);
-    }
+    if (ctx.size != ctx_size)
+        goto bad_arg;
 
-    new_ctx = enif_alloc(ctx_size);
+    if ((new_ctx = enif_alloc(ctx_size)) == NULL)
+        goto err;
+
     memcpy(new_ctx, ctx.data, ctx_size);
-    ctx_final(enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret),
-              new_ctx);
-    enif_free(new_ctx);
 
+    if ((outp = enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret)) == NULL)
+        goto err;
+
+    if (ctx_final(outp, new_ctx) != 1)
+        goto err;
+
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (new_ctx)
+        enif_free(new_ctx);
     return ret;
 }
 
