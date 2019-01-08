@@ -120,33 +120,52 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct digest_type_t *digp = NULL;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
-    struct hmac_context  *obj;
+    struct hmac_context  *obj = NULL;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &key)) {
-        return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-        return atom_notsup;
-    }
+    if (argc != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX)
+        goto bad_arg;
 
-    obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
-    obj->mtx = enif_mutex_create("crypto.hmac");
+    if (digp->md.p == NULL)
+        goto err;
+
+    if ((obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context))) == NULL)
+        goto err;
+    obj->ctx = NULL;
+    obj->mtx = NULL;
+    obj->alive = 0;
+
+    if ((obj->ctx = HMAC_CTX_new()) == NULL)
+        goto err;
     obj->alive = 1;
-    obj->ctx = HMAC_CTX_new();
+    if ((obj->mtx = enif_mutex_create("crypto.hmac")) == NULL)
+        goto err;
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL)) {
-        enif_release_resource(obj);
-        return atom_notsup;
-    }
+    if (!HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL))
+        goto err;
 #else
-    HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL);
+    // In ancient versions of OpenSSL, this was a void function.
+    HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL);
 #endif
 
     ret = enif_make_resource(env, obj);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
     enif_release_resource(obj);
     return ret;
 }
