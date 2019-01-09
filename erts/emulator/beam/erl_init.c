@@ -376,6 +376,27 @@ erl_init(int ncpu,
 }
 
 static Eterm
+erl_spawn_system_process(Process* parent, Eterm mod, Eterm func, Eterm args,
+                         ErlSpawnOpts *so)
+{
+    Eterm res;
+    int arity;
+
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(parent));
+    arity = erts_list_length(args);
+
+    if (erts_find_function(mod, func, arity, erts_active_code_ix()) == NULL) {
+	erts_exit(ERTS_ERROR_EXIT, "No function %T:%T/%i\n", mod, func, arity);
+    }
+
+    so->flags |= SPO_SYSTEM_PROC;
+
+    res = erl_create_process(parent, mod, func, args, so);
+
+    return res;
+}
+
+static Eterm
 erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
 {
     int i;
@@ -386,12 +407,6 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     Process parent;
     ErlSpawnOpts so;
     Eterm env;
-    
-    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
-    if (erts_find_function(start_mod, am_start, 2,
-			   erts_active_code_ix()) == NULL) {
-	erts_exit(ERTS_ERROR_EXIT, "No function %s:start/2\n", modname);
-    }
 
     /*
      * We need a dummy parent process to be able to call erl_create_process().
@@ -399,6 +414,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 
     erts_init_empty_process(&parent);
     erts_proc_lock(&parent, ERTS_PROC_LOCK_MAIN);
+
     hp = HAlloc(&parent, argc*2 + 4);
     args = NIL;
     for (i = argc-1; i >= 0; i--) {
@@ -411,44 +427,73 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     hp += 2;
     args = CONS(hp, env, args);
 
-    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
-    res = erl_create_process(&parent, start_mod, am_start, args, &so);
+    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname),
+                              ERTS_ATOM_ENC_LATIN1, 1);
+
+    so.flags = erts_default_spo_flags;
+    res = erl_spawn_system_process(&parent, start_mod, am_start, args, &so);
+    ASSERT(is_internal_pid(res));
+
     erts_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
+
     return res;
 }
 
 static Eterm
 erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq, int prio)
-{
-    Eterm start_mod;
-    Process* parent;
+{ 
+    Process *parent;
     ErlSpawnOpts so;
-    Eterm res;
-
-    start_mod = erts_atom_put((byte *) modname, sys_strlen(modname), ERTS_ATOM_ENC_LATIN1, 1);
-    if (erts_find_function(start_mod, am_start, 0,
-			   erts_active_code_ix()) == NULL) {
-	erts_exit(ERTS_ERROR_EXIT, "No function %s:start/0\n", modname);
-    }
+    Eterm mod, res;
 
     parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
+    mod = erts_atom_put((byte *) modname, sys_strlen(modname),
+                        ERTS_ATOM_ENC_LATIN1, 1);
 
-    so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC|SPO_USE_ARGS;
-    if (off_heap_msgq)
+    so.flags = erts_default_spo_flags|SPO_USE_ARGS;
+
+    if (off_heap_msgq) {
         so.flags |= SPO_OFF_HEAP_MSGQ;
-    so.min_heap_size    = H_MIN_SIZE;
-    so.min_vheap_size   = BIN_VH_MIN_SIZE;
-    so.max_heap_size    = H_MAX_SIZE;
-    so.max_heap_flags   = H_MAX_FLAGS;
-    so.priority         = prio;
-    so.max_gen_gcs      = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
-    so.scheduler        = 0;
-    res = erl_create_process(parent, start_mod, am_start, NIL, &so);
+    }
+
+    so.min_heap_size  = H_MIN_SIZE;
+    so.min_vheap_size = BIN_VH_MIN_SIZE;
+    so.max_heap_size  = H_MAX_SIZE;
+    so.max_heap_flags = H_MAX_FLAGS;
+    so.priority       = prio;
+    so.max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
+    so.scheduler      = 0;
+
+    res = erl_spawn_system_process(parent, mod, am_start, NIL, &so);
+    ASSERT(is_internal_pid(res));
+
     erts_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
+
     return res;
 }
 
+Eterm erts_internal_spawn_system_process_3(BIF_ALIST_3) {
+    Eterm mod, func, args, res;
+    ErlSpawnOpts so;
+
+    mod = BIF_ARG_1;
+    func = BIF_ARG_2;
+    args = BIF_ARG_3;
+
+    ASSERT(is_atom(mod));
+    ASSERT(is_atom(func));
+    ASSERT(erts_list_length(args) >= 0);
+
+    so.flags = erts_default_spo_flags;
+    res = erl_spawn_system_process(BIF_P, mod, func, args, &so);
+
+    if (is_non_value(res)) {
+        BIF_ERROR(BIF_P, so.error_code);
+    }
+
+    BIF_RET(res);
+}
 
 Eterm
 erts_preloaded(Process* p)
