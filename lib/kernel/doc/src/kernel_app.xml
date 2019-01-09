@@ -369,6 +369,14 @@ MaxT = TickTime + TickTime / 4</code>
           performed. This option ensures that <c>global</c> is
           synchronized.</p>
       </item>
+      <tag><c>start_distribution = true | false</c></tag>
+      <item>
+        <p>Starts all distribution services, such as <c>rpc</c>,
+          <c>global</c>, and <c>net_kernel</c> if the parameter is
+          <c>true</c>. This parameter is to be set to <c>false</c>
+          for systems who want to disable all distribution functionality.</p>
+        <p>Defaults to <c>true</c>.</p>
+      </item>
       <tag><c>start_dist_ac = true | false</c></tag>
       <item>
         <p>Starts the <c>dist_ac</c> server if the parameter is

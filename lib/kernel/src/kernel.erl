@@ -145,26 +145,11 @@ init([]) ->
             {ok, {SupFlags,
                   [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
-            Rpc = #{id => rex,
-                    start => {rpc, start_link, []},
-                    restart => permanent,
-                    shutdown => 2000,
-                    type => worker,
-                    modules => [rpc]},
-
-            Global = #{id => global_name_server,
-                       start => {global, start_link, []},
-                       restart => permanent,
-                       shutdown => 2000,
-                       type => worker,
-                       modules => [global]},
-
-            GlGroup = #{id => global_group,
-                        start => {global_group,start_link,[]},
-                        restart => permanent,
-                        shutdown => 2000,
-                        type => worker,
-                        modules => [global_group]},
+            DistChildren =
+		case application:get_env(kernel, start_distribution) of
+		    {ok, false} -> [];
+		    _ -> start_distribution()
+		end,
 
             InetDb = #{id => inet_db,
                        start => {inet_db, start_link, []},
@@ -173,13 +158,6 @@ init([]) ->
                        type => worker,
                        modules => [inet_db]},
 
-            NetSup = #{id => net_sup,
-                       start => {erl_distribution, start_link, []},
-                       restart => permanent,
-                       shutdown => infinity,
-                       type => supervisor,
-                       modules => [erl_distribution]},
-
             SigSrv = #{id => erl_signal_server,
                        start => {gen_event, start_link, [{local, erl_signal_server}]},
                        restart => permanent,
@@ -187,14 +165,11 @@ init([]) ->
                        type => worker,
                        modules => dynamic},
 
-            DistAC = start_dist_ac(),
-
             Timer = start_timer(),
 
             {ok, {SupFlags,
-                  [Code, Rpc, Global, InetDb | DistAC] ++
-                  [NetSup, GlGroup, File, SigSrv,
-                   StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
+                  [Code, InetDb | DistChildren] ++
+                  [File, SigSrv, StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
     end;
 init(safe) ->
     SupFlags = #{strategy => one_for_one,
@@ -212,6 +187,39 @@ init(safe) ->
     init:run_on_load_handlers(),
 
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
+
+start_distribution() ->
+    Rpc = #{id => rex,
+            start => {rpc, start_link, []},
+            restart => permanent,
+            shutdown => 2000,
+            type => worker,
+            modules => [rpc]},
+
+    Global = #{id => global_name_server,
+               start => {global, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [global]},
+
+    DistAC = start_dist_ac(),
+
+    NetSup = #{id => net_sup,
+               start => {erl_distribution, start_link, []},
+               restart => permanent,
+               shutdown => infinity,
+               type => supervisor,
+               modules => [erl_distribution]},
+
+    GlGroup = #{id => global_group,
+                start => {global_group,start_link,[]},
+                restart => permanent,
+                shutdown => 2000,
+                type => worker,
+                modules => [global_group]},
+
+    [Rpc, Global | DistAC] ++ [NetSup, GlGroup].
 
 start_dist_ac() ->
     Spec = [#{id => dist_ac,
