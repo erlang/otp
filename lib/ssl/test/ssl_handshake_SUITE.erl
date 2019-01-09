@@ -193,30 +193,29 @@ unorded_chain(Config) when is_list(Config) ->
         ssl_certificate:certificate_chain(PeerCert, ets:new(foo, []), ExtractedCerts, UnordedChain).
 
 encode_decode_srp(_Config) ->
-    Exts = #hello_extensions{
-              srp = #srp{username = <<"foo">>},
-              sni = #sni{hostname = "bar"},
-              renegotiation_info = undefined,
-              signature_algs = undefined,
-              alpn = undefined,
-              next_protocol_negotiation = undefined,
-              ec_point_formats = undefined,
-              elliptic_curves = undefined
-             },
-    EncodedExts = <<0,20,          % Length
+    Exts = #{srp => #srp{username = <<"foo">>},
+             sni => #sni{hostname = "bar"},
+             renegotiation_info => undefined,
+             signature_algs => undefined,
+             alpn => undefined,
+             next_protocol_negotiation => undefined,
+             ec_point_formats => undefined,
+             elliptic_curves => undefined
+            },
+    EncodedExts0 = <<0,20,          % Length
+                    0,12,          % SRP extension
+                    0,4,           % Length
+                    3,             % srp_I length
+                    102,111,111, % username = "foo"
                     0,0,           % SNI extension
                     0,8,           % Length
                     0,6,           % ServerNameLength
                     0,             % NameType (host_name)
                     0,3,           % HostNameLength
-                    98,97,114,     % hostname = "bar"
-                    0,12,          % SRP extension
-                    0,4,           % Length
-                    3,             % srp_I length
-                    102,111,111>>, % username = "foo"
-    EncodedExts = ssl_handshake:encode_hello_extensions(Exts),
-    Exts = ssl_handshake:decode_hello_extensions({client, EncodedExts}).
-
+                    98,97,114>>,     % hostname = "bar"
+    EncodedExts0 = <<?UINT16(_),EncodedExts/binary>> =
+        ssl_handshake:encode_hello_extensions(Exts),
+    Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, client).
 
 signature_algorithms(Config) ->
     Opts = proplists:get_value(server_opts, Config),
