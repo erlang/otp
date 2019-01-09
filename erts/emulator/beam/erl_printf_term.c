@@ -487,6 +487,8 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 			PRINT_UWORD(res, fn, arg, 'u', 0, 1, octet);
 			++bytep;
 			--bytesize;
+                        if ((*dcount)-- <= 0)
+                            goto L_done;
 		    }
 		    if (bitsize) {
 			Uint bits = bitoffs + bitsize;
@@ -521,6 +523,8 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 			PRINT_CHAR(res, fn, arg, octet);
 			++bytep;
 			--bytesize;
+                        if ((*dcount)-- <= 0)
+                            goto L_done;
 		    }
 		    PRINT_STRING(res, fn, arg, "\">>");
 		}
