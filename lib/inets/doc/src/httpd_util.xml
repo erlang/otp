@@ -45,8 +45,7 @@
       <fsummary>Converts the date to the Erlang date format.</fsummary>
       <type>
         <v>DateString = string()</v>
-        <v>ErlDate = {{Year,Month,Date},{Hour,Min,Sec}}</v>
-        <v>Year = Month = Date = Hour = Min = Sec = integer()</v>
+        <v>ErlDate = calendar:datetime() </v>
       </type>
       <desc>
         <p><c>convert_request_date/1</c> converts <c>DateString</c> to 
@@ -281,10 +280,10 @@
 
     <func>
       <name since="">rfc1123_date() -> RFC1123Date</name>
-      <name since="">rfc1123_date({{YYYY,MM,DD},{Hour,Min,Sec}}) -> RFC1123Date</name>
+      <name since="">rfc1123_date(Date) -> RFC1123Date</name>
       <fsummary>Returns the current date in RFC 1123 format.</fsummary>
       <type>
-        <v>YYYY = MM = DD = Hour = Min = Sec = integer()</v>
+        <v> Date = calendar:datetime()</v>
         <v>RFC1123Date = string()</v>
       </type>
       <desc>
