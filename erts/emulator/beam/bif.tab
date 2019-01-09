@@ -724,3 +724,9 @@ bif erts_internal:counters_get/2
 bif erts_internal:counters_add/3
 bif erts_internal:counters_put/3
 bif erts_internal:counters_info/1
+
+#
+# New in 21.2.3
+#
+
+bif erts_internal:spawn_system_process/3

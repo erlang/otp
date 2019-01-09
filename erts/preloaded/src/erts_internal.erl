@@ -97,6 +97,8 @@
 -export([counters_new/1, counters_get/2, counters_add/3,
          counters_put/3, counters_info/1]).
 
+-export([spawn_system_process/3]).
+
 %%
 %% Await result of send to port
 %%
@@ -726,3 +728,10 @@ counters_put(_Ref, _Ix, _Value) ->
 -spec counters_info(reference()) -> #{}.
 counters_info(_Ref) ->
     erlang:nif_error(undef).
+
+-spec spawn_system_process(Mod, Func, Args) -> pid() when
+    Mod :: atom(),
+    Func :: atom(),
+    Args :: list().
+spawn_system_process(_Mod, _Func, _Args) ->
+    erlang:nif_error(undefined).

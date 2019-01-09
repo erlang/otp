@@ -38,7 +38,6 @@ static void unload(ErlNifEnv *env, void* priv_data);
 
 static ErlNifResourceType *efile_resource_type;
 
-static ERL_NIF_TERM am_erts_prim_file;
 static ERL_NIF_TERM am_close;
 
 static ERL_NIF_TERM am_ok;
@@ -220,7 +219,6 @@ static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM prim_file_pid)
         ASSERT(!"bad pid passed to prim_file_nif");
     }
 
-    am_erts_prim_file = enif_make_atom(env, "erts_prim_file");
     am_close = enif_make_atom(env, "close");
 
     am_ok = enif_make_atom(env, "ok");
