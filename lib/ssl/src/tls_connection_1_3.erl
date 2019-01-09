@@ -164,9 +164,9 @@ negotiated(internal,
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
         M ->
-            %% update connection_states with cipher
-            State = update_state(State0, M),
-            {next_state, wait_flight2, State, [{next_event, internal, M}]}
+            %% TODO: implement update_state
+            %% State = update_state(State0, M),
+            {next_state, wait_flight2, State0, [{next_event, internal, M}]}
 
     end.
 

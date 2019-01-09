@@ -232,7 +232,8 @@ hello(#client_hello{client_version = ClientVersion,
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec encode_handshake(tls_handshake(), tls_record:tls_version()) -> iolist().
+-spec encode_handshake(tls_handshake() | tls_handshake_1_3:tls_handshake_1_3(),
+                       tls_record:tls_version()) -> iolist().
 %%     
 %% Description: Encode a handshake packet
 %%--------------------------------------------------------------------

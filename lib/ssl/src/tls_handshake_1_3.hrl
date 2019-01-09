@@ -228,4 +228,11 @@
           request_update
          }).
 
+-type tls_handshake_1_3() :: #encrypted_extensions{} |
+                             #certificate_request_1_3{} |
+                             #certificate_1_3{} |
+                             #certificate_verify_1_3{}.
+
+-export_type([tls_handshake_1_3/0]).
+
 -endif. % -ifdef(tls_handshake_1_3).
