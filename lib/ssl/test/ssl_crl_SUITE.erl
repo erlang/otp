@@ -383,8 +383,11 @@ crl_hash_dir_expired(Config) when is_list(Config) ->
 	 {verify, verify_peer}],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    %% First make a CRL that expired yesterday.
-    make_certs:gencrl(PrivDir, CA, CertsConfig, -24),
+    %% First make a CRL that will expire in one second.
+    make_certs:gencrl_sec(PrivDir, CA, CertsConfig, 1),
+    %% Sleep until the next CRL is due
+    ct:sleep({seconds, 1}),
+
     CrlDir = filename:join(PrivDir, "crls"),
     populate_crl_hash_dir(PrivDir, CrlDir,
 			  [{CA, "1627b4b0"}],
