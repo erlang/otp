@@ -19,6 +19,7 @@
 %%
 -include_lib("kernel/include/logger.hrl").
 -define(LOGGER_TABLE,logger).
+-define(PROXY_KEY,'$proxy_config$').
 -define(PRIMARY_KEY,'$primary_config$').
 -define(HANDLER_KEY,'$handler_config$').
 -define(LOGGER_META_KEY,'$logger_metadata$').

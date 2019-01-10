@@ -551,6 +551,7 @@ logger_proxy(Config) ->
     Expected = DefOpts#{sync_mode_qlen:=0,
                         drop_mode_qlen:=2},
     Expected = rpc:call(Node,logger_olp,get_opts,[logger_proxy]),
+    Expected = rpc:call(Node,logger,get_proxy_config,[]),
 
     ok.
 

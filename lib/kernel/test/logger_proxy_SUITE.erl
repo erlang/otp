@@ -130,13 +130,15 @@ remote_emulator(cleanup,_Config) ->
 config(_Config) ->
     C1 = #{sync_mode_qlen:=SQ,
            drop_mode_qlen:=DQ} = logger:get_proxy_config(),
+    C1 = logger_olp:get_opts(logger_proxy),
 
     %% Update the existing config with these two values
     SQ1 = SQ+1,
     DQ1 = DQ+1,
     ok = logger:update_proxy_config(#{sync_mode_qlen=>SQ1,
                                       drop_mode_qlen=>DQ1}),
-    C2 = logger:get_proxy_config(),
+    C2 = logger:get_proxy_config(), % reads from ets table
+    C2 = logger_olp:get_opts(logger_proxy), % ensure consistency with process opts
     C2 = C1#{sync_mode_qlen:=SQ1,
              drop_mode_qlen:=DQ1},
 
@@ -144,16 +146,19 @@ config(_Config) ->
     SQ2 = SQ+2,
     ok = logger:update_proxy_config(#{sync_mode_qlen=>SQ2}),
     C3 = logger:get_proxy_config(),
+    C3 = logger_olp:get_opts(logger_proxy),
     C3 = C2#{sync_mode_qlen:=SQ2},
 
     %% Set the config, i.e. merge with defaults
     ok = logger:set_proxy_config(#{sync_mode_qlen=>SQ1}),
     C4 = logger:get_proxy_config(),
+    C4 = logger_olp:get_opts(logger_proxy),
     C4 = C1#{sync_mode_qlen:=SQ1},
 
     %% Reset to default
     ok = logger:set_proxy_config(#{}),
     C5 = logger:get_proxy_config(),
+    C5 = logger_olp:get_opts(logger_proxy),
     C5 = logger_proxy:get_default_config(),
 
     %% Errors
@@ -169,8 +174,12 @@ config(_Config) ->
         logger:update_proxy_config(#{sync_mode_qlen=>infinity}),
     {error,{invalid_config,[]}} = logger:update_proxy_config([]),
 
+    C5 = logger:get_proxy_config(),
+    C5 = logger_olp:get_opts(logger_proxy),
+
     ok.
 config(cleanup,_Config) ->
+    _ = logger:set_logger_proxy(logger_proxy:get_default_config()),
     ok.
 
 restart_after(Config) ->
@@ -180,6 +189,9 @@ restart_after(Config) ->
                                       overload_kill_restart_after => Restart}),
     Proxy = whereis(logger_proxy),
     Proxy = erlang:system_info(system_logger),
+    ProxyConfig = logger:get_proxy_config(),
+    ProxyConfig = logger_olp:get_opts(logger_proxy),
+
     Ref = erlang:monitor(process,Proxy),
     spawn(fun() ->
                   [logger_proxy ! {log,debug,
@@ -195,6 +207,15 @@ restart_after(Config) ->
     after 5000 ->
             ct:fail(proxy_not_terminated)
     end,
+
+    Proxy1 = whereis(logger_proxy),
+    Proxy1 = erlang:system_info(system_logger),
+    ProxyConfig = logger:get_proxy_config(),
+    ProxyConfig = logger_olp:get_opts(logger_proxy),
+
+    ok.
+restart_after(cleanup,Config) ->
+    _ = logger:set_logger_proxy(logger_proxy:get_default_config()),
     ok.
 
 %% Test that system_logger flag is set to logger process if
@@ -203,6 +224,9 @@ terminate(Config) ->
     Logger = whereis(logger),
     Proxy = whereis(logger_proxy),
     Proxy = erlang:system_info(system_logger),
+    ProxyConfig = logger:get_proxy_config(),
+    ProxyConfig = logger_olp:get_opts(logger_proxy),
+
     Ref = erlang:monitor(process,Proxy),
     ok = logger_olp:stop(Proxy),
     receive
@@ -213,6 +237,12 @@ terminate(Config) ->
     after 5000 ->
             ct:fail(proxy_not_terminated)
     end,
+
+    Proxy1 = whereis(logger_proxy),
+    Proxy1 = erlang:system_info(system_logger),
+    ProxyConfig = logger:get_proxy_config(),
+    ProxyConfig = logger_olp:get_opts(logger_proxy),
+
     ok.
 
 %%%-----------------------------------------------------------------

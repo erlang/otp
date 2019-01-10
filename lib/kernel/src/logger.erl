@@ -438,11 +438,8 @@ set_handler_config(HandlerId,Config) ->
 
 -spec set_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
-set_proxy_config(Config) when is_map(Config) ->
-    Defaults = logger_proxy:get_default_config(),
-    logger_olp:set_opts(logger_proxy,maps:merge(Defaults,Config));
 set_proxy_config(Config) ->
-    {error,{invalid_config,Config}}.
+    logger_server:set_config(proxy,Config).
 
 -spec update_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
@@ -480,10 +477,8 @@ update_handler_config(HandlerId,Config) ->
 
 -spec update_proxy_config(Config) -> ok | {error,term()} when
       Config :: olp_config().
-update_proxy_config(Config) when is_map(Config) ->
-    logger_olp:set_opts(logger_proxy,Config);
 update_proxy_config(Config) ->
-    {error,{invalid_config,Config}}.
+    logger_server:update_config(proxy,Config).
 
 -spec get_primary_config() -> Config when
       Config :: primary_config().
@@ -521,7 +516,8 @@ get_handler_ids() ->
 -spec get_proxy_config() -> Config when
       Config :: olp_config().
 get_proxy_config() ->
-    logger_olp:get_opts(logger_proxy).
+    {ok,Config} = logger_config:get(?LOGGER_TABLE,proxy),
+    Config.
 
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
@@ -717,7 +713,7 @@ add_handlers(kernel) ->
         undefined ->
             add_handlers(kernel,Env);
         Opts ->
-            case logger_olp:set_opts(logger_proxy,Opts) of
+            case set_proxy_config(Opts) of
                 ok -> add_handlers(kernel,Env);
                 {error, Reason} -> {error,{bad_proxy_config,Reason}}
             end

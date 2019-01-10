@@ -69,7 +69,7 @@ start_link() ->
     %%
     %% Burst limit is disabled, since this is only a proxy and we
     %% don't want to limit bursts twice (here and in the handler).
-    logger_olp:start_link(?SERVER,?MODULE,[],get_default_config()).
+    logger_olp:start_link(?SERVER,?MODULE,[],logger:get_proxy_config()).
 
 %% Fun used for restarting this process after it has been killed due
 %% to overload (must set overload_kill_enable=>true in opts)

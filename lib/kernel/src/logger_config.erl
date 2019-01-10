@@ -66,6 +66,8 @@ get(Tid,What) ->
     case ets:lookup(Tid,table_key(What)) of
         [{_,_,Config}] ->
             {ok,Config};
+        [{_,Config}] when What=:=proxy ->
+            {ok,Config};
         [] ->
             {error,{not_found,What}}
     end.
@@ -79,10 +81,15 @@ get(Tid,What,Level) ->
         [Data] -> {ok,Data}
     end.
 
+create(Tid,proxy,Config) ->
+    ets:insert(Tid,{table_key(proxy),Config});
 create(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
     ets:insert(Tid,{table_key(What),LevelInt,Config}).
 
+set(Tid,proxy,Config) ->
+    ets:insert(Tid,{table_key(proxy),Config}),
+    ok;
 set(Tid,What,Config) ->
     LevelInt = level_to_int(maps:get(level,Config)),
     %% Should do this only if the level has actually changed. Possibly
@@ -148,5 +155,6 @@ int_to_level(?LOG_ALL) -> all.
 %%%-----------------------------------------------------------------
 %%% Internal
 
+table_key(proxy) -> ?PROXY_KEY;
 table_key(primary) -> ?PRIMARY_KEY;
 table_key(HandlerId) -> {?HANDLER_KEY,HandlerId}.
