@@ -390,13 +390,13 @@ BIF_RETTYPE integer_to_binary_1(BIF_ALIST_1)
 BIF_RETTYPE integer_to_binary_2(BIF_ALIST_2)
 {
     Eterm res;
-    int base;
+    SWord base;
 
-    if (is_not_integer(BIF_ARG_1) || is_not_integer(BIF_ARG_2)) {
+    if (is_not_integer(BIF_ARG_1) || is_not_small(BIF_ARG_2)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    base = unsigned_val(BIF_ARG_2);
+    base = signed_val(BIF_ARG_2);
     if (base < 2 || base > 36) {
         BIF_ERROR(BIF_P, BADARG);
     }
