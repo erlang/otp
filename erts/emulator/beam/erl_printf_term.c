@@ -364,13 +364,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    int print_res;
 	    char def_buf[64];
 	    char *buf, *big_str;
-	    Uint sz = (Uint) big_decimal_estimate(wobj);
+	    Uint sz = (Uint) big_integer_estimate(wobj, 10);
 	    sz++;
 	    if (sz <= 64)
 		buf = &def_buf[0];
 	    else
 		buf = erts_alloc(ERTS_ALC_T_TMP, sz);
-	    big_str = erts_big_to_string(wobj, buf, sz);
+	    big_str = erts_big_to_string(wobj, 10, buf, sz);
 	    print_res = erts_printf_string(fn, arg, big_str);
 	    if (buf != &def_buf[0])
 		erts_free(ERTS_ALC_T_TMP, (void *) buf);

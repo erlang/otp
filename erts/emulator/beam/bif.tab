@@ -730,3 +730,10 @@ bif erts_internal:counters_info/1
 #
 
 bif erts_internal:spawn_system_process/3
+
+#
+# New in 21.3
+#
+
+bif erlang:integer_to_list/2
+bif erlang:integer_to_binary/2

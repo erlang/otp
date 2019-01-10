@@ -3395,60 +3395,15 @@ get_cookie() ->
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_list(I, 10) ->
-    erlang:integer_to_list(I);
-integer_to_list(I, Base) 
-  when erlang:is_integer(I), erlang:is_integer(Base),
-       Base >= 2, Base =< 1+$Z-$A+10 ->
-    if I < 0 ->
-	    [$-|integer_to_list(-I, Base, [])];
-       true ->
-	    integer_to_list(I, Base, [])
-    end;
-integer_to_list(I, Base) ->
-    erlang:error(badarg, [I, Base]).
-
-integer_to_list(I0, Base, R0) ->
-    D = I0 rem Base,
-    I1 = I0 div Base,
-    R1 = if D >= 10 ->
-		 [D-10+$A|R0];
-	    true ->
-		 [D+$0|R0]
-	 end,
-    if I1 =:= 0 ->
-	    R1;
-       true ->
-	    integer_to_list(I1, Base, R1)
-    end.
+integer_to_list(_I, _Base) ->
+    erlang:nif_error(undefined).
 
 -spec integer_to_binary(Integer, Base) -> binary() when
       Integer :: integer(),
       Base :: 2..36.
-integer_to_binary(I, 10) ->
-    erlang:integer_to_binary(I);
-integer_to_binary(I, Base) 
-  when erlang:is_integer(I), erlang:is_integer(Base),
-       Base >= 2, Base =< 1+$Z-$A+10 ->
-    if I < 0 ->
-	    <<$-,(integer_to_binary(-I, Base, <<>>))/binary>>;
-       true ->
-	    integer_to_binary(I, Base, <<>>)
-    end;
-integer_to_binary(I, Base) ->
-    erlang:error(badarg, [I, Base]).
+integer_to_binary(_I, _Base) ->
+    erlang:nif_error(undefined).
 
-integer_to_binary(I0, Base, R0) ->
-    D = I0 rem Base,
-    I1 = I0 div Base,
-    R1 = if
-             D >= 10 -> <<(D-10+$A),R0/binary>>;
-             true -> <<(D+$0),R0/binary>>
-         end,
-    if
-        I1 =:= 0 -> R1;
-        true -> integer_to_binary(I1, Base, R1)
-    end.
 
 -record(cpu, {node = -1,
 	      processor = -1,
