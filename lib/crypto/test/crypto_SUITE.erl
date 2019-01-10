@@ -156,7 +156,7 @@ groups() ->
                  ]},
      {dh, [], [generate_compute,
                compute_bug]},
-     {ecdh, [], [generate_all_supported, compute, generate]},
+     {ecdh, [], [use_all_elliptic_curves, compute, generate]},
      {srp, [], [generate_compute]},
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
@@ -563,9 +563,9 @@ compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
 %%--------------------------------------------------------------------
-generate_all_supported() ->
-    [{doc, " Test that all curves from crypto:ec_curves/0 returns two binaries"}].
-generate_all_supported(_Config) ->
+use_all_elliptic_curves() ->
+    [{doc, " Test that all curves from crypto:ec_curves/0"}].
+use_all_elliptic_curves(_Config) ->
     Results =
         [try
              crypto:generate_key(ecdh, C)
