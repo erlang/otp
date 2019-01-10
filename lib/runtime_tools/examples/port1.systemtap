@@ -18,15 +18,15 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
 probe begin
@@ -96,19 +96,19 @@ probe begin
         driver_map["udp_inet", 62] = "BINDX";
 }
 
-probe process("beam").mark("port-open")
+probe process("beam.smp").mark("port-open")
 {
     printf("port open pid %s port name %s port %s\n",
            user_string($arg1), user_string($arg2), user_string($arg3));
 }
 
-probe process("beam").mark("port-command")
+probe process("beam.smp").mark("port-command")
 {
     printf("port command pid %s port %s port name %s command type %s\n",
 	   user_string($arg1), user_string($arg2), user_string($arg3), user_string($arg4));
 }
 
-probe process("beam").mark("port-control")
+probe process("beam.smp").mark("port-control")
 {
     cmd = driver_map[user_string($arg3), $arg4];
     cmd_str = (cmd == "") ? "unknown" : cmd;
@@ -118,34 +118,34 @@ probe process("beam").mark("port-control")
 
 /* port-exit is fired as a result of port_close() or exit signal */
 
-probe process("beam").mark("port-exit")
+probe process("beam.smp").mark("port-exit")
 {
     printf("port exit pid %s port %s port name %s reason %s\n",
 	   user_string($arg1), user_string($arg2), user_string($arg3), user_string($arg4));
 }
 
-probe process("beam").mark("port-connect")
+probe process("beam.smp").mark("port-connect")
 {
     printf("port connect pid %s port %s port name %s new pid %s\n",
 	   user_string($arg1), user_string($arg2), user_string($arg3), user_string($arg4));
 }
 
-probe process("beam").mark("port-busy")
+probe process("beam.smp").mark("port-busy")
 {
     printf("port busy %s\n", user_string($arg1));
 }
 
-probe process("beam").mark("port-not_busy")
+probe process("beam.smp").mark("port-not_busy")
 {
     printf("port not busy %s\n", user_string($arg1));
 }
 
-probe process("beam").mark("aio_pool-add")
+probe process("beam.smp").mark("aio_pool-add")
 {
     printf("async I/O pool add thread %d queue len %d\n", $arg1, $arg2);
 }
 
-probe process("beam").mark("aio_pool-get")
+probe process("beam.smp").mark("aio_pool-get")
 {
     printf("async I/O pool get thread %d queue len %d\n", $arg1, $arg2);
 }

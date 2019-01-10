@@ -18,28 +18,28 @@
  * %CopyrightEnd%
  */
 /*
- * Note: This file assumes that you're using the non-SMP-enabled Erlang
- *       virtual machine, "beam".  The SMP-enabled VM is called "beam.smp".
+ * Note: This file assumes that you're using the SMP-enabled Erlang
+ *       virtual machine, "beam.smp".
  *       Note that other variations of the virtual machine also have
  *       different names, e.g. the debug build of the SMP-enabled VM
  *       is "beam.debug.smp".
  *
  *       To use a different virtual machine, replace each instance of
- *       "beam" with "beam.smp" or the VM name appropriate to your
- *       environment.
+ *       "beam.smp" with "beam.debug.smp" or the VM name appropriate
+ *       to your environment.
  */
 
-probe process("beam").mark("process-scheduled")
+probe process("beam.smp").mark("process-scheduled")
 {
     printf("  Schedule pid %s mfa %s\n", user_string($arg1), user_string($arg2));
 }
 
-probe process("beam").mark("process-unscheduled")
+probe process("beam.smp").mark("process-unscheduled")
 {
     printf("Unschedule pid %s\n", user_string($arg1));
 }
 
-probe process("beam").mark("process-hibernate")
+probe process("beam.smp").mark("process-hibernate")
 {
     printf("  Hibernate pid %s resume mfa %s\n",
      user_string($arg1), user_string($arg2));
