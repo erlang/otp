@@ -88,10 +88,6 @@
 #undef HARDDEBUG
 #endif
 
-#ifdef HARDDEBUG
-#define HARDDEBUG_RUNQS
-#endif
-
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_init_process() */
 #include "hipe_signal.h"	/* for hipe_thread_signal_init() */
@@ -3420,6 +3416,46 @@ static void suspend_scheduler(ErtsSchedulerData *esdp);
 
 #endif /* ERTS_SMP */
 
+#ifdef HARDDEBUG
+#define ERTS_HDBG_CHK_SLEEP_LIST(SL, L, F, FN) \
+     check_sleepers_list((SL), (L), (F), (FN))
+static void check_sleepers_list(ErtsSchedulerSleepList *sl,
+                                int lock,
+                                ErtsSchedulerSleepInfo *find,
+                                ErtsSchedulerSleepInfo *find_not)
+{
+    ErtsSchedulerSleepInfo *last_out;
+    int found = 0;
+
+    if (lock)
+        erts_smp_spin_lock(&sl->lock);
+
+    ERTS_ASSERT(!find_not || (!find_not->next && !find_not->prev));
+    
+    last_out = sl->list;
+    if (last_out) {
+        ErtsSchedulerSleepInfo *tmp = last_out;
+        do {
+            ERTS_ASSERT(tmp->next);
+            ERTS_ASSERT(tmp->prev);
+            ERTS_ASSERT(tmp->next->prev == tmp);
+            ERTS_ASSERT(tmp->prev->next == tmp);
+            ERTS_ASSERT(tmp != find_not);
+            if (tmp == find)
+                found = !0;
+            tmp = tmp->next;
+            
+        } while (tmp != last_out);
+    }
+    ERTS_ASSERT(!find || found);
+
+    if (lock)
+        erts_smp_spin_unlock(&sl->lock);
+}
+#else
+#define ERTS_HDBG_CHK_SLEEP_LIST(SL, L, F, FN) ((void) 0)
+#endif
+
 static void
 scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 {
@@ -3436,31 +3472,11 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	erts_smp_spin_lock(&rq->sleepers.lock);
-#endif
     flgs = sched_prep_spin_wait(ssi);
     if (flgs & ERTS_SSI_FLG_SUSPENDED) {
 	/* Go suspend instead... */
-#ifdef ERTS_DIRTY_SCHEDULERS
-	if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix))
-	    erts_smp_spin_unlock(&rq->sleepers.lock);
-#endif
 	return;
     }
-
-#ifdef ERTS_DIRTY_SCHEDULERS
-    if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
-	ssi->prev = NULL;
-	ssi->next = rq->sleepers.list;
-	if (rq->sleepers.list)
-	    rq->sleepers.list->prev = ssi;
-	rq->sleepers.list = ssi;
-	erts_smp_spin_unlock(&rq->sleepers.lock);
-        dirty_active(esdp, -1);
-    }
-#endif
 
     /*
      * If all schedulers are waiting, one of them *should*
@@ -3470,6 +3486,28 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     if (ERTS_SCHEDULER_IS_DIRTY(esdp) || !prepare_for_sys_schedule(0)) {
 
 	sched_waiting(esdp->no, rq);
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+        if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
+            erts_smp_spin_lock(&rq->sleepers.lock);
+            ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, NULL, ssi);
+            ASSERT(!ssi->next); /* Not in sleepers list */
+            ASSERT(!ssi->prev);
+            if (!rq->sleepers.list) {
+                ssi->next = ssi->prev = ssi;
+                rq->sleepers.list = ssi;
+            }
+            else {
+                ssi->prev = rq->sleepers.list;
+                ssi->next = rq->sleepers.list->next;
+                ssi->prev->next = ssi;
+                ssi->next->prev = ssi;
+            }
+            ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, ssi, NULL);
+            erts_smp_spin_unlock(&rq->sleepers.lock);
+            dirty_active(esdp, -1);
+        }
+#endif
 
 	erts_smp_runq_unlock(rq);
 
@@ -3597,7 +3635,31 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 	    sched_wall_time_change(esdp, 1);
         }
-
+        
+#ifdef ERTS_DIRTY_SCHEDULERS
+        if (ERTS_RUNQ_IX_IS_DIRTY(rq->ix)) {
+            erts_smp_spin_lock(&rq->sleepers.lock);
+            ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, ssi->next ? ssi : NULL, NULL);
+            if (ssi->next) { /* Still in list... */
+                if (ssi->next == ssi) {
+                    ASSERT(rq->sleepers.list == ssi);
+                    ASSERT(ssi->prev == ssi);
+                    rq->sleepers.list = NULL;
+                }
+                else {
+                    ASSERT(ssi->prev != ssi);
+                    if (rq->sleepers.list == ssi)
+                        rq->sleepers.list = ssi->next;
+                    ssi->prev->next = ssi->next;
+                    ssi->next->prev = ssi->prev;
+                }
+                ssi->next = ssi->prev = NULL;
+            }
+            ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, NULL, ssi);
+            erts_smp_spin_unlock(&rq->sleepers.lock);
+        }
+#endif
+        
 	erts_smp_runq_lock(rq);
 	sched_active(esdp->no, rq);
 
@@ -3883,53 +3945,42 @@ wake_scheduler(ErtsRunQueue *rq)
 
 #ifdef ERTS_DIRTY_SCHEDULERS
 static void
-wake_dirty_schedulers(ErtsRunQueue *rq, int one)
+wake_dirty_scheduler(ErtsRunQueue *rq)
 {
-    ErtsSchedulerSleepInfo *ssi;
+    ErtsSchedulerSleepInfo *lo_ssi, *fo_ssi;
     ErtsSchedulerSleepList *sl;
 
     ASSERT(ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
 
     sl = &rq->sleepers;
     erts_smp_spin_lock(&sl->lock);
-    ssi = sl->list;
-    if (!ssi) {
+    ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, NULL, NULL);
+    lo_ssi = sl->list;
+    if (!lo_ssi) {
 	erts_smp_spin_unlock(&sl->lock);
-	if (one)
-	    wake_scheduler(rq);
-    } else if (one) {
-	erts_aint32_t flgs;
-	if (ssi->prev)
-	    ssi->prev->next = ssi->next;
-	else {
-	    ASSERT(sl->list == ssi);
-	    sl->list = ssi->next;
-	}
-	if (ssi->next)
-	    ssi->next->prev = ssi->prev;
-
-	erts_smp_spin_unlock(&sl->lock);
-
-	ERTS_THR_MEMORY_BARRIER;
-	flgs = ssi_flags_set_wake(ssi);
-	erts_sched_finish_poke(ssi, flgs);
-    } else {
-	sl->list = NULL;
-	erts_smp_spin_unlock(&sl->lock);
-
-	ERTS_THR_MEMORY_BARRIER;
-	do {
-	    ErtsSchedulerSleepInfo *wake_ssi = ssi;
-	    ssi = ssi->next;
-	    erts_sched_finish_poke(wake_ssi, ssi_flags_set_wake(wake_ssi));
-	} while (ssi);
+        wake_scheduler(rq);
     }
-}
+    else {
+	erts_aint32_t flgs;
+        fo_ssi = lo_ssi->next;
+        ASSERT(fo_ssi->prev == lo_ssi);
+        if (fo_ssi == lo_ssi) {
+	    ASSERT(lo_ssi->prev == lo_ssi);
+            sl->list = NULL;
+        }
+        else {
+            ASSERT(lo_ssi->prev != lo_ssi);
+	    lo_ssi->next = fo_ssi->next;
+	    fo_ssi->next->prev = fo_ssi->prev;
+	}
+        fo_ssi->next = fo_ssi->prev = NULL;
+        ERTS_HDBG_CHK_SLEEP_LIST(&rq->sleepers, 0, NULL, fo_ssi);
+	erts_smp_spin_unlock(&sl->lock);
 
-static void
-wake_dirty_scheduler(ErtsRunQueue *rq)
-{
-    wake_dirty_schedulers(rq, 1);
+	ERTS_THR_MEMORY_BARRIER;
+	flgs = ssi_flags_set_wake(fo_ssi);
+	erts_sched_finish_poke(fo_ssi, flgs);
+    }
 }
 
 #endif
@@ -6371,6 +6422,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
     for (ix = 0; ix < no_dirty_cpu_schedulers; ix++) {
 	ErtsSchedulerSleepInfo *ssi = &aligned_dirty_cpu_sched_sleep_info[ix].ssi;
 	erts_smp_atomic32_init_nob(&ssi->flags, 0);
+        ssi->next = NULL;
+        ssi->prev = NULL;
 	ssi->event = NULL; /* initialized in sched_dirty_cpu_thread_func */
 	erts_atomic32_init_nob(&ssi->aux_work, 0);
     }
@@ -6381,6 +6434,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online
     for (ix = 0; ix < no_dirty_io_schedulers; ix++) {
 	ErtsSchedulerSleepInfo *ssi = &aligned_dirty_io_sched_sleep_info[ix].ssi;
 	erts_smp_atomic32_init_nob(&ssi->flags, 0);
+        ssi->next = NULL;
+        ssi->prev = NULL;
 	ssi->event = NULL; /* initialized in sched_dirty_io_thread_func */
 	erts_atomic32_init_nob(&ssi->aux_work, 0);
     }
@@ -7895,6 +7950,11 @@ suspend_scheduler(ErtsSchedulerData *esdp)
         return;
     }
 
+#ifdef HARDDEBUG
+    if (sched_type != ERTS_SCHED_NORMAL)
+        ERTS_HDBG_CHK_SLEEP_LIST(&esdp->run_queue->sleepers, !0, NULL, ssi);
+#endif
+    
     if (erts_smp_atomic32_read_nob(&ssi->flags) & ERTS_SSI_FLG_MSB_EXEC) {
         ASSERT(no == 1);
         if (!msb_scheduler_type_switch(sched_type, esdp, no))
