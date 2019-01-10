@@ -81,6 +81,7 @@ opt_opts(Mod) ->
                     (no_put_tuple2) -> true;
                     (no_bsm3) -> true;
                     (no_bsm_opt) -> true;
+                    (no_module_opt) -> true;
 		    (_) -> false
 		 end, Opts).
 
@@ -93,8 +94,9 @@ get_data_dir(Config) ->
     Opts = [{return,list}],
     Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
     Data2 = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
-    Data = re:replace(Data2, "_inline_SUITE", "_SUITE", Opts),
-    re:replace(Data, "_r21_SUITE", "_SUITE", Opts).
+    Data3 = re:replace(Data2, "_inline_SUITE", "_SUITE", Opts),
+    Data4 = re:replace(Data3, "_r21_SUITE", "_SUITE", Opts),
+    re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts).
 
 is_cloned_mod(Mod) ->
     is_cloned_mod_1(atom_to_list(Mod)).
@@ -105,6 +107,7 @@ is_cloned_mod_1("no_opt_SUITE") -> true;
 is_cloned_mod_1("post_opt_SUITE") -> true;
 is_cloned_mod_1("inline_SUITE") -> true;
 is_cloned_mod_1("21_SUITE") -> true;
+is_cloned_mod_1("no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.
 
