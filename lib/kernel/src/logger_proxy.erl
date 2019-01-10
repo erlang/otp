@@ -135,11 +135,21 @@ terminate(_Reason, _State) ->
     _ = erlang:system_flag(system_logger,whereis(logger)),
     ok.
 
-notify({mode_change,_Mode0,drop},State) ->
-    _ = erlang:system_flag(system_logger,undefined),
+notify({mode_change,Mode0,Mode1},State) ->
+    _ = if Mode1=:=drop -> % entering drop mode
+                erlang:system_flag(system_logger,undefined);
+           Mode0=:=drop -> % leaving drop mode
+                erlang:system_flag(system_logger,self());
+           true ->
+                ok
+        end,
+    ?LOG_INTERNAL(notice,"~w switched from ~w to ~w mode",[?MODULE,Mode0,Mode1]),
     State;
-notify({mode_change,drop,_Mode1},State) ->
-    _ = erlang:system_flag(system_logger,self()),
+notify({flushed,Flushed},State) ->
+    ?LOG_INTERNAL(notice, "~w flushed ~w log events",[?MODULE,Flushed]),
+    State;
+notify(restart,State) ->
+    ?LOG_INTERNAL(notice, "~w restarted", [?MODULE]),
     State;
 notify(_Note,State) ->
     State.
