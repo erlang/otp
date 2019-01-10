@@ -574,50 +574,42 @@ client_active_once_server_close(
           [{node, ClientNode}, {port, Port},
            {host, Hostname},
            {from, self()},
-           {mfa, {?MODULE, active_once_recv, [Length]}},
+           {mfa, {ssl_test_lib, active_once_recv, [Length]}},
            {options,[{active, once}, {mode, binary} | ClientOpts]}]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
-send(Socket, Data, Count, Verify) ->
-    send(Socket, Data, Count, <<>>, Verify).
-%%
-send(_Socket, _Data, 0, Acc, _Verify) ->
-    Acc;
-send(Socket, Data, Count, Acc, Verify) ->
+send(_Socket, _Data, 0, _) ->
+    ok;
+send(Socket, Data, Count, RecvEcho) ->
     ok = ssl:send(Socket, Data),
-    NewAcc = Verify(Acc),
-    send(Socket, Data, Count - 1, NewAcc, Verify).
-
+    RecvEcho(),
+    send(Socket, Data, Count - 1, RecvEcho).
 
 send_close(Socket, Data) ->
     ok = ssl:send(Socket, Data),
     ssl:close(Socket).
-   
+
 sender(Socket, Data) ->
     ct:log("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
-    <<>> =
-        send(
-          Socket, Data, 100,
-          fun(Acc) -> verify_recv(Socket, Data, Acc) end),
-    ok.
+    send(Socket, Data, 100,
+              fun() -> 
+                      ssl_test_lib:recv_disregard(Socket, byte_size(Data)) 
+              end).
 
 sender_active_once(Socket, Data) ->
     ct:log("Sender active once: ~p~n", [ssl:getopts(Socket, [active])]),
-    <<>> =
-        send(
-          Socket, Data, 100,
-          fun(Acc) -> verify_active_once(Socket, Data, Acc) end),
-    ok.
+    send(Socket, Data, 100,
+         fun() -> 
+                 ssl_test_lib:active_once_disregard(Socket, byte_size(Data)) 
+         end).
 
 sender_active(Socket, Data) ->
     ct:log("Sender active: ~p~n", [ssl:getopts(Socket, [active])]),
-    <<>> =
-        send(
-          Socket, Data, 100,
-          fun(Acc) -> verify_active(Socket, Data, Acc) end),
-    ok.
-
+    send(Socket, Data, 100,
+         fun() -> 
+                 ssl_test_lib:active_disregard(Socket, byte_size(Data)) 
+         end).
 
 echoer(Socket, Size) ->
     ct:log("Echoer recv: ~p~n", [ssl:getopts(Socket, [active])]),
@@ -633,108 +625,32 @@ echoer_active(Socket, Size) ->
 
 
 %% Receive Size bytes
+echo_recv(_Socket, 0) ->
+    ok;
 echo_recv(Socket, Size) ->
     {ok, Data} = ssl:recv(Socket, 0),
     ok = ssl:send(Socket, Data),
-    NewSize = Size - byte_size(Data),
-    if
-        0 < NewSize ->
-            echo_recv(Socket, NewSize);
-        0 == NewSize ->
-            ok
-    end.
-
-%% Verify that received data is SentData, return any superflous data
-verify_recv(Socket, SentData, Acc) ->
-    {ok, NewData} = ssl:recv(Socket, 0),
-    SentSize = byte_size(SentData),
-    NewAcc = <<Acc/binary, NewData/binary>>,
-    NewSize = byte_size(NewAcc),
-    if
-        SentSize < NewSize ->
-            {SentData,Rest} = split_binary(NewAcc, SentSize),
-            Rest;
-        NewSize < SentSize ->
-            verify_recv(Socket, SentData, NewAcc);
-        true ->
-            SentData = NewAcc,
-            <<>>
-    end.
+    echo_recv(Socket, Size - byte_size(Data)).
 
 %% Receive Size bytes
+echo_active_once(_Socket, 0) ->
+    ok;
 echo_active_once(Socket, Size) ->
     receive
         {ssl, Socket, Data} ->
             ok = ssl:send(Socket, Data),
             NewSize = Size - byte_size(Data),
             ssl:setopts(Socket, [{active, once}]),
-            if
-                0 < NewSize ->
-                    echo_active_once(Socket, NewSize);
-                0 == NewSize ->
-                    ok
-            end
+            echo_active_once(Socket, NewSize)
     end.
-
-%% Verify that received data is SentData, return any superflous data
-verify_active_once(Socket, SentData, Acc) ->
-    receive
-        {ssl, Socket, Data} ->
-            SentSize = byte_size(SentData),
-            NewAcc = <<Acc/binary, Data/binary>>,
-            NewSize = byte_size(NewAcc),
-            ssl:setopts(Socket, [{active, once}]),
-            if
-                SentSize < NewSize ->
-                    {SentData,Rest} = split_binary(NewAcc, SentSize),
-                    Rest;
-                NewSize < SentSize ->
-                    verify_active_once(Socket, SentData, NewAcc);
-                true ->
-                    SentData = NewAcc,
-                    <<>>
-            end
-    end.
-
 
 %% Receive Size bytes
+echo_active(_Socket, 0) ->
+    ok;
 echo_active(Socket, Size) ->
     receive
         {ssl, Socket, Data} ->
             ok = ssl:send(Socket, Data),
-            NewSize = Size - byte_size(Data),
-            if
-                0 < NewSize ->
-                    echo_active(Socket, NewSize);
-                0 == NewSize ->
-                    ok
-            end
-    end.
-
-%% Verify that received data is SentData, return any superflous data
-verify_active(Socket, SentData, Acc) ->
-    receive
-        {ssl, Socket, Data} ->
-            SentSize = byte_size(SentData),
-            NewAcc = <<Acc/binary, Data/binary>>,
-            NewSize = byte_size(NewAcc),
-            if
-                SentSize < NewSize ->
-                    {SentData,Rest} = split_binary(NewAcc, SentSize),
-                    Rest;
-                NewSize < SentSize ->
-                    verify_active(Socket, SentData, NewAcc);
-                true ->
-                    SentData = NewAcc,
-                    <<>>
-            end
-    end.
-
-active_once_recv(_Socket, 0) ->
-    ok;
-active_once_recv(Socket, N) ->
-    receive 
-	{ssl, Socket, Bytes} ->
-            ssl:setopts(Socket, [{active, once}]),
-            active_once_recv(Socket, N-byte_size(Bytes))
-    end.
+            echo_active(Socket, Size - byte_size(Data))
+    end.    
+        
