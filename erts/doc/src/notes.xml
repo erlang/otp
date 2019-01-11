@@ -3220,6 +3220,43 @@
 
 </section>
 
+<section><title>Erts 8.3.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in operator <c>band</c> of two negative
+	    operands causing erroneous result if the absolute value
+	    of one of the operands have the lowest <c>N*W</c> bits as
+	    zero and the other absolute value is not larger than
+	    <c>N*W</c> bits. <c>N</c> is an integer of 1 or larger
+	    and <c>W</c> is 32 or 64 depending on word size.</p>
+          <p>
+	    Own Id: OTP-15487 Aux Id: ERL-804 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added an optional <c>./configure</c> flag to compile
+	    the emulator with spectre mitigation:
+	    <c>--with-spectre-mitigation</c></p>
+	    <p>Note that this requires a recent version of GCC with
+	    support for spectre mitigation and the
+	    <c>--mindirect-branch=thunk</c> flag, such as
+	    <c>8.1</c>.</p>
+          <p>
+	    Own Id: OTP-15430 Aux Id: ERIERL-237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 8.3.5.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
