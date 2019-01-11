@@ -98,7 +98,6 @@ all() ->
      formatter_fail,
      config_fail,
      bad_input,
-     info_and_reset,
      reconfig,
      sync,
      disk_log_full,
@@ -455,18 +454,7 @@ config_fail(cleanup,_Config) ->
 
 bad_input(_Config) ->
     {error,{badarg,{filesync,["BadType"]}}} =
-        logger_disk_log_h:filesync("BadType"),
-    {error,{badarg,{info,["BadType"]}}} = logger_disk_log_h:info("BadType"),
-    {error,{badarg,{reset,["BadType"]}}} = logger_disk_log_h:reset("BadType").
-
-info_and_reset(_Config) ->
-    ok = logger:add_handler(?MODULE,logger_disk_log_h,
-                            #{filter_default=>log,
-                              formatter=>{?MODULE,self()}}),
-    #{} = logger_disk_log_h:info(?MODULE),
-    ok = logger_disk_log_h:reset(?MODULE).
-info_and_reset(cleanup,_Config) ->
-    logger:remove_handler(?MODULE).
+        logger_disk_log_h:filesync("BadType").
 
 reconfig(Config) ->
     Dir = ?config(priv_dir,Config),
@@ -493,7 +481,7 @@ reconfig(Config) ->
                                 max_no_bytes := ?DISK_LOG_MAX_NO_BYTES,
                                 file := DiskLogFile}},
             filesync_repeat_interval := ?FILESYNC_REPEAT_INTERVAL}} =
-        logger_disk_log_h:info(?MODULE),
+        logger_olp:info(h_proc_name()),
     {ok,#{config :=
               #{sync_mode_qlen := ?SYNC_MODE_QLEN,
                 drop_mode_qlen := ?DROP_MODE_QLEN,
@@ -536,7 +524,7 @@ reconfig(Config) ->
       overload_kill_mem_size := 10000000,
       overload_kill_restart_after := infinity,
       cb_state := #{filesync_repeat_interval := no_repeat}} =
-        logger_disk_log_h:info(?MODULE),
+        logger_olp:info(h_proc_name()),
     {ok,#{config:=HConfig1}} = logger:get_handler_config(?MODULE),
 
     ok = logger:update_handler_config(?MODULE, config,
@@ -580,7 +568,7 @@ reconfig(Config) ->
                                 max_no_files := 1,
                                 max_no_bytes := 1024,
                                 file := File}}}} =
-        logger_disk_log_h:info(?MODULE),
+        logger_olp:info(h_proc_name()),
     {ok,#{config :=
               #{type := halt,
                 max_no_files := 1,
@@ -649,7 +637,7 @@ sync(Config) ->
     HConfig1 = HConfig#{filesync_repeat_interval => no_repeat},
     ok = logger:update_handler_config(?MODULE, config, HConfig1),
     no_repeat = maps:get(filesync_repeat_interval,
-                         maps:get(cb_state,logger_disk_log_h:info(?MODULE))),
+                         maps:get(cb_state,logger_olp:info(h_proc_name()))),
 
     start_tracer([{logger_disk_log_h,disk_log_write,3},
                   {disk_log,sync,1}],
@@ -679,7 +667,7 @@ sync(Config) ->
     ok = logger:update_handler_config(?MODULE, config, HConfig2),
                       
     SyncInt = maps:get(filesync_repeat_interval,
-                       maps:get(cb_state,logger_disk_log_h:info(?MODULE))),
+                       maps:get(cb_state,logger_olp:info(h_proc_name()))),
     timer:sleep(WaitT),
     HConfig3 = HConfig#{filesync_repeat_interval => no_repeat},
     ok = logger:update_handler_config(?MODULE, config, HConfig3),
@@ -797,7 +785,7 @@ disk_log_full(cleanup, _Config) ->
     dbg:stop_clear(),
     logger:remove_handler(?MODULE).    
 
-disk_log_events(Config) ->
+disk_log_events(_Config) ->
     Node = node(),
     Log = ?MODULE,
     ok = logger:add_handler(?MODULE,
@@ -854,7 +842,7 @@ write_failure(Config) ->
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_write,ok]),
-    HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
+    HState = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
     LogOpts = maps:get(log_opts,
                        maps:get(handler_state,
                                 maps:get(cb_state,HState))),
@@ -910,7 +898,7 @@ sync_failure(Config) ->
     rpc:call(Node, ets, insert, [?TEST_HOOKS_TAB,{tester,self()}]),
     rpc:call(Node, ?MODULE, set_internal_log, [?MODULE,internal_log]),
     rpc:call(Node, ?MODULE, set_result, [disk_log_sync,ok]),
-    HState = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
+    HState = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
     LogOpts = maps:get(log_opts, maps:get(handler_state,
                                           maps:get(cb_state,HState))),
     
@@ -918,7 +906,7 @@ sync_failure(Config) ->
     ok = rpc:call(Node, logger, update_handler_config,
                   [?STANDARD_HANDLER, config,
                    #{filesync_repeat_interval => SyncInt}]),
-    Info = rpc:call(Node, logger_disk_log_h, info, [?STANDARD_HANDLER]),
+    Info = rpc:call(Node, logger_olp, info, [h_proc_name(?STANDARD_HANDLER)]),
     SyncInt = maps:get(filesync_repeat_interval, maps:get(cb_state, Info)),
     
     ok = log_on_remote_node(Node, "Logged1"),
@@ -1205,7 +1193,7 @@ qlen_kill_new(Config) ->
             ok
     after
         5000 ->
-            Info = logger_disk_log_h:info(?MODULE),
+            Info = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
@@ -1242,7 +1230,7 @@ mem_kill_new(Config) ->
             ok
     after
         5000 ->
-            Info = logger_disk_log_h:info(?MODULE),
+            Info = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
@@ -1268,7 +1256,7 @@ restart_after(Config) ->
             ok
     after
         5000 ->
-            Info1 = logger_std_h:info(?MODULE),
+            Info1 = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
@@ -1292,7 +1280,7 @@ restart_after(Config) ->
             ok
     after
         5000 ->
-            Info2 = logger_std_h:info(?MODULE),
+            Info2 = logger_olp:info(h_proc_name()),
             ct:pal("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
@@ -1313,11 +1301,15 @@ handler_requests_under_load(Config) ->
                                       flush_qlen => 2000,
                                       burst_limit_enable => false}},
     ok = logger:update_handler_config(?MODULE, NewHConfig),
-    Pid = spawn_link(fun() -> send_requests(?MODULE, 1, [{filesync,[]},
-                                                         {info,[]},
-                                                         {reset,[]},
-                                                         {change_config,[]}])
-                     end),
+    Pid = spawn_link(
+            fun() -> send_requests(1,[{logger_disk_log_h,filesync,[?MODULE],[]},
+                                      {logger_olp,info,[h_proc_name()],[]},
+                                      {logger_olp,reset,[h_proc_name()],[]},
+                                      {logger,update_handler_config,
+                                       [?MODULE, config,
+                                        #{overload_kill_enable => false}],
+                                       []}])
+            end),
     Procs = 100,
     Sent = Procs * send_burst({n,5000}, {spawn,Procs,10}, {chars,79}, notice),
     Pid ! {self(),finish},
@@ -1329,29 +1321,22 @@ handler_requests_under_load(Config) ->
                         [E || E <- Res,
                               is_tuple(E) andalso (element(1,E) == error)]
                 end,
-    Errors = [{Req,FindError(Res)} || {Req,Res} <- ReqResult],
-    NoOfReqs = lists:foldl(fun({_,Res}, N) -> N + length(Res) end, 0, ReqResult),
+    Errors = [{Func,FindError(Res)} || {_,Func,_,Res} <- ReqResult],
+    NoOfReqs = lists:foldl(fun({_,_,_,Res}, N) -> N + length(Res) end,
+                           0, ReqResult),
     ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file_delete(Log).
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
-send_requests(HName, TO, Reqs = [{Req,Res}|Rs]) ->
+send_requests(TO, Reqs = [{Mod,Func,Args,Res}|Rs]) ->
     receive
         {From,finish} ->
             From ! {self(),Reqs}
     after
         TO ->
-            Result =
-                case Req of
-                    change_config ->
-                        logger:update_handler_config(HName, logger_disk_log_h,
-                                                     #{overload_kill_enable =>
-                                                           false});
-                    Func ->
-                        logger_disk_log_h:Func(HName)
-                end,
-            send_requests(HName, TO, Rs ++ [{Req,[Result|Res]}])
+            Result = apply(Mod,Func,Args),
+            send_requests(TO, Rs ++ [{Mod,Func,Args,[Result|Res]}])
     end.
 
 %%%-----------------------------------------------------------------
@@ -1468,15 +1453,6 @@ format(Msg,Tag) ->
     Error = {unexpected_format,Msg,Tag},
     erlang:display(Error),
     exit(Error).
-
-remove(Handler, LogName) ->
-    logger_disk_log_h:remove(Handler, LogName),
-    HState = #{log_names := Logs} = logger_disk_log_h:info(),
-    false = maps:is_key(LogName, HState),
-    false = lists:member(LogName, Logs),
-    false = logger_config:exist(?LOGGER_TABLE, LogName),
-    {error,no_such_log} = disk_log:info(LogName),
-    ok.
 
 start_and_add(Name, Config, LogOpts) ->
     HConfig = maps:get(config, Config, #{}),

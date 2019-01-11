@@ -24,7 +24,7 @@
 -include("logger_internal.hrl").
 
 %% API
--export([info/2, filesync/2, reset/2]).
+-export([filesync/2]).
 
 %% logger_olp callbacks
 -export([init/1, handle_load/2, handle_call/3, handle_cast/2, handle_info/2,
@@ -58,12 +58,6 @@
 %% This function is called by the logger_sup supervisor
 filesync(Module, Name) ->
     call(Module, Name, filesync).
-
-info(Module, Name) ->
-    call(Module, Name, info).
-
-reset(Module, Name) ->
-    call(Module, Name, reset).
 
 %%%-----------------------------------------------------------------
 %%% Handler being added
