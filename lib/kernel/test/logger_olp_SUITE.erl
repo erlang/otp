@@ -68,6 +68,7 @@ idle_timer(_Config) ->
     [{cast,hello}] = test_server:messages_get(),
     ok.
 idle_timer(cleanup,_Config) ->
+    unlink(whereis(?MODULE)),
     logger_olp:stop(?MODULE),
     ok.
 
