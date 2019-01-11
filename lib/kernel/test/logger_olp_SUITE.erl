@@ -56,7 +56,7 @@ all() ->
 %%%-----------------------------------------------------------------
 %%% Test cases
 idle_timer(_Config) ->
-    {ok,Pid,Olp} = logger_olp:start_link(?MODULE,?MODULE,self(),#{}),
+    {ok,_Pid,Olp} = logger_olp:start_link(?MODULE,?MODULE,self(),#{}),
     [logger_olp:load(Olp,{msg,N}) || N<-lists:seq(1,3)],
     timer:sleep(?IDLE_DETECT_TIME*2),
     [{load,{msg,1}},

@@ -182,7 +182,7 @@ config(cleanup,_Config) ->
     _ = logger:set_logger_proxy(logger_proxy:get_default_config()),
     ok.
 
-restart_after(Config) ->
+restart_after(_Config) ->
     Restart = 3000,
     ok = logger:update_proxy_config(#{overload_kill_enable => true,
                                       overload_kill_qlen => 10,
@@ -197,7 +197,7 @@ restart_after(Config) ->
                   [logger_proxy ! {log,debug,
                                    [{test_case,?FUNCTION_NAME},
                                     {line,?LINE}],
-                                   L2=?LOC} || _ <- lists:seq(1,100)]
+                                   ?LOC} || _ <- lists:seq(1,100)]
           end),
     receive
         {'DOWN',Ref,_,_,_Reason} ->
@@ -214,13 +214,13 @@ restart_after(Config) ->
     ProxyConfig = logger_olp:get_opts(logger_proxy),
 
     ok.
-restart_after(cleanup,Config) ->
+restart_after(cleanup,_Config) ->
     _ = logger:set_logger_proxy(logger_proxy:get_default_config()),
     ok.
 
 %% Test that system_logger flag is set to logger process if
 %% logger_proxy terminates for other reason than overloaded.
-terminate(Config) ->
+terminate(_Config) ->
     Logger = whereis(logger),
     Proxy = whereis(logger_proxy),
     Proxy = erlang:system_info(system_logger),
@@ -255,7 +255,7 @@ poll_restarted(N) ->
     case whereis(logger_proxy) of
         undefined ->
             poll_restarted(N-1);
-        Pid ->
+        _Pid ->
             ok
     end.
 
@@ -268,7 +268,7 @@ ensure(Match) ->
     receive {logged,Meta} ->
             case maps:with(maps:keys(Match),Meta) of
                 Match -> ok;
-                NoMatch -> {error,Match,Meta,test_server:messages_get()}
+                _NoMatch -> {error,Match,Meta,test_server:messages_get()}
             end
     after ?ENSURE_TIME -> {error,Match,test_server:messages_get()}
     end.
