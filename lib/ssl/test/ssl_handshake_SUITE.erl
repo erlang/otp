@@ -215,7 +215,7 @@ encode_decode_srp(_Config) ->
                     98,97,114>>,     % hostname = "bar"
     EncodedExts0 = <<?UINT16(_),EncodedExts/binary>> =
         ssl_handshake:encode_hello_extensions(Exts),
-    Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, client).
+    Exts = ssl_handshake:decode_hello_extensions(EncodedExts, {3,3}, {3,3}, client).
 
 signature_algorithms(Config) ->
     Opts = proplists:get_value(server_opts, Config),
