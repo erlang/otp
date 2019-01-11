@@ -135,32 +135,8 @@ start(internal,
     end.
 
 
-negotiated(internal,
-           Map,
-           #state{connection_states = ConnectionStates0,
-                  session = #session{session_id = SessionId,
-                                     own_certificate = OwnCert},
-                  ssl_options = #ssl_options{} = SslOpts,
-                  key_share = KeyShare,
-                  handshake_env = #handshake_env{tls_handshake_history = HHistory0},
-                  private_key = CertPrivateKey,
-                  static_env = #static_env{
-                                  cert_db = CertDbHandle,
-                                  cert_db_ref = CertDbRef,
-                                  socket = Socket,                                  
-                                  transport_cb = Transport}} = State0, _Module) ->
-    Env = #{connection_states => ConnectionStates0,
-            session_id => SessionId,
-            own_certificate => OwnCert,
-            cert_db => CertDbHandle,
-            cert_db_ref => CertDbRef,
-            ssl_options => SslOpts,
-            key_share => KeyShare,
-            tls_handshake_history => HHistory0,
-            transport_cb => Transport,
-            socket => Socket,
-            private_key => CertPrivateKey},
-    case tls_handshake_1_3:do_negotiated(Map, Env) of
+negotiated(internal, Map, State0, _Module) ->
+    case tls_handshake_1_3:do_negotiated(Map, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
         M ->
@@ -187,4 +163,5 @@ update_state(#state{connection_states = ConnectionStates0,
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
     State#state{connection_states = ConnectionStates,
                 key_share = KeyShare,
-                session = Session#session{session_id = SessionId}}.
+                session = Session#session{session_id = SessionId},
+                negotiated_version = {3,4}}.

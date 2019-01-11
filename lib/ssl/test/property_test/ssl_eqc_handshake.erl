@@ -96,7 +96,7 @@ tls_msg(?'TLS_v1.3'= Version) ->
            encrypted_extensions(),
            certificate_1_3(),
            %%certificate_request_1_3,
-           %%certificate_verify()
+           certificate_verify_1_3(),
            finished(),
            key_update()
           ]);
@@ -161,6 +161,13 @@ certificate_1_3() ->
           #certificate_1_3{
              certificate_request_context = certificate_request_context(),
              certificate_list = certificate_entries(Certs, [])
+            }).
+
+certificate_verify_1_3() ->
+     ?LET(Certs, certificate_chain(),
+          #certificate_verify_1_3{
+             algorithm = sig_scheme(),
+             signature = signature()
             }).
 
 finished() ->
@@ -511,6 +518,42 @@ sig_scheme_list() ->
             ecdsa_sha1]
           ]).
 
+sig_scheme() ->
+    oneof([rsa_pkcs1_sha256,
+            rsa_pkcs1_sha384,
+            rsa_pkcs1_sha512,
+            ecdsa_secp256r1_sha256,
+            ecdsa_secp384r1_sha384,
+            ecdsa_secp521r1_sha512,
+            rsa_pss_rsae_sha256,
+            rsa_pss_rsae_sha384,
+            rsa_pss_rsae_sha512,
+            rsa_pss_pss_sha256,
+            rsa_pss_pss_sha384,
+            rsa_pss_pss_sha512,
+            rsa_pkcs1_sha1,
+            ecdsa_sha1]).
+
+signature() ->
+    <<44,119,215,137,54,84,156,26,121,212,64,173,189,226,
+      191,46,76,89,204,2,78,79,163,228,90,21,89,179,4,198,
+      109,14,52,26,230,22,56,8,170,129,86,0,7,132,245,81,
+      181,131,62,70,79,167,112,85,14,171,175,162,110,29,
+      212,198,45,188,83,176,251,197,224,104,95,74,89,59,
+      26,60,63,79,238,196,137,65,23,199,127,145,176,184,
+      216,3,48,116,172,106,97,83,227,172,246,137,91,79,
+      173,119,169,60,67,1,177,117,9,93,38,86,232,253,73,
+      140,17,147,130,110,136,245,73,10,91,70,105,53,225,
+      158,107,60,190,30,14,26,92,147,221,60,117,104,53,70,
+      142,204,7,131,11,183,192,120,246,243,68,99,147,183,
+      49,149,48,188,8,218,17,150,220,121,2,99,194,140,35,
+      13,249,201,37,216,68,45,87,58,18,10,106,11,132,241,
+      71,170,225,216,197,212,29,107,36,80,189,184,202,56,
+      86,213,45,70,34,74,71,48,137,79,212,194,172,151,57,
+      57,30,126,24,157,198,101,220,84,162,89,105,185,245,
+      76,105,212,176,25,6,148,49,194,106,253,241,212,200,
+      37,154,227,53,49,216,72,82,163>>.
+
 client_hello_versions(?'TLS_v1.3') ->
     ?LET(SupportedVersions,
          oneof([[{3,4}],
@@ -739,10 +782,13 @@ key_share_entry_list(N, Pool, Acc) ->
           key_exchange = P},
     key_share_entry_list(N - 1, Pool -- [G], [KeyShareEntry|Acc]).
 
+%% TODO: fix curve generation
 generate_public_key(Group)
   when Group =:= secp256r1 orelse
        Group =:= secp384r1 orelse
-       Group =:= secp521r1 ->
+       Group =:= secp521r1 orelse
+       Group =:= x448 orelse
+       Group =:= x25519 ->
     #'ECPrivateKey'{publicKey = PublicKey} =
         public_key:generate_key({namedCurve, secp256r1}),
     PublicKey;

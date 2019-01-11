@@ -25,6 +25,7 @@
 -module(ssl_record).
 
 -include("ssl_record.hrl").
+-include("ssl_connection.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
@@ -124,12 +125,14 @@ activate_pending_connection_state(#{current_write := Current,
 %% Description: Activates the next encyrption state (e.g. handshake
 %% encryption).
 %%--------------------------------------------------------------------
-step_encryption_state(#{pending_read := PendingRead,
-                        pending_write := PendingWrite} = States) ->
+step_encryption_state(#state{connection_states =
+                                 #{pending_read := PendingRead,
+                                   pending_write := PendingWrite} = ConnStates} = State) ->
     NewRead = PendingRead#{sequence_number => 0},
     NewWrite = PendingWrite#{sequence_number => 0},
-    States#{current_read => NewRead,
-            current_write => NewWrite}.
+    State#state{connection_states =
+                    ConnStates#{current_read => NewRead,
+                                current_write => NewWrite}}.
 
 
 %%--------------------------------------------------------------------

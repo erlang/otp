@@ -28,6 +28,7 @@
 -include("tls_handshake_1_3.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_connection.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -115,6 +116,12 @@ encode_handshake(#certificate_1_3{
     EncContext = encode_cert_req_context(Context),
     EncEntries = encode_cert_entries(Entries),
     {?CERTIFICATE, <<EncContext/binary, EncEntries/binary>>};
+encode_handshake(#certificate_verify_1_3{
+                    algorithm = Algorithm,
+                    signature = Signature}) ->
+    EncAlgo = encode_algorithm(Algorithm),
+    EncSign = encode_signature(Signature),
+    {?CERTIFICATE_VERIFY, <<EncAlgo/binary, EncSign/binary>>};
 encode_handshake(#encrypted_extensions{extensions = Exts})->
     {?ENCRYPTED_EXTENSIONS, encode_extensions(Exts)};        
 encode_handshake(#new_session_ticket{
@@ -164,6 +171,11 @@ decode_handshake(?CERTIFICATE, <<?BYTE(CSize), Context:CSize/binary,
        certificate_request_context = Context,
        certificate_list = CertList
       };
+decode_handshake(?CERTIFICATE_VERIFY, <<?UINT16(EncAlgo), ?UINT16(Size), Signature:Size/binary>>) ->
+    Algorithm = ssl_cipher:signature_scheme(EncAlgo),
+    #certificate_verify_1_3{
+       algorithm = Algorithm,
+       signature = Signature};
 decode_handshake(?ENCRYPTED_EXTENSIONS, <<?UINT16(Size), EncExts:Size/binary>>) ->
     #encrypted_extensions{
        extensions = decode_extensions(EncExts, encrypted_extensions)
@@ -207,6 +219,14 @@ encode_cert_entries([#certificate_entry{data = Data,
     ExtSize = byte_size(BinExts),
     encode_cert_entries(Rest, 
                         [<<?UINT24(DSize), Data/binary, ?UINT16(ExtSize), BinExts/binary>> | Acc]).
+
+encode_algorithm(Algo) ->
+    Scheme = ssl_cipher:signature_scheme(Algo),
+    <<?UINT16(Scheme)>>.
+
+encode_signature(Signature) ->
+    Size = byte_size(Signature),
+    <<?UINT16(Size), Signature/binary>>.
 
 decode_cert_entries(Entries) ->
     decode_cert_entries(Entries, []).
@@ -362,17 +382,19 @@ do_negotiated(#{client_share := ClientKey,
                 group := SelectedGroup,
                 sign_alg := SignatureScheme
                } = Map,
-              #{connection_states := ConnectionStates0,
-                session_id := SessionId,
-                own_certificate := OwnCert,
-                cert_db := CertDbHandle,
-                cert_db_ref := CertDbRef,
-                ssl_options := SslOpts,
-                key_share := KeyShare,
-                tls_handshake_history := HHistory0,
-                transport_cb := Transport,
-                socket := Socket,
-                private_key := CertPrivateKey}) ->
+           #state{connection_states = ConnectionStates0,
+                  session = #session{session_id = SessionId,
+                                     own_certificate = OwnCert},
+                  ssl_options = #ssl_options{} = SslOpts,
+                  key_share = KeyShare,
+                  handshake_env = #handshake_env{tls_handshake_history = HHistory0},
+                  private_key = CertPrivateKey,
+                  static_env = #static_env{
+                                  cert_db = CertDbHandle,
+                                  cert_db_ref = CertDbRef,
+                                  socket = Socket,
+                                  transport_cb = Transport}
+                 } = State0) ->
     {Ref,Maybe} = maybe(),
 
     try
@@ -380,46 +402,35 @@ do_negotiated(#{client_share := ClientKey,
         %% Extensions: supported_versions, key_share, (pre_shared_key)
         ServerHello = server_hello(SessionId, KeyShare, ConnectionStates0, Map),
 
-        %% Update handshake_history (done in encode!)
-        %% Encode handshake
-        {BinMsg, ConnectionStates1, HHistory1} =
-            tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates0, HHistory0),
-        %% Send server_hello
-        tls_connection:send(Transport, Socket, BinMsg),
-        log_handshake(SslOpts, ServerHello),
-        log_tls_record(SslOpts, BinMsg),
+        {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
-        %% ConnectionStates2 = calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
-        %%                                                   HHistory1, ConnectionStates1),
         {HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV} =
-            calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
-                                          HHistory1, ConnectionStates1),
-        ConnectionStates2 =
-            update_pending_connection_states(ConnectionStates1, HandshakeSecret,
+            calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, State1),
+
+        State2 =
+            update_pending_connection_states(State1, HandshakeSecret,
                                              ReadKey, ReadIV, WriteKey, WriteIV),
-        ConnectionStates3 =
-            ssl_record:step_encryption_state(ConnectionStates2),
+
+        State3 = ssl_record:step_encryption_state(State2),
 
         %% Create Certificate
         Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
 
         %% Encode Certificate
-        {_, _ConnectionStates4, HHistory2} =
-            tls_connection:encode_handshake(Certificate, {3,4}, ConnectionStates3, HHistory1),
-        %% log_handshake(SslOpts, Certificate),
+        State4 = tls_connection:queue_handshake(Certificate, State3),
 
         %% Create CertificateVerify
-        {Messages, _} =  HHistory2,
+        #state{handshake_env =
+                   #handshake_env{tls_handshake_history = {Messages, _}}} = State4,
 
         %% Use selected signature_alg from here, HKDF only used for key_schedule
         CertificateVerify =
             tls_handshake_1_3:certificate_verify(OwnCert, CertPrivateKey, SignatureScheme,
                                                  Messages, server),
-        io:format("### CertificateVerify: ~p~n", [CertificateVerify]),
 
         %% Encode CertificateVerify
-
         %% Send Certificate, CertifricateVerify
+        {_State5, _} = tls_connection:send_handshake(CertificateVerify, State4),
 
         %% Send finished
 
@@ -454,7 +465,11 @@ log_tls_record(SslOpts, BinMsg) ->
     ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}).
 
 
-calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, HHistory, ConnectionStates) ->
+calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
+                              #state{connection_states = ConnectionStates,
+                                     handshake_env =
+                                         #handshake_env{
+                                            tls_handshake_history = HHistory}}) ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDFAlgo,
@@ -527,13 +542,14 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
     public_key:compute_key(Point, MyKey).
 
 
-update_pending_connection_states(CS = #{pending_read := PendingRead0,
-                                pending_write := PendingWrite0},
+update_pending_connection_states(#state{connection_states =
+                                            CS = #{pending_read := PendingRead0,
+                                                   pending_write := PendingWrite0}} = State,
                          HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV) ->
     PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
-    CS#{pending_read => PendingRead,
-        pending_write => PendingWrite}.
+    State#state{connection_states = CS#{pending_read => PendingRead,
+                                   pending_write => PendingWrite}}.
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
                         HandshakeSecret, Key, IV) ->
