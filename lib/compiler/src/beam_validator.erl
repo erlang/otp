@@ -824,16 +824,16 @@ valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
     Infer = infer_types(Src, Vst0),
     Vst1 = Infer(Val, Vst0),
-    Vst = branch_state(Lbl, Vst1),
-    case Val of
-        {literal,Tuple} when is_tuple(Tuple) ->
-            Type0 = get_term_type(Val, Vst),
-            Type = upgrade_tuple_type({tuple,tuple_size(Tuple)},
-                                      Type0),
-            set_aliased_type(Type, Src, Vst);
-        _ ->
-            Vst
-    end;
+    Vst2 = upgrade_ne_types(Src, Val, Vst1),
+    Vst3 = branch_state(Lbl, Vst2),
+    Vst = Vst3#vst{current=Vst1#vst.current},
+    upgrade_eq_types(Src, Val, Vst);
+valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
+    validate_src(Ss, Vst0),
+    Vst1 = upgrade_eq_types(Src, Val, Vst0),
+    Vst2 = branch_state(Lbl, Vst1),
+    Vst = Vst2#vst{current=Vst0#vst.current},
+    upgrade_ne_types(Src, Val, Vst);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -919,6 +919,25 @@ valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
 valfun_4(_, _) ->
     error(unknown_instruction).
+
+upgrade_ne_types(Src1, Src2, Vst0) ->
+    T1 = get_durable_term_type(Src1, Vst0),
+    T2 = get_durable_term_type(Src2, Vst0),
+    Type = subtract(T1, T2),
+    set_aliased_type(Type, Src1, Vst0).
+
+upgrade_eq_types(Src1, Src2, Vst0) ->
+    T1 = get_durable_term_type(Src1, Vst0),
+    T2 = get_durable_term_type(Src2, Vst0),
+    Meet = meet(T1, T2),
+    Vst = case T1 =/= Meet of
+              true -> set_aliased_type(Meet, Src1, Vst0);
+              false -> Vst0
+          end,
+    case T2 =/= Meet of
+        true -> set_aliased_type(Meet, Src2, Vst);
+        false -> Vst
+    end.
 
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
@@ -1509,6 +1528,8 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% term			Any valid Erlang (but not of the special types above).
 %%
+%% binary               Binary or bitstring.
+%%
 %% bool			The atom 'true' or the atom 'false'.
 %%
 %% cons         	Cons cell: [_|_]
@@ -1535,7 +1556,7 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% map			Map.
 %%
-%%
+%% none                 A conflict in types. There will be an exception at runtime.
 %%
 %% FRAGILITY
 %% ---------
@@ -1547,6 +1568,47 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% Such terms are wrapped in a {fragile,Type} tuple, where Type is one
 %% of the types described above.
+
+%% meet(Type1, Type2) -> Type
+%%  Return the meet of two types. The meet is a more specific type.
+%%  It will be 'none' if the types are in conflict.
+
+meet(Same, Same) ->
+    Same;
+meet(term, Other) ->
+    Other;
+meet(Other, term) ->
+    Other;
+meet(T1, T2) ->
+    case {erlang:min(T1, T2),erlang:max(T1, T2)} of
+        {{atom,_}=A,{atom,[]}} -> A;
+        {bool,{atom,B}=Atom} when is_boolean(B) -> Atom;
+        {bool,{atom,[]}} -> bool;
+        {cons,list} -> cons;
+        {{float,_}=T,{float,[]}} -> T;
+        {{integer,_}=T,{integer,[]}} -> T;
+        {list,nil} -> nil;
+        {number,{integer,_}=T} -> T;
+        {number,{float,_}=T} -> T;
+        {{tuple,Size1},{tuple,Size2}} ->
+            case {Size1,Size2} of
+                {[Sz1],[Sz2]} ->
+                    {tuple,[erlang:max(Sz1, Sz2)]};
+                {Sz1,[Sz2]} when Sz2 =< Sz1 ->
+                    {tuple,Sz1};
+                {_,_} ->
+                    none
+            end;
+        {_,_} -> none
+    end.
+
+%% subtract(Type1, Type2) -> Type
+%%  Subtract Type2 from Type2. Example:
+%%      subtract(list, nil) -> cons
+
+subtract(list, nil) -> cons;
+subtract(list, cons) -> nil;
+subtract(Type, _) -> Type.
 
 assert_type(WantedType, Term, Vst) ->
     case get_term_type(Term, Vst) of
@@ -1581,25 +1643,27 @@ assert_type(Needed, Actual) ->
 %%  be executed at run-time.
 
 upgrade_tuple_type(NewType, {fragile,OldType}) ->
-    make_fragile(upgrade_tuple_type_1(NewType, OldType));
+    Type = upgrade_tuple_type_1(NewType, OldType),
+    make_fragile(Type);
 upgrade_tuple_type(NewType, OldType) ->
     upgrade_tuple_type_1(NewType, OldType).
 
-upgrade_tuple_type_1({tuple,[Sz]}, {tuple,[OldSz]}=T) when Sz < OldSz ->
-    %% The old type has a higher value for the least tuple size.
-    T;
-upgrade_tuple_type_1({tuple,[Sz]}, {tuple,OldSz}=T)
-  when is_integer(Sz), is_integer(OldSz), Sz =< OldSz ->
-    %% The old size is exact, and the new size is smaller than the old size.
-    T;
-upgrade_tuple_type_1({tuple,_}=T, _) ->
-    %% The new type information is exact or has a higher value for
-    %% the least tuple size.
-    %%     Note that inconsistencies are also handled in this
-    %% clause, e.g. if the old type was an integer or a tuple accessed
-    %% outside its size; inconsistences will generally cause an exception
-    %% at run-time but are safe from our point of view.
-    T.
+upgrade_tuple_type_1(NewType, OldType) ->
+    case meet(NewType, OldType) of
+        none ->
+            %% Unoptimized code may look like this:
+            %%
+            %%   {test,is_list,Fail,[Reg]}.
+            %%   {test,is_tuple,Fail,[Reg]}.
+            %%   {test,test_arity,Fail,[Reg,5]}.
+            %%
+            %% Note that the test_arity instruction can never be reached.
+            %% To make sure it's not rejected, set the type of Reg to
+            %% NewType instead of 'none'.
+            NewType;
+        Type ->
+            Type
+    end.
 
 get_tuple_size({integer,[]}) -> 0;
 get_tuple_size({integer,Sz}) -> Sz;
@@ -1607,6 +1671,17 @@ get_tuple_size(_) -> 0.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
     foreach(fun(S) -> get_term_type(S, Vst) end, Ss).
+
+%% get_durable_term_type(Src, ValidatorState) -> Type
+%%  Get the type of the source Src. The returned type Type will be
+%%  a standard Erlang type (no catch/try tags or match contexts).
+%%  Fragility will be stripped.
+
+get_durable_term_type(Src, Vst) ->
+    case get_term_type(Src, Vst) of
+        {fragile,Type} -> Type;
+        Type -> Type
+    end.
 
 %% get_move_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
@@ -1641,6 +1716,8 @@ get_term_type_1(nil=T, _) -> T;
 get_term_type_1({atom,A}=T, _) when is_atom(A) -> T;
 get_term_type_1({float,F}=T, _) when is_float(F) -> T;
 get_term_type_1({integer,I}=T, _) when is_integer(I) -> T;
+get_term_type_1({literal,[_|_]}, _) -> cons;
+get_term_type_1({literal,Bitstring}, _) when is_bitstring(Bitstring) -> binary;
 get_term_type_1({literal,Map}, _) when is_map(Map) -> map;
 get_term_type_1({literal,Tuple}, _) when is_tuple(Tuple) ->
     {tuple,tuple_size(Tuple)};
