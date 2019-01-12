@@ -902,7 +902,13 @@ live_opt_unused(#b_set{op=get_map_element}=Set) ->
 live_opt_unused(_) -> keep.
 
 %%%
-%%% Optimize binary matching instructions.
+%%% Optimize binary matching.
+%%%
+%%% * If the value of segment is never extracted, rewrite
+%%%   to a bs_skip instruction.
+%%%
+%%% * Coalesce adjacent bs_skip instructions and skip instructions
+%%%   with bs_test_tail.
 %%%
 
 ssa_opt_bsm(#st{ssa=Linear}=St) ->
@@ -910,9 +916,10 @@ ssa_opt_bsm(#st{ssa=Linear}=St) ->
     Extracted = cerl_sets:from_list(Extracted0),
     St#st{ssa=bsm_skip(Linear, Extracted)}.
 
-bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs], Extracted) ->
+bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs0], Extracted) ->
+    Bs = bsm_skip(Bs0, Extracted),
     Is = bsm_skip_is(Is0, Extracted),
-    [{L,Blk#b_blk{is=Is}}|bsm_skip(Bs, Extracted)];
+    coalesce_skips({L,Blk#b_blk{is=Is}}, Bs);
 bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
@@ -942,6 +949,63 @@ bsm_extracted([{_,#b_blk{is=Is}}|Bs]) ->
             bsm_extracted(Bs)
     end;
 bsm_extracted([]) -> [].
+
+coalesce_skips({L,#b_blk{is=[#b_set{op=bs_extract}=Extract|Is0],
+                         last=Last0}=Blk0}, Bs0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0) of
+        not_possible ->
+            [{L,Blk0}|Bs0];
+        {Is,Last,Bs} ->
+            Blk = Blk0#b_blk{is=[Extract|Is],last=Last},
+            [{L,Blk}|Bs]
+    end;
+coalesce_skips({L,#b_blk{is=Is0,last=Last0}=Blk0}, Bs0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0) of
+        not_possible ->
+            [{L,Blk0}|Bs0];
+        {Is,Last,Bs} ->
+            Blk = Blk0#b_blk{is=Is,last=Last},
+            [{L,Blk}|Bs]
+    end.
+
+coalesce_skips_is([#b_set{op=bs_match,
+                          args=[#b_literal{val=skip},
+                                Ctx0,Type,Flags,
+                                #b_literal{val=Size0},
+                                #b_literal{val=Unit0}]}=Skip0,
+                   #b_set{op=succeeded}],
+                  #b_br{succ=L2,fail=Fail}=Br0,
+                  Bs0) when is_integer(Size0) ->
+    case Bs0 of
+        [{L2,#b_blk{is=[#b_set{op=bs_match,
+                               dst=SkipDst,
+                               args=[#b_literal{val=skip},_,_,_,
+                                     #b_literal{val=Size1},
+                                     #b_literal{val=Unit1}]},
+                        #b_set{op=succeeded}=Succeeded],
+                    last=#b_br{fail=Fail}=Br}}|Bs] when is_integer(Size1) ->
+            SkipBits = Size0 * Unit0 + Size1 * Unit1,
+            Skip = Skip0#b_set{dst=SkipDst,
+                               args=[#b_literal{val=skip},Ctx0,
+                                     Type,Flags,
+                                     #b_literal{val=SkipBits},
+                                     #b_literal{val=1}]},
+            Is = [Skip,Succeeded],
+            {Is,Br,Bs};
+        [{L2,#b_blk{is=[#b_set{op=bs_test_tail,
+                               args=[_Ctx,#b_literal{val=TailSkip}]}],
+                    last=#b_br{succ=NextSucc,fail=Fail}}}|Bs] ->
+            SkipBits = Size0 * Unit0,
+            TestTail = Skip0#b_set{op=bs_test_tail,
+                                   args=[Ctx0,#b_literal{val=SkipBits+TailSkip}]},
+            Br = Br0#b_br{bool=TestTail#b_set.dst,succ=NextSucc},
+            Is = [TestTail],
+            {Is,Br,Bs};
+        _ ->
+            not_possible
+    end;
+coalesce_skips_is(_, _, _) ->
+    not_possible.
 
 %%%
 %%% Short-cutting binary matching instructions.

@@ -43,21 +43,12 @@ function({function,Name,Arity,CLabel,Is0}) ->
 
 %%%
 %%% Evaluate construction of constant bit fields.
-%%% Combine bs_skip_bits2 and bs_test_tail2 instructions.
 %%%
 
 bs_opt([{bs_put,_,_,_}=I|Is0]) ->
     {BsPuts0,Is} = collect_bs_puts(Is0, [I]),
     BsPuts = opt_bs_puts(BsPuts0),
     BsPuts ++ bs_opt(Is);
-bs_opt([{test,bs_skip_bits2,F,[Ctx,{integer,I},Unit,_Flags]},
-            {test,bs_test_tail2,F,[Ctx,Bits]}|Is]) ->
-    [{test,bs_test_tail2,F,[Ctx,Bits+I*Unit]}|bs_opt(Is)];
-bs_opt([{test,bs_skip_bits2,F,[Ctx,{integer,I1},Unit1,Flags]},
-            {test,bs_skip_bits2,F,[Ctx,{integer,I2},Unit2,_]}|Is]) ->
-    I = {test,bs_skip_bits2,F,
-         [Ctx,{integer,I1*Unit1+I2*Unit2},1,Flags]},
-    bs_opt([I|Is]);
 bs_opt([I|Is]) ->
     [I|bs_opt(Is)];
 bs_opt([]) -> [].
