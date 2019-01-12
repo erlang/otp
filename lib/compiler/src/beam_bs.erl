@@ -117,17 +117,23 @@ eval_put_float(Src, Sz, Flags) when Sz =< 256 ->
 value({integer,I}) -> I;
 value({float,F}) -> F.
 
-bs_collect_string(Is, [{bs_put,_,{bs_put_string,Len,{string,Str}},[]}|Acc]) ->
-    bs_coll_str_1(Is, Len, reverse(Str), Acc);
+bs_collect_string(Is, [{bs_put,_,{bs_put_binary,1,_},
+                        [{atom,all},{literal,BinString}]}|Acc]) ->
+    bs_coll_str_1(Is, BinString, Acc);
 bs_collect_string(Is, Acc) ->
-    bs_coll_str_1(Is, 0, [], Acc).
+    bs_coll_str_1(Is, <<>>, Acc).
 
+bs_coll_str_1([{bs_put,_,{bs_put_binary,1,_},
+                [{atom,all},{literal,BinString}]}|Is],
+              StrAcc, IsAcc) when is_binary(BinString) ->
+    bs_coll_str_1(Is, <<StrAcc/binary,BinString/binary>>, IsAcc);
 bs_coll_str_1([{bs_put,_,{bs_put_integer,U,_},[{integer,Sz},{integer,V}]}|Is],
-	      Len, StrAcc, IsAcc) when U*Sz =:= 8 ->
+	      StrAcc, IsAcc) when U*Sz =:= 8 ->
     Byte = V band 16#FF,
-    bs_coll_str_1(Is, Len+1, [Byte|StrAcc], IsAcc);
-bs_coll_str_1(Is, Len, StrAcc, IsAcc) ->
-    {Is,[{bs_put,{f,0},{bs_put_string,Len,{string,reverse(StrAcc)}},[]}|IsAcc]}.
+    bs_coll_str_1(Is, <<StrAcc/binary,Byte>>, IsAcc);
+bs_coll_str_1(Is, StrAcc, IsAcc) ->
+    {Is,[{bs_put,{f,0},{bs_put_binary,1,{field_flags,[unsigned,big]}},
+          [{atom,all},{literal,StrAcc}]}|IsAcc]}.
 
 field_endian({field_flags,F}) -> field_endian_1(F).
 

@@ -71,6 +71,31 @@ undo_renames([{get_hd,Src,Dst1},{get_tl,Src,Dst2}|Is]) ->
     [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
 undo_renames([{get_tl,Src,Dst2},{get_hd,Src,Dst1}|Is]) ->
     [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
+undo_renames([{bs_put,_,{bs_put_binary,1,_},
+               [{atom,all},{literal,<<>>}]}|Is]) ->
+    undo_renames(Is);
+undo_renames([{bs_put,Fail,{bs_put_binary,1,_Flags},
+               [{atom,all},{literal,BinString}]}|Is0]) ->
+    Bits = bit_size(BinString),
+    Bytes = Bits div 8,
+    case Bits rem 8 of
+        0 ->
+            I = {bs_put_string,byte_size(BinString),
+                 {string,BinString}},
+            [undo_rename(I)|undo_renames(Is0)];
+        Rem ->
+            <<Binary:Bytes/bytes,Int:Rem>> = BinString,
+            PutInt = {bs_put_integer,Fail,{integer,Rem},1,
+                      {field_flags,[unsigned,big]},{integer,Int}},
+            Is = [PutInt|undo_renames(Is0)],
+            case Binary of
+                <<>> ->
+                    Is;
+                _ ->
+                    [{bs_put_string,byte_size(Binary),
+                      {string,Binary}}|Is]
+            end
+    end;
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].
@@ -79,8 +104,6 @@ undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
     {I,F,Sz,U,Fl,Src};
 undo_rename({bs_put,F,{I,Fl},[Src]}) ->
     {I,F,Fl,Src};
-undo_rename({bs_put,{f,0},{bs_put_string,_,_}=I,[]}) ->
-    I;
 undo_rename({bif,bs_add=I,F,[Src1,Src2,{integer,U}],Dst}) ->
     {I,F,[Src1,Src2,U],Dst};
 undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
@@ -101,7 +124,7 @@ undo_rename({test,bs_match_string=Op,F,[Ctx,Bin0]}) ->
 	      0 -> Bin0;
 	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
 	  end,
-    {test,Op,F,[Ctx,Bits,{string,binary_to_list(Bin)}]};
+    {test,Op,F,[Ctx,Bits,{string,Bin}]};
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
