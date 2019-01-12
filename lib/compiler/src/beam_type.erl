@@ -1114,4 +1114,5 @@ verified_type(nonempty_list=T) -> T;
 verified_type({tuple,_,Sz,[]}=T) when is_integer(Sz) -> T;
 verified_type({tuple,_,Sz,[_]}=T) when is_integer(Sz) -> T;
 verified_type({tuple_element,_,_}=T) -> T;
-verified_type(float=T) -> T.
+verified_type(float=T) -> T;
+verified_type(none=T) -> T.
