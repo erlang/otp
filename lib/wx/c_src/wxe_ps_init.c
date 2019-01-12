@@ -80,7 +80,7 @@ void * wxe_ps_init2() {
       }
       // Load and set icon
       NSMutableString *file = [[NSMutableString alloc] init];
-      [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo64.png"];
+      [file appendFormat:@"%s/%s", erl_wx_privdir, "erlang-logo128.png"];
       NSImage *icon = [[NSImage alloc] initWithContentsOfFile: file];
       [NSApp setApplicationIconImage: icon];
    };
