@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/opensslconf.h>
+#include <stdint.h>
 
 #include <erl_nif.h>
 #include "crypto_callback.h"

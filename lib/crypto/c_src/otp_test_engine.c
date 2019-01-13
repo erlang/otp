@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include <openssl/md5.h>
 #include <openssl/rsa.h>
