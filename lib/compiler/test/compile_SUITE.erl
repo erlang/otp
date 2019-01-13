@@ -391,7 +391,6 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     do_listing(Simple, TargetDir, dcg, ".codegen"),
     do_listing(Simple, TargetDir, dblk, ".block"),
     do_listing(Simple, TargetDir, dexcept, ".except"),
-    do_listing(Simple, TargetDir, dbs, ".bs"),
     do_listing(Simple, TargetDir, djmp, ".jump"),
     do_listing(Simple, TargetDir, dclean, ".clean"),
     do_listing(Simple, TargetDir, dpeep, ".peep"),

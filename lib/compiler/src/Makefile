@@ -49,7 +49,6 @@ MODULES =  \
 	beam_a \
 	beam_asm \
 	beam_block \
-	beam_bs \
 	beam_clean \
 	beam_dict \
 	beam_disasm \
