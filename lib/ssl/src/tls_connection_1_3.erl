@@ -134,67 +134,57 @@ start(internal,
 
     end.
 
-%% TODO: move these functions
+
+negotiated(internal,
+           Map,
+           #state{connection_states = ConnectionStates0,
+                  session = #session{session_id = SessionId,
+                                     own_certificate = OwnCert},
+                  ssl_options = #ssl_options{} = SslOpts,
+                  key_share = KeyShare,
+                  tls_handshake_history = HHistory0,
+                  private_key = CertPrivateKey,
+                  static_env = #static_env{
+                                  cert_db = CertDbHandle,
+                                  cert_db_ref = CertDbRef,
+                                  socket = Socket,                                  
+                                  transport_cb = Transport}} = State0, _Module) ->
+    Env = #{connection_states => ConnectionStates0,
+            session_id => SessionId,
+            own_certificate => OwnCert,
+            cert_db => CertDbHandle,
+            cert_db_ref => CertDbRef,
+            ssl_options => SslOpts,
+            key_share => KeyShare,
+            tls_handshake_history => HHistory0,
+            transport_cb => Transport,
+            socket => Socket,
+            private_key => CertPrivateKey},
+    case tls_handshake_1_3:do_negotiated(Map, Env) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
+        M ->
+            %% TODO: implement update_state
+            %% State = update_state(State0, M),
+            {next_state, wait_flight2, State0, [{next_event, internal, M}]}
+
+    end.
+
+
 update_state(#state{connection_states = ConnectionStates0,
                     session = Session} = State,
-             #{client_random := ClientRandom,
-               cipher := Cipher,
+             #{cipher := Cipher,
                key_share := KeyShare,
                session_id := SessionId}) ->
     #{security_parameters := SecParamsR0} = PendingRead =
         maps:get(pending_read, ConnectionStates0),
     #{security_parameters := SecParamsW0} = PendingWrite =
         maps:get(pending_write, ConnectionStates0),
-    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, ClientRandom, Cipher),
-    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, ClientRandom, Cipher),
+    SecParamsR = ssl_cipher:security_parameters_1_3(SecParamsR0, Cipher),
+    SecParamsW = ssl_cipher:security_parameters_1_3(SecParamsW0, Cipher),
     ConnectionStates =
         ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
     State#state{connection_states = ConnectionStates,
                 key_share = KeyShare,
                 session = Session#session{session_id = SessionId}}.
-
-
-negotiated(internal,
-           Map,
-           #state{connection_states = ConnectionStates0,
-                  session = #session{session_id = SessionId},
-                  ssl_options = #ssl_options{} = SslOpts,
-                  key_share = KeyShare,
-                  tls_handshake_history = HHistory0,
-                  static_env = #static_env{socket = Socket,
-                                           transport_cb = Transport}}, _Module) ->
-
-    %% Create server_hello
-    %% Extensions: supported_versions, key_share, (pre_shared_key)
-    ServerHello = tls_handshake_1_3:server_hello(SessionId, KeyShare,
-                                                 ConnectionStates0, Map),
-
-    %% Update handshake_history (done in encode!)
-    %% Encode handshake
-    {BinMsg, _ConnectionStates, _HHistory} =
-        tls_connection:encode_handshake(ServerHello, {3,4}, ConnectionStates0, HHistory0),
-    %% Send server_hello
-    tls_connection:send(Transport, Socket, BinMsg),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinMsg},
-    Msg = #{direction => outbound,
-            protocol => 'handshake',
-            message => ServerHello},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Msg, #{domain => [otp,ssl,handshake]}),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
-    ok.
-
-    %% K_send = handshake ???
-    %% (Send EncryptedExtensions)
-    %% ([Send CertificateRequest])
-    %% [Send Certificate + CertificateVerify]
-    %% Send Finished
-    %% K_send = application ???
-
-    %% Will be called implicitly
-    %% {Record, State} = Connection:next_record(State2#state{session = Session}),
-    %% Connection:next_event(wait_flight2, Record, State, Actions),
-    %% OR
-    %% Connection:next_event(WAIT_EOED, Record, State, Actions)

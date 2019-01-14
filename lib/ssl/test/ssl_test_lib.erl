@@ -1537,7 +1537,12 @@ init_tls_version(Version, Config) ->
 
 clean_tls_version(Config) ->
     proplists:delete(protocol_opts, proplists:delete(protocol, Config)).
-    
+
+sufficient_crypto_support(Version)
+  when Version == 'tlsv1.3' ->
+    CryptoSupport = crypto:supports(),
+    lists:member(rsa_pkcs1_pss_padding, proplists:get_value(rsa_opts, CryptoSupport)) andalso
+    lists:member(x448, proplists:get_value(curves, CryptoSupport));
 sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),

@@ -32,6 +32,7 @@
 -define(rec_info(T,R),lists:zip(record_info(fields,T),tl(tuple_to_list(R)))).
 
 -include("tls_record.hrl").
+-include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -87,20 +88,32 @@ format_handshake(Direction, BinMsg) ->
 
 
 parse_handshake(Direction, #client_hello{
-                              client_version = Version
+                              client_version = Version0,
+                              cipher_suites = CipherSuites0,
+                              extensions = Extensions
                              } = ClientHello) ->
+    Version = get_client_version(Version0, Extensions),
     Header = io_lib:format("~s ~s Handshake, ClientHello",
                            [header_prefix(Direction),
                             version(Version)]),
-    Message = io_lib:format("~p", [?rec_info(client_hello, ClientHello)]),
+    CipherSuites = parse_cipher_suites(CipherSuites0),
+    Message = io_lib:format("~p",
+                            [?rec_info(client_hello,
+                                       ClientHello#client_hello{cipher_suites = CipherSuites})]),
     {Header, Message};
 parse_handshake(Direction, #server_hello{
-                              server_version = Version
+                              server_version = Version0,
+                              cipher_suite = CipherSuite0,
+                              extensions = Extensions
                              } = ServerHello) ->
+    Version = get_server_version(Version0, Extensions),
     Header = io_lib:format("~s ~s Handshake, ServerHello",
                            [header_prefix(Direction),
                             version(Version)]),
-    Message = io_lib:format("~p", [?rec_info(server_hello, ServerHello)]),
+    CipherSuite = format_cipher(CipherSuite0),
+    Message = io_lib:format("~p",
+                            [?rec_info(server_hello,
+                                       ServerHello#server_hello{cipher_suite = CipherSuite})]),
     {Header, Message};
 parse_handshake(Direction, #certificate{} = Certificate) ->
     Header = io_lib:format("~s Handshake, Certificate",
@@ -148,7 +161,34 @@ parse_handshake(Direction, #hello_request{} = HelloRequest) ->
     Message = io_lib:format("~p", [?rec_info(hello_request, HelloRequest)]),
     {Header, Message}.
 
+parse_cipher_suites([_|_] = Ciphers) ->
+    [format_cipher(C) || C <- Ciphers].
 
+format_cipher(?TLS_EMPTY_RENEGOTIATION_INFO_SCSV) ->
+    'TLS_EMPTY_RENEGOTIATION_INFO_SCSV';
+format_cipher(C0) ->
+    list_to_atom(ssl_cipher_format:openssl_suite_name(C0)).
+
+get_client_version(Version, Extensions) ->
+    CHVersions = maps:get(client_hello_versions, Extensions, undefined),
+    case CHVersions of
+        #client_hello_versions{versions = [Highest|_]} ->
+            Highest;
+        undefined ->
+            Version
+    end.
+
+get_server_version(Version, Extensions) ->
+    SHVersion = maps:get(server_hello_selected_version, Extensions, undefined),
+    case SHVersion of
+        #server_hello_selected_version{selected_version = SelectedVersion} ->
+            SelectedVersion;
+        undefined ->
+            Version
+    end.
+
+version({3,4}) ->
+    "TLS 1.3";
 version({3,3}) ->
     "TLS 1.2";
 version({3,2}) ->

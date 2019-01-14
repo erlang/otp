@@ -191,7 +191,7 @@
           %%     case RawPublicKey:
           %%       /* From RFC 7250 ASN.1_subjectPublicKeyInfo */
           %%       opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
-
+          %%
           %%     case X509:
           %%       opaque cert_data<1..2^24-1>;
           %% };
@@ -200,8 +200,13 @@
 
 -record(certificate_1_3, {
           certificate_request_context, % opaque certificate_request_context<0..2^8-1>;
-          entries    % CertificateEntry certificate_list<0..2^24-1>;
+          certificate_list             % CertificateEntry certificate_list<0..2^24-1>;
          }).
+
+-record(certificate_verify_1_3, {
+          algorithm, % SignatureScheme
+          signature  % signature<0..2^16-1>
+	 }).
 
 %% RFC 8446 B.3.4. Ticket Establishment
 -record(new_session_ticket, {
@@ -222,5 +227,12 @@
 -record(key_update, {
           request_update
          }).
+
+-type tls_handshake_1_3() :: #encrypted_extensions{} |
+                             #certificate_request_1_3{} |
+                             #certificate_1_3{} |
+                             #certificate_verify_1_3{}.
+
+-export_type([tls_handshake_1_3/0]).
 
 -endif. % -ifdef(tls_handshake_1_3).

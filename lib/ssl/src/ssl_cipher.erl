@@ -34,7 +34,7 @@
 -include("tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/2, security_parameters/3, security_parameters_1_3/3,
+-export([security_parameters/2, security_parameters/3, security_parameters_1_3/2,
 	 cipher_init/3, nonce_seed/2, decipher/6, cipher/5, aead_encrypt/5, aead_decrypt/6,
 	 suites/1, all_suites/1,  crypto_support_filters/0,
 	 chacha_suites/1, anonymous_suites/1, psk_suites/1, psk_suites_anon/1, 
@@ -44,10 +44,11 @@
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
 	 random_bytes/1, calc_mac_hash/4,
          is_stream_ciphersuite/1, signature_scheme/1,
-         scheme_to_components/1, hash_size/1]).
+         scheme_to_components/1, hash_size/1, effective_key_bits/1,
+         key_material/1]).
 
 %% RFC 8446 TLS 1.3
--export([generate_client_shares/1, generate_server_share/1]).
+-export([generate_client_shares/1, generate_server_share/1, add_zero_padding/2]).
 
 -compile(inline).
 
@@ -88,23 +89,14 @@ security_parameters(Version, CipherSuite, SecParams) ->
       prf_algorithm = prf_algorithm(PrfHashAlg, Version),
       hash_size = hash_size(Hash)}.
 
-security_parameters_1_3(SecParams, ClientRandom, CipherSuite) ->
-     #{cipher := Cipher,
-       mac := Hash,
-       prf := PrfHashAlg} = ssl_cipher_format:suite_definition(CipherSuite),
+security_parameters_1_3(SecParams, CipherSuite) ->
+     #{cipher := Cipher, prf := PrfHashAlg} =
+        ssl_cipher_format:suite_definition(CipherSuite),
     SecParams#security_parameters{
-      client_random = ClientRandom,
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
-      cipher_type = type(Cipher),
-      key_size = effective_key_bits(Cipher),
-      expanded_key_material_length = expanded_key_material(Cipher),
-      key_material_length = key_material(Cipher),
-      iv_size = iv_size(Cipher),
-      mac_algorithm = mac_algorithm(Hash),
-      prf_algorithm =prf_algorithm(PrfHashAlg, {3,4}),
-      hash_size = hash_size(Hash),
-      compression_algorithm = 0}.
+      prf_algorithm = PrfHashAlg,  %% HKDF hash algorithm
+      cipher_type = ?AEAD}.
 
 %%--------------------------------------------------------------------
 -spec cipher_init(cipher_enum(), binary(), binary()) -> #cipher_state{}.
@@ -578,7 +570,8 @@ crypto_support_filters() ->
           end]}.
 
 is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
-                                                    KeyExchange == null ->
+                                                    KeyExchange == null;
+                                                    KeyExchange == any ->
     true;
 is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
                                                    KeyExchange == dhe_psk ->
@@ -690,10 +683,9 @@ hash_size(sha) ->
 hash_size(sha256) ->
     32;
 hash_size(sha384) ->
-    48.
-%% Uncomment when adding cipher suite that needs it
-%hash_size(sha512) ->
-%    64.
+    48;
+hash_size(sha512) ->
+    64.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -897,8 +889,8 @@ scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
 scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};
-%% scheme_to_components(ed25519) -> {undefined, undefined, undefined};
-%% scheme_to_components(ed448) -> {undefined, undefined, undefined};
+scheme_to_components(ed25519) -> {undefined, undefined, undefined};
+scheme_to_components(ed448) -> {undefined, undefined, undefined};
 scheme_to_components(rsa_pss_pss_sha256) -> {sha256, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha384) -> {sha384, rsa_pss_pss, undefined};
 scheme_to_components(rsa_pss_pss_sha512) -> {sha512, rsa_pss_pss, undefined};
@@ -1240,5 +1232,24 @@ generate_key_exchange(secp384r1) ->
     public_key:generate_key({namedCurve, secp384r1});
 generate_key_exchange(secp521r1) ->
     public_key:generate_key({namedCurve, secp521r1});
+generate_key_exchange(x25519) ->
+    crypto:generate_key(ecdh, x25519);
+generate_key_exchange(x448) ->
+    crypto:generate_key(ecdh, x448);
 generate_key_exchange(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
+
+
+%% TODO: Move this functionality to crypto!
+%% 7.4.1.  Finite Field Diffie-Hellman
+%%
+%%    For finite field groups, a conventional Diffie-Hellman [DH76]
+%%    computation is performed.  The negotiated key (Z) is converted to a
+%%    byte string by encoding in big-endian form and left-padded with zeros
+%%    up to the size of the prime.  This byte string is used as the shared
+%%    secret in the key schedule as specified above.
+add_zero_padding(Bin, PrimeSize)
+  when byte_size (Bin) =:= PrimeSize ->
+    Bin;
+add_zero_padding(Bin, PrimeSize) ->
+    add_zero_padding(<<0, Bin/binary>>, PrimeSize).

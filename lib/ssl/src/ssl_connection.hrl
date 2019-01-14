@@ -111,4 +111,61 @@
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
+
+%%----------------------------------------------------------------------
+%% TLS 1.3
+%%----------------------------------------------------------------------
+
+%% TLS 1.3 uses the same state record with the following differences:
+%%
+%% state :: record()
+%%
+%%   session_cache                - not implemented
+%%   session_cache_cb             - not implemented
+%%   crl_db                       - not implemented
+%%   client_hello_version         - Bleichenbacher mitigation in TLS 1.2
+%%   client_certificate_requested - Built into TLS 1.3 state machine
+%%   key_algorithm                - not used
+%%   diffie_hellman_params        - used in TLS 1.2 ECDH key exchange
+%%   diffie_hellman_keys          - used in TLS 1.2 ECDH key exchange
+%%   psk_identity                 - not used
+%%   srp_params                   - not used, no srp extension in TLS 1.3
+%%   srp_keys                     - not used, no srp extension in TLS 1.3
+%%   premaster_secret             - not used
+%%   renegotiation                - TLS 1.3 forbids renegotiation
+%%   hello                        - used in user_hello, handshake continue
+%%   allow_renegotiate            - TLS 1.3 forbids renegotiation
+%%   expecting_next_protocol_negotiation - ALPN replaced NPN, depricated in TLS 1.3
+%%   expecting_finished           - not implemented, used by abbreviated
+%%   next_protocol                - ALPN replaced NPN, depricated in TLS 1.3
+%%
+%% connection_state :: map()
+%%
+%%   compression_state            - not used
+%%   mac_secret                   - not used
+%%   sequence_number              - not used
+%%   secure_renegotiation         - not used, no renegotiation_info in TLS 1.3
+%%   client_verify_data           - not used, no renegotiation_info in TLS 1.3
+%%   server_verify_data           - not used, no renegotiation_info in TLS 1.3
+%%   beast_mitigation             - not used
+%%
+%% security_parameters :: map()
+%%
+%%   cipher_type                  - TLS 1.3 uses only AEAD ciphers
+%%   iv_size                      - not used
+%%   key_size                     - not used
+%%   key_material_length          - not used
+%%   expanded_key_material_length - used in SSL 3.0
+%%   mac_algorithm                - not used
+%%   prf_algorithm                - not used
+%%   hash_size                    - not used
+%%   compression_algorithm        - not used
+%%   master_secret                - used for multiple secret types in TLS 1.3
+%%   client_random                - not used
+%%   server_random                - not used
+%%   exportable                   - not used
+%%
+%% cipher_state :: record()
+%%   nonce - used for sequence_number
+
 -endif. % -ifdef(ssl_connection).
