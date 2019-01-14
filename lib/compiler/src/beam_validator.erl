@@ -26,6 +26,7 @@
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
+-export([type_anno/1, type_anno/2, type_anno/3]).
 
 -import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
 
@@ -42,6 +43,33 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 	Es0 ->
 	    Es = [{?MODULE,E} || E <- Es0],
 	    {error,[{atom_to_list(Mod),Es}]}
+    end.
+
+%% Provides a stable interface for type annotations, used by certain passes to
+%% indicate that we can safely assume that a register has a given type.
+-spec type_anno(term()) -> term().
+type_anno(atom) -> {atom,[]};
+type_anno(bool) -> bool;
+type_anno({binary,_}) -> term;
+type_anno(cons) -> cons;
+type_anno(float) -> {float,[]};
+type_anno(integer) -> {integer,[]};
+type_anno(list) -> list;
+type_anno(map) -> map;
+type_anno(match_context) -> match_context;
+type_anno(number) -> number;
+type_anno(nil) -> nil.
+
+-spec type_anno(term(), term()) -> term().
+type_anno(atom, Value) -> {atom, Value};
+type_anno(float, Value) -> {float, Value};
+type_anno(integer, Value) -> {integer, Value}.
+
+-spec type_anno(term(), term(), term()) -> term().
+type_anno(tuple, Size, Exact) when is_integer(Size) ->
+    case Exact of
+        true -> {tuple, Size};
+        false -> {tuple, [Size]}
     end.
 
 -spec format_error(term()) -> iolist().

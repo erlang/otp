@@ -877,7 +877,8 @@ annotate_context_parameters(F, ModInfo) ->
                                  %% Assertion.
                                  error(conflicting_parameter_types);
                             (K, suitable_for_reuse, Acc) ->
-                                 Acc#{ K => match_context };
+                                 T = beam_validator:type_anno(match_context),
+                                 Acc#{ K => T };
                             (_K, _V, Acc) ->
                                  Acc
                          end, TypeAnno0, ParamInfo),
