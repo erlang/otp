@@ -101,7 +101,7 @@ ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         goto err;
     if (EVP_CipherUpdate(new_ctx->ctx, out, &outl, data_bin.data, (int)data_bin.size) != 1)
         goto err;
-    ASSERT(outl == data_bin.size);
+    ASSERT(outl >= 0 && (size_t)outl == data_bin.size);
 
     ret = enif_make_tuple2(env, enif_make_resource(env, new_ctx), cipher_term);
     CONSUME_REDS(env, data_bin);
