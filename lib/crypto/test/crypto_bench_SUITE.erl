@@ -55,7 +55,7 @@ init_per_suite(Config) ->
             [{_,_,Info}] = crypto:info_lib(),
             ct:comment("~s",[Info]),
             ct:pal("Crypto version: ~p~n~n~p",[Info,crypto:supports()]),
-            [{sec_goal,5} | Config]
+            calibrate([{sec_goal,10} | Config])
     catch _:_ ->
 	    {fail, "Crypto did not start"}
     end.
@@ -65,10 +65,8 @@ end_per_suite(_Config) ->
 
 %%%----------------------------------------------------------------
 %%%
-init_per_group(Group, Config0) ->
+init_per_group(Group, Config) ->
     ct:pal("~p(~p,..)",[?FUNCTION_NAME,Group]),
-
-    Config = calibrate(Config0),
     case atom_to_list(Group) of
         "ciphers_"++KeySizeStr ->
             KeySize = list_to_integer(KeySizeStr),
@@ -96,9 +94,10 @@ measure_openssl_aes_cbc(KeySize, Config) ->
      {no_acc,BLno_acc} | Config].
 
 calibrate(Config) ->
-    Secs = proplists:get_value(sec_goal, Config, 5),
+    Secs = proplists:get_value(sec_goal, Config, 10),
     {_,Empty} = data(empty, 0, 0),
-    {Ne,Te} = run1(Secs*2000, Empty),
+    {Ne,Te} = run1(Secs*3000, Empty),
+    report(["Overhead"], Te/Ne),
     [{overhead,Te/Ne} | Config].
 
 %%%================================================================
@@ -117,15 +116,15 @@ stream(Config) ->
 %%%
 
 run_cryptos(Cryptos, Config) ->
-    run_cryptos(Cryptos, 1, Config).
-    
-run_cryptos(Cryptos, Factor, Config) ->
     KeySize = proplists:get_value(key_size, Config),
     BlockSize = proplists:get_value(block_size, Config),
     MilliSecGoal = 1000*proplists:get_value(sec_goal,Config),
     OverHead = proplists:get_value(overhead, Config, 0),
     [try
-         Factor*run(Crypto,KeySize,BlockSize,MilliSecGoal) - OverHead
+         TimePerOpBrutto = run(Crypto,KeySize,BlockSize,MilliSecGoal),
+         ct:pal("Brutto: ~p Overhead: ~p (~.2f %) Netto: ~p",
+                [TimePerOpBrutto, OverHead, 100*OverHead/TimePerOpBrutto,TimePerOpBrutto - OverHead]),
+         TimePerOpBrutto - OverHead
      of
          TimePerOp -> % µs
              %% First, Report speed of encrypting blocks of 1000. [blocks/sec]
@@ -263,6 +262,7 @@ run1(MilliSecGoal, Funs) ->
     Pid = spawn(fun() ->
                         {Fi,Fu,Ff} = Funs,
                         Ctx0 = Fi(),
+                        erlang:garbage_collect(),
                         T0 = start_time(),
                         {N,Ctx} = loop(Fu, Ctx0, 0),
                         T = elapsed_time(T0),
