@@ -327,15 +327,15 @@ do {                                                    \
 #  define HAVE_OPAQUE_BN_GENCB
 #endif
 
-/*
-#define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
-#define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
-#define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
-*/
-
-#define PRINTF_ERR0(FMT)
-#define PRINTF_ERR1(FMT,A1)
-#define PRINTF_ERR2(FMT,A1,A2)
+#if 0
+#  define PRINTF_ERR0(FMT)         enif_fprintf(stderr, FMT "\n")
+#  define PRINTF_ERR1(FMT, A1)     enif_fprintf(stderr, FMT "\n", A1)
+#  define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
+#else
+#  define PRINTF_ERR0(FMT)
+#  define PRINTF_ERR1(FMT,A1)
+#  define PRINTF_ERR2(FMT,A1,A2)
+#endif
 
 #ifdef FIPS_SUPPORT
 /* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
