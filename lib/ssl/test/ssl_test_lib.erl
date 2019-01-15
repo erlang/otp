@@ -523,7 +523,7 @@ cert_options(Config) ->
      {client_verification_opts, [{cacertfile, ServerCaCertFile}, 
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
-				{ssl_imp, new}]}, 
+				{verify, verify_peer}]}, 
      {client_verification_opts_digital_signature_only, [{cacertfile, ServerCaCertFile},
 				{certfile, ClientCertFileDigitalSignatureOnly},
 				{keyfile, ClientKeyFile},
@@ -2186,3 +2186,98 @@ server_msg(Server, ServerMsg) ->
 	Unexpected ->
 	    ct:fail(Unexpected)
     end.
+
+session_id(Socket) ->
+    {ok, [{session_id, ID}]} = ssl:connection_information(Socket, [session_id]),
+    ID.
+    
+reuse_session(ClientOpts, ServerOpts, Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server0 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+    
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+    Server0 ! listen,
+    
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, ClientOpts}]),    
+
+    SID = receive
+              {Client0, Id0} ->
+                  Id0
+          end,
+       
+    receive
+        {Client1, SID} ->
+            ok
+    after ?SLEEP ->
+              ct:fail(session_not_reused)
+    end,
+  
+    Server0 ! listen,
+    
+    Client2 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port0}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, session_id, []}},
+                                   {from, self()},  {options, [{reuse_sessions, false}
+         					  | ClientOpts]}]),   
+    receive
+         {Client2, SID} ->
+            ct:fail(session_reused_when_session_reuse_disabled_by_client);
+         {Client2, _} ->
+            ok
+    end,
+    
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1),
+    ssl_test_lib:close(Client2),
+    
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {tcp_options, [{active, false}]},
+				   {options, [{reuse_sessions, false} |ServerOpts]}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+    
+    Client3 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port1}, {host, Hostname},
+                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+    SID1 = receive
+               {Client3, Id3} ->
+                   Id3
+           end,
+
+    Server1 ! listen,
+    
+    Client4 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port1}, {host, Hostname},
+                                   {mfa, {ssl_test_lib, session_id, []}},
+                                   {from, self()},  {options, ClientOpts}]),   
+   
+    receive
+        {Client4, SID1} ->
+            ct:fail(session_reused_when_session_reuse_disabled_by_server);
+        {Client4, _} ->
+            ok
+    end,
+    
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client3),
+    ssl_test_lib:close(Client4).
+    

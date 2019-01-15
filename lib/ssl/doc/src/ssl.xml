@@ -83,8 +83,9 @@
 	<p><c>| {ciphers, ciphers()}</c></p>
 	<p><c>| {user_lookup_fun, {fun(), term()}}, {psk_identity, string()},
 	{srp_identity, {string(), string()}}</c></p>
-	<p><c>| {reuse_sessions, boolean()}</c></p>
-	<p><c>| {reuse_session, fun()} {next_protocols_advertised, [binary()]}</c></p>
+	<p><c>| {reuse_sessions, boolean() | save()}</c></p>
+	<p><c>| {reuse_session, fun() | binary()} </c></p>
+	<p><c>| {next_protocols_advertised, [binary()]}</c></p>
 	<p><c>| {client_preferred_next_protocols, {client | server,
 	[binary()]} | {client | server, [binary()], binary()}}</c></p>
 	<p><c>| {log_alert, boolean()}</c></p>
@@ -575,11 +576,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <item><p>In mode <c>verify_none</c> the default behavior is to allow
       all x509-path validation errors. See also option <c>verify_fun</c>.</p>
       </item>
+      
+      <tag><marker id="client_reuse_session"/><c>{reuse_session, binary()}</c></tag>
+      <item><p>Reuses a specific session earlier saved with the option
+      <c>{reuse_sessions, save} since ssl-9.2</c>
+      </p></item>
 
-      <tag><c>{reuse_sessions, boolean()}</c></tag>
-      <item><p>Specifies if the client is to try to reuse sessions
-      when possible.</p></item>
-
+      <tag><c>{reuse_sessions, boolean() | save}</c></tag>
+      <item><p>When <c>save</c> is specified a new connection will be negotiated
+      and saved for later reuse. The session ID can be fetched with 
+      <seealso marker="#connection_information">connection_information/2</seealso>
+      and used with the client option <seealso marker="#client_reuse_session">reuse_session</seealso>
+      The boolean value true specifies that if possible, automatized session reuse will
+      be performed. If a new session is created, and is unique in regard 
+      to previous stored sessions, it will be saved for possible later reuse.
+      Value <c>save</c> since ssl-9.2
+      </p></item>
+      
       <tag><c>{cacerts, [public_key:der_encoded()]}</c></tag>
       <item><p>The DER-encoded trusted certificates. If this option
       is supplied it overrides option <c>cacertfile</c>.</p></item>
@@ -758,11 +771,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </item>
 
       <tag><c>{reuse_sessions, boolean()}</c></tag>
-      <item><p>Specifies if the server is to agree to reuse sessions
-      when requested by the clients. See also option <c>reuse_session</c>.
+      <item><p>The boolean value true specifies that the server will
+      agree to reuse sessions. Setting it to false will result in an empty
+      session table, that is no sessions will be reused. 
+      See also option <seealso marker="#server_reuse_session">reuse_session</seealso>
       </p></item>
 
-      <tag><c>{reuse_session, fun(SuggestedSessionId,
+      <tag><marker id="server_reuse_session"/>
+      <c>{reuse_session, fun(SuggestedSessionId,
       PeerCert, Compression, CipherSuite) -> boolean()}</c></tag>
       <item><p>Enables the TLS/DTLS server to have a local policy
       for deciding if a session is to be reused or not.

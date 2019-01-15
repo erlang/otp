@@ -30,7 +30,7 @@
 	 connection_init/3, cache_pem_file/2,
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
-	 register_session/2, register_session/3, invalidate_session/2,
+	 register_session/2, register_session/4, invalidate_session/2,
 	 insert_crls/2, insert_crls/3, delete_crls/1, delete_crls/2, 
 	 invalidate_session/3, name/1]).
 
@@ -170,9 +170,11 @@ clean_cert_db(Ref, File) ->
 %%
 %% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
--spec register_session(host(), inet:port_number(), #session{}) -> ok.
-register_session(Host, Port, Session) ->
-    cast({register_session, Host, Port, Session}).
+-spec register_session(host(), inet:port_number(), #session{}, unique | true) -> ok.
+register_session(Host, Port, Session, true) ->
+    call({register_session, Host, Port, Session});
+register_session(Host, Port, Session, unique = Save) ->
+    cast({register_session, Host, Port, Session, Save}).
 
 -spec register_session(inet:port_number(), #session{}) -> ok.
 register_session(Port, Session) ->
@@ -301,7 +303,10 @@ handle_call({{new_session_id, Port}, _},
 	    _, #state{session_cache_cb = CacheCb,
 		      session_cache_server = Cache} = State) ->
     Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
-    {reply, Id, State}.
+    {reply, Id, State};
+handle_call({{register_session, Host, Port, Session},_}, _, State0) ->
+    State = client_register_session(Host, Port, Session, State0), 
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -311,8 +316,12 @@ handle_call({{new_session_id, Port}, _},
 %%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-handle_cast({register_session, Host, Port, Session}, State0) ->
-    State = ssl_client_register_session(Host, Port, Session, State0), 
+handle_cast({register_session, Host, Port, Session, unique}, State0) ->
+    State = client_register_unique_session(Host, Port, Session, State0), 
+    {noreply, State};
+
+handle_cast({register_session, Host, Port, Session, true}, State0) ->
+    State = client_register_session(Host, Port, Session, State0), 
     {noreply, State};
 
 handle_cast({register_session, Port, Session}, State0) ->    
@@ -540,10 +549,10 @@ clean_cert_db(Ref, CertDb, RefDb, FileMapDb, File) ->
 	    ok
     end.
 
-ssl_client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
-							session_cache_cb = CacheCb,
-							session_cache_client_max = Max,
-							session_client_invalidator = Pid0} = State) ->
+client_register_unique_session(Host, Port, Session, #state{session_cache_client = Cache,
+                                                           session_cache_cb = CacheCb,
+                                                           session_cache_client_max = Max,
+                                                           session_client_invalidator = Pid0} = State) ->
     TimeStamp = erlang:monotonic_time(),
     NewSession = Session#session{time_stamp = TimeStamp},
     
@@ -556,6 +565,17 @@ ssl_client_register_session(Host, Port, Session, #state{session_cache_client = C
 	Sessions ->
 	    register_unique_session(Sessions, NewSession, {Host, Port}, State)
     end.
+
+client_register_session(Host, Port, Session, #state{session_cache_client = Cache,
+                                                    session_cache_cb = CacheCb,
+                                                    session_cache_client_max = Max,
+                                                    session_client_invalidator = Pid0} = State) ->
+    TimeStamp = erlang:monotonic_time(),
+    NewSession = Session#session{time_stamp = TimeStamp},
+    Pid = do_register_session({{Host, Port}, 
+                               NewSession#session.session_id}, 
+                              NewSession, Max, Pid0, Cache, CacheCb),
+    State#state{session_client_invalidator = Pid}.
 
 server_register_session(Port, Session, #state{session_cache_server_max = Max,
 					      session_cache_server = Cache,

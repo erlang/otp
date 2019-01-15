@@ -111,10 +111,10 @@
 	  %% Local policy for the server if it want's to reuse the session
 	  %% or not. Defaluts to allways returning true.
 	  %% fun(SessionId, PeerCert, Compression, CipherSuite) -> boolean()
-	  reuse_session,  
+	  reuse_session        :: fun() | binary() | undefined, %% Server side is a fun()
 	  %% If false sessions will never be reused, if true they
 	  %% will be reused if possible.
-	  reuse_sessions       :: boolean(),
+	  reuse_sessions       :: boolean() | save,  %% Only client side can use value save
 	  renegotiate_at,
 	  secure_renegotiate,
 	  client_renegotiation,
@@ -148,6 +148,8 @@
           max_handshake_size         :: integer(),
           handshake,
           customize_hostname_check
+    %%                 ,
+      %%    save_session               :: boolean()            
          }).
 
 -record(socket_options,

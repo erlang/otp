@@ -262,52 +262,12 @@ client_renegotiate(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 
 session_reused(Config) when  is_list(Config)->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"http/1.0">>]}] ++ ClientOpts0,
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
 
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-                    {from, self()},
-                    {mfa, {ssl_test_lib, session_info_result, []}},
-					{options, ServerOpts}]),
-
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-               {host, Hostname},
-               {from, self()},
-               {mfa, {ssl_test_lib, no_result_msg, []}},
-               {options, ClientOpts}]),
-
-    SessionInfo = 
-	receive
-	    {Server, Info} ->
-		Info
-	end,
-        
-    Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
-    
-    %% Make sure session is registered
-    ct:sleep(?SLEEP),
-
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode},
-				   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
-
-      receive
-	{Client1, SessionInfo} ->
-	    ok;
-	{Client1, Other} ->
-	    ct:fail(Other)
-      end,
-    
-    ssl_test_lib:close(Server), 
-    ssl_test_lib:close(Client),
-    ssl_test_lib:close(Client1).
-
+    ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
 %--------------------------------------------------------------------------------
 
 alpn_not_supported_client(Config) when is_list(Config) ->
