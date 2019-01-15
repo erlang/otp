@@ -4696,6 +4696,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	return erts_bind_schedulers(BIF_P, BIF_ARG_2);
     } else if (ERTS_IS_ATOM_STR("erts_alloc", BIF_ARG_1)) {
         return erts_alloc_set_dyn_param(BIF_P, BIF_ARG_2);
+    } else if (ERTS_IS_ATOM_STR("system_logger", BIF_ARG_1)) {
+        Eterm res = erts_set_system_logger(BIF_ARG_2);
+        if (is_value(res)) BIF_RET(res);
     }
     error:
     BIF_ERROR(BIF_P, BADARG);
@@ -5197,55 +5200,6 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
 
     return exiting;
 }
-
-
-
-#ifdef HARDDEBUG
-/*
-You'll need this line in bif.tab to be able to use this debug bif
-
-bif erlang:send_to_logger/2
-
-*/
-BIF_RETTYPE send_to_logger_2(BIF_ALIST_2)
-{
-    byte *buf;
-    ErlDrvSizeT len;
-    if (!is_atom(BIF_ARG_1) || !(is_list(BIF_ARG_2) ||
-				 is_nil(BIF_ARG_1))) {
-	BIF_ERROR(BIF_P,BADARG);
-    }
-    if (erts_iolist_size(BIF_ARG_2, &len) != 0)
-	BIF_ERROR(BIF_P,BADARG);
-    else if (len == 0)
-	buf = "";
-    else {
-	ErlDrvSizeT len2;
-	buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, len+1);
-	len2 =
-	    erts_iolist_to_buf(BIF_ARG_2, buf, len);
-	ASSERT(len2 == len); (void)len2;
-	buf[len] = '\0';
-	switch (BIF_ARG_1) {
-	case am_info:
-	    erts_send_info_to_logger(BIF_P->group_leader, buf, len);
-	    break;
-	case am_warning:
-	    erts_send_warning_to_logger(BIF_P->group_leader, buf, len);
-	    break;
-	case am_error:
-	    erts_send_error_to_logger(BIF_P->group_leader, buf, len);
-	    break;
-	default:
-	{
-	    BIF_ERROR(BIF_P,BADARG);
-	}
-	}
-	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    }
-    BIF_RET(am_true);
-}
-#endif /* HARDDEBUG */
 
 BIF_RETTYPE get_module_info_1(BIF_ALIST_1)
 {
