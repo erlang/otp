@@ -29,7 +29,7 @@
 type T;
 identifier CTX, L;
 identifier virtual.enif_alloc_resource, virtual.enif_release_resource;
-position p;
+position p, pr;
 @@
 
  T *CTX = NULL;
@@ -40,7 +40,7 @@ position p;
 
  ... when strict, forall
  if (CTX)
-   enif_release_resource(CTX);
+   enif_release_resource(CTX)@pr;
 
 
 // After calling enif_alloc_binary(), you must either release it with
@@ -179,7 +179,7 @@ identifier FUNCNEW =~ "^(enif_make_atom|enif_make_badarg|enif_make_binary|enif_m
 position pnew != {erlang_check_new.p,enif_alloc_binary.pm};
 
 identifier FUNCFREE =~ "^(enif_free|enif_free_env|enif_free_iovec|enif_release_binary|enif_release_resource)$";
-position pfree != {enif_alloc_resource.p,erlang_check_null_free.p};
+position pfree != {enif_alloc_resource.pr,enif_alloc_binary.pr,erlang_check_null_free.p};
 
 @@
 
