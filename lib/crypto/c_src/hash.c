@@ -68,8 +68,8 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned             ret_size;
     unsigned char        *outp;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -106,8 +106,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
     if (digp->md.p == NULL)
@@ -141,8 +141,8 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary data;
     ERL_NIF_TERM ret;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -181,8 +181,8 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned      ret_size;
     unsigned char     *outp;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -224,8 +224,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     init_fun             ctx_init = 0;
     unsigned char        *outp;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
     if (digp->md.p == NULL)
@@ -306,8 +306,8 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     size_t               ctx_size   = 0;
     update_fun           ctx_update = 0;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_tuple(env, argv[0], &arity, &tuple))
         goto bad_arg;
     if (arity != 2)
@@ -404,8 +404,8 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     final_fun            ctx_final = 0;
     unsigned char        *outp;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_tuple(env, argv[0], &arity, &tuple))
         goto bad_arg;
     if (arity != 2)

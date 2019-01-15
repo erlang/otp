@@ -29,8 +29,8 @@ ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key))
         goto bad_arg;
     if (key.size > INT_MAX)
@@ -61,8 +61,8 @@ ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &state))
         goto bad_arg;
     if (state.size != sizeof(RC4_KEY))

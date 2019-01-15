@@ -33,8 +33,8 @@ ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     size_t size;
     int ret_bin_alloc = 0;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_binary(env, argv[0], &key_bin))
         goto bad_arg;
     if (key_bin.size != 32)

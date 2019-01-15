@@ -34,8 +34,8 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     type = argv[0];
 
-    if (argc != 6)
-        goto bad_arg;
+    ASSERT(argc == 6);
+
     if (!enif_is_atom(env, type))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
@@ -197,8 +197,7 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM type, out, ret;
     int len, ctx_ctrl_set_ivlen, ctx_ctrl_set_tag;
 
-    if (argc != 6)
-        goto bad_arg;
+    ASSERT(argc == 6);
 
     type = argv[0];
 #if defined(HAVE_GCM_EVP_DECRYPT_BUG)

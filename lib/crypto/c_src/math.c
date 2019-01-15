@@ -27,8 +27,8 @@ ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     size_t i;
     ERL_NIF_TERM ret;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &d1))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &d2))

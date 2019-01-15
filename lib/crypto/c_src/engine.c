@@ -124,8 +124,8 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     struct engine_ctx *ctx = NULL;
 
     // Get Engine Id
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_inspect_binary(env, argv[0], &engine_id_bin))
         goto bad_arg;
 
@@ -173,8 +173,8 @@ ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -197,8 +197,8 @@ ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -220,8 +220,8 @@ ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -241,8 +241,7 @@ ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
 #ifdef HAS_ENGINE_SUPPORT
-    if (argc != 0)
-        return enif_make_badarg(env);
+    ASSERT(argc == 0);
 
     ENGINE_load_dynamic();
     return atom_ok;
@@ -263,8 +262,8 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     int cmds_loaded = 0;
 
     // Get Engine
-    if (argc != 3)
-        goto bad_arg;
+    ASSERT(argc == 3);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -331,8 +330,8 @@ ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -358,8 +357,8 @@ ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -385,8 +384,8 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     unsigned int method;
 
     // Get Engine
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
     if (!enif_get_uint(env, argv[1], &method))
@@ -490,8 +489,8 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned int method;
 
     // Get Engine
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
     if (!enif_get_uint(env, argv[1], &method))
@@ -581,8 +580,7 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ErlNifBinary engine_bin;
     struct engine_ctx *ctx = NULL;
 
-    if (argc != 0)
-        goto bad_arg;
+    ASSERT(argc == 0);
 
     if ((engine = ENGINE_get_first()) == NULL) {
         if (!enif_alloc_binary(0, &engine_bin))
@@ -600,7 +598,6 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ret = enif_make_tuple2(env, atom_ok, result);
     goto done;
 
- bad_arg:
  err:
     ret = enif_make_badarg(env);
 
@@ -623,8 +620,8 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     struct engine_ctx *ctx, *next_ctx = NULL;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -667,8 +664,8 @@ ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     struct engine_ctx *ctx = NULL;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -705,8 +702,8 @@ ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     struct engine_ctx *ctx;
 
     // Get Engine
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
 
@@ -796,8 +793,7 @@ ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     ERL_NIF_TERM method_array[12];
     unsigned int i = 0;
 
-    if (argc != 0)
-        return enif_make_badarg(env);
+    ASSERT(argc == 0);
 
 #ifdef ENGINE_METHOD_RSA
     method_array[i++] = atom_engine_method_rsa;

@@ -39,8 +39,8 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     EC_POINT *my_ecpoint = NULL;
     EC_KEY *other_ecdh = NULL;
 
-    if (argc != 3)
-        goto bad_arg;
+    ASSERT(argc == 3);
+
     if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
         goto bad_arg;
     if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)

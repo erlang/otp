@@ -32,8 +32,7 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     size_t max_size;
     int key_bin_alloc = 0;
 
-    if (argc != 3)
-        goto bad_arg;
+    ASSERT(argc == 3);
 
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
@@ -110,8 +109,7 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
 
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;

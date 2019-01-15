@@ -56,8 +56,7 @@ ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM         ret;
     unsigned char        *outp;
 
-    if (argc != 3 && argc != 4)
-        goto bad_arg;
+    ASSERT(argc == 3 || argc == 4);
 
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
@@ -125,8 +124,8 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM         ret;
     struct hmac_context  *obj = NULL;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if ((digp = get_digest_type(argv[0])) == NULL)
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
@@ -180,8 +179,8 @@ ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ErlNifBinary data;
     struct hmac_context *obj = NULL;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
@@ -223,8 +222,8 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned int req_len = 0;
     unsigned int mac_len;
 
-    if (argc != 1 && argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 1 || argc == 2);
+
     if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
         goto bad_arg;
     if (argc == 2) {

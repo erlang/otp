@@ -1033,8 +1033,7 @@ ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     int algo_init = 0;
     unsigned char *label_copy = NULL;
 
-    if (argc != 6)
-        goto bad_arg;
+    ASSERT(argc == 6);
 
     is_private = (argv[4] == atom_true);
     is_encrypt = (argv[5] == atom_true);
@@ -1345,8 +1344,8 @@ ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     DSA *dsa = NULL;
     ERL_NIF_TERM result[8];
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (get_pkey_private_key(env, argv[0], argv[1], &pkey) != PKEY_OK)
         goto bad_arg;
 

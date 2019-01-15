@@ -103,8 +103,8 @@ ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned extra_byte;
     ERL_NIF_TERM ret;
 
-    if (argc != 4)
-        goto bad_arg;
+    ASSERT(argc == 4);
+
     if (!get_bn_from_bin(env, argv[0], &bn_base))
         goto bad_arg;
     if (!get_bn_from_bin(env, argv[1], &bn_exponent))

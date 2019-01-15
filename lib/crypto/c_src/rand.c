@@ -27,8 +27,8 @@ ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned char* data;
     ERL_NIF_TERM ret;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_get_uint(env, argv[0], &bytes))
         goto bad_arg;
     if (bytes > INT_MAX)
@@ -54,8 +54,8 @@ ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     BIGNUM *bn_range = NULL, *bn_rand = NULL;
     ERL_NIF_TERM ret;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!get_bn_from_bin(env, argv[0], &bn_range))
         goto bad_arg;
 
@@ -89,8 +89,8 @@ ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     int dlen;
     ERL_NIF_TERM ret;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!get_bn_from_mpint(env, argv[0], &bn_from))
         goto bad_arg;
     if (!get_bn_from_mpint(env, argv[1], &bn_rand))
@@ -134,8 +134,8 @@ ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Seed) */
     ErlNifBinary seed_bin;
 
-    if (argc != 1)
-        goto bad_arg;
+    ASSERT(argc == 1);
+
     if (!enif_inspect_binary(env, argv[0], &seed_bin))
         goto bad_arg;
     if (seed_bin.size > INT_MAX)

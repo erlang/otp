@@ -33,8 +33,8 @@ ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     int                  ivec_size, out_size = 0;
     int                  cipher_len;
 
-    if (argc != 4 && argc != 5)
-        goto bad_arg;
+    ASSERT(argc == 4 || argc == 5);
+
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
         goto bad_arg;
     if (key.size > INT_MAX)

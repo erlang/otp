@@ -214,8 +214,8 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
     BN_GENCB intr_cb_buf;
 #endif
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_int(env, argv[0], &modulus_bits))
         goto bad_arg;
     if (modulus_bits < 256)

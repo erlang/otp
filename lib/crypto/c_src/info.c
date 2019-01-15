@@ -74,8 +74,7 @@ ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     int ver_num;
     unsigned char *out_name, *out_ver;
 
-    if (argc != 0)
-        goto bad_arg;
+    ASSERT(argc == 0);
 
     name_sz = strlen(libname);
     ver = SSLeay_version(SSLEAY_VERSION);
@@ -103,7 +102,6 @@ ERL_NIF_TERM info_lib(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 						 enif_make_int(env, ver_num),
 						 ver_term));
 
- bad_arg:
  err:
     return enif_make_badarg(env);
 }

@@ -29,8 +29,8 @@ ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     const EVP_CIPHER *cipher;
     ERL_NIF_TERM     ret;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
         goto bad_arg;
     if (key_bin.size != 32)
@@ -81,8 +81,8 @@ ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     unsigned char  *out;
     int            outl = 0;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))

@@ -32,8 +32,7 @@ ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 5)
-        goto bad_arg;
+    ASSERT(argc == 5);
 
     if (!get_bn_from_bin(env, argv[0], &bn_multiplier))
         goto bad_arg;
@@ -124,8 +123,8 @@ ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 7)
-        goto bad_arg;
+    ASSERT(argc == 7);
+
     if (!get_bn_from_bin(env, argv[0], &bn_a))
         goto bad_arg;
     if (!get_bn_from_bin(env, argv[1], &bn_u))
@@ -232,8 +231,8 @@ ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 5)
-        goto bad_arg;
+    ASSERT(argc == 5);
+
     if (!get_bn_from_bin(env, argv[0], &bn_verifier))
         goto bad_arg;
     if (!get_bn_from_bin(env, argv[1], &bn_b))

@@ -40,8 +40,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     EVP_PKEY *dhkey = NULL, *params = NULL;
 #endif
 
-    if (argc != 4)
-        goto bad_arg;
+    ASSERT(argc == 4);
 
     if (argv[0] != atom_undefined) {
         if (!get_bn_from_bin(env, argv[0], &priv_key_in))
@@ -209,8 +208,7 @@ ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
           the peer's public key (other_pub_key),
           the parameters p & q
     */
-    if (argc != 3)
-        goto bad_arg;
+    ASSERT(argc == 3);
 
     if (!get_bn_from_bin(env, argv[0], &other_pub_key))
         goto bad_arg;

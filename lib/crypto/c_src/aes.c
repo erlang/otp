@@ -32,8 +32,7 @@ ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
      CHECK_NO_FIPS_MODE();
 
-     if (argc != 4)
-         goto bad_arg;
+     ASSERT(argc == 4);
 
      if (!enif_inspect_iolist_as_binary(env, argv[0], &key))
          goto bad_arg;
@@ -74,8 +73,8 @@ ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ERL_NIF_TERM ret;
     unsigned char *outp;
 
-    if (argc != 4)
-        goto bad_arg;
+    ASSERT(argc == 4);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key))
         goto bad_arg;
     if (key.size != 16 && key.size != 24 && key.size != 32)
@@ -119,8 +118,8 @@ ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     CHECK_NO_FIPS_MODE();
 
-    if (argc != 4)
-        goto bad_arg;
+    ASSERT(argc == 4);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
         goto bad_arg;
     if (key_bin.size != 16 && key_bin.size != 32)
@@ -177,8 +176,8 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     const EVP_CIPHER *cipher;
     ERL_NIF_TERM     ret;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
         goto bad_arg;
     if (!enif_inspect_binary(env, argv[1], &ivec_bin))
@@ -236,8 +235,8 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned char  *out;
     int            outl = 0;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))
@@ -284,8 +283,8 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ERL_NIF_TERM ecount_bin;
     unsigned char *outp;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin))
         goto bad_arg;
     if (key_bin.size != 16 && key_bin.size != 24 && key_bin.size != 32)
@@ -319,8 +318,8 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned char * ecount2_buf;
     unsigned char *outp;
 
-    if (argc != 2)
-        goto bad_arg;
+    ASSERT(argc == 2);
+
     if (!enif_get_tuple(env, argv[0], &state_arity, &state_term))
         goto bad_arg;
     if (state_arity != 4)
@@ -382,8 +381,8 @@ ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned char *outp;
     ERL_NIF_TERM out, ret;
 
-    if (argc != 6)
-        goto bad_arg;
+    ASSERT(argc == 6);
+
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
         goto bad_arg;
     if (key.size > INT_MAX / 8)

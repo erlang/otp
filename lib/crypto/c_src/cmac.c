@@ -34,8 +34,8 @@ ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned char       *outp;
     int                  cipher_len;
 
-    if (argc != 3)
-        goto bad_arg;
+    ASSERT(argc == 3);
+
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
         goto bad_arg;
     if ((cipherp = get_cipher_type(argv[0], key.size)) == NULL)
