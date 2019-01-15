@@ -420,6 +420,8 @@ timeout_event_type(Type) ->
           hibernate = false :: boolean()
         }).
 
+%% Keep in sync with parse_actions/5 that constructs this record
+%% from all fields
 -record(trans_opts,
         {hibernate = false :: boolean(),
          postpone = false :: boolean(),
@@ -1019,7 +1021,8 @@ loop_event_handler(
 %%
 -define(state_call(TransOpts), ((TransOpts) =:= trans_opts)).
 
-%% Convert state call marker to valid #trans_opts{} record
+%% Convert state call marker to valid #trans_opts{} record,
+%% to run when skipping running parse_actions/5
 %%
 -compile({inline, [trans_opts/1]}).
 trans_opts(trans_opts) ->
@@ -1030,10 +1033,10 @@ trans_opts(TransOpts) ->
 %% Access function for hibernate in record #trans_opts{}
 %% or when the record is a state call marker 'trans_opts'
 %%
--compile({inline, [trans_opts__hibernate/1]}).
-trans_opts__hibernate(trans_opts) ->
+-compile({inline, ['#trans_opts.hibernate'/1]}).
+'#trans_opts.hibernate'(trans_opts) ->
     (#trans_opts{})#trans_opts.hibernate;
-trans_opts__hibernate(#trans_opts{hibernate = Hibernate}) ->
+'#trans_opts.hibernate'(#trans_opts{hibernate = Hibernate}) ->
     Hibernate.
 
 
@@ -1178,7 +1181,7 @@ loop_state_callback_result(
               ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q);
 	{next_state,State,NewData,Actions} ->
             loop_actions(
@@ -1196,7 +1199,7 @@ loop_state_callback_result(
               ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q);
         %%
         {keep_state,NewData} ->
@@ -1240,21 +1243,21 @@ loop_state_callback_result(
               exit, normal, ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q);
 	{stop,Reason} ->
             terminate(
               exit, Reason, ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q);
 	{stop,Reason,NewData} ->
             terminate(
               exit, Reason, ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = {State,NewData},
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q);
 	%%
 	{stop_and_reply,Reason,Replies} ->
@@ -1262,14 +1265,14 @@ loop_state_callback_result(
               exit, Reason, ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q, Replies);
 	{stop_and_reply,Reason,Replies,NewData} ->
             reply_then_terminate(
               exit, Reason, ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = {State,NewData},
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q, Replies);
 	%%
 	_ ->
@@ -1279,7 +1282,7 @@ loop_state_callback_result(
               ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = State_Data,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q)
     end.
 
@@ -1312,7 +1315,7 @@ loop_actions_list(
   Q, NextState_NewData, TransOpts,
   Actions, CallEnter) ->
     %%
-    case parse_actions(P, Debug, S, TransOpts, Actions) of
+    case parse_actions(P, Debug, S, Actions, TransOpts) of
         {Debug_1,TransOpts_1}
           when StateEnter, CallEnter ->
             loop_state_enter(
@@ -1325,72 +1328,74 @@ loop_actions_list(
               Class, Reason, Stacktrace, P, Debug_1,
               S#state{
                 state_data = NextState_NewData,
-                hibernate = trans_opts__hibernate(TransOpts)},
+                hibernate = '#trans_opts.hibernate'(TransOpts)},
               Q)
     end.
-
-
 
 %%---------------------------------------------------------------------------
 %% The server loop continues after parse_actions
 
-parse_actions(P, Debug, S, TransOpts, Actions) ->
+parse_actions(P, Debug, S, Actions, TransOpts) ->
     if
         ?state_call(TransOpts) ->
-            %% Inlining of trans_opts/1 under the condition
-            %% that ?state_call(TransOpts) is 'true'
+            %% Inlining of trans_opts/1 for when
+            %% ?state_call(TransOpts) is 'true'
             %%
+            Hibernate = (#trans_opts{})#trans_opts.hibernate,
+            Postpone = (#trans_opts{})#trans_opts.postpone,
             TimeoutsR = (#trans_opts{})#trans_opts.timeouts_r,
             NextEventsR = (#trans_opts{})#trans_opts.next_events_r,
             parse_actions(
-              P, Debug, S, #trans_opts{}, Actions, true,
-              TimeoutsR, NextEventsR);
+              P, Debug, S, Actions, true,
+              Hibernate, Postpone, TimeoutsR, NextEventsR);
         true ->
-            TimeoutsR = TransOpts#trans_opts.timeouts_r,
-            NextEventsR = TransOpts#trans_opts.next_events_r,
+            #trans_opts{
+               hibernate = Hibernate,
+               postpone = Postpone,
+               timeouts_r = TimeoutsR,
+               next_events_r = NextEventsR} = TransOpts,
             parse_actions(
-              P, Debug, S, TransOpts, Actions, false,
-              TimeoutsR, NextEventsR)
+              P, Debug, S, Actions, false,
+              Hibernate, Postpone, TimeoutsR, NextEventsR)
     end.
 %%
 parse_actions(
-  _P, Debug, _S, TransOpts, [], _StateCall, TimeoutsR, NextEventsR) ->
+  _P, Debug, _S, [], _StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR) ->
     {Debug,
-     TransOpts#trans_opts{
-       timeouts_r = TimeoutsR,
-       next_events_r = NextEventsR}};
+     #trans_opts{
+        hibernate = Hibernate,
+        postpone = Postpone,
+        timeouts_r = TimeoutsR,
+        next_events_r = NextEventsR}};
 parse_actions(
-  P, Debug, S, TransOpts, [Action|Actions], StateCall,
-  TimeoutsR, NextEventsR) ->
+  P, Debug, S, [Action|Actions], StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR) ->
     case Action of
 	%% Actual actions
 	{reply,From,Reply} ->
             parse_actions_reply(
-              P, Debug, S, TransOpts, Actions, StateCall,
-              TimeoutsR, NextEventsR, From, Reply);
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone, TimeoutsR, NextEventsR, From, Reply);
 	%%
 	%% Actions that set options
-	{hibernate,Hibernate} when is_boolean(Hibernate) ->
-            TransOpts_1 = TransOpts#trans_opts{hibernate = Hibernate},
+	{hibernate,Hibernate_1} when is_boolean(Hibernate_1) ->
             parse_actions(
-              P, Debug, S, TransOpts_1, Actions, StateCall,
-              TimeoutsR, NextEventsR);
+              P, Debug, S, Actions, StateCall,
+              Hibernate_1, Postpone, TimeoutsR, NextEventsR);
 	hibernate ->
-            TransOpts_1 = TransOpts#trans_opts{hibernate = true},
             parse_actions(
-              P, Debug, S, TransOpts_1, Actions, StateCall,
-              TimeoutsR, NextEventsR);
+              P, Debug, S, Actions, StateCall,
+              true, Postpone, TimeoutsR, NextEventsR);
 	%%
-	{postpone,Postpone} when not Postpone orelse StateCall ->
-            TransOpts_1 = TransOpts#trans_opts{postpone = Postpone},
+	{postpone,Postpone_1} when not Postpone_1 orelse StateCall ->
             parse_actions(
-              P, Debug, S, TransOpts_1, Actions, StateCall,
-              TimeoutsR, NextEventsR);
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone_1, TimeoutsR, NextEventsR);
 	postpone when StateCall ->
-            TransOpts_1 = TransOpts#trans_opts{postpone = true},
             parse_actions(
-              P, Debug, S, TransOpts_1, Actions, StateCall,
-              TimeoutsR, NextEventsR);
+              P, Debug, S, Actions, StateCall,
+              Hibernate, true, TimeoutsR, NextEventsR);
 	postpone ->
             [error,
              {bad_state_enter_action_from_state_function,Action},
@@ -1399,18 +1404,18 @@ parse_actions(
 	%%
 	{next_event,Type,Content} ->
             parse_actions_next_event(
-              P, Debug, S, TransOpts, Actions, StateCall,
-              TimeoutsR, NextEventsR, Type, Content);
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone, TimeoutsR, NextEventsR, Type, Content);
 	%%
-        _ ->
+        Timeout ->
             parse_actions_timeout(
-              P, Debug, S, TransOpts, Actions, StateCall,
-              TimeoutsR, NextEventsR, Action)
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone, TimeoutsR, NextEventsR, Timeout)
     end.
 
 parse_actions_reply(
-  P, Debug, S, TransOpts, Actions, StateCall,
-  TimeoutsR, NextEventsR, From, Reply) ->
+  P, Debug, S, Actions, StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR, From, Reply) ->
     %%
     case from(From) of
         true ->
@@ -1420,8 +1425,8 @@ parse_actions_reply(
             reply(From, Reply),
             Debug_1 = ?sys_debug(Debug, P#params.name, {out,Reply,From}),
             parse_actions(
-              P, Debug_1, S, TransOpts, Actions, StateCall,
-              TimeoutsR, NextEventsR);
+              P, Debug_1, S, Actions, StateCall,
+              Hibernate, Postpone, TimeoutsR, NextEventsR);
         false ->
             [error,
              {bad_action_from_state_function,{reply,From,Reply}},
@@ -1429,24 +1434,26 @@ parse_actions_reply(
     end.
 
 parse_actions_next_event(
-  P, Debug, S, TransOpts, Actions, StateCall,
-  TimeoutsR, NextEventsR, Type, Content) ->
+  P, Debug, S, Actions, StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR, Type, Content) ->
     case event_type(Type) of
         true when StateCall ->
             NextEvent = {Type,Content},
             case Debug of
                 ?not_sys_debug ->
                     parse_actions(
-                      P, Debug, S, TransOpts, Actions, StateCall,
-                      TimeoutsR, [NextEvent|NextEventsR]);
+                      P, Debug, S, Actions, StateCall,
+                      Hibernate, Postpone, TimeoutsR,
+                      [NextEvent|NextEventsR]);
                 _ ->
                     Name = P#params.name,
                     {State,_Data} = S#state.state_data,
                     Debug_1 =
                         sys_debug(Debug, Name, {in,{Type,Content},State}),
                     parse_actions(
-                      P, Debug_1, S, TransOpts, Actions, StateCall,
-                      TimeoutsR, [NextEvent|NextEventsR])
+                      P, Debug_1, S, Actions, StateCall,
+                      Hibernate, Postpone, TimeoutsR,
+                      [NextEvent|NextEventsR])
               end;
         _ ->
             [error,
@@ -1457,7 +1464,8 @@ parse_actions_next_event(
     end.
 
 parse_actions_timeout(
-  P, Debug, S, TransOpts, Actions, StateCall, TimeoutsR, NextEventsR,
+  P, Debug, S, Actions, StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR,
   {TimeoutType,Time,TimeoutMsg,TimeoutOpts} = AbsoluteTimeout) ->
     %%
     case timeout_event_type(TimeoutType) of
@@ -1467,33 +1475,33 @@ parse_actions_timeout(
                 [] when ?relative_timeout(Time) ->
                     RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
                     parse_actions(
-                      P, Debug, S,
-                      TransOpts, Actions, StateCall,
+                      P, Debug, S, Actions, StateCall,
+                      Hibernate, Postpone,
                       [RelativeTimeout|TimeoutsR], NextEventsR);
                 [{abs,true}] when ?absolute_timeout(Time) ->
                     parse_actions(
-                      P, Debug, S,
-                      TransOpts, Actions, StateCall,
+                      P, Debug, S, Actions, StateCall,
+                      Hibernate, Postpone,
                       [AbsoluteTimeout|TimeoutsR], NextEventsR);
                 [{abs,false}] when ?relative_timeout(Time) ->
                     RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
                     parse_actions(
-                      P, Debug, S,
-                      TransOpts, Actions, StateCall,
+                      P, Debug, S, Actions, StateCall,
+                      Hibernate, Postpone,
                       [RelativeTimeout|TimeoutsR], NextEventsR);
                 %% Generic case
                 TimeoutOptsList ->
                     case parse_timeout_opts_abs(TimeoutOptsList) of
                         true when ?absolute_timeout(Time) ->
                             parse_actions(
-                              P, Debug, S,
-                              TransOpts, Actions, StateCall,
+                              P, Debug, S, Actions, StateCall,
+                              Hibernate, Postpone,
                               [AbsoluteTimeout|TimeoutsR], NextEventsR);
                         false when ?relative_timeout(Time) ->
                             RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
                             parse_actions(
-                              P, Debug, S,
-                              TransOpts, Actions, StateCall,
+                              P, Debug, S, Actions, StateCall,
+                              Hibernate, Postpone,
                               [RelativeTimeout|TimeoutsR], NextEventsR);
                         badarg ->
                             [error,
@@ -1510,13 +1518,15 @@ parse_actions_timeout(
              Debug]
     end;
 parse_actions_timeout(
-  P, Debug, S, TransOpts, Actions, StateCall, TimeoutsR, NextEventsR,
+  P, Debug, S, Actions, StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR,
   {TimeoutType,Time,_} = RelativeTimeout) ->
     %%
     case timeout_event_type(TimeoutType) of
         true when ?relative_timeout(Time) ->
             parse_actions(
-              P, Debug, S, TransOpts, Actions, StateCall,
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone,
               [RelativeTimeout|TimeoutsR], NextEventsR);
         _ ->
             [error,
@@ -1525,14 +1535,16 @@ parse_actions_timeout(
              Debug]
     end;
 parse_actions_timeout(
-  P, Debug, S, TransOpts, Actions, StateCall, TimeoutsR, NextEventsR,
+  P, Debug, S, Actions, StateCall,
+  Hibernate, Postpone, TimeoutsR, NextEventsR,
   Time) ->
     %%
     if
         ?relative_timeout(Time) ->
             RelativeTimeout = {timeout,Time,Time},
             parse_actions(
-              P, Debug, S, TransOpts, Actions, StateCall,
+              P, Debug, S, Actions, StateCall,
+              Hibernate, Postpone,
               [RelativeTimeout|TimeoutsR], NextEventsR);
         true ->
             [error,
@@ -1543,8 +1555,6 @@ parse_actions_timeout(
 
 %%---------------------------------------------------------------------------
 %% Here the server loop continues
-
-
 
 %% Do the state transition
 loop_state_transition(
