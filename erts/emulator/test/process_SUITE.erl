@@ -2104,6 +2104,13 @@ spawn_opt_max_heap_size(_Config) ->
 
     error_logger:add_report_handler(?MODULE, self()),
 
+    %% flush any prior messages in error_logger
+    Pid = spawn(fun() -> ok = nok end),
+    receive
+        {error, _, {emulator, _, [Pid|_]}} ->
+            flush()
+    end,
+
     %% Test that numerical limit works
     max_heap_size_test(1024, 1024, true, true),
 
@@ -2205,6 +2212,13 @@ receive_unexpected() ->
         M ->
             ct:fail({unexpected_message, M})
     after 10 ->
+            ok
+    end.
+
+flush() ->
+    receive
+        _M -> flush()
+    after 0 ->
             ok
     end.
 
