@@ -841,7 +841,7 @@ Erlang code.
 -type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
 
 -type af_map_pattern() ::
-        {'map', anno(), [af_assoc_exact(abstract_expr)]}.
+        {'map', anno(), [af_assoc_exact(abstract_expr())]}.
 
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
