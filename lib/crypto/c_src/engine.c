@@ -574,14 +574,14 @@ ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 }
 
 ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Engine) */
+{/* () */
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret, result;
     ENGINE *engine;
     ErlNifBinary engine_bin;
     struct engine_ctx *ctx = NULL;
 
-    if (argc != 1)
+    if (argc != 0)
         goto bad_arg;
 
     if ((engine = ENGINE_get_first()) == NULL) {
