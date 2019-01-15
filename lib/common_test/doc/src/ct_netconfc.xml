@@ -412,11 +412,11 @@
     </func>
 
     <func>
-      <name since="OTP 18.3">create_subscription(Client) -> Result</name>
-      <name since="OTP 18.3">create_subscription(Client, Stream) -> Result</name>
-      <name since="OTP 18.3">create_subscription(Client, Stream, Filter) -> Result</name>
-      <name since="OTP 18.3">create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
-      <name name="create_subscription" arity="5" clause_i="2" since="OTP 18.3"/>
+      <name since="OTP R15B02">create_subscription(Client) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream, Filter) -> Result</name>
+      <name since="OTP R15B02">create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
+      <name name="create_subscription" arity="5" clause_i="2" since="OTP R15B02"/>
       <name name="create_subscription" arity="6" since="OTP R15B02"/>
       <fsummary>Creates a subscription for event notifications.</fsummary>
       <desc>
@@ -515,7 +515,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
 
     <func>
       <name name="edit_config" arity="3" since="OTP R15B02"/>
-      <name name="edit_config" arity="4" clause_i="1" since="OTP R15B02"/>
+      <name name="edit_config" arity="4" clause_i="1" since="OTP 18.0"/>
       <name name="edit_config" arity="4" clause_i="2" since="OTP R15B02"/>
       <name name="edit_config" arity="5" since="OTP 18.0"/>
       <fsummary>Edits configuration data.</fsummary>
@@ -599,7 +599,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
     <func>
       <name name="get_event_streams" arity="1" since="OTP 20.0"/>
       <name name="get_event_streams" arity="2" clause_i="1" since="OTP R15B02"/>
-      <name name="get_event_streams" arity="2" clause_i="2" since="OTP R15B02"/>
+      <name name="get_event_streams" arity="2" clause_i="2" since="OTP 20.0"/>
       <name name="get_event_streams" arity="3" since="OTP R15B02"/>
       <fsummary>Sends a request to get the specified event streams.</fsummary>
       <desc>
