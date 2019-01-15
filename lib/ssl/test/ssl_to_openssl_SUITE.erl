@@ -810,7 +810,7 @@ erlang_client_openssl_server_renegotiate_after_client_data() ->
 erlang_client_openssl_server_renegotiate_after_client_data(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1655,8 +1655,8 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
 start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, OpensslServerOpts, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = ErlangClientOpts ++ ClientOpts0,
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1664,6 +1664,7 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
     Data = "From openssl to erlang",
 
     Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
@@ -1673,10 +1674,12 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
 	       [] -> 
 		   ["s_server", "-accept", 
 		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
+                    "-CAfile", CaCertFile,
 		    "-cert", CertFile,"-key", KeyFile];
 	       [Opt, Value] ->
 		   ["s_server", Opt, Value, "-accept", 
 		    integer_to_list(Port), ssl_test_lib:version_flag(Version),
+                    "-CAfile", CaCertFile,
 		    "-cert", CertFile,"-key", KeyFile]
 	   end,
 		   
@@ -1701,8 +1704,8 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
 
 start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
-    ClientOpts0 = proplists:get_value(client_rsa_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts0 = proplists:get_value(client_rsa_verify_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"spdy/2">>]} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1710,12 +1713,14 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
     Data = "From openssl to erlang",
 
     Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
     Version = ssl_test_lib:protocol_version(Config),
 
     Exe = "openssl",
     Args = ["s_server", "-msg", "-alpn", "http/1.1,spdy/2", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
+            "-CAfile", CaCertFile,
 	    "-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
     ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
@@ -1833,8 +1838,8 @@ start_erlang_server_and_openssl_client_for_alpn_npn_negotiation(Config, Data, Ca
 
 start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ClientOpts = [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
