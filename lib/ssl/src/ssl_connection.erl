@@ -1050,7 +1050,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 					 get_current_prf(ConnectionStates0, read),
 					 MasterSecret, Handshake0) of
         verified ->
-	    Session = register_session(Role, host_id(Role, Host, SslOpts), Port, Session0),
+	    Session = handle_session(Role, SslOpts, Host, Port, Session0),
 	    cipher_role(Role, Data, Session, 
 			State#state{expecting_finished = false}, Connection);
         #alert{} = Alert ->
@@ -2455,15 +2455,35 @@ session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
 session_handle_params(_, Session) ->
     Session.
 
-register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
-    Session = Session0#session{is_resumable = true},
-    ssl_manager:register_session(Host, Port, Session),
+handle_session(Role = server, #ssl_options{reuse_sessions = true} = SslOpts, 
+               Host, Port, Session0) ->
+    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0, true);
+handle_session(Role = client, #ssl_options{verify = verify_peer,
+                                           reuse_sessions = Reuse} = SslOpts, 
+               Host, Port, Session0) when Reuse =/= false ->
+    register_session(Role, host_id(Role, Host, SslOpts), Port, Session0, reg_type(Reuse));
+handle_session(server, _, Host, Port, Session) ->
+    %% Remove "session of type new" entry from session DB 
+    ssl_manager:invalidate_session(Host, Port, Session),
     Session;
-register_session(server, _, Port, #session{is_resumable = new} = Session0) ->
+handle_session(client, _,_,_, Session) ->
+    %% In client case there is no entry yet, so nothing to remove
+    Session.
+
+reg_type(save) ->
+    true;
+reg_type(true) ->
+    unique.
+
+register_session(client, Host, Port, #session{is_resumable = new} = Session0, Save) ->
+    Session = Session0#session{is_resumable = true},
+    ssl_manager:register_session(Host, Port, Session, Save),
+    Session;
+register_session(server, _, Port, #session{is_resumable = new} = Session0, _) ->
     Session = Session0#session{is_resumable = true},
     ssl_manager:register_session(Port, Session),
     Session;
-register_session(_, _, _, Session) ->
+register_session(_, _, _, Session, _) ->
     Session. %% Already registered
 
 host_id(client, _Host, #ssl_options{server_name_indication = Hostname}) when is_list(Hostname) ->

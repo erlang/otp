@@ -942,8 +942,6 @@ handle_options(Opts0, Role, Host) ->
 			     {list, [{mode, list}]}], Opts0),
     assert_proplist(Opts),
     RecordCb = record_cb(Opts),
-
-    ReuseSessionFun = fun(_, _, _, _) -> true end,
     CaCerts = handle_option(cacerts, Opts, undefined),
 
     {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun, PartialChainHanlder, VerifyClientOnce} =
@@ -1014,9 +1012,8 @@ handle_options(Opts0, Role, Host) ->
                              Opts,
                              undefined),  %% Do not send by default
                            tls_version(HighestVersion)),
-		    %% Server side option
-		    reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
-		    reuse_sessions = handle_option(reuse_sessions, Opts, true),
+                    reuse_sessions = handle_reuse_sessions_option(reuse_sessions, Opts, Role),
+		    reuse_session = handle_reuse_session_option(reuse_session, Opts, Role),
 		    secure_renegotiate = handle_option(secure_renegotiate, Opts, true),
 		    client_renegotiation = handle_option(client_renegotiation, Opts, 
 							 default_option_role(server, true, Role), 
@@ -1211,11 +1208,16 @@ validate_option(srp_identity, {Username, Password})
     {unicode:characters_to_binary(Username),
      unicode:characters_to_binary(Password)};
 
+validate_option(reuse_session, undefined) ->
+    undefined;
 validate_option(reuse_session, Value) when is_function(Value) ->
+    Value;
+validate_option(reuse_session, Value) when is_binary(Value) ->
     Value;
 validate_option(reuse_sessions, Value) when is_boolean(Value) ->
     Value;
-
+validate_option(reuse_sessions, save = Value) ->
+    Value;
 validate_option(secure_renegotiate, Value) when is_boolean(Value) ->
     Value;
 validate_option(client_renegotiation, Value) when is_boolean(Value) ->
@@ -1373,6 +1375,26 @@ handle_signature_algorithms_option(Value, Version) when is_list(Value)
     end;
 handle_signature_algorithms_option(_, _Version) ->
     undefined.
+
+handle_reuse_sessions_option(Key, Opts, client) ->
+    Value = proplists:get_value(Key, Opts, true),
+    validate_option(Key, Value),
+    Value;
+handle_reuse_sessions_option(Key, Opts0, server) ->
+    Opts = proplists:delete({Key, save}, Opts0),
+    Value = proplists:get_value(Key, Opts, true),
+    validate_option(Key, Value),
+    Value.
+
+handle_reuse_session_option(Key, Opts, client) ->
+    Value = proplists:get_value(Key, Opts, undefined),
+    validate_option(Key, Value),
+    Value;
+handle_reuse_session_option(Key, Opts, server) ->
+    ReuseSessionFun = fun(_, _, _, _) -> true end,
+    Value = proplists:get_value(Key, Opts, ReuseSessionFun),
+    validate_option(Key, Value),
+    Value.
 
 validate_options([]) ->
 	[];
