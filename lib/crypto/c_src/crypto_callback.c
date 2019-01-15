@@ -92,6 +92,9 @@ static void* crypto_realloc(void* ptr, size_t size CCB_FILE_LINE_ARGS)
 
 static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 {
+    if (ptr == NULL)
+        return;
+
     enif_free(ptr);
 }
 
