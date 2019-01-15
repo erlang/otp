@@ -476,7 +476,8 @@ calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
                          cipher_suite = CipherSuite} = SecParamsR,
 
     %% Calculate handshake_secret
-    EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, <<>>}),
+    PSK = binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo)),
+    EarlySecret = tls_v1:key_schedule(early_secret, HKDFAlgo , {psk, PSK}),
     PrivateKey = get_server_private_key(KeyShare),  %% #'ECPrivateKey'{}
 
     IKM = calculate_shared_secret(ClientKey, PrivateKey, SelectedGroup),

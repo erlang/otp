@@ -37,7 +37,7 @@
          groups/1, groups/2, group_to_enum/1, enum_to_group/1, default_groups/1]).
 
 -export([derive_secret/4, hkdf_expand_label/5, hkdf_extract/3, hkdf_expand/4,
-         key_schedule/3, key_schedule/4,
+         key_schedule/3, key_schedule/4, create_info/3,
          external_binder_key/2, resumption_binder_key/2,
          client_early_traffic_secret/3, early_exporter_master_secret/3,
          client_handshake_traffic_secret/3, server_handshake_traffic_secret/3,
@@ -74,18 +74,24 @@ derive_secret(Secret, Label, Messages, Algo) ->
                         Context::binary(), Length::integer(),  
                         Algo::ssl_cipher_format:hash()) -> KeyingMaterial::binary().
 hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
+    HkdfLabel = create_info(Label0, Context, Length),
+    hkdf_expand(Secret, HkdfLabel, Length, Algo).
+
+%% Create info parameter for HKDF-Expand:
+%% HKDF-Expand(PRK, info, L) -> OKM
+create_info(Label0, Context0, Length) ->
     %% struct {
     %%     uint16 length = Length;
     %%     opaque label<7..255> = "tls13 " + Label;
     %%     opaque context<0..255> = Context;
     %% } HkdfLabel;
     Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
-    LLen = size(Label1),
-    Label = <<?BYTE(LLen), Label1/binary>>,
+    LabelLen = size(Label1),
+    Label = <<?BYTE(LabelLen), Label1/binary>>,
+    ContextLen = size(Context0),
+    Context = <<?BYTE(ContextLen),Context0/binary>>,
     Content = <<Label/binary, Context/binary>>,
-    Len = size(Content),
-    HkdfLabel = <<?UINT16(Len), Content/binary>>,
-    hkdf_expand(Secret, HkdfLabel, Length, Algo).
+    <<?UINT16(Length), Content/binary>>.
 
 -spec hkdf_extract(MacAlg::ssl_cipher_format:hash(), Salt::binary(), 
                    KeyingMaterial::binary()) -> PseudoRandKey::binary().
@@ -394,7 +400,8 @@ update_traffic_secret(Algo, Secret) ->
 -spec calculate_traffic_keys(atom(), atom(), binary()) -> {binary(), binary()}.
 calculate_traffic_keys(HKDFAlgo, Cipher, Secret) ->
     Key = hkdf_expand_label(Secret, <<"key">>, <<>>, ssl_cipher:key_material(Cipher), HKDFAlgo),
-    IV = hkdf_expand_label(Secret, <<"iv">>, <<>>, ssl_cipher:key_material(Cipher), HKDFAlgo),
+    %% TODO: remove hard coded IV size
+    IV = hkdf_expand_label(Secret, <<"iv">>, <<>>, 12, HKDFAlgo),
     {Key, IV}.
 
 %% TLS v1.3  ---------------------------------------------------
