@@ -94,7 +94,7 @@ position pa, pm, pr;
 // enif_has_pending_exception  returns true if exception pending
 
 @erlang_check_void@
-identifier FUNCVOID =~ "^(enif_free|enif_mutex_destroy|enif_mutex_lock|enif_mutex_unlock|enif_release_binary|enif_rwlock_destroy|enif_rwlock_rlock|enif_rwlock_runlock|enif_rwlock_rwlock|enif_rwlock_rwunlock|enif_system_info)$";
+identifier FUNCVOID =~ "^(enif_mutex_destroy|enif_mutex_lock|enif_mutex_unlock|enif_rwlock_destroy|enif_rwlock_rlock|enif_rwlock_runlock|enif_rwlock_rwlock|enif_rwlock_rwunlock|enif_system_info)$";
 position p;
 @@
 
@@ -136,7 +136,7 @@ position p;
 
 @erlang_check_null_free@
 expression X;
-identifier FUNCFREE =~ "^(enif_release_resource)$";
+identifier FUNCFREE =~ "^(enif_free|enif_free_env|enif_free_iovec|enif_release_binary|enif_release_resource)$";
 position p;
 @@
 
@@ -166,7 +166,7 @@ position p;
 // Flag any calls that aren't part of the above pattern.
 @enif_alloc_not_free@
 
-identifier FUNCVOID =~ "^(enif_free|enif_mutex_destroy|enif_mutex_lock|enif_mutex_unlock|enif_release_binary|enif_rwlock_destroy|enif_rwlock_rlock|enif_rwlock_runlock|enif_rwlock_rwlock|enif_rwlock_rwunlock|enif_system_info)$";
+identifier FUNCVOID =~ "^(enif_mutex_destroy|enif_mutex_lock|enif_mutex_unlock|enif_rwlock_destroy|enif_rwlock_rlock|enif_rwlock_runlock|enif_rwlock_rwlock|enif_rwlock_rwunlock|enif_system_info)$";
 position pvoid != {erlang_check_void.p,enif_alloc_binary.pr};
 
 identifier FUNCNULL =~ "^(enif_alloc|enif_alloc_resource|enif_dlopen|enif_dlsym|enif_make_new_binary|enif_mutex_create|enif_open_resource_type|enif_realloc|enif_rwlock_create)$";
@@ -178,7 +178,7 @@ position pnot != {erlang_check_not.p,enif_alloc_binary.pa};
 identifier FUNCNEW =~ "^(enif_make_atom|enif_make_badarg|enif_make_binary|enif_make_int|enif_make_list|enif_make_list_from_array|enif_make_resource|enif_make_tuple|enif_raise_exception|enif_schedule_nif|enif_thread_self)$";
 position pnew != {erlang_check_new.p,enif_alloc_binary.pm};
 
-identifier FUNCFREE =~ "^(enif_release_resource)$";
+identifier FUNCFREE =~ "^(enif_free|enif_free_env|enif_free_iovec|enif_release_binary|enif_release_resource)$";
 position pfree != {enif_alloc_resource.p,erlang_check_null_free.p};
 
 @@
