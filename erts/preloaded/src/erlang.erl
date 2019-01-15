@@ -2526,6 +2526,9 @@ subtract(_,_) ->
                                 OldSchedulersOnline when
       SchedulersOnline :: pos_integer(),
       OldSchedulersOnline :: pos_integer();
+                        (system_logger, Logger) -> PrevLogger when
+      Logger :: logger | undefined | pid(),
+      PrevLogger :: logger | undefined | pid();
                         (trace_control_word, TCW) -> OldTCW when
       TCW :: non_neg_integer(),
       OldTCW :: non_neg_integer();
@@ -2731,8 +2734,9 @@ tuple_to_list(_Tuple) ->
          (schedulers | schedulers_online) -> pos_integer();
          (smp_support) -> boolean();
          (start_time) -> integer();
-         (system_version) -> string();
          (system_architecture) -> string();
+         (system_logger) -> logger | undefined | pid();
+         (system_version) -> string();
          (threads) -> boolean();
          (thread_pool_size) -> non_neg_integer();
          (time_correction) -> true | false;

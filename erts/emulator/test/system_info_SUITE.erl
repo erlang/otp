@@ -37,8 +37,9 @@
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
          heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
-         ets_count/1,
-         atom_count/1]).
+         ets_count/1, atom_count/1, system_logger/1]).
+
+-export([init/1, handle_event/2, handle_call/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -46,8 +47,8 @@ suite() ->
 
 all() -> 
     [process_count, system_version, misc_smoke_tests,
-     ets_count,
-     heap_size, wordsize, memory, ets_limit, atom_limit, atom_count].
+     ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     system_logger].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -573,3 +574,78 @@ atom_count(Config) when is_list(Config) ->
     true = Limit >= Count2,
     true = Count2 > Count1,
     ok.
+
+
+system_logger(Config) when is_list(Config) ->
+
+    TC = self(),
+
+    ok = error_logger:add_report_handler(?MODULE, [TC]),
+
+    generate_log_event(),
+
+    flush(1, report_handler),
+
+    Initial = erlang:system_info(system_logger),
+
+    {Logger,_} = spawn_monitor(fun F() -> receive M -> TC ! {system_logger,M}, F() end end),
+
+    Initial = erlang:system_flag(system_logger, Logger),
+    Logger = erlang:system_info(system_logger),
+
+    generate_log_event(),
+    flush(1, system_logger),
+
+    Logger = erlang:system_flag(system_logger, Logger),
+
+    generate_log_event(),
+    flush(1, system_logger),
+
+    exit(Logger, die),
+    receive {'DOWN',_,_,_,_} -> ok end,
+
+    generate_log_event(),
+    flush(1, report_handler),
+
+    logger = erlang:system_info(system_logger),
+
+    logger = erlang:system_flag(system_logger, undefined),
+    generate_log_event(),
+    flush(),
+
+    undefined = erlang:system_flag(system_logger, Initial),
+
+    ok.
+
+flush() ->
+    receive
+        M ->
+            ct:fail({unexpected_message, M})
+    after 0 ->
+            ok
+    end.
+
+flush(0, _Pat) ->
+    flush();
+flush(Cnt, Pat) ->
+    receive
+        M when element(1,M) =:= Pat ->
+            ct:log("~p",[M]),
+            flush(Cnt-1, Pat)
+    after 500 ->
+            ct:fail({missing, Cnt, Pat})
+    end.
+
+generate_log_event() ->
+    {_Pid, Ref} = spawn_monitor(fun() -> ok = nok end),
+    receive {'DOWN', Ref, _, _, _} -> ok end.
+
+init([To]) ->
+    {ok, To}.
+
+handle_call(Msg, State) ->
+    {ok, Msg, State}.
+
+handle_event(Event, State) ->
+    State ! {report_handler, Event},
+    {ok, State}.
