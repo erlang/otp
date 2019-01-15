@@ -252,7 +252,7 @@ ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 }
 
 ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Engine, Commands) */
+{/* (Engine, Commands, Optional) */
 #ifdef HAS_ENGINE_SUPPORT
     ERL_NIF_TERM ret;
     unsigned int cmds_len = 0;
@@ -263,7 +263,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     int cmds_loaded = 0;
 
     // Get Engine
-    if (argc != 2)
+    if (argc != 3)
         goto bad_arg;
     if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx))
         goto bad_arg;
