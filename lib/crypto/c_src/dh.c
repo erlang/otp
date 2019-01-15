@@ -27,6 +27,7 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     unsigned int mpint; /* 0 or 4 */
     ERL_NIF_TERM head, tail;
     BIGNUM *dh_p = NULL;
+    BIGNUM *dh_p_shared;
     BIGNUM *dh_g = NULL;
     BIGNUM *priv_key_in = NULL;
     unsigned long len = 0;
@@ -72,15 +73,16 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     /* Load dh_params with values to use by the generator.
        Mem mgmnt transfered from dh_p etc to dh_params */
     if ((dh_params = DH_new()) == NULL)
-        goto err;
+        goto bad_arg;
     if (priv_key_in) {
         if (!DH_set0_key(dh_params, NULL, priv_key_in))
-            goto err;
+            goto bad_arg;
         /* On success, dh_params owns priv_key_in */
         priv_key_in = NULL;
     }
     if (!DH_set0_pqg(dh_params, dh_p, NULL, dh_g))
-        goto err;
+        goto bad_arg;
+    dh_p_shared = dh_p; /* Don't free this because dh_params owns it */
     /* On success, dh_params owns dh_p and dh_g */
     dh_p = NULL;
     dh_g = NULL;
@@ -88,13 +90,14 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (len) {
         int bn_len;
 
-        if ((bn_len = BN_num_bits(dh_p)) < 0)
+        if ((bn_len = BN_num_bits(dh_p_shared)) < 0)
             goto bad_arg;
+        dh_p_shared = NULL;  /* dh_params owns the reference */
         if (len >= (size_t)bn_len)
             goto bad_arg;
 
         if (!DH_set_length(dh_params, (long)len))
-            goto err;
+            goto bad_arg;
     }
 
 #ifdef HAS_EVP_PKEY_CTX
@@ -159,8 +162,11 @@ ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     goto done;
 
  bad_arg:
- err:
     ret = enif_make_badarg(env);
+    goto done;
+
+ err:
+    ret = atom_error;
 
  done:
     if (priv_key_in)
