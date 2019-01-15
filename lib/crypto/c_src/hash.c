@@ -130,7 +130,8 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ret = atom_notsup;
 
  done:
-    enif_release_resource(ctx);
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 }
 
@@ -167,7 +168,8 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     ret = atom_notsup;
 
  done:
-    enif_release_resource(new_ctx);
+    if (new_ctx)
+        enif_release_resource(new_ctx);
     return ret;
 }
 

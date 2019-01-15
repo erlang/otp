@@ -223,7 +223,8 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(ctx);
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 }
 
@@ -270,7 +271,8 @@ ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(new_ctx);
+    if (new_ctx)
+        enif_release_resource(new_ctx);
     return ret;
 }
 

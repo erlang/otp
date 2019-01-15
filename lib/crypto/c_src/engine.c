@@ -158,7 +158,8 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
  done:
     if (engine_id)
         enif_free(engine_id);
-    enif_release_resource(ctx);
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 
 #else
@@ -604,7 +605,8 @@ ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(ctx);
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 
 #else
@@ -647,7 +649,8 @@ ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(next_ctx);
+    if (next_ctx)
+        enif_release_resource(next_ctx);
     return ret;
 
 #else

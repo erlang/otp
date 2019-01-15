@@ -63,7 +63,8 @@ ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(ctx);
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 
 #else
@@ -113,7 +114,8 @@ ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ret = enif_make_badarg(env);
 
  done:
-    enif_release_resource(new_ctx);
+    if (new_ctx)
+        enif_release_resource(new_ctx);
     return ret;
 
 #else

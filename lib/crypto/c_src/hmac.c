@@ -169,7 +169,8 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ret = atom_notsup;
 
  done:
-    enif_release_resource(obj);
+    if (obj)
+        enif_release_resource(obj);
     return ret;
 }
 
