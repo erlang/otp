@@ -1346,14 +1346,14 @@ select_val_branches_1([], _, Vst) -> Vst.
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
         {bif,is_map,{f,_},[Map],_} ->
-            fun({atom,true}, S) -> set_type_reg(map, Map, S);
+            fun({atom,true}, S) -> set_aliased_type(map, Map, S);
                (_, S) -> S
             end;
         {bif,tuple_size,{f,_},[Tuple],_} ->
             fun({integer,Arity}, S) ->
                     Type0 = get_term_type(Tuple, S),
                     Type = upgrade_tuple_type({tuple,Arity}, Type0),
-                    set_type(Type, Tuple, S);
+                    set_aliased_type(Type, Tuple, S);
                (_, S) -> S
             end;
         {bif,'=:=',{f,_},[ArityReg,{integer,_}=Val],_} when ArityReg =/= Src ->
