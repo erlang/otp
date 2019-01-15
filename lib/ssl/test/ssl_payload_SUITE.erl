@@ -64,7 +64,8 @@ payload_tests() ->
      server_echos_active_huge,
      client_echos_passive_huge,
      client_echos_active_once_huge,
-     client_echos_active_huge].
+     client_echos_active_huge,
+     client_active_once_server_close].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -397,6 +398,23 @@ client_echos_active_huge(Config) when is_list(Config) ->
     client_echos_active(
       Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
  
+
+%%--------------------------------------------------------------------
+client_active_once_server_close() ->
+    [{doc, "Server sends 500000 bytes and immediately after closes the connection"
+     "Make sure client recives all data if possible"}].
+
+client_active_once_server_close(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %%
+    Data = binary:copy(<<"1234567890">>, 50000),
+    client_active_once_server_close(
+      Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname).
+ 
+
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -541,6 +559,25 @@ client_echos_active(
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+client_active_once_server_close(
+  Data, ClientOpts, ServerOpts, ClientNode, ServerNode, Hostname) ->
+    Length = byte_size(Data),
+    Server =
+        ssl_test_lib:start_server(
+          [{node, ServerNode}, {port, 0},
+           {from, self()},
+           {mfa, {?MODULE, send_close, [Data]}},
+           {options, [{active, once}, {mode, binary} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client(
+          [{node, ClientNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {?MODULE, active_once_recv, [Length]}},
+           {options,[{active, once}, {mode, binary} | ClientOpts]}]),
+    %%
+    ssl_test_lib:check_result(Server, ok, Client, ok).
 
 send(Socket, Data, Count, Verify) ->
     send(Socket, Data, Count, <<>>, Verify).
@@ -552,7 +589,11 @@ send(Socket, Data, Count, Acc, Verify) ->
     NewAcc = Verify(Acc),
     send(Socket, Data, Count - 1, NewAcc, Verify).
 
- 
+
+send_close(Socket, Data) ->
+    ok = ssl:send(Socket, Data),
+    ssl:close(Socket).
+   
 sender(Socket, Data) ->
     ct:log("Sender recv: ~p~n", [ssl:getopts(Socket, [active])]),
     <<>> =
@@ -687,4 +728,13 @@ verify_active(Socket, SentData, Acc) ->
                     SentData = NewAcc,
                     <<>>
             end
+    end.
+
+active_once_recv(_Socket, 0) ->
+    ok;
+active_once_recv(Socket, N) ->
+    receive 
+	{ssl, Socket, Bytes} ->
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_recv(Socket, N-byte_size(Bytes))
     end.
