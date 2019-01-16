@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -689,6 +689,18 @@ c</pre>
     </func>
 
     <func>
+      <name name="search" arity="2" since="OTP 21.0"/>
+      <fsummary>Find the first element that satisfies a predicate.</fsummary>
+      <desc>
+        <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>
+          such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
+          <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
+          for the first such <c><anno>Value</anno></c>,
+          otherwise returns <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="seq" arity="2" since=""/>
       <name name="seq" arity="3" since=""/>
       <fsummary>Generate a sequence of integers.</fsummary>
@@ -767,18 +779,6 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
           <c><anno>List3</anno></c>. <c><anno>List2</anno></c> contains the
           first <c><anno>N</anno></c> elements and <c><anno>List3</anno></c>
           the remaining elements (the <c><anno>N</anno></c>th tail).</p>
-      </desc>
-    </func>
-
-    <func>
-      <name name="search" arity="2" since="OTP 21.0"/>
-      <fsummary>Find the first element that satisfies a predicate.</fsummary>
-      <desc>
-        <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>
-          such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
-          <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
-          for the first such <c><anno>Value</anno></c>,
-          otherwise returns <c>false</c>.</p>
       </desc>
     </func>
 
