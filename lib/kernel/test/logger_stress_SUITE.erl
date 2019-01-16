@@ -100,7 +100,7 @@ reject_events(Config) ->
                                {logger_level,error}]),
     N = 1000000,
     {T,_} = timer:tc(fun() -> rpc:call(Node,?MODULE,nlogs,[N]) end),
-    IOPS = N * 1000/T, % log events rejeted per second
+    IOPS = N * 1000/T, % log events rejected per millisecond
     ct_event:notify(#event{name = benchmark_data,
                            data = [{value,IOPS}]}),
     {comment,io_lib:format("~.2f rejected events pr millisecond",
@@ -229,7 +229,7 @@ nlogs(N) ->
     ok.
 
 %% cascade(ProducerInfo,ConsumerInfo,TestFun)
-cascade({PNode,PMFA,PStatProcs},{CNode,CMFA,CStatProcs},TestFun) ->
+cascade({PNode,PMFA,_PStatProcs},{CNode,CMFA,_CStatProcs},TestFun) ->
     Tab  = ets:new(counter,[set,public]),
     ets:insert(Tab,{producer,0}),
     ets:insert(Tab,{consumer,0}),
@@ -251,13 +251,13 @@ cascade({PNode,PMFA,PStatProcs},{CNode,CMFA,CStatProcs},TestFun) ->
             Written = ets:lookup_element(Tab,consumer,2),
             dbg:stop_clear(),
             ?COLLECT_STATS(All,
-                           [{PNode,P,Id} || {Id,P} <- PStatProcs] ++
-                               [{CNode,P,Id} || {Id,P} <- CStatProcs]),
-            Ratio = Written/All,
+                           [{PNode,P,Id} || {Id,P} <- _PStatProcs] ++
+                               [{CNode,P,Id} || {Id,P} <- _CStatProcs]),
+            Ratio = Written/All * 100,
             ct_event:notify(#event{name = benchmark_data,
                                    data = [{value,Ratio}]}),
-            {comment,io_lib:format("~.2f (~p written, ~p produced)",
-                                   [Ratio,Written,All])}
+            {comment,io_lib:format("~p % (~p written, ~p produced)",
+                                   [round(Ratio),Written,All])}
     end.
 
 wrap_test(Fun) ->
