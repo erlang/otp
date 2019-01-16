@@ -856,14 +856,9 @@ live_opt_is([#b_set{op=succeeded,dst=SuccDst=SuccDstVar,
              #b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
-            case gb_sets:is_member(SuccDst, Live0) of
-                true ->
-                    Live1 = gb_sets:add(Dst, Live0),
-                    Live = gb_sets:delete_any(SuccDst, Live1),
-                    live_opt_is([I|Is], Live, [SuccI|Acc]);
-                false ->
-                    live_opt_is([I|Is], Live0, Acc)
-            end;
+            Live1 = gb_sets:add(Dst, Live0),
+            Live = gb_sets:delete_any(SuccDst, Live1),
+            live_opt_is([I|Is], Live, [SuccI|Acc]);
         false ->
             case live_opt_unused(I) of
                 {replace,NewI0} ->

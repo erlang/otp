@@ -139,6 +139,19 @@ opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
             Ds = Ds0#{Dst=>I},
             opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc])
     end;
+opt_is([#b_set{op=succeeded,args=Args0,dst=Dst}=I],
+       Ts0, Ds0, Ls, Sub0, Acc) ->
+    Args = simplify_args(Args0, Sub0, Ts0),
+    Type = type(succeeded, Args, Ts0, Ds0),
+    case get_literal_from_type(Type) of
+        #b_literal{}=Lit ->
+            Sub = Sub0#{Dst=>Lit},
+            opt_is([], Ts0, Ds0, Ls, Sub, Acc);
+        none ->
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{Dst=>I},
+            opt_is([], Ts, Ds, Ls, Sub0, [I|Acc])
+    end;
 opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
        Ts0, Ds0, Ls, Sub0, Acc) ->
     Args = simplify_args(Args0, Sub0, Ts0),
@@ -296,8 +309,6 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
         none -> I;
         List -> #b_literal{val=list_to_tuple(List)}
     end;
-simplify(#b_set{op=succeeded,args=[#b_literal{}]}, _Ts) ->
-    #b_literal{val=true};
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
@@ -627,6 +638,8 @@ type(succeeded, [#b_var{}=Src], Ts, Ds) ->
         #b_set{} ->
             t_boolean()
     end;
+type(succeeded, [#b_literal{}], _Ts, _Ds) ->
+    t_atom(true);
 type(_, _, _, _) -> any.
 
 arith_op_type(Args, Ts) ->
