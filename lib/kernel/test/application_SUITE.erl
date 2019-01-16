@@ -31,6 +31,7 @@
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
 	 otp_5606/1,
 	 start_phases/1, get_key/1, get_env/1,
+	 set_env/1, set_env_persistent/1, set_env_errors/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
@@ -55,6 +56,7 @@ all() ->
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
+     set_env, set_env_persistent, set_env_errors,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_deadlock, config_relative_paths,
      persistent_env].
@@ -1944,6 +1946,81 @@ get_appls([_ | T], Res) ->
 get_appls([], Res) ->
     Res.
 
+%% Test set_env/1.
+set_env(Conf) when is_list(Conf) ->
+    ok = application:set_env([{appinc, [{own2, persist}, {not_in_app, persist}]},
+			      {unknown_app, [{key, persist}]}]),
+
+    %% own_env1 and own2 are set in appinc
+    undefined = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, not_in_app),
+    {ok, persist} = application:get_env(unknown_app, key),
+
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, val2} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, not_in_app),
+    {ok, persist} = application:get_env(unknown_app, key),
+
+    %% On reload, values are lost
+    ok = application:unload(appinc),
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, val2} = application:get_env(appinc, own2),
+    undefined = application:get_env(appinc, not_in_app),
+
+    %% Clean up
+    ok = application:unload(appinc).
+
+%% Test set_env/2 with persistent true.
+set_env_persistent(Conf) when is_list(Conf) ->
+    Opts = [{persistent, true}],
+    ok = application:set_env([{appinc, [{own2, persist}, {not_in_app, persist}]},
+			      {unknown_app, [{key, persist}]}], Opts),
+
+    %% own_env1 and own2 are set in appinc
+    undefined = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, not_in_app),
+    {ok, persist} = application:get_env(unknown_app, key),
+
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, not_in_app),
+    {ok, persist} = application:get_env(unknown_app, key),
+
+    %% On reload, values are not lost
+    ok = application:unload(appinc),
+    ok = application:load(appinc()),
+    {ok, value1} = application:get_env(appinc, own_env1),
+    {ok, persist} = application:get_env(appinc, own2),
+    {ok, persist} = application:get_env(appinc, not_in_app),
+
+    %% Clean up
+    ok = application:unload(appinc).
+
+set_env_errors(Conf) when is_list(Conf) ->
+    "application: 1; application name must be an atom" =
+	badarg_msg(fun() -> application:set_env([{1, []}]) end),
+
+    "application: foo; parameters must be a list" =
+	badarg_msg(fun() -> application:set_env([{foo, bar}]) end),
+
+    "invalid application config: foo_bar" =
+	badarg_msg(fun() -> application:set_env([foo_bar]) end),
+
+    "application: foo; invalid parameter name: 1" =
+	badarg_msg(fun() -> application:set_env([{foo, [{1, 2}]}]) end),
+
+    "application: foo; invalid parameter: config" =
+	badarg_msg(fun() -> application:set_env([{foo, [config]}]) end),
+
+    "application: kernel; erroneous parameter: distributed" =
+	badarg_msg(fun() -> application:set_env([{kernel, [{distributed, config}]}]) end),
+
+    ok.
 
 %% Test set_env/4 and unset_env/3 with persistent true.
 persistent_env(Conf) when is_list(Conf) ->

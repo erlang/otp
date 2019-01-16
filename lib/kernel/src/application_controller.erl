@@ -26,7 +26,7 @@
 	 control_application/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
-	 loaded_applications/0, info/0,
+	 loaded_applications/0, info/0, set_env/2,
 	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
@@ -345,9 +345,6 @@ get_all_env(AppName) ->
     map(fun([Key, Val]) -> {Key, Val} end,
 	ets:match(ac_tab, {{env, AppName, '$1'}, '$2'})).
 
-
-
-
 get_pid_key(Master, Key) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_key(AppName, Key);
@@ -461,6 +458,15 @@ permit_application(ApplName, Flag) ->
 		    {permit_application, ApplName, Flag},
 		    infinity).
 
+set_env(Config, Opts) ->
+    case check_conf_data(Config) of
+	ok ->
+	    Timeout = proplists:get_value(timeout, Opts, 5000),
+	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
+
+	{error, _} = Error ->
+	    Error
+    end.
 
 set_env(AppName, Key, Val) ->
     gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
@@ -528,19 +534,17 @@ check_conf_data([]) ->
 check_conf_data(ConfData) when is_list(ConfData) ->
     [Application | ConfDataRem] = ConfData,
     case Application of
-	{kernel, List} when is_list(List) ->
-	    case check_para_kernel(List) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error1 ->
-		    Error1
-	    end;
 	{AppName, List} when is_atom(AppName), is_list(List) ->
-	    case check_para(List, atom_to_list(AppName)) of
-		ok ->
-		    check_conf_data(ConfDataRem);
-		Error2 ->
-		    Error2
+	    case lists:keymember(AppName, 1, ConfDataRem) of
+		true ->
+		    ?LOG_WARNING("duplicate application config: ~ts~n", [AppName]);
+		false ->
+		    ok
+	    end,
+
+	    case check_para(List, AppName) of
+		ok -> check_conf_data(ConfDataRem);
+		Error -> Error
 	    end;
 	{AppName, List} when is_list(List)  ->
 	    ErrMsg = "application: "
@@ -553,36 +557,39 @@ check_conf_data(ConfData) when is_list(ConfData) ->
 		++ "; parameters must be a list",
 	    {error, ErrMsg};
 	Else ->
-	    ErrMsg = "invalid application name: " ++ 
-		lists:flatten(io_lib:format(" ~tp",[Else])),
+	    ErrMsg = "invalid application config: "
+		++ lists:flatten(io_lib:format("~tp",[Else])),
 	    {error, ErrMsg}
     end;
 check_conf_data(_ConfData) ->
-    {error, 'configuration must be a list ended by <dot><whitespace>'}.
-    
+    {error, "configuration must be a list ended by <dot><whitespace>"}.
+
+
+check_para([], _AppName) ->
+    ok;
+check_para([{Para, Val} | ParaList], AppName) when is_atom(Para) ->
+    case lists:keymember(Para, 1, ParaList) of
+	true ->
+	    ?LOG_WARNING("application: ~ts; duplicate parameter: ~ts~n", [AppName, Para]);
+	false ->
+	    ok
+    end,
+
+    case check_para_value(Para, Val, AppName) of
+	ok -> check_para(ParaList, AppName);
+	{error, _} = Error -> Error
+    end;
+check_para([{Para, _Val} | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter name: " ++
+     lists:flatten(io_lib:format("~tp",[Para]))};
+check_para([Else | _ParaList], AppName) ->
+    {error, "application: " ++ atom_to_list(AppName) ++ "; invalid parameter: " ++
+     lists:flatten(io_lib:format("~tp",[Else]))}.
+
+check_para_value(distributed, Apps, kernel) -> check_distributed(Apps);
+check_para_value(_Para, _Val, _AppName) -> ok.
 
 %% Special check of distributed parameter for kernel
-check_para_kernel([]) ->
-    ok;
-check_para_kernel([{distributed, Apps} | ParaList]) when is_list(Apps) ->
-    case check_distributed(Apps) of
-	{error, _ErrorMsg} = Error ->
-	    Error;
-	_ ->
-	    check_para_kernel(ParaList)
-    end;
-check_para_kernel([{distributed, _Apps} | _ParaList]) ->
-    {error, "application: kernel; erroneous parameter: distributed"};
-check_para_kernel([{Para, _Val} | ParaList]) when is_atom(Para) ->
-    check_para_kernel(ParaList);
-check_para_kernel([{Para, _Val} | _ParaList]) ->
-    {error, "application: kernel; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Para]))};
-check_para_kernel(Else) ->
-    {error, "application: kernel; invalid parameter list: " ++ 
-     lists:flatten(io_lib:format("~tp",[Else]))}.
-    
-
 check_distributed([]) ->
     ok;
 check_distributed([{App, List} | Apps]) when is_atom(App), is_list(List) ->
@@ -593,18 +600,6 @@ check_distributed([{App, Time, List} | Apps]) when is_atom(App), is_integer(Time
     check_distributed(Apps);
 check_distributed(_Else) ->
     {error, "application: kernel; erroneous parameter: distributed"}.
-
-
-check_para([], _AppName) ->
-    ok;
-check_para([{Para, _Val} | ParaList], AppName) when is_atom(Para) ->
-    check_para(ParaList, AppName);
-check_para([{Para, _Val} | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Para]))};
-check_para([Else | _ParaList], AppName) ->
-    {error, "application: " ++ AppName ++ "; invalid parameter: " ++ 
-     lists:flatten(io_lib:format("~tp",[Else]))}.
 
 
 -type calls() :: 'info' | 'prep_config_change' | 'which_applications'
@@ -862,6 +857,16 @@ handle_call(which_applications, _From, S) ->
 		       end
 	       end, S#state.running),
     {reply, Reply, S};
+
+handle_call({set_env, Config, Opts}, _From, S) ->
+    _ = [add_env(AppName, Env) || {AppName, Env} <- Config],
+
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
+	false ->
+	    {reply, ok, S}
+    end;
 
 handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
     ets:insert(ac_tab, {{env, AppName, Key}, Val}),

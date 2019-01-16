@@ -25,7 +25,7 @@
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
 -export([ensure_started/1, ensure_started/2]).
--export([set_env/3, set_env/4, unset_env/2, unset_env/3]).
+-export([set_env/1, set_env/2, set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
 -export([get_application/0, get_application/1, info/0]).
@@ -278,6 +278,26 @@ loaded_applications() ->
 
 info() -> 
     application_controller:info().
+
+-spec set_env(Config) -> 'ok' when
+      Config :: [{Application, Env}],
+      Application :: atom(),
+      Env :: [{Par :: atom(), Val :: term()}].
+
+set_env(Config) when is_list(Config) ->
+    set_env(Config, []).
+
+-spec set_env(Config, Opts) -> 'ok' when
+      Config :: [{Application, Env}],
+      Application :: atom(),
+      Env :: [{Par :: atom(), Val :: term()}],
+      Opts :: [{timeout, timeout()} | {persistent, boolean()}].
+
+set_env(Config, Opts) when is_list(Config), is_list(Opts) ->
+    case application_controller:set_env(Config, Opts) of
+	ok -> ok;
+	{error, Msg} -> erlang:error({badarg, Msg}, [Config, Opts])
+    end.
 
 -spec set_env(Application, Par, Val) -> 'ok' when
       Application :: atom(),
