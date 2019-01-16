@@ -32,6 +32,26 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An optimization that avoided allocation of a stack
+	    frame for some <c>case</c> expressions was introduced in
+	    OTP 21. (ERL-504/OTP-14808) It turns out that in rare
+	    circumstances, this optimization is not safe. Therefore,
+	    this optimization has been disabled.</p>
+	    <p>A similar optimization will be included in OTP 22 in a
+	    safe way.</p>
+          <p>
+	    Own Id: OTP-15501 Aux Id: ERL-807, ERL-514, OTP-14808 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
