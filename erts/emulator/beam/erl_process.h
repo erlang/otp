@@ -368,7 +368,7 @@ typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 #ifdef ERTS_DIRTY_SCHEDULERS
 typedef struct {
     erts_smp_spinlock_t lock;
-    ErtsSchedulerSleepInfo *list;
+    ErtsSchedulerSleepInfo *list; /* circular lifo list; points to last out */
 } ErtsSchedulerSleepList;
 #endif
 
