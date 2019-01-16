@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a crash when dangling files were closed after
+	    <c>init:restart/0</c>.</p>
+          <p>
+	    Own Id: OTP-15495 Aux Id: ERL-821 </p>
+        </item>
+        <item>
+          <p>
+	    A bug that could cause dirty schedulers to become
+	    unresponsive has been fixed.</p>
+          <p>
+	    Own Id: OTP-15509 Aux Id: PR-2027, PR-2093 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

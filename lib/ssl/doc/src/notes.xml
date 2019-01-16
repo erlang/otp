@@ -27,6 +27,37 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix encoding of the SRP extension length field in ssl.
+	    The old encoding of the SRP extension length could cause
+	    interoperability problems with third party SSL
+	    implementations when SRP was used.</p>
+          <p>
+	    Own Id: OTP-15477 Aux Id: ERL-790 </p>
+        </item>
+        <item>
+          <p>
+	    Guarantee active once data delivery, handling TCP stream
+	    properly.</p>
+          <p>
+	    Own Id: OTP-15504 Aux Id: ERL-371 </p>
+        </item>
+        <item>
+          <p>
+	    Correct gen_statem returns for some error cases</p>
+          <p>
+	    Own Id: OTP-15505</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
