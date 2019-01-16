@@ -157,6 +157,10 @@ coverage(Config) ->
              [_|_] ->
                  ok
          end,
+
+    %% Cover beam_type:verified_type(none).
+    {'EXIT',{badarith,_}} = (catch (id(2) / id(1)) band 16#ff),
+
     ok.
 
 booleans(_Config) ->
