@@ -25,7 +25,7 @@
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
-         unary_op/1]).
+         unary_op/1,eq_types/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +40,7 @@ groups() ->
        match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag,literal_binary,unary_op]}].
+       grab_bag,literal_binary,unary_op,eq_types]}].
 
 
 init_per_suite(Config) ->
@@ -869,6 +869,26 @@ unary_op_1(Vop@1) ->
                     end
             end
     end.
+
+eq_types(_Config) ->
+    Ref = make_ref(),
+    Ref = eq_types(Ref, any),
+    ok.
+
+eq_types(A, B) ->
+    %% {put_tuple2,{y,0},{list,[{x,0},{x,1}]}}.
+    Term0 = {A, B},
+    Term = id(Term0),
+
+    %% {test,is_eq_exact,{f,3},[{y,0},{x,0}]}.
+    %% Here beam_validator must infer that {x,0} has the
+    %% same type as {y,0}.
+    Term = Term0,
+
+    %% {get_tuple_element,{x,0},0,{x,0}}.
+    {Ref22,_} = Term,
+
+    Ref22.
 
 
 id(I) -> I.
