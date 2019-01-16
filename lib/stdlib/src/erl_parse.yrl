@@ -872,7 +872,7 @@ Erlang code.
 -type af_fun_type() :: {'type', anno(), 'fun', []}
                      | {'type', anno(), 'fun', [{'type', anno(), 'any'} |
                                                 abstract_type()]}
-                     | {'type', anno(), 'fun', af_function_type()}.
+                     | af_function_type().
 
 -type af_integer_range_type() ::
         {'type', anno(), 'range', [af_singleton_integer_type()]}.
@@ -924,10 +924,11 @@ Erlang code.
 -type af_function_constraint() :: [af_constraint()].
 
 -type af_constraint() :: {'type', anno(), 'constraint',
-                          af_lit_atom('is_subtype'),
-                          [af_type_variable() | abstract_type()]}. % [V, T]
+                          [af_lit_atom('is_subtype') |
+                           [af_type_variable() | abstract_type()]]}. % [IsSubtype, [V, T]]
 
 -type af_singleton_integer_type() :: af_integer()
+                                   | af_character()
                                    | af_unary_op(af_singleton_integer_type())
                                    | af_binary_op(af_singleton_integer_type()).
 
