@@ -99,7 +99,7 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
     } else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
 #if defined(OPENSSL_NO_EC2M)
         enif_raise_exception(env, atom_notsup);
-        goto out_err;
+        goto err;
 #else
         /* {characteristic_two_field, M, Basis} */
         int b_arity = -1;
