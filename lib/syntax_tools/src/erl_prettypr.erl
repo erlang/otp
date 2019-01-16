@@ -1101,8 +1101,9 @@ lay_2(Node, Ctxt) ->
             Ctxt1 = reset_prec(Ctxt),
             D1 = lay(erl_syntax:constrained_function_type_body(Node),
                      Ctxt1),
+            Ctxt2 = Ctxt1#ctxt{clause = undefined},
             D2 = lay(erl_syntax:constrained_function_type_argument(Node),
-                     Ctxt1),
+                     Ctxt2),
             beside(D1,
                    beside(floating(text(" when ")), D2));
 
@@ -1113,7 +1114,7 @@ lay_2(Node, Ctxt) ->
                                   _ ->
                                       {"fun(", ")"}
                               end,
-            Ctxt1 = reset_prec(Ctxt),
+            Ctxt1 = (reset_prec(Ctxt))#ctxt{clause = undefined},
             D1 = case erl_syntax:function_type_arguments(Node) of
                      any_arity ->
                          text("(...)");
