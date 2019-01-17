@@ -1280,13 +1280,6 @@ bif_to_test(Op, Args, Fail, St) ->
 bif_to_test('and', [V1,V2], Fail) ->
     [{test,is_eq_exact,Fail,[V1,{atom,true}]},
      {test,is_eq_exact,Fail,[V2,{atom,true}]}];
-bif_to_test('or', [V1,V2], {f,Lbl}=Fail) when Lbl =/= 0 ->
-    %% Labels are spaced 2 apart. We can create a new
-    %% label by incrementing the Fail label.
-    SuccLabel = Lbl + 1,
-    [{test,is_eq_exact,{f,SuccLabel},[V1,{atom,false}]},
-     {test,is_eq_exact,Fail,[V2,{atom,true}]},
-     {label,SuccLabel}];
 bif_to_test('not', [Var], Fail) ->
     [{test,is_eq_exact,Fail,[Var,{atom,false}]}];
 bif_to_test(Name, Args, Fail) ->
