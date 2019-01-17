@@ -710,7 +710,7 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     {connect_failed, _} = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                                         {host, Hostname},
                                         {from, self()},
-                                        {options, [{timeout, 5} | proplists:delete(reuseaddr, ClientOpts)]}
+                                        {options, [{timeout, 20} | proplists:delete(reuseaddr, ClientOpts)]}
                                                     ]),
 
     ssl_test_lib:check_result(Server, {error,timeout}),
