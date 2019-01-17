@@ -1838,7 +1838,7 @@ loop_timeouts(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
+  {TimerRefs,TimeoutTypes} = Timers, Seen, TimeoutEvents,
   TimeoutType, Time, TimeoutMsg, TimeoutOpts) ->
     %%
     case Time of
@@ -1854,13 +1854,32 @@ loop_timeouts(
             %% Relative timeout zero
             %% - cancel any running timer
             %%   handle timeout zero events later
-            Timers_1 = cancel_timer_by_type(TimeoutType, Timers),
-            loop_timeouts(
-              P, Debug, S,
-              Events, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen#{TimeoutType => true},
-              [{TimeoutType,TimeoutMsg}|TimeoutEvents]);
+            %%
+            %% Instead of using cancel_timer_by_type/2 here, duplicate
+            %% the code, so we can make the function exit differ,
+            %% so the common subexpression optimization does not
+            %% kick in and accidentally force spilling all live
+            %% registers for the no TimeoutType match path
+            case TimeoutTypes of
+                #{TimeoutType := TimerRef} ->
+                    Timers_1 =
+                        cancel_timer_by_ref_and_type(
+                          TimerRef, TimeoutType, TimerRefs, TimeoutTypes),
+                    loop_timeouts(
+                      P, Debug, S,
+                      Events, NextState_NewData,
+                      NextEventsR, Hibernate, TimeoutsR, Postponed,
+                      Timers_1, Seen,
+                      [{TimeoutType,TimeoutMsg}|TimeoutEvents],
+                      TimeoutType);
+                #{} ->
+                    loop_timeouts(
+                      P, Debug, S,
+                      Events, NextState_NewData,
+                      NextEventsR, Hibernate, TimeoutsR, Postponed,
+                      Timers, Seen#{TimeoutType => true},
+                      [{TimeoutType,TimeoutMsg}|TimeoutEvents])
+            end;
         _ ->
             %% (Re)start the timer
             TimerRef =
@@ -1895,6 +1914,19 @@ loop_timeouts(
                       Timers_1, Seen#{TimeoutType => true}, TimeoutEvents)
             end
     end.
+%%
+loop_timeouts(
+  P, Debug, S,
+  Events, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postponed,
+  Timers, Seen, TimeoutEvents,
+  TimeoutType) ->
+    %%
+    loop_timeouts(
+      P, Debug, S,
+      Events, NextState_NewData,
+      NextEventsR, Hibernate, TimeoutsR, Postponed,
+      Timers, Seen#{TimeoutType => true}, TimeoutEvents).
 
 loop_prepend_timeout_events(P, Debug, S, TimeoutEvents, EventsR) ->
     {Debug_1,Events_1R} =
