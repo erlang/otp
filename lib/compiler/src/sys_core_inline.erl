@@ -195,6 +195,9 @@ kill_id_anns(Body) ->
     cerl_trees:map(fun(#c_fun{anno=A0}=CFun) ->
 			   A = kill_id_anns_1(A0),
 			   CFun#c_fun{anno=A};
+                      (#c_var{anno=A0}=Var) ->
+			   A = kill_id_anns_1(A0),
+			   Var#c_var{anno=A};
 		      (Expr) ->
 			   %% Mark everything as compiler generated to
 			   %% suppress bogus warnings.
