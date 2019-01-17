@@ -109,10 +109,11 @@ connect(Config) ->
     lists:foreach(
       fun(KexAlg) ->
               PrefAlgs = preferred_algorithms(KexAlg),
-              report([{value, measure_connect(Config,
-                                              [{preferred_algorithms,PrefAlgs}])},
+              report([{value, 1000000 /
+                           measure_connect(Config,
+                                           [{preferred_algorithms,PrefAlgs}])},
                       {suite, ?MODULE},
-                      {name, mk_name(["Connect erlc erld ",KexAlg," [µs]"])}
+                      {name, mk_name(["Connect erlc erld ",KexAlg," [connects/sec]"])}
                      ])
       end, KexAlgs).
 
@@ -130,7 +131,7 @@ measure_connect(Config, Opts) ->
       [begin
            {Time, {ok,Pid}} = timer:tc(ssh,connect,["localhost", Port, ConnectOptions]),
            ssh:close(Pid),
-           Time
+           Time % in µs
        end || _ <- lists:seq(1,?Nruns)]).
 
 %%%----------------------------------------------------------------
@@ -221,9 +222,9 @@ connect_measure(Port, Cipher, Mac, Data, Options) ->
              Time
          end || _ <- lists:seq(1,?Nruns)],
     
-    report([{value, median(Times)},
+    report([{value, 1000000 / median(Times)}, % Time in µs
             {suite, ?MODULE},
-            {name, mk_name(["Transfer 1M bytes ",Cipher,"/",Mac," [µs]"])}]).
+            {name, mk_name(["Transfer ",Cipher,"/",Mac," [Mbyte/s]"])}]).
 
 send_wait_acc(C, Ch, Data) ->
     ssh_connection:send(C, Ch, Data),
