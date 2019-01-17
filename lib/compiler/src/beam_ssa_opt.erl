@@ -52,6 +52,7 @@ passes(Opts0) ->
           ?PASS(ssa_opt_coalesce_phis),
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
+          ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
 
           %% Run ssa_opt_cse twice, because it will help ssa_opt_dead,
@@ -75,7 +76,6 @@ passes(Opts0) ->
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_units),
           ?PASS(ssa_opt_bsm_shortcut),
-          ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
