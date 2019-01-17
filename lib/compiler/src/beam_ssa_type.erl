@@ -478,7 +478,9 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
                 end,
             foldl(F, D, List);
         false ->
-            FailTs = subtract_types([{V,join_sw_list(List, Ts0, none)}], Ts0),
+            %% V can not be equal to any of the values in List at the fail
+            %% block.
+            FailTs = subtract_sw_list(V, List, Ts0),
             D = update_successor(Fail, FailTs, D0),
             F = fun({Val,S}, A) ->
                         T = get_type(Val, Ts0),
@@ -488,9 +490,14 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
         end;
 update_successors(#b_ret{}, _Ts, D) -> D.
 
-join_sw_list([{Val,_}|T], Ts, Type) ->
-    join_sw_list(T, Ts, join(Type, get_type(Val, Ts)));
-join_sw_list([], _, Type) -> Type.
+subtract_sw_list(V, List, Ts) ->
+    Ts#{ V := sub_sw_list_1(get_type(V, Ts), List, Ts) }.
+
+sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
+    ValType = get_type(Val, Ts),
+    sub_sw_list_1(subtract(Type, ValType), T, Ts);
+sub_sw_list_1(Type, [], _Ts) ->
+    Type.
 
 update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
     case t_is_boolean(get_type(Var, Ts)) of
