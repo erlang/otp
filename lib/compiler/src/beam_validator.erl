@@ -828,13 +828,14 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
 	_ ->
 	    kill_state(Vst0)
     end;
-valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
-    case get_term_type(Src, Vst) of
-        list ->
-            branch_state(Lbl, set_type_reg(cons, Src, Vst));
-        _ ->
-            branch_state(Lbl, Vst)
-    end;
+valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst0) ->
+    Vst = case get_term_type(Src, Vst0) of
+               list ->
+                   branch_state(Lbl, set_type_reg(cons, Src, Vst0));
+               _ ->
+                   branch_state(Lbl, Vst0)
+           end,
+    set_aliased_type(nil, Src, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
     Infer = infer_types(Src, Vst0),
@@ -1903,6 +1904,10 @@ merge_types({atom,A}, bool) ->
     merge_bool(A);
 merge_types(cons, {literal,[_|_]}) ->
     cons;
+merge_types(cons, nil) ->
+    list;
+merge_types(nil, cons) ->
+    list;
 merge_types({literal,[_|_]}, cons) ->
     cons;
 merge_types({literal,[_|_]}, {literal,[_|_]}) ->
