@@ -424,8 +424,8 @@ encode_arg({f, W}, Dict) ->
     {encode(?tag_f, W), Dict};
 %% encode_arg({'char', C}, Dict) ->
 %%     {encode(?tag_h, C), Dict};
-encode_arg({string, String}, Dict0) ->
-    {Offset, Dict} = beam_dict:string(String, Dict0),
+encode_arg({string, BinString}, Dict0) when is_binary(BinString) ->
+    {Offset, Dict} = beam_dict:string(BinString, Dict0),
     {encode(?tag_u, Offset), Dict};
 encode_arg({extfunc, M, F, A}, Dict0) ->
     {Index, Dict} = beam_dict:import(M, F, A, Dict0),

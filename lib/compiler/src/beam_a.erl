@@ -100,8 +100,12 @@ rename_instr({bs_put_utf16=I,F,Fl,Src}) ->
     {bs_put,F,{I,Fl},[Src]};
 rename_instr({bs_put_utf32=I,F,Fl,Src}) ->
     {bs_put,F,{I,Fl},[Src]};
-rename_instr({bs_put_string,_,_}=I) ->
-    {bs_put,{f,0},I,[]};
+rename_instr({bs_put_string,_,{string,String}}) ->
+    %% Only happens when compiling from .S files. In old
+    %% .S files, String is a list. In .S in OTP 22 and later,
+    %% String is a binary.
+    {bs_put,{f,0},{bs_put_binary,8,{field_flags,[unsigned,big]}},
+     [{atom,all},{literal,iolist_to_binary([String])}]};
 rename_instr({bs_add=I,F,[Src1,Src2,U],Dst}) when is_integer(U) ->
     {bif,I,F,[Src1,Src2,{integer,U}],Dst};
 rename_instr({bs_utf8_size=I,F,Src,Dst}) ->
@@ -118,8 +122,8 @@ rename_instr({bs_private_append=I,F,Sz,U,Src,Flags,Dst}) ->
     {bs_init,F,{I,U,Flags},none,[Sz,Src],Dst};
 rename_instr(bs_init_writable=I) ->
     {bs_init,{f,0},I,1,[{x,0}],{x,0}};
-rename_instr({test,Op,F,[Ctx,Bits,{string,Str}]}) ->
-    %% When compiling from a .S file.
+rename_instr({test,bs_match_string=Op,F,[Ctx,Bits,{string,Str}]}) when is_list(Str) ->
+    %% When compiling from an old .S file. Starting from OTP 22, Str is a binary.
     <<Bs:Bits/bits,_/bits>> = list_to_binary(Str),
     {test,Op,F,[Ctx,Bs]};
 rename_instr({put_map_assoc,Fail,S,D,R,L}) ->

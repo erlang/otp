@@ -61,6 +61,7 @@ passes(Opts0) ->
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_type),
           ?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),                   %Second time.
           ?PASS(ssa_opt_float),
@@ -902,7 +903,13 @@ live_opt_unused(#b_set{op=get_map_element}=Set) ->
 live_opt_unused(_) -> keep.
 
 %%%
-%%% Optimize binary matching instructions.
+%%% Optimize binary matching.
+%%%
+%%% * If the value of segment is never extracted, rewrite
+%%%   to a bs_skip instruction.
+%%%
+%%% * Coalesce adjacent bs_skip instructions and skip instructions
+%%%   with bs_test_tail.
 %%%
 
 ssa_opt_bsm(#st{ssa=Linear}=St) ->
@@ -910,9 +917,10 @@ ssa_opt_bsm(#st{ssa=Linear}=St) ->
     Extracted = cerl_sets:from_list(Extracted0),
     St#st{ssa=bsm_skip(Linear, Extracted)}.
 
-bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs], Extracted) ->
+bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs0], Extracted) ->
+    Bs = bsm_skip(Bs0, Extracted),
     Is = bsm_skip_is(Is0, Extracted),
-    [{L,Blk#b_blk{is=Is}}|bsm_skip(Bs, Extracted)];
+    coalesce_skips({L,Blk#b_blk{is=Is}}, Bs);
 bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
@@ -942,6 +950,63 @@ bsm_extracted([{_,#b_blk{is=Is}}|Bs]) ->
             bsm_extracted(Bs)
     end;
 bsm_extracted([]) -> [].
+
+coalesce_skips({L,#b_blk{is=[#b_set{op=bs_extract}=Extract|Is0],
+                         last=Last0}=Blk0}, Bs0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0) of
+        not_possible ->
+            [{L,Blk0}|Bs0];
+        {Is,Last,Bs} ->
+            Blk = Blk0#b_blk{is=[Extract|Is],last=Last},
+            [{L,Blk}|Bs]
+    end;
+coalesce_skips({L,#b_blk{is=Is0,last=Last0}=Blk0}, Bs0) ->
+    case coalesce_skips_is(Is0, Last0, Bs0) of
+        not_possible ->
+            [{L,Blk0}|Bs0];
+        {Is,Last,Bs} ->
+            Blk = Blk0#b_blk{is=Is,last=Last},
+            [{L,Blk}|Bs]
+    end.
+
+coalesce_skips_is([#b_set{op=bs_match,
+                          args=[#b_literal{val=skip},
+                                Ctx0,Type,Flags,
+                                #b_literal{val=Size0},
+                                #b_literal{val=Unit0}]}=Skip0,
+                   #b_set{op=succeeded}],
+                  #b_br{succ=L2,fail=Fail}=Br0,
+                  Bs0) when is_integer(Size0) ->
+    case Bs0 of
+        [{L2,#b_blk{is=[#b_set{op=bs_match,
+                               dst=SkipDst,
+                               args=[#b_literal{val=skip},_,_,_,
+                                     #b_literal{val=Size1},
+                                     #b_literal{val=Unit1}]},
+                        #b_set{op=succeeded}=Succeeded],
+                    last=#b_br{fail=Fail}=Br}}|Bs] when is_integer(Size1) ->
+            SkipBits = Size0 * Unit0 + Size1 * Unit1,
+            Skip = Skip0#b_set{dst=SkipDst,
+                               args=[#b_literal{val=skip},Ctx0,
+                                     Type,Flags,
+                                     #b_literal{val=SkipBits},
+                                     #b_literal{val=1}]},
+            Is = [Skip,Succeeded],
+            {Is,Br,Bs};
+        [{L2,#b_blk{is=[#b_set{op=bs_test_tail,
+                               args=[_Ctx,#b_literal{val=TailSkip}]}],
+                    last=#b_br{succ=NextSucc,fail=Fail}}}|Bs] ->
+            SkipBits = Size0 * Unit0,
+            TestTail = Skip0#b_set{op=bs_test_tail,
+                                   args=[Ctx0,#b_literal{val=SkipBits+TailSkip}]},
+            Br = Br0#b_br{bool=TestTail#b_set.dst,succ=NextSucc},
+            Is = [TestTail],
+            {Is,Br,Bs};
+        _ ->
+            not_possible
+    end;
+coalesce_skips_is(_, _, _) ->
+    not_possible.
 
 %%%
 %%% Short-cutting binary matching instructions.
@@ -1115,6 +1180,175 @@ bsm_units_join_1([Key | Keys], Left, Right) ->
     bsm_units_join_1(Keys, Left, maps:remove(Key, Right));
 bsm_units_join_1([], _MapA, Right) ->
     Right.
+
+%%%
+%%% Optimize binary construction.
+%%%
+%%% If an integer segment or a float segment has a literal size and
+%%% a literal value, convert to a binary segment. Coalesce adjacent
+%%% literal binary segments. Literal binary segments will be converted
+%%% to bs_put_string instructions in later pass.
+%%%
+
+ssa_opt_bs_puts(#st{ssa=Linear0,cnt=Count0}=St) ->
+    {Linear,Count} = opt_bs_puts(Linear0, Count0, []),
+    St#st{ssa=Linear,cnt=Count}.
+
+opt_bs_puts([{L,#b_blk{is=Is}=Blk0}|Bs], Count0, Acc0) ->
+    case Is of
+        [#b_set{op=bs_put}=I0] ->
+            case opt_bs_put(L, I0, Blk0, Count0, Acc0) of
+                not_possible ->
+                    opt_bs_puts(Bs, Count0, [{L,Blk0}|Acc0]);
+                {Count,Acc1} ->
+                    Acc = opt_bs_puts_merge(Acc1),
+                    opt_bs_puts(Bs, Count, Acc)
+            end;
+        _ ->
+            opt_bs_puts(Bs, Count0, [{L,Blk0}|Acc0])
+    end;
+opt_bs_puts([], Count, Acc) ->
+    {reverse(Acc),Count}.
+
+opt_bs_puts_merge([{L1,#b_blk{is=Is}=Blk0},{L2,#b_blk{is=AccIs}}=BAcc|Acc]) ->
+    case {AccIs,Is} of
+        {[#b_set{op=bs_put,
+                 args=[#b_literal{val=binary},
+                       #b_literal{},
+                       #b_literal{val=Bin0},
+                       #b_literal{val=all},
+                       #b_literal{val=1}]}],
+         [#b_set{op=bs_put,
+                 args=[#b_literal{val=binary},
+                       #b_literal{},
+                       #b_literal{val=Bin1},
+                       #b_literal{val=all},
+                       #b_literal{val=1}]}=I0]} ->
+            %% Coalesce the two segments to one.
+            Bin = <<Bin0/bitstring,Bin1/bitstring>>,
+            I = I0#b_set{args=bs_put_args(binary, Bin, all)},
+            Blk = Blk0#b_blk{is=[I]},
+            [{L2,Blk}|Acc];
+        {_,_} ->
+            [{L1,Blk0},BAcc|Acc]
+    end.
+
+opt_bs_put(L, I0, #b_blk{last=Br0}=Blk0, Count0, Acc) ->
+    case opt_bs_put(I0) of
+        [Bin] when is_bitstring(Bin) ->
+            Args = bs_put_args(binary, Bin, all),
+            I = I0#b_set{args=Args},
+            Blk = Blk0#b_blk{is=[I]},
+            {Count0,[{L,Blk}|Acc]};
+        [{int,Int,Size},Bin] when is_bitstring(Bin) ->
+            %% Construct a bs_put_integer instruction following
+            %% by a bs_put_binary instruction.
+            IntArgs = bs_put_args(integer, Int, Size),
+            BinArgs = bs_put_args(binary, Bin, all),
+            {BinL,BinVarNum} = {Count0,Count0+1},
+            Count = Count0 + 2,
+            BinVar = #b_var{name={'@ssa_bool',BinVarNum}},
+            BinI = I0#b_set{dst=BinVar,args=BinArgs},
+            BinBlk = Blk0#b_blk{is=[BinI],last=Br0#b_br{bool=BinVar}},
+            IntI = I0#b_set{args=IntArgs},
+            IntBlk = Blk0#b_blk{is=[IntI],last=Br0#b_br{succ=BinL}},
+            {Count,[{BinL,BinBlk},{L,IntBlk}|Acc]};
+        not_possible ->
+            not_possible
+    end.
+
+opt_bs_put(#b_set{args=[#b_literal{val=binary},_,#b_literal{val=Val},
+                        #b_literal{val=all},#b_literal{val=Unit}]})
+  when is_bitstring(Val) ->
+    if
+        bit_size(Val) rem Unit =:= 0 ->
+            [Val];
+        true ->
+            not_possible
+    end;
+opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
+                        #b_literal{val=Val},#b_literal{val=Size},
+                        #b_literal{val=Unit}]}=I0) when is_integer(Size) ->
+    EffectiveSize = Size * Unit,
+    if
+        EffectiveSize > 0 ->
+            case {Type,opt_bs_put_endian(Flags)} of
+                {integer,big} when is_integer(Val) ->
+                    if
+                        EffectiveSize < 64 ->
+                            [<<Val:EffectiveSize>>];
+                        true ->
+                            opt_bs_put_split_int(Val, EffectiveSize)
+                    end;
+                {integer,little} when is_integer(Val), EffectiveSize < 128 ->
+                    %% To avoid an explosion in code size, we only try
+                    %% to optimize relatively small fields.
+                    <<Int:EffectiveSize>> = <<Val:EffectiveSize/little>>,
+                    Args = bs_put_args(Type, Int, EffectiveSize),
+                    I = I0#b_set{args=Args},
+                    opt_bs_put(I);
+                {binary,_} when is_bitstring(Val) ->
+                    <<Bitstring:EffectiveSize/bits,_/bits>> = Val,
+                    [Bitstring];
+                {float,Endian} ->
+                    try
+                        [opt_bs_put_float(Val, EffectiveSize, Endian)]
+                    catch error:_ ->
+                            not_possible
+                    end;
+                {_,_} ->
+                    not_possible
+            end;
+        true ->
+            not_possible
+    end;
+opt_bs_put(#b_set{}) -> not_possible.
+
+opt_bs_put_float(N, Sz, Endian) ->
+    case Endian of
+        big -> <<N:Sz/big-float-unit:1>>;
+        little -> <<N:Sz/little-float-unit:1>>
+    end.
+
+bs_put_args(Type, Val, Size) ->
+    [#b_literal{val=Type},
+     #b_literal{val=[unsigned,big]},
+     #b_literal{val=Val},
+     #b_literal{val=Size},
+     #b_literal{val=1}].
+
+opt_bs_put_endian([big=E|_]) -> E;
+opt_bs_put_endian([little=E|_]) -> E;
+opt_bs_put_endian([native=E|_]) -> E;
+opt_bs_put_endian([_|Fs]) -> opt_bs_put_endian(Fs).
+
+opt_bs_put_split_int(Int, Size) ->
+    Pos = opt_bs_put_split_int_1(Int, 0, Size - 1),
+    UpperSize = Size - Pos,
+    if
+        Pos =:= 0 ->
+            %% Value is 0 or -1 -- keep the original instruction.
+            not_possible;
+        UpperSize < 64 ->
+            %% No or few leading zeroes or ones.
+            [<<Int:Size>>];
+        true ->
+            %% There are 64 or more leading ones or zeroes in
+            %% the resulting binary. Split into two separate
+            %% segments to avoid an explosion in code size.
+            [{int,Int bsr Pos,UpperSize},<<Int:Pos>>]
+    end.
+
+opt_bs_put_split_int_1(_Int, L, R) when L > R ->
+    8 * ((L + 7) div 8);
+opt_bs_put_split_int_1(Int, L, R) ->
+    Mid = (L + R) div 2,
+    case Int bsr Mid of
+        Upper when Upper =:= 0; Upper =:= -1 ->
+            opt_bs_put_split_int_1(Int, L, Mid - 1);
+        _ ->
+            opt_bs_put_split_int_1(Int, Mid + 1, R)
+    end.
 
 %%%
 %%% Miscellanous optimizations in execution order.

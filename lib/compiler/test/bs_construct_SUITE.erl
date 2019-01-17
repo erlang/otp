@@ -153,6 +153,8 @@ l(I_13, I_big1, I_16, Bin) ->
 	[0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	 16#77,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,16#FF,
 	 16#FF,16#FF,16#FF,16#FF,16#FF,16#FF]),
+     ?T(<< (<<"abc",7:3>>):3/binary >>,
+        [$a,$b,$c]),
 
      %% Mix different units.
      ?T(<<37558955:(I_16-12)/unit:8,1:1>>,
@@ -310,6 +312,9 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-1)>>),
     {'EXIT',{badarg,_}} = (catch <<0:(-(1 bsl 100))>>),
     {'EXIT',{badarg,_}} = (catch <<Bin/binary,0:(-(1 bsl 100))>>),
+
+    %% Unaligned sizes with literal binaries.
+    {'EXIT',{badarg,_}} = (catch <<0,(<<7777:17>>)/binary>>),
 
     ok.
 
