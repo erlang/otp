@@ -53,7 +53,7 @@
 	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
          otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          wrapping_oct/0, wrapping_oct/1, otp_9389/1, otp_13939/1,
-         otp_12242/1]).
+         otp_12242/1, delay_send_error/1]).
 
 %% Internal exports.
 -export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
@@ -97,7 +97,7 @@ all() ->
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      wrapping_oct,
      zombie_sockets, otp_7816, otp_8102, otp_9389,
-     otp_12242].
+     otp_12242, delay_send_error].
 
 groups() -> 
     [].
@@ -3427,3 +3427,32 @@ otp_12242(Addr) when tuple_size(Addr) =:= 4 ->
 
 wait(Mref) ->
     receive {'DOWN',Mref,_,_,Reason} -> Reason end.
+
+%% OTP-15536
+%% Test that send error works correctly for delay_send
+delay_send_error(Config) ->
+    {ok, LS} = gen_tcp:listen(0, [{reuseaddr, true}, {packet, 1}, {active, false}]),
+    {ok,{{0,0,0,0},PortNum}}=inet:sockname(LS),
+    P = spawn_link(
+          fun() ->
+                  {ok, S} = gen_tcp:accept(LS),
+                  receive die -> gen_tcp:close(S) end
+          end),
+    erlang:monitor(process, P),
+    {ok, S} = gen_tcp:connect("localhost", PortNum,
+                              [{packet, 1}, {active, false}, {delay_send, true}]),
+
+    %% Do a couple of sends first to see that it works
+    ok = gen_tcp:send(S, "hello"),
+    ok = gen_tcp:send(S, "hello"),
+    ok = gen_tcp:send(S, "hello"),
+
+    %% Make the receiver close
+    P ! die,
+    receive _Down -> ok end,
+
+    ok = gen_tcp:send(S, "hello"),
+    timer:sleep(500), %% Sleep in order for delay_send to have time to trigger
+
+    %% This used to result in a double free
+    {error, closed} = gen_tcp:send(S, "hello").
