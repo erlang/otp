@@ -1218,10 +1218,8 @@ t_tuple_size(#t_tuple{size=Size,exact=true}) ->
 t_tuple_size(_) ->
     none.
 
-is_singleton_type(#t_atom{elements=[_]}) -> true;
-is_singleton_type(#t_integer{elements={V,V}}) -> true;
-is_singleton_type(nil) -> true;
-is_singleton_type(_) -> false.
+is_singleton_type(Type) ->
+    get_literal_from_type(Type) =/= none.
 
 %% join(Type1, Type2) -> Type
 %%  Return the "join" of Type1 and Type2. The join is a more general
