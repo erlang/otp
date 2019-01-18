@@ -25,7 +25,7 @@
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
-         unary_op/1,eq_types/1]).
+         unary_op/1,eq_types/1,match_after_return/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +40,8 @@ groups() ->
        match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag,literal_binary,unary_op,eq_types]}].
+       grab_bag,literal_binary,unary_op,eq_types,
+       match_after_return]}].
 
 
 init_per_suite(Config) ->
@@ -890,5 +891,15 @@ eq_types(A, B) ->
 
     Ref22.
 
+match_after_return(Config) when is_list(Config) ->
+    %% The return type of the following call will never match the 'wont_happen'
+    %% clauses below, and the beam_ssa_type was clever enough to see that but
+    %% didn't remove the blocks, so it crashed when trying to extract A.
+    ok = case mar_test_tuple(erlang:unique_integer()) of
+            {gurka, never_matches, A} -> {wont_happen, A};
+            _ -> ok
+         end.
+
+mar_test_tuple(I) -> {gurka, I}.
 
 id(I) -> I.

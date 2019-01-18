@@ -1993,11 +1993,12 @@ reserve_zregs(Blocks, Intervals, Res) ->
         end,
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
-reserve_zreg([#b_set{op=call,dst=Dst}],
-              #b_br{bool=Dst}, _ShortLived, A) ->
-    %% If type optimization has determined that the result of a call can be
-    %% used directly in a branch, we must avoid reserving a z register or code
-    %% generation will fail.
+reserve_zreg([#b_set{op=Op,dst=Dst}],
+              #b_br{bool=Dst}, _ShortLived, A) when Op =:= call;
+                                                    Op =:= get_tuple_element ->
+    %% If type optimization has determined that the result of these
+    %% instructions can be used directly in a branch, we must avoid reserving a
+    %% z register or code generation will fail.
     A;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->

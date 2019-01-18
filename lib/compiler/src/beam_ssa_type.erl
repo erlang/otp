@@ -23,7 +23,7 @@
 
 -include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
-                partition/2,reverse/1,sort/1]).
+                partition/2,reverse/1,seq/2,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -44,12 +44,13 @@
 -record(t_bs_match, {type :: type()}).
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
-                  elements=[] :: [any()]
-                 }).
+                  %% Known element types (1-based index), unknown elements are
+                  %% are assumed to be 'any'.
+                  elements=#{} :: #{ non_neg_integer() => type() }}).
 
 -type type() :: 'any' | 'none' |
                 #t_atom{} | #t_integer{} | #t_bs_match{} | #t_tuple{} |
-                {'binary',pos_integer()} | 'cons' | 'float' | 'list' | 'map' | 'nil' |'number'.
+                {'binary',pos_integer()} | 'cons' | 'float' | 'list' | 'map' | 'nil' | 'number'.
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
 -spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
@@ -166,8 +167,11 @@ opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
 opt_finish_1([], [], ParamInfo) ->
     ParamInfo.
 
-validator_anno(#t_tuple{size=Size,exact=Exact}) ->
-    beam_validator:type_anno(tuple, Size, Exact);
+validator_anno(#t_tuple{size=Size,exact=Exact,elements=Elements0}) ->
+    Elements = maps:fold(fun(Index, Type, Acc) ->
+                                 Acc#{ Index => validator_anno(Type) }
+                         end, #{}, Elements0),
+    beam_validator:type_anno(tuple, Size, Exact, Elements);
 validator_anno(#t_integer{elements={Same,Same}}) ->
     beam_validator:type_anno(integer, Same);
 validator_anno(#t_integer{}) ->
@@ -292,6 +296,12 @@ opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0 | Is],
             Ds = Ds0#{ Dst => I1 },
             opt_is(Is, Ts, Ds, Fdb0, Ls, D, Sub, [I1|Acc])
     end;
+opt_is([#b_set{op=set_tuple_element}=I0|Is],
+       Ts0, Ds0, Fdb, Ls, D, Sub, Acc) ->
+    %% This instruction lacks a return value and destructively updates its
+    %% source, so it needs special handling to update the source type.
+    {Ts, Ds, I} = opt_set_tuple_element(I0, Ts0, Ds0, Sub),
+    opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub, [I|Acc]);
 opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
        Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
     case Ds0 of
@@ -396,6 +406,28 @@ update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
 update_arg_types([], [], _CallId, _Ts) ->
     [].
 
+opt_set_tuple_element(#b_set{op=set_tuple_element,args=Args0,dst=Dst}=I0,
+                      Ts0, Ds0, Sub) ->
+    Args = simplify_args(Args0, Sub, Ts0),
+    [Val,#b_var{}=Src,#b_literal{val=N}] = Args,
+
+    SrcType0 = get_type(Src, Ts0),
+    ValType = get_type(Val, Ts0),
+    Index = N + 1,
+
+    #t_tuple{size=Size,elements=Es0} = SrcType0,
+    true = Index =< Size,                     %Assertion.
+
+    Es = set_element_type(Index, ValType, Es0),
+    SrcType = SrcType0#t_tuple{elements=Es},
+
+    I = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    Ts = Ts0#{ Dst => any, Src => SrcType },
+    Ds = Ds0#{ Dst => I },
+
+    {Ts, Ds, I}.
+
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
     case is_safe_bool_op(Args, Ts) of
         true ->
@@ -418,12 +450,14 @@ simplify(#b_set{op={bif,'or'},args=Args}=I, Ts) ->
         false ->
             I
     end;
-simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I, Ts) ->
+simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
     case t_tuple_size(get_type(Tuple, Ts)) of
         {_,Size} when is_integer(Index), 1 =< Index, Index =< Size ->
-            I#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=Index-1}]};
+            I = I0#b_set{op=get_tuple_element,
+                         args=[Tuple,#b_literal{val=Index-1}]},
+            simplify(I, Ts);
         _ ->
-            eval_bif(I, Ts)
+            eval_bif(I0, Ts)
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts) ->
     case get_type(List, Ts) of
@@ -485,11 +519,17 @@ simplify(#b_set{op={bif,Op},args=Args}=I, Ts) ->
             AnnoArgs = [anno_float_arg(A) || A <- Types],
             eval_bif(beam_ssa:add_anno(float_op, AnnoArgs, I), Ts)
     end;
-simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=0}]}=I, Ts) ->
+simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     case get_type(Tuple, Ts) of
-        #t_tuple{elements=[First]} ->
-            #b_literal{val=First};
-        #t_tuple{} ->
+        #t_tuple{size=Size,elements=Es} when Size > N ->
+            ElemType = get_element_type(N + 1, Es),
+            case get_literal_from_type(ElemType) of
+                #b_literal{}=Lit -> Lit;
+                none -> I
+            end;
+        none ->
+            %% Will never be executed because of type conflict.
+            %% #b_literal{val=ignored};
             I
     end;
 simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
@@ -500,24 +540,8 @@ simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
         _ ->    #b_literal{val=false}
     end;
 simplify(#b_set{op=is_tagged_tuple,
-                args=[Src,#b_literal{val=Size},#b_literal{val=Tag}]}=I, Ts) ->
-    case get_type(Src, Ts) of
-        #t_tuple{exact=true,size=Size,elements=[Tag]} ->
-            #b_literal{val=true};
-        #t_tuple{exact=true,size=ActualSize,elements=[]} ->
-            if
-                Size =/= ActualSize ->
-                    #b_literal{val=false};
-                true ->
-                    I
-            end;
-        #t_tuple{exact=false} ->
-            I;
-        any ->
-            I;
-        _ ->
-            #b_literal{val=false}
-    end;
+                args=[Src,#b_literal{val=Size},#b_literal{}=Tag]}=I, Ts) ->
+    simplify_is_record(I, get_type(Src, Ts), Size, Tag, Ts);
 simplify(#b_set{op=put_list,args=[#b_literal{val=H},
                                   #b_literal{val=T}]}, _Ts) ->
     #b_literal{val=[H|T]};
@@ -786,19 +810,40 @@ type(bs_get_tail, _Args, _Ts, _Ds) ->
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], Ts, _Ds) ->
     case {Mod,Name,Args} of
-        {erlang,setelement,[Pos,Tuple,_]} ->
+        {erlang,setelement,[Pos,Tuple,Arg]} ->
             case {get_type(Pos, Ts),get_type(Tuple, Ts)} of
-                {#t_integer{elements={MinIndex,_}},#t_tuple{}=T}
-                  when MinIndex > 1 ->
-                    %% First element is not updated. The result
-                    %% will have the same type.
-                    T;
+                {#t_integer{elements={Index,Index}},
+                 #t_tuple{elements=Es0,size=Size}=T} ->
+                    %% This is an exact index, update the type of said element
+                    %% or return 'none' if it's known to be out of bounds.
+                    Es = set_element_type(Index, get_type(Arg, Ts), Es0),
+                    case T#t_tuple.exact of
+                        false ->
+                            T#t_tuple{size=max(Index, Size),elements=Es};
+                        true when Index =< Size ->
+                            T#t_tuple{elements=Es};
+                        true ->
+                            none
+                    end;
+                {#t_integer{elements={Min,Max}},
+                 #t_tuple{elements=Es0,size=Size}=T} ->
+                    %% We know this will land between Min and Max, so kill the
+                    %% types for those indexes.
+                    Es = maps:without(seq(Min, Max), Es0),
+                    case T#t_tuple.exact of
+                        false ->
+                            T#t_tuple{elements=Es,size=max(Min, Size)};
+                        true when Min =< Size ->
+                            T#t_tuple{elements=Es,size=Size};
+                        true ->
+                            none
+                    end;
                 {_,#t_tuple{}=T} ->
-                    %% Position is 1 or unknown. May update the first
-                    %% element of the tuple.
-                    T#t_tuple{elements=[]};
-                {#t_integer{elements={MinIndex,_}},_} ->
-                    #t_tuple{size=MinIndex};
+                    %% Position unknown, so we have to discard all element
+                    %% information.
+                    T#t_tuple{elements=#{}};
+                {#t_integer{elements={Min,_Max}},_} ->
+                    #t_tuple{size=Min};
                 {_,_} ->
                     #t_tuple{}
             end;
@@ -821,6 +866,11 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
                 false -> any
             end
     end;
+type(get_tuple_element, [Tuple, Offset], Ts, _Ds) ->
+    #t_tuple{size=Size,elements=Es} = get_type(Tuple, Ts),
+    #b_literal{val=N} = Offset,
+    true = Size > N, %Assertion.
+    get_element_type(N + 1, Es);
 type(is_nonempty_list, [_], _Ts, _Ds) ->
     t_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Ts, _Ds) ->
@@ -829,13 +879,13 @@ type(put_map, _Args, _Ts, _Ds) ->
     map;
 type(put_list, _Args, _Ts, _Ds) ->
     cons;
-type(put_tuple, Args, _Ts, _Ds) ->
-    case Args of
-        [#b_literal{val=First}|_] ->
-            #t_tuple{exact=true,size=length(Args),elements=[First]};
-        _ ->
-            #t_tuple{exact=true,size=length(Args)}
-    end;
+type(put_tuple, Args, Ts, _Ds) ->
+    {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
+                        Type = get_type(Arg, Ts),
+                        Es = set_element_type(Index, Type, Es0),
+                        {Es, Index + 1}
+                    end, {#{}, 1}, Args),
+    #t_tuple{exact=true,size=length(Args),elements=Es};
 type(succeeded, [#b_var{}=Src], Ts, Ds) ->
     case maps:get(Src, Ds) of
         #b_set{op={bif,Bif},args=BifArgs} ->
@@ -1048,6 +1098,34 @@ eq_ranges([H], H, H) -> true;
 eq_ranges([H|T], H, Max) -> eq_ranges(T, H+1, Max);
 eq_ranges(_, _, _) -> false.
 
+simplify_is_record(I, #t_tuple{exact=Exact,
+                               size=Size,
+                               elements=Es},
+                   RecSize, RecTag, Ts) ->
+    TagType = maps:get(1, Es, any),
+    TagMatch = case get_literal_from_type(TagType) of
+                   #b_literal{}=RecTag -> yes;
+                   #b_literal{} -> no;
+                   none ->
+                       %% Is it at all possible for the tag to match?
+                       case meet(get_type(RecTag, Ts), TagType) of
+                           none -> no;
+                           _ -> maybe
+                       end
+               end,
+    if
+        Size =/= RecSize, Exact; Size > RecSize; TagMatch =:= no ->
+            #b_literal{val=false};
+        Size =:= RecSize, Exact, TagMatch =:= yes ->
+            #b_literal{val=true};
+        true ->
+            I
+    end;
+simplify_is_record(I, any, _Size, _Tag, _Ts) ->
+    I;
+simplify_is_record(_I, _Type, _Size, _Tag, _Ts) ->
+    #b_literal{val=false}.
+
 simplify_switch_bool(#b_switch{arg=B,list=List0}=Sw, Ts, Ds) ->
     List = sort(List0),
     case List of
@@ -1150,8 +1228,12 @@ get_type(#b_literal{val=Val}, _Ts) ->
         Val =:= {} ->
             #t_tuple{exact=true};
         is_tuple(Val) ->
-            #t_tuple{exact=true,size=tuple_size(Val),
-                     elements=[element(1, Val)]};
+            {Es, _} = foldl(fun(E, {Es0, Index}) ->
+                                Type = get_type(#b_literal{val=E}, #{}),
+                                Es = set_element_type(Index, Type, Es0),
+                                {Es, Index + 1}
+                            end, {#{}, 1}, tuple_to_list(Val)),
+            #t_tuple{exact=true,size=tuple_size(Val),elements=Es};
         Val =:= [] ->
             nil;
         true ->
@@ -1221,8 +1303,7 @@ infer_types_switch(V, Lit, Ts, #d{ds=Ds}) ->
 infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
     Def = maps:get(Src, Ds),
     Type = get_type(Lit, Ts),
-    [{Src,Type}|infer_tuple_size(Def, Lit) ++
-         infer_first_element(Def, Lit)];
+    [{Src,Type} | infer_eq_lit(Def, Lit)];
 infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
     %% As an example, assume that L1 is known to be 'list', and L2 is
     %% known to be 'cons'. Then if 'L1 =:= L2' evaluates to 'true', it can
@@ -1236,6 +1317,17 @@ infer_eq_type({bif,'=:='}, [#b_var{}=Arg0,#b_var{}=Arg1], Ts, _Ds) ->
         OrigType =/= MeetType];
 infer_eq_type(_Op, _Args, _Ts, _Ds) ->
     [].
+
+infer_eq_lit(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
+             #b_literal{val=Size}) when is_integer(Size) ->
+    [{Tuple,#t_tuple{exact=true,size=Size}}];
+infer_eq_lit(#b_set{op=get_tuple_element,
+                    args=[#b_var{}=Tuple,#b_literal{val=N}]},
+             #b_literal{}=Lit) ->
+    Index = N + 1,
+    Es = set_element_type(Index, get_type(Lit, #{}), #{}),
+    [{Tuple,#t_tuple{size=Index,elements=Es}}];
+infer_eq_lit(_, _) -> [].
 
 infer_type({bif,element}, [#b_literal{val=Pos},#b_var{}=Tuple], _Ds) ->
     if
@@ -1270,8 +1362,9 @@ infer_type(bs_start_match, [#b_var{}=Bin], _Ds) ->
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ds) ->
     [{Src,cons}];
 infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
-                             #b_literal{val=Tag}], _Ds) ->
-    [{Src,#t_tuple{exact=true,size=Size,elements=[Tag]}}];
+                             #b_literal{}=Tag], _Ds) ->
+    Es = set_element_type(1, get_type(Tag, #{}), #{}),
+    [{Src,#t_tuple{exact=true,size=Size,elements=Es}}];
 infer_type(succeeded, [#b_var{}=Src], Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
     infer_type(Op, Args, Ds);
@@ -1363,17 +1456,6 @@ inferred_bif_type('-', [_,_]) -> number;
 inferred_bif_type('*', [_,_]) -> number;
 inferred_bif_type('/', [_,_]) -> number;
 inferred_bif_type(_, _) -> any.
-
-infer_tuple_size(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
-                 #b_literal{val=Size}) when is_integer(Size) ->
-    [{Tuple,#t_tuple{exact=true,size=Size}}];
-infer_tuple_size(_, _) -> [].
-
-infer_first_element(#b_set{op=get_tuple_element,
-                           args=[#b_var{}=Tuple,#b_literal{val=0}]},
-                    #b_literal{val=First}) ->
-    [{Tuple,#t_tuple{size=1,elements=[First]}}];
-infer_first_element(_, _) -> [].
 
 is_math_bif(cos, 1) -> true;
 is_math_bif(cosh, 1) -> true;
@@ -1473,6 +1555,19 @@ t_tuple_size(_) ->
 is_singleton_type(Type) ->
     get_literal_from_type(Type) =/= none.
 
+get_element_type(Index, Es) ->
+    case Es of
+        #{ Index := T } -> T;
+        #{} -> any
+    end.
+
+set_element_type(_Key, none, Es) ->
+    Es;
+set_element_type(Key, any, Es) ->
+    maps:remove(Key, Es);
+set_element_type(Key, Type, Es) ->
+    Es#{ Key => Type }.
+
 %% join(Type1, Type2) -> Type
 %%  Return the "join" of Type1 and Type2. The join is a more general
 %%  type than Type1 and Type2. For example:
@@ -1520,14 +1615,40 @@ join(#t_integer{}, number) -> number;
 join(number, #t_integer{}) -> number;
 join(float, number) -> number;
 join(number, float) -> number;
-join(#t_tuple{size=Sz,exact=Exact1}, #t_tuple{size=Sz,exact=Exact2}) ->
-    Exact = Exact1 and Exact2,
-    #t_tuple{size=Sz,exact=Exact};
-join(#t_tuple{size=Sz1}, #t_tuple{size=Sz2}) ->
-    #t_tuple{size=min(Sz1, Sz2)};
+join(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
+     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
+    Exact = ExactA and ExactB,
+    Es = join_tuple_elements(Sz, EsA, EsB),
+    #t_tuple{size=Sz,exact=Exact,elements=Es};
+join(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
+    Sz = min(SzA, SzB),
+    Es = join_tuple_elements(Sz, EsA, EsB),
+    #t_tuple{size=Sz,elements=Es};
 join(_T1, _T2) ->
     %%io:format("~p ~p\n", [_T1,_T2]),
     any.
+
+join_tuple_elements(MinSize, EsA, EsB) ->
+    Es0 = join_elements(EsA, EsB),
+    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+
+join_elements(Es1, Es2) ->
+    Keys = if
+               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
+               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
+           end,
+    join_elements_1(Keys, Es1, Es2, #{}).
+
+join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            Acc = set_element_type(Key, join(Type1, Type2), Acc0),
+            join_elements_1(Keys, Es1, Es2, Acc);
+        {#{}, #{}} ->
+            join_elements_1(Keys, Es1, Es2, Acc0)
+    end;
+join_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
 
 gcd(A, B) ->
     case A rem B of
@@ -1625,9 +1746,6 @@ meet(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
 
-meet_tuples(#t_tuple{elements=[E1]}, #t_tuple{elements=[E2]})
-  when E1 =/= E2 ->
-    none;
 meet_tuples(#t_tuple{size=Sz1,exact=true},
             #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
     none;
@@ -1635,12 +1753,31 @@ meet_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
             #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
     Size = max(Sz1, Sz2),
     Exact = Ex1 or Ex2,
-    Es = case {Es1,Es2} of
-             {[],[_|_]} -> Es2;
-             {[_|_],[]} -> Es1;
-             {_,_} -> Es1
-         end,
-    #t_tuple{size=Size,exact=Exact,elements=Es}.
+    case meet_elements(Es1, Es2) of
+        none ->
+            none;
+        Es ->
+            #t_tuple{size=Size,exact=Exact,elements=Es}
+    end.
+
+meet_elements(Es1, Es2) ->
+    Keys = maps:keys(Es1) ++ maps:keys(Es2),
+    meet_elements_1(Keys, Es1, Es2, #{}).
+
+meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            case meet(Type1, Type2) of
+                none -> none;
+                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
+            end;
+        {#{ Key := Type1 }, _} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
+        {_, #{ Key := Type2 }} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+    end;
+meet_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
 
 %% verified_type(Type) -> Type
 %%  Returns the passed in type if it is one of the defined types.
@@ -1679,5 +1816,13 @@ verified_type(map=T) -> T;
 verified_type(nil=T) -> T;
 verified_type(cons=T) -> T;
 verified_type(number=T) -> T;
-verified_type(#t_tuple{}=T) -> T;
+verified_type(#t_tuple{size=Size,elements=Es}=T) ->
+    %% All known elements must have a valid index and type. 'any' is prohibited
+    %% since it's implicit and should never be present in the map.
+    maps:fold(fun(Index, Element, _) when is_integer(Index),
+                                          1 =< Index, Index =< Size,
+                                          Element =/= any, Element =/= none ->
+                      verified_type(Element)
+              end, [], Es),
+    T;
 verified_type(float=T) -> T.
