@@ -579,20 +579,40 @@ receive_stacked(Config) ->
 
     ok.
 
+aliased_types(Config) ->
+    Seq = lists:seq(1, 5),
+    1 = aliased_types_1(Seq, Config),
+
+    {1,1} = aliased_types_2(Seq),
+    {42,none} = aliased_types_2([]),
+
+    ok.
+
 %% ERL-735: validator failed to track types on aliased registers, rejecting
 %% legitimate optimizations.
 %%
 %%    move x0 y0
 %%    bif hd L1 x0
 %%    get_hd y0     %% The validator failed to see that y0 was a list
-aliased_types(Config) when is_list(Config) ->
-    Bug = lists:seq(1, 5),
+%%
+aliased_types_1(Bug, Config) ->
     if
         Config =/= [gurka, gaffel] -> %% Pointless branch.
             _ = hd(Bug),
             lists:seq(1, 5),
             hd(Bug)
     end.
+
+%% ERL-832: validator failed to realize that a Y register was a cons.
+aliased_types_2(Bug) ->
+    Res = case Bug of
+              [] -> id(42);
+              _ -> hd(Bug)
+          end,
+    {Res,case Bug of
+             [] -> none;
+             _ -> hd(Bug)
+         end}.
 
 %%%-------------------------------------------------------------------------
 
@@ -652,3 +672,6 @@ night(Turned) ->
     ok.
 
 participating(_, _, _, _) -> ok.
+
+id(I) ->
+    I.
