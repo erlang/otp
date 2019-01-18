@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -365,7 +365,7 @@ call(SvcName, App, Message) ->
     | {connect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
     | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
-    | {spawn_opt, list()}.
+    | {spawn_opt, list() | mfa()}.
 
 %% Options passed to start_service/2
 

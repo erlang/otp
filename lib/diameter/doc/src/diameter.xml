@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY spawn_opt
+  <!ENTITY spawn_opt2
   '<seealso marker="erts:erlang#spawn_opt-2">erlang:spawn_opt/2</seealso>'>
+  <!ENTITY spawn_opt5
+  '<seealso marker="erts:erlang#spawn_opt-5">erlang:spawn_opt/5</seealso>'>
   <!ENTITY nodes
   '<seealso marker="erts:erlang#nodes-0">erlang:nodes/0</seealso>'>
   <!ENTITY make_ref
@@ -21,7 +23,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2017</year>
+<year>2019</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -1384,12 +1386,22 @@ the same peer.</p>
 </item>
 
 <tag>
-<marker id="spawn_opt"/><c>{spawn_opt, [term()]}</c></tag>
+<marker id="spawn_opt"/><c>{spawn_opt, [term()] | {M,F,A}}</c></tag>
 <item>
 <p>
-Options passed to &spawn_opt; when spawning a process for an
-incoming Diameter request.
-Options <c>monitor</c> and <c>link</c> are ignored.</p>
+An options list passed to &spawn_opt2; to spawn a handler process for an
+incoming Diameter request on the local node, or an MFA that returns
+the pid of a handler process.</p>
+
+<p>
+Options <c>monitor</c> and <c>link</c> are ignored in the list-valued
+case.
+An MFA is applied with an additional term prepended to its argument
+list, and should return either the pid of the handler process that
+invokes <c>diameter_traffic:request/1</c> on the term in order to
+process the request, or the atom <c>discard</c>.
+The handler process need not be local, but diameter must be started on
+the remote node.</p>
 
 <p>
 Defaults to the empty list.</p>
