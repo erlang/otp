@@ -22,7 +22,7 @@
 -export([module/2]).
 
 -include("beam_ssa.hrl").
--import(lists, [all/2,append/1,foldl/3,keyfind/3,member/2,
+-import(lists, [append/1,foldl/3,keyfind/3,member/2,
                 reverse/1,reverse/2,
                 splitwith/2,takewhile/2,unzip/1]).
 
@@ -52,12 +52,17 @@ passes(Opts0) ->
           ?PASS(ssa_opt_coalesce_phis),
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
+          ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
 
           %% Run ssa_opt_cse twice, because it will help ssa_opt_dead,
-          %% and ssa_opt_dead will help ssa_opt_cse. Run ssa_opt_live
-          %% twice, because it will help ssa_opt_dead and ssa_opt_dead
-          %% will help ssa_opt_live.
+          %% and ssa_opt_dead will help ssa_opt_cse.
+          %%
+          %% Run ssa_opt_live twice, because it will help ssa_opt_dead
+          %% and ssa_opt_dead will help ssa_opt_live.
+          %%
+          %% Run beam_ssa_type twice, because there will be more
+          %% opportunities for optimizations after running beam_ssa_dead.
           ?PASS(ssa_opt_cse),
           ?PASS(ssa_opt_type),
           ?PASS(ssa_opt_live),
@@ -65,13 +70,12 @@ passes(Opts0) ->
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),                   %Second time.
           ?PASS(ssa_opt_float),
+          ?PASS(ssa_opt_type),                  %Second time.
           ?PASS(ssa_opt_live),                  %Second time.
 
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_units),
           ?PASS(ssa_opt_bsm_shortcut),
-          ?PASS(ssa_opt_misc),
-          ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_sw),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_sink),
@@ -856,14 +860,9 @@ live_opt_is([#b_set{op=succeeded,dst=SuccDst=SuccDstVar,
              #b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
-            case gb_sets:is_member(SuccDst, Live0) of
-                true ->
-                    Live1 = gb_sets:add(Dst, Live0),
-                    Live = gb_sets:delete_any(SuccDst, Live1),
-                    live_opt_is([I|Is], Live, [SuccI|Acc]);
-                false ->
-                    live_opt_is([I|Is], Live0, Acc)
-            end;
+            Live1 = gb_sets:add(Dst, Live0),
+            Live = gb_sets:delete_any(SuccDst, Live1),
+            live_opt_is([I|Is], Live, [SuccI|Acc]);
         false ->
             case live_opt_unused(I) of
                 {replace,NewI0} ->
@@ -1348,94 +1347,6 @@ opt_bs_put_split_int_1(Int, L, R) ->
             opt_bs_put_split_int_1(Int, L, Mid - 1);
         _ ->
             opt_bs_put_split_int_1(Int, Mid + 1, R)
-    end.
-
-%%%
-%%% Miscellanous optimizations in execution order.
-%%%
-
-ssa_opt_misc(#st{ssa=Linear}=St) ->
-    St#st{ssa=misc_opt(Linear, #{})}.
-
-misc_opt([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Sub0) ->
-    {Is,Sub} = misc_opt_is(Is0, Sub0, []),
-    Last = sub(Last0, Sub),
-    Blk = Blk0#b_blk{is=Is,last=Last},
-    [{L,Blk}|misc_opt(Bs, Sub)];
-misc_opt([], _) -> [].
-
-misc_opt_is([#b_set{op=phi}=I0|Is], Sub0, Acc) ->
-    #b_set{dst=Dst,args=Args} = I = sub(I0, Sub0),
-    case all_same(Args) of
-        true ->
-            %% Eliminate the phi node if there is just one source
-            %% value or if the values are identical.
-            [{Val,_}|_] = Args,
-            Sub = Sub0#{Dst=>Val},
-            misc_opt_is(Is, Sub, Acc);
-        false ->
-            misc_opt_is(Is, Sub0, [I|Acc])
-    end;
-misc_opt_is([#b_set{op={bif,'and'}}=I0], Sub, Acc) ->
-    #b_set{dst=Dst,args=Args} = I = sub(I0, Sub),
-    case eval_and(Args) of
-        error ->
-            misc_opt_is([], Sub, [I|Acc]);
-        Val ->
-            misc_opt_is([], Sub#{Dst=>Val}, Acc)
-    end;
-misc_opt_is([#b_set{op={bif,'or'}}=I0], Sub, Acc) ->
-    #b_set{dst=Dst,args=Args} = I = sub(I0, Sub),
-    case eval_or(Args) of
-        error ->
-            misc_opt_is([], Sub, [I|Acc]);
-        Val ->
-            misc_opt_is([], Sub#{Dst=>Val}, Acc)
-    end;
-misc_opt_is([#b_set{}=I0|Is], Sub, Acc) ->
-    #b_set{op=Op,dst=Dst,args=Args} = I = sub(I0, Sub),
-    case make_literal(Op, Args) of
-        #b_literal{}=Literal ->
-            misc_opt_is(Is, Sub#{Dst=>Literal}, Acc);
-        error ->
-            misc_opt_is(Is, Sub, [I|Acc])
-    end;
-misc_opt_is([], Sub, Acc) ->
-    {reverse(Acc),Sub}.
-
-all_same([{H,_}|T]) ->
-    all(fun({E,_}) -> E =:= H end, T).
-
-make_literal(put_tuple, Args) ->
-    case make_literal_list(Args, []) of
-        error ->
-            error;
-        List ->
-            #b_literal{val=list_to_tuple(List)}
-    end;
-make_literal(put_list, [#b_literal{val=H},#b_literal{val=T}]) ->
-    #b_literal{val=[H|T]};
-make_literal(_, _) -> error.
-
-make_literal_list([#b_literal{val=H}|T], Acc) ->
-    make_literal_list(T, [H|Acc]);
-make_literal_list([_|_], _) ->
-    error;
-make_literal_list([], Acc) ->
-    reverse(Acc).
-
-eval_and(Args) ->
-    case Args of
-        [_,#b_literal{val=false}=Res] -> Res;
-        [Res,#b_literal{val=true}] -> Res;
-        [_,_] -> error
-    end.
-
-eval_or(Args) ->
-    case Args of
-        [Res,#b_literal{val=false}] -> Res;
-        [_,#b_literal{val=true}=Res] -> Res;
-        [_,_] -> error
     end.
 
 %%%
