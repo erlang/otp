@@ -109,12 +109,10 @@ connect(Config) ->
     lists:foreach(
       fun(KexAlg) ->
               PrefAlgs = preferred_algorithms(KexAlg),
-              report([{value, 1000000 /
-                           measure_connect(Config,
-                                           [{preferred_algorithms,PrefAlgs}])},
-                      {suite, ?MODULE},
-                      {name, mk_name(["Connect erlc erld ",KexAlg," [connects per sec]"])}
-                     ])
+              TimeMicroSec =  measure_connect(Config,
+                                              [{preferred_algorithms,PrefAlgs}]),
+              report(["Connect erlc erld ",KexAlg," [connects per sec]"],
+                     1000000 / TimeMicroSec)
       end, KexAlgs).
 
 
@@ -179,10 +177,6 @@ gen_data(DataSz) ->
     <<Data0/binary, Data1/binary>>.
 
 
-%% connect_measure(Port, Cipher, Mac, Data, Options) ->
-%%     report([{value, 1},
-%%              {suite, ?MODULE},
-%%              {name, mk_name(["Transfer 1M bytes ",Cipher,"/",Mac," [µs]"])}]);
 connect_measure(Port, Cipher, Mac, Data, Options) ->
     AES_GCM = {cipher,
                []},
@@ -221,10 +215,8 @@ connect_measure(Port, Cipher, Mac, Data, Options) ->
              ssh:close(C),
              Time
          end || _ <- lists:seq(1,?Nruns)],
-    
-    report([{value, 1000000 / median(Times)}, % Time in µs
-            {suite, ?MODULE},
-            {name, mk_name(["Transfer ",Cipher,"/",Mac," [Mbyte per sec]"])}]).
+    report(["Transfer ",Cipher,"/",Mac," [Mbyte per sec]"],
+           1000000 / median(Times)).
 
 send_wait_acc(C, Ch, Data) ->
     ssh_connection:send(C, Ch, Data),
@@ -237,12 +229,6 @@ send_wait_acc(C, Ch, Data) ->
 %%%
 %%% Private
 %%% 
-
-%%%----------------------------------------------------------------
-mk_name(Name) -> [char(C) || C <- lists:concat(Name)].
-
-char($-) -> $_;
-char(C) -> C.
 
 %%%----------------------------------------------------------------
 preferred_algorithms(KexAlg) ->
@@ -266,11 +252,22 @@ median(Data) when is_list(Data) ->
             1 ->
                 lists:nth(N div 2 + 1, SortedData)
         end,
-    ct:log("median(~p) = ~p",[SortedData,Median]),
+    ct:pal("median(~p) = ~p",[SortedData,Median]),
     Median.
 
+%%%----------------------------------------------------------------
+report(LabelList, Value) ->
+    Label = report_chars(lists:concat(LabelList)),
+    ct:pal("ct_event:notify ~p: ~p", [Label, Value]),
+    ct_event:notify(
+      #event{name = benchmark_data,
+             data = [{suite, ?MODULE},
+                     {name,  Label},
+                     {value, Value}]}).
 
-report(Data) ->
-    ct:log("EventData = ~p",[Data]),
-    ct_event:notify(#event{name = benchmark_data,
-                           data = Data}).
+report_chars(Cs) ->
+    [case C of
+         $- -> $_;
+         _ -> C
+     end || C <- Cs].
+
