@@ -194,10 +194,10 @@ handle_call({log,
     case LogFunc of
         tc_log ->
             ct_logs:tc_log(Category, ?STD_IMPORTANCE,
-                           Header, String, [], []);
+                           Header, "~ts", [String], []);
         tc_log_async ->
             ct_logs:tc_log_async(sasl, ?STD_IMPORTANCE,
-                                 Header, String, [])
+                                 Header, "~ts", [String])
     end,
     {reply,ok,State};
 
@@ -261,34 +261,34 @@ handle_remote_events(Bool) ->
 format_header(#eh_state{curr_suite = undefined,
 			curr_group = undefined,
 			curr_func = undefined}) ->
-    io_lib:format("System report", []);
+    lists:flatten(io_lib:format("System report", []));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = undefined}) ->
-    io_lib:format("System report during ~w", [Suite]);
+    lists:flatten(io_lib:format("System report during ~w", [Suite]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = TcOrConf}) ->
-    io_lib:format("System report during ~w:~tw/1",
-		  [Suite,TcOrConf]);
+    lists:flatten(io_lib:format("System report during ~w:~tw/1",
+                                [Suite,TcOrConf]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = Conf}) when Conf == init_per_group;
 						Conf == end_per_group ->
-    io_lib:format("System report during ~w:~w/2 for ~tw",
-		  [Suite,Conf,Group]);
+    lists:flatten(io_lib:format("System report during ~w:~w/2 for ~tw",
+                                [Suite,Conf,Group]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			parallel_tcs = true}) ->
-    io_lib:format("System report during ~tw in ~w",
-		  [Group,Suite]);
+    lists:flatten(io_lib:format("System report during ~tw in ~w",
+                                [Group,Suite]));
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = TC}) ->
-    io_lib:format("System report during ~w:~tw/1 in ~tw",
-		  [Suite,TC,Group]).
+    lists:flatten(io_lib:format("System report during ~w:~tw/1 in ~tw",
+                                [Suite,TC,Group])).

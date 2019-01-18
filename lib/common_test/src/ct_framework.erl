@@ -314,8 +314,8 @@ add_defaults(Mod,Func, GroupPath) ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "~w:suite/0 failed: ~tp~n",
 				   [Suite,Reason]),
-	    io:format(ErrStr, []),
-	    io:format(?def_gl, ErrStr, []),
+	    io:format("~ts", [ErrStr]),
+	    io:format(?def_gl, "~ts", [ErrStr]),
 	    {suite0_failed,{exited,Reason}};
 	SuiteInfo when is_list(SuiteInfo) ->
 	    case lists:all(fun(E) when is_tuple(E) -> true;
@@ -337,16 +337,16 @@ add_defaults(Mod,Func, GroupPath) ->
 					   "Invalid return value from "
 					   "~w:suite/0: ~tp~n",
 					   [Suite,SuiteInfo]),
-		    io:format(ErrStr, []),
-		    io:format(?def_gl, ErrStr, []),
+		    io:format("~ts", [ErrStr]),
+		    io:format(?def_gl, "~ts", [ErrStr]),
 		    {suite0_failed,bad_return_value}
 	    end;
 	SuiteInfo ->
 	    ErrStr = io_lib:format("~n*** ERROR *** "
 				   "Invalid return value from "
 				   "~w:suite/0: ~tp~n", [Suite,SuiteInfo]),
-	    io:format(ErrStr, []),
-	    io:format(?def_gl, ErrStr, []),
+	    io:format("~ts", [ErrStr]),
+	    io:format(?def_gl, "~ts", [ErrStr]),
 	    {suite0_failed,bad_return_value}
     end.
 
@@ -373,8 +373,8 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 				      "Invalid return value from "
 				      "~w:group(~tw): ~tp~n",
 				      [Mod,GrName,BadGr0Val]),
-	    io:format(Gr0ErrStr, []),
-	    io:format(?def_gl, Gr0ErrStr, []),
+	    io:format("~ts", [Gr0ErrStr]),
+	    io:format(?def_gl, "~ts", [Gr0ErrStr]),
 	    {group0_failed,bad_return_value};
 	_ ->
 	    Args = if Func == init_per_group ; Func == end_per_group ->
@@ -395,8 +395,8 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 					      "Invalid return value from "
 					      "~w:~tw/0: ~tp~n",
 					      [Mod,Func,BadTC0Val]),
-		    io:format(TC0ErrStr, []),
-		    io:format(?def_gl, TC0ErrStr, []),
+		    io:format("~ts", [TC0ErrStr]),
+		    io:format(?def_gl, "~ts", [TC0ErrStr]),
 		    {testcase0_failed,bad_return_value};
 		_ ->
 		    %% let test case info (also for all config funcs) override
@@ -972,11 +972,10 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
     end,
 
     PrintError = fun(ErrorFormat, ErrorArgs) ->
-		       Div = "~n- - - - - - - - - - - - - - - - - - - "
-			     "- - - - - - - - - - - - - - - - - - - - -~n",
+                      Div = "\n- - - - - - - - - - - - - - - - - - - "
+                            "- - - - - - - - - - - - - - - - - - - - -\n",
 		       ErrorStr2 = io_lib:format(ErrorFormat, ErrorArgs),
-		       io:format(?def_gl, lists:concat([Div,ErrorStr2,Div,"~n"]),
-				 []),
+                      io:format(?def_gl, "~ts~n", [lists:concat([Div,ErrorStr2,Div])]),
 		       Link =
 			   "\n\n<a href=\"#end\">"
 			   "Full error description and stacktrace"
@@ -985,7 +984,8 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		       ct_logs:tc_log(ct_error_notify,
 				      ?MAX_IMPORTANCE,
 				      "CT Error Notification",
-				      ErrorHtml2++Link, [], [])
+                                      "~ts", [ErrorHtml2++Link],
+                                      [])
 	       end,
     case Loc of
 	[{?MODULE,error_in_suite}] ->
@@ -1181,7 +1181,7 @@ get_all(Mod, ConfTests) ->
 		    ErrStr = io_lib:format("~n*** ERROR *** "
 					   "~w:all/0 failed: ~tp~n",
 					   [Mod,ExitReason]),
-		    io:format(?def_gl, ErrStr, []),
+		    io:format(?def_gl, "~ts", [ErrStr]),
 		    %% save the error info so it doesn't get printed twice
 		    ct_util:set_testdata_async({{error_in_suite,Mod},
 						ExitReason});
