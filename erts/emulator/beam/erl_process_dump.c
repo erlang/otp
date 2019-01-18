@@ -998,7 +998,8 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     }
                     erts_putc(to, to_arg, '\n');
                 }
-            } else if (is_export_header(w) || is_fun_header(w)) {
+            } else {
+                /* Dump everything else in the external format */
                 dump_externally(to, to_arg, term);
                 erts_putc(to, to_arg, '\n');
             }
