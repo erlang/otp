@@ -188,6 +188,31 @@
         is used to keep the table fixated during the entire traversal.</p>
       </item>
     </list>
+    <note>
+      <p>Even though the access of a single object is always guaranteed to be
+      <seealso marker="#concurrency">atomic and isolated</seealso>, each traversal
+      through a table to find the next key is not done with such guarantees. This is often
+      not a problem, but may cause rare subtle "unexpected" effects if a concurrent
+      process inserts objects during a traversal. For example, consider one
+      process doing</p>
+<pre>
+ets:new(t, [ordered_set, named_table]),
+ets:insert(t, {1}),
+ets:insert(t, {2}),
+ets:insert(t, {3}),
+</pre>
+      <p>A concurrent call to <c>ets:first(t)</c>, done by another
+      process, may then in rare cases return <c>2</c> even though
+      <c>2</c> has never existed in the table ordered as the first key. In
+      the same way, a concurrent call to <c>ets:next(t, 1)</c> may return
+      <c>3</c> even though <c>3</c> never existed in the table
+      ordered directly after <c>1</c>.</p>
+      <p>Effects like this are improbable but possible. The probability will
+      further be reduced (if not vanish) if table option
+      <seealso marker="#new_2_write_concurrency"><c>write_concurrency</c></seealso>
+      is not enabled. This can also only be a potential concern for
+      <c>ordered_set</c> where the traversal order is defined.</p>
+    </note>
   </section>
 
   <section>
