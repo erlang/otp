@@ -924,9 +924,10 @@ bsm_skip([], _) -> [].
 
 bsm_skip_is([I0|Is], Extracted) ->
     case I0 of
-        #b_set{op=bs_match,args=[#b_literal{val=string}|_]} ->
-            [I0|bsm_skip_is(Is, Extracted)];
-        #b_set{op=bs_match,dst=Ctx,args=[Type,PrevCtx|Args0]} ->
+        #b_set{op=bs_match,
+               dst=Ctx,
+               args=[#b_literal{val=T}=Type,PrevCtx|Args0]}
+          when T =/= string, T =/= skip ->
             I = case cerl_sets:is_element(Ctx, Extracted) of
                     true ->
                         I0;
