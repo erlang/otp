@@ -404,6 +404,7 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
+static int is_function2(Eterm Term, Uint arity);
 static Eterm erts_gc_new_map(Process* p, Eterm* reg, Uint live,
                              Uint n, BeamInstr* ptr) NOINLINE;
 static Eterm erts_gc_new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
@@ -2660,6 +2661,19 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
 	*hp++ = reg[i];
     }
     return make_fun(funp);
+}
+
+static int
+is_function2(Eterm Term, Uint arity)
+{
+    if (is_fun(Term)) {
+	ErlFunThing* funp = (ErlFunThing *) fun_val(Term);
+	return funp->arity == arity;
+    } else if (is_export(Term)) {
+	Export* exp = (Export *) (export_val(Term)[1]);
+	return exp->info.mfa.arity == arity;
+    }
+    return 0;
 }
 
 static Eterm get_map_element(Eterm map, Eterm key)

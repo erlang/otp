@@ -709,8 +709,14 @@ is_function(Fail, Src) {
     }
 }
 
-is_function2(Fail, Fun, Arity) {
+cold_is_function2(Fail, Fun, Arity) {
     if (erl_is_function(c_p, $Fun, $Arity) != am_true ) {
+        $FAIL($Fail);
+    }
+}
+
+hot_is_function2(Fail, Fun, Arity) {
+    if (!is_function2($Fun, $Arity)) {
         $FAIL($Fail);
     }
 }

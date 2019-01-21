@@ -719,11 +719,12 @@ is_boolean Fail=f ac => jump Fail
 is_boolean f? xy
 %hot
 
-is_function2 Fail=f Literal=q Arity | literal_is_export(Literal) =>
-is_function2 Fail=f c Arity => jump Fail
-is_function2 Fail=f Fun a => jump Fail
+is_function2 Fail=f Fun Arity => gen_is_function2(Fail, Fun, Arity)
 
-is_function2 f? S s
+%cold
+cold_is_function2 f? x x
+%hot
+hot_is_function2 f? S t
 
 # Allocating & initializing.
 allocate Need Regs | init Y => allocate_init Need Regs Y

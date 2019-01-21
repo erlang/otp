@@ -710,6 +710,16 @@ t_is_function2(Config) when is_list(Config) ->
     bad_arity({}),
     bad_arity({a,b}),
     bad_arity(self()),
+
+    %% Bad arity argument in guard test.
+    Fun = fun erlang:abs/1,
+    ok = if
+             is_function(Fun, -1) -> error;
+             is_function(Fun, 256) -> error;
+             is_function(Fun, a) -> error;
+             is_function(Fun, Fun) -> error;
+             true -> ok
+         end,
     ok.
 
 bad_arity(A) ->
