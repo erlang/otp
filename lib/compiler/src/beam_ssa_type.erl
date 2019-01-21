@@ -309,6 +309,8 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
         none -> I;
         List -> #b_literal{val=list_to_tuple(List)}
     end;
+simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
+    #b_literal{val=true};
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
