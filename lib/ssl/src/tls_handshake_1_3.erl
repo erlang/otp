@@ -75,6 +75,28 @@ encrypted_extensions() ->
       }.
 
 %% TODO: use maybe monad for error handling!
+%% enum {
+%%     X509(0),
+%%     RawPublicKey(2),
+%%     (255)
+%% } CertificateType;
+%%
+%% struct {
+%%     select (certificate_type) {
+%%         case RawPublicKey:
+%%           /* From RFC 7250 ASN.1_subjectPublicKeyInfo */
+%%           opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
+%%
+%%         case X509:
+%%           opaque cert_data<1..2^24-1>;
+%%     };
+%%     Extension extensions<0..2^16-1>;
+%% } CertificateEntry;
+%%
+%% struct {
+%%     opaque certificate_request_context<0..2^8-1>;
+%%     CertificateEntry certificate_list<0..2^24-1>;
+%% } Certificate;
 certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
     case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	{ok, _, Chain} ->
@@ -222,9 +244,8 @@ encode_cert_entries([#certificate_entry{data = Data,
                                         extensions = Exts} | Rest], Acc) ->
     DSize = byte_size(Data),
     BinExts = encode_extensions(Exts),
-    ExtSize = byte_size(BinExts),
     encode_cert_entries(Rest, 
-                        [<<?UINT24(DSize), Data/binary, ?UINT16(ExtSize), BinExts/binary>> | Acc]).
+                        [<<?UINT24(DSize), Data/binary, BinExts/binary>> | Acc]).
 
 encode_algorithm(Algo) ->
     Scheme = ssl_cipher:signature_scheme(Algo),
