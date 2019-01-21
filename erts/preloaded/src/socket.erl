@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,12 +41,10 @@
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
-         %% writev/4, OR SENDV? It will be strange for recv then: recvv (instead of readv)
 
          recv/1, recv/2, recv/3, recv/4,
          recvfrom/1, recvfrom/2, recvfrom/3, recvfrom/4,
          recvmsg/1, recvmsg/2, recvmsg/3, recvmsg/5,
-         %% readv/3,
 
          close/1,
          shutdown/2,
@@ -164,16 +162,6 @@
             0..65535,
             0..65535}.
 
-%% <KOLLA>
-%%
-%% Should we do these as maps instead?
-%% If we do we may need to include the family (domain) in the
-%% map (as the native type do. See struct sockaddr_in6).
-%%
-%% What about default values? Such as for port (=0) and addr (=any)?
-%%
-%% </KOLLA>
-
 -type timeval() :: #{sec  := integer(),
                      usec := integer()}.
 
@@ -183,7 +171,7 @@
                         addr     := ip4_address()      % Header Destination address
                        }.
 
-%% If the integer value is used its up to the caller to ensure its valid!
+%% If the integer value is used, its up to the caller to ensure its valid!
 -type ip_tos() :: lowdeley |
                   throughput |
                   reliability |
@@ -326,10 +314,10 @@
 -type otp_socket_option() :: debug |
                              iow |
                              controlling_process |
-                             rcvbuf |
-                             sndbuf |
+                             rcvbuf | % sndbuf |
                              rcvctrlbuf |
-                             sndctrlbuf.
+                             sndctrlbuf |
+                             fd.
 %% Shall we have special treatment of linger??
 %% read-only options:
 %% domain | protocol | type.
@@ -653,6 +641,7 @@
 %%-define(SOCKET_OPT_OTP_SNDBUF,           5).
 -define(SOCKET_OPT_OTP_RCVCTRLBUF,       6).
 -define(SOCKET_OPT_OTP_SNDCTRLBUF,       7).
+-define(SOCKET_OPT_OTP_FD,               8).
 -define(SOCKET_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
 -define(SOCKET_OPT_OTP_TYPE,             16#FF02). % INTERNAL
 -define(SOCKET_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
@@ -3051,6 +3040,8 @@ enc_sockopt_key(otp, rcvctrlbuf, _, _, _, _) ->
     ?SOCKET_OPT_OTP_RCVCTRLBUF;
 enc_sockopt_key(otp, sndctrlbuf, _, _, _, _) ->
     ?SOCKET_OPT_OTP_SNDCTRLBUF;
+enc_sockopt_key(otp, fd, get = _Dir, _, _, _) ->
+    ?SOCKET_OPT_OTP_FD;
 enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
     not_supported({L, Opt});
 

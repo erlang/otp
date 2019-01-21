@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3111,37 +3111,6 @@ api_to_connect_tcp_await_timeout3([]) ->
 api_to_connect_tcp_await_timeout3([Sock|Socka]) ->
     (catch socket:close(Sock)),
     api_to_connect_tcp_await_timeout3(Socka).
-
-%% api_to_connect_tcp_await_timeout(Socks, To, ServerSA) ->
-%%     api_to_connect_tcp_await_timeout(Socks, To, ServerSA, 1).
-
-%% api_to_connect_tcp_await_timeout([], _To, _ServerSA, _ID) ->
-%%     ?FAIL(unexpected_success);
-%% api_to_connect_tcp_await_timeout([Sock|Socks], To, ServerSA, ID) ->
-%%     ?SEV_IPRINT("~w: try connect", [ID]),
-%%     Start = t(),
-%%     case socket:connect(Sock, ServerSA, To) of
-%%         {error, timeout} ->
-%%             ?SEV_IPRINT("expected timeout (~w)", [ID]),
-%%             Stop  = t(),
-%%             TDiff = tdiff(Start, Stop),
-%%             if
-%%                 (TDiff >= To) ->
-%%                     ok;
-%%                 true ->
-%%                     {error, {unexpected_timeout, TDiff, To}}
-%%             end;
-%%         {error, econnreset = Reason} ->
-%%             ?SEV_IPRINT("failed connecting: ~p - giving up", [Reason]),
-%%             ok;
-%%         {error, Reason} ->
-%%             ?SEV_EPRINT("failed connecting: ~p", [Reason]),
-%%             ?FAIL({connect, Reason});
-%%         ok ->
-%%             ?SEV_IPRINT("unexpected success (~w) - try next", [ID]),
-%%             api_to_connect_tcp_await_timeout(Socks, To, ServerSA, ID+1)
-%%     end.
-        
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6866,6 +6835,12 @@ sc_rc_tcp_client_create(Domain) ->
     i("sc_rc_tcp_client_create -> entry"),
     case socket:open(Domain, stream, tcp) of
         {ok, Sock} ->
+            case socket:getopt(Sock, otp, fd) of
+                {ok, FD} ->
+                    put(sname, f("rclient-~w", [FD])); % Update SName
+                _ ->
+                    ok
+            end,
             Sock;
         {error, Reason} ->
             exit({open_failed, Reason})
@@ -6884,10 +6859,11 @@ sc_rc_tcp_client_bind(Sock, Domain) ->
     end.
 
 sc_rc_tcp_client_announce_ready(Parent, Slogan) ->
+    ?SEV_IPRINT("ready ~w", [Slogan]),
     ?SEV_ANNOUNCE_READY(Parent, Slogan).
 
 sc_rc_tcp_client_await_continue(Parent, Slogan) ->
-    i("sc_rc_tcp_client_await_continue -> entry"),
+    ?SEV_IPRINT("await ~w continue", [Slogan]),
     ?SEV_AWAIT_CONTINUE(Parent, parent, Slogan).
 
 sc_rc_tcp_client_connect(Sock, ServerSA) ->
@@ -6927,15 +6903,15 @@ sc_rc_tcp_handler_start(ID, Recv, Sock) ->
     Pid.
 
 sc_rc_tcp_handler(ID, Parent, Recv, Sock) ->
-    sc_rc_tcp_handler_init(ID, Parent),
+    sc_rc_tcp_handler_init(ID, socket:getopt(Sock, otp, fd), Parent),
     sc_rc_tcp_handler_await(Parent, recv),
     RecvRes = sc_rc_tcp_handler_recv(Recv, Sock),
     sc_rc_tcp_handler_announce_ready(Parent, recv, RecvRes),
     Reason = sc_rc_tcp_handler_await(Parent, terminate),
     exit(Reason).
 
-sc_rc_tcp_handler_init(ID, Parent) ->
-    put(sname, f("handler-~w", [ID])),
+sc_rc_tcp_handler_init(ID, {ok, FD}, Parent) ->
+    put(sname, f("handler-~w:~w", [ID, FD])),
     _MRef = erlang:monitor(process, Parent),
     ?SEV_IPRINT("started"),
     ?SEV_ANNOUNCE_READY(Parent, init),

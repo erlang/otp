@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -519,6 +519,7 @@ typedef union {
 #define SOCKET_OPT_OTP_RCVBUF       4
 #define SOCKET_OPT_OTP_RCVCTRLBUF   6
 #define SOCKET_OPT_OTP_SNDCTRLBUF   7
+#define SOCKET_OPT_OTP_FD           8
 #define SOCKET_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
 #define SOCKET_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
 #define SOCKET_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
@@ -1561,6 +1562,8 @@ static ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
                                            SocketDescriptor* descP);
+static ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*        env,
+                                   SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,
                                        SocketDescriptor* descP);
 static ERL_NIF_TERM ngetopt_otp_type(ErlNifEnv*        env,
@@ -10031,6 +10034,10 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
         result = ngetopt_otp_sndctrlbuf(env, descP);
         break;
 
+    case SOCKET_OPT_OTP_FD:
+        result = ngetopt_otp_fd(env, descP);
+        break;
+
         /* *** INTERNAL *** */
     case SOCKET_OPT_OTP_DOMAIN:
         result = ngetopt_otp_domain(env, descP);
@@ -10058,7 +10065,7 @@ ERL_NIF_TERM ngetopt_otp(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_debug - Handle the OTP (level) debug options
+/* ngetopt_otp_debug - Handle the OTP (level) debug option
  */
 static
 ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
@@ -10070,7 +10077,7 @@ ERL_NIF_TERM ngetopt_otp_debug(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_iow - Handle the OTP (level) iow options
+/* ngetopt_otp_iow - Handle the OTP (level) iow option
  */
 static
 ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
@@ -10082,7 +10089,7 @@ ERL_NIF_TERM ngetopt_otp_iow(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_ctrl_proc - Handle the OTP (level) controlling_process options
+/* ngetopt_otp_ctrl_proc - Handle the OTP (level) controlling_process option
  */
 static
 ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
@@ -10095,7 +10102,7 @@ ERL_NIF_TERM ngetopt_otp_ctrl_proc(ErlNifEnv*        env,
 
 
 
-/* ngetopt_otp_rcvbuf - Handle the OTP (level) rcvbuf options
+/* ngetopt_otp_rcvbuf - Handle the OTP (level) rcvbuf option
  */
 static
 ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
@@ -10107,7 +10114,7 @@ ERL_NIF_TERM ngetopt_otp_rcvbuf(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf options
+/* ngetopt_otp_rcvctrlbuf - Handle the OTP (level) rcvctrlbuf option
  */
 static
 ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
@@ -10119,7 +10126,7 @@ ERL_NIF_TERM ngetopt_otp_rcvctrlbuf(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf options
+/* ngetopt_otp_sndctrlbuf - Handle the OTP (level) sndctrlbuf option
  */
 static
 ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
@@ -10131,7 +10138,19 @@ ERL_NIF_TERM ngetopt_otp_sndctrlbuf(ErlNifEnv*        env,
 }
 
 
-/* ngetopt_otp_domain - Handle the OTP (level) domain options.
+/* ngetopt_otp_fd - Handle the OTP (level) fd option
+ */
+static
+ERL_NIF_TERM ngetopt_otp_fd(ErlNifEnv*        env,
+                            SocketDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = MKI(env, descP->sock);
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* ngetopt_otp_domain - Handle the OTP (level) domain option
  */
 static
 ERL_NIF_TERM ngetopt_otp_domain(ErlNifEnv*        env,

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2018</year><year>2018</year>
+      <year>2018</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -101,6 +101,13 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>default only valid for set</cell>
+      </row>
+      <row>
+	<cell>fd</cell>
+	<cell>integer()</cell>
+	<cell>no</cell>
+	<cell>yes</cell>
+	<cell>none</cell>
       </row>
     </table>
     
