@@ -4888,20 +4888,24 @@ run_suites(Ciphers, Config, Type) ->
 		 ssl_test_lib:ssl_options(server_psk_anon_hint, Config)]};
 	    srp ->
 		{ssl_test_lib:ssl_options(client_srp, Config),
-		 ssl_test_lib:ssl_options(server_srp, Config)};
+                 [{ciphers, Ciphers} |
+		 ssl_test_lib:ssl_options(server_srp, Config)]};
 	    srp_anon ->
 		{ssl_test_lib:ssl_options(client_srp, Config),
-		 ssl_test_lib:ssl_options(server_srp_anon, Config)};
+                 [{ciphers, Ciphers} |
+		 ssl_test_lib:ssl_options(server_srp_anon, Config)]};
 	    srp_dsa ->
 		{ssl_test_lib:ssl_options(client_srp_dsa, Config),
-		 ssl_test_lib:ssl_options(server_srp_dsa, Config)};
+                 [{ciphers, Ciphers} |
+		 ssl_test_lib:ssl_options(server_srp_dsa, Config)]};
 	    ecdsa ->
 		{ssl_test_lib:ssl_options(client_ecdsa_opts, Config),
                  [{ciphers, Ciphers} |
                   ssl_test_lib:ssl_options(server_ecdsa_opts, Config)]};
 	    ecdh_rsa ->
 		{ssl_test_lib:ssl_options(client_ecdh_rsa_opts, Config),
-		 ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)};
+                 [{ciphers, Ciphers} |
+                  ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)]};
 	    rc4_rsa ->
 		{ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 		 [{ciphers, Ciphers} |
