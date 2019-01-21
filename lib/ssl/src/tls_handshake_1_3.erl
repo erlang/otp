@@ -42,6 +42,7 @@
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/5,
+         encrypted_extensions/0,
          server_hello/4]).
 
 -export([do_negotiated/2]).
@@ -67,6 +68,11 @@ server_hello_extensions(KeyShare) ->
     Extensions = #{server_hello_selected_version => SupportedVersions},
     ssl_handshake:add_server_share(Extensions, KeyShare).
 
+%% TODO: implement support for encrypted_extensions
+encrypted_extensions() ->
+    #encrypted_extensions{
+       extensions = #{}
+      }.
 
 %% TODO: use maybe monad for error handling!
 certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
@@ -413,15 +419,21 @@ do_negotiated(#{client_share := ClientKey,
 
         State3 = ssl_record:step_encryption_state(State2),
 
+        %% Create EncryptedExtensions
+        EncryptedExtensions = encrypted_extensions(),
+
+        %% Encode EncryptedExtensions
+        State4 = tls_connection:queue_handshake(EncryptedExtensions, State3),
+
         %% Create Certificate
         Certificate = certificate(OwnCert, CertDbHandle, CertDbRef, <<>>, server),
 
         %% Encode Certificate
-        State4 = tls_connection:queue_handshake(Certificate, State3),
+        State5 = tls_connection:queue_handshake(Certificate, State4),
 
         %% Create CertificateVerify
         #state{handshake_env =
-                   #handshake_env{tls_handshake_history = {Messages, _}}} = State4,
+                   #handshake_env{tls_handshake_history = {Messages, _}}} = State5,
 
         %% Use selected signature_alg from here, HKDF only used for key_schedule
         CertificateVerify =
@@ -430,7 +442,7 @@ do_negotiated(#{client_share := ClientKey,
 
         %% Encode CertificateVerify
         %% Send Certificate, CertifricateVerify
-        {_State5, _} = tls_connection:send_handshake(CertificateVerify, State4),
+        {_State6, _} = tls_connection:send_handshake(CertificateVerify, State5),
 
         %% Send finished
 

@@ -170,6 +170,11 @@ parse_handshake(Direction, #certificate_verify_1_3{} = CertificateVerify) ->
     Header = io_lib:format("~s Handshake, CertificateVerify",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(certificate_verify_1_3, CertificateVerify)]),
+    {Header, Message};
+parse_handshake(Direction, #encrypted_extensions{} = EncryptedExtensions) ->
+    Header = io_lib:format("~s Handshake, EncryptedExtensions",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(encrypted_extensions, EncryptedExtensions)]),
     {Header, Message}.
 
 
