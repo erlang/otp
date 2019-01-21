@@ -82,6 +82,7 @@ opt_opts(Mod) ->
                     (no_bsm3) -> true;
                     (no_bsm_opt) -> true;
                     (no_module_opt) -> true;
+                    (no_type_opt) -> true;
 		    (_) -> false
 		 end, Opts).
 

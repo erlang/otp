@@ -1031,7 +1031,7 @@ need_frame_1([#b_set{op=call,args=[Func|_]}|Is], Context) ->
     case Func of
         #b_remote{mod=#b_literal{val=Mod},
                   name=#b_literal{val=Name},
-                  arity=Arity} ->
+                  arity=Arity} when is_atom(Mod), is_atom(Name) ->
             case erl_bifs:is_exit_bif(Mod, Name, Arity) of
                 true ->
                     false;
@@ -1993,6 +1993,12 @@ reserve_zregs(Blocks, Intervals, Res) ->
         end,
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
+reserve_zreg([#b_set{op=call,dst=Dst}],
+              #b_br{bool=Dst}, _ShortLived, A) ->
+    %% If type optimization has determined that the result of a call can be
+    %% used directly in a branch, we must avoid reserving a z register or code
+    %% generation will fail.
+    A;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
     case {Val,Last} of

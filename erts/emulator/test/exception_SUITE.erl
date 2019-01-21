@@ -36,6 +36,11 @@
 %% during compilation instead of at runtime, so do not perform this analysis.
 -compile([{hipe, [no_icode_range]}]).
 
+%% Module-level type optimization propagates the constants used when testing
+%% increment1/1 and increment2/1, which makes it test something completely
+%% different, so we're turning it off.
+-compile(no_module_opt).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].

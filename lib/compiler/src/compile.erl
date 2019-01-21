@@ -268,6 +268,10 @@ expand_opt(r21, Os) ->
     [no_put_tuple2 | expand_opt(no_bsm3, Os)];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
+expand_opt(no_type_opt, Os) ->
+    [no_ssa_opt_type_start,
+     no_ssa_opt_type_continue,
+     no_ssa_opt_type_finish | Os];
 expand_opt(O, Os) -> [O|Os].
 
 expand_opt_before_21(Os) ->

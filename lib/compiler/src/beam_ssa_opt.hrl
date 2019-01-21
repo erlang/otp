@@ -27,11 +27,27 @@
 
          %% Whether the function is exported or not; some optimizations may
          %% need to be suppressed if it is.
-         exported = true :: boolean()}).
+         exported = true :: boolean(),
+
+         %% The inferred types of each argument (as opposed to parameter),
+         %% indexed by call site.
+         %%
+         %% This is more effective than the naive approach of joining into a
+         %% "parameter_type" as we go as it lets us narrow parameter types
+         %% without having to visit all callers on each pass, which helps a lot
+         %% when dealing with co-recursive functions.
+         arg_types = [] :: list(arg_type_map()),
+
+         %% The inferred return type of this function, this is either [type()]
+         %% or [] to note absence.
+         ret_type = [] :: list()}).
+
+-type arg_key() :: {CallerId :: func_id(),
+                    CallDst :: beam_ssa:b_var()}.
+-type arg_type_map() :: #{ arg_key() => term() }.
 
 %% Per-function metadata used by various optimization passes to perform
 %% module-level optimization. If a function is absent it means that
 %% module-level optimization has been turned off for said function.
-
 -type func_id() :: beam_ssa:b_local().
 -type func_info_db() :: #{ func_id() => #func_info{} }.

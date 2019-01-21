@@ -39,7 +39,7 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [append/1,foldl/3,keyfind/3,member/2,
+-import(lists, [append/1,duplicate/2,foldl/3,keyfind/3,member/2,
                 reverse/1,reverse/2,
                 splitwith/2,sort/1,takewhile/2,unzip/1]).
 
@@ -146,8 +146,8 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
-          ?PASS(ssa_opt_cse)                   %Helps the first type pass.
-          ],
+          ?PASS(ssa_opt_cse),                   %Helps the first type pass.
+          ?PASS(ssa_opt_type_start)],
     passes_1(Ps, Opts).
 
 %% These passes all benefit from each other (in roughly this order), so they
@@ -157,12 +157,13 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
-          ?PASS(ssa_opt_type)],                 %Must run after ssa_opt_dead to
+          ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
 
 epilogue_passes(Opts) ->
-    Ps = [?PASS(ssa_opt_float),
+    Ps = [?PASS(ssa_opt_type_finish),
+          ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_live),                  %One last time to clean up the
                                                 %mess left by the float pass.
           ?PASS(ssa_opt_bsm),
@@ -199,18 +200,21 @@ build_func_db(#b_module{body=Fs,exports=Exports}) ->
         throw:load_nif -> #{}
     end.
 
-fdb_1([#b_function{ bs=Bs }=F | Fs], Exports, FuncDb0) ->
+fdb_1([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
     Id = get_func_id(F),
 
     #b_local{name=#b_literal{val=Name}, arity=Arity} = Id,
     Exported = gb_sets:is_element({Name, Arity}, Exports),
+    ArgTypes = duplicate(length(Args), #{}),
 
     FuncDb1 = case FuncDb0 of
                   %% We may have an entry already if someone's called us.
                   #{ Id := Info } ->
-                      FuncDb0#{ Id := Info#func_info{ exported=Exported }};
+                      FuncDb0#{ Id := Info#func_info{ exported=Exported,
+                                                      arg_types=ArgTypes }};
                   #{} ->
-                      FuncDb0#{ Id => #func_info{ exported=Exported }}
+                      FuncDb0#{ Id => #func_info{ exported=Exported,
+                                                  arg_types=ArgTypes }}
               end,
 
     FuncDb = beam_ssa:fold_rpo(fun(_L, #b_blk{is=Is}, FuncDb) ->
@@ -293,9 +297,17 @@ ssa_opt_dead({#st{ssa=Linear}=St, FuncDb}) ->
 ssa_opt_linearize({#st{ssa=Blocks}=St, FuncDb}) ->
     {St#st{ssa=beam_ssa:linearize(Blocks)}, FuncDb}.
 
-ssa_opt_type({#st{ssa=Linear0,args=Args}=St0, FuncDb}) ->
-    Linear = beam_ssa_type:opt(Linear0, Args),
+ssa_opt_type_start({#st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
+    {Linear, FuncDb} = beam_ssa_type:opt_start(Linear0, Args, Anno, FuncDb0),
     {St0#st{ssa=Linear}, FuncDb}.
+
+ssa_opt_type_continue({#st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
+    {Linear, FuncDb} = beam_ssa_type:opt_continue(Linear0, Args, Anno, FuncDb0),
+    {St0#st{ssa=Linear}, FuncDb}.
+
+ssa_opt_type_finish({#st{args=Args,anno=Anno0}=St0, FuncDb0}) ->
+    {Anno, FuncDb} = beam_ssa_type:opt_finish(Args, Anno0, FuncDb0),
+    {St0#st{anno=Anno}, FuncDb}.
 
 ssa_opt_blockify({#st{ssa=Linear}=St, FuncDb}) ->
     {St#st{ssa=maps:from_list(Linear)}, FuncDb}.

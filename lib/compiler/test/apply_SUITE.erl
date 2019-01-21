@@ -73,6 +73,7 @@ mfa(Config) when is_list(Config) ->
     {'EXIT',_} = (catch ?APPLY2(Mod, (id(bazzzzzz)), a, b)),
     {'EXIT',_} = (catch ?APPLY2({}, baz, a, b)),
     {'EXIT',_} = (catch ?APPLY2(?MODULE, [], a, b)),
+    {'EXIT',_} = (catch bad_literal_call(1)),
 
     ok = apply(Mod, foo, id([])),
     {[a,b|c]} = apply(Mod, bar, id([[a,b|c]])),
@@ -91,6 +92,13 @@ mfa(Config) when is_list(Config) ->
     false = ?APPLY2(Erlang, is_function, blurf, 0),
 
     apply(Mod, foo, []).
+
+%% The single call to this function with a literal argument caused type
+%% optimization to swap out the 'mod' field of a #b_remote{}, which was
+%% mishandled during code generation as it assumed that the module would always
+%% be an atom.
+bad_literal_call(I) ->
+    I:foo().
 
 foo() ->
     ok.
