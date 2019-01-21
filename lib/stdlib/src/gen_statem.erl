@@ -1948,24 +1948,6 @@ loop_timeouts(
                       Timers_1, Seen#{TimeoutType => true}, TimeoutEvents)
             end
     end.
-%%
-%% Helper function for the ugly mis-optimization workaround
-%% loop_timeouts_cancel below
-%%
-%% Do not inline!
-%%
-loop_timeouts(
-  P, Debug, S,
-  Events, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
-  TimeoutType) ->
-    %%
-    loop_timeouts(
-      P, Debug, S,
-      Events, NextState_NewData,
-      NextEventsR, Hibernate, TimeoutsR, Postponed,
-      Timers, Seen#{TimeoutType => true}, TimeoutEvents).
 
 %% Loop helper to cancel a timeout
 %%
@@ -1975,8 +1957,6 @@ loop_timeouts_cancel(
   NextEventsR, Hibernate, TimeoutsR, Postponed,
   {TimerRefs,TimeoutTypes} = Timers, Seen, TimeoutEvents,
   TimeoutType) ->
-    %% Ugly mis-optimization workaround
-    %%
     %% This function body should have been:
     %%    Timers_1 = cancel_timer_by_type(TimeoutType, Timers),
     %%    loop_timeouts(
@@ -1985,36 +1965,12 @@ loop_timeouts_cancel(
     %%      NextEventsR, Hibernate, TimeoutsR, Postponed,
     %%      Timers_1, Seen#{TimeoutType => true}, TimeoutEvents).
     %%
-    %% Since cancel_timer_by_type is inlined there is a code path
-    %% that checks if TimeoutType is a key in the map TimeoutTypes
-    %% and if not simply makes Timers_1 = Timers and then does
-    %% the map update of Seen and loops back to loop_timeouts/12.
-    %% This code path does not contain any external call and the
-    %% map update is an instruction, so that should be a simple
-    %% and fast path.
-    %%
-    %% The other code path when TimeoutType is a key in the map
-    %% TimeoutTypes calls erlang:cancel_timer/1 which forces
-    %% all live registers (about 13 of them) out on the stack
-    %% and back again afterwards.
-    %%
-    %% Unfortunately the optimization of common subexpressions
-    %% sees that both these function exits are identical and
-    %% joins them.  Then during register allocation the common
-    %% function exit is adapted for the code path that spills
-    %% all live registers to the stack.  So also the simple
-    %% and fast path spills all live registers around its
-    %% map update...  Bummer!
-    %%
-    %% So this workaround duplicates cancel_timer_by_type/2 here,
-    %% and makes the function exits differ - the slow case
-    %% calls a helper function above to update Seen, and
-    %% the fast case updates Seen in this function.  This tricks
-    %% the common subexpression optimizer into not joining
-    %% these two code paths.
-    %%
-    %% So the helper function above must not be inlined, please!
-    %%
+    %% Explicitly separate cases to get separate code paths for when
+    %% the map key exists vs. not, since otherwise the external call
+    %% to erlang:cancel_timer/1 and to map:remove/2 within
+    %% cancel_timer_by_type/2 would cause all live registers
+    %% to be saved to and restored from the stack also for
+    %% the case when the map key TimeoutType does not exist
     case TimeoutTypes of
         #{TimeoutType := TimerRef} ->
             Timers_1 =
@@ -2024,8 +1980,7 @@ loop_timeouts_cancel(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen, TimeoutEvents,
-              TimeoutType);
+              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
         #{} ->
             loop_timeouts(
               P, Debug, S,
