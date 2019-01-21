@@ -43,11 +43,14 @@
          get_module_level/0, get_module_level/1,
          set_primary_config/1, set_primary_config/2,
          set_handler_config/2, set_handler_config/3,
+         set_proxy_config/1,
          update_primary_config/1,
          update_handler_config/2, update_handler_config/3,
+         update_proxy_config/1,
          update_formatter_config/2, update_formatter_config/3,
          get_primary_config/0, get_handler_config/1,
          get_handler_config/0, get_handler_ids/0, get_config/0,
+         get_proxy_config/0,
          add_handlers/1]).
 
 %% Private configuration
@@ -122,6 +125,18 @@
                           {filters,log | stop,[{filter_id(),filter()}]} |
                           {module_level,level(),[module()]}].
 
+-type olp_config() :: #{sync_mode_qlen => non_neg_integer(),
+                        drop_mode_qlen => pos_integer(),
+                        flush_qlen => pos_integer(),
+                        burst_limit_enable => boolean(),
+                        burst_limit_max_count => pos_integer(),
+                        burst_limit_window_time => pos_integer(),
+                        overload_kill_enable => boolean(),
+                        overload_kill_qlen => pos_integer(),
+                        overload_kill_mem_size => pos_integer(),
+                        overload_kill_restart_after =>
+                            non_neg_integer() | infinity}.
+
 -export_type([log_event/0,
               level/0,
               report/0,
@@ -137,7 +152,8 @@
               filter_arg/0,
               filter_return/0,
               config_handler/0,
-              formatter_config/0]).
+              formatter_config/0,
+              olp_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% API
@@ -390,6 +406,7 @@ set_primary_config(Key,Value) ->
 set_primary_config(Config) ->
     logger_server:set_config(primary,Config).
 
+
 -spec set_handler_config(HandlerId,level,Level) -> Return when
       HandlerId :: handler_id(),
       Level :: level() | all | none,
@@ -418,6 +435,11 @@ set_handler_config(HandlerId,Key,Value) ->
       Config :: handler_config().
 set_handler_config(HandlerId,Config) ->
     logger_server:set_config(HandlerId,Config).
+
+-spec set_proxy_config(Config) -> ok | {error,term()} when
+      Config :: olp_config().
+set_proxy_config(Config) ->
+    logger_server:set_config(proxy,Config).
 
 -spec update_primary_config(Config) -> ok | {error,term()} when
       Config :: primary_config().
@@ -453,6 +475,11 @@ update_handler_config(HandlerId,Key,Value) ->
 update_handler_config(HandlerId,Config) ->
     logger_server:update_config(HandlerId,Config).
 
+-spec update_proxy_config(Config) -> ok | {error,term()} when
+      Config :: olp_config().
+update_proxy_config(Config) ->
+    logger_server:update_config(proxy,Config).
+
 -spec get_primary_config() -> Config when
       Config :: primary_config().
 get_primary_config() ->
@@ -485,6 +512,12 @@ get_handler_config() ->
 get_handler_ids() ->
     {ok,#{handlers:=HandlerIds}} = logger_config:get(?LOGGER_TABLE,primary),
     HandlerIds.
+
+-spec get_proxy_config() -> Config when
+      Config :: olp_config().
+get_proxy_config() ->
+    {ok,Config} = logger_config:get(?LOGGER_TABLE,proxy),
+    Config.
 
 -spec update_formatter_config(HandlerId,FormatterConfig) ->
                                      ok | {error,term()} when
@@ -606,10 +639,12 @@ unset_process_metadata() ->
 
 -spec get_config() -> #{primary=>primary_config(),
                         handlers=>[handler_config()],
+                        proxy=>olp_config(),
                         module_levels=>[{module(),level() | all | none}]}.
 get_config() ->
     #{primary=>get_primary_config(),
       handlers=>get_handler_config(),
+      proxy=>get_proxy_config(),
       module_levels=>lists:keysort(1,get_module_level())}.
 
 -spec internal_init_logger() -> ok | {error,term()}.
@@ -672,6 +707,17 @@ init_kernel_handlers(Env) ->
 %% This function is responsible for resolving the handler config
 %% and then starting the correct handlers. This is done after the
 %% kernel supervisor tree has been started as it needs the logger_sup.
+add_handlers(kernel) ->
+    Env = get_logger_env(kernel),
+    case get_proxy_opts(Env) of
+        undefined ->
+            add_handlers(kernel,Env);
+        Opts ->
+            case set_proxy_config(Opts) of
+                ok -> add_handlers(kernel,Env);
+                {error, Reason} -> {error,{bad_proxy_config,Reason}}
+            end
+    end;
 add_handlers(App) when is_atom(App) ->
     add_handlers(App,get_logger_env(App));
 add_handlers(HandlerConfig) ->
@@ -729,6 +775,8 @@ check_logger_config(kernel,[{filters,_,_}|Env]) ->
     check_logger_config(kernel,Env);
 check_logger_config(kernel,[{module_level,_,_}|Env]) ->
     check_logger_config(kernel,Env);
+check_logger_config(kernel,[{proxy,_}|Env]) ->
+    check_logger_config(kernel,Env);
 check_logger_config(_,Bad) ->
     throw(Bad).
 
@@ -782,6 +830,13 @@ get_primary_filters(Env) ->
             end;
         [] -> [];
         _ -> throw({multiple_filters,Env})
+    end.
+
+get_proxy_opts(Env) ->
+    case [P || P={proxy,_} <- Env] of
+        [{proxy,Opts}] -> Opts;
+        [] -> undefined;
+        _ -> throw({multiple_proxies,Env})
     end.
 
 %% This function looks at the kernel logger environment
@@ -880,30 +935,30 @@ log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
              maps:merge(Location,maps:merge(proc_meta(),Meta0))),
     case node(maps:get(gl,Meta)) of
         Node when Node=/=node() ->
-            log_remote(Node,Level,Msg,Meta),
-            do_log_allowed(Level,Msg,Meta);
+            log_remote(Node,Level,Msg,Meta);
         _ ->
-            do_log_allowed(Level,Msg,Meta)
-    end.
+            ok
+    end,
+    do_log_allowed(Level,Msg,Meta,tid()).
 
-do_log_allowed(Level,{Format,Args}=Msg,Meta)
+do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
   when ?IS_LEVEL(Level),
        is_list(Format),
        is_list(Args),
        is_map(Meta) ->
-    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},tid());
-do_log_allowed(Level,Report,Meta)
+    logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid);
+do_log_allowed(Level,Report,Meta,Tid)
   when ?IS_LEVEL(Level),
        ?IS_REPORT(Report),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{report,Report},meta=>Meta},
-                               tid());
-do_log_allowed(Level,String,Meta)
+                               Tid);
+do_log_allowed(Level,String,Meta,Tid)
   when ?IS_LEVEL(Level),
        ?IS_STRING(String),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>{string,String},meta=>Meta},
-                               tid()).
+                               Tid).
 tid() ->
     ets:whereis(?LOGGER_TABLE).
 
@@ -913,7 +968,7 @@ log_remote(Node,Level,Msg,Meta) ->
     log_remote(Node,{log,Level,Msg,Meta}).
 
 log_remote(Node,Request) ->
-    {logger,Node} ! Request,
+    logger_proxy:log({remote,Node,Request}),
     ok.
 
 add_default_metadata(Meta) ->

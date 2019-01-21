@@ -22,8 +22,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
-         add_handler/3, remove_handler/1,
+-export([start_link/0, add_handler/3, remove_handler/1,
          add_filter/2, remove_filter/2,
          set_module_level/2, unset_module_level/0,
          unset_module_level/1, cache_module_level/1,
@@ -43,7 +42,7 @@
 -define(SERVER, logger).
 -define(LOGGER_SERVER_TAG, '$logger_cb_process').
 
--record(state, {tid, async_req, async_req_queue}).
+-record(state, {tid, async_req, async_req_queue, remote_logger}).
 
 %%%===================================================================
 %%% API
@@ -155,6 +154,8 @@ init([]) ->
     process_flag(trap_exit, true),
     put(?LOGGER_SERVER_TAG,true),
     Tid = logger_config:new(?LOGGER_TABLE),
+    %% Store initial proxy config. logger_proxy reads config from here at startup.
+    logger_config:create(Tid,proxy,logger_proxy:get_default_config()),
     PrimaryConfig = maps:merge(default_config(primary),
                               #{handlers=>[simple]}),
     logger_config:create(Tid,primary,PrimaryConfig),
@@ -220,6 +221,24 @@ handle_call({add_filter,Id,Filter}, _From,#state{tid=Tid}=State) ->
     {reply,Reply,State};
 handle_call({remove_filter,Id,FilterId}, _From, #state{tid=Tid}=State) ->
     Reply = do_remove_filter(Tid,Id,FilterId),
+    {reply,Reply,State};
+handle_call({change_config,SetOrUpd,proxy,Config0},_From,#state{tid=Tid}=State) ->
+    Default =
+        case SetOrUpd of
+            set ->
+                logger_proxy:get_default_config();
+            update ->
+                {ok,OldConfig} = logger_config:get(Tid,proxy),
+                OldConfig
+        end,
+    Config = maps:merge(Default,Config0),
+    Reply =
+        case logger_olp:set_opts(logger_proxy,Config) of
+            ok ->
+                logger_config:set(Tid,proxy,Config);
+            Error ->
+                Error
+        end,
     {reply,Reply,State};
 handle_call({change_config,SetOrUpd,primary,Config0}, _From,
             #state{tid=Tid}=State) ->
@@ -357,7 +376,7 @@ terminate(_Reason, _State) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-call(Request) ->
+call(Request) when is_tuple(Request) ->
     Action = element(1,Request),
     case get(?LOGGER_SERVER_TAG) of
         true when
@@ -368,6 +387,7 @@ call(Request) ->
         _ ->
             gen_server:call(?SERVER,Request,?DEFAULT_LOGGER_CALL_TIMEOUT)
     end.
+
 
 do_add_filter(Tid,Id,{FId,_} = Filter) ->
     case logger_config:get(Tid,Id) of
@@ -413,11 +433,13 @@ default_config(Id,Module) ->
 sanity_check(Owner,Key,Value) ->
     sanity_check_1(Owner,[{Key,Value}]).
 
-sanity_check(HandlerId,Config) when is_map(Config) ->
-    sanity_check_1(HandlerId,maps:to_list(Config));
+sanity_check(Owner,Config) when is_map(Config) ->
+    sanity_check_1(Owner,maps:to_list(Config));
 sanity_check(_,Config) ->
     {error,{invalid_config,Config}}.
 
+sanity_check_1(proxy,_Config) ->
+    ok; % Details are checked by logger_olp:set_opts/2
 sanity_check_1(Owner,Config) when is_list(Config) ->
     try
         Type = get_type(Owner),

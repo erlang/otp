@@ -302,7 +302,7 @@ check_file_result(Func, Target, {error,Reason}) ->
             logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
                       #{pid=>self(),
                         gl=>group_leader(),
-                        time=>erlang:monotonic_time(microsecond),
+                        time=>erlang:system_time(microsecond),
                         error_logger=>#{tag=>error_report,
                                         type=>std_error}}},
             error

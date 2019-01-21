@@ -118,6 +118,8 @@ MODULES = \
 	logger_h_common \
 	logger_filters \
         logger_formatter \
+	logger_olp \
+	logger_proxy \
         logger_server \
         logger_simple_h \
         logger_sup \
@@ -151,7 +153,7 @@ INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
         inet_dns.hrl inet_res.hrl \
         inet_boot.hrl inet_config.hrl inet_int.hrl \
 	inet_dns_record_adts.hrl \
-	logger_internal.hrl logger_h_common.hrl
+	logger_internal.hrl logger_olp.hrl logger_h_common.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -279,6 +281,8 @@ $(EBIN)/logger_config.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_disk_log_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl
 $(EBIN)/logger_filters.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_formatter.beam: logger_internal.hrl ../include/logger.hrl
+$(EBIN)/logger_olp.beam: logger_olp.hrl logger_internal.hrl
+$(EBIN)/logger_proxy.beam: logger_internal.hrl
 $(EBIN)/logger_server.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_simple_h.beam: logger_internal.hrl ../include/logger.hrl
 $(EBIN)/logger_std_h.beam: logger_h_common.hrl logger_internal.hrl ../include/logger.hrl ../include/file.hrl

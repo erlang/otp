@@ -245,6 +245,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       </desc>
     </datatype>
     <datatype>
+      <name name="olp_config"/>
+      <desc>
+	<p></p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="primary_config"/>
       <desc>
 	<p>Primary configuration data for Logger. The following
@@ -597,8 +603,8 @@ start(_, []) ->
       <name name="get_config" arity="0" since="OTP 21.0"/>
       <fsummary>Look up the current Logger configuration</fsummary>
       <desc>
-        <p>Look up all current Logger configuration, including primary
-          and handler configuration, and module level settings.</p>
+        <p>Look up all current Logger configuration, including primary,
+          handler, and proxy configuration, and module level settings.</p>
       </desc>
     </func>
 
@@ -632,6 +638,17 @@ start(_, []) ->
       <fsummary>Look up the current primary configuration for Logger.</fsummary>
       <desc>
         <p>Look up the current primary configuration for Logger.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_proxy_config" arity="0" since="OTP 21.3"/>
+      <fsummary>Look up the current configuration for the Logger proxy.</fsummary>
+      <desc>
+        <p>Look up the current configuration for the Logger proxy.</p>
+	<p>For more information about the proxy, see
+	  section <seealso marker="logger_chapter#proxy">Logger
+	  Proxy</seealso> in the Kernel User's Guide.</p>
       </desc>
     </func>
 
@@ -797,6 +814,27 @@ start(_, []) ->
           given <c><anno>Key</anno></c> already exists, its associated
           value will be changed to the given value. If it does not
           exist, it will be added.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_proxy_config" arity="1" since="OTP 21.3"/>
+      <fsummary>Set configuration data for the Logger proxy.</fsummary>
+      <desc>
+        <p>Set configuration data for the Logger proxy. This
+          overwrites the current proxy configuration. Keys that are not
+          specified in the <c><anno>Config</anno></c> map gets default
+          values.</p>
+	<p>To modify the existing configuration,
+	  use <seealso marker="#update_proxy_config-1">
+	    <c>update_proxy_config/1</c></seealso>, or, if a more
+	  complex merge is needed, read the current configuration
+	  with <seealso marker="#get_proxy_config-0"><c>get_proxy_config/0</c>
+	  </seealso>, then do the merge before writing the new
+	  configuration back with this function.</p>
+	<p>For more information about the proxy, see
+	  section <seealso marker="logger_chapter#proxy">Logger
+	  Proxy</seealso> in the Kernel User's Guide.</p>
       </desc>
     </func>
 
@@ -1011,6 +1049,25 @@ logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	  <seealso marker="#set_process_metadata-1">
 	    <c>set_process_metadata/1</c>
 	  </seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="update_proxy_config" arity="1" since="OTP 21.3"/>
+      <fsummary>Update configuration data for the Logger proxy.</fsummary>
+      <desc>
+        <p>Update configuration data for the Logger proxy. This function
+          behaves as if it was implemented as follows:</p>
+	<code type="erl">
+Old = logger:get_proxy_config(),
+logger:set_proxy_config(maps:merge(Old, Config)).
+	</code>
+	<p>To overwrite the existing configuration without any merge,
+	  use <seealso marker="#set_proxy_config-1"><c>set_proxy_config/1</c>
+	  </seealso>.</p>
+	<p>For more information about the proxy, see
+	  section <seealso marker="logger_chapter#proxy">Logger
+	  Proxy</seealso> in the Kernel User's Guide.</p>
       </desc>
     </func>
   </funcs>
