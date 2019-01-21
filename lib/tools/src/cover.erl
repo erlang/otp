@@ -2563,8 +2563,9 @@ table_row(Line, L) ->
 table_data(Line, L, N) ->
    LineNoNL = Line -- "\n",
    ["<td class=\"line\" id=\"L",integer_to_list(L),"\">",
+    "<a href=\"#L",integer_to_list(L),"\">",
     integer_to_list(L),
-    "</td>\n",
+    "</a></td>\n",
    "<td class=\"hits\">",maybe_integer_to_list(N),"</td>\n",
    "<td class=\"source\"><code>",LineNoNL,"</code></td>\n</tr>\n"].
 

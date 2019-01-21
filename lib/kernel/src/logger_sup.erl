@@ -50,7 +50,9 @@ init([]) ->
                 start => {logger_handler_watcher, start_link, []},
                 shutdown => brutal_kill},
 
-    {ok, {SupFlags, [Watcher]}}.
+    Proxy = logger_proxy:child_spec(),
+
+    {ok, {SupFlags, [Watcher,Proxy]}}.
 
 %%%===================================================================
 %%% Internal functions

@@ -26,7 +26,7 @@
 -include_lib("kernel/include/file.hrl").
 
 %% API
--export([info/1, filesync/1, reset/1]).
+-export([filesync/1]).
 
 %% logger_h_common callbacks
 -export([init/2, check_config/4, reset_state/2,
@@ -35,6 +35,8 @@
 %% logger callbacks
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
          filter_config/1]).
+
+-define(DEFAULT_CALL_TIMEOUT, 5000).
 
 %%%===================================================================
 %%% API
@@ -48,25 +50,6 @@
 
 filesync(Name) ->
     logger_h_common:filesync(?MODULE,Name).
-
-%%%-----------------------------------------------------------------
-%%%
--spec info(Name) -> Info | {error,Reason} when
-      Name :: atom(),
-      Info :: term(),
-      Reason :: handler_busy | {badarg,term()}.
-
-info(Name) ->
-    logger_h_common:info(?MODULE,Name).
-
-%%%-----------------------------------------------------------------
-%%%
--spec reset(Name) -> ok | {error,Reason} when
-      Name :: atom(),
-      Reason :: handler_busy | {badarg,term()}.
-
-reset(Name) ->
-    logger_h_common:reset(?MODULE,Name).
 
 %%%===================================================================
 %%% logger callbacks - just forward to logger_h_common

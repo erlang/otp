@@ -59,7 +59,8 @@ groups() ->
                  logger_undefined,
                  logger_many_handlers_default_first,
                  logger_many_handlers_default_last,
-                 logger_many_handlers_default_last_broken_filter
+                 logger_many_handlers_default_last_broken_filter,
+                 logger_proxy
                 ]},
      {bad,[],[bad_error_logger,
               bad_level,
@@ -538,6 +539,19 @@ logger_many_handlers(Config, Env, LogErr, LogInfo, NumProgress) ->
     match(Bin,<<"info:">>,NumProgress,info,info),
     match(Bin,<<"notice:">>,1,notice,info),
     match(Bin,<<"alert:">>,0,alert,info),
+
+    ok.
+
+logger_proxy(Config) ->
+    %% assume current node runs with default settings
+    DefOpts = logger_olp:get_opts(logger_proxy),
+    {ok,_,Node} = setup(Config,
+                        [{logger,[{proxy,#{sync_mode_qlen=>0,
+                                           drop_mode_qlen=>2}}]}]),
+    Expected = DefOpts#{sync_mode_qlen:=0,
+                        drop_mode_qlen:=2},
+    Expected = rpc:call(Node,logger_olp,get_opts,[logger_proxy]),
+    Expected = rpc:call(Node,logger,get_proxy_config,[]),
 
     ok.
 
