@@ -614,7 +614,7 @@ is_acceptable_cipher(rc4_128, Algos) ->
 is_acceptable_cipher(des_cbc, Algos) ->
     proplists:get_bool(des_cbc, Algos);
 is_acceptable_cipher('3des_ede_cbc', Algos) ->
-    proplists:get_bool(des3_cbc, Algos);
+    proplists:get_bool(des_ede3, Algos);
 is_acceptable_cipher(aes_128_cbc, Algos) ->
     proplists:get_bool(aes_cbc128, Algos);
 is_acceptable_cipher(aes_256_cbc, Algos) ->
