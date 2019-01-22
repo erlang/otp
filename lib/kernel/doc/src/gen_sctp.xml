@@ -284,7 +284,7 @@ connect(Socket, Ip, Port>,
 
     <func>
       <name name="listen" arity="2" clause_i="1" since=""/>
-      <name name="listen" arity="2" clause_i="2" since=""/>
+      <name name="listen" arity="2" clause_i="2" since="OTP R15B"/>
       <fsummary>Set up a socket to listen.</fsummary>
       <desc>
         <p>Sets up a socket to listen on the IP address and port number
