@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,19 +38,24 @@
 
 -define(SERVER, ?MODULE).
 
--record(data, {connection_pid,
-               connection_states = #{},
-               role,
-               socket,
-               socket_options,
-               tracker,
-               protocol_cb,
-               transport_cb,
-               negotiated_version,
-               renegotiate_at,
-               connection_monitor,
-               dist_handle
-              }).
+-record(static,
+        {connection_pid,
+         role,
+         socket,
+         socket_options,
+         tracker,
+         protocol_cb,
+         transport_cb,
+         negotiated_version,
+         renegotiate_at,
+         connection_monitor,
+         dist_handle
+        }).
+
+-record(data,
+        {static = #static{},
+         connection_states = #{}
+        }).
 
 %%%===================================================================
 %%% API
@@ -200,21 +205,20 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            transport_cb := Transport,
                            negotiated_version := Version,
                            renegotiate_at := RenegotiateAt}}, 
-     #data{connection_states = ConnectionStates} = StateData0) ->    
+     #data{connection_states = ConnectionStates, static = Static0} = StateData0) ->
     Monitor = erlang:monitor(process, Pid),
     StateData = 
-        StateData0#data{connection_pid = Pid,
-                        connection_monitor = Monitor,
-                        connection_states = 
-                            ConnectionStates#{current_write => WriteState},
-                        role = Role,
-                        socket = Socket,
-                        socket_options = SockOpts,
-                        tracker = Tracker,
-                        protocol_cb = Connection,
-                        transport_cb = Transport,
-                        negotiated_version = Version,
-                        renegotiate_at = RenegotiateAt},          
+        StateData0#data{connection_states = ConnectionStates#{current_write => WriteState},
+                        static = Static0#static{connection_pid = Pid,
+                                                connection_monitor = Monitor,
+                                                role = Role,
+                                                socket = Socket,
+                                                socket_options = SockOpts,
+                                                tracker = Tracker,
+                                                protocol_cb = Connection,
+                                                transport_cb = Transport,
+                                                negotiated_version = Version,
+                                                renegotiate_at = RenegotiateAt}},
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(_, _, _) ->
     %% Just in case anything else sneeks through
@@ -227,7 +231,7 @@ init(_, _, _) ->
                   gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
 connection({call, From}, {application_data, AppData}, 
-           #data{socket_options = #socket_options{packet = Packet}} =
+           #data{static = #static{socket_options = #socket_options{packet = Packet}}} =
                StateData) ->
     case encode_packet(Packet, AppData) of
         {error, _} = Error ->
@@ -248,20 +252,20 @@ connection({call, From}, downgrade, #data{connection_states =
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(From, Opts, StateData);
 connection({call, From}, dist_get_tls_socket, 
-           #data{protocol_cb = Connection, 
-                 transport_cb = Transport,
-                 socket = Socket,
-                 connection_pid = Pid, 
-                 tracker = Tracker} = StateData) ->
+           #data{static = #static{protocol_cb = Connection,
+                                  transport_cb = Transport,
+                                  socket = Socket,
+                                  connection_pid = Pid,
+                                  tracker = Tracker}} = StateData) ->
     TLSSocket = Connection:socket([Pid, self()], Transport, Socket, Connection, Tracker),
     {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
-           #data{connection_pid = Pid} = StateData) ->
+           #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
     ok = ssl_connection:dist_handshake_complete(Pid, DHandle),
     %% From now on we execute on normal priority
     process_flag(priority, normal),
-    {keep_state, StateData#data{dist_handle = DHandle},
+    {keep_state, StateData#data{static = Static#static{dist_handle = DHandle}},
      [{reply,From,ok}|
       case dist_data(DHandle) of
           [] ->
@@ -277,13 +281,13 @@ connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData};
 connection(cast, {new_write, WritesState, Version}, 
-           #data{connection_states = ConnectionStates0} = StateData) -> 
+           #data{connection_states = ConnectionStates, static = Static} = StateData) ->
     {next_state, connection, 
      StateData#data{connection_states = 
-                        ConnectionStates0#{current_write => WritesState},
-                    negotiated_version = Version}};
+                        ConnectionStates#{current_write => WritesState},
+                    static = Static#static{negotiated_version = Version}}};
 %%
-connection(info, dist_data, #data{dist_handle = DHandle}) ->
+connection(info, dist_data, #data{static = #static{dist_handle = DHandle}}) ->
     {keep_state_and_data,
       case dist_data(DHandle) of
           [] ->
@@ -322,11 +326,10 @@ handshake({call, _}, _, _) ->
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
 handshake(cast, {new_write, WritesState, Version}, 
-          #data{connection_states = ConnectionStates0} = StateData) ->
+          #data{connection_states = ConnectionStates, static = Static} = StateData) ->
     {next_state, connection, 
-     StateData#data{connection_states = 
-                        ConnectionStates0#{current_write => WritesState},
-                   negotiated_version = Version}};
+     StateData#data{connection_states = ConnectionStates#{current_write => WritesState},
+                    static = Static#static{negotiated_version = Version}}};
 handshake(info, dist_data, _) ->
     {keep_state_and_data, [postpone]};
 handshake(info, tick, _) ->
@@ -373,24 +376,24 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%%===================================================================
 
 handle_set_opts(
-  From, Opts, #data{socket_options = SockOpts} = StateData) ->
-    {keep_state, StateData#data{socket_options = set_opts(SockOpts, Opts)},
+  From, Opts, #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
+    {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]}.
 
 handle_common(
   {call, From}, {set_opts, Opts},
-  #data{socket_options = SockOpts} = StateData) ->
-    {keep_state, StateData#data{socket_options = set_opts(SockOpts, Opts)},
+  #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
+    {keep_state, StateData#data{static = Static#static{socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]};
 handle_common(
   info, {'DOWN', Monitor, _, _, Reason},
-  #data{connection_monitor = Monitor,
-        dist_handle = Handle} = StateData) when Handle =/= undefined ->
+  #data{static = #static{connection_monitor = Monitor,
+                         dist_handle = Handle}} = StateData) when Handle =/= undefined ->
     {next_state, death_row, StateData,
      [{state_timeout, 5000, Reason}]};
 handle_common(
   info, {'DOWN', Monitor, _, _, _},
-  #data{connection_monitor = Monitor} = StateData) ->
+  #data{static = #static{connection_monitor = Monitor}} = StateData) ->
     {stop, normal, StateData};
 handle_common(info, Msg, _) ->
     Report =
@@ -404,10 +407,10 @@ handle_common(Type, Msg, _) ->
     error_logger:error_report(Report),
     keep_state_and_data.
 
-send_tls_alert(Alert, #data{negotiated_version = Version,
-                            socket = Socket,
-                            protocol_cb = Connection, 
-                            transport_cb = Transport,
+send_tls_alert(Alert, #data{static = #static{negotiated_version = Version,
+                                             socket = Socket,
+                                             protocol_cb = Connection,
+                                             transport_cb = Transport},
                             connection_states = ConnectionStates0} = StateData0) ->
     {BinMsg, ConnectionStates} =
 	Connection:encode_alert(Alert, Version, ConnectionStates0),
@@ -415,14 +418,14 @@ send_tls_alert(Alert, #data{negotiated_version = Version,
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
-		       #data{connection_pid = Pid,
-                             socket = Socket,
-                             dist_handle = DistHandle,
-                             negotiated_version = Version,
-                             protocol_cb = Connection,
-                             transport_cb = Transport,
-                             connection_states = ConnectionStates0,
-                             renegotiate_at = RenegotiateAt} = StateData0) ->
+		       #data{static = #static{connection_pid = Pid,
+                                              socket = Socket,
+                                              dist_handle = DistHandle,
+                                              negotiated_version = Version,
+                                              protocol_cb = Connection,
+                                              transport_cb = Transport,
+                                              renegotiate_at = RenegotiateAt},
+                             connection_states = ConnectionStates0} = StateData0) ->
     case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
 	true ->
 	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0),
