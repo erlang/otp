@@ -72,7 +72,7 @@
 
 -import(lists, [all/2,any/2,append/1,duplicate/2,
                 foldl/3,last/1,map/2,member/2,partition/2,
-                reverse/1,reverse/2,sort/1,zip/2]).
+                reverse/1,reverse/2,sort/1,splitwith/2,zip/2]).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -2496,7 +2496,7 @@ rel2fam(S0) ->
     sofs:to_external(S).
 
 split_phis(Is) ->
-    partition(fun(#b_set{op=Op}) -> Op =:= phi end, Is).
+    splitwith(fun(#b_set{op=Op}) -> Op =:= phi end, Is).
 
 is_yreg({y,_}) -> true;
 is_yreg({x,_}) -> false;
