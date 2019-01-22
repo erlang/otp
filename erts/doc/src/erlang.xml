@@ -3343,7 +3343,7 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="monitor" arity="2" clause_i="1" since=""/>
-      <name name="monitor" arity="2" clause_i="2" since="?"/>
+      <name name="monitor" arity="2" clause_i="2" since="OTP 19.0"/>
       <name name="monitor" arity="2" clause_i="3" since="OTP 18.0"/>
       <fsummary>Start monitoring.</fsummary>
       <type name="registered_name"/>
@@ -4530,7 +4530,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="5" since="?"/>
+      <name name="port_info" arity="2" clause_i="5" since="OTP R16B"/>
       <fsummary>Information about the locking of a port.</fsummary>
       <desc>
         <p><c><anno>Locking</anno></c> is one of the following:</p>
@@ -4551,7 +4551,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="6" since="?"/>
+      <name name="port_info" arity="2" clause_i="6" since="OTP R16B"/>
       <fsummary>Information about the memory size of a port.</fsummary>
       <desc>
         <p><c><anno>Bytes</anno></c> is the total number of
@@ -4569,7 +4569,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="7" since="?"/>
+      <name name="port_info" arity="2" clause_i="7" since="OTP R16B"/>
       <fsummary>Information about the monitors of a port.</fsummary>
       <desc>
         <p><c><anno>Monitors</anno></c> represent processes monitored by
@@ -4585,7 +4585,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="8" since="?"/>
+      <name name="port_info" arity="2" clause_i="8" since="OTP 19.0"/>
       <fsummary>Which processes are monitoring this port.</fsummary>
       <desc>
         <p>Returns list of pids that are monitoring given port at the
@@ -4617,7 +4617,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="10" since="?"/>
+      <name name="port_info" arity="2" clause_i="10" since="OTP R16B"/>
       <fsummary>Information about the OS pid of a port.</fsummary>
       <desc>
         <p><c><anno>OsPid</anno></c> is the process identifier (or equivalent)
@@ -4655,7 +4655,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="12" since="?"/>
+      <name name="port_info" arity="2" clause_i="12" since="OTP R16B"/>
       <fsummary>Information about the parallelism hint of a port.</fsummary>
       <desc>
         <p><c><anno>Boolean</anno></c> corresponds to the port parallelism
@@ -4666,7 +4666,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="port_info" arity="2" clause_i="13" since="?"/>
+      <name name="port_info" arity="2" clause_i="13" since="OTP R16B"/>
       <fsummary>Information about the queue size of a port.</fsummary>
       <desc>
         <p><c><anno>Bytes</anno></c> is the total number
@@ -4786,7 +4786,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="2" clause_i="4" since="?"/>
+      <name name="process_flag" arity="2" clause_i="4" since="OTP R13B04"/>
       <fsummary>Set process flag min_bin_vheap_size for the calling process.
       </fsummary>
       <desc>
@@ -4798,7 +4798,7 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="process_flag" arity="2" clause_i="5"
-	    anchor="process_flag_max_heap_size" since="?"/>
+	    anchor="process_flag_max_heap_size" since="OTP 19.0"/>
       <fsummary>Set process flag max_heap_size for the calling process.
       </fsummary>
       <type name="max_heap_size"/>
@@ -4872,7 +4872,7 @@ RealSystem = system + MissedSystem</code>
 
     <func>
       <name name="process_flag" arity="2" clause_i="6"
-	    anchor="process_flag_message_queue_data" since="?"/>
+	    anchor="process_flag_message_queue_data" since="OTP 19.0"/>
       <fsummary>Set process flag message_queue_data for the calling process.
       </fsummary>
       <type name="message_queue_data"/>
@@ -5051,7 +5051,7 @@ RealSystem = system + MissedSystem</code>
     </func>
 
     <func>
-      <name name="process_flag" arity="3" since="?"/>
+      <name name="process_flag" arity="3" since=""/>
       <fsummary>Set process flags for a process.</fsummary>
       <desc>
         <p>Sets certain flags for the process <c><anno>Pid</anno></c>,
@@ -6403,7 +6403,7 @@ true</pre>
 
     <func>
       <name name="statistics" arity="1" clause_i="1"
-	    anchor="statistics_active_tasks" since="?"/>
+	    anchor="statistics_active_tasks" since="OTP 18.3"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
         <p>Returns the same as
@@ -6418,7 +6418,7 @@ true</pre>
 
     <func>
       <name name="statistics" arity="1" clause_i="2"
-	    anchor="statistics_active_tasks_all" since="?"/>
+	    anchor="statistics_active_tasks_all" since="OTP 20.0"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
         <p>Returns a list where each element represents the amount
@@ -6507,7 +6507,7 @@ true</pre>
 
     <func>
       <name name="statistics" arity="1" clause_i="7"
-	    anchor="statistics_microstate_accounting" since="?"/>
+	    anchor="statistics_microstate_accounting" since="OTP 19.0"/>
       <fsummary>Information about microstate accounting.</fsummary>
       <desc>
         <p>Microstate accounting can be used to measure how much time the Erlang
@@ -6686,7 +6686,7 @@ lists:map(
 
     <func>
       <name name="statistics" arity="1" clause_i="10"
-	    anchor="statistics_run_queue_lengths" since="?"/>
+	    anchor="statistics_run_queue_lengths" since="OTP 18.3"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
         <p>Returns the same as
@@ -6701,7 +6701,7 @@ lists:map(
 
     <func>
       <name name="statistics" arity="1" clause_i="11"
-	    anchor="statistics_run_queue_lengths_all" since="?"/>
+	    anchor="statistics_run_queue_lengths_all" since="OTP 20.0"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
         <p>Returns a list where each element represents the amount
@@ -6762,7 +6762,7 @@ lists:map(
 
     <func>
       <name name="statistics" arity="1" clause_i="13"
-	    anchor="statistics_scheduler_wall_time" since="?"/>
+	    anchor="statistics_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
         <p>Returns a list of tuples with
@@ -6886,7 +6886,7 @@ ok
 
     <func>
       <name name="statistics" arity="1" clause_i="14"
-	    anchor="statistics_scheduler_wall_time_all" since="?"/>
+	    anchor="statistics_scheduler_wall_time_all" since="OTP 20.0"/>
       <fsummary>Information about each schedulers work time.</fsummary>
       <desc>
 	<p>The same as
@@ -6914,7 +6914,7 @@ ok
     </func>
     <func>
       <name name="statistics" arity="1" clause_i="15"
-	    anchor="statistics_total_active_tasks" since="?"/>
+	    anchor="statistics_total_active_tasks" since="OTP 18.3"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
         <p>The same as calling
@@ -6925,7 +6925,7 @@ ok
 
     <func>
       <name name="statistics" arity="1" clause_i="16"
-	    anchor="statistics_total_active_tasks_all" since="?"/>
+	    anchor="statistics_total_active_tasks_all" since="OTP 20.0"/>
       <fsummary>Information about active processes and ports.</fsummary>
       <desc>
         <p>The same as calling
@@ -6936,7 +6936,7 @@ ok
 
     <func>
       <name name="statistics" arity="1" clause_i="17"
-	    anchor="statistics_total_run_queue_lengths" since="?"/>
+	    anchor="statistics_total_run_queue_lengths" since="OTP 18.3"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
         <p>The same as calling
@@ -6947,7 +6947,7 @@ ok
 
     <func>
       <name name="statistics" arity="1" clause_i="18"
-	    anchor="statistics_total_run_queue_lengths_all" since="?"/>
+	    anchor="statistics_total_run_queue_lengths_all" since="OTP 20.0"/>
       <fsummary>Information about the run-queue lengths.</fsummary>
       <desc>
         <p>The same as calling
@@ -7190,7 +7190,7 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="3"
-	    anchor="system_flag_dirty_cpu_schedulers_online" since="?"/>
+	    anchor="system_flag_dirty_cpu_schedulers_online" since="OTP 17.0"/>
       <fsummary>Set system_flag_dirty_cpu_schedulers_online.</fsummary>
       <desc>
         <p>
@@ -7218,7 +7218,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="4" since="?"/>
+      <name name="system_flag" arity="2" clause_i="4" since="OTP 20.2.3"/>
       <fsummary>Set system flag for erts_alloc.</fsummary>
       <desc>
         <p>Sets system flags for
@@ -7255,7 +7255,7 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="6"
-	    anchor="system_flag_microstate_accounting" since="?"/>
+	    anchor="system_flag_microstate_accounting" since="OTP 19.0"/>
       <fsummary>Set system flag microstate_accounting.</fsummary>
       <desc>
         <p>
@@ -7283,7 +7283,7 @@ ok
     </func>
 
     <func>
-      <name name="system_flag" arity="2" clause_i="8" since="?"/>
+      <name name="system_flag" arity="2" clause_i="8" since="OTP R13B04"/>
       <fsummary>Set system flag min_bin_vheap_size.</fsummary>
       <desc>
         <p>Sets the default minimum binary virtual heap size for
@@ -7301,7 +7301,7 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="9"
-	    anchor="system_flag_max_heap_size" since="?"/>
+	    anchor="system_flag_max_heap_size" since="OTP 19.0"/>
       <fsummary>Set system flag max_heap_size.</fsummary>
       <type name="max_heap_size"/>
       <desc>
@@ -7502,7 +7502,7 @@ ok
 
     <func>
       <name name="system_flag" arity="2" clause_i="12"
-	    anchor="system_flag_scheduler_wall_time" since="?"/>
+	    anchor="system_flag_scheduler_wall_time" since="OTP R15B01"/>
       <fsummary>Set system flag scheduler_wall_time.</fsummary>
       <desc>
         <p>
@@ -7590,7 +7590,7 @@ Metadata = #{ pid => pid(),
 
     <func>
       <name name="system_flag" arity="2" clause_i="16"
-	    anchor="system_flag_time_offset" since="?"/>
+	    anchor="system_flag_time_offset" since="OTP 18.0"/>
       <fsummary>Finalize the time offset.</fsummary>
       <desc>
         <p>
@@ -7913,7 +7913,7 @@ Metadata = #{ pid => pid(),
 	    anchor="system_info_cpu_topology" since=""/>           <!-- cpu_topology -->
       <name name="system_info" arity="1" clause_i="13" since=""/>  <!-- {cpu_topology, _} -->
       <name name="system_info" arity="1" clause_i="38" since=""/>  <!-- logical_processors -->
-      <name name="system_info" arity="1" clause_i="74" since="?"/>  <!-- update_cpu_info -->
+      <name name="system_info" arity="1" clause_i="74" since="OTP R14B"/>  <!-- update_cpu_info -->
       <fsummary>Information about the CPU topology of the system.</fsummary>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
@@ -8065,14 +8065,14 @@ Metadata = #{ pid => pid(),
 
     <func>
       <name name="system_info" arity="1" clause_i="31"
-	    anchor="system_info_process" since="?"/>  <!-- fullsweep_after -->
+	    anchor="system_info_process" since=""/>  <!-- fullsweep_after -->
       <name name="system_info" arity="1" clause_i="32" since=""/>  <!-- garbage_collection -->
       <name name="system_info" arity="1" clause_i="33" since=""/>  <!-- heap_sizes -->
       <name name="system_info" arity="1" clause_i="34" since=""/>  <!-- heap_type -->
-      <name name="system_info" arity="1" clause_i="40" since="?"/>  <!-- max_heap_size -->
-      <name name="system_info" arity="1" clause_i="41" since="?"/>  <!-- message_queue_data -->
-      <name name="system_info" arity="1" clause_i="42" since="?"/>  <!-- min_heap_size -->
-      <name name="system_info" arity="1" clause_i="43" since="?"/>  <!-- min_bin_vheap_size -->
+      <name name="system_info" arity="1" clause_i="40" since="OTP 19.0"/>  <!-- max_heap_size -->
+      <name name="system_info" arity="1" clause_i="41" since="OTP 19.0"/>  <!-- message_queue_data -->
+      <name name="system_info" arity="1" clause_i="42" since="OTP R13B04"/>  <!-- min_heap_size -->
+      <name name="system_info" arity="1" clause_i="43" since="OTP R13B04"/>  <!-- min_bin_vheap_size -->
       <name name="system_info" arity="1" clause_i="57" since=""/>  <!-- procs -->
       <fsummary>Information about the default process heap settings.</fsummary>
       <type name="message_queue_data"/>
@@ -8183,12 +8183,12 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="6" anchor="system_info_limits" since="?"/>   <!-- atom_count -->
-      <name name="system_info" arity="1" clause_i="7" since="?"/>   <!-- atom_limit -->
-      <name name="system_info" arity="1" clause_i="29" since="?"/>  <!-- ets_count -->
-      <name name="system_info" arity="1" clause_i="30" since="?"/>  <!-- ets_limit -->
-      <name name="system_info" arity="1" clause_i="53" since="?"/>  <!-- port_count -->
-      <name name="system_info" arity="1" clause_i="54" since="?"/>  <!-- port_limit -->
+      <name name="system_info" arity="1" clause_i="6" anchor="system_info_limits" since="OTP 20.0"/>   <!-- atom_count -->
+      <name name="system_info" arity="1" clause_i="7" since="OTP 20.0"/>   <!-- atom_limit -->
+      <name name="system_info" arity="1" clause_i="29" since="OTP 21.1"/>  <!-- ets_count -->
+      <name name="system_info" arity="1" clause_i="30" since="OTP R16B03"/>  <!-- ets_limit -->
+      <name name="system_info" arity="1" clause_i="53" since="OTP R16B"/>  <!-- port_count -->
+      <name name="system_info" arity="1" clause_i="54" since="OTP R16B"/>  <!-- port_limit -->
       <name name="system_info" arity="1" clause_i="55" since=""/>  <!-- process_count -->
       <name name="system_info" arity="1" clause_i="56" since=""/>  <!-- process_limit -->
       <fsummary>Information about various system limits.</fsummary>
@@ -8271,7 +8271,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="69" since="OTP 18.0"/>  <!-- time_correction -->
       <name name="system_info" arity="1" clause_i="70" since="OTP 18.0"/>  <!-- time_offset -->
       <name name="system_info" arity="1" clause_i="71" since="OTP 18.0"/>  <!-- time_warp_mode -->
-      <name name="system_info" arity="1" clause_i="72" since="?"/>  <!-- tolerant_timeofday -->
+      <name name="system_info" arity="1" clause_i="72" since="OTP 17.1"/>  <!-- tolerant_timeofday -->
       <fsummary>Information about system time.</fsummary>
       <desc>
         <marker id="system_info_time_tags"/>
@@ -8492,12 +8492,12 @@ Metadata = #{ pid => pid(),
 
     <func>
       <name name="system_info" arity="1" clause_i="17"
-	    anchor="system_info_scheduler" since="?"/>  <!-- dirty_cpu_schedulers -->
-      <name name="system_info" arity="1" clause_i="18" since="?"/>  <!-- dirty_cpu_schedulers_online -->
-      <name name="system_info" arity="1" clause_i="19" since="?"/>  <!-- dirty_io_schedulers -->
+	    anchor="system_info_scheduler" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers -->
+      <name name="system_info" arity="1" clause_i="18" since="OTP 17.0"/>  <!-- dirty_cpu_schedulers_online -->
+      <name name="system_info" arity="1" clause_i="19" since="OTP 17.0"/>  <!-- dirty_io_schedulers -->
       <name name="system_info" arity="1" clause_i="45" since=""/>  <!-- multi_scheduling -->
       <name name="system_info" arity="1" clause_i="46" since=""/>  <!-- multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="49" since="?"/>  <!-- normal_multi_scheduling_blockers -->
+      <name name="system_info" arity="1" clause_i="49" since="OTP 19.0"/>  <!-- normal_multi_scheduling_blockers -->
       <name name="system_info" arity="1" clause_i="58" since=""/>  <!-- scheduler_bind_type -->
       <name name="system_info" arity="1" clause_i="59" since=""/>  <!-- scheduler_bindings -->
       <name name="system_info" arity="1" clause_i="60" since=""/>  <!-- scheduler_id -->
@@ -8793,9 +8793,9 @@ Metadata = #{ pid => pid(),
     <func>
       <name name="system_info" arity="1" clause_i="14"
 	    anchor="system_info_dist" since=""/>  <!-- creation -->
-      <name name="system_info" arity="1" clause_i="16" since="?"/>  <!-- delayed_node_table_gc -->
+      <name name="system_info" arity="1" clause_i="16" since="OTP 18.0"/>  <!-- delayed_node_table_gc -->
       <name name="system_info" arity="1" clause_i="20" since=""/>  <!-- dist -->
-      <name name="system_info" arity="1" clause_i="21" since="?"/>  <!-- dist_buf_busy_limit -->
+      <name name="system_info" arity="1" clause_i="21" since="OTP R14B01"/>  <!-- dist_buf_busy_limit -->
       <name name="system_info" arity="1" clause_i="22" since=""/>  <!-- dist_ctrl -->
       <fsummary>Information about erlang distribution.</fsummary>
       <desc>
@@ -8870,7 +8870,7 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="6"/>   atom_count -->
       <!-- <name name="system_info" arity="1" clause_i="7"/>   atom_limit -->
       <name name="system_info" arity="1" clause_i="8"
-	    anchor="system_info_misc" since="?"/>   <!-- build_type -->
+	    anchor="system_info_misc" since="OTP R14B"/>   <!-- build_type -->
       <name name="system_info" arity="1" clause_i="9" since=""/>   <!-- c_compiler_used -->
       <name name="system_info" arity="1" clause_i="10" since=""/>  <!-- check_io -->
       <name name="system_info" arity="1" clause_i="11" since=""/>  <!-- compat_rel -->
@@ -8886,8 +8886,8 @@ Metadata = #{ pid => pid(),
       <!-- <name name="system_info" arity="1" clause_i="21"/>  dist_buf_busy_limit -->
       <!-- <name name="system_info" arity="1" clause_i="22"/>  dist_ctrl -->
       <name name="system_info" arity="1" clause_i="23" since=""/>  <!-- driver_version -->
-      <name name="system_info" arity="1" clause_i="24" since="?"/>  <!-- dynamic_trace -->
-      <name name="system_info" arity="1" clause_i="25" since="?"/>  <!-- dynamic_trace_probes -->
+      <name name="system_info" arity="1" clause_i="24" since="OTP R15B01"/>  <!-- dynamic_trace -->
+      <name name="system_info" arity="1" clause_i="25" since="OTP R15B01"/>  <!-- dynamic_trace_probes -->
       <!-- <name name="system_info" arity="1" clause_i="26"/>  end_time -->
       <!-- <name name="system_info" arity="1" clause_i="27"/>  elib_malloc -->
       <!-- <name name="system_info" arity="1" clause_i="28"/>  eager_check_io, removed -->
@@ -8909,12 +8909,12 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="44" since=""/>  <!-- modified_timing_level -->
       <!-- <name name="system_info" arity="1" clause_i="45"/>  multi_scheduling -->
       <!-- <name name="system_info" arity="1" clause_i="46"/>  multi_scheduling_blockers -->
-      <name name="system_info" arity="1" clause_i="47" since="?"/>  <!-- nif_version -->
+      <name name="system_info" arity="1" clause_i="47" since="OTP 17.4"/>  <!-- nif_version -->
       <!-- n<name name="system_info" arity="1" clause_i="48"/>  ormal_multi_scheduling_blockers -->
       <name name="system_info" arity="1" clause_i="49" since=""/>  <!-- otp_release -->
       <!-- <name name="system_info" arity="1" clause_i="50"/>  os_monotonic_time_source -->
       <!-- <name name="system_info" arity="1" clause_i="51"/>  os_system_time_source -->
-      <name name="system_info" arity="1" clause_i="52" since="?"/>  <!-- port_parallelism -->
+      <name name="system_info" arity="1" clause_i="52" since="OTP R16B"/>  <!-- port_parallelism -->
       <!-- <name name="system_info" arity="1" clause_i="53"/>  port_count -->
       <!-- <name name="system_info" arity="1" clause_i="54"/>  port_limit -->
       <!-- <name name="system_info" arity="1" clause_i="55"/>  process_count -->
@@ -10541,7 +10541,7 @@ timestamp() ->
     </func>
 
     <func>
-      <name name="trace_pattern" arity="3" clause_i="1" since="?"/>
+      <name name="trace_pattern" arity="3" clause_i="1" since="OTP 19.0"/>
       <fsummary>Set trace pattern for message sending.</fsummary>
       <type name="trace_match_spec"/>
       <type name="match_variable"/>
@@ -10612,7 +10612,7 @@ timestamp() ->
     </func>
 
     <func>
-      <name name="trace_pattern" arity="3" clause_i="2" since="?"/>
+      <name name="trace_pattern" arity="3" clause_i="2" since="OTP 19.0"/>
       <fsummary>Set trace pattern for tracing of message receiving.</fsummary>
       <type name="trace_match_spec"/>
       <type name="match_variable"/>
