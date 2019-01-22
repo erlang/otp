@@ -51,8 +51,18 @@
                      cert_db_ref          :: certdb_ref() | 'undefined',
                      tracker              :: pid() | 'undefined' %% Tracker process for listen socket
                     }).
+
+-record(handshake_env, {
+                        client_hello_version  :: ssl_record:ssl_version() | 'undefined',
+                        unprocessed_handshake_events = 0    :: integer(),
+                        tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
+                                               | 'undefined',
+                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer}
+                       }).
+
 -record(state, {
                 static_env            :: #static_env{},
+                handshake_env         :: #handshake_env{} | secret_printout(),
                 %% Change seldome
                 user_application      :: {Monitor::reference(), User::pid()},
                 ssl_options           :: #ssl_options{},
@@ -68,12 +78,9 @@
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
                 user_data_buffer     :: undefined | binary() | secret_printout(),
-
+                
                 %% Used only in HS
-                unprocessed_handshake_events = 0    :: integer(),
-                tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
-                                       | 'undefined',
-                client_hello_version  :: ssl_record:ssl_version() | 'undefined',
+                
                 client_certificate_requested = false :: boolean(),
                 key_algorithm         :: ssl_cipher_format:key_algo(),
                 hashsign_algorithm = {undefined, undefined},
@@ -86,7 +93,6 @@
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
                 premaster_secret     :: binary() | secret_printout() | 'undefined',
-                renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
                 start_or_recv_from   :: term(),
                 timer                :: undefined | reference(), % start_or_recive_timer
                 hello,                %%:: #client_hello{} | #server_hello{},

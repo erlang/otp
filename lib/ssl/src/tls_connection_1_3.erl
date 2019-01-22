@@ -142,7 +142,7 @@ negotiated(internal,
                                      own_certificate = OwnCert},
                   ssl_options = #ssl_options{} = SslOpts,
                   key_share = KeyShare,
-                  tls_handshake_history = HHistory0,
+                  handshake_env = #handshake_env{tls_handshake_history = HHistory0},
                   private_key = CertPrivateKey,
                   static_env = #static_env{
                                   cert_db = CertDbHandle,
