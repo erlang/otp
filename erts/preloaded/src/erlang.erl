@@ -2295,7 +2295,7 @@ process_flag(_Flag, _Value) ->
                             non_neg_integer()}]} |
       {catchlevel, CatchLevel :: non_neg_integer()} |
       {current_function,
-       {Module :: module(), Function :: atom(), Arity :: arity()}} |
+       {Module :: module(), Function :: atom(), Arity :: arity()} | undefined} |
       {current_location,
        {Module :: module(), Function :: atom(), Arity :: arity(),
         Location :: [{file, Filename :: string()} | % not a stack_item()!

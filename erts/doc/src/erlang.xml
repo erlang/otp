@@ -5186,11 +5186,13 @@ RealSystem = system + MissedSystem</code>
               changed or removed without prior notice.</p>
           </item>
           <tag><c>{current_function, {<anno>Module</anno>,
-            <anno>Function</anno>, Arity}}</c></tag>
+            <anno>Function</anno>, Arity} | undefined}</c></tag>
           <item>
             <p><c><anno>Module</anno></c>, <c><anno>Function</anno></c>,
               <c><anno>Arity</anno></c> is
-              the current function call of the process.</p>
+              the current function call of the process. The value
+              <c>undefined</c> can be returned if the process is
+              currently executing native compiled code.</p>
           </item>
           <tag><c>{current_location, {<anno>Module</anno>,
             <anno>Function</anno>, <anno>Arity</anno>,
