@@ -320,9 +320,8 @@ digitally_sign(THash, Context, HashAlgo, PrivateKey =  #'RSAPrivateKey'{}) ->
 
 
 build_content(Context, THash) ->
-    <<"                                ",
-      "                                ",
-      Context/binary,?BYTE(0),THash/binary>>.
+    Prefix = binary:copy(<<32>>, 64),
+    <<Prefix/binary,Context/binary,?BYTE(0),THash/binary>>.
 
 %%====================================================================
 %% Handle handshake messages
