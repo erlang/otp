@@ -273,7 +273,7 @@ tls13_test_group() ->
     [tls13_enable_client_side,
      tls13_enable_server_side,
      tls_record_1_3_encode_decode,
-     tls13_key_schedule].
+     tls13_1_RTT_handshake].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
@@ -4534,10 +4534,19 @@ tls_record_1_3_encode_decode(_Config) ->
     ct:log("Decoded: ~p ~n", [DecodedText]),
     ok.
 
-tls13_key_schedule() ->
-     [{doc,"Test TLS 1.3 key schedule"}].
+tls13_1_RTT_handshake() ->
+     [{doc,"Test TLS 1.3 1-RTT Handshake"}].
 
-tls13_key_schedule(_Config) ->
+tls13_1_RTT_handshake(_Config) ->
+    %% ConnectionStates with NULL cipher
+    ConnStatesNull =
+       #{current_write =>
+             #{security_parameters =>
+                   #security_parameters{cipher_suite = ?TLS_NULL_WITH_NULL_NULL},
+               sequence_number => 0
+              }
+        },
+
     %% {client}  construct a ClientHello handshake message:
     %%
     %%    ClientHello (196 octets):  01 00 00 c0 03 03 cb 34 ec b1 e7 81 63
@@ -4550,20 +4559,59 @@ tls13_key_schedule(_Config) ->
     %%       af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03
     %%       02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06
     %%       02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
+    %%
+    %% {client}  send handshake record:
+    %%
+    %%    payload (196 octets):  01 00 00 c0 03 03 cb 34 ec b1 e7 81 63 ba
+    %%       1c 38 c6 da cb 19 6a 6d ff a2 1a 8d 99 12 ec 18 a2 ef 62 83 02
+    %%       4d ec e7 00 00 06 13 01 13 03 13 02 01 00 00 91 00 00 00 0b 00
+    %%       09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00 12
+    %%       00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 23 00
+    %%       00 00 33 00 26 00 24 00 1d 00 20 99 38 1d e5 60 e4 bd 43 d2 3d
+    %%       8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d 54 13 69 1e 52 9a af
+    %%       2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03 02
+    %%       03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06 02
+    %%       02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
+    %%
+    %%    complete record (201 octets):  16 03 01 00 c4 01 00 00 c0 03 03 cb
+    %%       34 ec b1 e7 81 63 ba 1c 38 c6 da cb 19 6a 6d ff a2 1a 8d 99 12
+    %%       ec 18 a2 ef 62 83 02 4d ec e7 00 00 06 13 01 13 03 13 02 01 00
+    %%       00 91 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+    %%       00 00 0a 00 14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02
+    %%       01 03 01 04 00 23 00 00 00 33 00 26 00 24 00 1d 00 20 99 38 1d
+    %%       e5 60 e4 bd 43 d2 3d 8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d
+    %%       54 13 69 1e 52 9a af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e
+    %%       04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02
+    %%       01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
     ClientHello =
-        hexstr2bin("010000c0" "0303cb34" "ecb1e781" "63ba1c38"
-                   "c6dacb19" "6a6dffa2" "1a8d9912" "ec18a2ef"
-                   "6283024d" "ece70000" "06130113" "03130201"
-                   "00009100" "00000b00" "09000006" "73657276"
-                   "6572ff01" "00010000" "0a001400" "12001d00"
-                   "17001800" "19010001" "01010201" "03010400"
-                   "23000000" "33002600" "24001d00" "2099381d"
-                   "e560e4bd" "43d23d8e" "435a7dba" "feb3c06e"
-                   "51c13cae" "4d541369" "1e529aaf" "2c002b00"
-                   "03020304" "000d0020" "001e0403" "05030603"
-                   "02030804" "08050806" "04010501" "06010201"
-                   "04020502" "06020202" "002d0002" "0101001c"
-                   "00024001"),
+        hexstr2bin("01 00 00 c0 03 03 cb 34 ec b1 e7 81 63
+          ba 1c 38 c6 da cb 19 6a 6d ff a2 1a 8d 99 12 ec 18 a2 ef 62 83
+          02 4d ec e7 00 00 06 13 01 13 03 13 02 01 00 00 91 00 00 00 0b
+          00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01 00 00 0a 00 14 00
+          12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 23
+          00 00 00 33 00 26 00 24 00 1d 00 20 99 38 1d e5 60 e4 bd 43 d2
+          3d 8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d 54 13 69 1e 52 9a
+          af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03 06 03
+          02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05 02 06
+          02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01"),
+
+    ClientHelloRecord =
+        %% Current implementation always sets
+        %% legacy_record_version to Ox0303
+        hexstr2bin("16 03 03 00 c4 01 00 00 c0 03 03 cb
+          34 ec b1 e7 81 63 ba 1c 38 c6 da cb 19 6a 6d ff a2 1a 8d 99 12
+          ec 18 a2 ef 62 83 02 4d ec e7 00 00 06 13 01 13 03 13 02 01 00
+          00 91 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+          00 00 0a 00 14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02
+          01 03 01 04 00 23 00 00 00 33 00 26 00 24 00 1d 00 20 99 38 1d
+          e5 60 e4 bd 43 d2 3d 8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d
+          54 13 69 1e 52 9a af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e
+          04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02
+          01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01"),
+
+    {CHEncrypted, _} =
+	tls_record:encode_handshake(ClientHello, {3,4}, ConnStatesNull),
+    ClientHelloRecord = iolist_to_binary(CHEncrypted),
 
     %% {server}  extract secret "early":
     %%
@@ -4578,18 +4626,10 @@ tls13_key_schedule(_Config) ->
     Salt = binary:copy(<<?BYTE(0)>>, 32),
     IKM = binary:copy(<<?BYTE(0)>>, 32),
     EarlySecret =
-        hexstr2bin("33ad0a1c" "607ec03b" "09e6cd98" "93680ce2"
-                   "10adf300" "aa1f2660" "e1b22e10" "f170f92a"),
-    {early_secret, EarlySecret} = tls_v1:key_schedule(early_secret, HKDFAlgo, {psk, Salt}),
+        hexstr2bin("33 ad 0a 1c 60 7e c0 3b 09 e6 cd 98 93 68 0c
+          e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a"),
 
-    %% Get 'ECPrivateKey'{}
-    %%
-    %% -record('ECPrivateKey', {
-    %%   version,
-    %%   privateKey,
-    %%   parameters = asn1_NOVALUE,
-    %%   publicKey = asn1_NOVALUE
-    %% }).
+    {early_secret, EarlySecret} = tls_v1:key_schedule(early_secret, HKDFAlgo, {psk, Salt}),
 
     %% {client}  create an ephemeral x25519 key pair:
     %%
@@ -4599,8 +4639,8 @@ tls13_key_schedule(_Config) ->
     %%    public key (32 octets):  99 38 1d e5 60 e4 bd 43 d2 3d 8e 43 5a 7d
     %%       ba fe b3 c0 6e 51 c1 3c ae 4d 54 13 69 1e 52 9a af 2c
     CPublicKey =
-        hexstr2bin("99381de5" "60e4bd43" "d23d8e43" "5a7dbafe"
-                   "b3c06e51" "c13cae4d" "5413691e" "529aaf2c"),
+        hexstr2bin("99 38 1d e5 60 e4 bd 43 d2 3d 8e 43 5a 7d
+          ba fe b3 c0 6e 51 c1 3c ae 4d 54 13 69 1e 52 9a af 2c"),
 
     %% {server}  create an ephemeral x25519 key pair:
     %%
@@ -4610,11 +4650,12 @@ tls13_key_schedule(_Config) ->
     %%   public key (32 octets):  c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6
     %%      72 e1 56 d6 cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f
     SPrivateKey =
-        hexstr2bin("b1580eea" "df6dd589" "b8ef4f2d" "5652578c"
-                   "c810e998" "0191ec8d" "058308ce" "a216a21e"),
+        hexstr2bin("b1 58 0e ea df 6d d5 89 b8 ef 4f 2d 56
+         52 57 8c c8 10 e9 98 01 91 ec 8d 05 83 08 ce a2 16 a2 1e"),
+
     SPublicKey =
-        hexstr2bin("c9828876" "112095fe" "66762bdb" "f7c672e1"
-                   "56d6cc25" "3b833df1" "dd69b1b0" "4e751f0f"),
+        hexstr2bin("c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6
+         72 e1 56 d6 cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f"),
 
     %% {server}  construct a ServerHello handshake message:
     %%
@@ -4624,12 +4665,11 @@ tls13_key_schedule(_Config) ->
     %%       76 11 20 95 fe 66 76 2b db f7 c6 72 e1 56 d6 cc 25 3b 83 3d f1
     %%       dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04
     ServerHello =
-        hexstr2bin("02000056" "0303a6af" "06a41218" "60dc5e6e"
-                   "60249cd3" "4c95930c" "8ac5cb14" "34dac155"
-                   "772ed3e2" "69280013" "0100002e" "00330024"
-                   "001d0020" "c9828876" "112095fe" "66762bdb"
-                   "f7c672e1" "56d6cc25" "3b833df1" "dd69b1b0"
-                   "4e751f0f" "002b0002" "0304"),
+        hexstr2bin("02 00 00 56 03 03 a6 af 06 a4 12 18 60
+          dc 5e 6e 60 24 9c d3 4c 95 93 0c 8a c5 cb 14 34 da c1 55 77 2e
+          d3 e2 69 28 00 13 01 00 00 2e 00 33 00 24 00 1d 00 20 c9 82 88
+          76 11 20 95 fe 66 76 2b db f7 c6 72 e1 56 d6 cc 25 3b 83 3d f1
+          dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04"),
 
     %% {server}  derive secret for handshake "tls13 derived":
     %%
@@ -4646,20 +4686,21 @@ tls13_key_schedule(_Config) ->
     %%    expanded (32 octets):  6f 26 15 a1 08 c7 02 c5 67 8f 54 fc 9d ba
     %%       b6 97 16 c0 76 18 9c 48 25 0c eb ea c3 57 6c 36 11 ba
     Hash =
-        hexstr2bin("e3b0c442" "98fc1c14" "9afbf4c8" "996fb924"
-                   "27ae41e4" "649b934c" "a495991b" "7852b855"),
+        hexstr2bin("e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24
+          27 ae 41 e4 64 9b 93 4c a4 95 99 1b 78 52 b8 55"),
+
     Hash = crypto:hash(HKDFAlgo, <<>>),
 
     Info =
-        hexstr2bin("00200d74" "6c733133" "20646572" "69766564"
-                   "20e3b0c4" "4298fc1c" "149afbf4" "c8996fb9"
-                   "2427ae41" "e4649b93" "4ca49599" "1b7852b8"
-                   "55"),
+        hexstr2bin("00 20 0d 74 6c 73 31 33 20 64 65 72 69 76 65 64
+          20 e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4
+          64 9b 93 4c a4 95 99 1b 78 52 b8 55"),
+
     Info = tls_v1:create_info(<<"derived">>, Hash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     Expanded =
-        hexstr2bin("6f2615a1" "08c702c5" "678f54fc" "9dbab697"
-                   "16c07618" "9c48250c" "ebeac357" "6c3611ba"),
+        hexstr2bin("6f 26 15 a1 08 c7 02 c5 67 8f 54 fc 9d ba
+          b6 97 16 c0 76 18 9c 48 25 0c eb ea c3 57 6c 36 11 ba"),
 
     Expanded = tls_v1:derive_secret(EarlySecret, <<"derived">>, <<>>, HKDFAlgo),
 
@@ -4676,12 +4717,12 @@ tls13_key_schedule(_Config) ->
 
     %% salt = Expanded
     HandshakeIKM =
-        hexstr2bin("8bd4054f" "b55b9d63" "fdfbacf9" "f04b9f0d"
-                   "35e6d63f" "537563ef" "d4627290" "0f89492d"),
+        hexstr2bin("8b d4 05 4f b5 5b 9d 63 fd fb ac f9 f0 4b 9f 0d
+          35 e6 d6 3f 53 75 63 ef d4 62 72 90 0f 89 49 2d"),
 
     HandshakeSecret =
-        hexstr2bin("1dc826e9" "3606aa6f" "dc0aadc1" "2f741b01"
-                   "046aa6b9" "9f691ed2" "21a9f0ca" "043fbeac"),
+        hexstr2bin("1d c8 26 e9 36 06 aa 6f dc 0a ad c1 2f 74 1b
+          01 04 6a a6 b9 9f 69 1e d2 21 a9 f0 ca 04 3f be ac"),
 
     HandshakeIKM = crypto:compute_key(ecdh, CPublicKey, SPrivateKey, x25519),
 
@@ -4706,17 +4747,17 @@ tls13_key_schedule(_Config) ->
 
     %% PRK = HandshakeSecret
     CHSTHash =
-        hexstr2bin("860c06ed" "c07858ee" "8e78f0e7" "428c58ed"
-                   "d6b43f2c" "a3e6e95f" "02ed063c" "f0e1cad8"),
+        hexstr2bin("86 0c 06 ed c0 78 58 ee 8e 78 f0 e7 42 8c 58 ed
+          d6 b4 3f 2c a3 e6 e9 5f 02 ed 06 3c f0 e1 ca d8"),
+
     CHSTInfo =
-        hexstr2bin("00201274" "6c733133" "20632068" "73207472"
-                   "61666669" "6320860c" "06edc078" "58ee8e78"
-                   "f0e7428c" "58edd6b4" "3f2ca3e6" "e95f02ed"
-                   "063cf0e1" "cad8"),
+        hexstr2bin("00 20 12 74 6c 73 31 33 20 63 20 68 73 20 74 72
+          61 66 66 69 63 20 86 0c 06 ed c0 78 58 ee 8e 78 f0 e7 42 8c 58
+          ed d6 b4 3f 2c a3 e6 e9 5f 02 ed 06 3c f0 e1 ca d8"),
 
     CHSTrafficSecret =
-        hexstr2bin("b3eddb12" "6e067f35" "a780b3ab" "f45e2d8f"
-                   "3b1a9507" "38f52e96" "00746a0e" "27a55a21"),
+        hexstr2bin(" b3 ed db 12 6e 06 7f 35 a7 80 b3 ab f4 5e
+          2d 8f 3b 1a 95 07 38 f5 2e 96 00 74 6a 0e 27 a5 5a 21"),
 
     CHSH =  <<ClientHello/binary,ServerHello/binary>>,
     CHSTHash = crypto:hash(HKDFAlgo, CHSH),
@@ -4743,19 +4784,89 @@ tls13_key_schedule(_Config) ->
     %% PRK = HandshakeSecret
     %% hash = CHSTHash
     SHSTInfo =
-        hexstr2bin("00201274" "6c733133" "20732068" "73207472"
-                   "61666669" "6320860c" "06edc078" "58ee8e78"
-                   "f0e7428c" "58edd6b4" "3f2ca3e6" "e95f02ed"
-                   "063cf0e1" "cad8"),
+        hexstr2bin("00 20 12 74 6c 73 31 33 20 73 20 68 73 20 74 72
+          61 66 66 69 63 20 86 0c 06 ed c0 78 58 ee 8e 78 f0 e7 42 8c 58
+          ed d6 b4 3f 2c a3 e6 e9 5f 02 ed 06 3c f0 e1 ca d8"),
 
     SHSTrafficSecret =
-        hexstr2bin("b67b7d69" "0cc16c4e" "75e54213" "cb2d37b4"
-                   "e9c912bc" "ded9105d" "42befd59" "d391ad38"),
+        hexstr2bin("b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d
+          37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38"),
 
     SHSTInfo =  tls_v1:create_info(<<"s hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     SHSTrafficSecret =
         tls_v1:server_handshake_traffic_secret(HKDFAlgo, {handshake_secret, HandshakeSecret}, CHSH),
+
+
+    %% {server}  derive secret for master "tls13 derived":
+    %%
+    %%    PRK (32 octets):  1d c8 26 e9 36 06 aa 6f dc 0a ad c1 2f 74 1b 01
+    %%       04 6a a6 b9 9f 69 1e d2 21 a9 f0 ca 04 3f be ac
+    %%
+    %%    hash (32 octets):  e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24
+    %%       27 ae 41 e4 64 9b 93 4c a4 95 99 1b 78 52 b8 55
+    %%
+    %%    info (49 octets):  00 20 0d 74 6c 73 31 33 20 64 65 72 69 76 65 64
+    %%       20 e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4
+    %%       64 9b 93 4c a4 95 99 1b 78 52 b8 55
+    %%
+    %%    expanded (32 octets):  43 de 77 e0 c7 77 13 85 9a 94 4d b9 db 25
+    %%       90 b5 31 90 a6 5b 3e e2 e4 f1 2d d7 a0 bb 7c e2 54 b4
+
+    %% PRK = HandshakeSecret
+    %% hash = Hash
+    %% info = Info
+    MasterDeriveSecret =
+        hexstr2bin("43 de 77 e0 c7 77 13 85 9a 94 4d b9 db 25
+          90 b5 31 90 a6 5b 3e e2 e4 f1 2d d7 a0 bb 7c e2 54 b4"),
+
+    MasterDeriveSecret = tls_v1:derive_secret(HandshakeSecret, <<"derived">>, <<>>, HKDFAlgo),
+
+    %% {server}  extract secret "master":
+    %%
+    %%    salt (32 octets):  43 de 77 e0 c7 77 13 85 9a 94 4d b9 db 25 90 b5
+    %%       31 90 a6 5b 3e e2 e4 f1 2d d7 a0 bb 7c e2 54 b4
+    %%
+    %%    IKM (32 octets):  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+    %%
+    %%    secret (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a
+    %%       47 80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19
+
+    %% salt = MasterDeriveSecret
+    %% IKM = IKM
+    MasterSecret =
+        hexstr2bin("18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a
+          47 80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19"),
+
+    {master_secret, MasterSecret} =
+        tls_v1:key_schedule(master_secret, HKDFAlgo, {handshake_secret, HandshakeSecret}),
+
+    %% {server}  send handshake record:
+    %%
+    %%    payload (90 octets):  02 00 00 56 03 03 a6 af 06 a4 12 18 60 dc 5e
+    %%       6e 60 24 9c d3 4c 95 93 0c 8a c5 cb 14 34 da c1 55 77 2e d3 e2
+    %%       69 28 00 13 01 00 00 2e 00 33 00 24 00 1d 00 20 c9 82 88 76 11
+    %%       20 95 fe 66 76 2b db f7 c6 72 e1 56 d6 cc 25 3b 83 3d f1 dd 69
+    %%       b1 b0 4e 75 1f 0f 00 2b 00 02 03 04
+    %%
+    %%    complete record (95 octets):  16 03 03 00 5a 02 00 00 56 03 03 a6
+    %%       af 06 a4 12 18 60 dc 5e 6e 60 24 9c d3 4c 95 93 0c 8a c5 cb 14
+    %%       34 da c1 55 77 2e d3 e2 69 28 00 13 01 00 00 2e 00 33 00 24 00
+    %%       1d 00 20 c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6 72 e1 56 d6
+    %%       cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04
+
+    %% payload = ServerHello
+    ServerHelloRecord =
+        hexstr2bin("16 03 03 00 5a 02 00 00 56 03 03 a6
+          af 06 a4 12 18 60 dc 5e 6e 60 24 9c d3 4c 95 93 0c 8a c5 cb 14
+          34 da c1 55 77 2e d3 e2 69 28 00 13 01 00 00 2e 00 33 00 24 00
+          1d 00 20 c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6 72 e1 56 d6
+          cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04"),
+
+    {SHEncrypted, _} =
+	tls_record:encode_handshake(ServerHello, {3,4}, ConnStatesNull),
+    ServerHelloRecord = iolist_to_binary(SHEncrypted),
 
     %% {server}  derive write traffic keys for handshake data:
     %%
@@ -4773,16 +4884,16 @@ tls13_key_schedule(_Config) ->
 
     %% PRK = SHSTrafficSecret
     WriteKeyInfo =
-        hexstr2bin("00100974" "6c733133" "206b6579" "00"),
+        hexstr2bin("00 10 09 74 6c 73 31 33 20 6b 65 79 00"),
 
     WriteKey =
-        hexstr2bin("3fce5160" "09c21727" "d0f2e4e8" "6ee403bc"),
+        hexstr2bin("3f ce 51 60 09 c2 17 27 d0 f2 e4 e8 6e e4 03 bc"),
 
     WriteIVInfo =
-        hexstr2bin("000c0874" "6c733133" "20697600"),
+        hexstr2bin("00 0c 08 74 6c 73 31 33 20 69 76 00"),
 
     WriteIV =
-        hexstr2bin("5d313eb2" "671276ee" "13000b30"),
+        hexstr2bin(" 5d 31 3e b2 67 12 76 ee 13 00 0b 30"),
 
     Cipher = aes_128_gcm, %% TODO: get from ServerHello
 
@@ -4791,7 +4902,6 @@ tls13_key_schedule(_Config) ->
     WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
 
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SHSTrafficSecret).
-
 
 
 create_info(Label0, Context0) ->
@@ -4803,7 +4913,6 @@ create_info(Label0, Context0) ->
     Content = <<Label/binary, Context/binary>>,
     Len = size(Content),
     HkdfLabel = <<?UINT16(32), Content/binary>>.
-
 
 
 %%--------------------------------------------------------------------
@@ -5594,21 +5703,30 @@ tls_or_dtls('dtlsv1.2') ->
 tls_or_dtls(_) ->
     tls.
 
+hexstr2int(S) ->
+    B = hexstr2bin(S),
+    Bits = size(B) * 8,
+    <<Integer:Bits/integer>> = B,
+    Integer.
+
 hexstr2bin(S) when is_binary(S) ->
-    list_to_binary(hexstr2list(binary_to_list(S)));
+    hexstr2bin(S, <<>>);
 hexstr2bin(S) ->
-    list_to_binary(hexstr2list(S)).
+    hexstr2bin(list_to_binary(S), <<>>).
+%%
+hexstr2bin(<<>>, Acc) ->
+    Acc;
+hexstr2bin(<<C,T/binary>>, Acc) when C =:= 32;   %% SPACE
+                                     C =:= 10;   %% LF
+                                     C =:= 13 -> %% CR
+    hexstr2bin(T, Acc);
+hexstr2bin(<<X,Y,T/binary>>, Acc) ->
+    I = hex2int(X) * 16 + hex2int(Y),
+    hexstr2bin(T, <<Acc/binary,I>>).
 
-hexstr2list([$ |T]) ->
-    hexstr2list(T);
-hexstr2list([X,Y|T]) ->
-    [mkint(X)*16 + mkint(Y) | hexstr2list(T)];
-hexstr2list([]) ->
-    [].
-
-mkint(C) when $0 =< C, C =< $9 ->
+hex2int(C) when $0 =< C, C =< $9 ->
     C - $0;
-mkint(C) when $A =< C, C =< $F ->
+hex2int(C) when $A =< C, C =< $F ->
     C - $A + 10;
-mkint(C) when $a =< C, C =< $f ->
+hex2int(C) when $a =< C, C =< $f ->
     C - $a + 10.
