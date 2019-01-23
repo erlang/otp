@@ -87,12 +87,13 @@ init([Notebook, Parent, Config]) ->
 			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
 			   Col + 1
 		   end,
-    ListItems = [{"Table Name", ?wxLIST_FORMAT_LEFT,  200},
-		 {"Objects",    ?wxLIST_FORMAT_RIGHT, 100},
-		 {"Size (kB)",  ?wxLIST_FORMAT_RIGHT, 100},
-		 {"Owner Pid",  ?wxLIST_FORMAT_CENTER, 150},
-		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  200},
-		 {"Table Id",   ?wxLIST_FORMAT_LEFT, 250}
+    Scale = observer_wx:get_scale(),
+    ListItems = [{"Table Name", ?wxLIST_FORMAT_LEFT,  Scale*200},
+		 {"Objects",    ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"Size (kB)",  ?wxLIST_FORMAT_RIGHT, Scale*100},
+		 {"Owner Pid",  ?wxLIST_FORMAT_CENTER, Scale*150},
+		 {"Owner Name", ?wxLIST_FORMAT_LEFT,  Scale*200},
+		 {"Table Id",   ?wxLIST_FORMAT_LEFT, Scale*250}
 		],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),

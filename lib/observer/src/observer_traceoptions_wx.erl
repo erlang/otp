@@ -167,9 +167,10 @@ select_nodes(Parent, Nodes) ->
     check_selector(Parent, Choices).
 
 module_selector(Parent, Node) ->
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Select Module or Event",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),
     MainSz  = wxBoxSizer:new(?wxVERTICAL),
@@ -237,9 +238,10 @@ function_selector(Parent, Node, Module) ->
     end.
 
 check_selector(Parent, ParsedChoices) ->
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Functions",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
 
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),
@@ -331,9 +333,10 @@ select_matchspec(Pid, Parent, AllMatchSpecs, Key) ->
 	    {value,{Key,MSs0},Rest} -> {MSs0,Rest};
 	    false -> {[],AllMatchSpecs}
 	end,
+    Scale = observer_wx:get_scale(),
     Dialog = wxDialog:new(Parent, ?wxID_ANY, "Trace Match Specifications",
 			  [{style, ?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER},
-			   {size, {400, 400}}]),
+			   {size, {400*Scale, 400*Scale}}]),
 
     Panel = wxPanel:new(Dialog),
     PanelSz = wxBoxSizer:new(?wxVERTICAL),

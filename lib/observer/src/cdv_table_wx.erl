@@ -50,11 +50,12 @@ init([ParentWin, {ColumnSpec,Info,TW}]) ->
 	end,
     Grid = wxListCtrl:new(ParentWin, [{style, Style}]),
     Li = wxListItem:new(),
+    Scale = observer_wx:get_scale(),
     AddListEntry = fun({Name, Align, DefSize}, Col) ->
 			   wxListItem:setText(Li, Name),
 			   wxListItem:setAlign(Li, Align),
 			   wxListCtrl:insertColumn(Grid, Col, Li),
-			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
+			   wxListCtrl:setColumnWidth(Grid, Col, DefSize*Scale),
 			   Col + 1
 		   end,
     lists:foldl(AddListEntry, 0, ColumnSpec),

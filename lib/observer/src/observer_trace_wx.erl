@@ -188,8 +188,9 @@ create_proc_port_view(Parent) ->
 			   wxListCtrl:setColumnWidth(Procs, Col, DefSize),
 			   Col + 1
 		   end,
-    ProcListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  120},
-		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    Scale = observer_wx:get_scale(),
+    ProcListItems = [{"Process Id",    ?wxLIST_FORMAT_CENTER,  Scale*120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, Scale*300}],
     lists:foldl(AddProc, 0, ProcListItems),
 
     AddPort = fun({Name, Align, DefSize}, Col) ->
@@ -199,8 +200,8 @@ create_proc_port_view(Parent) ->
 			   wxListCtrl:setColumnWidth(Ports, Col, DefSize),
 			   Col + 1
 		   end,
-    PortListItems = [{"Port Id",    ?wxLIST_FORMAT_CENTER,  120},
-		     {"Trace Options", ?wxLIST_FORMAT_LEFT, 300}],
+    PortListItems = [{"Port Id",    ?wxLIST_FORMAT_CENTER,  Scale*120},
+		     {"Trace Options", ?wxLIST_FORMAT_LEFT, Scale*300}],
     lists:foldl(AddPort, 0, PortListItems),
 
     wxListItem:destroy(Li),
@@ -242,14 +243,15 @@ create_matchspec_view(Parent) ->
     Funcs   = wxListCtrl:new(Splitter, [{winid, ?FUNCS_WIN}, {style, Style}]),
     Li = wxListItem:new(),
 
+    Scale = observer_wx:get_scale(),
     wxListItem:setText(Li, "Modules"),
     wxListCtrl:insertColumn(Modules, 0, Li),
     wxListItem:setText(Li, "Functions"),
     wxListCtrl:insertColumn(Funcs, 0, Li),
-    wxListCtrl:setColumnWidth(Funcs, 0, 150),
+    wxListCtrl:setColumnWidth(Funcs, 0, Scale*150),
     wxListItem:setText(Li, "Match Spec"),
     wxListCtrl:insertColumn(Funcs, 1, Li),
-    wxListCtrl:setColumnWidth(Funcs, 1, 300),
+    wxListCtrl:setColumnWidth(Funcs, 1, Scale*300),
     wxListItem:destroy(Li),
 
     wxSplitterWindow:setSashGravity(Splitter, 0.0),
@@ -969,7 +971,8 @@ output_file(true, true, Opts) ->
 
 create_logwindow(_Parent, false) -> {false, false};
 create_logwindow(Parent, true) ->
-    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750, 800}}]),
+    Scale = observer_wx:get_scale(),
+    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750*Scale, 800*Scale}}]),
     MB = wxMenuBar:new(),
     File = wxMenu:new(),
     wxMenu:append(File, ?LOG_CLEAR, "Clear Log\tCtrl-C"),
