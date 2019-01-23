@@ -72,7 +72,7 @@ static ErtsTracer default_port_tracer;
 
 static Eterm system_monitor;
 static Eterm system_profile;
-static erts_aint_t system_logger;
+static erts_atomic_t system_logger;
 
 #ifdef HAVE_ERTS_NOW_CPU
 int erts_cpu_timestamp;
