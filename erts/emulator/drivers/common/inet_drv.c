@@ -12960,38 +12960,40 @@ make_noninheritable_handle(SOCKET s)
 static void fire_multi_timers(tcp_descriptor *desc, ErlDrvPort port,
 			      ErlDrvData data)
 {
-    ErlDrvTime next_timeout;
-    MultiTimerData *curr = desc->mtd;
-    if (!curr) {
-	ASSERT(0);
-	return;
+    ErlDrvTime next_timeout = 0;
+    if (!desc->mtd) {
+        ASSERT(0);
+        return;
     }
 #ifdef DEBUG
     {
 	ErlDrvTime chk = erl_drv_monotonic_time(ERL_DRV_MSEC);
-	ASSERT(chk >= curr->when);
+	ASSERT(chk >= desc->mtd->when);
     }
 #endif
     do {
-	MultiTimerData *save = curr;
+	MultiTimerData save = *desc->mtd;
 
-	(*(save->timeout_function))(data,save->caller);
+        /* We first remove the timer so that the timeout_functions has
+           can call clean_multi_timers without breaking anything */
+        if (desc->mtd_cache == NULL) {
+            desc->mtd_cache = desc->mtd;
+        } else {
+            FREE(desc->mtd);
+        }
 
-        curr = curr->next;
+        desc->mtd = save.next;
+        if (desc->mtd != NULL)
+            desc->mtd->prev = NULL;
 
-        if (desc->mtd_cache == NULL)
-            desc->mtd_cache = save;
-        else
-            FREE(save);
+	(*(save.timeout_function))(data,save.caller);
 
-	if (curr == NULL) {
-            desc->mtd = NULL;
+        if (desc->mtd == NULL)
 	    return;
-	}
-	curr->prev = NULL;
-	next_timeout = curr->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
+
+	next_timeout = desc->mtd->when - erl_drv_monotonic_time(ERL_DRV_MSEC);
     } while (next_timeout <= 0);
-    desc->mtd = curr;
+
     driver_set_timer(port, (unsigned long) next_timeout);
 }
 

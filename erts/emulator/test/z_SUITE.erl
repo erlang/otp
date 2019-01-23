@@ -251,7 +251,7 @@ pollset_size(Config) when is_list(Config) ->
 	  end.
 
 check_io_debug(Config) when is_list(Config) ->
-    case lists:keysearch(name, 1, erlang:system_info(check_io)) of
+    case lists:keysearch(name, 1, hd(erlang:system_info(check_io))) of
 	      {value, {name, erts_poll}} -> check_io_debug_test();
 	      _ -> {skipped, "Not implemented in this emulator"}
 	  end.
