@@ -41,7 +41,7 @@
 
 %% Create handshake messages
 -export([certificate/5,
-         certificate_verify/5,
+         certificate_verify/4,
          encrypted_extensions/0,
          server_hello/4]).
 
@@ -112,12 +112,14 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
     end.
 
 %% TODO: use maybe monad for error handling!
-certificate_verify(OwnCert, PrivateKey, SignatureScheme, Messages, server) ->
+certificate_verify(PrivateKey, SignatureScheme,
+                   #state{handshake_env =
+                              #handshake_env{
+                                 tls_handshake_history = {Messages, _}}}, server) ->
     {HashAlgo, _, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
-    %% Transcript-Hash(Handshake Context, Certificate)
-    Context = [Messages, OwnCert],
+    Context = lists:reverse(Messages),
     THash = tls_v1:transcript_hash(Context, HashAlgo),
 
     Signature = digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
@@ -316,7 +318,8 @@ digitally_sign(THash, Context, HashAlgo, PrivateKey =  #'RSAPrivateKey'{}) ->
 
     public_key:sign(Content, HashAlgo, PrivateKey,
                     [{rsa_padding, rsa_pkcs1_pss_padding},
-                     {rsa_pss_saltlen, PadLen}]).
+                     {rsa_pss_saltlen, -1},
+                     {rsa_mgf1_md, HashAlgo}]).
 
 
 build_content(Context, THash) ->
@@ -452,13 +455,9 @@ do_negotiated(#{client_share := ClientKey,
         State5 = tls_connection:queue_handshake(Certificate, State4),
 
         %% Create CertificateVerify
-        #state{handshake_env =
-                   #handshake_env{tls_handshake_history = {Messages, _}}} = State5,
-
         %% Use selected signature_alg from here, HKDF only used for key_schedule
-        CertificateVerify =
-            tls_handshake_1_3:certificate_verify(OwnCert, CertPrivateKey, SignatureScheme,
-                                                 Messages, server),
+        CertificateVerify = certificate_verify(CertPrivateKey, SignatureScheme,
+                                               State5, server),
 
         %% Encode CertificateVerify
         %% Send Certificate, CertifricateVerify
