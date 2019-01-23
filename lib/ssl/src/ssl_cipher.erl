@@ -146,8 +146,7 @@ aead_type(?CHACHA20_POLY1305) ->
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
-    {PaddingLength, Padding} = get_padding(TotSz, BlockSz),
-    [Fragment, Mac, PaddingLength, Padding].
+    [Fragment, Mac, padding_with_len(TotSz, BlockSz)].
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 	     Mac, Fragment, {3, N})
@@ -723,7 +722,6 @@ expanded_key_material(Cipher) when Cipher == aes_128_cbc;
 				   Cipher == chacha20_poly1305 ->
     unknown.  
 
-
 effective_key_bits(null) ->
     0;
 effective_key_bits(des_cbc) ->
@@ -743,18 +741,15 @@ iv_size(Cipher) when Cipher == null;
 		     Cipher == rc4_128;
 		     Cipher == chacha20_poly1305->
     0;
-
 iv_size(Cipher) when Cipher == aes_128_gcm;
 		     Cipher == aes_256_gcm ->
     4;
-
 iv_size(Cipher) ->
     block_size(Cipher).
 
 block_size(Cipher) when Cipher == des_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
-
 block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == aes_256_cbc;
 			Cipher == aes_128_gcm;
@@ -889,17 +884,51 @@ is_correct_padding(GenBlockCipher, {3, 1}, false) ->
 %% Padding must be checked in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len,
 					 padding = Padding}, _, _) ->
-    Len == byte_size(Padding) andalso
-        binary:copy(?byte(Len), Len) == Padding.
+    (Len == byte_size(Padding)) andalso (padding(Len) == Padding).
 
-get_padding(Length, BlockSize) ->
-    get_padding_aux(BlockSize, Length rem BlockSize).
+padding(PadLen) ->
+    case PadLen of
+        0 -> <<>>;
+        1 -> <<1>>;
+        2 -> <<2,2>>;
+        3 -> <<3,3,3>>;
+        4 -> <<4,4,4,4>>;
+        5 -> <<5,5,5,5,5>>;
+        6 -> <<6,6,6,6,6,6>>;
+        7 -> <<7,7,7,7,7,7,7>>;
+        8 -> <<8,8,8,8,8,8,8,8>>;
+        9 -> <<9,9,9,9,9,9,9,9,9>>;
+        10 -> <<10,10,10,10,10,10,10,10,10,10>>;
+        11 -> <<11,11,11,11,11,11,11,11,11,11,11>>;
+        12 -> <<12,12,12,12,12,12,12,12,12,12,12,12>>;
+        13 -> <<13,13,13,13,13,13,13,13,13,13,13,13,13>>;
+        14 -> <<14,14,14,14,14,14,14,14,14,14,14,14,14,14>>;
+        15 -> <<15,15,15,15,15,15,15,15,15,15,15,15,15,15,15>>;
+        _ ->
+            binary:copy(<<PadLen>>, PadLen)
+    end.
 
-get_padding_aux(_, 0) ->
-    {0, <<>>};
-get_padding_aux(BlockSize, PadLength) ->
-    N = BlockSize - PadLength,
-    {N, binary:copy(?byte(N), N)}.
+padding_with_len(TextLen, BlockSize) ->
+    case BlockSize - (TextLen rem BlockSize) of
+        0 -> <<0>>;
+        1 -> <<1,1>>;
+        2 -> <<2,2,2>>;
+        3 -> <<3,3,3,3>>;
+        4 -> <<4,4,4,4,4>>;
+        5 -> <<5,5,5,5,5,5>>;
+        6 -> <<6,6,6,6,6,6,6>>;
+        7 -> <<7,7,7,7,7,7,7,7>>;
+        8 -> <<8,8,8,8,8,8,8,8,8>>;
+        9 -> <<9,9,9,9,9,9,9,9,9,9>>;
+        10 -> <<10,10,10,10,10,10,10,10,10,10,10>>;
+        11 -> <<11,11,11,11,11,11,11,11,11,11,11,11>>;
+        12 -> <<12,12,12,12,12,12,12,12,12,12,12,12,12>>;
+        13 -> <<13,13,13,13,13,13,13,13,13,13,13,13,13,13>>;
+        14 -> <<14,14,14,14,14,14,14,14,14,14,14,14,14,14,14>>;
+        15 -> <<15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15>>;
+        PadLen ->
+            binary:copy(<<PadLen>>, PadLen + 1)
+    end.
 
 random_iv(IV) ->
     IVSz = byte_size(IV),
