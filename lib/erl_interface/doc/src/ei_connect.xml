@@ -85,6 +85,273 @@
       the <c>_tmo</c> suffix.</p>
   </section>
 
+  <section>
+    <marker id="ussi"/>
+    <title>User Supplied Socket Implementation</title>
+    <p>By default <c>ei</c> supplies a TCP/IPv4 socket interface
+    that is used when communicating. The user can however plug in
+    his/her own IPv4 socket implementation. This, for example, in order
+    to communicate over TLS. A user supplied socket implementation
+    is plugged in by passing a
+    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+    to either
+    <seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+    or
+    <seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>.</p>
+    
+    <p>All callbacks in the <c>ei_socket_callbacks</c> structure
+    <em>should</em> return zero on success; and a posix error
+    code on failure.</p>
+    
+    <p>The <c>addr</c> argument of the <c>listen</c>, <c>accept</c>,
+    and <c>connect</c> callbacks refer to appropriate address
+    structure for currently used protocol. Currently <c>ei</c>
+    only supports IPv4. That is, at this time <c>addr</c> always
+    points to a <c>struct sockaddr_in</c> structure.</p>
+
+    <p>The <c>ei_socket_callbacks</c> structure may be enlarged in
+    the future. All fields not set, <em>needs</em> to be zeroed out.</p>
+
+    <marker id="ei_socket_callbacks"/>
+    <code type="none"><![CDATA[
+typedef struct {
+    int flags;
+    int (*socket)(void **ctx, void *setup_ctx);
+    int	(*close)(void *ctx);
+    int (*listen)(void *ctx, void *addr, int *len, int backlog);
+    int (*accept)(void **ctx, void *addr, int *len, unsigned tmo);
+    int (*connect)(void *ctx, void *addr, int len, unsigned tmo);
+    int (*writev)(void *ctx, const void *iov, int iovcnt, ssize_t *len, unsigned tmo);
+    int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo);
+    int (*read)(void *ctx, char *buf, ssize_t *len, unsigned tmo);
+    int (*handshake_packet_header_size)(void *ctx, int *sz);
+    int (*connect_handshake_complete)(void *ctx);
+    int (*accept_handshake_complete)(void *ctx);
+    int (*get_fd)(void *ctx, int *fd);
+} ei_socket_callbacks;
+        ]]></code>
+
+    <taglist>
+      
+      <tag><c>flags</c></tag>
+      <item>
+	<p>Flags informing <c>ei</c> about the behaviour of the
+	callbacks. Flags should be bitwise or:ed together. If no flag,
+	is set, the <c>flags</c> field should contain <c>0</c>. Currently,
+	supported flags:</p>
+	<taglist>
+	  <tag><c>EI_SCLBK_FLG_FULL_IMPL</c></tag>
+	  <item>
+	    <p>
+	      If set, the <c>accept()</c>, <c>connect()</c>,
+	      <c>writev()</c>, <c>write()</c>, and <c>read()</c> callbacks
+	      implements timeouts. The timeout is passed in the <c>tmo</c>
+	      argument and is given in milli seconds. Note that the
+	      <c>tmo</c> argument to these callbacks differ from the
+	      timeout arguments in the <c>ei</c> API. Zero means a zero
+	      timeout. That is, poll and timeout immediately unless the
+	      operation is successful. <c>EI_SCLBK_INF_TMO</c>
+	      (max <c>unsigned</c>) means infinite timeout. The file
+	      descriptor is in blocking mode when a callback is called,
+	      and it must be in blocking mode when the callback returns.
+	    </p>
+	    <p>
+	      If not set, <c>ei</c> will implement the timeout using
+	      <c>select()</c> in order to determine when to call the
+	      callbacks and when to time out. The <c>tmo</c> arguments
+	      of the <c>accept()</c>, <c>connect()</c>, <c>writev()</c>,
+	      <c>write()</c>, and <c>read()</c> callbacks should be
+	      ignored. The callbacks may be called in non-blocking mode.
+	      The callbacks are not allowed to change between blocking
+	      and non-blocking mode. In order for this to work,
+	      <c>select()</c> needs to interact with the socket primitives
+	      used the same way as it interacts with the ordinary socket
+	      primitives. If this is not the case, the callbacks
+	      <em>need</em> to implement timeouts and this flag should
+	      be set.
+	    </p>
+	  </item>
+	</taglist>
+	<p>More flags may be introduced in the future.</p>
+      </item>
+
+      <tag><c>int (*socket)(void **ctx, void *setup_ctx)</c></tag>
+      <item>
+	<p>Create a socket and a context for the socket.</p>
+	
+	<p>On success it should set <c>*ctx</c> to point to a context for
+	the created socket. This context will be passed to all other
+	socket callbacks. This function will be passed the same
+	<c>setup_context</c> as passed to the preceeding
+	<seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+	or
+	<seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>
+	call.</p>
+	
+	<note><p>During the lifetime of a socket, the pointer <c>*ctx</c>
+	<em>has</em> to remain the same. That is, it cannot later be
+	relocated.</p></note>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*close)(void *ctx)</c></tag>
+      <item>
+	<p>Close the socket identified by <c>ctx</c> and destroy the context.</p>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*listen)(void *ctx, void *addr, int *len, int backlog)</c></tag>
+      <item>
+	<p>Bind the socket identified by <c>ctx</c> to a local interface
+	and then listen on it.</p>
+	
+	<p>The <c>addr</c> and <c>len</c> arguments are both input and output
+	arguments. When called <c>addr</c> points to an address structure of
+	lenght <c>*len</c> containing information on how to bind the socket.
+	Uppon return this callback should have updated the structure referred
+	by <c>addr</c> with information on how the socket actually was bound.
+	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
+	updated. <c>backlog</c> identifies the size of the backlog for the
+	listen socket.</p>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*accept)(void **ctx, void *addr, int *len, unsigned tmo)</c></tag>
+      <item>
+	<p>Accept connections on the listen socket identified by
+	<c>*ctx</c>.</p>
+
+	<p>When a connection is accepted, a new context for the accepted
+	connection should be created and <c>*ctx</c> should be updated
+	to point to the new context for the accepted connection. When
+	called <c>addr</c> points to an uninitialized address structure
+	of lenght <c>*len</c>. Uppon return this callback should have
+	updated this structure with information about the client address.
+	<c>*len</c> should be updated to reflect the size of <c>*addr</c>
+	updated.
+	</p>
+
+	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
+	<c>tmo</c> contains timeout time in milliseconds.</p>
+
+	<note><p>During the lifetime of a socket, the pointer <c>*ctx</c>
+	<em>has</em> to remain the same. That is, it cannot later be
+	relocated.</p></note>
+
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*connect)(void *ctx, void *addr, int len, unsigned tmo)</c></tag>
+      <item>
+	<p>Connect the socket identified by <c>ctx</c> to the address
+	identified by <c>addr</c>.</p>
+
+	<p>When called <c>addr</c> points to an address structure of
+	lenght <c>len</c> containing information on where to connect.</p>
+
+	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
+	<c>tmo</c> contains timeout time in milliseconds.</p>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*writev)(void *ctx, const void *iov, long iovcnt, ssize_t *len, unsigned tmo)</c></tag>
+      <item>
+	<p>Write data on the connected socket identified by <c>ctx</c>.</p>
+
+	<p><c>iov</c> points to an array of <c>struct iovec</c> structures of
+	length <c>iovcnt</c> containing data to write to the socket. On success,
+	this callback should set <c>*len</c> to the amount of bytes successfully
+	written on the socket.</p>
+	
+	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
+	<c>tmo</c> contains timeout time in milliseconds.</p>
+	
+	<p>This callback is optional. Set the <c>writev</c> field
+	in the the <c>ei_socket_callbacks</c> structure to <c>NULL</c> if not
+	implemented.</p>
+      </item>
+      
+      <tag><c>int (*write)(void *ctx, const char *buf, ssize_t *len, unsigned tmo)</c></tag>
+      <item>
+	<p>Write data on the connected socket identified by <c>ctx</c>.</p>
+	
+	<p>When called <c>buf</c> points to a buffer of length <c>*len</c>
+	containing the data to write on the socket. On success, this callback
+	should set <c>*len</c> to the amount of bytes successfully written on
+	the socket.</p>
+
+	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
+	<c>tmo</c> contains timeout time in milliseconds.</p>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*read)(void *ctx, char *buf, ssize_t *len, unsigned tmo)</c></tag>
+      <item>
+	<p>Read data on the connected socket identified by <c>ctx</c>.</p>
+	
+	<p><c>buf</c> points to a buffer of length <c>*len</c> where the
+	read data should be placed. On success, this callback should update
+	<c>*len</c> to the amount of bytes successfully read on the socket.</p>
+	
+	<p>If the <c>EI_SCLBK_FLG_FULL_IMPL</c> flag has been set,
+	<c>tmo</c> contains timeout time in milliseconds.</p>
+	
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*handshake_packet_header_size)(void *ctx, int *sz)</c></tag>
+      <item>
+	<p>Inform about handshake packet header size to use during the Erlang
+	distribution handshake.</p>
+
+	<p>On success, <c>*sz</c> should be set to the handshake packet header
+	size to use. Valid values are <c>2</c> and <c>4</c>. Erlang TCP
+	distribution use a handshake packet size of <c>2</c> and Erlang TLS
+	distribution use a handshake packet size of <c>4</c>.</p>
+
+	<p>This callback is mandatory.</p>
+      </item>
+      
+      <tag><c>int (*connect_handshake_complete)(void *ctx)</c></tag>
+      <item>
+	<p>Called when a locally started handshake has completed successfully.</p>
+	
+	<p>This callback is optional. Set the <c>connect_handshake_complete</c> field
+	in the <c>ei_socket_callbacks</c> structure to <c>NULL</c> if not implemented.</p>	
+      </item>
+      
+      <tag><c>int (*accept_handshake_complete)(void *ctx)</c></tag>
+      <item>
+	<p>Called when a remotely started handshake has completed successfully.</p>
+
+	<p>This callback is optional. Set the <c>accept_handshake_complete</c> field in
+	the <c>ei_socket_callbacks</c> structure to <c>NULL</c> if not implemented.</p>
+      </item>
+      
+      <tag><c>int (*get_fd)(void *ctx, int *fd)</c></tag>
+      <item>
+	<p>Inform about file descriptor used by the socket which is identified
+	by <c>ctx</c>.</p>
+
+	<note><p>During the lifetime of a socket, the file descriptor
+	<em>has</em> to remain the same. That is, repeated calls to this
+	callback with the same context <c>should</c> always report the same
+	file descriptor.</p>
+	<p>The file descriptor <em>has</em> to be a real file descriptor.
+	That is, no other operation should be able to get the same file
+	descriptor until it has been released by the <c>close()</c>
+	callback.</p>
+	</note>
+
+	<p>This callback is mandatory.</p>
+      </item>
+    </taglist>
+  </section>
   <funcs>
     <func>
       <name since=""><ret>struct hostent *</ret><nametext>ei_gethostbyaddr(const char *addr, int len, int type)</nametext></name>
@@ -96,6 +363,7 @@
         <p>Convenience functions for some common name lookup functions.</p>
       </desc>
     </func>
+    
 
     <func>
       <name since=""><ret>int</ret><nametext>ei_accept(ei_cnode *ec, int listensock, ErlConnect *conp)</nametext></name>
@@ -137,6 +405,14 @@ typedef struct {
         <p>Equivalent to
           <c>ei_accept</c> with an optional time-out argument,
           see the description at the beginning of this manual page.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_close_connection(int fd)</nametext></name>
+      <fsummary>Close a connection.</fsummary>
+      <desc>
+        <p>Closes a previously opened connection or listen socket.</p>
       </desc>
     </func>
 
@@ -193,7 +469,9 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
 
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation)</nametext></name>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation)</nametext></name>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, short creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context)</nametext></name>
       <fsummary>Initialize for a connection.</fsummary>
       <desc>
         <p>Initializes the <c>ec</c> structure, to
@@ -236,6 +514,21 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
           <item>
             <p><c>thispaddr</c> if the IP address of the host.</p>
           </item>
+	  <item>
+	    <p><c>cbs</c> is a pointer to a
+	    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+	    implementing and alternative socket interface.</p>
+	  </item>
+	  <item>
+	    <p><c>cbs_sz</c> is the size of the structure
+	    pointed to by <c>cbs</c>.</p>
+	  </item>
+	  <item>
+	    <p><c>setup_context</c> is a pointer to a structure that
+	    will be passed as second argument to the <c>socket</c> callback
+	    in the <c>cbs</c> structure.</p>
+	  </item>
+
         </list>
         <p>A C-node acting as a server is assigned a creation
           number when it calls <c>ei_publish()</c>.</p>
@@ -295,6 +588,45 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
           section <seealso marker="#debug_information">
           Debug Information</seealso>.</p>
 	<p>These functions are not thread safe.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_listen(ei_cnode *ec, int *port, int backlog)</nametext></name>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_xlisten(ei_cnode *ec, Erl_IpAddr adr, int *port, int backlog)</nametext></name>
+      <fsummary>Create a listen socket.</fsummary>
+      <desc>
+        <p>Used by a server process to setup a listen socket which
+	later can be used for accepting connections from client processes.
+	</p>
+        <list type="bulleted">
+          <item>
+            <p><c>ec</c> is the C-node structure.</p>
+          </item>
+	  <item>
+	    <p><c>adr</c> is local interface to bind to.</p>
+	  </item>
+          <item>
+            <p><c>port</c> is a pointer to an integer containing the
+	    port number to bind to. If <c>*port</c> equals <c>0</c>
+	    when calling <c>ei_listen()</c>, the socket will be bound to
+	    an ephemeral port. On success, <c>ei_listen()</c> will update
+	    the value of <c>*port</c> to the port actually bound to.
+	    </p>
+          </item>
+          <item>
+            <p><c>backlog</c> is maximum backlog of pending connections.</p>
+          </item>
+        </list>
+	<p><c>ei_listen</c> will create a socket, bind to a port on the
+	local interface identified by <c>adr</c> (or all local interfaces if
+	<c>ei_listen()</c> is called), and mark the socket as a passive socket
+	(that is, a socket that will be used for accepting incoming connections).
+	</p>
+	<p>
+	  On success, a file descriptor is returned which can be used in a call to
+	  <c>ei_accept()</c>. On failure, <c>ERL_ERROR</c> is returned and
+        <c>erl_errno</c> is set to <c>EIO</c>.</p>
       </desc>
     </func>
 

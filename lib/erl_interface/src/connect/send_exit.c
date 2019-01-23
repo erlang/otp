@@ -55,6 +55,17 @@ int ei_send_exit_tmo(int fd, const erlang_pid *from, const erlang_pid *to,
   char *s;
   int index = 0;
   int len = strlen(reason) + 1080; /* see below */
+  ei_socket_callbacks *cbs;
+  void *ctx;
+  int err;
+  ssize_t wlen;
+  unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+  
+  err = EI_GET_CBS_CTX__(&cbs, &ctx, fd);
+  if (err) {
+      EI_CONN_SAVE_ERRNO__(err);
+      return ERL_ERROR;
+  }
 
   if (len > EISMALLBUF)
     if (!(dbuf = malloc(len)))
@@ -92,10 +103,16 @@ int ei_send_exit_tmo(int fd, const erlang_pid *from, const erlang_pid *to,
   if (ei_tracelevel >= 4)
       ei_show_sendmsg(stderr,msgbuf,NULL);
 
-  ei_write_fill_t(fd,msgbuf,index,ms); 
-  /* FIXME ignore timeout etc? erl_errno?! */
-
-  if (dbuf) free(dbuf);
+  wlen = (ssize_t) index;
+  err = ei_write_fill_ctx_t__(cbs, ctx, msgbuf, &wlen, tmo);
+  if (!err && wlen != (ssize_t) index)
+      err = EIO;
+  if (dbuf)
+      free(dbuf);
+  if (err) {
+      EI_CONN_SAVE_ERRNO__(err);
+      return ERL_ERROR;
+  }
   return 0;
 }
 

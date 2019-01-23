@@ -208,7 +208,11 @@ erl_interface(Vars,OsType) ->
 			 {filename:join(Dir, "lib"),
 			  filename:join([Dir, "src", "eidefs.mk"])};
 		     {srctree, _Root, Target} ->
-			 {filename:join([Dir, "obj", Target]),
+                         Obj = case is_debug_build() of
+                                   true -> "obj.debug";
+                                   false -> "obj"
+                               end,
+			 {filename:join([Dir, Obj, Target]),
 			  filename:join([Dir, "src", Target, "eidefs.mk"])}
 		 end}
 	end,
