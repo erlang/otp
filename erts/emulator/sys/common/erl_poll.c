@@ -2326,6 +2326,7 @@ uint32_t epoll_events(int kp_fd, int fd)
 {
     /* For epoll we read the information about what is selected upon from the proc fs.*/
     char fname[30];
+    char s[256];
     FILE *f;
     unsigned int pos, flags, mnt_id;
     int line = 0;
@@ -2343,12 +2344,12 @@ uint32_t epoll_events(int kp_fd, int fd)
     }
     if (fscanf(f,"\nmnt_id:\t%x\n", &mnt_id));
     line += 3;
-    while (!feof(f)) {
+    while (fgets(s, sizeof(s) / sizeof(*s), f)) {
         /* tfd:       10 events: 40000019 data:       180000000a */
         int ev_fd;
         uint32_t events;
         uint64_t data;
-        if (fscanf(f,"tfd:%d events:%x data:%llx\n", &ev_fd, &events,
+        if (sscanf(s,"tfd:%d events:%x data:%llx", &ev_fd, &events,
                    (unsigned long long*)&data) != 3) {
             fprintf(stderr,"failed to parse file %s on line %d, errno = %d\n", fname,
                     line,
@@ -2392,6 +2393,7 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet *ps,
 
     /* For epoll we read the information about what is selected upon from the proc fs.*/
     char fname[30];
+    char s[256];
     FILE *f;
     unsigned int pos, flags, mnt_id;
     int line = 0;
@@ -2410,12 +2412,12 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet *ps,
     }
     if (fscanf(f,"\nmnt_id:\t%x\n", &mnt_id));
     line += 3;
-    while (!feof(f)) {
+    while (fgets(s, sizeof(s) / sizeof(*s), f)) {
         /* tfd:       10 events: 40000019 data:       180000000a */
         int fd;
         uint32_t events;
         uint64_t data;
-        if (fscanf(f,"tfd:%d events:%x data:%llx\n", &fd, &events,
+        if (sscanf(s,"tfd:%d events:%x data:%llx", &fd, &events,
                    (unsigned long long*)&data) != 3) {
             fprintf(stderr,"failed to parse file %s on line %d, errno = %d\n",
                     fname, line, errno);

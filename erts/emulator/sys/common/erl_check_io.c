@@ -2262,14 +2262,14 @@ erts_check_io_info(void *proc)
 
 #if ERTS_POLL_USE_FALLBACK
     erts_poll_info_flbk(get_fallback_pollset(), &piv[0]);
-    piv[0].poll_threads = 1;
+    piv[0].poll_threads = 0;
     piv[0].active_fds = 0;
     piv++;
 #endif
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
     erts_poll_info(get_scheduler_pollset(0), &piv[0]);
-    piv[0].poll_threads = 1;
+    piv[0].poll_threads = 0;
     piv[0].active_fds = 0;
     piv++;
 #endif
