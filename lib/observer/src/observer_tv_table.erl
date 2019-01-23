@@ -99,7 +99,8 @@ init([Parent, Opts]) ->
 		ets -> "TV Ets: " ++ Title0;
 		mnesia -> "TV Mnesia: " ++ Title0
 	    end,
-    Frame = wxFrame:new(Parent, ?wxID_ANY, Title, [{size, {800, 600}}]),
+    Scale = observer_wx:get_scale(),
+    Frame = wxFrame:new(Parent, ?wxID_ANY, Title, [{size, {Scale * 800, Scale * 600}}]),
     IconFile = filename:join(code:priv_dir(observer), "erlang_observer.png"),
     Icon = wxIcon:new(IconFile, [{type,?wxBITMAP_TYPE_PNG}]),
     wxFrame:setIcon(Frame, Icon),

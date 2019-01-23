@@ -461,10 +461,11 @@ display_port_info(Parent, PortRec, Opened) ->
 do_display_port_info(Parent0, PortRec) ->
     Parent = observer_lib:get_wx_parent(Parent0),
     Title = "Port Info: " ++ PortRec#port.id_str,
+    Scale = observer_wx:get_scale(),
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
 			    [{style, ?wxSYSTEM_MENU bor ?wxCAPTION
 				  bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER},
-                             {size,{600,400}}]),
+                             {size,{Scale * 600, Scale * 400}}]),
     ScrolledWin = wxScrolledWindow:new(Frame,[{style,?wxHSCROLL bor ?wxVSCROLL}]),
     wxScrolledWindow:enableScrolling(ScrolledWin,true,true),
     wxScrolledWindow:setScrollbars(ScrolledWin,20,20,0,0),
