@@ -167,20 +167,19 @@ next_record(#state{handshake_env =
     {no_record, State#state{handshake_env = 
                                 HsEnv#handshake_env{unprocessed_handshake_events = N-1}}};
 next_record(#state{protocol_buffers =
-		       #protocol_buffers{tls_packets = [], tls_cipher_texts = [CT | Rest]}
-		   = Buffers,
-		   connection_states = ConnStates0,
+	       #protocol_buffers{tls_packets = [], tls_cipher_texts = [#ssl_tls{type = Type}| _] = CipherTexts0}
+                   = Buffers,
+                   connection_states = ConnectionStates0,
                    negotiated_version = Version,
-		   ssl_options = #ssl_options{padding_check = Check}} = State) ->
-
-    case tls_record:decode_cipher_text(Version, CT, ConnStates0, Check) of
-	{Plain, ConnStates} ->		      
-	    {Plain, State#state{protocol_buffers =
-				    Buffers#protocol_buffers{tls_cipher_texts = Rest},
-				connection_states = ConnStates}};
-	#alert{} = Alert ->
-	    {Alert, State}
-    end;
+                   ssl_options = #ssl_options{padding_check = Check}} = State) ->
+    case decode_cipher_texts(Version, Type, CipherTexts0, ConnectionStates0, Check, <<>>) of
+        {#ssl_tls{} = Record, ConnectionStates, CipherTexts} ->
+            {Record, State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
+                                 connection_states = ConnectionStates}};
+        {#alert{} = Alert, ConnectionStates, CipherTexts} ->
+            {Alert, State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
+                                connection_states = ConnectionStates}}
+    end;            
 next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_cipher_texts = []},
                    protocol_specific = #{active_n_toggle := true, active_n := N} = ProtocolSpec,
                    static_env = #static_env{socket = Socket,
@@ -217,6 +216,22 @@ next_event(StateName, Record, State, Actions) ->
 	#alert{} = Alert ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
+
+decode_cipher_texts(_, Type, [] = CipherTexts, ConnectionStates, _, Acc) ->
+    {#ssl_tls{type = Type, fragment = Acc}, ConnectionStates, CipherTexts};
+decode_cipher_texts(Version, Type, 
+                    [#ssl_tls{type = Type} = CT | CipherTexts], ConnectionStates0, Check, Acc) ->
+    case tls_record:decode_cipher_text(Version, CT, ConnectionStates0, Check) of
+	{#ssl_tls{type = ?APPLICATION_DATA, fragment = Plain}, ConnectionStates} ->		      
+            decode_cipher_texts(Version, Type, CipherTexts, 
+                                ConnectionStates, Check, <<Acc/binary, Plain/binary>>);
+        {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates} ->
+            {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates, CipherTexts};
+        #alert{} = Alert ->
+            {Alert, ConnectionStates0, CipherTexts}
+    end;
+decode_cipher_texts(_, Type, CipherTexts, ConnectionStates, _, Acc) ->
+    {#ssl_tls{type = Type, fragment = Acc}, ConnectionStates, CipherTexts}.
 
 %%% TLS record protocol level application data messages 
 
