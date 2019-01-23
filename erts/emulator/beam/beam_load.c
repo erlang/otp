@@ -4298,6 +4298,72 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
 }
 
 static GenOp*
+gen_is_function2(LoaderState* stp, GenOpArg Fail, GenOpArg Fun, GenOpArg Arity)
+{
+    GenOp* op;
+    int literal_arity =  Arity.type == TAG_i;
+    int fun_is_reg = Fun.type == TAG_x || Fun.type == TAG_y;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+
+    if (fun_is_reg &&literal_arity) {
+        /*
+         * Most common case. Fun in a register and arity
+         * is an integer literal.
+         */
+        if (Arity.val > MAX_ARG) {
+            /* Arity is negative or too big. */
+            op->op = genop_jump_1;
+            op->arity = 1;
+            op->a[0] = Fail;
+            return op;
+        } else {
+            op->op = genop_hot_is_function2_3;
+            op->arity = 3;
+            op->a[0] = Fail;
+            op->a[1] = Fun;
+            op->a[2].type = TAG_u;
+            op->a[2].val = Arity.val;
+            return op;
+        }
+    } else {
+        /*
+         * Handle extremely uncommon cases by a slower sequence.
+         */
+        GenOp* move_fun;
+        GenOp* move_arity;
+
+        NEW_GENOP(stp, move_fun);
+        NEW_GENOP(stp, move_arity);
+
+        move_fun->next = move_arity;
+        move_arity->next = op;
+
+        move_fun->arity = 2;
+        move_fun->op = genop_move_2;
+        move_fun->a[0] = Fun;
+        move_fun->a[1].type = TAG_x;
+        move_fun->a[1].val = 1022;
+
+        move_arity->arity = 2;
+        move_arity->op = genop_move_2;
+        move_arity->a[0] = Arity;
+        move_arity->a[1].type = TAG_x;
+        move_arity->a[1].val = 1023;
+
+        op->op = genop_cold_is_function2_3;
+        op->arity = 3;
+        op->a[0] = Fail;
+        op->a[1].type = TAG_x;
+        op->a[1].val = 1022;
+        op->a[2].type = TAG_x;
+        op->a[2].val = 1023;
+        return move_fun;
+    }
+}
+
+static GenOp*
 tuple_append_put5(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
 		  GenOpArg* Puts, GenOpArg S1, GenOpArg S2, GenOpArg S3,
 		  GenOpArg S4, GenOpArg S5)
@@ -4460,19 +4526,6 @@ is_empty_map(LoaderState* stp, GenOpArg Lit)
     }
     term = stp->literals[Lit.val].term;
     return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
-}
-
-/*
- * Predicate to test whether the given literal is an export.
- */
-static int
-literal_is_export(LoaderState* stp, GenOpArg Lit)
-{
-    Eterm term;
-
-    ASSERT(Lit.type == TAG_q);
-    term = stp->literals[Lit.val].term;
-    return is_export(term);
 }
 
 /*
