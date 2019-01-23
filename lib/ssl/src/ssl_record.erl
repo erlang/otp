@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,9 @@
 -export([compress/3, uncompress/3, compressions/0]).
 
 %% Payload encryption/decryption
--export([cipher/4, decipher/4, cipher_aead/4, decipher_aead/5, is_correct_mac/2, nonce_seed/3]).
+-export([cipher/4, cipher/5, decipher/4,
+         cipher_aead/4, cipher_aead/5, decipher_aead/5,
+         is_correct_mac/2, nonce_seed/3]).
 
 -export_type([ssl_version/0, ssl_atom_version/0, connection_states/0, connection_state/0]).
 
@@ -302,25 +304,47 @@ cipher(Version, Fragment,
 	     #security_parameters{bulk_cipher_algorithm =
 				      BulkCipherAlgo}
 	} = WriteState0, MacHash) ->
-    
+    %%
     {CipherFragment, CipherS1} =
 	ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
+
+%%--------------------------------------------------------------------
+-spec cipher(ssl_version(), iodata(), #cipher_state{}, MacHash::binary(), #security_parameters{}) ->
+		    {CipherFragment::binary(), #cipher_state{}}.
+%%
+%% Description: Payload encryption
+%%--------------------------------------------------------------------
+cipher(Version, Fragment, CipherS0, MacHash,
+       #security_parameters{bulk_cipher_algorithm = BulkCipherAlgo}) ->
+    %%
+    ssl_cipher:cipher(BulkCipherAlgo, CipherS0, MacHash, Fragment, Version).
+
 %%--------------------------------------------------------------------
 -spec cipher_aead(ssl_version(), iodata(), connection_state(), AAD::binary()) ->
  			 {CipherFragment::binary(), connection_state()}.
 
 %% Description: Payload encryption
 %% %%--------------------------------------------------------------------
-cipher_aead(Version, Fragment,
+cipher_aead(_Version, Fragment,
 	    #{cipher_state := CipherS0,
 	      security_parameters :=
 		  #security_parameters{bulk_cipher_algorithm =
 					   BulkCipherAlgo}
 	     } = WriteState0, AAD) ->
     {CipherFragment, CipherS1} =
-	cipher_aead(BulkCipherAlgo, CipherS0, AAD, Fragment, Version),
+	do_cipher_aead(BulkCipherAlgo, Fragment, CipherS0, AAD),
     {CipherFragment,  WriteState0#{cipher_state => CipherS1}}.
+
+%%--------------------------------------------------------------------
+-spec cipher_aead(ssl_version(), iodata(), #cipher_state{}, AAD::binary(), #security_parameters{}) ->
+                         {CipherFragment::binary(), #cipher_state{}}.
+
+%% Description: Payload encryption
+%% %%--------------------------------------------------------------------
+cipher_aead(_Version, Fragment, CipherS, AAD,
+            #security_parameters{bulk_cipher_algorithm = BulkCipherAlgo}) ->
+    do_cipher_aead(BulkCipherAlgo, Fragment, CipherS, AAD).
 
 %%--------------------------------------------------------------------
 -spec decipher(ssl_version(), binary(), connection_state(), boolean()) ->
@@ -427,12 +451,12 @@ initial_security_params(ConnectionEnd) ->
 				     compression_algorithm = ?NULL},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
-cipher_aead(?CHACHA20_POLY1305 = Type, #cipher_state{key=Key} = CipherState, AAD0, Fragment, _Version) ->
+do_cipher_aead(?CHACHA20_POLY1305 = Type, Fragment, #cipher_state{key=Key} = CipherState, AAD0) ->
     AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
     Nonce = encrypt_nonce(Type, CipherState),
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
     {<<Content/binary, CipherTag/binary>>, CipherState};
-cipher_aead(Type, #cipher_state{key=Key, nonce = ExplicitNonce} = CipherState, AAD0, Fragment, _Version) ->
+do_cipher_aead(Type, Fragment, #cipher_state{key=Key, nonce = ExplicitNonce} = CipherState, AAD0) ->
     AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
     Nonce = encrypt_nonce(Type, CipherState),
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
