@@ -273,6 +273,7 @@ tls13_test_group() ->
     [tls13_enable_client_side,
      tls13_enable_server_side,
      tls_record_1_3_encode_decode,
+     tls13_finished_verify_data,
      tls13_1_RTT_handshake].
 
 %%--------------------------------------------------------------------
@@ -4901,18 +4902,264 @@ tls13_1_RTT_handshake(_Config) ->
     %% TODO: remove hardcoded IV size
     WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
 
-    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SHSTrafficSecret).
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SHSTrafficSecret),
+
+    %% {server}  construct an EncryptedExtensions handshake message:
+    %%
+    %%    EncryptedExtensions (40 octets):  08 00 00 24 00 22 00 0a 00 14 00
+    %%       12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 1c
+    %%       00 02 40 01 00 00 00 00
+    %%
+    %% {server}  construct a Certificate handshake message:
+    %%
+    %%    Certificate (445 octets):  0b 00 01 b9 00 00 01 b5 00 01 b0 30 82
+    %%       01 ac 30 82 01 15 a0 03 02 01 02 02 01 02 30 0d 06 09 2a 86 48
+    %%       86 f7 0d 01 01 0b 05 00 30 0e 31 0c 30 0a 06 03 55 04 03 13 03
+    %%       72 73 61 30 1e 17 0d 31 36 30 37 33 30 30 31 32 33 35 39 5a 17
+    %%       0d 32 36 30 37 33 30 30 31 32 33 35 39 5a 30 0e 31 0c 30 0a 06
+    %%       03 55 04 03 13 03 72 73 61 30 81 9f 30 0d 06 09 2a 86 48 86 f7
+    %%       0d 01 01 01 05 00 03 81 8d 00 30 81 89 02 81 81 00 b4 bb 49 8f
+    %%       82 79 30 3d 98 08 36 39 9b 36 c6 98 8c 0c 68 de 55 e1 bd b8 26
+    %%       d3 90 1a 24 61 ea fd 2d e4 9a 91 d0 15 ab bc 9a 95 13 7a ce 6c
+    %%       1a f1 9e aa 6a f9 8c 7c ed 43 12 09 98 e1 87 a8 0e e0 cc b0 52
+    %%       4b 1b 01 8c 3e 0b 63 26 4d 44 9a 6d 38 e2 2a 5f da 43 08 46 74
+    %%       80 30 53 0e f0 46 1c 8c a9 d9 ef bf ae 8e a6 d1 d0 3e 2b d1 93
+    %%       ef f0 ab 9a 80 02 c4 74 28 a6 d3 5a 8d 88 d7 9f 7f 1e 3f 02 03
+    %%       01 00 01 a3 1a 30 18 30 09 06 03 55 1d 13 04 02 30 00 30 0b 06
+    %%       03 55 1d 0f 04 04 03 02 05 a0 30 0d 06 09 2a 86 48 86 f7 0d 01
+    %%       01 0b 05 00 03 81 81 00 85 aa d2 a0 e5 b9 27 6b 90 8c 65 f7 3a
+    %%       72 67 17 06 18 a5 4c 5f 8a 7b 33 7d 2d f7 a5 94 36 54 17 f2 ea
+    %%       e8 f8 a5 8c 8f 81 72 f9 31 9c f3 6b 7f d6 c5 5b 80 f2 1a 03 01
+    %%       51 56 72 60 96 fd 33 5e 5e 67 f2 db f1 02 70 2e 60 8c ca e6 be
+    %%       c1 fc 63 a4 2a 99 be 5c 3e b7 10 7c 3c 54 e9 b9 eb 2b d5 20 3b
+    %%       1c 3b 84 e0 a8 b2 f7 59 40 9b a3 ea c9 d9 1d 40 2d cc 0c c8 f8
+    %%       96 12 29 ac 91 87 b4 2b 4d e1 00 00
+    %%
+    %% {server}  construct a CertificateVerify handshake message:
+    %%
+    %%    CertificateVerify (136 octets):  0f 00 00 84 08 04 00 80 5a 74 7c
+    %%       5d 88 fa 9b d2 e5 5a b0 85 a6 10 15 b7 21 1f 82 4c d4 84 14 5a
+    %%       b3 ff 52 f1 fd a8 47 7b 0b 7a bc 90 db 78 e2 d3 3a 5c 14 1a 07
+    %%       86 53 fa 6b ef 78 0c 5e a2 48 ee aa a7 85 c4 f3 94 ca b6 d3 0b
+    %%       be 8d 48 59 ee 51 1f 60 29 57 b1 54 11 ac 02 76 71 45 9e 46 44
+    %%       5c 9e a5 8c 18 1e 81 8e 95 b8 c3 fb 0b f3 27 84 09 d3 be 15 2a
+    %%       3d a5 04 3e 06 3d da 65 cd f5 ae a2 0d 53 df ac d4 2f 74 f3
+    EncryptedExtensions =
+        hexstr2bin("08 00 00 24 00 22 00 0a 00 14 00
+          12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02 01 03 01 04 00 1c
+          00 02 40 01 00 00 00 00"),
+
+    Certificate =
+        hexstr2bin("0b 00 01 b9 00 00 01 b5 00 01 b0 30 82
+          01 ac 30 82 01 15 a0 03 02 01 02 02 01 02 30 0d 06 09 2a 86 48
+          86 f7 0d 01 01 0b 05 00 30 0e 31 0c 30 0a 06 03 55 04 03 13 03
+          72 73 61 30 1e 17 0d 31 36 30 37 33 30 30 31 32 33 35 39 5a 17
+          0d 32 36 30 37 33 30 30 31 32 33 35 39 5a 30 0e 31 0c 30 0a 06
+          03 55 04 03 13 03 72 73 61 30 81 9f 30 0d 06 09 2a 86 48 86 f7
+          0d 01 01 01 05 00 03 81 8d 00 30 81 89 02 81 81 00 b4 bb 49 8f
+          82 79 30 3d 98 08 36 39 9b 36 c6 98 8c 0c 68 de 55 e1 bd b8 26
+          d3 90 1a 24 61 ea fd 2d e4 9a 91 d0 15 ab bc 9a 95 13 7a ce 6c
+          1a f1 9e aa 6a f9 8c 7c ed 43 12 09 98 e1 87 a8 0e e0 cc b0 52
+          4b 1b 01 8c 3e 0b 63 26 4d 44 9a 6d 38 e2 2a 5f da 43 08 46 74
+          80 30 53 0e f0 46 1c 8c a9 d9 ef bf ae 8e a6 d1 d0 3e 2b d1 93
+          ef f0 ab 9a 80 02 c4 74 28 a6 d3 5a 8d 88 d7 9f 7f 1e 3f 02 03
+          01 00 01 a3 1a 30 18 30 09 06 03 55 1d 13 04 02 30 00 30 0b 06
+          03 55 1d 0f 04 04 03 02 05 a0 30 0d 06 09 2a 86 48 86 f7 0d 01
+          01 0b 05 00 03 81 81 00 85 aa d2 a0 e5 b9 27 6b 90 8c 65 f7 3a
+          72 67 17 06 18 a5 4c 5f 8a 7b 33 7d 2d f7 a5 94 36 54 17 f2 ea
+          e8 f8 a5 8c 8f 81 72 f9 31 9c f3 6b 7f d6 c5 5b 80 f2 1a 03 01
+          51 56 72 60 96 fd 33 5e 5e 67 f2 db f1 02 70 2e 60 8c ca e6 be
+          c1 fc 63 a4 2a 99 be 5c 3e b7 10 7c 3c 54 e9 b9 eb 2b d5 20 3b
+          1c 3b 84 e0 a8 b2 f7 59 40 9b a3 ea c9 d9 1d 40 2d cc 0c c8 f8
+          96 12 29 ac 91 87 b4 2b 4d e1 00 00"),
+
+    CertificateVerify =
+        hexstr2bin("0f 00 00 84 08 04 00 80 5a 74 7c
+          5d 88 fa 9b d2 e5 5a b0 85 a6 10 15 b7 21 1f 82 4c d4 84 14 5a
+          b3 ff 52 f1 fd a8 47 7b 0b 7a bc 90 db 78 e2 d3 3a 5c 14 1a 07
+          86 53 fa 6b ef 78 0c 5e a2 48 ee aa a7 85 c4 f3 94 ca b6 d3 0b
+          be 8d 48 59 ee 51 1f 60 29 57 b1 54 11 ac 02 76 71 45 9e 46 44
+          5c 9e a5 8c 18 1e 81 8e 95 b8 c3 fb 0b f3 27 84 09 d3 be 15 2a
+          3d a5 04 3e 06 3d da 65 cd f5 ae a2 0d 53 df ac d4 2f 74 f3"),
+
+    %% {server}  calculate finished "tls13 finished":
+    %%
+    %%    PRK (32 octets):  b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d 37 b4
+    %%       e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38
+    %%
+    %%    hash (0 octets):  (empty)
+    %%
+    %%    info (18 octets):  00 20 0e 74 6c 73 31 33 20 66 69 6e 69 73 68 65
+    %%       64 00
+    %%
+    %%    expanded (32 octets):  00 8d 3b 66 f8 16 ea 55 9f 96 b5 37 e8 85
+    %%       c3 1f c0 68 bf 49 2c 65 2f 01 f2 88 a1 d8 cd c1 9f c8
+    %%
+    %%    finished (32 octets):  9b 9b 14 1d 90 63 37 fb d2 cb dc e7 1d f4
+    %%       de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07 18
+
+    %% PRK = SHSTrafficSecret
+    FInfo =
+        hexstr2bin("00 20 0e 74 6c 73 31 33 20 66 69 6e 69 73 68 65
+          64 00"),
+
+    FExpanded =
+        hexstr2bin("00 8d 3b 66 f8 16 ea 55 9f 96 b5 37 e8 85
+          c3 1f c0 68 bf 49 2c 65 2f 01 f2 88 a1 d8 cd c1 9f c8"),
+
+    FinishedVerifyData =
+        hexstr2bin("9b 9b 14 1d 90 63 37 fb d2 cb dc e7 1d f4
+          de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07 18"),
+
+    FInfo = tls_v1:create_info(<<"finished">>, <<>>,  ssl_cipher:hash_size(HKDFAlgo)),
+
+    FExpanded = tls_v1:finished_key(SHSTrafficSecret, HKDFAlgo),
+
+    MessageHistory0 = [CertificateVerify,
+                       Certificate,
+                       EncryptedExtensions,
+                       ServerHello,
+                       ClientHello],
+
+    FinishedVerifyData = tls_v1:finished_verify_data(FExpanded, HKDFAlgo, MessageHistory0),
+
+    %% {server}  construct a Finished handshake message:
+    %%
+    %%    Finished (36 octets):  14 00 00 20 9b 9b 14 1d 90 63 37 fb d2 cb
+    %%       dc e7 1d f4 de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07
+    %%       18
+    FinishedHSBin =
+        hexstr2bin("14 00 00 20 9b 9b 14 1d 90 63 37 fb d2 cb
+          dc e7 1d f4 de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07
+          18"),
+
+    FinishedHS = #finished{verify_data = FinishedVerifyData},
+
+    FinishedIOList = tls_handshake:encode_handshake(FinishedHS, {3,4}),
+    FinishedHSBin = iolist_to_binary(FinishedIOList).
 
 
-create_info(Label0, Context0) ->
-    Label1 = << <<"tls13 ">>/binary, Label0/binary>>,
-    LLen = size(Label1),
-    Label = <<?BYTE(LLen), Label1/binary>>,
-    CLen = size(Context0),
-    Context = <<?BYTE(CLen),Context0/binary>>,
-    Content = <<Label/binary, Context/binary>>,
-    Len = size(Content),
-    HkdfLabel = <<?UINT16(32), Content/binary>>.
+tls13_finished_verify_data() ->
+     [{doc,"Test TLS 1.3 Finished message handling"}].
+
+tls13_finished_verify_data(_Config) ->
+    ClientHello =
+        hexstr2bin("01 00 00 c6 03 03 00 01  02 03 04 05 06 07 08 09
+                    0a 0b 0c 0d 0e 0f 10 11  12 13 14 15 16 17 18 19
+                    1a 1b 1c 1d 1e 1f 20 e0  e1 e2 e3 e4 e5 e6 e7 e8
+                    e9 ea eb ec ed ee ef f0  f1 f2 f3 f4 f5 f6 f7 f8
+                    f9 fa fb fc fd fe ff 00  06 13 01 13 02 13 03 01
+                    00 00 77 00 00 00 18 00  16 00 00 13 65 78 61 6d
+                    70 6c 65 2e 75 6c 66 68  65 69 6d 2e 6e 65 74 00
+                    0a 00 08 00 06 00 1d 00  17 00 18 00 0d 00 14 00
+                    12 04 03 08 04 04 01 05  03 08 05 05 01 08 06 06
+                    01 02 01 00 33 00 26 00  24 00 1d 00 20 35 80 72
+                    d6 36 58 80 d1 ae ea 32  9a df 91 21 38 38 51 ed
+                    21 a2 8e 3b 75 e9 65 d0  d2 cd 16 62 54 00 2d 00
+                    02 01 01 00 2b 00 03 02  03 04"),
+
+    ServerHello =
+        hexstr2bin("02 00 00 76 03 03 70 71  72 73 74 75 76 77 78 79
+                    7a 7b 7c 7d 7e 7f 80 81  82 83 84 85 86 87 88 89
+                    8a 8b 8c 8d 8e 8f 20 e0  e1 e2 e3 e4 e5 e6 e7 e8
+                    e9 ea eb ec ed ee ef f0  f1 f2 f3 f4 f5 f6 f7 f8
+                    f9 fa fb fc fd fe ff 13  01 00 00 2e 00 33 00 24
+                    00 1d 00 20 9f d7 ad 6d  cf f4 29 8d d3 f9 6d 5b
+                    1b 2a f9 10 a0 53 5b 14  88 d7 f8 fa bb 34 9a 98
+                    28 80 b6 15 00 2b 00 02  03 04"),
+
+    EncryptedExtensions =
+        hexstr2bin("08 00 00 02 00 00"),
+
+    Certificate =
+        hexstr2bin("0b 00 03 2e 00 00 03 2a  00 03 25 30 82 03 21 30
+                    82 02 09 a0 03 02 01 02  02 08 15 5a 92 ad c2 04
+                    8f 90 30 0d 06 09 2a 86  48 86 f7 0d 01 01 0b 05
+                    00 30 22 31 0b 30 09 06  03 55 04 06 13 02 55 53
+                    31 13 30 11 06 03 55 04  0a 13 0a 45 78 61 6d 70
+                    6c 65 20 43 41 30 1e 17  0d 31 38 31 30 30 35 30
+                    31 33 38 31 37 5a 17 0d  31 39 31 30 30 35 30 31
+                    33 38 31 37 5a 30 2b 31  0b 30 09 06 03 55 04 06
+                    13 02 55 53 31 1c 30 1a  06 03 55 04 03 13 13 65
+                    78 61 6d 70 6c 65 2e 75  6c 66 68 65 69 6d 2e 6e
+                    65 74 30 82 01 22 30 0d  06 09 2a 86 48 86 f7 0d
+                    01 01 01 05 00 03 82 01  0f 00 30 82 01 0a 02 82
+                    01 01 00 c4 80 36 06 ba  e7 47 6b 08 94 04 ec a7
+                    b6 91 04 3f f7 92 bc 19  ee fb 7d 74 d7 a8 0d 00
+                    1e 7b 4b 3a 4a e6 0f e8  c0 71 fc 73 e7 02 4c 0d
+                    bc f4 bd d1 1d 39 6b ba  70 46 4a 13 e9 4a f8 3d
+                    f3 e1 09 59 54 7b c9 55  fb 41 2d a3 76 52 11 e1
+                    f3 dc 77 6c aa 53 37 6e  ca 3a ec be c3 aa b7 3b
+                    31 d5 6c b6 52 9c 80 98  bc c9 e0 28 18 e2 0b f7
+                    f8 a0 3a fd 17 04 50 9e  ce 79 bd 9f 39 f1 ea 69
+                    ec 47 97 2e 83 0f b5 ca  95 de 95 a1 e6 04 22 d5
+                    ee be 52 79 54 a1 e7 bf  8a 86 f6 46 6d 0d 9f 16
+                    95 1a 4c f7 a0 46 92 59  5c 13 52 f2 54 9e 5a fb
+                    4e bf d7 7a 37 95 01 44  e4 c0 26 87 4c 65 3e 40
+                    7d 7d 23 07 44 01 f4 84  ff d0 8f 7a 1f a0 52 10
+                    d1 f4 f0 d5 ce 79 70 29  32 e2 ca be 70 1f df ad
+                    6b 4b b7 11 01 f4 4b ad  66 6a 11 13 0f e2 ee 82
+                    9e 4d 02 9d c9 1c dd 67  16 db b9 06 18 86 ed c1
+                    ba 94 21 02 03 01 00 01  a3 52 30 50 30 0e 06 03
+                    55 1d 0f 01 01 ff 04 04  03 02 05 a0 30 1d 06 03
+                    55 1d 25 04 16 30 14 06  08 2b 06 01 05 05 07 03
+                    02 06 08 2b 06 01 05 05  07 03 01 30 1f 06 03 55
+                    1d 23 04 18 30 16 80 14  89 4f de 5b cc 69 e2 52
+                    cf 3e a3 00 df b1 97 b8  1d e1 c1 46 30 0d 06 09
+                    2a 86 48 86 f7 0d 01 01  0b 05 00 03 82 01 01 00
+                    59 16 45 a6 9a 2e 37 79  e4 f6 dd 27 1a ba 1c 0b
+                    fd 6c d7 55 99 b5 e7 c3  6e 53 3e ff 36 59 08 43
+                    24 c9 e7 a5 04 07 9d 39  e0 d4 29 87 ff e3 eb dd
+                    09 c1 cf 1d 91 44 55 87  0b 57 1d d1 9b df 1d 24
+                    f8 bb 9a 11 fe 80 fd 59  2b a0 39 8c de 11 e2 65
+                    1e 61 8c e5 98 fa 96 e5  37 2e ef 3d 24 8a fd e1
+                    74 63 eb bf ab b8 e4 d1  ab 50 2a 54 ec 00 64 e9
+                    2f 78 19 66 0d 3f 27 cf  20 9e 66 7f ce 5a e2 e4
+                    ac 99 c7 c9 38 18 f8 b2  51 07 22 df ed 97 f3 2e
+                    3e 93 49 d4 c6 6c 9e a6  39 6d 74 44 62 a0 6b 42
+                    c6 d5 ba 68 8e ac 3a 01  7b dd fc 8e 2c fc ad 27
+                    cb 69 d3 cc dc a2 80 41  44 65 d3 ae 34 8c e0 f3
+                    4a b2 fb 9c 61 83 71 31  2b 19 10 41 64 1c 23 7f
+                    11 a5 d6 5c 84 4f 04 04  84 99 38 71 2b 95 9e d6
+                    85 bc 5c 5d d6 45 ed 19  90 94 73 40 29 26 dc b4
+                    0e 34 69 a1 59 41 e8 e2  cc a8 4b b6 08 46 36 a0
+                    00 00"),
+
+    CertificateVerify =
+        hexstr2bin("0f 00 01 04 08 04 01 00  17 fe b5 33 ca 6d 00 7d
+                    00 58 25 79 68 42 4b bc  3a a6 90 9e 9d 49 55 75
+                    76 a5 20 e0 4a 5e f0 5f  0e 86 d2 4f f4 3f 8e b8
+                    61 ee f5 95 22 8d 70 32  aa 36 0f 71 4e 66 74 13
+                    92 6e f4 f8 b5 80 3b 69  e3 55 19 e3 b2 3f 43 73
+                    df ac 67 87 06 6d cb 47  56 b5 45 60 e0 88 6e 9b
+                    96 2c 4a d2 8d ab 26 ba  d1 ab c2 59 16 b0 9a f2
+                    86 53 7f 68 4f 80 8a ef  ee 73 04 6c b7 df 0a 84
+                    fb b5 96 7a ca 13 1f 4b  1c f3 89 79 94 03 a3 0c
+                    02 d2 9c bd ad b7 25 12  db 9c ec 2e 5e 1d 00 e5
+                    0c af cf 6f 21 09 1e bc  4f 25 3c 5e ab 01 a6 79
+                    ba ea be ed b9 c9 61 8f  66 00 6b 82 44 d6 62 2a
+                    aa 56 88 7c cf c6 6a 0f  38 51 df a1 3a 78 cf f7
+                    99 1e 03 cb 2c 3a 0e d8  7d 73 67 36 2e b7 80 5b
+                    00 b2 52 4f f2 98 a4 da  48 7c ac de af 8a 23 36
+                    c5 63 1b 3e fa 93 5b b4  11 e7 53 ca 13 b0 15 fe
+                    c7 e4 a7 30 f1 36 9f 9e"),
+
+    BaseKey =
+        hexstr2bin("a2 06 72 65 e7 f0 65 2a  92 3d 5d 72 ab 04 67 c4
+                    61 32 ee b9 68 b6 a3 2d  31 1c 80 58 68 54 88 14"),
+
+    VerifyData =
+        hexstr2bin("ea 6e e1 76 dc cc 4a f1  85 9e 9e 4e 93 f7 97 ea
+                    c9 a7 8c e4 39 30 1e 35  27 5a d4 3f 3c dd bd e3"),
+
+    Messages = [CertificateVerify,
+                Certificate,
+                EncryptedExtensions,
+                ServerHello,
+                ClientHello],
+
+    FinishedKey = tls_v1:finished_key(BaseKey, sha256),
+    VerifyData = tls_v1:finished_verify_data(FinishedKey, sha256, Messages).
 
 
 %%--------------------------------------------------------------------

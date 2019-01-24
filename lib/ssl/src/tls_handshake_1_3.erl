@@ -139,6 +139,23 @@ certificate_verify(PrivateKey, SignatureScheme,
        signature = Signature
       }.
 
+finished(#state{connection_states = ConnectionStates,
+                handshake_env =
+                    #handshake_env{
+                       tls_handshake_history = {Messages, _}}}) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:current_connection_state(ConnectionStates, write),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         master_secret = SHTS} = SecParamsR,
+
+    FinishedKey = tls_v1:finished_key(SHTS, HKDFAlgo),
+    VerifyData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
+
+    #finished{
+       verify_data = VerifyData
+      }.
+
+
 %%====================================================================
 %% Encode handshake
 %%====================================================================
@@ -464,10 +481,14 @@ do_negotiated(#{client_share := ClientKey,
         %% Create CertificateVerify
         CertificateVerify = certificate_verify(CertPrivateKey, SignatureScheme,
                                                State5, server),
-
         %% Encode CertificateVerify
-        %% Send Certificate, CertifricateVerify
-        {_State6, _} = tls_connection:send_handshake(CertificateVerify, State5),
+        State6 = tls_connection:queue_handshake(CertificateVerify, State5),
+
+        %% Create Finished
+        Finished = finished(State6),
+
+        %% Encode Certificate, CertifricateVerify
+        {_State7, _} = tls_connection:send_handshake(Finished, State6),
 
         %% Send finished
 
@@ -532,7 +553,8 @@ calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
 
-    {HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV}.
+    %% TODO: store all relevant secrets in state!
+    {ServerHSTrafficSecret, ReadKey, ReadIV, WriteKey, WriteIV}.
 
     %% %% Update pending connection state
     %% PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),

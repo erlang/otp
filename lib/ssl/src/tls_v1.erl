@@ -44,7 +44,7 @@
          client_application_traffic_secret_0/3, server_application_traffic_secret_0/3,
          exporter_master_secret/3, resumption_master_secret/3,
          update_traffic_secret/2, calculate_traffic_keys/3,
-         transcript_hash/2]).
+         transcript_hash/2, finished_key/2, finished_verify_data/3]).
 
 -type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
                        sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
@@ -373,6 +373,25 @@ exporter_master_secret(Algo, {master_secret, Secret}, M) ->
 %% M = ClientHello...client Finished
 resumption_master_secret(Algo, {master_secret, Secret}, M) ->
     derive_secret(Secret, <<"res master">>, M, Algo).
+
+-spec finished_key(binary(), atom()) -> binary().
+finished_key(BaseKey, Algo) ->
+    %% finished_key =
+    %%        HKDF-Expand-Label(BaseKey, "finished", "", Hash.length)
+    ssl_cipher:hash_size(Algo),
+    hkdf_expand_label(BaseKey, <<"finished">>, <<>>, ssl_cipher:hash_size(Algo), Algo).
+
+-spec finished_verify_data(binary(), atom(), iodata()) -> binary().
+finished_verify_data(FinishedKey, HKDFAlgo, Messages) ->
+    %% The verify_data value is computed as follows:
+    %%
+    %%       verify_data =
+    %%           HMAC(finished_key,
+    %%                Transcript-Hash(Handshake Context,
+    %%                                Certificate*, CertificateVerify*))
+    Context = lists:reverse(Messages),
+    THash = tls_v1:transcript_hash(Context, HKDFAlgo),
+    tls_v1:hmac_hash(HKDFAlgo, FinishedKey, THash).
 
 %% The next-generation application_traffic_secret is computed as:
 %%
