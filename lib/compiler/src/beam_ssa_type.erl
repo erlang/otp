@@ -19,19 +19,22 @@
 %%
 
 -module(beam_ssa_type).
--export([opt/2]).
+-export([opt_start/4, opt_continue/4, opt_finish/3]).
 
--include("beam_ssa.hrl").
+-include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
                 partition/2,reverse/1,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
--record(d, {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
-            ls :: #{beam_ssa:label():=type_db()},
-            once :: cerl_sets:set(beam_ssa:b_var()),
-            sub :: #{beam_ssa:b_var():=beam_ssa:value()}
-           }).
+-record(d,
+        {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
+         ls :: #{beam_ssa:label():=type_db()},
+         once :: cerl_sets:set(beam_ssa:b_var()),
+         func_id :: func_id(),
+         func_db :: func_info_db(),
+         sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
+         ret_type = [] :: [type()]}).
 
 -define(ATOM_SET_SIZE, 5).
 
@@ -49,36 +52,155 @@
                 {'binary',pos_integer()} | 'cons' | 'float' | 'list' | 'map' | 'nil' |'number'.
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
--spec opt([{Label0,Block0}], Args) -> [{Label,Block}] when
-      Label0 :: beam_ssa:label(),
-      Block0 :: beam_ssa:b_blk(),
+-spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
+      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
       Args :: [beam_ssa:b_var()],
-      Label :: beam_ssa:label(),
-      Block :: beam_ssa:b_blk().
-
-opt(Linear, Args) ->
-    UsedOnce = used_once(Linear, Args),
+      Anno :: beam_ssa:anno(),
+      FuncDb :: func_info_db().
+opt_start(Linear, Args, Anno, FuncDb) ->
+    %% This is the first run through the module, so our arg_types can be
+    %% incomplete as we may not have visited all call sites at least once.
     Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+    opt_continue_1(Linear, Args, get_func_id(Anno), Ts, FuncDb).
+
+-spec opt_continue(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
+      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
+      Args :: [beam_ssa:b_var()],
+      Anno :: beam_ssa:anno(),
+      FuncDb :: func_info_db().
+opt_continue(Linear, Args, Anno, FuncDb) ->
+    Id = get_func_id(Anno),
+    case FuncDb of
+        #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
+            %% This is a local function and we're guaranteed to have visited
+            %% every call site at least once, so we know that the parameter
+            %% types are at least as narrow as the join of all argument types.
+            Ts = join_arg_types(Args, ArgTypes, Anno),
+            opt_continue_1(Linear, Args, Id, Ts, FuncDb);
+        #{} ->
+            %% We can't infer the parameter types of exported functions, nor
+            %% the ones where module-level optimization is disabled, but
+            %% running the pass again could still help other functions.
+            Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+            opt_continue_1(Linear, Args, Id, Ts, FuncDb)
+    end.
+
+join_arg_types(Args, ArgTypes, Anno) ->
+    %% We suppress type optimization for parameters that have already been
+    %% optimized by another pass, as they may have done things we have no idea
+    %% how to interpret and running them over could generate incorrect code.
+    ParamTypes = maps:get(parameter_type_info, Anno, #{}),
+    Ts0 = join_arg_types_1(Args, ArgTypes, #{}),
+    maps:fold(fun(Arg, _V, Ts) ->
+                      maps:put(Arg, any, Ts)
+              end, Ts0, ParamTypes).
+
+join_arg_types_1([Arg | Args], [TM | TMs], Ts) when map_size(TM) =/= 0 ->
+    join_arg_types_1(Args, TMs, Ts#{ Arg => join(maps:values(TM))});
+join_arg_types_1([Arg | Args], [_TM | TMs], Ts) ->
+    join_arg_types_1(Args, TMs, Ts#{ Arg => any });
+join_arg_types_1([], [], Ts) ->
+    Ts.
+
+-spec opt_continue_1(Linear, Args, Id, Ts, FuncDb) -> Result when
+      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
+      Args :: [beam_ssa:b_var()],
+      Id :: func_id(),
+      Ts :: type_db(),
+      FuncDb :: func_info_db(),
+      Result :: {Linear, FuncDb}.
+opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
+    UsedOnce = used_once(Linear0, Args),
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
     Defs = maps:from_list([{Var,FakeCall#b_set{dst=Var}} ||
                               #b_var{}=Var <- Args]),
-    D = #d{ds=Defs,ls=#{0=>Ts,?BADARG_BLOCK=>#{}},
-           once=UsedOnce,sub=#{}},
-    opt_1(Linear, D).
 
-opt_1([{L,Blk}|Bs], #d{ls=Ls}=D) ->
+    D = #d{ func_db=FuncDb0,
+            func_id=Id,
+            ds=Defs,
+            ls=#{0=>Ts,?BADARG_BLOCK=>#{}},
+            once=UsedOnce },
+
+    {Linear, FuncDb, NewRet} = opt_1(Linear0, D, []),
+
+    case FuncDb of
+        #{ Id := Entry0 } ->
+            Entry = Entry0#func_info{ret_type=NewRet},
+            {Linear, FuncDb#{ Id := Entry }};
+        #{} ->
+            %% Module-level optimizations have been turned off for this
+            %% function.
+            {Linear, FuncDb}
+    end.
+
+-spec opt_finish(Args, Anno, FuncDb) -> {Anno, FuncDb} when
+      Args :: [beam_ssa:b_var()],
+      Anno :: beam_ssa:anno(),
+      FuncDb :: func_info_db().
+opt_finish(Args, Anno, FuncDb) ->
+    Id = get_func_id(Anno),
+    case FuncDb of
+        #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
+            ParamInfo0 = maps:get(parameter_type_info, Anno, #{}),
+            ParamInfo = opt_finish_1(Args, ArgTypes, ParamInfo0),
+            {Anno#{ parameter_type_info => ParamInfo }, FuncDb};
+        #{} ->
+            {Anno, FuncDb}
+    end.
+
+opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo)
+  when is_map_key(Arg, ParamInfo); %% See join_arg_types/3
+       map_size(TypeMap) =:= 0 ->
+    opt_finish_1(Args, TypeMaps, ParamInfo);
+opt_finish_1([Arg | Args], [TypeMap | TypeMaps], ParamInfo0) ->
+    case join(maps:values(TypeMap)) of
+        any ->
+            opt_finish_1(Args, TypeMaps, ParamInfo0);
+        JoinedType ->
+            JoinedType = verified_type(JoinedType),
+            ParamInfo = ParamInfo0#{ Arg => validator_anno(JoinedType) },
+            opt_finish_1(Args, TypeMaps, ParamInfo)
+    end;
+opt_finish_1([], [], ParamInfo) ->
+    ParamInfo.
+
+validator_anno(#t_tuple{size=Size,exact=Exact}) ->
+    beam_validator:type_anno(tuple, Size, Exact);
+validator_anno(#t_integer{elements={Same,Same}}) ->
+    beam_validator:type_anno(integer, Same);
+validator_anno(#t_integer{}) ->
+    beam_validator:type_anno(integer);
+validator_anno(float) ->
+    beam_validator:type_anno(float);
+validator_anno(#t_atom{elements=[Val]}) ->
+    beam_validator:type_anno(atom, Val);
+validator_anno(#t_atom{}=A) ->
+    case t_is_boolean(A) of
+        true -> beam_validator:type_anno(bool);
+        false -> beam_validator:type_anno(atom)
+    end;
+validator_anno(T) ->
+    beam_validator:type_anno(T).
+
+get_func_id(Anno) ->
+    #{func_info:={_Mod, Name, Arity}} = Anno,
+    #b_local{name=#b_literal{val=Name}, arity=Arity}.
+
+opt_1([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
     case Ls of
         #{L:=Ts} ->
-            opt_2(L, Blk, Bs, Ts, D);
+            opt_2(L, Blk, Bs, Ts, D, Acc);
         #{} ->
             %% This block is never reached. Discard it.
-            opt_1(Bs, D)
+            opt_1(Bs, D, Acc)
     end;
-opt_1([], #d{}) -> [].
+opt_1([], D, Acc) ->
+    #d{func_db=FuncDb,ret_type=NewRet} = D,
+    {reverse(Acc), FuncDb, NewRet}.
 
-opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, #d{sub=Sub}=D0) ->
+opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, #d{sub=Sub}=D0, Acc) ->
     case Is0 of
         [#b_set{op=call,dst=Dst,
                 args=[#b_remote{mod=#b_literal{val=Mod},
@@ -94,34 +216,43 @@ opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, #d{sub=Sub}=D0) ->
                     Ret = #b_ret{arg=Dst},
                     Blk = Blk0#b_blk{is=[I],last=Ret},
                     Ls = maps:remove(L, D0#d.ls),
-                    D = D0#d{ls=Ls},
-                    [{L,Blk}|opt_1(Bs, D)];
+
+                    %% We potentially lack a return value.
+                    RetType = join([none | D0#d.ret_type]),
+
+                    D = D0#d{ls=Ls,ret_type=[RetType]},
+                    opt_1(Bs, D, [{L,Blk} | Acc]);
                 false ->
-                    opt_3(L, Blk0, Bs, Ts, D0)
+                    opt_3(L, Blk0, Bs, Ts, D0, Acc)
             end;
         _ ->
-            opt_3(L, Blk0, Bs, Ts, D0)
+            opt_3(L, Blk0, Bs, Ts, D0, Acc)
     end.
 
 opt_3(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
-      #d{ds=Ds0,ls=Ls0,sub=Sub0}=D0) ->
-    {Is,Ts,Ds,Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Sub0, []),
-    D1 = D0#d{ds=Ds,sub=Sub},
-    Last1 = simplify_terminator(Last0, Sub, Ts),
+      #d{ds=Ds0,ls=Ls0,sub=Sub0,func_db=Fdb0}=D0, Acc) ->
+    {Is,Ts,Ds,Fdb,Sub} = opt_is(Is0, Ts0, Ds0, Fdb0, Ls0, D0, Sub0, []),
+    D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
+    Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
     Last = opt_terminator(Last1, Ts, Ds),
     D = update_successors(Last, Ts, D1),
     Blk = Blk0#b_blk{is=Is,last=Last},
-    [{L,Blk}|opt_1(Bs, D)].
+    opt_1(Bs, D, [{L,Blk} | Acc]).
 
-simplify_terminator(#b_br{bool=Bool}=Br, Sub, Ts) ->
+simplify_terminator(#b_br{bool=Bool}=Br, Sub, Ts, _Ds) ->
     Br#b_br{bool=simplify_arg(Bool, Sub, Ts)};
-simplify_terminator(#b_switch{arg=Arg}=Sw, Sub, Ts) ->
+simplify_terminator(#b_switch{arg=Arg}=Sw, Sub, Ts, _Ds) ->
     Sw#b_switch{arg=simplify_arg(Arg, Sub, Ts)};
-simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts) ->
-    Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}.
+simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts, Ds) ->
+    %% Reducing the result of a call to a literal (fairly common for 'ok')
+    %% breaks tail call optimization.
+    case Ds of
+        #{ Arg := #b_set{op=call}} -> Ret;
+        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}
+    end.
 
 opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
-       Ts0, Ds0, Ls, Sub0, Acc) ->
+       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
     Args = [{simplify_arg(Arg, Sub0, Ts0),From} ||
@@ -132,28 +263,61 @@ opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
             %% value or if the values are identical.
             [{Val,_}|_] = Args,
             Sub = Sub0#{Dst=>Val},
-            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc);
+            opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
         false ->
             I = I0#b_set{args=Args},
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc])
+            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc])
     end;
-opt_is([#b_set{op=succeeded,args=Args0,dst=Dst}=I],
-       Ts0, Ds0, Ls, Sub0, Acc) ->
-    Args = simplify_args(Args0, Sub0, Ts0),
-    Type = type(succeeded, Args, Ts0, Ds0),
-    case get_literal_from_type(Type) of
-        #b_literal{}=Lit ->
-            Sub = Sub0#{Dst=>Lit},
-            opt_is([], Ts0, Ds0, Ls, Sub, Acc);
-        none ->
+opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0 | Is],
+       Ts0, Ds0, Fdb0, Ls, D, Sub, Acc) ->
+    Args = simplify_args(Args0, Sub, Ts0),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    %% This is a bit of a kludge; we know that any instruction whose return
+    %% type is 'none' will fail at runtime, but we don't yet have a way to cut
+    %% a block short so we move on like nothing nothing happened.
+    %%
+    %% This complicates argument type optimization as unreachable calls can
+    %% add types that will never occur, so we skip optimizing this call if
+    %% the type of any of its arguments is 'none'.
+    [_Callee | Rest] = Args,
+    case all(fun(Arg) -> get_type(Arg, Ts0) =/= none end, Rest) of
+        true ->
+            {Ts, Ds, Fdb, I} = opt_call(I1, D, Ts0, Ds0, Fdb0),
+            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub, [I|Acc]);
+        false ->
+            Ts = Ts0#{ Dst => any },
+            Ds = Ds0#{ Dst => I1 },
+            opt_is(Is, Ts, Ds, Fdb0, Ls, D, Sub, [I1|Acc])
+    end;
+opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
+       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
+    case Ds0 of
+        #{ Arg := #b_set{op=call} } ->
+            %% The success check of a call is part of exception handling and
+            %% must not be optimized away. We still have to update its type
+            %% though.
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            opt_is([], Ts, Ds, Ls, Sub0, [I|Acc])
+
+            opt_is([], Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc]);
+        #{} ->
+            Args = simplify_args([Arg], Sub0, Ts0),
+            Type = type(succeeded, Args, Ts0, Ds0),
+            case get_literal_from_type(Type) of
+                #b_literal{}=Lit ->
+                    Sub = Sub0#{Dst=>Lit},
+                    opt_is([], Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
+                none ->
+                    Ts = Ts0#{Dst=>Type},
+                    Ds = Ds0#{Dst=>I},
+                    opt_is([], Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc])
+            end
     end;
 opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Ls, Sub0, Acc) ->
+       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
     Args = simplify_args(Args0, Sub0, Ts0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0) of
@@ -161,23 +325,76 @@ opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
             I = beam_ssa:normalize(I2),
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            opt_is(Is, Ts, Ds, Ls, Sub0, [I|Acc]);
+            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc]);
         #b_literal{}=Lit ->
             Sub = Sub0#{Dst=>Lit},
-            opt_is(Is, Ts0, Ds0, Ls, Sub, Acc);
+            opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
         #b_var{}=Var ->
             case Is of
                 [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] ->
                     %% We must remove this 'succeeded' instruction.
                     Sub = Sub0#{Dst=>Var,SuccDst=>#b_literal{val=true}},
-                    opt_is([], Ts0, Ds0, Ls, Sub, Acc);
+                    opt_is([], Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
                 _ ->
                     Sub = Sub0#{Dst=>Var},
-                    opt_is(Is, Ts0, Ds0, Ls, Sub, Acc)
+                    opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc)
             end
     end;
-opt_is([], Ts, Ds, _Ls, Sub, Acc) ->
-    {reverse(Acc),Ts,Ds,Sub}.
+opt_is([], Ts, Ds, Fdb, _Ls, _D, Sub, Acc) ->
+    {reverse(Acc), Ts, Ds, Fdb, Sub}.
+
+opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
+    {Ts, Ds, I} = opt_local_call(I0, Ts0, Ds0, Fdb0),
+    case Fdb0 of
+        #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
+            %% Update the argument types of *this exact call*, the types
+            %% will be joined later when the callee is optimized.
+            CallId = {D#d.func_id, Dst},
+            ArgTypes = update_arg_types(Args, ArgTypes0, CallId, Ts0),
+
+            Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
+            {Ts, Ds, Fdb, I};
+        #{} ->
+            %% We can't narrow the argument types of exported functions as they
+            %% can receive anything as part of an external call.
+            {Ts, Ds, Fdb0, I}
+    end;
+opt_call(#b_set{dst=Dst}=I, _D, Ts0, Ds0, Fdb) ->
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    {Ts, Ds, Fdb, I}.
+
+opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
+    %% We skip propagating 'none' as we don't yet have a good way to cut a
+    %% block short.
+    Type = case Fdb of
+               #{ Id := #func_info{ret_type=[T]} } when T =/= none -> T;
+               #{} -> any
+           end,
+    I = case Type of
+            any -> I0;
+            _ -> beam_ssa:add_anno(result_type, validator_anno(Type), I0)
+        end,
+    Ts = Ts0#{ Dst => Type },
+    Ds = Ds0#{ Dst => I },
+    {Ts, Ds, I}.
+
+update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
+    %% Match contexts are treated as bitstrings when optimizing arguments, as
+    %% we don't yet support removing the "bs_start_match3" instruction.
+    NewType = case get_type(Arg, Ts) of
+                  #t_bs_match{} -> {binary, 1};
+                  Type -> Type
+              end,
+    PrevType = maps:get(CallId, TypeMap0, NewType),
+
+    %% The new type must be narrower than the old one.
+    true = meet(NewType, PrevType) =/= none,    %Assertion.
+
+    TypeMap = TypeMap0#{ CallId => NewType },
+    [TypeMap | update_arg_types(Args, TypeMaps, CallId, Ts)];
+update_arg_types([], [], _CallId, _Ts) ->
+    [].
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
     case is_safe_bool_op(Args, Ts) of
@@ -309,6 +526,8 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
         none -> I;
         List -> #b_literal{val=list_to_tuple(List)}
     end;
+simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
+    #b_literal{val=true};
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
     I#b_set{op=wait,args=[]};
 simplify(I, _Ts) -> I.
@@ -476,19 +695,36 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail,list=List}, Ts0, D0) ->
                 end,
             foldl(F, D, List);
         false ->
-            FailTs = subtract_types([{V,join_sw_list(List, Ts0, none)}], Ts0),
+            %% V can not be equal to any of the values in List at the fail
+            %% block.
+            FailTs = subtract_sw_list(V, List, Ts0),
             D = update_successor(Fail, FailTs, D0),
             F = fun({Val,S}, A) ->
                         T = get_type(Val, Ts0),
                         update_successor(S, Ts0#{V=>T}, A)
                 end,
             foldl(F, D, List)
-        end;
-update_successors(#b_ret{}, _Ts, D) -> D.
+    end;
+update_successors(#b_ret{arg=Arg}, Ts, D) ->
+    FuncId = D#d.func_id,
+    case D#d.ds of
+        #{ Arg := #b_set{op=call,args=[FuncId | _]} } ->
+            %% Returning a call to ourselves doesn't affect our own return
+            %% type.
+            D;
+        #{} ->
+            RetType = join([get_type(Arg, Ts) | D#d.ret_type]),
+            D#d{ret_type=[RetType]}
+    end.
 
-join_sw_list([{Val,_}|T], Ts, Type) ->
-    join_sw_list(T, Ts, join(Type, get_type(Val, Ts)));
-join_sw_list([], _, Type) -> Type.
+subtract_sw_list(V, List, Ts) ->
+    Ts#{ V := sub_sw_list_1(get_type(V, Ts), List, Ts) }.
+
+sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
+    ValType = get_type(Val, Ts),
+    sub_sw_list_1(subtract(Type, ValType), T, Ts);
+sub_sw_list_1(Type, [], _Ts) ->
+    Type.
 
 update_successor_bool(#b_var{}=Var, BoolValue, S, Ts, D) ->
     case t_is_boolean(get_type(Var, Ts)) of

@@ -103,6 +103,7 @@ BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
 HRL_FILES= \
 	beam_disasm.hrl \
+	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
 	core_parse.hrl \
 	v3_kernel.hrl

@@ -26,6 +26,7 @@
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
+-export([type_anno/1, type_anno/2, type_anno/3]).
 
 -import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
 
@@ -42,6 +43,33 @@ module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
 	Es0 ->
 	    Es = [{?MODULE,E} || E <- Es0],
 	    {error,[{atom_to_list(Mod),Es}]}
+    end.
+
+%% Provides a stable interface for type annotations, used by certain passes to
+%% indicate that we can safely assume that a register has a given type.
+-spec type_anno(term()) -> term().
+type_anno(atom) -> {atom,[]};
+type_anno(bool) -> bool;
+type_anno({binary,_}) -> term;
+type_anno(cons) -> cons;
+type_anno(float) -> {float,[]};
+type_anno(integer) -> {integer,[]};
+type_anno(list) -> list;
+type_anno(map) -> map;
+type_anno(match_context) -> match_context;
+type_anno(number) -> number;
+type_anno(nil) -> nil.
+
+-spec type_anno(term(), term()) -> term().
+type_anno(atom, Value) -> {atom, Value};
+type_anno(float, Value) -> {float, Value};
+type_anno(integer, Value) -> {integer, Value}.
+
+-spec type_anno(term(), term(), term()) -> term().
+type_anno(tuple, Size, Exact) when is_integer(Size) ->
+    case Exact of
+        true -> {tuple, Size};
+        false -> {tuple, [Size]}
     end.
 
 -spec format_error(term()) -> iolist().
@@ -92,28 +120,6 @@ format_error(Error) ->
 validate(Module, Fs) ->
     Ft = index_parameter_types(Fs, []),
     validate_0(Module, Fs, Ft).
-
-index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
-    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
-			(_) -> true
-		     end, Code0),
-    case Code of
-	[{label,Entry}|Is] ->
-	    Acc = index_parameter_types_1(Is, Entry, Acc0),
-	    index_parameter_types(Fs, Acc);
-	_ ->
-	    %% Something serious is wrong. Ignore it for now.
-	    %% It will be detected and diagnosed later.
-	    index_parameter_types(Fs, Acc0)
-    end;
-index_parameter_types([], Acc) ->
-    gb_trees:from_orddict(lists:sort(Acc)).
-
-index_parameter_types_1([{'%', {type_info, Reg, Type}} | Is], Entry, Acc) ->
-    Key = {Entry, Reg},
-    index_parameter_types_1(Is, Entry, [{Key, Type} | Acc]);
-index_parameter_types_1(_, _, Acc) ->
-    Acc.
 
 validate_0(_Module, [], _) -> [];
 validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
@@ -166,6 +172,32 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 	 valid=0 :: non_neg_integer(),		%Valid slots
 	 slots=0 :: non_neg_integer()		%Number of slots
 	}).
+
+index_parameter_types([{function,_,_,Entry,Code0}|Fs], Acc0) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
+			(_) -> true
+		     end, Code0),
+    case Code of
+	[{label,Entry}|Is] ->
+	    Acc = index_parameter_types_1(Is, Entry, Acc0),
+	    index_parameter_types(Fs, Acc);
+	_ ->
+	    %% Something serious is wrong. Ignore it for now.
+	    %% It will be detected and diagnosed later.
+	    index_parameter_types(Fs, Acc0)
+    end;
+index_parameter_types([], Acc) ->
+    gb_trees:from_orddict(lists:sort(Acc)).
+
+index_parameter_types_1([{'%', {type_info, Reg, Type0}} | Is], Entry, Acc) ->
+    Type = case Type0 of
+                match_context -> #ms{};
+                _ -> Type0
+            end,
+    Key = {Entry, Reg},
+    index_parameter_types_1(Is, Entry, [{Key, Type} | Acc]);
+index_parameter_types_1(_, _, Acc) ->
+    Acc.
 
 validate_1(Is, Name, Arity, Entry, Ft) ->
     validate_2(labels(Is), Name, Arity, Entry, Ft).
@@ -386,25 +418,19 @@ valfun_1(remove_message, Vst) ->
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-valfun_1({'%', {type_info, Reg, Info0}}, Vst0) ->
+valfun_1({'%', {type_info, Reg, match_context}}, Vst0) ->
+    set_aliased_type(#ms{}, Reg, Vst0);
+valfun_1({'%', {type_info, Reg, NewType0}}, Vst0) ->
     %% Explicit type information inserted by optimization passes to indicate
     %% that Reg has a certain type, so that we can accept cross-function type
     %% optimizations.
-    %%
-    %% At the moment we only allow this when narrowing from 'term' which is
-    %% what to expect with function parameters, but in theory any narrowing
-    %% conversion should be legal.
-    case get_move_term_type(Reg, Vst0) of
-        term ->
-            Type0 = case Info0 of
-                        match_context -> #ms{};
-                        _ -> Info0
-                    end,
-            Type = propagate_fragility(Type0, [Reg], Vst0),
-            set_type_reg(Type, Reg, Vst0);
-        _ ->
-            error(bad_type_info)
-    end;
+    OldType = get_durable_term_type(Reg, Vst0),
+    NewType = case meet(NewType0, OldType) of
+                   none -> error({bad_type_info, Reg, NewType0, OldType});
+                   T -> T
+              end,
+    Type = propagate_fragility(NewType, [Reg], Vst0),
+    set_aliased_type(Type, Reg, Vst0);
 valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
@@ -643,7 +669,12 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     Vst1 = Vst0#vst{current=St},
     Vst2 = branch_state(Fail, Vst1),
     Vst3 = prune_x_regs(Live, Vst2),
+    SrcType = get_term_type(hd(Src), Vst3),
     Vst = case Op of
+              length when SrcType =/= cons, SrcType =/= nil ->
+                  %% If we already know we have a cons cell or nil, it
+                  %% shouldn't be demoted to list.
+                  set_type(list, hd(Src), Vst3);
               map_size ->
                   set_type(map, hd(Src), Vst3);
               _ ->
@@ -786,6 +817,12 @@ valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
     Vst;
 
 %% Other test instructions.
+valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
+    assert_term(Src, Vst),
+    set_aliased_type({atom,[]}, Src, branch_state(Lbl, Vst));
+valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
+    assert_term(Src, Vst),
+    set_aliased_type(bool, Src, branch_state(Lbl, Vst));
 valfun_4({test,is_float,{f,Lbl},[Float]}, Vst) ->
     assert_term(Float, Vst),
     set_type({float,[]}, Float, branch_state(Lbl, Vst));
@@ -793,6 +830,9 @@ valfun_4({test,is_tuple,{f,Lbl},[Tuple]}, Vst) ->
     Type0 = get_term_type(Tuple, Vst),
     Type = upgrade_tuple_type({tuple,[0]}, Type0),
     set_aliased_type(Type, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
+    assert_term(Src, Vst),
+    set_aliased_type({integer,[]}, Src, branch_state(Lbl, Vst));
 valfun_4({test,is_nonempty_list,{f,Lbl},[Cons]}, Vst) ->
     assert_term(Cons, Vst),
     Type = cons,
@@ -830,11 +870,11 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
     end;
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst0) ->
     Vst = case get_term_type(Src, Vst0) of
-               list ->
-                   branch_state(Lbl, set_type_reg(cons, Src, Vst0));
-               _ ->
-                   branch_state(Lbl, Vst0)
-           end,
+              list ->
+                  branch_state(Lbl, set_type_reg(cons, Src, Vst0));
+              _ ->
+                  branch_state(Lbl, Vst0)
+          end,
     set_aliased_type(nil, Src, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
@@ -1081,39 +1121,58 @@ verify_call_args_1(N, Vst) ->
     verify_call_args_1(X, Vst).
 
 verify_local_call(Lbl, Live, Vst) ->
-    F = fun({R, _Ctx}) ->
-                verify_call_match_context(Lbl, R, Vst)
-          end,
-    MsRegs = all_ms_in_x_regs(Live, Vst),
-    verify_no_ms_aliases(MsRegs),
-    foreach(F, MsRegs).
+    F = fun({R, Type}) ->
+                verify_arg_type(Lbl, R, Type, Vst)
+        end,
+    TRegs = typed_call_regs(Live, Vst),
+    verify_no_ms_aliases(TRegs),
+    foreach(F, TRegs).
 
-all_ms_in_x_regs(0, _Vst) ->
+typed_call_regs(0, _Vst) ->
     [];
-all_ms_in_x_regs(Live0, Vst) ->
+typed_call_regs(Live0, Vst) ->
     Live = Live0 - 1,
     R = {x,Live},
-    case get_move_term_type(R, Vst) of
-        #ms{}=M -> [{R,M} | all_ms_in_x_regs(Live, Vst)];
-        _ -> all_ms_in_x_regs(Live, Vst)
-    end.
+    [{R, get_move_term_type(R, Vst)} | typed_call_regs(Live, Vst)].
 
 %% Verifies that the same match context isn't present twice.
-verify_no_ms_aliases(MsRegs) ->
-    CtxIds = [Id || {_, #ms{id=Id}} <- MsRegs],
+verify_no_ms_aliases(Regs) ->
+    CtxIds = [Id || {_, #ms{id=Id}} <- Regs],
     UniqueCtxIds = ordsets:from_list(CtxIds),
     if
         length(UniqueCtxIds) < length(CtxIds) ->
-            error({multiple_match_contexts, MsRegs});
+            error({multiple_match_contexts, Regs});
         length(UniqueCtxIds) =:= length(CtxIds) ->
             ok
     end.
 
-%% Verifies that the target label accepts match contexts in the given register.
-verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
-    case gb_trees:lookup({Lbl, Ctx}, Ft) of
-        {value, match_context} -> ok;
-        none -> error(no_bs_start_match2)
+%% Verifies that the given argument narrows to what the function expects.
+verify_arg_type(Lbl, Reg, #ms{}, #vst{ft=Ft}) ->
+    %% Match contexts require explicit support, and may not be passed to a
+    %% function that accepts arbitrary terms.
+    case gb_trees:lookup({Lbl, Reg}, Ft) of
+        {value, #ms{}} -> ok;
+        _ -> error(no_bs_start_match2)
+    end;
+verify_arg_type(Lbl, Reg, GivenType, #vst{ft=Ft}) ->
+    case gb_trees:lookup({Lbl, Reg}, Ft) of
+        {value, bool} when GivenType =:= {atom, true};
+                           GivenType =:= {atom, false};
+                           GivenType =:= {atom, []} ->
+            %% We don't yet support upgrading true/false to bool, so we
+            %% assume unknown atoms can be bools when validating calls.
+            ok;
+        {value, #ms{}} ->
+            %% Functions that accept match contexts also accept all other
+            %% terms. This will change once we support union types.
+            ok;
+        {value, RequiredType} ->
+            case meet(GivenType, RequiredType) of
+                none -> error({bad_arg_type, Reg, GivenType, RequiredType});
+                _ -> ok
+            end;
+        none ->
+            ok
     end.
 
 allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
@@ -1333,27 +1392,27 @@ bsm_restore(Reg, SavePoint, Vst) ->
 	_ -> error({illegal_restore,SavePoint,range})
     end.
 
-
 select_val_branches(Src, Choices, Vst) ->
     Infer = infer_types(Src, Vst),
-    select_val_branches_1(Choices, Infer, Vst).
+    select_val_branches_1(Choices, Src, Infer, Vst).
 
-select_val_branches_1([Val,{f,L}|T], Infer, Vst0) ->
-    Vst = branch_state(L, Infer(Val, Vst0)),
-    select_val_branches_1(T, Infer, Vst);
-select_val_branches_1([], _, Vst) -> Vst.
+select_val_branches_1([Val,{f,L}|T], Src, Infer, Vst0) ->
+    Vst1 = set_aliased_type(Val, Src, Infer(Val, Vst0)),
+    Vst = branch_state(L, Vst1),
+    select_val_branches_1(T, Src, Infer, Vst);
+select_val_branches_1([], _, _, Vst) -> Vst.
 
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
         {bif,is_map,{f,_},[Map],_} ->
-            fun({atom,true}, S) -> set_type_reg(map, Map, S);
+            fun({atom,true}, S) -> set_aliased_type(map, Map, S);
                (_, S) -> S
             end;
         {bif,tuple_size,{f,_},[Tuple],_} ->
             fun({integer,Arity}, S) ->
                     Type0 = get_term_type(Tuple, S),
                     Type = upgrade_tuple_type({tuple,Arity}, Type0),
-                    set_type(Type, Tuple, S);
+                    set_aliased_type(Type, Tuple, S);
                (_, S) -> S
             end;
         {bif,'=:=',{f,_},[ArityReg,{integer,_}=Val],_} when ArityReg =/= Src ->
@@ -1626,6 +1685,10 @@ meet(T1, T2) ->
 
 subtract(list, nil) -> cons;
 subtract(list, cons) -> nil;
+subtract(number, {integer,[]}) -> {float,[]};
+subtract(number, {float,[]}) -> {integer,[]};
+subtract(bool, {atom,false}) -> {atom, true};
+subtract(bool, {atom,true}) -> {atom, false};
 subtract(Type, _) -> Type.
 
 assert_type(WantedType, Term, Vst) ->
@@ -1841,7 +1904,7 @@ merge_regs_1([{R1,_}|Rs1], [{R2,_}|_]=Rs2) when R1 < R2 ->
 merge_regs_1([{R1,_}|_]=Rs1, [{R2,_}|Rs2]) when R1 > R2 ->
     merge_regs_1(Rs1, Rs2);
 merge_regs_1([{R,Type1}|Rs1], [{R,Type2}|Rs2]) ->
-    [{R,merge_types(Type1, Type2)}|merge_regs_1(Rs1, Rs2)];
+    [{R,join(Type1, Type2)}|merge_regs_1(Rs1, Rs2)];
 merge_regs_1([], []) -> [];
 merge_regs_1([], [_|_]) -> [];
 merge_regs_1([_|_], []) -> [].
@@ -1860,67 +1923,90 @@ merge_y_regs_1(Y, S, Regs0) when Y >= 0 ->
 	Type0 ->
 	    merge_y_regs_1(Y-1, S, Regs0);
 	Type1 ->
-	    Type = merge_types(Type0, Type1),
+	    Type = join(Type0, Type1),
 	    Regs = gb_trees:update(Y, Type, Regs0),
 	    merge_y_regs_1(Y-1, S, Regs)
     end;
 merge_y_regs_1(_, _, Regs) -> Regs.
 
-%% merge_types(Type1, Type2) -> Type
+%% join(Type1, Type2) -> Type
 %%  Return the most specific type possible.
 %%  Note: Type1 must NOT be the same as Type2.
-merge_types({fragile,Same}=Type, Same) ->
+join({literal,_}=T1, T2) ->
+    join_literal(T1, T2);
+join(T1, {literal,_}=T2) ->
+    join_literal(T2, T1);
+join({fragile,Same}=Type, Same) ->
     Type;
-merge_types({fragile,T1}, T2) ->
-    make_fragile(merge_types(T1, T2));
-merge_types(Same, {fragile,Same}=Type) ->
+join({fragile,T1}, T2) ->
+    make_fragile(join(T1, T2));
+join(Same, {fragile,Same}=Type) ->
     Type;
-merge_types(T1, {fragile,T2}) ->
-    make_fragile(merge_types(T1, T2));
-merge_types(uninitialized=I, _) -> I;
-merge_types(_, uninitialized=I) -> I;
-merge_types(initialized=I, _) -> I;
-merge_types(_, initialized=I) -> I;
-merge_types({catchtag,T0},{catchtag,T1}) ->
+join(T1, {fragile,T2}) ->
+    make_fragile(join(T1, T2));
+join(uninitialized=I, _) -> I;
+join(_, uninitialized=I) -> I;
+join(initialized=I, _) -> I;
+join(_, initialized=I) -> I;
+join({catchtag,T0},{catchtag,T1}) ->
     {catchtag,ordsets:from_list(T0++T1)};
-merge_types({trytag,T0},{trytag,T1}) ->
+join({trytag,T0},{trytag,T1}) ->
     {trytag,ordsets:from_list(T0++T1)};
-merge_types({tuple,A}, {tuple,B}) ->
+join({tuple,A}, {tuple,B}) ->
     {tuple,[min(tuple_sz(A), tuple_sz(B))]};
-merge_types({Type,A}, {Type,B}) 
+join({Type,A}, {Type,B}) 
   when Type =:= atom; Type =:= integer; Type =:= float ->
     if A =:= B -> {Type,A};
        true -> {Type,[]}
     end;
-merge_types({Type,_}, number) 
+join({Type,_}, number) 
   when Type =:= integer; Type =:= float ->
     number;
-merge_types(number, {Type,_}) 
+join(number, {Type,_}) 
   when Type =:= integer; Type =:= float ->
     number;
-merge_types(bool, {atom,A}) ->
+join(bool, {atom,A}) ->
     merge_bool(A);
-merge_types({atom,A}, bool) ->
+join({atom,A}, bool) ->
     merge_bool(A);
-merge_types(cons, {literal,[_|_]}) ->
-    cons;
-merge_types(cons, nil) ->
-    list;
-merge_types(nil, cons) ->
-    list;
-merge_types({literal,[_|_]}, cons) ->
-    cons;
-merge_types({literal,[_|_]}, {literal,[_|_]}) ->
-    cons;
-merge_types(#ms{id=Id1,valid=B1,slots=Slots1},
+join({atom,_}, {atom,_}) ->
+    {atom,[]};
+join(#ms{id=Id1,valid=B1,slots=Slots1},
 	    #ms{id=Id2,valid=B2,slots=Slots2}) ->
     Id = if
              Id1 =:= Id2 -> Id1;
              true -> make_ref()
          end,
     #ms{id=Id,valid=B1 band B2,slots=min(Slots1, Slots2)};
-merge_types(T1, T2) when T1 =/= T2 ->
-    %% Too different. All we know is that the type is a 'term'.
+join(T1, T2) when T1 =/= T2 ->
+    %% We've exhaused all other options, so the type must either be a list or
+    %% a 'term'.
+    join_list(T1, T2).
+
+%% Merges types of literals. Note that the left argument must either be a
+%% literal or exactly equal to the second argument.
+join_literal(Same, Same) ->
+    Same;
+join_literal({literal,[_|_]}, T) ->
+    join_literal(T, cons);
+join_literal({literal,#{}}, T) ->
+    join_literal(T, map);
+join_literal({literal,Tuple}, T) when is_tuple(Tuple) ->
+    join_literal(T, {tuple, tuple_size(Tuple)});
+join_literal({literal,_}, T) ->
+    %% Bitstring, fun, or similar.
+    join_literal(T, term);
+join_literal(T1, T2) ->
+    %% We're done extracting the types, try merging them again.
+    join(T1, T2).
+
+join_list(nil, cons) -> list;
+join_list(nil, list) -> list;
+join_list(cons, list) -> list;
+join_list(T, nil) -> join_list(nil, T);
+join_list(T, cons) -> join_list(cons, T);
+join_list(_, _) ->
+    %% Not a list, so it must be a term.
     term.
 
 tuple_sz([Sz]) -> Sz;
@@ -2031,6 +2117,9 @@ bif_type(abs, [Num], Vst) ->
     end;
 bif_type(float, _, _) -> {float,[]};
 bif_type('/', _, _) -> {float,[]};
+%% Binary operations
+bif_type('byte_size', _, _) -> {integer,[]};
+bif_type('bit_size', _, _) -> {integer,[]};
 %% Integer operations.
 bif_type(ceil, [_], _) -> {integer,[]};
 bif_type('div', [_,_], _) -> {integer,[]};
@@ -2110,11 +2199,13 @@ is_bif_safe(_, _) -> false.
 arith_type([A], Vst) ->
     %% Unary '+' or '-'.
     case get_term_type(A, Vst) of
+	{integer,_} -> {integer,[]};
 	{float,_} -> {float,[]};
         _ -> number
     end;
 arith_type([A,B], Vst) ->
     case {get_term_type(A, Vst),get_term_type(B, Vst)} of
+	{{integer,_},{integer,_}} -> {integer,[]};
 	{{float,_},_} -> {float,[]};
 	{_,{float,_}} -> {float,[]};
 	{_,_} -> number

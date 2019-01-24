@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
-	 wait/1,recv_in_try/1,double_recv/1]).
+	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +45,7 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [recv,coverage,otp_7980,ref_opt,export,wait,
-       recv_in_try,double_recv]}].
+       recv_in_try,double_recv,receive_var_zero]}].
 
 
 init_per_suite(Config) ->
@@ -377,5 +377,28 @@ do_double_recv(_, Msg) ->
     after 0 ->
             error
     end.
+
+%% Test 'after Z', when Z =:= 0 been propagated as an immediate by the type
+%% optimization pass.
+receive_var_zero(Config) when is_list(Config) ->
+    self() ! x,
+    self() ! y,
+    Z = zero(),
+    timeout = receive
+                  z -> ok
+              after Z -> timeout
+              end,
+    timeout = receive
+              after Z -> timeout
+              end,
+    self() ! w,
+    receive
+	x -> ok;
+	Other ->
+	    ct:fail({bad_message,Other})
+    end.
+
+zero() -> 0.
+
 
 id(I) -> I.

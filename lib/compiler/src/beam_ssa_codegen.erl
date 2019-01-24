@@ -161,7 +161,7 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
            (_K, _V, Acc) ->
                 Acc
         end, [], maps:get(registers, Anno)),
-    [Entry | Annos] ++ Body.
+    [Entry | sort(Annos)] ++ Body.
 
 cg_fun(Blocks, St0) ->
     Linear0 = linearize(Blocks),
@@ -1449,7 +1449,12 @@ cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=[#b_local{}=Func0|Args0]},
     Line = call_line(Where, local, Anno),
     Call = build_call(call, Arity, {f,FuncLbl}, Context, Dst),
     Is = setup_args(Args, Anno, Context, St) ++ Line ++ Call,
-    {Is,St};
+    case Anno of
+        #{ result_type := Info } ->
+            {Is ++ [{'%', {type_info, Dst, Info}}], St};
+        #{} ->
+            {Is, St}
+    end;
 cg_call(#cg_set{anno=Anno0,op=call,dst=Dst0,args=[#b_remote{}=Func0|Args0]},
         Where, Context, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -1724,6 +1729,14 @@ copy(Src, Src) -> [];
 copy(Src, Dst) -> [{move,Src,Dst}].
 
 force_reg({literal,_}=Lit, Reg) ->
+    {Reg,[{move,Lit,Reg}]};
+force_reg({integer,_}=Lit, Reg) ->
+    {Reg,[{move,Lit,Reg}]};
+force_reg({atom,_}=Lit, Reg) ->
+    {Reg,[{move,Lit,Reg}]};
+force_reg({float,_}=Lit, Reg) ->
+    {Reg,[{move,Lit,Reg}]};
+force_reg(nil=Lit, Reg) ->
     {Reg,[{move,Lit,Reg}]};
 force_reg({Kind,_}=R, _) when Kind =:= x; Kind =:= y ->
     {R,[]}.
