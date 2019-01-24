@@ -586,6 +586,9 @@ aliased_types(Config) ->
     {1,1} = aliased_types_2(Seq),
     {42,none} = aliased_types_2([]),
 
+    gurka = aliased_types_3([gurka]),
+    gaffel = aliased_types_3([gaffel]),
+
     ok.
 
 %% ERL-735: validator failed to track types on aliased registers, rejecting
@@ -613,6 +616,20 @@ aliased_types_2(Bug) ->
              [] -> none;
              _ -> hd(Bug)
          end}.
+
+%% ERL-832 part deux; validator failed to realize that an aliased register was
+%% a cons.
+aliased_types_3(Bug) ->
+    List = [Y || Y <- Bug],
+    case List of
+        [] -> Bug;
+        _ ->
+            if
+                hd(List) -> a:a();
+                true -> ok
+            end,
+            hd(List)
+    end.
 
 %%%-------------------------------------------------------------------------
 
