@@ -81,12 +81,10 @@ ei_accept(Config) when is_list(Config) ->
 
 ei_threaded_accept(Config) when is_list(Config) ->
     Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
-    N = 1, % 3,
+    N = 3,
     Host = atom_to_list(node()),
-    Port = 6767,
-    start_einode(Einode, N, Host, Port),
+    start_einode(Einode, N, Host),
     io:format("started eiaccnode"),
-    %%spawn_link(fun() -> start_einode(Einode, N, Host, Port) end),
     TestServerPid = self(),
     [spawn_link(fun() -> send_rec_einode(I, TestServerPid) end) || I <- lists:seq(0, N-1)],
     [receive I -> ok end || I <- lists:seq(0, N-1) ],
@@ -159,10 +157,9 @@ send_rec_einode(N, TestServerPid) ->
               ct:fail(EINode)
     end.
 
-start_einode(Einode, N, Host, Port) ->
+start_einode(Einode, N, Host) ->
     Einodecmd = Einode ++ " " ++ atom_to_list(erlang:get_cookie())
-    ++ " " ++ integer_to_list(N) ++ " " ++ Host ++ " "
-    ++ integer_to_list(Port) ++ " nothreads",
+    ++ " " ++ integer_to_list(N) ++ " " ++ Host,
     io:format("Einodecmd  ~p ~n", [Einodecmd]),      
     open_port({spawn, Einodecmd}, []),
     ok.
