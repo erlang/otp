@@ -113,15 +113,24 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
 
 %% TODO: use maybe monad for error handling!
 certificate_verify(PrivateKey, SignatureScheme,
-                   #state{handshake_env =
+                   #state{connection_states = ConnectionStates,
+                          handshake_env =
                               #handshake_env{
                                  tls_handshake_history = {Messages, _}}}, server) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, write),
+    #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
+
     {HashAlgo, _, _} =
         ssl_cipher:scheme_to_components(SignatureScheme),
 
     Context = lists:reverse(Messages),
-    THash = tls_v1:transcript_hash(Context, HashAlgo),
 
+    %% Transcript-Hash uses the HKDF hash function defined by the cipher suite.
+    THash = tls_v1:transcript_hash(Context, HKDFAlgo),
+
+    %% Digital signatures use the hash function defined by the selected signature
+    %% scheme.
     Signature = digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
                                HashAlgo, PrivateKey),
 
@@ -313,9 +322,7 @@ digitally_sign(THash, Context, HashAlgo, PrivateKey =  #'RSAPrivateKey'{}) ->
     Content = build_content(Context, THash),
 
     %% The length of the Salt MUST be equal to the length of the output
-    %% of the digest algorithm.
-    PadLen = ssl_cipher:hash_size(HashAlgo),
-
+    %% of the digest algorithm: rsa_pss_saltlen = -1
     public_key:sign(Content, HashAlgo, PrivateKey,
                     [{rsa_padding, rsa_pkcs1_pss_padding},
                      {rsa_pss_saltlen, -1},
@@ -455,7 +462,6 @@ do_negotiated(#{client_share := ClientKey,
         State5 = tls_connection:queue_handshake(Certificate, State4),
 
         %% Create CertificateVerify
-        %% Use selected signature_alg from here, HKDF only used for key_schedule
         CertificateVerify = certificate_verify(CertPrivateKey, SignatureScheme,
                                                State5, server),
 
