@@ -491,7 +491,12 @@ main(int argc, char *argv[])
             ErtsSysForkerProto proto;
             errno = 0;
             if ((res = sys_uds_read(uds_fd, (char*)&proto, sizeof(proto),
+#if defined(MSG_DONTWAIT)
                                     pipes, 3, MSG_DONTWAIT)) < 0) {
+#else
+		/* XXX: a workaround here? */
+                                    pipes, 3, 0)) < 0) {
+#endif
                 if (errno == EINTR)
                     continue;
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
