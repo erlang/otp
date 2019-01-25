@@ -178,6 +178,7 @@ static Export *dist_ctrl_put_data_trap;
 /* forward declarations */
 
 static int dsig_send_exit(ErtsDSigData* dsdp, Eterm ctl, Eterm msg, Eterm from, int force_busy);
+static int dsig_send_exit_ctx(ErtsSendContext *ctx, Eterm ctl, Eterm msg);
 static int dsig_send_ctl(ErtsDSigData* dsdp, Eterm ctl, int force_busy);
 static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
 static void init_nodes_monitors(void);
@@ -1276,25 +1277,22 @@ erts_dsig_send_exit(ErtsDSigData *dsdp, Eterm from, Eterm local, Eterm remote, E
 }
 
 int
-erts_dsig_send_exit2(ErtsDSigData *dsdp, Eterm local, Eterm remote, Eterm reason)
+erts_dsig_send_exit2(ErtsSendContext *ctx, Eterm local, Eterm remote, Eterm reason)
 {
-    DeclareTmpHeapNoproc(ctl_heap,5);
     int res;
     Eterm ctl, msg;
 
-    UseTmpHeapNoproc(5);
-    if (dsdp->dep->flags & DFLAG_EXIT_PAYLOAD) {
-        ctl = TUPLE3(&ctl_heap[0],
+    if (ctx->dsd.dep->flags & DFLAG_EXIT_PAYLOAD) {
+        ctl = TUPLE3(&ctx->ctl_heap[0],
                      make_small(DOP_PAYLOAD_EXIT2), local, remote);
         msg = reason;
     } else {
-        ctl = TUPLE4(&ctl_heap[0],
+        ctl = TUPLE4(&ctx->ctl_heap[0],
                      make_small(DOP_EXIT2), local, remote, reason);
         msg = THE_NON_VALUE;
     }
 
-    res = dsig_send_exit(dsdp, ctl, msg, local, 0);
-    UnUseTmpHeapNoproc(5);
+    res = dsig_send_exit_ctx(ctx, ctl, msg);
     return res;
 }
 
@@ -2162,11 +2160,22 @@ static int dsig_send_exit(ErtsDSigData* dsdp, Eterm ctl, Eterm msg, Eterm from, 
     ctx.msg = msg;
     ctx.from = from;
     ctx.force_busy = force_busy;
-    ctx.force_encode = 1;
+    ctx.force_encode = force_busy;
     ctx.phase = ERTS_DSIG_SEND_PHASE_INIT;
     ctx.reds = 1; /* provoke assert below (no reduction count with force_encode) */
     ret = erts_dsig_send(dsdp, &ctx);
     ASSERT(ret != ERTS_DSIG_SEND_CONTINUE);
+    return ret;
+}
+
+static int dsig_send_exit_ctx(ErtsSendContext *ctx, Eterm ctl, Eterm msg)
+{
+    int ret;
+    ctx->dss.ctl = ctl;
+    ctx->dss.msg = msg;
+    ctx->dss.force_busy = 0;
+    ctx->dss.force_encode = 0;
+    ret = erts_dsig_send(&ctx->dsd, &ctx->dss);
     return ret;
 }
 

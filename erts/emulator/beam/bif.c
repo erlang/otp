@@ -1302,9 +1302,17 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
              ERTS_BIF_PREP_RET(ret_val, am_true); /* Old incarnation of this node... */
          else {
              int code;
-             ErtsDSigData dsd;
+             ErtsSendContext ctx;
 
-             code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
+             ctx.suspend = !0;
+             ctx.connect = !0;
+             ctx.deref_dep = 0;
+             ctx.return_term = am_true;
+             ctx.dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(c_p) * TERM_TO_BINARY_LOOP_FACTOR);
+             ctx.dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
+             ctx.dss.from = c_p->common.id;
+
+             code = erts_dsig_prepare(&ctx.dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
                                       ERTS_DSP_NO_LOCK, 0, 1);
              switch (code) {
              case ERTS_DSIG_PREP_NOT_ALIVE:
@@ -1313,11 +1321,29 @@ static BIF_RETTYPE send_exit_signal_bif(Process *c_p, Eterm id, Eterm reason, in
                  break;
              case ERTS_DSIG_PREP_PENDING:
              case ERTS_DSIG_PREP_CONNECTED:
-                 code = erts_dsig_send_exit2(&dsd, c_p->common.id, id, reason);
-                 if (code == ERTS_DSIG_SEND_YIELD)
+                 code = erts_dsig_send_exit2(&ctx, c_p->common.id, id, reason);
+                 switch (code) {
+                 case ERTS_DSIG_SEND_YIELD:
                      ERTS_BIF_PREP_YIELD_RETURN(ret_val, c_p, am_true);
-                 else
+                     break;
+                 case ERTS_DSIG_SEND_CONTINUE:
+                     BUMP_ALL_REDS(c_p);
+                     erts_set_gc_state(c_p, 0);
+                     ERTS_BIF_PREP_TRAP1(ret_val, &dsend_continue_trap_export, c_p,
+                                         erts_dsend_export_trap_context(c_p, &ctx));
+                     break;
+                 case ERTS_DSIG_SEND_OK:
                      ERTS_BIF_PREP_RET(ret_val, am_true);
+                     break;
+                 case ERTS_DSIG_SEND_TOO_LRG:
+                     erts_set_gc_state(c_p, 1);
+                     ERTS_BIF_PREP_ERROR(ret_val, c_p, SYSTEM_LIMIT);
+                     break;
+                 default:
+                     ASSERT(! "Invalid dsig send exit2 result");
+                     ERTS_BIF_PREP_ERROR(ret_val, c_p, EXC_INTERNAL_ERROR);
+                     break;
+                 }
                  break;
              default:
                  ASSERT(! "Invalid dsig prepare result");

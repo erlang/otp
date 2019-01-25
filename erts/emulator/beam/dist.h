@@ -415,7 +415,7 @@ extern int erts_dsig_send_unlink(ErtsDSigData *, Eterm, Eterm);
 extern int erts_dsig_send_reg_msg(Eterm, Eterm, ErtsSendContext*);
 extern int erts_dsig_send_group_leader(ErtsDSigData *, Eterm, Eterm);
 extern int erts_dsig_send_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_exit2(ErtsDSigData *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit2(ErtsSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_demonitor(ErtsDSigData *, Eterm, Eterm, Eterm, int);
 extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm, Eterm);
