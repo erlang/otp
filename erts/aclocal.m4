@@ -2988,7 +2988,7 @@ case $host_os in
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
 		fi
 	;;
-	aix4*)
+	aix*|os400*)
 		DED_LDFLAGS="-G -bnoentry -bexpall"
 	;;
 	freebsd2*)
