@@ -31,6 +31,53 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where doing a <c>gen_tcp:send</c> on a socket
+	    with <c>delay_send</c> set to true could cause a segfault
+	    if the other side closes the connection.</p>
+          <p>
+	    Bug was introduced in erts-10.2 (OTP-21.2).</p>
+          <p>
+	    Own Id: OTP-15536 Aux Id: ERL-827 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a race condition when a port program closes that
+	    could result in the next started port to hang during
+	    startup.</p>
+          <p>
+	    When this fault happens the following error is normally
+	    (but not always) logged:</p>
+          <p>
+	    <c> =ERROR REPORT==== 14-Jan-2019::10:45:52.868246
+	    ===</c><br/><c> Bad input fd in erts_poll()! fd=11,
+	    port=#Port&lt;0.505>, driver=spawn, name=/bin/sh -s
+	    unix:cmd </c></p>
+          <p>
+	    Bug was introduced in erts-10.0 (OTP-21.0).</p>
+          <p>
+	    Own Id: OTP-15537</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug where polling for external events could be
+	    delayed for a very long time if all active schedulers
+	    were 100% loaded.</p>
+          <p>
+	    Bug was introduced in erts-10.2 (OTP-21.2).</p>
+          <p>
+	    Own Id: OTP-15538 Aux Id: ERIERL-229 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

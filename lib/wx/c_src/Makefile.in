@@ -181,6 +181,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
 	$(INSTALL_DATA) ../priv/erlang-logo32.png "$(RELSYSDIR)/priv/"
 	$(INSTALL_DATA) ../priv/erlang-logo64.png "$(RELSYSDIR)/priv/"
+	$(INSTALL_DATA) ../priv/erlang-logo128.png "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver$(SO_EXT) "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) "$(RELSYSDIR)/priv/"
 

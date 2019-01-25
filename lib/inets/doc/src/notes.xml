@@ -33,7 +33,25 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.3</title>
+  <section><title>Inets 7.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure ipv6 addresses with brackets in URIs are
+	    converted correctly before passing to lower level
+	    functions like gen_tcp and ssl functions. Could cause
+	    connection to fail.</p>
+          <p>
+	    Own Id: OTP-15544 Aux Id: ERIERL-289 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
