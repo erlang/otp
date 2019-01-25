@@ -454,14 +454,29 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [
-     {group, api},
-     {group, socket_closure},
-     {group, traffic},
-     {group, ttest}
+    Groups = [{api,            "ESOCK_TEST_API",        include},
+	      {socket_closure, "ESOCK_TEST_SOCK_CLOSE", include},
+	      {traffic,        "ESOCK_TEST_TRAFFIC",    include},
+	      {ttest,          "ESOCK_TEST_TTEST",      exclude}],
+    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
-     %% {group, tickets}
-    ].
+use_group(Group, Env, Default) ->
+	case os:getenv(Env) of
+	    false when (Default =:= include) ->
+		[{group, Group}];
+	    false ->
+		[];
+	    Val ->
+		case list_to_atom(string:to_lower(Val)) of
+		    Use when (Use =:= include) orelse 
+			     (Use =:= enable) orelse 
+			     (Use =:= true) ->
+			[{group, Group}];
+		    _ ->
+			[]
+		end
+	end.
+    
 
 groups() -> 
     [{api,                 [], api_cases()},
@@ -10919,12 +10934,12 @@ tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
     %%         socket:setopt(Sock, otp, debug, true); 
     %%     true -> ok
     %% end,
-    case tpp_udp_recv_req(Sock, Recv) of
+    try tpp_udp_recv_req(Sock, Recv) of
         {ok, Msg, RecvSz, From} ->
             NewStart = if (Start =:= undefined) -> ?LIB:timestamp(); 
                           true -> Start end,
             %% ?SEV_IPRINT("[~w] received - now try send", [N]),
-            case tpp_udp_send_rep(Sock, Send, Msg, From) of
+            try tpp_udp_send_rep(Sock, Send, Msg, From) of
                 {ok, SendSz} ->
                     tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
                                                              N+1,
@@ -10934,15 +10949,10 @@ tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
                 {error, SReason} ->
                     ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
                     exit({send, SReason, N})
+	    catch
+		SC:SE:SS ->
+		    exit({send, {SC, SE, SS}, N})
             end;
-        %% {error, timeout} ->
-        %%     ?SEV_IPRINT("timeout(~w) - try again", [N]),
-        %%     case Send(Sock, list_to_binary("ping")) of
-        %%         ok ->
-        %%             exit({'ping-send', ok, N});
-        %%         {error, Reason} ->
-        %%             exit({'ping-send', Reason, N})
-        %%     end;
         {error, closed} ->
             ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w",
                         [N, Sent, Received]),
@@ -10951,6 +10961,9 @@ tpp_udp_server_handler_msg_exchange_loop(Sock, Send, Recv,
         {error, RReason} ->
             ?SEV_EPRINT("recv (~w): ~p", [N, RReason]),
             exit({recv, RReason, N})
+    catch
+	RC:RE:RS ->
+	    exit({recv, {RC, RE, RS}, N})	
     end.
   
 
@@ -11033,9 +11046,11 @@ tpp_udp_recv_rep(Sock, Recv) ->
     tpp_udp_recv(Sock, Recv, ?TPP_REPLY).
 
 tpp_udp_recv(Sock, Recv, Tag) ->
-    case Recv(Sock, 0) of
+    %% ok = socket:setopt(Sock, otp, debug, true),
+    try Recv(Sock, 0) of
         {ok, {Source, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg}} 
           when (Sz =:= size(Data)) ->
+	    %% ok = socket:setopt(Sock, otp, debug, false),
             %% We got it all
             %% ?SEV_IPRINT("tpp_udp_recv -> got all: "
             %%             "~n   Source:     ~p"
@@ -11045,11 +11060,17 @@ tpp_udp_recv(Sock, Recv, Tag) ->
             %%             [Source, Tag, Sz, size(Data)]),
             {ok, Data, size(Msg), Source};
         {ok, {_Source, <<Tag:32/integer, Sz:32/integer, Data/binary>>}} ->
+	    %% ok = socket:setopt(Sock, otp, debug, false),
             {error, {invalid_msg, Sz, size(Data)}};
         {ok, {_, <<Tag:32/integer, _/binary>>}} ->
+	    %% ok = socket:setopt(Sock, otp, debug, false),
             {error, {invalid_msg_tag, Tag}};
         {error, _} = ERROR ->
+	    %% ok = socket:setopt(Sock, otp, debug, false),
             ERROR
+    catch
+	C:E:S ->
+	    {error, {catched, C, E, S}}
     end.
 
 tpp_udp_send_req(Sock, Send, Data, Dest) ->

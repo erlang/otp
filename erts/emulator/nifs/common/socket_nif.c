@@ -4250,6 +4250,12 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
     descP->type     = type;
     descP->protocol = protocol;
 
+    /* Does this apply to other types? Such as RAW? */
+    if (type == SOCK_DGRAM) {
+        descP->isReadable = TRUE;
+        descP->isWritable = TRUE;
+    }
+
     /*
      * Should we keep track of sockets (resources) in some way?
      * Doing it here will require mutex to ensure data integrity,
@@ -4544,20 +4550,27 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
 {
     int code, save_errno = 0;
 
-    /* Verify that we are where in the proper state */
+    /* 
+     * <KOLLA>
+     *
+     * We should look both the read and write mutex:es...
+     *
+     * </KOLLA>
+     *
+     * Verify that we are where in the proper state */
 
     if (!IS_OPEN(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> not open\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_connect -> not open\r\n") );
         return esock_make_error(env, atom_exbadstate);
     }
 
     if (IS_CONNECTED(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> already connected\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_connect -> already connected\r\n") );
         return esock_make_error(env, atom_eisconn);
     }
 
     if (IS_CONNECTING(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> already connecting\r\n") );
+        SSDBG( descP, ("SOCKET", "nif_connect -> already connecting\r\n") );
         return esock_make_error(env, esock_atom_einval);
     }
     
@@ -4566,7 +4579,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
                         descP->addrLen);
     save_errno = sock_errno();
 
-    SSDBG( descP, ("SOCKET", "nif_sendto -> connect result: %d, %d\r\n",
+    SSDBG( descP, ("SOCKET", "nif_connect -> connect result: %d, %d\r\n",
                    code, save_errno) );
 
     if (IS_SOCKET_ERROR(code) &&
@@ -4580,7 +4593,9 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
                descP, NULL, ref);
         return esock_make_ok2(env, ref);
     } else if (code == 0) {                 /* ok we are connected */
-        descP->state = SOCKET_STATE_CONNECTED;
+        descP->state      = SOCKET_STATE_CONNECTED;
+        descP->isReadable = TRUE;
+        descP->isWritable = TRUE;
         /* Do we need to do somthing for "active" mode?
          * Is there even such a thing *here*?
          */
@@ -4637,7 +4652,9 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
         return esock_make_error_errno(env, error);
     }
 
-    descP->state = SOCKET_STATE_CONNECTED;
+    descP->state      = SOCKET_STATE_CONNECTED;
+    descP->isReadable = TRUE;
+    descP->isWritable = TRUE;
 
     return esock_atom_ok;
 }
@@ -4968,7 +4985,9 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
                descP, NULL, esock_atom_undefined);
 #endif
 
-        accDescP->state = SOCKET_STATE_CONNECTED;
+        accDescP->state      = SOCKET_STATE_CONNECTED;
+        accDescP->isReadable = TRUE;
+        accDescP->isWritable = TRUE;
 
         return esock_make_ok2(env, accRef);
     }
@@ -5108,7 +5127,9 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
                descP, NULL, esock_atom_undefined);
 #endif
 
-        accDescP->state = SOCKET_STATE_CONNECTED;
+        accDescP->state      = SOCKET_STATE_CONNECTED;
+        accDescP->isReadable = TRUE;
+        accDescP->isWritable = TRUE;
 
         /* Check if there are waiting acceptors (popping the acceptor queue) */
 
@@ -5182,9 +5203,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
-    
     SSDBG( descP,
            ("SOCKET", "nif_send -> args when sock = %d:"
             "\r\n   Socket:       %T"
@@ -5192,9 +5210,6 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
             "\r\n   Size of data: %d"
             "\r\n   eFlags:       %d"
             "\r\n", descP->sock, sockRef, sendRef, sndData.size, eflags) );
-
-    if (!IS_CONNECTED(descP))
-        return esock_make_error(env, atom_enotconn);
 
     if (!esendflags2sendflags(eflags, &flags))
         return enif_make_badarg(env);
@@ -5315,9 +5330,6 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
-    
     SSDBG( descP,
            ("SOCKET", "nif_sendto -> args when sock = %d:"
             "\r\n   Socket:       %T"
@@ -5327,12 +5339,6 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
             "\r\n   eflags:       %d"
             "\r\n",
             descP->sock, sockRef, sendRef, sndData.size, eSockAddr, eflags) );
-
-    /* THIS TEST IS NOT CORRECT!!! */
-    if (!IS_OPEN(descP)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> not open (%u)\r\n", descP->state) );
-        return esock_make_error(env, esock_atom_einval);
-    }
 
     if (!esendflags2sendflags(eflags, &flags)) {
         SSDBG( descP, ("SOCKET", "nif_sendto -> sendflags decode failed\r\n") );
@@ -5447,9 +5453,6 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
-    
     SSDBG( descP,
            ("SOCKET", "nif_sendmsg -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -5457,10 +5460,6 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
             "\r\n   eflags:  %d"
             "\r\n",
             descP->sock, argv[0], sendRef, eflags) );
-
-    /* THIS TEST IS NOT CORRECT!!! */
-    if (!IS_OPEN(descP))
-        return esock_make_error(env, esock_atom_einval);
 
     if (!esendflags2sendflags(eflags, &flags))
         return esock_make_error(env, esock_atom_einval);
@@ -5745,12 +5744,6 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
     
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
-    
-    if (!IS_CONNECTED(descP))
-        return esock_make_error(env, atom_enotconn);
-
     if (!erecvflags2recvflags(eflags, &flags))
         return enif_make_badarg(env);
 
@@ -5893,9 +5886,6 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
-    
     SSDBG( descP,
            ("SOCKET", "nif_recvfrom -> args when sock = %d:"
             "\r\n   Socket:  %T"
@@ -6061,9 +6051,6 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     if (!enif_get_resource(env, sockRef, sockets, (void**) &descP)) {
         return enif_make_badarg(env);
     }
-    
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
-        return esock_make_error(env, atom_closed);
     
     SSDBG( descP,
            ("SOCKET", "nif_recvmsg -> args when sock = %d:"
@@ -6292,6 +6279,8 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
         descP->closeLocal = TRUE;
         descP->state      = SOCKET_STATE_CLOSING;
+        descP->isReadable = FALSE;
+        descP->isWritable = FALSE;
         doClose           = TRUE;
     }
 
@@ -15842,7 +15831,7 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->currentWriterP = NULL; // currentWriter not used
         descP->writersQ.first = NULL;
         descP->writersQ.last  = NULL;
-        descP->isWritable     = TRUE;
+        descP->isWritable     = FALSE; // TRUE;
         descP->writePkgCnt    = 0;
         descP->writeByteCnt   = 0;
         descP->writeTries     = 0;
@@ -15854,7 +15843,7 @@ SocketDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->currentReaderP = NULL; // currentReader not used
         descP->readersQ.first = NULL;
         descP->readersQ.last  = NULL;
-        descP->isReadable     = TRUE;
+        descP->isReadable     = FALSE; // TRUE;
         descP->readPkgCnt     = 0;
         descP->readByteCnt    = 0;
         descP->readTries      = 0;
