@@ -222,6 +222,9 @@ coverage(Config) ->
 booleans(_Config) ->
     {'EXIT',{{case_clause,_},_}} = (catch do_booleans_1(42)),
 
+    ok = do_booleans_2(42, 41),
+    error = do_booleans_2(42, 42),
+
     AnyAtom = id(atom),
     true = is_atom(AnyAtom),
     false = is_boolean(AnyAtom),
@@ -249,6 +252,19 @@ do_booleans_1(B) ->
 	yes -> yes;
 	no -> no
     end.
+
+do_booleans_2(A, B) ->
+    Not = not do_booleans_cmp(A, B),
+    case Not of
+        true ->
+            case Not of
+                true -> error;
+                false -> ok
+            end;
+        false -> ok
+    end.
+
+do_booleans_cmp(A, B) -> A > B.
 
 setelement(_Config) ->
     T0 = id({a,42}),
