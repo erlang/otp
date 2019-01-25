@@ -65,6 +65,7 @@ table td.hits {
 }
 table td.hits {
   width: 10px;
+  text-align: right;
   padding: 2px 5px;
   color: rgba(0, 0, 0, 0.6);
   background-color: #f0f0f0;

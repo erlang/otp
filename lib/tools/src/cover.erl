@@ -2569,6 +2569,7 @@ table_data(Line, L, N) ->
    "<td class=\"hits\">",maybe_integer_to_list(N),"</td>\n",
    "<td class=\"source\"><code>",LineNoNL,"</code></td>\n</tr>\n"].
 
+maybe_integer_to_list(0) -> "<pre style=\"display: inline;\">:-(</pre>";
 maybe_integer_to_list(N) when is_integer(N) -> integer_to_list(N);
 maybe_integer_to_list(_) -> "".
 
