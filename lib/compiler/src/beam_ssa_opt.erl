@@ -39,7 +39,7 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [append/1,duplicate/2,foldl/3,keyfind/3,member/2,
+-import(lists, [all/2,append/1,duplicate/2,foldl/3,keyfind/3,member/2,
                 reverse/1,reverse/2,
                 splitwith/2,sort/1,takewhile/2,unzip/1]).
 
@@ -142,6 +142,7 @@ finish_1([], _StMap) ->
 prologue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_split_blocks),
           ?PASS(ssa_opt_coalesce_phis),
+          ?PASS(ssa_opt_tail_phis),
           ?PASS(ssa_opt_element),
           ?PASS(ssa_opt_linearize),
           ?PASS(ssa_opt_tuple_size),
@@ -157,6 +158,7 @@ repeated_passes(Opts) ->
           ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
+          ?PASS(ssa_opt_tail_phis),
           ?PASS(ssa_opt_type_continue)],        %Must run after ssa_opt_dead to
                                                 %clean up phi nodes.
     passes_1(Ps, Opts).
@@ -429,6 +431,160 @@ c_fix_branches([{_,Pred}|As], L, Blocks0) ->
     Blocks = Blocks0#{Pred:=Blk},
     c_fix_branches(As, L, Blocks);
 c_fix_branches([], _, Blocks) -> Blocks.
+
+%%%
+%%% Eliminate phi nodes in the tail of a function.
+%%%
+%%% Try to eliminate short blocks that starts with a phi node
+%%% and end in a return. For example:
+%%%
+%%%    Result = phi { Res1, 4 }, { literal true, 5 }
+%%%    Ret = put_tuple literal ok, Result
+%%%    ret Ret
+%%%
+%%% The code in this block can be inserted at the end blocks 4 and
+%%% 5. Thus, the following code can be inserted into block 4:
+%%%
+%%%    Ret:1 = put_tuple literal ok, Res1
+%%%    ret Ret:1
+%%%
+%%% And the following code into block 5:
+%%%
+%%%    Ret:2 = put_tuple literal ok, literal true
+%%%    ret Ret:2
+%%%
+%%% Which can be further simplified to:
+%%%
+%%%    ret literal {ok, true}
+%%%
+%%% This transformation may lead to more code improvements:
+%%%
+%%%   - Stack trimming
+%%%   - Fewer test_heap instructions
+%%%   - Smaller stack frames
+%%%
+
+ssa_opt_tail_phis({#st{ssa=SSA0,cnt=Count0}=St, FuncDb}) ->
+    {SSA,Count} = opt_tail_phis(SSA0, Count0),
+    {St#st{ssa=SSA,cnt=Count}, FuncDb}.
+
+opt_tail_phis(Blocks, Count) when is_map(Blocks) ->
+    opt_tail_phis(maps:values(Blocks), Blocks, Count);
+opt_tail_phis(Linear0, Count0) when is_list(Linear0) ->
+    Blocks0 = maps:from_list(Linear0),
+    {Blocks,Count} = opt_tail_phis(Blocks0, Count0),
+    {beam_ssa:linearize(Blocks),Count}.
+
+opt_tail_phis([#b_blk{is=Is0,last=Last}|Bs], Blocks0, Count0) ->
+    case {Is0,Last} of
+        {[#b_set{op=phi,args=[_,_|_]}|_],#b_ret{arg=#b_var{}}=Ret} ->
+            {Phis,Is} = splitwith(fun(#b_set{op=Op}) -> Op =:= phi end, Is0),
+            case suitable_tail_ops(Is) of
+                true ->
+                    {Blocks,Count} = opt_tail_phi(Phis, Is, Ret,
+                                                  Blocks0, Count0),
+                    opt_tail_phis(Bs, Blocks, Count);
+                false ->
+                    opt_tail_phis(Bs, Blocks0, Count0)
+            end;
+        {_,_} ->
+            opt_tail_phis(Bs, Blocks0, Count0)
+    end;
+opt_tail_phis([], Blocks, Count) ->
+    {Blocks,Count}.
+
+opt_tail_phi(Phis0, Is, Ret, Blocks0, Count0) ->
+    Phis = rel2fam(reduce_phis(Phis0)),
+    {Blocks,Count,Cost} =
+        foldl(fun(PhiArg, Acc) ->
+                      opt_tail_phi_arg(PhiArg, Is, Ret, Acc)
+              end, {Blocks0,Count0,0}, Phis),
+    MaxCost = length(Phis) * 3 + 2,
+    if
+        Cost =< MaxCost ->
+            %% The transformation would cause at most a slight
+            %% increase in code size if no more optimizations
+            %% can be applied.
+            {Blocks,Count};
+        true ->
+            %% The code size would be increased too much.
+            {Blocks0,Count0}
+    end.
+
+reduce_phis([#b_set{dst=PhiDst,args=PhiArgs}|Is]) ->
+    [{L,{PhiDst,Val}} || {Val,L} <- PhiArgs] ++ reduce_phis(Is);
+reduce_phis([]) -> [].
+
+opt_tail_phi_arg({PredL,Sub0}, Is0, Ret0, {Blocks0,Count0,Cost0}) ->
+    Blk0 = map_get(PredL, Blocks0),
+    #b_blk{is=IsPrefix,last=#b_br{succ=Next,fail=Next}} = Blk0,
+    case is_exit_bif(IsPrefix) of
+        false ->
+            Sub1 = maps:from_list(Sub0),
+            {Is1,Count,Sub} = new_names(Is0, Sub1, Count0, []),
+            Is2 = [sub(I, Sub) || I <- Is1],
+            Cost = build_cost(Is2, Cost0),
+            Is = IsPrefix ++ Is2,
+            Ret = sub(Ret0, Sub),
+            Blk = Blk0#b_blk{is=Is,last=Ret},
+            Blocks = Blocks0#{PredL:=Blk},
+            {Blocks,Count,Cost};
+        true ->
+            %% The block ends in a call to a function that
+            %% will cause an exception.
+            {Blocks0,Count0,Cost0+3}
+    end.
+
+is_exit_bif([#b_set{op=call,
+                    args=[#b_remote{mod=#b_literal{val=Mod},
+                                    name=#b_literal{val=Name}}|Args]}]) ->
+    erl_bifs:is_exit_bif(Mod, Name, length(Args));
+is_exit_bif(_) -> false.
+
+new_names([#b_set{dst=Dst}=I|Is], Sub0, Count0, Acc) ->
+    {NewDst,Count} = new_var(Dst, Count0),
+    Sub = Sub0#{Dst=>NewDst},
+    new_names(Is, Sub, Count, [I#b_set{dst=NewDst}|Acc]);
+new_names([], Sub, Count, Acc) ->
+    {reverse(Acc),Count,Sub}.
+
+suitable_tail_ops(Is) ->
+    all(fun(#b_set{op=Op}) ->
+                is_suitable_tail_op(Op)
+        end, Is).
+
+is_suitable_tail_op({bif,_}) -> true;
+is_suitable_tail_op(put_list) -> true;
+is_suitable_tail_op(put_tuple) -> true;
+is_suitable_tail_op(_) -> false.
+
+build_cost([#b_set{op=put_list,args=Args}|Is], Cost) ->
+    case are_all_literals(Args) of
+        true ->
+            build_cost(Is, Cost);
+        false ->
+            build_cost(Is, Cost + 1)
+    end;
+build_cost([#b_set{op=put_tuple,args=Args}|Is], Cost) ->
+    case are_all_literals(Args) of
+        true ->
+            build_cost(Is, Cost);
+        false ->
+            build_cost(Is, Cost + length(Args) + 1)
+    end;
+build_cost([#b_set{op={bif,_},args=Args}|Is], Cost) ->
+    case are_all_literals(Args) of
+        true ->
+            build_cost(Is, Cost);
+        false ->
+            build_cost(Is, Cost + 1)
+    end;
+build_cost([], Cost) -> Cost.
+
+are_all_literals(Args) ->
+    all(fun(#b_literal{}) -> true;
+                (_) -> false
+             end, Args).
 
 %%%
 %%% Order element/2 calls.
@@ -2116,3 +2272,9 @@ sub_arg(Old, Sub) ->
         #{Old:=New} -> New;
         #{} -> Old
     end.
+
+new_var(#b_var{name={Base,N}}, Count) ->
+    true = is_integer(N),                       %Assertion.
+    {#b_var{name={Base,Count}},Count+1};
+new_var(#b_var{name=Base}, Count) ->
+    {#b_var{name={Base,Count}},Count+1}.
