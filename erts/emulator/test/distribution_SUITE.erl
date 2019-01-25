@@ -63,7 +63,11 @@
          bad_dist_ext_connection_id/1,
          bad_dist_ext_size/1,
 	 start_epmd_false/1, epmd_module/1,
-         bad_dist_fragments/1]).
+         bad_dist_fragments/1,
+         message_latency_large_message/1,
+         message_latency_large_link_exit/1,
+         message_latency_large_monitor_exit/1,
+         message_latency_large_exit2/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -91,6 +95,7 @@ all() ->
      dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
      atom_roundtrip_r16b,
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
+     {group, message_latency},
      {group, bad_dist}, {group, bad_dist_ext},
      start_epmd_false, epmd_module].
 
@@ -106,7 +111,13 @@ groups() ->
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_size,
-       bad_dist_ext_control, bad_dist_ext_connection_id]}].
+       bad_dist_ext_control, bad_dist_ext_connection_id]},
+     {message_latency, [],
+      [message_latency_large_message,
+       message_latency_large_link_exit,
+       message_latency_large_monitor_exit,
+       message_latency_large_exit2]}
+    ].
 
 %% Tests pinging a node in different ways.
 ping(Config) when is_list(Config) ->
@@ -571,10 +582,20 @@ do_busy_test(Node, Fun) ->
             %% Don't match arity; it is different in debug and
             %% optimized emulator
             [{status, suspended},
-             {current_function, {erlang, bif_return_trap, _}}] = Pinfo,
+             {current_function, {Mod, Func, _}}] = Pinfo,
+            if
+                Mod =:= erlang andalso Func =:= bif_return_trap ->
+                    true;
+                Mod =:= erts_internal andalso Func =:= dsend_continue_trap ->
+                    true;
+                true ->
+                    ct:fail({incorrect, pinfo, Pinfo})
+            end,
             receive
                 {'DOWN', M, process, P, Reason} ->
                     io:format("~p died with exit reason ~p~n", [P, Reason]),
+                    verify_nc(node()),
+                    verify_nc(Node),
                     normal = Reason
             end
     end.
@@ -934,7 +955,9 @@ dist_auto_connect_never(Config) when is_list(Config) ->
                      ok;
                  {do_dist_auto_connect, Error} ->
                      {error, Error};
-                 Other ->
+                 %% The io:formats in dos_dist_auto_connect will
+                 %% generate port output messages that are ok
+                 Other when not is_port(element(1, Other))->
                      {error, Other}
              after 32000 ->
                        timeout
@@ -1365,6 +1388,131 @@ get_conflicting_unicode_atoms(CIX, N) ->
             [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
         _ ->
             get_conflicting_unicode_atoms(CIX, N)
+    end.
+
+
+%% The message_latency_large tests that small distribution messages are
+%% not blocked by other large distribution messages. Basically it tests
+%% that fragmentation of distribution messages works.
+message_latency_large_message(Config) when is_list(Config) ->
+    measure_latency_large_message(?FUNCTION_NAME, fun(Dropper, Payload) -> Dropper ! Payload end).
+
+message_latency_large_exit2(Config) when is_list(Config) ->
+    measure_latency_large_message(?FUNCTION_NAME, fun erlang:exit/2).
+
+message_latency_large_link_exit(Config) when is_list(Config) ->
+    message_latency_large_exit(?FUNCTION_NAME, fun erlang:link/1).
+
+message_latency_large_monitor_exit(Config) when is_list(Config) ->
+    message_latency_large_exit(?FUNCTION_NAME, fun(Dropper) ->
+                                                       Dropper ! {monitor, self()},
+                                                       receive ok -> ok end
+                                               end).
+
+message_latency_large_exit(Nodename, ReasonFun) ->
+    measure_latency_large_message(
+      Nodename,
+      fun(Dropper, Payload) ->
+              Pid  = spawn(fun() ->
+                                   receive go -> ok end,
+                                   ReasonFun(Dropper),
+                                   exit(Payload)
+                           end),
+
+              FlushTrace = fun F() ->
+                                   receive
+                                       {trace, Pid, _, _} = M ->
+                                           F()
+                                   after 0 ->
+                                           ok
+                                   end
+                           end,
+
+              erlang:trace(Pid, true, [exiting]),
+              Pid ! go,
+              receive
+                  {trace, Pid, out_exited, 0} ->
+                      FlushTrace()
+              end
+      end).
+
+measure_latency_large_message(Nodename, DataFun) ->
+
+    erlang:system_monitor(self(), [busy_dist_port]),
+
+    {ok, N} = start_node(Nodename),
+
+    Dropper = spawn(N, fun F() ->
+                               process_flag(trap_exit, true),
+                               receive
+                                   {monitor,Pid} ->
+                                       erlang:monitor(process, Pid),
+                                       Pid ! ok;
+                                   _ -> ok
+                               end,
+                               F()
+                       end),
+
+    Echo = spawn(N, fun F() -> receive {From, Msg} -> From ! Msg, F() end end),
+
+    %% Test 32 MB and 320 MB and test the latency difference of sent messages
+    Payloads = [{I, <<0:(I * 32 * 1024 * 1024 * 8)>>} || I <- [1,10]],
+
+    IndexTimes = [{I, measure_latency(DataFun, Dropper, Echo, P)}
+                  || {I, P} <- Payloads],
+
+    Times = [ Time || {_I, Time} <- IndexTimes],
+
+    ct:pal("~p",[IndexTimes]),
+
+    case {lists:max(Times), lists:min(Times)} of
+        {Max, Min} when Max * 0.25 > Min ->
+            ct:fail({incorrect_latency, IndexTimes});
+        _ ->
+            ok
+    end.
+
+measure_latency(DataFun, Dropper, Echo, Payload) ->
+
+    flush(),
+
+    Senders = [spawn_monitor(
+                 fun F() ->
+                         DataFun(Dropper, Payload),
+                         receive
+                             die -> ok
+                         after 0 ->
+                                 F()
+                         end
+                 end) || _ <- lists:seq(1,2)],
+
+    [receive
+         {monitor, _Sender, busy_dist_port, _Info} = M ->
+             ok
+     end || _ <- lists:seq(1,10)],
+
+    {TS, _} =
+        timer:tc(fun() ->
+                         [begin
+                              Echo ! {self(), hello},
+                              receive hello -> ok end
+                          end || _ <- lists:seq(1,100)]
+                 end),
+    [begin
+         Sender ! die,
+         receive
+             {'DOWN', Ref, process, _, _} ->
+                 ok
+         end
+     end || {Sender, Ref} <- Senders],
+    TS.
+
+flush() ->
+    receive
+        _ ->
+            flush()
+    after 0 ->
+            ok
     end.
 
 -define(COOKIE, '').

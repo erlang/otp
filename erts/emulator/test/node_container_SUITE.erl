@@ -71,10 +71,10 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     erts_debug:set_internal_state(node_tab_delayed_delete, -1), %% restore original value
-    erts_test_util:available_internal_state(false).
+    erts_test_utils:available_internal_state(false).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
-    erts_test_util:available_internal_state(true),
+    erts_test_utils:available_internal_state(true),
     Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
@@ -913,9 +913,9 @@ id(X) ->
 -define(ND_REFS, erts_debug:get_internal_state(node_and_dist_references)).
 
 node_container_refc_check(Node) when is_atom(Node) ->
-    AIS = erts_test_util:available_internal_state(true),
+    AIS = erts_test_utils:available_internal_state(true),
     nc_refc_check(Node),
-    erts_test_util:available_internal_state(AIS).
+    erts_test_utils:available_internal_state(AIS).
 
 nc_refc_check(Node) when is_atom(Node) ->
     Ref = make_ref(),
