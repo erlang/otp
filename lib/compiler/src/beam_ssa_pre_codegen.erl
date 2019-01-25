@@ -2086,23 +2086,95 @@ reserve_freg([], Res) -> Res.
 %%  will allocate the lowest free X register for the variable.
 
 reserve_xregs(Blocks, Res) ->
-    F = fun(L, #b_blk{is=Is,last=Last}, R) ->
-                {Xs0,Used0} = reserve_terminator(L, Last, Blocks, R),
-                reserve_xregs_is(reverse(Is), R, Xs0, Used0)
-        end,
-    beam_ssa:fold_po(F, Res, Blocks).
+    Ls = reverse(beam_ssa:rpo(Blocks)),
+    reserve_xregs(Ls, Blocks, #{}, Res).
 
+reserve_xregs([L|Ls], Blocks, XsMap0, Res0) ->
+    #b_blk{anno=Anno,is=Is0,last=Last} = map_get(L, Blocks),
+
+    %% Calculate mapping from variable name to the preferred
+    %% register.
+    Xs0 = reserve_terminator(L, Is0, Last, Blocks, XsMap0, Res0),
+
+    %% We need to figure out where the code generator will
+    %% place instructions that will do a garbage collection.
+    %% Insert 'gc' markers as pseudo-instructions in the
+    %% instruction sequence.
+    Is1 = reverse(Is0),
+    Is2 = res_place_gc_instrs(Is1, []),
+    Is = res_place_allocate(Anno, Is2),
+
+    %% Add register hints for variables that are defined
+    %% in the (reversed) instruction sequence.
+    {Res,Xs} = reserve_xregs_is(Is, Res0, Xs0, []),
+
+    XsMap = XsMap0#{L=>Xs},
+    reserve_xregs(Ls, Blocks, XsMap, Res);
+reserve_xregs([], _, _, Res) -> Res.
+
+%% Insert explicit 'gc' markers points where there will
+%% be a garbage collection. (Note that the instruction
+%% sequence passed to this function is reversed.)
+
+res_place_gc_instrs([#b_set{op=phi}=I|Is], Acc) ->
+    res_place_gc_instrs(Is, [I|Acc]);
+res_place_gc_instrs([#b_set{op=Op}=I|Is], Acc)
+  when Op =:= call; Op =:= make_fun ->
+    case Acc of
+        [] ->
+            res_place_gc_instrs(Is, [I|Acc]);
+        [GC|_] when GC =:= gc; GC =:= test_heap ->
+            res_place_gc_instrs(Is, [I,gc|Acc]);
+        [_|_] ->
+            res_place_gc_instrs(Is, [I,gc|Acc])
+    end;
+res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
+    case beam_ssa_codegen:classify_heap_need(Op, Args) of
+        neutral ->
+            case Acc0 of
+                [test_heap|Acc] ->
+                    res_place_gc_instrs(Is, [test_heap,I|Acc]);
+                Acc ->
+                    res_place_gc_instrs(Is, [I|Acc])
+            end;
+        {put,_} ->
+            case Acc0 of
+                [test_heap|Acc] ->
+                    res_place_gc_instrs(Is, [test_heap,I|Acc]);
+                Acc ->
+                    res_place_gc_instrs(Is, [test_heap,I|Acc])
+            end;
+        _ ->
+            res_place_gc_instrs(Is, [gc,I|Acc0])
+    end;
+res_place_gc_instrs([], Acc) ->
+    %% Reverse and replace 'test_heap' markers with 'gc'.
+    %% (The distinction is no longer useful.)
+    res_place_gc_instrs_rev(Acc, []).
+
+res_place_gc_instrs_rev([test_heap|Is], [gc|_]=Acc) ->
+    res_place_gc_instrs_rev(Is, Acc);
+res_place_gc_instrs_rev([test_heap|Is], Acc) ->
+    res_place_gc_instrs_rev(Is, [gc|Acc]);
+res_place_gc_instrs_rev([gc|Is], [gc|_]=Acc) ->
+    res_place_gc_instrs_rev(Is, Acc);
+res_place_gc_instrs_rev([I|Is], Acc) ->
+    res_place_gc_instrs_rev(Is, [I|Acc]);
+res_place_gc_instrs_rev([], Acc) -> Acc.
+
+res_place_allocate(#{yregs:=_}, Is) ->
+    %% There will be an 'allocate' instruction inserted here.
+    Is ++ [gc];
+res_place_allocate(#{}, Is) -> Is.
+
+reserve_xregs_is([gc|Is], Res, Xs0, Used) ->
+    %% At this point, the code generator will place an instruction
+    %% that does a garbage collection. We must prune the remembered
+    %% registers.
+    Xs = res_xregs_prune(Xs0, Used, Res),
+    reserve_xregs_is(Is, Res, Xs, Used);
 reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
-    Xs1 = case is_gc_safe(I) of
-              true ->
-                  Xs0;
-              false ->
-                  %% There may be a garbage collection after executing this
-                  %% instruction. We will need prune the list of preferred
-                  %% X registers.
-                  res_xregs_prune(Xs0, Used0, Res0)
-          end,
-    Res = reserve_xreg(Dst, Xs1, Res0),
+    Res = reserve_xreg(Dst, Xs0, Res0),
     Used1 = ordsets:union(Used0, beam_ssa:used(I)),
     Used = ordsets:del_element(Dst, Used1),
     case Op of
@@ -2113,28 +2185,74 @@ reserve_xregs_is([#b_set{op=Op,dst=Dst,args=Args}=I|Is], Res0, Xs0, Used0) ->
             Xs = reserve_call_args(tl(Args)),
             reserve_xregs_is(Is, Res, Xs, Used);
         _ ->
-            reserve_xregs_is(Is, Res, Xs1, Used)
+            reserve_xregs_is(Is, Res, Xs0, Used)
     end;
-reserve_xregs_is([], Res, _Xs, _Used) -> Res.
+reserve_xregs_is([], Res, Xs, _Used) ->
+    {Res,Xs}.
 
-reserve_terminator(L, #b_br{bool=#b_literal{val=true},succ=Succ}, Blocks, Res) ->
-    case maps:get(Succ, Blocks) of
+%% Pick up register hints from the successors of this blocks.
+reserve_terminator(_L, _Is, #b_br{bool=#b_var{},succ=Succ,fail=?BADARG_BLOCK},
+                   _Blocks, XsMap, _Res) ->
+    %% We know that no variables are used at ?BADARG_BLOCK, so
+    %% any register hints from the success blocks are safe to use.
+    map_get(Succ, XsMap);
+reserve_terminator(L, Is, #b_br{bool=#b_var{},succ=Succ,fail=Fail},
+                   Blocks, XsMap, Res) when Succ =/= Fail ->
+    #{Succ:=SuccBlk,Fail:=FailBlk} = Blocks,
+    case {SuccBlk,FailBlk} of
+        {#b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
+         #b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}}} ->
+            %% Both branches ultimately transfer to the same
+            %% block (via two blocks with no instructions).
+            %% Pick up register hints from the phi nodes
+            %% in the common block.
+            #{PhiL:=#b_blk{is=PhiIs}} = Blocks,
+            Xs = res_xregs_from_phi(PhiIs, Succ, Res, #{}),
+            res_xregs_from_phi(PhiIs, Fail, Res, Xs);
+        {_,_} when Is =/= [] ->
+            case last(Is) of
+                #b_set{op=succeeded,args=[Arg]} ->
+                    %% We know that Arg will not be used at the failure
+                    %% label, so we can pick up register hints from the
+                    %% success label.
+                    Br = #b_br{bool=#b_literal{val=true},succ=Succ,fail=Succ},
+                    case reserve_terminator(L, [], Br, Blocks, XsMap, Res) of
+                        #{Arg:=Reg} -> #{Arg=>Reg};
+                        #{} -> #{}
+                    end;
+                _ ->
+                    %% Register hints from the success block may not
+                    %% be safe at the failure block, and vice versa.
+                    #{}
+            end;
+        {_,_} ->
+            %% Register hints from the success block may not
+            %% be safe at the failure block, and vice versa.
+            #{}
+    end;
+reserve_terminator(L, Is, #b_br{bool=#b_literal{val=true},succ=Succ},
+                   Blocks, XsMap, Res) ->
+    case map_get(Succ, Blocks) of
         #b_blk{is=[],last=Last} ->
-            reserve_terminator(Succ, Last, Blocks, Res);
-        #b_blk{is=[_|_]=Is} ->
-            {res_xregs_from_phi(Is, L, Res, #{}),[]}
+            reserve_terminator(Succ, Is, Last, Blocks, XsMap, Res);
+        #b_blk{is=[_|_]=PhiIs} ->
+            res_xregs_from_phi(PhiIs, L, Res, #{})
     end;
-reserve_terminator(_, Last, _, _) ->
-    {#{},beam_ssa:used(Last)}.
+reserve_terminator(_, _, _, _, _, _) -> #{}.
 
+%% Pick up a reservation from a phi node.
 res_xregs_from_phi([#b_set{op=phi,dst=Dst,args=Args}|Is],
                    Pred, Res, Acc) ->
     case [V || {#b_var{}=V,L} <- Args, L =:= Pred] of
         [] ->
+            %% The value of the phi node for this predecessor
+            %% is a literal. Nothing to do here.
             res_xregs_from_phi(Is, Pred, Res, Acc);
         [V] ->
             case Res of
                 #{Dst:={prefer,Reg}} ->
+                    %% Try placing V in the same register as for
+                    %% the phi node.
                     res_xregs_from_phi(Is, Pred, Res, Acc#{V=>Reg});
                 #{Dst:=_} ->
                     res_xregs_from_phi(Is, Pred, Res, Acc)
@@ -2154,12 +2272,12 @@ reserve_call_args([], _, Xs) -> Xs.
 reserve_xreg(V, Xs, Res) ->
     case Res of
         #{V:=_} ->
-            %% Already reserved.
+            %% Already reserved (but not as an X register).
             Res;
         #{} ->
             case Xs of
                 #{V:=X} ->
-                    %% Add a hint that a specific X register is
+                    %% Add a hint that this specific X register is
                     %% preferred, unless it is already in use.
                     Res#{V=>{prefer,X}};
                 #{} ->
@@ -2168,23 +2286,15 @@ reserve_xreg(V, Xs, Res) ->
             end
     end.
 
-is_gc_safe(#b_set{op=phi}) ->
-    false;
-is_gc_safe(#b_set{op=Op,args=Args}) ->
-    case beam_ssa_codegen:classify_heap_need(Op, Args) of
-        neutral -> true;
-        {put,_} -> true;
-        _ -> false
-    end.
-
 %% res_xregs_prune(PreferredRegs, Used, Res) -> PreferredRegs.
-%%  Prune the list of preferred to only include X registers that
-%%  are guaranteed to survice a garbage collection.
+%%  Prune the list of preferred registers, to make sure that
+%%  there are no "holes" (uninitialized X registers) when
+%%  invoking the garbage collector.
 
-res_xregs_prune(Xs, Used, Res) ->
+res_xregs_prune(Xs, Used, Res) when map_size(Xs) =/= 0 ->
     %% The number of safe registers is the number of the X registers
     %% used after this point. The actual number of safe registers may
-    %% be highter than this number, but this is a conservative safe
+    %% be higher than this number, but this is a conservative safe
     %% estimate.
     NumSafe = foldl(fun(V, N) ->
                             case Res of
@@ -2196,7 +2306,8 @@ res_xregs_prune(Xs, Used, Res) ->
 
     %% Remove unsafe registers from the list of potential
     %% preferred registers.
-    maps:filter(fun(_, {x,X}) -> X < NumSafe end, Xs).
+    maps:filter(fun(_, {x,X}) -> X < NumSafe end, Xs);
+res_xregs_prune(Xs, _Used, _Res) -> Xs.
 
 %%%
 %%% Register allocation using linear scan.
