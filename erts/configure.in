@@ -2036,7 +2036,7 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		gethrtime localtime_r gmtime_r inet_pton mprotect \
 		mmap mremap memcpy mallopt sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time time2posix \
-		setlocale nl_langinfo poll mlockall ppoll])
+		setlocale nl_langinfo poll mlockall ppoll vsyslog])
 
 AC_MSG_CHECKING([for isfinite])
 AC_TRY_LINK([#include <math.h>],
