@@ -871,7 +871,7 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst0) ->
 valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst0) ->
     Vst = case get_term_type(Src, Vst0) of
               list ->
-                  branch_state(Lbl, set_type_reg(cons, Src, Vst0));
+                  branch_state(Lbl, set_aliased_type(cons, Src, Vst0));
               _ ->
                   branch_state(Lbl, Vst0)
           end,
