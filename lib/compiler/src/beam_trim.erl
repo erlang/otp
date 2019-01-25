@@ -200,6 +200,8 @@ create_map(Trim, Moves) ->
        (Any) -> Any
     end.
 
+remap([{'%',_}=I|Is], Map, Acc) ->
+    remap(Is, Map, [I|Acc]);
 remap([{block,Bl0}|Is], Map, Acc) ->
     Bl = remap_block(Bl0, Map, []),
     remap(Is, Map, [{block,Bl}|Acc]);
@@ -279,6 +281,8 @@ safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
 safe_labels([], Acc) -> cerl_sets:from_list(Acc).
 
+is_safe_label([{'%',_}|Is]) ->
+    is_safe_label(Is);
 is_safe_label([{line,_}|Is]) ->
     is_safe_label(Is);
 is_safe_label([{badmatch,{Tag,_}}|_]) ->
@@ -337,6 +341,8 @@ frame_layout_2(Is) -> reverse(Is).
 %%  to safe labels (i.e., the code at those labels don't depend
 %%  on the contents of any Y register).
 
+frame_size([{'%',_}|Is], Safe) ->
+    frame_size(Is, Safe);
 frame_size([{block,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{call_fun,_}|Is], Safe) ->
@@ -393,6 +399,8 @@ frame_size_branch(L, Is, Safe) ->
 %%  This function handles the same instructions as frame_size/2. It
 %%  assumes that any labels in the instructions are safe labels.
 
+is_not_used(Y, [{'%',_}|Is]) ->
+    is_not_used(Y, Is);
 is_not_used(Y, [{apply,_}|Is]) ->
     is_not_used(Y, Is);
 is_not_used(Y, [{bif,_,{f,_},Ss,Dst}|Is]) ->
