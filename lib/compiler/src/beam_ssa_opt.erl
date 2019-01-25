@@ -79,11 +79,9 @@ module(Module, Opts) ->
     {ok, finish(Module, StMap)}.
 
 phase([FuncId | Ids], Ps, StMap, FuncDb0) ->
-    try
-        {St, FuncDb} =
-            compile:run_sub_passes(Ps, {map_get(FuncId, StMap), FuncDb0}),
-
-        phase(Ids, Ps, StMap#{ FuncId => St }, FuncDb)
+    try compile:run_sub_passes(Ps, {map_get(FuncId, StMap), FuncDb0}) of
+        {St, FuncDb} ->
+            phase(Ids, Ps, StMap#{ FuncId => St }, FuncDb)
     catch
         Class:Error:Stack ->
             #b_local{name=Name,arity=Arity} = FuncId,
