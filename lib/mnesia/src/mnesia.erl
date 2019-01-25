@@ -838,18 +838,20 @@ read(Tid, Ts, Tab, Key, LockKind)
 	tid ->
 	    Store = Ts#tidstore.store,
 	    Oid = {Tab, Key},
-	    Objs =
-		case LockKind of
-		    read ->
-			mnesia_locker:rlock(Tid, Store, Oid);
-		    write ->
-			mnesia_locker:rwlock(Tid, Store, Oid);
-		    sticky_write ->
-			mnesia_locker:sticky_rwlock(Tid, Store, Oid);
-		    _ ->
-			abort({bad_type, Tab, LockKind})
-		end,
-	    add_written(?ets_lookup(Store, Oid), Tab, Objs);
+	    ObjsFun =
+                fun() ->
+                        case LockKind of
+                            read ->
+                                mnesia_locker:rlock(Tid, Store, Oid);
+                            write ->
+                                mnesia_locker:rwlock(Tid, Store, Oid);
+                            sticky_write ->
+                                mnesia_locker:sticky_rwlock(Tid, Store, Oid);
+                            _ ->
+                                abort({bad_type, Tab, LockKind})
+                        end
+                end,
+	    add_written(?ets_lookup(Store, Oid), Tab, ObjsFun, LockKind);
 	_Protocol ->
 	    dirty_read(Tab, Key)
     end;
@@ -1202,14 +1204,20 @@ add_previous(_Tid, Ts, _Type, Tab) ->
 %% This routine fixes up the return value from read/1 so that
 %% it is correct with respect to what this particular transaction
 %% has already written, deleted .... etc
+%% The actual read from the table is not done if not needed due to local
+%% transaction context, and if so, no extra read lock is needed either.
 
-add_written([], _Tab, Objs) ->
-    Objs;  % standard normal fast case
-add_written(Written, Tab, Objs) ->
+add_written([], _Tab, ObjsFun, _LockKind) ->
+    ObjsFun();  % standard normal fast case
+add_written(Written, Tab, ObjsFun, LockKind) ->
     case val({Tab, setorbag}) of
 	bag ->
-	    add_written_to_bag(Written, Objs, []);
+	    add_written_to_bag(Written, ObjsFun(), []);
+        _ when LockKind == read;
+               LockKind == write ->
+	    add_written_to_set(Written);
 	_   ->
+            _ = ObjsFun(),  % Fall back to request new lock and read from source
 	    add_written_to_set(Written)
     end.
 
