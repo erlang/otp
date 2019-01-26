@@ -1972,13 +1972,17 @@ verify_merge_is([#b_set{op=Op}|_]) ->
 verify_merge_is(_) ->
     ok.
 
-is_merge_allowed(_, _, #b_blk{is=[#b_set{op=peek_message}|_]}) ->
+is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=peek_message}|_]}) ->
     false;
-is_merge_allowed(L, Blk0, #b_blk{}) ->
-    case beam_ssa:successors(Blk0) of
+is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{}) ->
+    %% The predecessor block must have exactly one successor (L) for
+    %% the merge to be safe.
+    case beam_ssa:successors(Blk) of
         [L] -> true;
         [_|_] -> false
-    end.
+    end;
+is_merge_allowed(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
+    false.
 
 %%%
 %%% When a tuple is matched, the pattern matching compiler generates a
