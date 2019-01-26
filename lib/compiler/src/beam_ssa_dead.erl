@@ -181,9 +181,9 @@ shortcut_2(L, Bs0, UnsetVars0, St) ->
                     %% We have a potentially suitable br.
                     %% Now update the set of variables that will never
                     %% be set if this block will be skipped.
-                    UnsetVars1 = [V || #b_set{dst=V} <- Is],
-                    UnsetVars = ordsets:union(UnsetVars0,
-                                              ordsets:from_list(UnsetVars1)),
+                    SetInThisBlock = [V || #b_set{dst=V} <- Is],
+                    UnsetVars = update_unset_vars(L, Br, SetInThisBlock,
+                                                  UnsetVars0, St),
 
                     %% Continue checking whether this br is suitable.
                     shortcut_3(Br, Bs#{from:=L}, UnsetVars, St)
@@ -294,6 +294,37 @@ shortcut_3(Br, Bs, UnsetVars, #st{target=Target}=St) ->
                             none
                     end
             end
+    end.
+
+update_unset_vars(L, Br, SetInThisBlock, UnsetVars, #st{skippable=Skippable}) ->
+    case is_map_key(L, Skippable) of
+        true ->
+            %% None of the variables used in this block are used in
+            %% the successors. We can speed up compilation by avoiding
+            %% adding variables to the UnsetVars if the presence of
+            %% those variable would not change the outcome of the
+            %% tests in is_br_safe/2.
+            case Br of
+                #b_br{bool=Bool} ->
+                    case member(Bool, SetInThisBlock) of
+                        true ->
+                            %% Bool is a variable defined in this
+                            %% block. It will change the outcome of
+                            %% the `not member(V, UnsetVars)` check in
+                            %% is_br_safe/2. The other variables
+                            %% defined in this block will not.
+                            ordsets:add_element(Bool, UnsetVars);
+                        false ->
+                            %% Bool is either a variable not defined
+                            %% in this block or a literal. Adding it
+                            %% to the UnsetVars set would not change
+                            %% the outcome of the tests in
+                            %% is_br_safe/2.
+                            UnsetVars
+                    end
+            end;
+        false ->
+            ordsets:union(UnsetVars, ordsets:from_list(SetInThisBlock))
     end.
 
 shortcut_two_way(#b_br{succ=Succ,fail=Fail}, Bs0, UnsetVars0, St) ->
@@ -919,11 +950,11 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
-    %% combine_eqs/1 needs different variable usage
-    %% information than shortcut_opt/1. The Skip
-    %% map will have an entry for each block that
-    %% can be skipped (does not bind any variable used
-    %% in successor).
+    %% combine_eqs/1 needs different variable usage information than
+    %% shortcut_opt/1. The Skip map will have an entry for each block
+    %% that can be skipped (does not bind any variable used in
+    %% successor). This information is also useful for speeding up
+    %% shortcut_opt/1.
 
     Defined0 = [Def || #b_set{dst=Def} <- Is],
     Defined = ordsets:from_list(Defined0),
