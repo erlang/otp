@@ -1018,6 +1018,6 @@ int erts_port_output_async(Port *, Eterm, Eterm);
 /*
  * Signals from ports to ports. Used by sys drivers.
  */
-int erl_drv_port_control(Eterm, char, char*, ErlDrvSizeT);
+int erl_drv_port_control(Eterm, unsigned int, char*, ErlDrvSizeT);
 
 #endif

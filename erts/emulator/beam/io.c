@@ -4073,7 +4073,7 @@ done:
  * to the caller.
  */
 int
-erl_drv_port_control(Eterm port_num, char cmd, char* buff, ErlDrvSizeT size)
+erl_drv_port_control(Eterm port_num, unsigned int cmd, char* buff, ErlDrvSizeT size)
 {
     ErtsProc2PortSigData *sigdp = erts_port_task_alloc_p2p_sig_data();
 
