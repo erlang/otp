@@ -540,15 +540,17 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{static_env = #sta
     next_event(?FUNCTION_NAME, no_record, State, Actions);
 hello(internal, #client_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #ssl_options{handshake = hello},
+             handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                             hello = Hello},
+                                         handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello, 
       #state{ssl_options = #ssl_options{handshake = hello},
+             handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
     {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                             hello = Hello},
+                                         handshake_env = HsEnv#handshake_env{hello = Hello}},    
      [{reply, From, {ok, ssl_connection:map_extensions(Extensions)}}]};     
 
 hello(internal, #client_hello{cookie = Cookie} = Hello, #state{static_env = #static_env{role = server,
@@ -709,18 +711,18 @@ connection(internal, #hello_request{}, #state{static_env = #static_env{host = Ho
 						  = Hello#client_hello.session_id}}),
     next_event(hello, Record, State, Actions);
 connection(internal, #client_hello{} = Hello, #state{static_env = #static_env{role = server},
-                                                     allow_renegotiate = true} = State) ->
+                                                     handshake_env = #handshake_env{allow_renegotiate = true} = HsEnv} = State) ->
     %% Mitigate Computational DoS attack
     %% http://www.educatedguesswork.org/2011/10/ssltls_and_computational_dos.html
     %% http://www.thc.org/thc-ssl-dos/ Rather than disabling client
     %% initiated renegotiation we will disallow many client initiated
     %% renegotiations immediately after each other.
     erlang:send_after(?WAIT_TO_ALLOW_RENEGOTIATION, self(), allow_renegotiate),
-    {next_state, hello, State#state{allow_renegotiate = false, 
-                                    handshake_env = #handshake_env{renegotiation = {true, peer}}},
+    {next_state, hello, State#state{handshake_env = HsEnv#handshake_env{renegotiation = {true, peer},
+                                                                        allow_renegotiate = false}},
      [{next_event, internal, Hello}]};
 connection(internal, #client_hello{}, #state{static_env = #static_env{role = server},
-                                             allow_renegotiate = false} = State0) ->
+                                             handshake_env = #handshake_env{allow_renegotiate = false}} = State0) ->
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     State1 = send_alert(Alert, State0),
     {Record, State} = ssl_connection:prepare_connection(State1, ?MODULE),
@@ -791,7 +793,8 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
     #state{static_env = InitStatEnv,
            handshake_env = #handshake_env{
                               tls_handshake_history = ssl_handshake:init_handshake_history(),
-                              renegotiation = {false, first}
+                              renegotiation = {false, first},
+                              allow_renegotiate = SSLOptions#ssl_options.client_renegotiation
                              },
            socket_options = SocketOptions,
 	   %% We do not want to save the password in the state so that
@@ -802,7 +805,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   protocol_buffers = #protocol_buffers{},
 	   user_application = {Monitor, User},
 	   user_data_buffer = <<>>,
-	   allow_renegotiate = SSLOptions#ssl_options.client_renegotiation,
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),
            flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}
@@ -854,9 +856,9 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
                            static_env = #static_env{port = Port,
                                                      session_cache = Cache,
                                                     session_cache_cb = CacheCb},
-                           handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+                           handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                                          negotiated_protocol = CurrentProtocol} = HsEnv,
 			   session = #session{own_certificate = Cert} = Session0,
-			   negotiated_protocol = CurrentProtocol,
 			   key_algorithm = KeyExAlg,
 			   ssl_options = SslOpts} = State0) ->
     
@@ -874,9 +876,9 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 	    State = prepare_flight(State0#state{connection_states = ConnectionStates,
 						negotiated_version = Version,
 						hashsign_algorithm = HashSign,
-                                                handshake_env = HsEnv#handshake_env{client_hello_version = ClientVersion},
-						session = Session,
-						negotiated_protocol = Protocol}),
+                                                handshake_env = HsEnv#handshake_env{client_hello_version = ClientVersion,
+                                                                                    negotiated_protocol = Protocol},
+						session = Session}),
 	    
 	    ssl_connection:hello(internal, {common_client_hello, Type, ServerHelloExt},
 				 State, ?MODULE)

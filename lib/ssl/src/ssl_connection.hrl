@@ -57,7 +57,15 @@
                         unprocessed_handshake_events = 0    :: integer(),
                         tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
                                                | 'undefined',
-                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer}
+                        expecting_finished =                  false ::boolean(),
+                        renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
+                        allow_renegotiate = true                    ::boolean(),
+                        %% Ext handling
+                        hello,                %%:: #client_hello{} | #server_hello{}            
+                        sni_hostname = undefined,
+                        expecting_next_protocol_negotiation = false ::boolean(),
+                        next_protocol = undefined                   :: undefined | binary(),
+                        negotiated_protocol
                        }).
 
 -record(state, {
@@ -68,7 +76,6 @@
                 ssl_options           :: #ssl_options{},
                 socket_options        :: #socket_options{},
                 session               :: #session{} | secret_printout(),
-                allow_renegotiate = true                    ::boolean(),
                 terminated = false                          ::boolean() | closed,
                 negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
@@ -95,12 +102,6 @@
                 premaster_secret     :: binary() | secret_printout() | 'undefined',
                 start_or_recv_from   :: term(),
                 timer                :: undefined | reference(), % start_or_recive_timer
-                hello,                %%:: #client_hello{} | #server_hello{},
-                expecting_next_protocol_negotiation = false ::boolean(),
-                expecting_finished =                  false ::boolean(),
-                next_protocol = undefined                   :: undefined | binary(),
-                negotiated_protocol,
-                sni_hostname = undefined,
                 flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
                 %% to when possible pack more than one TLS record into the
                 %% underlaying packet format. Introduced by DTLS - RFC 4347.

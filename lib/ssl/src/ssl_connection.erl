@@ -572,7 +572,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = #session{session_id = OldId},
 		      negotiated_version = ReqVersion,
-		      negotiated_protocol = CurrentProtocol} = State0) ->
+		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv} = State0) ->
     #{key_exchange := KeyAlgorithm} =
 	ssl_cipher_format:suite_definition(CipherSuite),
     
@@ -589,8 +589,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 			 negotiated_version = Version,
 			 connection_states = ConnectionStates,
 			 premaster_secret = PremasterSecret,
-			 expecting_next_protocol_negotiation = ExpectNPN,
-			 negotiated_protocol = Protocol},
+			 handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation = ExpectNPN,
+                                                             negotiated_protocol = Protocol}},
     
     case ssl_session:is_new(OldId, NewId) of
 	true ->
@@ -706,8 +706,8 @@ user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _
     handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
                      Version, ?FUNCTION_NAME, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
-           #state{hello = Hello,
-                  static_env = #static_env{role = Role},
+           #state{static_env = #static_env{role = Role},
+                  handshake_env = #handshake_env{hello = Hello},
                   start_or_recv_from = RecvFrom,
                   ssl_options = Options0} = State0, _Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
@@ -729,9 +729,9 @@ abbreviated({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = server},
-                   handshake_env = #handshake_env{tls_handshake_history = Hist},
+                   handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                                  expecting_finished = true} = HsEnv,
 		   negotiated_version = Version,
-		   expecting_finished = true,
 		   session = #session{master_secret = MasterSecret},
 		   connection_states = ConnectionStates0} =
 		State0, Connection) ->
@@ -742,7 +742,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    ConnectionStates =
 		ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
 	    {Record, State} = prepare_connection(State0#state{connection_states = ConnectionStates,
-							      expecting_finished = false}, Connection),
+                                                              handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection),
 	    Connection:next_event(connection, Record, State);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
@@ -759,10 +759,10 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
         verified ->
 	    ConnectionStates1 =
 		ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
-	    {State1, Actions} =
+	    {#state{handshake_env = HsEnv} = State1, Actions} =
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
 				   ?FUNCTION_NAME, Connection),
-	    {Record, State} = prepare_connection(State1#state{expecting_finished = false}, Connection),
+	    {Record, State} = prepare_connection(State1#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection),
 	    Connection:next_event(connection, Record, State, Actions);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
@@ -771,19 +771,20 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 %% & before finished message and it is not allowed during renegotiation
 abbreviated(internal, #next_protocol{selected_protocol = SelectedProtocol},
 	    #state{static_env = #static_env{role = server},
-                   expecting_next_protocol_negotiation = true} = State,
+                   handshake_env = #handshake_env{expecting_next_protocol_negotiation = true} = HsEnv} = State,
 	    Connection) ->
     Connection:next_event(?FUNCTION_NAME, no_record, 
-			  State#state{negotiated_protocol = SelectedProtocol,
-                                      expecting_next_protocol_negotiation = false});
+			  State#state{handshake_env = HsEnv#handshake_env{negotiated_protocol = SelectedProtocol,
+                                                                         expecting_next_protocol_negotiation = false}});
 abbreviated(internal, 
 	    #change_cipher_spec{type = <<1>>},  
-            #state{connection_states = ConnectionStates0} = State, Connection) ->
+            #state{connection_states = ConnectionStates0,
+                   handshake_env = HsEnv} = State, Connection) ->
     ConnectionStates1 =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
                                                                      ConnectionStates1,
-                                                                 expecting_finished = true});
+                                                                 handshake_env = HsEnv#handshake_env{expecting_finished = true}});
 abbreviated(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(Type, Msg, State, Connection) ->
@@ -1025,21 +1026,22 @@ cipher(internal, #certificate_verify{signature = Signature,
 %% client must send a next protocol message if we are expecting it
 cipher(internal, #finished{},
        #state{static_env = #static_env{role = server},
-              expecting_next_protocol_negotiation = true,
-	      negotiated_protocol = undefined, negotiated_version = Version} = State0,
+              handshake_env = #handshake_env{expecting_next_protocol_negotiation = true,
+                                             negotiated_protocol = undefined},
+              negotiated_version = Version} = State0,
        _Connection) ->
     handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, ?FUNCTION_NAME, State0);
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{static_env = #static_env{role = Role,
                                        host = Host,
                                        port = Port},
+              handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                             expecting_finished = true} = HsEnv,
               negotiated_version = Version,
-              expecting_finished = true,
 	      session = #session{master_secret = MasterSecret}
 	      = Session0,
               ssl_options = SslOpts,
-	      connection_states = ConnectionStates0,
-	      handshake_env = #handshake_env{tls_handshake_history = Hist}} = State, Connection) ->
+	      connection_states = ConnectionStates0} = State, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished,
 					 opposite_role(Role),
 					 get_current_prf(ConnectionStates0, read),
@@ -1047,7 +1049,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
         verified ->
 	    Session = handle_session(Role, SslOpts, Host, Port, Session0),
 	    cipher_role(Role, Data, Session, 
-			State#state{expecting_finished = false}, Connection);
+			State#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection);
         #alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
@@ -1055,19 +1057,19 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 %% & before finished message and it is not allowed during renegotiation
 cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
        #state{static_env = #static_env{role = server},
-              expecting_next_protocol_negotiation = true,
-	      expecting_finished = true} = State0, Connection) ->
+              handshake_env = #handshake_env{expecting_finished = true,
+                                             expecting_next_protocol_negotiation = true} = HsEnv} = State0, Connection) ->
     {Record, State} = 
-	Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
+	Connection:next_record(State0),
     Connection:next_event(?FUNCTION_NAME, Record, 
-			  State#state{expecting_next_protocol_negotiation = false});
-cipher(internal, #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
+			  State#state{handshake_env = HsEnv#handshake_env{negotiated_protocol = SelectedProtocol,
+                                                                          expecting_next_protocol_negotiation = false}});
+cipher(internal, #change_cipher_spec{type = <<1>>},  #state{handshake_env = HsEnv, connection_states = ConnectionStates0} =
 	   State, Connection) ->
     ConnectionStates =
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
-    Connection:next_event(?FUNCTION_NAME, no_record, State#state{connection_states = 
-                                                                     ConnectionStates,
-                                                                 expecting_finished = true});
+    Connection:next_event(?FUNCTION_NAME, no_record, State#state{handshake_env = HsEnv#handshake_env{expecting_finished = true},
+                                                                 connection_states = ConnectionStates});
 cipher(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
@@ -1099,10 +1101,10 @@ connection({call, From}, {connection_information, false}, State, _) ->
     Info = connection_info(State),
     hibernate_after(?FUNCTION_NAME, State, [{reply, From, {ok, Info}}]);
 connection({call, From}, negotiated_protocol, 
-	   #state{negotiated_protocol = undefined} = State, _) ->
+	   #state{handshake_env = #handshake_env{negotiated_protocol = undefined}} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State, [{reply, From, {error, protocol_not_negotiated}}]);
 connection({call, From}, negotiated_protocol, 
-	   #state{negotiated_protocol = SelectedProtocol} = State, _) ->
+	   #state{handshake_env = #handshake_env{negotiated_protocol = SelectedProtocol}} = State, _) ->
     hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
 connection({call, From}, Msg, State, Connection) ->
@@ -1154,14 +1156,14 @@ handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
   when StateName =/= connection ->
     keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv} = State0,
+		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0}} = State0,
 		    Connection) ->
    
     PossibleSNI = Connection:select_sni_extension(Handshake),
     %% This function handles client SNI hello extension when Handshake is
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
-    State = handle_sni_extension(PossibleSNI, State0),
+    State = #state{handshake_env = HsEnv} = handle_sni_extension(PossibleSNI, State0),
 
     Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
     {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}}, 
@@ -1323,8 +1325,8 @@ handle_info({'EXIT', Socket, normal}, _StateName, #state{static_env = #static_en
 handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
     {stop,{shutdown, Reason}, State};
 
-handle_info(allow_renegotiate, StateName, State) ->
-    {next_state, StateName, State#state{allow_renegotiate = true}};
+handle_info(allow_renegotiate, StateName, #state{handshake_env = HsEnv} = State) ->
+    {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{allow_renegotiate = true}}};
 
 handle_info({cancel_start_or_recv, StartFrom}, StateName,
 	    #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) when StateName =/= connection ->
@@ -1433,7 +1435,7 @@ send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} 
     Connection:send_alert(Alert, State).
 
 connection_info(#state{static_env = #static_env{protocol_cb = Connection},
-                       sni_hostname = SNIHostname,
+                       handshake_env = #handshake_env{sni_hostname = SNIHostname},
                        session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite, ecc = ECCCurve},
 		       negotiated_version =  {_,_} = Version, 
@@ -1465,15 +1467,16 @@ security_info(#state{connection_states = ConnectionStates}) ->
 do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
 		    ServerHelloExt,
 		#state{negotiated_version = Version,
+                       handshake_env = HsEnv,
 		       session = #session{session_id = SessId},
 		       connection_states = ConnectionStates0}
 		= State0, Connection) when is_atom(Type) ->
-
+    
     ServerHello =
 	ssl_handshake:server_hello(SessId, ssl:tls_version(Version), ConnectionStates0, ServerHelloExt),
     State = server_hello(ServerHello,
-			 State0#state{expecting_next_protocol_negotiation =
-					  NextProtocols =/= undefined}, Connection),
+			 State0#state{handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation =
+                                                                              NextProtocols =/= undefined}}, Connection),
     case Type of
 	new ->
 	    new_server_hello(ServerHello, State, Connection);
@@ -2030,11 +2033,11 @@ finalize_handshake(State0, StateName, Connection) ->
 
 next_protocol(#state{static_env = #static_env{role = server}} = State, _) ->
     State;
-next_protocol(#state{negotiated_protocol = undefined} = State, _) ->
+next_protocol(#state{handshake_env = #handshake_env{negotiated_protocol = undefined}} = State, _) ->
     State;
-next_protocol(#state{expecting_next_protocol_negotiation = false} = State, _) ->
+next_protocol(#state{handshake_env = #handshake_env{expecting_next_protocol_negotiation = false}} = State, _) ->
     State;
-next_protocol(#state{negotiated_protocol = NextProtocol} = State0, Connection) ->
+next_protocol(#state{handshake_env = #handshake_env{negotiated_protocol = NextProtocol}} = State0, Connection) ->
     NextProtocolMessage = ssl_handshake:next_protocol(NextProtocol),
     Connection:queue_handshake(NextProtocolMessage, State0).
 
@@ -2728,7 +2731,8 @@ invalidate_session(server, _, Port, Session) ->
 
 handle_sni_extension(undefined, State) ->
     State;
-handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{role = Role} = InitStatEnv0} = State0) ->
+handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{role = Role} = InitStatEnv0,
+                                                       handshake_env = HsEnv} = State0) ->
     NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
     case NewOptions of
 	undefined ->
@@ -2755,8 +2759,8 @@ handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{
                private_key = Key,
                diffie_hellman_params = DHParams,
                ssl_options = NewOptions,
-               sni_hostname = Hostname
-              }
+               handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}
+	     }
     end.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
