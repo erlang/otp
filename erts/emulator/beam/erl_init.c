@@ -729,6 +729,9 @@ void erts_usage(void)
     erts_fprintf(stderr, "-zebwt  val    set ets busy wait threshold, valid values are:\n");
     erts_fprintf(stderr, "               none|very_short|short|medium|long|very_long|extremely_long\n");
 #endif
+    erts_fprintf(stderr, "-ztma bool     enable/disable tuple module apply support in emulator\n");
+    erts_fprintf(stderr, "               (transitional flag for parameterized modules; recompile\n");
+    erts_fprintf(stderr, "               with +tuple_calls for compatibility with future versions)\n");
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -2212,6 +2215,17 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
+	    else if (has_prefix("tma", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (sys_strcmp(arg,"true") == 0) {
+                    tuple_module_apply = 1;
+                } else if (sys_strcmp(arg,"false") == 0) {
+                    tuple_module_apply = 0;
+                } else {
+		    erts_fprintf(stderr, "bad tuple module apply %s\n", arg);
+		    erts_usage();
+		}
+            }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
