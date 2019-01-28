@@ -914,7 +914,8 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 -type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
 
 -type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
-                             | {rsa_pss_saltlen, integer()} .
+                             | {rsa_pss_saltlen, integer()}
+                             | {rsa_mgf1_md, sha2()}.
 
 -type rsa_sign_verify_padding() :: rsa_pkcs1_padding | rsa_pkcs1_pss_padding
                                  | rsa_x931_padding | rsa_no_padding
