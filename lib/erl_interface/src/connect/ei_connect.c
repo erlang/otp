@@ -21,6 +21,8 @@
  * Purpose: Connect to any node at any host. (EI version)
  */
 
+#include "eidef.h"
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -40,10 +42,8 @@
 #include <inetLib.h>
 
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/times.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h> 
@@ -53,7 +53,6 @@
 
 #else /* some other unix */
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/times.h>
 
 #if TIME_WITH_SYS_TIME
@@ -84,7 +83,6 @@
 #include <ctype.h>
 #include <stddef.h>
 
-#include "eidef.h"
 #include "eiext.h"
 #include "ei_portio.h"
 #include "ei_internal.h"

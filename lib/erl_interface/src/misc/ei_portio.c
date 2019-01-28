@@ -19,6 +19,9 @@
  *
 
  */
+
+#include "eidef.h"
+
 #ifdef __WIN32__
 #include <winsock2.h>
 #include <windows.h>
@@ -47,10 +50,8 @@ static unsigned long param_one = 1;
 #include <taskLib.h>
 #include <inetLib.h>
 #include <selectLib.h>
-#include <sys/types.h>
 #include <ioLib.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h> 
@@ -65,7 +66,6 @@ static unsigned long param_one = 1;
 
 #else /* other unix */
 #include <stdlib.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -86,6 +86,7 @@ static unsigned long param_one = 1;
 
 /* common includes */
 
+#include <sys/types.h>
 #include <stdio.h> 
 #include <stdlib.h>
 #include <string.h>
@@ -94,7 +95,9 @@ static unsigned long param_one = 1;
 #else
 #include <time.h>
 #endif
-#include "eidef.h"
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 #include "ei_portio.h"
 #include "ei_internal.h"
 

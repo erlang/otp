@@ -36,6 +36,8 @@
 #include <windows.h>
 #include <winbase.h>
 typedef LONG_PTR ssize_t; /* Sigh... */
+#else
+#include <sys/types.h>          /* ssize_t */
 #endif
 
 #include <stdio.h>		/* Need type FILE */
