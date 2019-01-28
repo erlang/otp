@@ -135,6 +135,8 @@ start(internal,
     end.
 
 
+%% TODO: remove suppression when function implemented!
+-dialyzer([{nowarn_function, [negotiated/4]}, no_match]).
 negotiated(internal, Map, State0, _Module) ->
     case tls_handshake_1_3:do_negotiated(Map, State0) of
         #alert{} = Alert ->

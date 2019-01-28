@@ -111,7 +111,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, server) ->
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {server_has_no_suitable_certificates, Error})
     end.
 
-%% TODO: use maybe monad for error handling!
+
 certificate_verify(PrivateKey, SignatureScheme,
                    #state{connection_states = ConnectionStates,
                           handshake_env =
@@ -131,13 +131,18 @@ certificate_verify(PrivateKey, SignatureScheme,
 
     %% Digital signatures use the hash function defined by the selected signature
     %% scheme.
-    Signature = digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
-                               HashAlgo, PrivateKey),
+    case digitally_sign(THash, <<"TLS 1.3, server CertificateVerify">>,
+                        HashAlgo, PrivateKey) of
+        {ok, Signature} ->
+            {ok, #certificate_verify_1_3{
+                    algorithm = SignatureScheme,
+                    signature = Signature
+                   }};
+        {error, badarg} ->
+            {error, badarg}
 
-    #certificate_verify_1_3{
-       algorithm = SignatureScheme,
-       signature = Signature
-      }.
+    end.
+
 
 finished(#state{connection_states = ConnectionStates,
                 handshake_env =
@@ -335,15 +340,21 @@ certificate_entry(DER) ->
 %%    79
 %%    00
 %%    0101010101010101010101010101010101010101010101010101010101010101
-digitally_sign(THash, Context, HashAlgo, PrivateKey =  #'RSAPrivateKey'{}) ->
+digitally_sign(THash, Context, HashAlgo, PrivateKey) ->
     Content = build_content(Context, THash),
 
     %% The length of the Salt MUST be equal to the length of the output
     %% of the digest algorithm: rsa_pss_saltlen = -1
-    public_key:sign(Content, HashAlgo, PrivateKey,
+    try public_key:sign(Content, HashAlgo, PrivateKey,
                     [{rsa_padding, rsa_pkcs1_pss_padding},
                      {rsa_pss_saltlen, -1},
-                     {rsa_mgf1_md, HashAlgo}]).
+                     {rsa_mgf1_md, HashAlgo}]) of
+        Signature ->
+            {ok, Signature}
+    catch
+        error:badarg ->
+            {error, badarg}
+    end.
 
 
 build_content(Context, THash) ->
@@ -438,15 +449,15 @@ do_negotiated(#{client_share := ClientKey,
            #state{connection_states = ConnectionStates0,
                   session = #session{session_id = SessionId,
                                      own_certificate = OwnCert},
-                  ssl_options = #ssl_options{} = SslOpts,
+                  ssl_options = #ssl_options{} = _SslOpts,
                   key_share = KeyShare,
-                  handshake_env = #handshake_env{tls_handshake_history = HHistory0},
+                  handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
                   private_key = CertPrivateKey,
                   static_env = #static_env{
                                   cert_db = CertDbHandle,
                                   cert_db_ref = CertDbRef,
-                                  socket = Socket,
-                                  transport_cb = Transport}
+                                  socket = _Socket,
+                                  transport_cb = _Transport}
                  } = State0) ->
     {Ref,Maybe} = maybe(),
 
@@ -479,8 +490,8 @@ do_negotiated(#{client_share := ClientKey,
         State5 = tls_connection:queue_handshake(Certificate, State4),
 
         %% Create CertificateVerify
-        CertificateVerify = certificate_verify(CertPrivateKey, SignatureScheme,
-                                               State5, server),
+        CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme,
+                                                     State5, server)),
         %% Encode CertificateVerify
         State6 = tls_connection:queue_handshake(CertificateVerify, State5),
 
@@ -507,20 +518,6 @@ do_negotiated(#{client_share := ClientKey,
 %% TODO: Remove this function!
 not_implemented(State) ->
     {error, {state_not_implemented, State}}.
-
-
-log_handshake(SslOpts, Message) ->
-    Msg = #{direction => outbound,
-            protocol => 'handshake',
-            message => Message},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Msg, #{domain => [otp,ssl,handshake]}).
-
-
-log_tls_record(SslOpts, BinMsg) ->
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinMsg},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}).
 
 
 calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
