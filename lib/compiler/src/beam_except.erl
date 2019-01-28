@@ -79,13 +79,15 @@ translate_1(Ar, I, Is, #st{arity=Arity}=St, [{line,_}=Line|Acc1]=Acc0) ->
 	no ->
 	    translate(Is, St, [I|Acc0]);
 	{yes,function_clause,Acc2} ->
-	    case {Line,St} of
-		{{line,Loc},#st{lbl=Fi,loc=Loc}} ->
+	    case {Is,Line,St} of
+		{[return|_],{line,Loc},#st{lbl=Fi,loc=Loc}} ->
 		    Instr = {jump,{f,Fi}},
 		    translate(Is, St, [Instr|Acc2]);
-		{_,_} ->
-		    %% This must be "error(function_clause, Args)" in
-		    %% the Erlang source code or a fun. Don't translate.
+		{_,_,_} ->
+                    %% Not a call_only instruction, or not the same
+                    %% location information as in in the line instruction
+                    %% before the func_info instruction. Not safe
+                    %% to translate to a jump.
 		    translate(Is, St, [I|Acc0])
 	    end;
 	{yes,Instr,Acc2} ->
