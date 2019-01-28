@@ -88,7 +88,16 @@ coverage(_) ->
     {'EXIT',{{strange,Self},[{?MODULE,foo,[any],[File,{line,14}]}|_]}} =
         (catch foo(any)),
 
+    {ok,succeed,1,2} = foobar(succeed, 1, 2),
+    {'EXIT',{function_clause,[{?MODULE,foobar,[[fail],1,2],
+                               [{file,"fake.erl"},{line,16}]}|_]}} =
+        (catch foobar([fail], 1, 2)),
+    {'EXIT',{function_clause,[{?MODULE,fake_function_clause,[{a,b},42.0],_}|_]}} =
+        (catch fake_function_clause({a,b})),
+
     ok.
+
+fake_function_clause(A) -> error(function_clause, [A,42.0]).
 
 -file("fake.erl", 1).
 fc(a) ->	                                %Line 2
@@ -104,3 +113,6 @@ bar(X) ->					%Line 8
 %% Cover collection code for function_clause exceptions.
 foo(A) ->                                       %Line 13
     error({strange,self()}, [A]).               %Line 14
+%% Cover beam_except:tag_literal/1.
+foobar(A, B, C) when is_atom(A) ->              %Line 16
+    {ok,A,B,C}.                                 %Line 17
