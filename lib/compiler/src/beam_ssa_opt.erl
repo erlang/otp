@@ -2003,8 +2003,16 @@ ssa_opt_sink({#st{ssa=Blocks0}=St, FuncDb}) ->
 
     %% Create a map with all variables that define get_tuple_element
     %% instructions. The variable name map to the block it is defined in.
-    Defs = maps:from_list(def_blocks(Linear)),
+    case def_blocks(Linear) of
+        [] ->
+            %% No get_tuple_element instructions, so there is nothing to do.
+            {St, FuncDb};
+        [_|_]=Defs0 ->
+            Defs = maps:from_list(Defs0),
+            {do_ssa_opt_sink(Linear, Defs, St), FuncDb}
+    end.
 
+do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
     %% Now find all the blocks that use variables defined by get_tuple_element
     %% instructions.
     Used = used_blocks(Linear, Defs, []),
@@ -2039,7 +2047,7 @@ ssa_opt_sink({#st{ssa=Blocks0}=St, FuncDb}) ->
                            From = maps:get(V, Defs),
                            move_defs(V, From, To, A)
                    end, Blocks0, DefLoc),
-    {St#st{ssa=Blocks}, FuncDb}.
+    St#st{ssa=Blocks}.
 
 def_blocks([{L,#b_blk{is=Is}}|Bs]) ->
     def_blocks_is(Is, L, def_blocks(Bs));
