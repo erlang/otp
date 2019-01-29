@@ -551,9 +551,10 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             gen_handshake(?FUNCTION_NAME, internal, {common_client_hello, Type, ServerHelloExt},
                           State#state{connection_states  = ConnectionStates,
                                       negotiated_version = Version,
-                                      hashsign_algorithm = HashSign,
-                                      handshake_env = HsEnv#handshake_env{client_hello_version = ClientVersion,
-                                                                          negotiated_protocol = Protocol},
+                                      handshake_env = HsEnv#handshake_env{
+                                                        hashsign_algorithm = HashSign,
+                                                        client_hello_version = ClientVersion,
+                                                        negotiated_protocol = Protocol},
                                       session = Session
                                      })
     end;

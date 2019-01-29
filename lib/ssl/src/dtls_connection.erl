@@ -875,9 +875,10 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 
 	    State = prepare_flight(State0#state{connection_states = ConnectionStates,
 						negotiated_version = Version,
-						hashsign_algorithm = HashSign,
-                                                handshake_env = HsEnv#handshake_env{client_hello_version = ClientVersion,
-                                                                                    negotiated_protocol = Protocol},
+                                                handshake_env = HsEnv#handshake_env{
+                                                                  hashsign_algorithm = HashSign,
+                                                                  client_hello_version = ClientVersion,
+                                                                  negotiated_protocol = Protocol},
 						session = Session}),
 	    
 	    ssl_connection:hello(internal, {common_client_hello, Type, ServerHelloExt},

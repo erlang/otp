@@ -65,7 +65,9 @@
                         sni_hostname = undefined,
                         expecting_next_protocol_negotiation = false ::boolean(),
                         next_protocol = undefined                   :: undefined | binary(),
-                        negotiated_protocol
+                        negotiated_protocol,
+                        hashsign_algorithm = {undefined, undefined},
+                        cert_hashsign_algorithm = {undefined, undefined}
                        }).
 
 -record(connection_env, { 
@@ -96,8 +98,6 @@
                 %% Used only in HS
                 client_certificate_requested = false :: boolean(),
                 key_algorithm         :: ssl:key_algo(),
-                hashsign_algorithm = {undefined, undefined},
-                cert_hashsign_algorithm = {undefined, undefined},
                 public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                 private_key          :: public_key:private_key() | secret_printout() | 'undefined',
                 diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
@@ -105,8 +105,7 @@
                 psk_identity         :: binary() | 'undefined', % server psk identity hint
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
-                premaster_secret     :: binary() | secret_printout() | 'undefined',
-             
+                premaster_secret     :: binary() | secret_printout() | 'undefined',             
                 flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
                 %% to when possible pack more than one TLS record into the
                 %% underlaying packet format. Introduced by DTLS - RFC 4347.
