@@ -619,13 +619,16 @@ connection({call, From}, {user_renegotiate, WriteState},
      [{next_event,{call, From}, renegotiate}]};
 connection({call, From}, 
            {close, {Pid, _Timeout}}, 
-           #state{terminated = closed} = State) ->
-    {next_state, downgrade, State#state{terminated = true, downgrade = {Pid, From}}, 
+           #state{connection_env = #connection_env{terminated = closed} =CEnv} = State) ->
+    {next_state, downgrade, State#state{connection_env = 
+                                            CEnv#connection_env{terminated = true, 
+                                                                downgrade = {Pid, From}}}, 
      [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}]};
 connection({call, From}, 
            {close,{Pid, Timeout}},
            #state{connection_states = ConnectionStates,
-                  protocol_specific = #{sender := Sender}
+                  protocol_specific = #{sender := Sender},
+                  connection_env = CEnv
                  } = State0) ->
     case tls_sender:downgrade(Sender, Timeout) of
         {ok, Write} ->
@@ -636,8 +639,10 @@ connection({call, From},
             State = send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY), 
                                State0#state{connection_states =
                                                 ConnectionStates#{current_write => Write}}),
-            {next_state, downgrade, State#state{downgrade = {Pid, From},
-                                                terminated = true}, [{timeout, Timeout, downgrade}]};
+            {next_state, downgrade, State#state{connection_env = 
+                                                    CEnv#connection_env{downgrade = {Pid, From},
+                                                                        terminated = true}}, 
+             [{timeout, Timeout, downgrade}]};
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
     end;
@@ -715,15 +720,16 @@ connection(Type, Event, State) ->
 downgrade(internal, #alert{description = ?CLOSE_NOTIFY},
 	  #state{static_env = #static_env{transport_cb = Transport,
                                           socket = Socket},
-		 downgrade = {Pid, From}} = State) ->
+		 connection_env = #connection_env{downgrade = {Pid, From}}} = State) ->
     tls_socket:setopts(Transport, Socket, [{active, false}, {packet, 0}, {mode, binary}]),
     Transport:controlling_process(Socket, Pid),
     {stop_and_reply, {shutdown, downgrade},[{reply, From, {ok, Socket}}], State};
-downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State) ->
+downgrade(timeout, downgrade, #state{ connection_env = #connection_env{downgrade = {_, From}}} = State) ->
     {stop_and_reply, {shutdown, normal},[{reply, From, {error, timeout}}], State};
 downgrade(info, {CloseTag, Socket},
           #state{static_env = #static_env{socket = Socket, 
-                                          close_tag = CloseTag}, downgrade = {_, From}} =
+                                          close_tag = CloseTag},
+                 connection_env = #connection_env{downgrade = {_, From}}} =
               State) ->
     {stop_and_reply, {shutdown, normal},[{reply, From, {error, CloseTag}}], State};
 downgrade(info, Info, State) ->
@@ -924,12 +930,13 @@ handle_alerts([], Result) ->
 handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
-              {next_state, connection = StateName, #state{user_data_buffer = Buffer,
+              {next_state, connection = StateName, #state{connection_env = CEnv, 
                                                           socket_options = #socket_options{active = false},
+                                                          user_data_buffer = Buffer,
                                                           protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
                    State}) when (Buffer =/= <<>>) orelse
                                 (CTs =/= []) -> 
-    {next_state, StateName, State#state{terminated = true}};
+    {next_state, StateName, State#state{connection_env = CEnv#connection_env{terminated = true}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
      handle_alerts(Alerts, ssl_connection:handle_alert(Alert, StateName, State));
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->

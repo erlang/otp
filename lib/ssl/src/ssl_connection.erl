@@ -607,11 +607,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 %%--------------------------------------------------------------------
 -spec ssl_config(#ssl_options{}, client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
-ssl_config(Opts, Role, State) ->
-    ssl_config(Opts, Role, State, new).
-
-ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
-                              handshake_env = HsEnv} = State0, Type) ->
+ssl_config(Opts, Role, #state{static_env = InitStatEnv0} = State0) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
            fileref_db_handle := FileRefHandle, 
@@ -623,27 +619,19 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
 	ssl_config:init(Opts, Role), 
     TimeStamp = erlang:monotonic_time(),
     Session = State0#state.session,
-
-    State = State0#state{session = Session#session{own_certificate = OwnCert,
-                                                   time_stamp = TimeStamp},
-                         static_env = InitStatEnv0#static_env{
-                                        file_ref_db = FileRefHandle,
-                                        cert_db_ref = Ref,
-                                        cert_db = CertDbHandle,
-                                        crl_db = CRLDbHandle,
-                                        session_cache = CacheHandle
-                                       },
-                         private_key = Key,
-                         diffie_hellman_params = DHParams,
-                         ssl_options = Opts},
-    case Type of
-        new ->
-            Hist = ssl_handshake:init_handshake_history(),
-            State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}};
-        continue ->
-            State
-    end.
-
+    
+    State0#state{session = Session#session{own_certificate = OwnCert,
+                                           time_stamp = TimeStamp},
+                 static_env = InitStatEnv0#static_env{
+                                file_ref_db = FileRefHandle,
+                                cert_db_ref = Ref,
+                                cert_db = CertDbHandle,
+                                crl_db = CRLDbHandle,
+                                session_cache = CacheHandle
+                               },
+                 private_key = Key,
+                 diffie_hellman_params = DHParams,
+                 ssl_options = Opts}.
 
 %%====================================================================
 %% gen_statem general state functions with connection cb argument
@@ -715,7 +703,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
                   ssl_options = Options0} = State0, _Connection) ->
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     Options = ssl:handle_options(NewOptions, Options0#ssl_options{handshake = full}),
-    State = ssl_config(Options, Role, State0, continue),
+    State = ssl_config(Options, Role, State0),
     {next_state, hello, State#state{start_or_recv_from = From,
                                     timer = Timer}, 
      [{next_event, internal, Hello}]};
@@ -1187,24 +1175,28 @@ handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} 
 handle_call({application_data, _Data}, _, _, _, _) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
     {keep_state_and_data, [postpone]};
-handle_call({close, _} = Close, From, StateName, State, _Connection) ->
+handle_call({close, _} = Close, From, StateName, #state{connection_env = CEnv} = State, _Connection) ->
     %% Run terminate before returning so that the reuseaddr
     %% inet-option works properly
     Result = terminate(Close, StateName, State),
     {stop_and_reply,
      {shutdown, normal},
-     {reply, From, Result}, State#state{terminated = true}};
+     {reply, From, Result}, State#state{connection_env = CEnv#connection_env{terminated = true}}};
 handle_call({shutdown, read_write = How}, From, StateName,
 	    #state{static_env = #static_env{transport_cb = Transport,
-                                            socket = Socket}} = State, _) ->
+                                            socket = Socket},
+                   connection_env = CEnv} = State, _) ->
     try send_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
                    StateName, State) of
         _ -> 
             case Transport:shutdown(Socket, How) of
                 ok ->
-                    {next_state, StateName, State#state{terminated = true}, [{reply, From, ok}]};
+                    {next_state, StateName, State#state{connection_env = 
+                                                            CEnv#connection_env{terminated = true}},
+                     [{reply, From, ok}]};
                 Error ->
-                    {stop_and_reply, {shutdown, normal}, {reply, From, Error}, State#state{terminated = true}}
+                    {stop_and_reply, {shutdown, normal}, {reply, From, Error}, 
+                     State#state{connection_env = CEnv#connection_env{terminated = true}}}
             end
     catch
         throw:Return ->
@@ -1353,7 +1345,7 @@ handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, err
 %%====================================================================
 %% general gen_statem callbacks
 %%====================================================================
-terminate(_, _, #state{terminated = true}) ->
+terminate(_, _, #state{connection_env = #connection_env{terminated = true}}) ->
     %% Happens when user closes the connection using ssl:close/1
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns unless it is a downgrade where
