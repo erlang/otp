@@ -49,6 +49,7 @@
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
+         api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
 
          %% *** API Operation Timeout ***
@@ -568,6 +569,7 @@ api_basic_cases() ->
 api_options_cases() ->
     [
      api_opt_simple_otp_options,
+     api_opt_simple_otp_rcvbuf_option,
      api_opt_simple_otp_controlling_process
     ].
 
@@ -2146,6 +2148,12 @@ api_opt_simple_otp_options() ->
                                    ERROR
                            end
                    end},
+
+         %% #{desc => "enable debug",
+         %%   cmd  => fun(#{sock := Sock}) ->
+         %%                   ok = socket:setopt(Sock, otp, debug, true)
+         %%           end},
+
          #{desc => "set (new) iow",
            cmd  => fun(#{sock := Sock, iow := OldIOW} = State) ->
                            NewIOW = not OldIOW,
@@ -2174,6 +2182,9 @@ api_opt_simple_otp_options() ->
                            case Get(Sock, rcvbuf) of
                                {ok, RcvBuf} when is_integer(RcvBuf) ->
                                    {ok, State#{rcvbuf => RcvBuf}};
+                               {ok, {N, RcvBuf} = V} when is_integer(N) andalso 
+                                                          is_integer(RcvBuf) ->
+                                   {ok, State#{rcvbuf => V}};
                                {ok, InvalidRcvBuf} ->
                                    {error, {invalid, InvalidRcvBuf}};
                                {error, _} = ERROR ->
@@ -2181,8 +2192,26 @@ api_opt_simple_otp_options() ->
                            end
                    end},
          #{desc => "set (new) rcvbuf",
-           cmd  => fun(#{sock := Sock, rcvbuf := OldRcvBuf} = State) ->
+           cmd  => fun(#{sock := Sock, rcvbuf := {OldN, OldRcvBuf}} = State) ->
+                           NewRcvBuf = {OldN+2, OldRcvBuf + 1024},
+                           case Set(Sock, rcvbuf, NewRcvBuf) of
+                               ok ->
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock, rcvbuf := OldRcvBuf} = State) when is_integer(OldRcvBuf) ->
                            NewRcvBuf = 2 * OldRcvBuf,
+                           case Set(Sock, rcvbuf, NewRcvBuf) of
+                               ok ->
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{sock := Sock, rcvbuf := OldRcvBuf,
+                         type := stream,
+                         protocol := tcp} = State) when is_integer(OldRcvBuf) ->
+                           NewRcvBuf = {2, OldRcvBuf},
                            case Set(Sock, rcvbuf, NewRcvBuf) of
                                ok ->
                                    {ok, State#{rcvbuf => NewRcvBuf}};
@@ -2351,6 +2380,680 @@ api_opt_simple_otp_options() ->
     Tester2 = ?SEV_START("udp-tester", Seq, InitState2),
     i("await udp evaluator"),
     ok = ?SEV_AWAIT_FINISH([Tester2]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Perform some simple operations with the rcvbuf otp option
+%% The operations we test here are only for type = stream and
+%% protocol = tcp.
+api_opt_simple_otp_rcvbuf_option(suite) ->
+    [];
+api_opt_simple_otp_rcvbuf_option(doc) ->
+    [];
+api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(api_opt_simple_otp_rcvbuf_option,
+           fun() -> api_opt_simple_otp_rcvbuf_option() end).
+
+api_opt_simple_otp_rcvbuf_option() ->
+    Get = fun(S) ->
+                  socket:getopt(S, otp, rcvbuf)
+          end,
+    Set = fun(S, Val) ->
+                  socket:setopt(S, otp, rcvbuf, Val)
+          end,
+
+    ServerSeq = 
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, local_sa := LSA} = State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester   := Tester,
+                         local_sa := LocalSA,
+                         lport    := Port}) ->
+                           ServerSA = LocalSA#{port => Port},
+                           ?SEV_ANNOUNCE_READY(Tester, init, ServerSA),
+                           ok
+                   end},
+
+
+         %% *** The actual test part ***
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "attempt to accept",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         %% Recv with default size for (otp) rcvbuf
+         #{desc => "await continue (recv initial)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, MsgSz} ->
+                                   ?SEV_IPRINT("MsgSz: ~p", [MsgSz]),
+                                   {ok, State#{msg_sz => MsgSz}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                                       [MsgSz,
+                                        case Get(Sock) of
+                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
+                                            {error, _}   -> "-"
+                                        end]),
+                           case socket:recv(Sock) of
+                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                                   ok;
+                               {ok, Data} ->
+                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv initial)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+         %% Recv with new size (1) for (otp) rcvbuf
+         #{desc => "await continue (recv 1)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, NewRcvBuf} ->
+                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to setopt rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+                           case Set(Sock, NewRcvBuf) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           case socket:recv(Sock) of
+                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                                   ok;
+                               {ok, Data} ->
+                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+         %% Recv with new size (2) for (otp) rcvbuf
+         #{desc => "await continue (recv 2)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, NewRcvBuf} ->
+                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to setopt rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+                           case Set(Sock, NewRcvBuf) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           case socket:recv(Sock) of
+                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                                   ok;
+                               {ok, Data} ->
+                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+         %% Recv with new size (3) for (otp) rcvbuf
+         #{desc => "await continue (recv 3, truncated)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, {ExpSz, NewRcvBuf}} ->
+                                   {ok, State#{msg_sz => ExpSz,
+                                               rcvbuf => NewRcvBuf}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to setopt rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+                           case Set(Sock, NewRcvBuf) of
+                               ok ->
+                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes of data", [MsgSz]),
+                           case socket:recv(Sock) of
+                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                                   ok;
+                               {ok, Data} ->
+                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+
+         %% Termination
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket(s)",
+           cmd  => fun(#{lsock := LSock, sock := Sock} = State) ->
+                           sock_close(Sock),
+                           sock_close(LSock),
+                           State1 = maps:remove(sock,  State),
+                           State2 = maps:remove(lport, State1),
+                           State3 = maps:remove(lsock, State2),
+                           {ok, State3}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, ServerSA} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester    => Tester,
+                                       server_sa => ServerSA}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LAddr = which_local_addr(Domain),
+                           LSA   = #{family => Domain, addr => LAddr},
+                           {ok, State#{local_sa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           case socket:open(Domain, stream, tcp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect)
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+
+         #{desc => "await continue (send initial)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, send) of
+                               {ok, Data} ->
+                                   {ok, State#{data => Data}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "send (initial) data to server",
+           cmd  => fun(#{sock := Sock, data := Data} = _State) ->
+                           ?SEV_IPRINT("try send ~w bytes", [size(Data)]),
+                           socket:send(Sock, Data)
+                   end},
+         #{desc => "announce ready (send initial)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send),
+                           ok
+                   end},
+
+         #{desc => "await continue (send 1)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send)
+                   end},
+         #{desc => "send (1) data to server",
+           cmd  => fun(#{sock := Sock, data := Data}) ->
+                           ?SEV_IPRINT("try send ~w bytes", [size(Data)]),
+                           socket:send(Sock, Data)
+                   end},
+         #{desc => "announce ready (send 1)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send),
+                           ok
+                   end},
+
+         #{desc => "await continue (send 2)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send)
+                   end},
+         #{desc => "send (2) data to server",
+           cmd  => fun(#{sock := Sock, data := Data}) ->
+                           ?SEV_IPRINT("try send ~w bytes", [size(Data)]),
+                           socket:send(Sock, Data)
+                   end},
+         #{desc => "announce ready (send 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send),
+                           ok
+                   end},
+
+         #{desc => "await continue (send 3)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send)
+                   end},
+         #{desc => "send (3) data to server",
+           cmd  => fun(#{sock := Sock, data := Data}) ->
+                           ?SEV_IPRINT("try send ~w bytes", [size(Data)]),
+                           socket:send(Sock, Data)
+                   end},
+         #{desc => "announce ready (send 3)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send),
+                           ok
+                   end},
+
+
+         %% Termination
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock}) ->
+                           socket:close(Sock)
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Server} = _State) ->
+                           _MRef = erlang:monitor(process, Server),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Client} = _State) ->
+                           _MRef = erlang:monitor(process, Client),
+                           ok
+                   end},
+         #{desc => "order server start",
+           cmd  => fun(#{server := Server}) ->
+                           ?SEV_ANNOUNCE_START(Server)
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Server} = State) ->
+                           {ok, ServerSA} = ?SEV_AWAIT_READY(Server, server, init),
+                           {ok, State#{server_sa => ServerSA}}
+                   end},
+         #{desc => "order client start",
+           cmd  => fun(#{client    := Client,
+                         server_sa := ServerSA}) ->
+                           ?SEV_ANNOUNCE_START(Client, ServerSA),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, init)
+                   end},
+
+
+         %% The actual test (connecting)
+         #{desc => "order server accept (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order client continue (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+
+         %% The actual test (initial part)
+         #{desc => "order client continue (send initial)",
+           cmd  => fun(#{client := Client, data := Data} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send, Data),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order server continue (recv initial)",
+           cmd  => fun(#{server := Server, data := Data} = _State) ->
+                           ExpMsgSz = size(Data),
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv, ExpMsgSz),
+                           ok
+                   end},
+         #{desc => "await client ready (send initial)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Client, client, send,
+                                                 [{server, Server}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await server ready (recv initial)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Server, client, recv,
+                                                 [{client, Client}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% The actual test (part 1)
+         #{desc => "order client continue (send 1)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order server continue (recv 1)",
+           cmd  => fun(#{server := Server, data := Data} = _State) ->
+                           MsgSz     = size(Data),
+                           NewRcvBuf = {2 + (MsgSz div 1024), 1024},
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv, NewRcvBuf),
+                           ok
+                   end},
+         #{desc => "await client ready (send 1)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Client, client, send,
+                                                 [{server, Server}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await server ready (recv 1)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Server, client, recv,
+                                                 [{client, Client}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% The actual test (part 2)
+         #{desc => "order client continue (send 2)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order server continue (recv 2)",
+           cmd  => fun(#{server := Server, data := Data} = _State) ->
+                           MsgSz     = size(Data),
+                           NewRcvBuf = {2 + (MsgSz div 2048), 2048},
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv, NewRcvBuf),
+                           ok
+                   end},
+         #{desc => "await client ready (send 2)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Client, client, send,
+                                                 [{server, Server}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await server ready (recv 2)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Server, client, recv,
+                                                 [{client, Client}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test (part 3)
+         #{desc => "order client continue (send 3)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order server continue (recv 3)",
+           cmd  => fun(#{server := Server, data := Data} = _State) ->
+                           MsgSz     = size(Data),
+                           BufSz     = 2048,
+                           N         = MsgSz div BufSz - 1,
+                           NewRcvBuf = {N, BufSz},
+                           ?SEV_ANNOUNCE_CONTINUE(Server, recv,
+                                                  {N*BufSz, NewRcvBuf})
+                   end},
+         #{desc => "await client ready (send 3)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Client, client, send,
+                                                 [{server, Server}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "await server ready (recv 3)",
+           cmd  => fun(#{server := Server,
+                         client := Client} = _State) ->
+                           case ?SEV_AWAIT_READY(Server, client, recv,
+                                                 [{client, Client}]) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         ?SEV_SLEEP(?SECS(1)),
+
+         %% *** Terminate server ***
+         #{desc => "order client terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client down",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client,    State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server down",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server,    State),
+                           State2 = maps:remove(server_sa, State1),
+                           {ok, State2}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    %% Create a data binary of 6*1024 bytes
+    Data      = list_to_binary(lists:duplicate(6*4, lists:seq(0, 255))),
+    InitState = #{domain => inet,
+                  data   => Data},
+
+    i("create server evaluator"),
+    ServerInitState = #{domain => maps:get(domain, InitState)},
+    Server          = ?SEV_START("server", ServerSeq, ServerInitState),
+
+    i("create client evaluator"),
+    ClientInitState = #{host   => local_host(),
+                        domain => maps:get(domain, InitState)},
+    Client          = ?SEV_START("client", ClientSeq, ClientInitState),
+
+    i("create tester evaluator"),
+    TesterInitState = InitState#{server => Server#ev.pid,
+                                 client => Client#ev.pid},
+    Tester          = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -9507,7 +10210,7 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                      true ->
                           ok
                   end,
-                  ok = socket:setopt(Sock, otp, rcvbuf, 8*1024)
+                  ok = socket:setopt(Sock, otp, rcvbuf, {12, 1024})
           end,
     traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
 
@@ -16621,6 +17324,7 @@ tc_try(Case, Fun) when is_atom(Case) andalso is_function(Fun, 0) ->
     try 
         begin
             Fun(),
+            ?SLEEP(?SECS(1)),
             tc_end("ok")
         end
     catch

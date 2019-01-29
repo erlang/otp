@@ -83,10 +83,11 @@
       </row>
       <row>
 	<cell>rcvbuf</cell>
-	<cell>default | pos_integer()</cell>
+	<cell>default | pos_integer() | {pos_integer(), pos_ineteger()}</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>default only valid for set</cell>
+	<cell>'default' only valid for set.
+	The tuple form is only valid for type 'stream' and protocol 'tcp'.</cell>
       </row>
       <row>
 	<cell>rcvctrlbuf</cell>
