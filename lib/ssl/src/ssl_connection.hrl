@@ -67,7 +67,9 @@
                         next_protocol = undefined                   :: undefined | binary(),
                         negotiated_protocol,
                         hashsign_algorithm = {undefined, undefined},
-                        cert_hashsign_algorithm = {undefined, undefined}
+                        cert_hashsign_algorithm = {undefined, undefined},
+                        %% key exchange
+                        public_key_info      :: ssl_handshake:public_key_info() | 'undefined'
                        }).
 
 -record(connection_env, { 
@@ -98,7 +100,6 @@
                 %% Used only in HS
                 client_certificate_requested = false :: boolean(),
                 key_algorithm         :: ssl:key_algo(),
-                public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                 private_key          :: public_key:private_key() | secret_printout() | 'undefined',
                 diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),

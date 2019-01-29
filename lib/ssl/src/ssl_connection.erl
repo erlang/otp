@@ -832,10 +832,9 @@ certify(internal, #certificate{} = Cert,
     end;
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client},
-               handshake_env = HsEnv,
+               handshake_env = #handshake_env{public_key_info = PubKeyInfo} = HsEnv,
                negotiated_version = Version,
 	       key_algorithm = Alg,
-	       public_key_info = PubKeyInfo,
                session = Session,
 	       connection_states = ConnectionStates} = State, Connection)
   when Alg == dhe_dss; Alg == dhe_rsa;
@@ -998,17 +997,17 @@ cipher(info, Msg, State, _) ->
 cipher(internal, #certificate_verify{signature = Signature, 
 				     hashsign_algorithm = CertHashSign},
        #state{static_env = #static_env{role = server},
-              handshake_env = #handshake_env{tls_handshake_history = Hist} = HsEnv,
+              handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                             public_key_info = PubKeyInfo} = HsEnv,
 	      key_algorithm = KexAlg,
-	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret}
 	     } = State, Connection) ->
     
     TLSVersion = ssl:tls_version(Version),
     %% Use negotiated value if TLS-1.2 otherwhise return default
-    HashSign = negotiated_hashsign(CertHashSign, KexAlg, PublicKeyInfo, TLSVersion),
-    case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
+    HashSign = negotiated_hashsign(CertHashSign, KexAlg, PubKeyInfo, TLSVersion),
+    case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
 					  TLSVersion, HashSign, MasterSecret, Hist) of
 	valid ->
 	    Connection:next_event(?FUNCTION_NAME, no_record,
@@ -1526,11 +1525,12 @@ server_hello_done(State, Connection) ->
     Connection:send_handshake(HelloDone, State).
 
 handle_peer_cert(Role, PeerCert, PublicKeyInfo,
-		 #state{session = #session{cipher_suite = CipherSuite} = Session} = State0,
+		 #state{handshake_env = HsEnv,
+                    session = #session{cipher_suite = CipherSuite} = Session} = State0,
 		 Connection) ->
-    State1 = State0#state{session =
-			 Session#session{peer_certificate = PeerCert},
-			 public_key_info = PublicKeyInfo},
+    State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
+                          session =
+                              Session#session{peer_certificate = PeerCert}},
     #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_definition(CipherSuite),
     State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
     Connection:next_event(certify, no_record, State).
@@ -1865,8 +1865,8 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Alg
     State#state{srp_params = SrpParams,
 		srp_keys = Keys};
 key_exchange(#state{static_env = #static_env{role = client},
-		    key_algorithm = rsa,
-		    public_key_info = PublicKeyInfo,
+                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
+		    key_algorithm = rsa,                    
 		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret} = State0, Connection) ->
     Msg = rsa_key_exchange(ssl:tls_version(Version), PremasterSecret, PublicKeyInfo),
@@ -1920,9 +1920,9 @@ key_exchange(#state{static_env = #static_env{role = client},
     Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{static_env = #static_env{role = client},
+                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
-		    public_key_info = PublicKeyInfo,
 		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret}
 	     = State0, Connection) ->

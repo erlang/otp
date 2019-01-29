@@ -338,8 +338,8 @@ reinit(State) ->
 reinit_handshake_data(#state{protocol_buffers = Buffers,
                              handshake_env = HsEnv} = State) ->
     State#state{premaster_secret = undefined,
-		public_key_info = undefined,
-                handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history()},
+                handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history(),
+                                                    public_key_info = undefined},
                 flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
 		flight_buffer = new_flight(),
                 protocol_buffers =

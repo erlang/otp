@@ -348,8 +348,8 @@ reinit_handshake_data(#state{handshake_env = HsEnv} =State) ->
     %% To reduce memory foot print of a connection reinitialize them.
      State#state{
        premaster_secret = undefined,
-       public_key_info = undefined,
-       handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history()}
+       handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history(),
+                                           public_key_info = undefined}
      }.
 
 select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
