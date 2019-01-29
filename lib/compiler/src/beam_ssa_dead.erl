@@ -850,7 +850,7 @@ combine_eqs_1([], St) -> St.
 comb_get_sw(L, Blocks) ->
     comb_get_sw(L, true, Blocks).
 
-comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}=St) ->
+comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}) ->
     #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
     Safe1 = Safe0 andalso is_map_key(L, Skippable),
     case Last of
@@ -865,8 +865,8 @@ comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}=St) ->
                 {#b_set{},_} ->
                     none
             end;
-        #b_br{bool=#b_literal{val=true},succ=Succ} ->
-            comb_get_sw(Succ, Safe1, St);
+        #b_br{} ->
+            none;
         #b_switch{arg=#b_var{}=Arg,fail=Fail,list=List} ->
             {none,Safe} = comb_is(Is, none, Safe1),
             {Safe,Arg,L,Fail,List}
