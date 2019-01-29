@@ -75,13 +75,14 @@
 -record(connection_env, { 
                           user_application      :: {Monitor::reference(), User::pid()},
                           downgrade,
-                          terminated = false                          ::boolean() | closed                           
+                          terminated = false                          ::boolean() | closed,  
+                          negotiated_version    :: ssl_record:ssl_version() | 'undefined'  
                         }).
 
 -record(state, {
                 static_env            :: #static_env{},
                 handshake_env         :: #handshake_env{} | secret_printout(),
-                connection_env        :: #connection_env{},                
+                connection_env        :: #connection_env{} | secret_printout(), 
 
                 %% Changed often
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
@@ -95,7 +96,6 @@
                 ssl_options           :: #ssl_options{},
                 socket_options        :: #socket_options{},
                 session               :: #session{} | secret_printout(),
-                negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                 
                 %% Used only in HS
                 client_certificate_requested = false :: boolean(),

@@ -574,8 +574,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 			     compression_method = Compression}, 
 	       Version, NewId, ConnectionStates, ProtoExt, Protocol0,
 	       #state{session = #session{session_id = OldId},
-		      negotiated_version = ReqVersion,
-		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv} = State0) ->
+		      handshake_env = #handshake_env{negotiated_protocol = CurrentProtocol} = HsEnv,
+                      connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv} = State0) ->
     #{key_exchange := KeyAlgorithm} =
 	ssl_cipher_format:suite_definition(CipherSuite),
     
@@ -589,11 +589,11 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 			    end,
 
     State = State0#state{key_algorithm = KeyAlgorithm,
-			 negotiated_version = Version,
 			 connection_states = ConnectionStates,
 			 premaster_secret = PremasterSecret,
 			 handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation = ExpectNPN,
-                                                             negotiated_protocol = Protocol}},
+                                                             negotiated_protocol = Protocol},
+                         connection_env = CEnv#connection_env{negotiated_version = Version}},
     
     case ssl_session:is_new(OldId, NewId) of
 	true ->
@@ -692,7 +692,7 @@ hello(info, Msg, State, _) ->
 hello(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
-user_hello({call, From}, cancel, #state{negotiated_version = Version} = State, _) ->
+user_hello({call, From}, cancel, #state{connection_env = #connection_env{negotiated_version = Version}} = State, _) ->
     gen_statem:reply(From, ok),
     handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED, user_canceled),
                      Version, ?FUNCTION_NAME, State);
@@ -722,7 +722,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = server},
                    handshake_env = #handshake_env{tls_handshake_history = Hist,
                                                   expecting_finished = true} = HsEnv,
-		   negotiated_version = Version,
+		   connection_env = #connection_env{negotiated_version = Version},
 		   session = #session{master_secret = MasterSecret},
 		   connection_states = ConnectionStates0} =
 		State0, Connection) ->
@@ -741,8 +741,8 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{static_env = #static_env{role = client},
                    handshake_env = #handshake_env{tls_handshake_history = Hist0},
+                   connection_env = #connection_env{negotiated_version = Version},
 		   session = #session{master_secret = MasterSecret},
-		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State0, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished, server,
 					 get_pending_prf(ConnectionStates0, write),
@@ -794,7 +794,7 @@ certify(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server},
-               negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = #ssl_options{verify = verify_peer,
 					  fail_if_no_peer_cert = true}} =
 	    State, _) ->
@@ -808,7 +808,7 @@ certify(internal, #certificate{asn1_certificates = []},
     Connection:next_event(?FUNCTION_NAME, no_record, State0#state{client_certificate_requested = false});
 certify(internal, #certificate{},
 	#state{static_env = #static_env{role = server},
-	       negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = #ssl_options{verify = verify_none}} =
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
@@ -820,7 +820,7 @@ certify(internal, #certificate{} = Cert,
                                cert_db = CertDbHandle,
                                cert_db_ref = CertDbRef,
                                crl_db = CRLDbInfo},
-               negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
 			       Opts, CRLDbInfo, Role, Host) of
@@ -833,7 +833,7 @@ certify(internal, #certificate{} = Cert,
 certify(internal, #server_key_exchange{exchange_keys = Keys},
         #state{static_env = #static_env{role = client},
                handshake_env = #handshake_env{public_key_info = PubKeyInfo} = HsEnv,
-               negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
 	       key_algorithm = Alg,
                session = Session,
 	       connection_states = ConnectionStates} = State, Connection)
@@ -867,7 +867,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
     end;
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{role = client},
-               negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
                key_algorithm = Alg} = State, _)
   when Alg == dh_anon; Alg == ecdh_anon;
        Alg == psk; Alg == dhe_psk; Alg == ecdhe_psk; Alg == rsa_psk;
@@ -884,9 +884,9 @@ certify(internal, #certificate_request{},
 certify(internal, #certificate_request{} = CertRequest,
 	#state{static_env = #static_env{role = client},
                handshake_env = HsEnv,
+               connection_env = #connection_env{negotiated_version = Version},
                session = #session{own_certificate = Cert},
-               ssl_options = #ssl_options{signature_algs = SupportedHashSigns},
-               negotiated_version = Version} = State, Connection) ->
+               ssl_options = #ssl_options{signature_algs = SupportedHashSigns}} = State, Connection) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, ssl:tls_version(Version)) of
 	#alert {} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
@@ -899,7 +899,7 @@ certify(internal, #certificate_request{} = CertRequest,
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                session = #session{master_secret = undefined},
-	       negotiated_version = Version,
+               connection_env = #connection_env{negotiated_version = Version},
 	       psk_identity = PSKIdentity,
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
 	       premaster_secret = undefined,
@@ -915,12 +915,12 @@ certify(internal, #server_hello_done{},
     end;
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
+               connection_env = #connection_env{negotiated_version = {Major, Minor}} = Version,
                session = #session{master_secret = undefined},
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
-	       negotiated_version = {Major, Minor} = Version,
-	       psk_identity = PSKIdentity,
-	       premaster_secret = undefined,
-	       key_algorithm = Alg} = State0, Connection)
+               psk_identity = PSKIdentity,
+               premaster_secret = undefined,
+               key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     RSAPremasterSecret = <<?BYTE(Major), ?BYTE(Minor), Rand/binary>>,
@@ -936,9 +936,9 @@ certify(internal, #server_hello_done{},
 %% Master secret was determined with help of server-key exchange msg
 certify(internal, #server_hello_done{}, 
 	#state{static_env = #static_env{role = client},
-           session = #session{master_secret = MasterSecret} = Session,
+               connection_env = #connection_env{negotiated_version = Version},
+               session = #session{master_secret = MasterSecret} = Session,
 	       connection_states = ConnectionStates0,
-	       negotiated_version = Version,
 	       premaster_secret = undefined} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
@@ -951,9 +951,9 @@ certify(internal, #server_hello_done{},
 %% Master secret is calculated from premaster_secret
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
+               connection_env = #connection_env{negotiated_version = Version},
                session = Session0,
 	       connection_states = ConnectionStates0,
-	       negotiated_version = Version,
 	       premaster_secret = PremasterSecret} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), PremasterSecret,
 				     ConnectionStates0, client) of
@@ -973,7 +973,8 @@ certify(internal = Type, #client_key_exchange{} = Msg,
     %% We expect a certificate here
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection);
 certify(internal, #client_key_exchange{exchange_keys = Keys},
-	State = #state{key_algorithm = KeyAlg, negotiated_version = Version}, Connection) ->
+	State = #state{key_algorithm = KeyAlg, 
+                       connection_env = #connection_env{negotiated_version = Version}}, Connection) ->
     try
 	certify_client_key_exchange(ssl_handshake:decode_client_key(Keys, KeyAlg, ssl:tls_version(Version)),
 				    State, Connection)
@@ -999,8 +1000,8 @@ cipher(internal, #certificate_verify{signature = Signature,
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{tls_handshake_history = Hist,
                                              public_key_info = PubKeyInfo} = HsEnv,
+              connection_env = #connection_env{negotiated_version = Version},
 	      key_algorithm = KexAlg,
-	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret}
 	     } = State, Connection) ->
     
@@ -1020,7 +1021,7 @@ cipher(internal, #finished{},
        #state{static_env = #static_env{role = server},
               handshake_env = #handshake_env{expecting_next_protocol_negotiation = true,
                                              negotiated_protocol = undefined},
-              negotiated_version = Version} = State0,
+              connection_env = #connection_env{negotiated_version = Version}} = State0,
        _Connection) ->
     handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, ?FUNCTION_NAME, State0);
 cipher(internal, #finished{verify_data = Data} = Finished,
@@ -1029,7 +1030,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
                                        port = Port},
               handshake_env = #handshake_env{tls_handshake_history = Hist,
                                              expecting_finished = true} = HsEnv,
-              negotiated_version = Version,
+              connection_env = #connection_env{negotiated_version = Version},
 	      session = #session{master_secret = MasterSecret}
 	      = Session0,
               ssl_options = SslOpts,
@@ -1165,10 +1166,10 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, Sta
 handle_common_event(timeout, hibernate, _, _, _) ->
     {keep_state_and_data, [hibernate]};
 handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName, 
-		    #state{negotiated_version = Version} = State,  _) ->
+		    #state{connection_env = #connection_env{negotiated_version = Version}} = State,  _) ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, 
 				StateName, State);
-handle_common_event(_Type, Msg, StateName, #state{negotiated_version = Version} = State, 
+handle_common_event(_Type, Msg, StateName, #state{connection_env = #connection_env{negotiated_version = Version}} = State, 
 		    _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, Msg}),
     handle_own_alert(Alert, Version, StateName, State).
@@ -1253,7 +1254,7 @@ handle_call(get_sslsocket, From, _StateName, State, Connection) ->
 
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 	    #state{connection_states = ConnectionStates,
-		   negotiated_version = Version}, _) ->
+		   connection_env = #connection_env{negotiated_version = Version}}, _) ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{master_secret = MasterSecret,
@@ -1434,7 +1435,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
                        handshake_env = #handshake_env{sni_hostname = SNIHostname},
                        session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite, ecc = ECCCurve},
-		       negotiated_version =  {_,_} = Version, 
+		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
 		       ssl_options = Opts}) ->
     RecordCB = record_cb(Connection),
     CipherSuiteDef = #{key_exchange := KexAlg} = ssl_cipher_format:suite_definition(CipherSuite),
@@ -1462,7 +1463,7 @@ security_info(#state{connection_states = ConnectionStates}) ->
 
 do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocols} =
 		    ServerHelloExt,
-		#state{negotiated_version = Version,
+		#state{connection_env = #connection_env{negotiated_version = Version},
                        handshake_env = HsEnv,
 		       session = #session{session_id = SessId},
 		       connection_states = ConnectionStates0}
@@ -1483,8 +1484,8 @@ do_server_hello(Type, #hello_extensions{next_protocol_negotiation = NextProtocol
 new_server_hello(#server_hello{cipher_suite = CipherSuite,
 			      compression_method = Compression,
 			      session_id = SessionId},
-		#state{session = Session0,
-		       negotiated_version = Version} = State0, Connection) ->
+                 #state{session = Session0,
+                        connection_env = #connection_env{negotiated_version = Version}} = State0, Connection) ->
     try server_certify_and_key_exchange(State0, Connection) of
         #state{} = State1 ->
             {State, Actions} = server_hello_done(State1, Connection),
@@ -1500,7 +1501,7 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 
 resumed_server_hello(#state{session = Session,
 			    connection_states = ConnectionStates0,
-			    negotiated_version = Version} = State0, Connection) ->
+			    connection_env = #connection_env{negotiated_version = Version}} = State0, Connection) ->
 
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, server) of
@@ -1570,8 +1571,8 @@ certify_client(#state{client_certificate_requested = false} = State, _) ->
 verify_client_cert(#state{static_env = #static_env{role = client},
                           handshake_env = #handshake_env{tls_handshake_history = Hist,
                                                          cert_hashsign_algorithm = HashSign},
+                          connection_env = #connection_env{negotiated_version = Version},
                           client_certificate_requested = true,
-			  negotiated_version = Version,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificate = OwnCert}} = State, Connection) ->
@@ -1588,7 +1589,7 @@ verify_client_cert(#state{static_env = #static_env{role = client},
 verify_client_cert(#state{client_certificate_requested = false} = State, _) ->
     State.
 
-client_certify_and_key_exchange(#state{negotiated_version = Version} =
+client_certify_and_key_exchange(#state{connection_env = #connection_env{negotiated_version = Version}} =
 				State0, Connection) ->
     try do_client_certify_and_key_exchange(State0, Connection) of
         State1 = #state{} ->
@@ -1704,11 +1705,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
     State;
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    private_key = PrivateKey,
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
-		   } = State0, Connection)
+		    connection_states = ConnectionStates0} = State0, Connection)
   when Algo == dhe_dss;
        Algo == dhe_rsa;
        Algo == dh_anon ->
@@ -1732,11 +1732,10 @@ key_exchange(#state{static_env = #static_env{role = server},
                 session = Session#session{ecc = ECCurve}};
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    private_key = PrivateKey,
 		    session = #session{ecc = ECCCurve},
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
-		   } = State0, Connection)
+		    connection_states = ConnectionStates0} = State0, Connection)
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
        Algo == ecdh_anon ->
 
@@ -1758,10 +1757,9 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},                    
+                    connection_env = #connection_env{negotiated_version = Version},
 		    private_key = PrivateKey,
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
-		   } = State0, Connection) ->
+		    connection_states = ConnectionStates0} = State0, Connection) ->
     #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     #security_parameters{client_random = ClientRandom,
@@ -1775,10 +1773,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},                                        
+                    connection_env = #connection_env{negotiated_version = Version},
 		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    private_key = PrivateKey,
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
+		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     DHKeys = public_key:generate_key(Params),
     #{security_parameters := SecParams} =
@@ -1796,10 +1794,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = ecdhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    private_key = PrivateKey,
                     session = #session{ecc = ECCCurve},
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
+		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} =
@@ -1820,9 +1818,9 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo}, 
+                    connection_env = #connection_env{negotiated_version = Version},
 		    private_key = PrivateKey,
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
+		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -1837,10 +1835,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    ssl_options = #ssl_options{user_lookup_fun = LookupFun},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo}, 
+                    connection_env = #connection_env{negotiated_version = Version},
 		    session = #session{srp_username = Username},
 		    private_key = PrivateKey,
-		    connection_states = ConnectionStates0,
-		    negotiated_version = Version
+		    connection_states = ConnectionStates0
 		   } = State0, Connection)
   when Algo == srp_dss;
        Algo == srp_rsa;
@@ -1866,14 +1864,14 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Alg
 		srp_keys = Keys};
 key_exchange(#state{static_env = #static_env{role = client},
                     handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
-		    key_algorithm = rsa,                    
-		    negotiated_version = Version,
+                    connection_env = #connection_env{negotiated_version = Version},
+		    key_algorithm = rsa,                    		   
 		    premaster_secret = PremasterSecret} = State0, Connection) ->
     Msg = rsa_key_exchange(ssl:tls_version(Version), PremasterSecret, PublicKeyInfo),
     Connection:queue_handshake(Msg, State0);
 key_exchange(#state{static_env = #static_env{role = client},
-		    key_algorithm = Algorithm,
-		    negotiated_version = Version,
+                    connection_env = #connection_env{negotiated_version = Version},
+                    key_algorithm = Algorithm,
 		    diffie_hellman_keys = {DhPubKey, _}
 		   } = State0, Connection)
   when Algorithm == dhe_dss;
@@ -1883,8 +1881,8 @@ key_exchange(#state{static_env = #static_env{role = client},
     Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{static_env = #static_env{role = client},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    key_algorithm = Algorithm,
-		    negotiated_version = Version,
                     session = Session,
 		    diffie_hellman_keys = #'ECPrivateKey'{parameters = ECCurve} = Key} = State0, Connection)
   when Algorithm == ecdhe_ecdsa; Algorithm == ecdhe_rsa;
@@ -1893,16 +1891,16 @@ key_exchange(#state{static_env = #static_env{role = client},
     Msg = ssl_handshake:key_exchange(client, ssl:tls_version(Version), {ecdh, Key}),
     Connection:queue_handshake(Msg, State0#state{session = Session#session{ecc = ECCurve}});
 key_exchange(#state{static_env = #static_env{role = client},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    ssl_options = SslOpts,
-		    key_algorithm = psk,
-		    negotiated_version = Version} = State0, Connection) ->
+		    key_algorithm = psk} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version), 
 				      {psk, SslOpts#ssl_options.psk_identity}),
     Connection:queue_handshake(Msg, State0);
 key_exchange(#state{static_env = #static_env{role = client},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    ssl_options = SslOpts,
 		    key_algorithm = dhe_psk,
-		    negotiated_version = Version,
 		    diffie_hellman_keys = {DhPubKey, _}} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version),
 				      {dhe_psk, 
@@ -1910,9 +1908,9 @@ key_exchange(#state{static_env = #static_env{role = client},
     Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{static_env = #static_env{role = client},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    ssl_options = SslOpts,
 		    key_algorithm = ecdhe_psk,
-		    negotiated_version = Version,
 		    diffie_hellman_keys = ECDHKeys} = State0, Connection) ->
     Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version),
 				      {ecdhe_psk,
@@ -1921,17 +1919,17 @@ key_exchange(#state{static_env = #static_env{role = client},
 
 key_exchange(#state{static_env = #static_env{role = client},
                     handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
-		    negotiated_version = Version,
 		    premaster_secret = PremasterSecret}
 	     = State0, Connection) ->
     Msg = rsa_psk_key_exchange(ssl:tls_version(Version), SslOpts#ssl_options.psk_identity,
 			       PremasterSecret, PublicKeyInfo),
     Connection:queue_handshake(Msg, State0);
 key_exchange(#state{static_env = #static_env{role = client},
+                    connection_env = #connection_env{negotiated_version = Version},
 		    key_algorithm = Algorithm,
-		    negotiated_version = Version,
 		    srp_keys = {ClientPubKey, _}}
 	     = State0, Connection)
   when Algorithm == srp_dss;
@@ -1981,10 +1979,10 @@ request_client_cert(#state{key_algorithm = Alg} = State, _)
 
 request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                     cert_db_ref = CertDbRef},
+                           connection_env = #connection_env{negotiated_version = Version},
                            ssl_options = #ssl_options{verify = verify_peer,
                                                       signature_algs = SupportedHashSigns},
-                           connection_states = ConnectionStates0,
-			   negotiated_version = Version} = State0, Connection) ->
+                           connection_states = ConnectionStates0} = State0, Connection) ->
     #{security_parameters :=
 	  #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -2001,7 +1999,7 @@ request_client_cert(#state{ssl_options = #ssl_options{verify = verify_none}} =
     State.
 
 calculate_master_secret(PremasterSecret, 
-			#state{negotiated_version = Version,
+			#state{connection_env = #connection_env{negotiated_version = Version},
 			       connection_states = ConnectionStates0,
 			       session = Session0} = State0, Connection,
 			_Current, Next) ->
@@ -2043,7 +2041,7 @@ cipher_protocol(State, Connection) ->
 
 finished(#state{static_env = #static_env{role = Role},
                 handshake_env = #handshake_env{tls_handshake_history = Hist},
-                negotiated_version = Version,
+                connection_env = #connection_env{negotiated_version = Version},
 		session = Session,
                 connection_states = ConnectionStates0} = State0, 
          StateName, Connection) ->
@@ -2123,8 +2121,8 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 master_secret(#alert{} = Alert, _) ->
     Alert;
 master_secret(PremasterSecret, #state{static_env = #static_env{role = Role},
+                                      connection_env = #connection_env{negotiated_version = Version},
                                       session = Session,
-				      negotiated_version = Version,
 				      connection_states = ConnectionStates0} = State) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), PremasterSecret,
 				     ConnectionStates0, Role) of
@@ -2465,9 +2463,8 @@ handle_resumed_session(SessId, #state{static_env = #static_env{host = Host,
                                                                protocol_cb = Connection,
                                                                session_cache = Cache,
                                                                session_cache_cb = CacheCb},
-                                      connection_states = ConnectionStates0,
-				      negotiated_version = Version
-                                     } = State) ->
+                                      connection_env = #connection_env{negotiated_version = Version},
+                                      connection_states = ConnectionStates0} = State) ->
     Session = CacheCb:lookup(Cache, {{Host, Port}, SessId}),
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
