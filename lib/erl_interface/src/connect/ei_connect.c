@@ -1277,7 +1277,6 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
     }
     if (conp) {
         memcpy((void *) conp->ipadr, (void *) &addr.sin_addr, sizeof(conp->ipadr));
-	strcpy(&conp->nodename[0], her_name);
     }
 
     if (cbs->accept_handshake_complete) {

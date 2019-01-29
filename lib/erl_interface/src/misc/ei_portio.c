@@ -249,7 +249,7 @@ static int tcp_accept(void **ctx, void *addr, int *len, unsigned unused)
     if (res)
         return res;
     
-    res = accept(fd, (struct sockaddr*) &addr, &addr_len);
+    res = accept(fd, (struct sockaddr*) addr, &addr_len);
     if (MEANS_SOCKET_ERROR(res))
         return get_error();
 
