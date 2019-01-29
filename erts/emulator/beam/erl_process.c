@@ -12085,7 +12085,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
-            ErtsDSigData dsd;
+            ErtsDSigSendContext ctx;
             int code;
             Eterm watcher;
             Eterm watched;
@@ -12104,14 +12104,13 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             ASSERT(dep);
             dist = ((ErtsMonitorDataExtended *) mdp)->dist;
             ASSERT(dist);
-            code = erts_dsig_prepare(&dsd, dep, NULL, 0,
-                                     ERTS_DSP_NO_LOCK, 0, 0);
+            code = erts_dsig_prepare(&ctx, dep, NULL, 0,
+                                     ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
             case ERTS_DSIG_PREP_PENDING:
-                if (dist->connection_id == dsd.connection_id) {
-                    code = erts_dsig_send_m_exit(&dsd,
-                                                 c_p->common.id,
+                if (dist->connection_id == ctx.connection_id) {
+                    code = erts_dsig_send_m_exit(&ctx,
                                                  watcher,
                                                  watched,
                                                  mdp->ref,
@@ -12164,7 +12163,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
-            ErtsDSigData dsd;
+            ErtsDSigSendContext ctx;
             int code;
             Eterm watched;
 
@@ -12181,17 +12180,16 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
                 ASSERT(is_external_pid(watched));
 		dep = external_pid_dist_entry(watched);
             }
-            code = erts_dsig_prepare(&dsd, dep, NULL, 0,
-                                     ERTS_DSP_NO_LOCK, 0, 0);
+            code = erts_dsig_prepare(&ctx, dep, NULL, 0,
+                                     ERTS_DSP_NO_LOCK, 1, 1, 0);
             switch (code) {
             case ERTS_DSIG_PREP_CONNECTED:
             case ERTS_DSIG_PREP_PENDING:
-                if (dist->connection_id == dsd.connection_id) {
-                    code = erts_dsig_send_demonitor(&dsd,
+                if (dist->connection_id == ctx.connection_id) {
+                    code = erts_dsig_send_demonitor(&ctx,
                                                     c_p->common.id,
                                                     watched,
-                                                    mdp->ref,
-                                                    1);
+                                                    mdp->ref);
                     ASSERT(code == ERTS_DSIG_SEND_OK);
                 }
             default:
@@ -12247,7 +12245,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         DistEntry *dep;
         ErtsMonLnkDist *dist;
         ErtsLink *dlnk;
-        ErtsDSigData dsd;
+        ErtsDSigSendContext ctx;
         int code;
 
         dlnk = erts_link_to_other(lnk, &ldp);
@@ -12261,12 +12259,12 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         if (!erts_link_dist_delete(dlnk))
             ldp = NULL;
 
-        code = erts_dsig_prepare(&dsd, dep, c_p, 0, ERTS_DSP_NO_LOCK, 0, 0);
+        code = erts_dsig_prepare(&ctx, dep, c_p, 0, ERTS_DSP_NO_LOCK, 1, 1, 0);
         switch (code) {
         case ERTS_DSIG_PREP_CONNECTED:
         case ERTS_DSIG_PREP_PENDING:
-            if (dist->connection_id == dsd.connection_id) {
-                code = erts_dsig_send_exit_tt(&dsd,
+            if (dist->connection_id == ctx.connection_id) {
+                code = erts_dsig_send_exit_tt(&ctx,
                                               c_p->common.id,
                                               lnk->other.item,
                                               reason,

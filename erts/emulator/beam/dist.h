@@ -142,16 +142,6 @@ typedef enum {
 } ErtsDSigPrepLock;
 
 
-typedef struct {
-    Process *proc;
-    DistEntry *dep;
-    Eterm node;   /* used if dep == NULL */
-    Eterm cid;
-    Eterm connection_id;
-    int no_suspend;
-    Uint32 flags;
-} ErtsDSigData;
-
 /* Must be larger or equal to 16 */
 #ifdef DEBUG
 #define ERTS_DIST_FRAGMENT_SIZE 16
@@ -181,124 +171,6 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_NOT_ALIVE	3
 /* Pending connection; signals can be enqueued */
 #define ERTS_DSIG_PREP_PENDING	        4
-
-ERTS_GLB_INLINE int erts_dsig_prepare(ErtsDSigData *,
-				      DistEntry*,
-				      Process *,
-                                      ErtsProcLocks,
-				      ErtsDSigPrepLock,
-				      int,
-				      int);
-
-ERTS_GLB_INLINE
-void erts_schedule_dist_command(Port *, DistEntry *);
-
-int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE int 
-erts_dsig_prepare(ErtsDSigData *dsdp,
-		  DistEntry *dep,
-		  Process *proc,
-                  ErtsProcLocks proc_locks,
-		  ErtsDSigPrepLock dspl,
-		  int no_suspend,
-		  int connect)
-{
-    int res;
-
-    if (!erts_is_alive)
-	return ERTS_DSIG_PREP_NOT_ALIVE;
-    if (!dep) {
-        ASSERT(!connect);
-        return ERTS_DSIG_PREP_NOT_CONNECTED;
-    }
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    if (connect) {
-        erts_proc_lc_might_unlock(proc, proc_locks);
-    }
-#endif
-
-retry:
-    erts_de_rlock(dep);
-
-    if (dep->state == ERTS_DE_STATE_CONNECTED) {
-	res = ERTS_DSIG_PREP_CONNECTED;
-    }
-    else if (dep->state == ERTS_DE_STATE_PENDING) {
-	res = ERTS_DSIG_PREP_PENDING;
-    }
-    else if (dep->state == ERTS_DE_STATE_EXITING) {
-	res = ERTS_DSIG_PREP_NOT_CONNECTED;
-	goto fail;
-    }
-    else if (connect) {
-        ASSERT(dep->state == ERTS_DE_STATE_IDLE);
-        erts_de_runlock(dep);
-        if (!erts_auto_connect(dep, proc, proc_locks)) {
-            return ERTS_DSIG_PREP_NOT_ALIVE;
-        }
-	goto retry;
-    }
-    else {
-        ASSERT(dep->state == ERTS_DE_STATE_IDLE);
-	res = ERTS_DSIG_PREP_NOT_CONNECTED;
-	goto fail;
-    }
-
-    if (no_suspend) {
-	if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
-	    res = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	    goto fail;
-	}
-    }
-    dsdp->proc = proc;
-    dsdp->dep = dep;
-    dsdp->cid = dep->cid;
-    dsdp->connection_id = dep->connection_id;
-    dsdp->no_suspend = no_suspend;
-    dsdp->flags = dep->flags;
-    if (dspl == ERTS_DSP_NO_LOCK)
-	erts_de_runlock(dep);
-    return res;
-
- fail:
-    erts_de_runlock(dep);
-    return res;
-}
-
-ERTS_GLB_INLINE
-void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
-{
-    DistEntry *dep;
-    Eterm id;
-
-    if (prt) {
-	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
-	ASSERT((erts_atomic32_read_nob(&prt->state)
-		& ERTS_PORT_SFLGS_DEAD) == 0);
-
-        dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-        ASSERT(dep);
-	id = prt->common.id;
-    }
-    else {
-	ASSERT(dist_entry);
-	ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&dist_entry->rwmtx)
-			   || erts_lc_rwmtx_is_rwlocked(&dist_entry->rwmtx));
-	ASSERT(is_internal_port(dist_entry->cid));
-
- 	dep = dist_entry;
-	id = dep->cid;
-    }
-
-    if (!erts_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1))
-	erts_port_task_schedule(id, &dep->dist_cmd, ERTS_PORT_TASK_DIST_CMD);
-}
-
-#endif
 
 #ifdef DEBUG
 #define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
@@ -363,15 +235,26 @@ enum erts_dsig_send_phase {
     ERTS_DSIG_SEND_PHASE_SEND
 };
 
-struct erts_dsig_send_context {
-    enum erts_dsig_send_phase phase;
-    Sint reds;
+typedef struct erts_dsig_send_context {
+    int connect;
+    int no_suspend;
+    int no_trap;
 
     Eterm ctl;
     Eterm msg;
     Eterm from;
-    int force_busy;
-    int force_encode;
+    Eterm ctl_heap[6];
+    Eterm return_term;
+
+    DistEntry *dep;
+    Eterm node;   /* used if dep == NULL */
+    Eterm cid;
+    Eterm connection_id;
+    int deref_dep;
+
+    enum erts_dsig_send_phase phase;
+    Sint reds;
+
     Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
     ErtsAtomCacheMap *acmp;
@@ -383,20 +266,8 @@ struct erts_dsig_send_context {
 	TTBSizeContext sc;
 	TTBEncodeContext ec;
     }u;
-};
 
-typedef struct {
-    int suspend;
-    int connect;
-
-    Eterm ctl_heap[6];
-    ErtsDSigData dsd;
-    DistEntry *dep;
-    int deref_dep;
-    struct erts_dsig_send_context dss;
-
-    Eterm return_term;
-}ErtsSendContext;
+} ErtsDSigSendContext;
 
 typedef struct dist_sequences DistSeqNode;
 
@@ -408,21 +279,21 @@ typedef struct dist_sequences DistSeqNode;
 #define ERTS_DSIG_SEND_CONTINUE 2
 #define ERTS_DSIG_SEND_TOO_LRG  3
 
-extern int erts_dsig_send_link(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_msg(Eterm, Eterm, ErtsSendContext*);
-extern int erts_dsig_send_exit_tt(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_unlink(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_reg_msg(Eterm, Eterm, ErtsSendContext*);
-extern int erts_dsig_send_group_leader(ErtsDSigData *, Eterm, Eterm);
-extern int erts_dsig_send_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_exit2(ErtsSendContext *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_demonitor(ErtsDSigData *, Eterm, Eterm, Eterm, int);
-extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
+extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm);
+extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_group_leader(ErtsDSigSendContext *, Eterm, Eterm);
+extern int erts_dsig_send_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_demonitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_monitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_m_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
 
-extern int erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx);
+extern int erts_dsig_send(ErtsDSigSendContext *dsdp);
 extern int erts_dsend_context_dtor(Binary*);
-extern Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx);
+extern Eterm erts_dsend_export_trap_context(Process* p, ErtsDSigSendContext* ctx);
 
 extern int erts_dist_command(Port *prt, int reds);
 extern void erts_dist_port_not_busy(Port *prt);
@@ -436,4 +307,14 @@ extern void erts_dist_seq_tree_foreach(
     DistEntry *dep,
     int (*func)(ErtsDistExternal *, void*, Sint), void *args);
 
+extern int erts_dsig_prepare(ErtsDSigSendContext *,
+                             DistEntry*,
+                             Process *,
+                             ErtsProcLocks,
+                             ErtsDSigPrepLock,
+                             int,
+                             int,
+                             int);
+
+int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 #endif

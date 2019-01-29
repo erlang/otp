@@ -1516,7 +1516,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		}
 	    }
             else if (IsSendCtxBinary(u.mref->mb)) {
-                ErtsSendContext* ctx = ERTS_MAGIC_BIN_DATA(u.mref->mb);
+                ErtsDSigSendContext* ctx = ERTS_MAGIC_BIN_DATA(u.mref->mb);
                 if (ctx->deref_dep)
                     insert_dist_entry(ctx->dep, type, id, 0);
             }
