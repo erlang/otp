@@ -1072,15 +1072,23 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
 
 %%%
 %%% Calculate the set of variables that are only used once in the
-%%% block that they are defined in. That will allow us to discard type
-%%% information for variables that will never be referenced by the
-%%% successor blocks, potentially improving compilation times.
+%%% terminator of the block that defines them. That will allow us to
+%%% discard type information for variables that will never be
+%%% referenced by the successor blocks, potentially improving
+%%% compilation times.
 %%%
 
 used_once(Linear, Args) ->
     Map0 = used_once_1(reverse(Linear), #{}),
     Map = maps:without(Args, Map0),
-    cerl_sets:from_list(maps:keys(Map)).
+    Used0 = cerl_sets:from_list(maps:keys(Map)),
+    Used1 = used_in_terminators(Linear, []),
+    cerl_sets:intersection(Used0, Used1).
+
+used_in_terminators([{_,#b_blk{last=Last}}|Bs], Acc) ->
+    used_in_terminators(Bs, beam_ssa:used(Last) ++ Acc);
+used_in_terminators([], Acc) ->
+    cerl_sets:from_list(Acc).
 
 used_once_1([{L,#b_blk{is=Is,last=Last}}|Bs], Uses0) ->
     Uses = used_once_2([Last|reverse(Is)], L, Uses0),
@@ -1177,7 +1185,7 @@ get_type(#b_literal{val=Val}, _Ts) ->
 %%  failed and that L is not 'cons'. 'cons' can be subtracted from the
 %%  previously known type for L and the result put in FailTypes.
 
-infer_types(#b_var{}=V, Ts, #d{ds=Ds,once=Once}) ->
+infer_types(#b_var{}=V, Ts, #d{ds=Ds}) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
     Types0 = infer_type(Op, Args, Ds),
 
@@ -1195,11 +1203,7 @@ infer_types(#b_var{}=V, Ts, #d{ds=Ds,once=Once}) ->
                                          is_singleton_type(T)
                                  end, EqTypes0),
 
-    %% Don't bother updating the types for variables that
-    %% are never used again.
-    Types2 = Types1 ++ Types0,
-    Types = [P || {InfV,_}=P <- Types2, not cerl_sets:is_element(InfV, Once)],
-
+    Types = Types1 ++ Types0,
     {meet_types(EqTypes++Types, Ts),subtract_types(Types, Ts)}.
 
 infer_eq_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
