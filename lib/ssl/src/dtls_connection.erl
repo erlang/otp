@@ -796,6 +796,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
                               renegotiation = {false, first},
                               allow_renegotiate = SSLOptions#ssl_options.client_renegotiation
                              },
+           connection_env = #connection_env{user_application = {Monitor, User}},
            socket_options = SocketOptions,
 	   %% We do not want to save the password in the state so that
 	   %% could be written in the clear into error logs.
@@ -803,7 +804,6 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   session = #session{is_resumable = new},
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},
-	   user_application = {Monitor, User},
 	   user_data_buffer = <<>>,
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),

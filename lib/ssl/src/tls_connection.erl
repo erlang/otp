@@ -794,12 +794,12 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                           renegotiation = {false, first},
                           allow_renegotiate = SSLOptions#ssl_options.client_renegotiation
                          },
+       connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
        ssl_options = SSLOptions,
        session = #session{is_resumable = new},
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
-       user_application = {UserMonitor, User},
        user_data_buffer = <<>>,
        start_or_recv_from = undefined,
        flight_buffer = [],

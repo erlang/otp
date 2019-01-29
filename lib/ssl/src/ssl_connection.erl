@@ -366,8 +366,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                                          transport_cb = Transport,
                                                                          protocol_cb = Connection,
                                                                          tracker = Tracker},
-                                                                         socket_options = Opts,
-                                                                         user_application = {_Mon, Pid},
+                                                connection_env  = #connection_env{user_application = {_Mon, Pid}},
+                                                socket_options = Opts,
 						start_or_recv_from = RecvFrom} = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Tracker, Socket, StateName, Opts, Pid, RecvFrom, Alert, Role, Connection).
@@ -380,9 +380,10 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
                                              tracker = Tracker,
                                              transport_cb = Transport,
                                              protocol_cb = Connection},
+                    connection_env  = #connection_env{user_application = {_Mon, Pid}},
 		    ssl_options = SslOpts,
                     start_or_recv_from = From,
-                    session = Session, user_application = {_Mon, Pid},
+                    session = Session, 
 		    socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
     log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), 
@@ -508,14 +509,15 @@ read_application_data(
     %%
     case get_data(SocketOpts0, BytesToRead, Buffer0) of
 	{ok, ClientData, Buffer} -> % Send data
-            #state{
-               static_env =
-                   #static_env{
-                      socket = Socket,
-                      protocol_cb = Connection,
-                      transport_cb = Transport,
-                      tracker = Tracker},
-               user_application = {_Mon, Pid}} = State,
+            #state{static_env =
+                       #static_env{
+                          socket = Socket,
+                          protocol_cb = Connection,
+                          transport_cb = Transport,
+                          tracker = Tracker},
+                   connection_env = 
+                       #connection_env{user_application = {_Mon, Pid}}}
+                = State,
             SocketOpts =
                 deliver_app_data(
                   Connection:pids(State),
@@ -530,30 +532,31 @@ read_application_data(
                     {no_record,
                      State#state{
                        user_data_buffer = Buffer,
-                       start_or_recv_from = undefined,
+                              start_or_recv_from = undefined,
                        timer = undefined,
                        bytes_to_read = undefined,
                        socket_options = SocketOpts
                       }};
                 true -> %% We have more data
-                    read_application_data(
-                      Buffer, State, SocketOpts,
-                      undefined, undefined, undefined)
+                           read_application_data(
+                             Buffer, State, SocketOpts,
+                             undefined, undefined, undefined)
             end;
-	{more, Buffer} -> % no reply, we need more data
+        {more, Buffer} -> % no reply, we need more data
             {no_record, State#state{user_data_buffer = Buffer}};
-	{passive, Buffer} ->
-	    {no_record, State#state{user_data_buffer = Buffer}};
-	{error,_Reason} -> %% Invalid packet in packet mode
-            #state{
-               static_env =
-                   #static_env{
-                      socket = Socket,
-                      protocol_cb = Connection,
-                      transport_cb = Transport,
-                      tracker = Tracker},
-               user_application = {_Mon, Pid}} = State,
-	    deliver_packet_error(
+        {passive, Buffer} ->
+            {no_record, State#state{user_data_buffer = Buffer}};
+        {error,_Reason} -> %% Invalid packet in packet mode
+            #state{static_env =
+                       #static_env{
+                          socket = Socket,
+                          protocol_cb = Connection,
+                          transport_cb = Transport,
+                          tracker = Tracker},
+                   connection_env = 
+                       #connection_env{user_application = {_Mon, Pid}}}
+                = State,
+            deliver_packet_error(
               Connection:pids(State), Transport, Socket, SocketOpts0,
               Buffer0, Pid, RecvFrom, Tracker, Connection),
             {stop, {shutdown, normal}, State}
@@ -1228,10 +1231,10 @@ handle_call({recv, N, Timeout}, RecvFrom, StateName, State, _) ->
 					timer = Timer}, 
      [{next_event, internal, {recv, RecvFrom}}]};
 handle_call({new_user, User}, From, StateName, 
-		  State =#state{user_application = {OldMon, _}}, _) ->
+            State = #state{connection_env = #connection_env{user_application = {OldMon, _}} = CEnv}, _) ->
     NewMon = erlang:monitor(process, User),
     erlang:demonitor(OldMon, [flush]),
-    {next_state, StateName, State#state{user_application = {NewMon,User}},
+    {next_state, StateName, State#state{connection_env = CEnv#connection_env{user_application = {NewMon, User}}},
      [{reply, From, ok}]};
 handle_call({get_opts, OptTags}, From, _,
             #state{static_env = #static_env{socket = Socket,
@@ -1305,14 +1308,14 @@ handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_e
     {stop, {shutdown,normal}, State};
 
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
-            #state{user_application = {MonitorRef, _Pid},
+            #state{connection_env = #connection_env{user_application = {MonitorRef, _Pid}},
                    ssl_options = #ssl_options{erl_dist = true}}) ->
     {stop, {shutdown, Reason}};
 handle_info({'DOWN', MonitorRef, _, _, _}, _,
-            #state{user_application = {MonitorRef, _Pid}}) ->
+            #state{connection_env = #connection_env{user_application = {MonitorRef, _Pid}}}) ->
     {stop, {shutdown, normal}};
 handle_info({'EXIT', Pid, _Reason}, StateName,
-            #state{user_application = {_MonitorRef, Pid}} = State) ->
+            #state{connection_env = #connection_env{user_application = {_MonitorRef, Pid}}} = State) ->
     %% It seems the user application has linked to us
     %% - ignore that and let the monitor handle this
     {next_state, StateName, State};
