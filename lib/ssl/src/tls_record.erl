@@ -404,10 +404,7 @@ get_tls_records_aux({MajVer, MinVer} = Version, <<?BYTE(Type),?BYTE(MajVer),?BYT
                                        Type == ?HANDSHAKE;
                                        Type == ?ALERT;
                                        Type == ?CHANGE_CIPHER_SPEC ->
-    Report = #{direction => inbound,
-               protocol => 'tls_record',
-               message => [RawTLSRecord]},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'tls_record', [RawTLSRecord]),
     get_tls_records_aux(Version, Rest, [#ssl_tls{type = Type,
 					version = Version,
 					fragment = Data} | Acc], SslOpts);
@@ -423,10 +420,7 @@ get_tls_records_aux(Versions, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
                                           (Type == ?CHANGE_CIPHER_SPEC)) ->
     case is_acceptable_version({MajVer, MinVer}, Versions) of 
         true ->
-            Report = #{direction => inbound,
-                       protocol => 'tls_record',
-                       message => [RawTLSRecord]},
-            ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+            ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'tls_record', [RawTLSRecord]),
             get_tls_records_aux(Versions, Rest, [#ssl_tls{type = Type,
                                                           version = {MajVer, MinVer},
                                                           fragment = Data} | Acc], SslOpts);

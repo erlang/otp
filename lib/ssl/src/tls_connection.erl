@@ -339,14 +339,8 @@ queue_handshake(Handshake, #state{negotiated_version = Version,
                                   ssl_options = SslOpts} = State0) ->
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinHandshake},
-    HandshakeMsg = #{direction => outbound,
-                     protocol => 'handshake',
-                     message => Handshake},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, HandshakeMsg, #{domain => [otp,ssl,handshake]}),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Handshake),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinHandshake),
 
     State0#state{connection_states = ConnectionStates,
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
@@ -364,10 +358,7 @@ queue_change_cipher(Msg, #state{negotiated_version = Version,
                                 ssl_options = SslOpts} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinChangeCipher},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinChangeCipher),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -416,10 +407,7 @@ send_alert(Alert, #state{negotiated_version = Version,
     {BinMsg, ConnectionStates} =
         encode_alert(Alert, Version, ConnectionStates0),
     send(Transport, Socket, BinMsg),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinMsg},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
 
 %% If an ALERT sent in the connection state, should cause the TLS
@@ -520,14 +508,9 @@ init({call, From}, {start, Timeout},
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
     send(Transport, Socket, BinMsg),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinMsg},
-    HelloMsg = #{direction => outbound,
-               protocol => 'handshake',
-               message => Hello},
-    ssl_logger:debug(SslOpts#ssl_options.log_level, HelloMsg, #{domain => [otp,ssl,handshake]}),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Hello),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinMsg),
+
     State = State0#state{connection_states = ConnectionStates,
 			  negotiated_version = HelloVersion, %% Requested version
                          session =
