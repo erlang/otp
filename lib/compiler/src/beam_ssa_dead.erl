@@ -375,7 +375,7 @@ is_forbidden(L, St) ->
 %% any instruction with potential side effects.
 
 eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], Bs0, St) ->
-    From = maps:get(from, Bs0),
+    From = map_get(from, Bs0),
     [Val] = [Val || {Val,Pred} <- Args, Pred =:= From],
     Bs = bind_var(Dst, Val, Bs0),
     eval_is(Is, Bs, St);
@@ -826,7 +826,7 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
                             %% Everything OK! Combine the lists.
                             Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
                             Sw = beam_ssa:normalize(Sw0),
-                            Blk0 = maps:get(L, Blocks0),
+                            Blk0 = map_get(L, Blocks0),
                             Blk = Blk0#b_blk{last=Sw},
                             Blocks = Blocks0#{L:=Blk},
                             St = St0#st{bs=Blocks},
@@ -851,7 +851,7 @@ comb_get_sw(L, Blocks) ->
     comb_get_sw(L, true, Blocks).
 
 comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}) ->
-    #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
+    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
     Safe1 = Safe0 andalso is_map_key(L, Skippable),
     case Last of
         #b_ret{} ->

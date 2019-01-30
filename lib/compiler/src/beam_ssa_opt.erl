@@ -362,7 +362,7 @@ ssa_opt_coalesce_phis({#st{ssa=Blocks0}=St, FuncDb}) ->
     {St#st{ssa=Blocks}, FuncDb}.
 
 c_phis_1([L|Ls], Blocks0) ->
-    case maps:get(L, Blocks0) of
+    case map_get(L, Blocks0) of
         #b_blk{is=[#b_set{op=phi}|_]}=Blk ->
             Blocks = c_phis_2(L, Blk, Blocks0),
             c_phis_1(Ls, Blocks);
@@ -401,7 +401,7 @@ c_phis_args_1([{Var,Pred}|As], Blocks) ->
 c_phis_args_1([], _Blocks) -> none.
 
 c_get_pred_vars(Var, Pred, Blocks) ->
-    case maps:get(Pred, Blocks) of
+    case map_get(Pred, Blocks) of
         #b_blk{is=[#b_set{op=phi,dst=Var,args=Args}]} ->
             {Var,Pred,Args};
         #b_blk{} ->
@@ -422,7 +422,7 @@ c_rewrite_phi([A|As], Info) ->
 c_rewrite_phi([], _Info) -> [].
 
 c_fix_branches([{_,Pred}|As], L, Blocks0) ->
-    #b_blk{last=Last0} = Blk0 = maps:get(Pred, Blocks0),
+    #b_blk{last=Last0} = Blk0 = map_get(Pred, Blocks0),
     #b_br{bool=#b_literal{val=true}} = Last0,   %Assertion.
     Last = Last0#b_br{bool=#b_literal{val=true},succ=L,fail=L},
     Blk = Blk0#b_blk{last=Last},
@@ -692,7 +692,7 @@ record_opt_is([], _Last, _Blocks) -> [].
 is_tagged_tuple(#b_var{}=Tuple, Bool,
                 #b_br{bool=Bool,succ=Succ,fail=Fail},
                 Blocks) ->
-    SuccBlk = maps:get(Succ, Blocks),
+    SuccBlk = map_get(Succ, Blocks),
     is_tagged_tuple_1(SuccBlk, Tuple, Fail, Blocks);
 is_tagged_tuple(_, _, _, _) -> no.
 
@@ -706,7 +706,7 @@ is_tagged_tuple_1(#b_blk{is=Is,last=Last}, Tuple, Fail, Blocks) ->
         when is_integer(ArityVal) ->
             case Last of
                 #b_br{bool=Bool,succ=Succ,fail=Fail} ->
-                    SuccBlk = maps:get(Succ, Blocks),
+                    SuccBlk = map_get(Succ, Blocks),
                     case is_tagged_tuple_2(SuccBlk, Tuple, Fail) of
                         no ->
                             no;
@@ -757,7 +757,7 @@ ssa_opt_cse({#st{ssa=Linear}=St, FuncDb}) ->
     {St#st{ssa=cse(Linear, #{}, M)}, FuncDb}.
 
 cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
-    Es0 = maps:get(L, M0),
+    Es0 = map_get(L, M0),
     {Is1,Es,Sub} = cse_is(Is0, Es0, Sub0, []),
     Last = sub(Last0, Sub),
     M = cse_successors(Is1, Blk, Es, M0),
@@ -1002,7 +1002,7 @@ float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
 
 float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
     #b_blk{last=#b_br{bool=#b_var{},succ=Succ}=Br} = Blk0,
-    #b_blk{is=Is} = maps:get(Succ, Blocks),
+    #b_blk{is=Is} = map_get(Succ, Blocks),
     case Is of
         [#b_set{anno=#{float_op:=_}}|_] ->
             %% The next operation is also a floating point operation.
@@ -1373,7 +1373,7 @@ bsm_positions([{L,#b_blk{is=Is,last=Last}}|Bs], PosMap0) ->
     case {Is,Last} of
         {[#b_set{op=bs_test_tail,dst=Bool,args=[Ctx,#b_literal{val=Bits0}]}],
          #b_br{bool=Bool,fail=Fail}} ->
-            Bits = Bits0 + maps:get(Ctx, PosMap0),
+            Bits = Bits0 + map_get(Ctx, PosMap0),
             bsm_positions(Bs, PosMap#{L=>{Bits,Fail}});
         {_,_} ->
             bsm_positions(Bs, PosMap)
@@ -1465,7 +1465,7 @@ bsm_units_skip_1([#b_set{op=bs_match,
                  Block0, Units) ->
     [#b_set{op=succeeded,dst=Bool,args=[New]}] = Test, %Assertion.
     #b_br{bool=Bool} = Last0 = Block0#b_blk.last, %Assertion.
-    CtxUnit = maps:get(Ctx, Units),
+    CtxUnit = map_get(Ctx, Units),
     if
         CtxUnit rem OpUnit =:= 0 ->
             Is = takewhile(fun(I) -> I =/= Skip end, Block0#b_blk.is),
@@ -1477,7 +1477,7 @@ bsm_units_skip_1([#b_set{op=bs_match,
     end;
 bsm_units_skip_1([#b_set{op=bs_match,dst=New,args=Args}|_], Block, Units) ->
     [_,Ctx|_] = Args,
-    CtxUnit = maps:get(Ctx, Units),
+    CtxUnit = map_get(Ctx, Units),
     OpUnit = bsm_op_unit(Args),
     {Block, Units#{ New => gcd(OpUnit, CtxUnit) }};
 bsm_units_skip_1([_I | Is], Block, Units) ->
@@ -1505,23 +1505,23 @@ bsm_op_unit(_) ->
 %% may differ between them, so we can only keep the information that is common
 %% to all paths.
 bsm_units_join(Lbl, MapA, UnitMaps0) when is_map_key(Lbl, UnitMaps0) ->
-    MapB = maps:get(Lbl, UnitMaps0),
+    MapB = map_get(Lbl, UnitMaps0),
     Merged = if
                  map_size(MapB) =< map_size(MapA) ->
                      bsm_units_join_1(maps:keys(MapB), MapA, MapB);
                  map_size(MapB) > map_size(MapA) ->
                      bsm_units_join_1(maps:keys(MapA), MapB, MapA)
              end,
-    maps:put(Lbl, Merged, UnitMaps0);
+    UnitMaps0#{Lbl := Merged};
 bsm_units_join(Lbl, MapA, UnitMaps0) when MapA =/= #{} ->
-    maps:put(Lbl, MapA, UnitMaps0);
+    UnitMaps0#{Lbl => MapA};
 bsm_units_join(_Lbl, _MapA, UnitMaps0) ->
     UnitMaps0.
 
 bsm_units_join_1([Key | Keys], Left, Right) when is_map_key(Key, Left) ->
-    UnitA = maps:get(Key, Left),
-    UnitB = maps:get(Key, Right),
-    bsm_units_join_1(Keys, Left, maps:put(Key, gcd(UnitA, UnitB), Right));
+    UnitA = map_get(Key, Left),
+    UnitB = map_get(Key, Right),
+    bsm_units_join_1(Keys, Left, Right#{Key := gcd(UnitA, UnitB)});
 bsm_units_join_1([Key | Keys], Left, Right) ->
     bsm_units_join_1(Keys, Left, maps:remove(Key, Right));
 bsm_units_join_1([], _MapA, Right) ->
@@ -1941,7 +1941,7 @@ merge_blocks_1([L|Ls], Preds0, Blocks0) ->
                     Is = Is0 ++ Is1,
                     Blk = Blk1#b_blk{is=Is},
                     Blocks1 = maps:remove(L, Blocks0),
-                    Blocks2 = maps:put(P, Blk, Blocks1),
+                    Blocks2 = Blocks1#{P:=Blk},
                     Successors = beam_ssa:successors(Blk),
                     Blocks = beam_ssa:update_phi_labels(Successors, L, P, Blocks2),
                     Preds = merge_update_preds(Successors, L, P, Preds0),
@@ -1955,8 +1955,8 @@ merge_blocks_1([L|Ls], Preds0, Blocks0) ->
 merge_blocks_1([], _Preds, Blocks) -> Blocks.
 
 merge_update_preds([L|Ls], From, To, Preds0) ->
-    Ps = [rename_label(P, From, To) || P <- maps:get(L, Preds0)],
-    Preds = maps:put(L, Ps, Preds0),
+    Ps = [rename_label(P, From, To) || P <- map_get(L, Preds0)],
+    Preds = Preds0#{L:=Ps},
     merge_update_preds(Ls, From, To, Preds);
 merge_update_preds([], _, _, Preds) -> Preds.
 
@@ -2044,7 +2044,7 @@ do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
     %% Now move all suitable get_tuple_element instructions to their
     %% new blocks.
     Blocks = foldl(fun({V,To}, A) ->
-                           From = maps:get(V, Defs),
+                           From = map_get(V, Defs),
                            move_defs(V, From, To, A)
                    end, Blocks0, DefLoc),
     St#st{ssa=Blocks}.
@@ -2114,11 +2114,11 @@ unsuitable_loop(L, Blocks, Predecessors) ->
     unsuitable_loop(L, Blocks, Predecessors, []).
 
 unsuitable_loop(L, Blocks, Predecessors, Acc) ->
-    Ps = maps:get(L, Predecessors),
+    Ps = map_get(L, Predecessors),
     unsuitable_loop_1(Ps, Blocks, Predecessors, Acc).
 
 unsuitable_loop_1([P|Ps], Blocks, Predecessors, Acc0) ->
-    case maps:get(P, Blocks) of
+    case map_get(P, Blocks) of
         #b_blk{is=[#b_set{op=peek_message}|_]} ->
             unsuitable_loop_1(Ps, Blocks, Predecessors, Acc0);
         #b_blk{} ->
@@ -2142,7 +2142,7 @@ unsuitable_loop_1([], _, _, Acc) -> Acc.
 %%  variable will not be included in the result list.
 
 new_def_locations([{V,UsedIn}|Vs], Defs, Dom) ->
-    DefIn = maps:get(V, Defs),
+    DefIn = map_get(V, Defs),
     case common_dom(UsedIn, DefIn, Dom) of
         [] ->
             new_def_locations(Vs, Defs, Dom);
@@ -2153,27 +2153,27 @@ new_def_locations([{V,UsedIn}|Vs], Defs, Dom) ->
 new_def_locations([], _, _) -> [].
 
 common_dom([L|Ls], DefIn, Dom) ->
-    DomBy0 = maps:get(L, Dom),
-    DomBy = ordsets:subtract(DomBy0, maps:get(DefIn, Dom)),
+    DomBy0 = map_get(L, Dom),
+    DomBy = ordsets:subtract(DomBy0, map_get(DefIn, Dom)),
     common_dom_1(Ls, Dom, DomBy).
 
 common_dom_1(_, _, []) ->
     [];
 common_dom_1([L|Ls], Dom, [_|_]=DomBy0) ->
-    DomBy1 = maps:get(L, Dom),
+    DomBy1 = map_get(L, Dom),
     DomBy = ordsets:intersection(DomBy0, DomBy1),
     common_dom_1(Ls, Dom, DomBy);
 common_dom_1([], _, DomBy) -> DomBy.
 
 most_dominated([L|Ls], Dom) ->
-    most_dominated(Ls, L, maps:get(L, Dom), Dom).
+    most_dominated(Ls, L, map_get(L, Dom), Dom).
 
 most_dominated([L|Ls], L0, DomBy, Dom) ->
     case member(L, DomBy) of
         true ->
             most_dominated(Ls, L0, DomBy, Dom);
         false ->
-            most_dominated(Ls, L, maps:get(L, Dom), Dom)
+            most_dominated(Ls, L, map_get(L, Dom), Dom)
     end;
 most_dominated([], L, _, _) -> L.
 
