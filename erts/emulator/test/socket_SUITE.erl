@@ -1357,8 +1357,13 @@ ttest_ssockt_csockt_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    ?LOGGER:start(),
-    Config.
+    case os:type() of
+        {win32, _} ->
+            not_yet_implemented();
+        _ ->
+            ?LOGGER:start(),
+            Config
+    end.
 
 end_per_suite(_) ->
     ?LOGGER:stop(),

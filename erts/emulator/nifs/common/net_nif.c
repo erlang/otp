@@ -421,7 +421,6 @@ static ERL_NIF_TERM atom_esystem;
 
 /* *** net *** */
 static ErlNifResourceType*    net;
-/* Maybe all of these whould be NULL? */
 static ErlNifResourceTypeInit netInit = {
     NULL, // net_dtor,
     NULL, // net_stop,
@@ -462,6 +461,9 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM info, tmp;
 
     NDBG( ("NET", "info -> entry\r\n") );
@@ -473,6 +475,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
     NDBG( ("NET", "info -> done: %T\r\n", info) );
 
     return info;
+#endif
 }
 
 
@@ -494,6 +497,9 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM ecmd, result;
 
     NDBG( ("NET", "command -> entry (%d)\r\n", argc) );
@@ -510,6 +516,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
     NDBG( ("NET", "command -> result: %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
@@ -518,6 +525,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
  * The command can, in principle, be anything, though currently we only
  * support a debug command.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ncommand(ErlNifEnv*   env,
                       ERL_NIF_TERM cmd)
@@ -544,6 +552,7 @@ ERL_NIF_TERM ncommand(ErlNifEnv*   env,
     }
 
 }
+#endif
 
 
 
@@ -559,6 +568,9 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM result;
     
     NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
@@ -571,9 +583,11 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
     NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ngethostname(ErlNifEnv* env)
 {
@@ -609,6 +623,7 @@ ERL_NIF_TERM ngethostname(ErlNifEnv* env)
 
     return result;
 }
+#endif
 
 
 
@@ -629,6 +644,9 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM  result;
     ERL_NIF_TERM  eSockAddr, eFlags;
     int           flags = 0; // Just in case...
@@ -661,6 +679,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
@@ -668,6 +687,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 /* Given the provided sock(et) address (and honts), retreive the host and
  * service info.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
                           const SocketAddress* saP,
@@ -753,6 +773,7 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*           env,
 
     return result;
 }
+#endif
 
 
 
@@ -773,6 +794,9 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
                              int                argc,
                              const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
     char*            servName;
@@ -826,9 +850,11 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
                           char*      host,
@@ -931,6 +957,8 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
 
     return result;
 }
+#endif
+
 
 
 /* ----------------------------------------------------------------------
@@ -948,6 +976,9 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
 
@@ -971,10 +1002,12 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_name2index -> done when result: %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
                             char*      ifn)
@@ -987,12 +1020,16 @@ ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
 
     NDBG( ("NET", "nif_name2index -> idx: %d\r\n", idx) );
 
-    if (idx == 0)
-         return esock_make_error_errno(env, get_errno());
-     else
+    if (idx == 0) {
+        int save_errno = get_errno();
+        NDBG( ("NET", "nif_name2index -> failed: %d\r\n", save_errno) );
+        return esock_make_error_errno(env, save_errno);
+    } else {
          return esock_make_ok2(env, MKI(env, idx));
+    }
 
 }
+#endif
 
 
 
@@ -1011,6 +1048,9 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
                                int                argc,
                                const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM result;
     unsigned int idx;
 
@@ -1030,10 +1070,12 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_index2name -> done when result: %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
                             unsigned int idx)
@@ -1054,6 +1096,7 @@ ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
 
     return result;
 }
+#endif
 
 
 
@@ -1070,6 +1113,9 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM result;
 
     NDBG( ("NET", "nif_if_names -> entry (%d)\r\n", argc) );
@@ -1083,10 +1129,12 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_names -> done when result: %T\r\n", result) );
 
     return result;
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nif_names(ErlNifEnv* env)
 {
@@ -1159,6 +1207,7 @@ unsigned int nif_names_length(struct if_nameindex* p)
 
     return len;
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -1171,6 +1220,7 @@ unsigned int nif_names_length(struct if_nameindex* p)
  * A special case is when there is no flags, which is
  * represented by the atom undefined.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                 const ERL_NIF_TERM eflags,
@@ -1477,6 +1527,7 @@ char* make_address_info(ErlNifEnv*    env,
         return NULL;
     }
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -1553,6 +1604,7 @@ ErlNifFunc net_funcs[] =
 };
 
 
+#if !defined(__WIN32__)
 static
 BOOLEAN_T extract_debug(ErlNifEnv*   env,
                         ERL_NIF_TERM map)
@@ -1565,6 +1617,7 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
     
     return esock_extract_bool_from_map(env, map, debug, NET_NIF_DEBUG_DEFAULT);
 }
+#endif
 
 
 /* =======================================================================
@@ -1574,10 +1627,12 @@ BOOLEAN_T extract_debug(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+#if !defined(__WIN32__)    
     // We should make it possible to use load_info to get default values
     data.debug = extract_debug(env, load_info);
 
     NDBG( ("NET", "on_load -> entry\r\n") );
+#endif
 
     /* +++ Misc atoms +++ */
     atom_address_info              = MKA(env, str_address_info);

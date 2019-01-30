@@ -833,6 +833,18 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
+ifneq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with badarg in the win32 case.
+ESOCK_RUN_OBJS = \
+	$(OBJDIR)/socket_dbg.o \
+	$(OBJDIR)/socket_tarray.o \
+	$(OBJDIR)/socket_util.o
+else
+ESOCK_RUN_OBJS =
+endif
+
 RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
@@ -878,17 +890,17 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
 	$(OBJDIR)/erl_io_queue.o        \
-	$(OBJDIR)/socket_dbg.o		$(OBJDIR)/socket_tarray.o \
-	$(OBJDIR)/socket_util.o
+	$(ESOCK_RUN_OBJS)
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
+
 NIF_OBJS = \
-	   $(OBJDIR)/erl_tracer_nif.o \
-	   $(OBJDIR)/prim_buffer_nif.o \
-	   $(OBJDIR)/prim_file_nif.o \
-	   $(OBJDIR)/socket_nif.o \
-	   $(OBJDIR)/net_nif.o \
-	   $(OBJDIR)/zlib_nif.o
+	$(OBJDIR)/erl_tracer_nif.o \
+	$(OBJDIR)/prim_buffer_nif.o \
+	$(OBJDIR)/prim_file_nif.o \
+	$(OBJDIR)/zlib_nif.o \
+	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/net_nif.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \

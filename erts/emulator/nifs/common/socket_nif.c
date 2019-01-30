@@ -2798,6 +2798,9 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     if (argc != 0) {
         return enif_make_badarg(env);
     } else {
@@ -2831,6 +2834,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
     
         return info;
     }
+#endif
 }
 
 
@@ -2859,6 +2863,9 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     int key;
     
     SGDBG( ("SOCKET", "nif_supports -> entry with %d args\r\n", argc) );
@@ -2871,6 +2878,7 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
     }
 
     return nsupports(env, key);
+#endif
 }
 
 
@@ -2883,6 +2891,7 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
  * by the sockets own debug flag. But since we don't even have a socket
  * yet, we must use the global debug flag.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports(ErlNifEnv* env, int key)
 {
@@ -2910,8 +2919,10 @@ ERL_NIF_TERM nsupports(ErlNifEnv* env, int key)
 
     return result;
 }
+#endif
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options(ErlNifEnv* env)
 {
@@ -2935,9 +2946,11 @@ ERL_NIF_TERM nsupports_options(ErlNifEnv* env)
 
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
 {
@@ -3197,9 +3210,11 @@ ERL_NIF_TERM nsupports_options_socket(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env)
 {
@@ -3496,9 +3511,11 @@ ERL_NIF_TERM nsupports_options_ip(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_ipv6(ErlNifEnv* env)
 {
@@ -3746,9 +3763,11 @@ ERL_NIF_TERM nsupports_options_ipv6(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env)
 {
@@ -3841,9 +3860,11 @@ ERL_NIF_TERM nsupports_options_tcp(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env)
 {
@@ -3864,9 +3885,11 @@ ERL_NIF_TERM nsupports_options_udp(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env)
 {
@@ -4070,9 +4093,11 @@ ERL_NIF_TERM nsupports_options_sctp(ErlNifEnv* env)
     
     return optsL;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_sctp(ErlNifEnv* env)
 {
@@ -4086,9 +4111,11 @@ ERL_NIF_TERM nsupports_sctp(ErlNifEnv* env)
 
     return supports;
 }
+#endif
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env)
 {
@@ -4103,6 +4130,7 @@ ERL_NIF_TERM nsupports_ipv6(ErlNifEnv* env)
 
     return supports;
 }
+#endif
 
 
 
@@ -4125,6 +4153,9 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     int          edomain, etype, eproto;
     int          domain, type, proto;
     char*        netns;
@@ -4183,6 +4214,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
            "\r\n", result) );
 
     return result;
+#endif
 }
 
 
@@ -4194,6 +4226,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
  * by the sockets own debug flag. But since we don't even have a socket
  * yet, we must use the global debug flag.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nopen(ErlNifEnv* env,
                    int domain, int type, int protocol,
@@ -4310,6 +4343,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
 
     return esock_make_ok2(env, res);
 }
+#endif
 
 
 
@@ -4320,6 +4354,7 @@ ERL_NIF_TERM nopen(ErlNifEnv* env,
  * Retreive the current namespace and set the new.
  * Return result and previous namespace if successfull.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
 {
@@ -4368,11 +4403,13 @@ BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err)
         return TRUE;
     }
 }
+#endif
 
 
 /* *** restore network namespace ***
  * Restore the previous namespace (see above).
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
 {
@@ -4408,7 +4445,8 @@ BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err)
   *err = 0;
   return TRUE;
 }
-#endif
+#endif // if !defined(__WIN32__)
+#endif // ifdef HAVE_SETNS
 
 
 
@@ -4427,6 +4465,9 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      eSockAddr;
     SocketAddress     sockAddr;
@@ -4462,9 +4503,11 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
         return esock_make_error_str(env, xres);
         
     return nbind(env, descP, &sockAddr, addrLen);
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nbind(ErlNifEnv*        env,
                    SocketDescriptor* descP,
@@ -4500,6 +4543,7 @@ ERL_NIF_TERM nbind(ErlNifEnv*        env,
     return esock_make_ok2(env, MKI(env, ntohs_port));
 
 }
+#endif
 
 
 
@@ -4521,6 +4565,9 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      eSockAddr;
     char*             xres;
@@ -4550,9 +4597,11 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
     }
 
     return nconnect(env, descP);
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nconnect(ErlNifEnv*        env,
                       SocketDescriptor* descP)
@@ -4614,6 +4663,7 @@ ERL_NIF_TERM nconnect(ErlNifEnv*        env,
     }
 
 }
+#endif
 
 
 /* ----------------------------------------------------------------------
@@ -4630,6 +4680,9 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                      int                argc,
                                      const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
 
     /* Extract arguments and perform preliminary validation */
@@ -4641,12 +4694,14 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
 
     return nfinalize_connection(env, descP);
 
+#endif
 }
 
 
 /* *** nfinalize_connection ***
  * Perform the final check to verify a connection.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
                                   SocketDescriptor* descP)
@@ -4667,11 +4722,13 @@ ERL_NIF_TERM nfinalize_connection(ErlNifEnv*        env,
 
     return esock_atom_ok;
 }
+#endif
 
 
 /* *** verify_is_connected ***
  * Check if a connection has been established.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err)
 {
@@ -4718,6 +4775,7 @@ BOOLEAN_T verify_is_connected(SocketDescriptor* descP, int* err)
 
     return TRUE;
 }
+#endif
 
 
 
@@ -4737,6 +4795,9 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     int               backlog;
 
@@ -4760,10 +4821,12 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
             "\r\n", descP->sock, argv[0], backlog) );
     
     return nlisten(env, descP, backlog);
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nlisten(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -4782,6 +4845,7 @@ ERL_NIF_TERM nlisten(ErlNifEnv*        env,
 
     return esock_atom_ok;
 }
+#endif
 
 
 
@@ -4801,6 +4865,9 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      ref;
 
@@ -4810,8 +4877,8 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
 
     if ((argc != 2) ||
         !enif_get_resource(env, argv[0], sockets, (void**) &descP)) {
-        return enif_make_badarg(env);
-    }
+        return enif_make_badarg(env); 
+   }
     ref = argv[1];
     
     if (IS_CLOSED(descP) || IS_CLOSING(descP))
@@ -4824,9 +4891,11 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
             "\r\n", descP->sock, argv[0], ref) );
 
     return naccept(env, descP, ref);
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM naccept(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -4854,11 +4923,13 @@ ERL_NIF_TERM naccept(ErlNifEnv*        env,
 
     return res;
 }
+#endif
 
 
 /* *** naccept_listening ***
  * We have no active acceptor and no acceptors in queue.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
                                SocketDescriptor* descP,
@@ -5003,6 +5074,7 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
         return esock_make_ok2(env, accRef);
     }
 }
+#endif
 
 
 /* *** naccept_accepting ***
@@ -5010,6 +5082,7 @@ ERL_NIF_TERM naccept_listening(ErlNifEnv*        env,
  * If the pid of the calling process is not the pid of the "current process",
  * push the requester onto the queue.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
                                SocketDescriptor* descP,
@@ -5170,6 +5243,7 @@ ERL_NIF_TERM naccept_accepting(ErlNifEnv*        env,
         return esock_make_ok2(env, accRef);
     }
 }
+#endif
 
 
 
@@ -5191,6 +5265,9 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, sendRef;
     ErlNifBinary      sndData;
@@ -5245,7 +5322,9 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     MUNLOCK(descP->writeMtx);
 
     return res;
+#endif
 }
+
 
 
 /* *** nsend ***
@@ -5255,6 +5334,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
  * analyze the result. If we are done, another writer may be
  * scheduled (if there is one in the writer queue).
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsend(ErlNifEnv*        env,
                    SocketDescriptor* descP,
@@ -5290,6 +5370,7 @@ ERL_NIF_TERM nsend(ErlNifEnv*        env,
                              sockRef, sendRef);
 
 }
+#endif
 
 
 
@@ -5312,6 +5393,9 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, sendRef;
     ErlNifBinary      sndData;
@@ -5375,9 +5459,11 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
             "\r\n", res) );
 
     return res;
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsendto(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -5421,6 +5507,7 @@ ERL_NIF_TERM nsendto(ErlNifEnv*        env,
     return send_check_result(env, descP, written, dataP->size, save_errno,
                              sockRef, sendRef);
 }
+#endif
 
 
 
@@ -5442,6 +5529,9 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     ERL_NIF_TERM      res, sockRef, sendRef, eMsgHdr;
     SocketDescriptor* descP;
     unsigned int      eflags;
@@ -5487,9 +5577,11 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
             "\r\n", res) );
 
     return res;
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
                       SocketDescriptor* descP,
@@ -5643,6 +5735,7 @@ ERL_NIF_TERM nsendmsg(ErlNifEnv*        env,
     
     return res;
 }
+#endif
 
 
 
@@ -5736,6 +5829,9 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                       int                argc,
                       const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
     int               len;
@@ -5778,7 +5874,7 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-
+#endif
 }
 
 
@@ -5787,6 +5883,7 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
  * allocating a binary (of the specified or default
  * size) and then throwing it away...
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nrecv(ErlNifEnv*        env,
                    SocketDescriptor* descP,
@@ -5843,6 +5940,7 @@ ERL_NIF_TERM nrecv(ErlNifEnv*        env,
                              sockRef,
                              recvRef);
 }
+#endif
 
 
 
@@ -5875,6 +5973,9 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
     unsigned int      bufSz;
@@ -5936,7 +6037,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-
+#endif
 }
 
 
@@ -5945,6 +6046,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
  * allocating a binary (of the specified or default
  * size) and then throwing it away...
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
                        SocketDescriptor* descP,
@@ -6003,6 +6105,7 @@ ERL_NIF_TERM nrecvfrom(ErlNifEnv*        env,
                                  sockRef,
                                  recvRef);
 }
+#endif
 
 
 
@@ -6039,6 +6142,9 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
     unsigned int      bufSz;
@@ -6103,7 +6209,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return res;
-
+#endif
 }
 
 
@@ -6112,6 +6218,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
  * allocating a binary (of the specified or default
  * size) and then throwing it away...
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
                       SocketDescriptor* descP,
@@ -6199,6 +6306,7 @@ ERL_NIF_TERM nrecvmsg(ErlNifEnv*        env,
                                 sockRef,
                                 recvRef);
 }
+#endif
 
 
 
@@ -6217,6 +6325,9 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
                        int                argc,
                        const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
 
     if ((argc != 1) ||
@@ -6228,9 +6339,11 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
         return esock_make_error(env, atom_closed);
     
     return nclose(env, descP);
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nclose(ErlNifEnv*        env,
                     SocketDescriptor* descP)
@@ -6350,6 +6463,7 @@ ERL_NIF_TERM nclose(ErlNifEnv*        env,
 
     return reply;
 }
+#endif
 
 
 
@@ -6368,6 +6482,9 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
                                 int                argc,
                                 const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
 
     /* Extract arguments and perform preliminary validation */
@@ -6378,13 +6495,14 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
     }
 
     return nfinalize_close(env, descP);
-
+#endif
 }
 
 
 /* *** nfinalize_close ***
  * Perform the final step in the socket close.
  */
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
                              SocketDescriptor* descP)
@@ -6428,6 +6546,7 @@ ERL_NIF_TERM nfinalize_close(ErlNifEnv*        env,
 
     return reply;
 }
+#endif
 
 
 
@@ -6447,6 +6566,9 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     unsigned int      ehow;
     int               how;
@@ -6464,10 +6586,12 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
         return enif_make_badarg(env);
 
     return nshutdown(env, descP, how);
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
                        SocketDescriptor* descP,
@@ -6495,6 +6619,7 @@ ERL_NIF_TERM nshutdown(ErlNifEnv*        env,
 
     return reply;
 }
+#endif
 
 
 
@@ -6522,6 +6647,9 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__) 
+   return enif_make_badarg(env);
+#else
     SocketDescriptor* descP = NULL;
     int               eLevel, level = -1;
     int               eOpt;
@@ -6578,9 +6706,11 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
             "\r\n", result) );
 
     return result;
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsetopt(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -9926,6 +10056,7 @@ int socket_setopt(int sock, int level, int opt,
 
     return res;
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -9951,6 +10082,9 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     int               eLevel, level = -1;
     ERL_NIF_TERM      eIsEncoded, eOpt;
@@ -9984,10 +10118,12 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
         return esock_make_error(env, esock_atom_einval);
 
     return ngetopt(env, descP, isEncoded, isOTP, level, eOpt);
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ngetopt(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -12646,6 +12782,7 @@ ERL_NIF_TERM ngetopt_str_opt(ErlNifEnv*        env,
 
     return result;
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -12664,6 +12801,9 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      res;
 
@@ -12689,10 +12829,12 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
     SSDBG( descP, ("SOCKET", "nif_sockname -> done with res = %T\r\n", res) );
 
     return res;
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM nsockname(ErlNifEnv*        env,
                        SocketDescriptor* descP)
@@ -12714,6 +12856,7 @@ ERL_NIF_TERM nsockname(ErlNifEnv*        env,
             return esock_make_ok2(env, esa);
     }
 }
+#endif
 
 
 
@@ -12732,6 +12875,9 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      res;
 
@@ -12757,10 +12903,12 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
     SSDBG( descP, ("SOCKET", "nif_peername -> done with res = %T\r\n", res) );
 
     return res;
+#endif
 }
 
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM npeername(ErlNifEnv*        env,
                        SocketDescriptor* descP)
@@ -12782,6 +12930,7 @@ ERL_NIF_TERM npeername(ErlNifEnv*        env,
             return esock_make_ok2(env, esa);
     }
 }
+#endif
 
 
 
@@ -12801,6 +12950,9 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
                         int                argc,
                         const ERL_NIF_TERM argv[])
 {
+#if defined(__WIN32__)
+    return enif_make_badarg(env);
+#else
     SocketDescriptor* descP;
     ERL_NIF_TERM      op, opRef, result;
 
@@ -12832,10 +12984,11 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
            "\r\n", result) );
 
     return result;
-
+#endif
 }
 
 
+#if !defined(__WIN32__)
 static
 ERL_NIF_TERM ncancel(ErlNifEnv*        env,
                      SocketDescriptor* descP,
@@ -13294,6 +13447,8 @@ ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
     }
 
 }
+#endif // if !defined(__WIN32__)
+
 
 
 
@@ -13307,6 +13462,7 @@ ERL_NIF_TERM ncancel_mode_select(ErlNifEnv*        env,
  * Checks if we have a current writer and if that is us. If not, then we must
  * be made to wait for our turn. This is done by pushing us unto the writer queue.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T send_check_writer(ErlNifEnv*        env,
                             SocketDescriptor* descP,
@@ -16087,6 +16243,8 @@ int compare_pids(ErlNifEnv*       env,
 
     return enif_is_identical(p1, p2);
 }
+#endif // if !defined(__WIN32__)
+
 
 
 /* ----------------------------------------------------------------------
@@ -16098,6 +16256,7 @@ int compare_pids(ErlNifEnv*       env,
  *
  * Note that only a subset is supported.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T edomain2domain(int edomain, int* domain)
 {
@@ -16612,6 +16771,7 @@ char* esock_send_msg(ErlNifEnv*   env,
     else
         return NULL;
 }
+#endif // #if defined(__WIN32__)
 
 
 
@@ -16624,6 +16784,7 @@ char* esock_send_msg(ErlNifEnv*   env,
  *
  * Search for a pid in the acceptor queue.
  */
+#if !defined(__WIN32__)
 static
 BOOLEAN_T acceptor_search4pid(ErlNifEnv*        env,
                               SocketDescriptor* descP,
@@ -16993,6 +17154,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*          env,
 
     return FALSE;
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -17001,6 +17163,7 @@ BOOLEAN_T qunqueue(ErlNifEnv*          env,
  * ----------------------------------------------------------------------
  */
 
+#if !defined(__WIN32__)
 static
 BOOLEAN_T cnt_inc(uint32_t* cnt, uint32_t inc)
 {
@@ -17032,6 +17195,8 @@ void cnt_dec(uint32_t* cnt, uint32_t dec)
 
     return;
 }
+#endif // if !defined(__WIN32__)
+
 
 
 
@@ -17040,6 +17205,7 @@ void cnt_dec(uint32_t* cnt, uint32_t dec)
  * ----------------------------------------------------------------------
  */
 
+#if !defined(__WIN32__)
 static
 int esock_monitor(const char*       slogan,
                   ErlNifEnv*        env,
@@ -17116,6 +17282,8 @@ void esock_monitor_init(ESockMonitor* monP)
         monP->raw[i] = 0;
 
 }
+#endif // if !defined(__WIN32__)
+
 
 /*
 static
@@ -17139,6 +17307,7 @@ int esock_monitor_compare(const ErlNifMonitor* mon1,
 static
 void socket_dtor(ErlNifEnv* env, void* obj)
 {
+#if !defined(__WIN32__)    
   SocketDescriptor* descP = (SocketDescriptor*) obj;
 
   enif_clear_env(descP->env);
@@ -17149,7 +17318,7 @@ void socket_dtor(ErlNifEnv* env, void* obj)
   MDESTROY(descP->readMtx);
   MDESTROY(descP->accMtx);
   MDESTROY(descP->closeMtx);
-
+#endif
 }
 
 
@@ -17181,6 +17350,7 @@ void socket_dtor(ErlNifEnv* env, void* obj)
 static
 void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 {
+#if !defined(__WIN32__)
     SocketDescriptor* descP = (SocketDescriptor*) obj;
 
     /*
@@ -17423,7 +17593,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
     SSDBG( descP,
            ("SOCKET", "socket_stop -> done (%d, %d)\r\n", descP->sock, fd) );
-    
+#endif // if !defined(__WIN32__)
 }
 
 
@@ -17431,6 +17601,7 @@ void socket_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
  * nif_abort message with the specified reason to each member,
  * and if the 'free' argument is TRUE, the queue will be emptied.
  */
+#if !defined(__WIN32__)
 static
 void inform_waiting_procs(ErlNifEnv*          env,
                           SocketDescriptor*   descP,
@@ -17474,7 +17645,7 @@ void inform_waiting_procs(ErlNifEnv*          env,
         q->last  = NULL;
     }
 }
-
+#endif // if !defined(__WIN32__)
 
 
 /* =========================================================================
@@ -17487,6 +17658,7 @@ void socket_down(ErlNifEnv*           env,
                  const ErlNifPid*     pid,
                  const ErlNifMonitor* mon)
 {
+#if !defined(__WIN32__)
     SocketDescriptor* descP = (SocketDescriptor*) obj;
     ESockMonitor*     monP  = (ESockMonitor*) mon;
 
@@ -17675,6 +17847,7 @@ void socket_down(ErlNifEnv*           env,
     
     SSDBG( descP, ("SOCKET", "socket_down -> done\r\n") );
 
+#endif // if !defined(__WIN32__)
 }
 
 
@@ -17684,6 +17857,7 @@ void socket_down(ErlNifEnv*           env,
  * Check and then handle a downed acceptor process.
  *
  */
+#if !defined(__WIN32__)
 static
 void socket_down_acceptor(ErlNifEnv*        env,
                           SocketDescriptor* descP,
@@ -17878,6 +18052,7 @@ void socket_down_reader(ErlNifEnv*        env,
         reader_unqueue(env, descP, pid);
     }
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -17928,6 +18103,7 @@ ErlNifFunc socket_funcs[] =
 };
 
 
+#if !defined(__WIN32__)
 static
 BOOLEAN_T extract_debug(ErlNifEnv*   env,
                         ERL_NIF_TERM map)
@@ -17953,6 +18129,7 @@ BOOLEAN_T extract_iow(ErlNifEnv*   env,
     
     return esock_extract_bool_from_map(env, map, iow, SOCKET_NIF_IOW_DEFAULT);
 }
+#endif // if !defined(__WIN32__)
 
 
 
@@ -17963,6 +18140,7 @@ BOOLEAN_T extract_iow(ErlNifEnv*   env,
 static
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
+#if !defined(__WIN32__)    
     esock_dbg_init(ESOCK_DBGOUT_DEFAULT);
     // esock_dbg_init(ESOCK_DBGOUT_UNIQUE);
 
@@ -17982,6 +18160,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     data.numProtoTCP    = 0;
     data.numProtoUDP    = 0;
     data.numProtoSCTP   = 0;
+#endif
 
     /* +++ Misc atoms +++ */
     atom_adaptation_layer    = MKA(env, str_adaptation_layer);
