@@ -257,7 +257,8 @@ int packet_get_length(enum PacketParseType htype,
                       unsigned max_plen,     /* Max packet length, 0=no limit */
                       unsigned trunc_len,    /* Truncate (lines) if longer, 0=no limit */
                       char     delimiter,    /* Line delimiting character */
-                      int*     statep)       /* Protocol specific state */
+                      int*     statep,       /* Protocol specific state */
+                      packet_spec_t *spec)    /* Protocol specific state */
 {
     unsigned hlen, plen;
 
@@ -480,7 +481,63 @@ int packet_get_length(enum PacketParseType htype,
             plen = get_int16(&ptr[3]);
         }
         goto remain;
-    
+
+    case TCP_PB_PACKET_SPEC:
+        {
+            int i = 0;
+            hlen = 0;
+            plen = 0;
+            if (n < spec->min_len) { goto more; }
+            // TODO: This should be defined as a constent with packet_spec
+            for (i = 0; i < 10 && spec->packet_spec[i] != 0; i++) {
+                switch (spec->packet_spec[i]) {
+                    case 8:
+                        plen = get_int8(&ptr[hlen]);
+                        hlen += 1;
+                        break;
+                    case 16:
+                        plen = get_int16(&ptr[hlen]);
+                        hlen += 2;
+                        break;
+                    case 17:
+                        plen = get_int16le(&ptr[hlen]);
+                        hlen += 2;
+                        break;
+                    case 32:
+                        plen = get_int32(&ptr[hlen]);
+                        hlen += 4;
+                        break;
+                    case 33:
+                        plen = get_int32le(&ptr[hlen]);
+                        hlen += 4;
+                        break;
+                    case 1:
+                        {
+                            unsigned long value = 0;
+                            int shift = 0;
+                            int index = 0;
+                            do {
+                                if (index > 5)
+                                    // if the varint is invalid, or over 32 bits, return -1
+                                    goto error; // limit to 32 bits
+                                if (n < (hlen + index))
+                                    // if the varint is incomplete, goto more
+                                    goto more;
+                                value |= (ptr[hlen + index] & 0x7F) << shift;
+                                shift += 7;
+                            } while(ptr[hlen + index++] & 0x80);
+                            plen = value;
+                            hlen += index;
+                        }
+                        break;
+                    default:
+                        return -1;
+                }
+            }
+            plen += spec->extra_bytes;
+            goto remain;
+        }
+
     default:
         DEBUGF((" => case error\r\n"));
         return -1;

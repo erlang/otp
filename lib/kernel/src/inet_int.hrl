@@ -163,6 +163,8 @@
 -define(INET_OPT_TTL,             46).
 -define(INET_OPT_RECVTTL,         47).
 -define(TCP_OPT_NOPUSH,           48).
+-define(INET_LOPT_PACKET_SPEC,    49).
+-define(INET_LOPT_PACKET_SPEC_EXTRA_BYTES, 50).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).
@@ -207,6 +209,7 @@
 -define(TCP_PB_SSL_TLS, 12).
 -define(TCP_PB_HTTP_BIN,13).
 -define(TCP_PB_HTTPH_BIN,14).
+-define(TCP_PB_PACKET_SPEC,15).
 
 
 %% getstat, INET_REQ_GETSTAT

@@ -1241,6 +1241,18 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 		is read. However, there can be occasions when they are
 		useful, such as parsing trailers from chunked encoding.</p>
               </item>
+              <tag><c>packet_spec</c></tag>
+              <item>
+                <p>Packet specification. The packet specification is provided in
+                  an associated <c>{packet_spec, [u8 | u16 | u16le | u32 | u32le | varint]}</c>
+                  option where the last specified field is the packet's length field.</p>
+                <p>This protocol type is intended for use in handling simple 3rd party
+                  binary protocols where the length field is not the first field in the
+                  packet, the length field is little endian or the length field or any
+                  preceding fields is a varint.</p>
+                <p>This protocol mode returns the entire packet, including the leading fields,
+                  the length field and the payload.</p>
+              </item>
             </taglist>
           </item>
           <tag><c>{packet_size, Integer}</c>(TCP/IP sockets)</tag>
@@ -1462,6 +1474,14 @@ setcap cap_sys_admin,cap_sys_ptrace,cap_dac_read_search+epi beam.smp</code>
 	      varies between different systems.
               The option is ignored on platforms where it is not
               implemented. Use with caution.</p>
+          </item>
+          <tag><c>{packet_spec_extra_bytes, Integer}</c></tag>
+          <item>
+            <p>
+              Sets the number of extra bytes for the <c>packet_spec</c>
+              packet mode to consume. This is useful for when the packet format
+              has a fixed-length footer. This option has no effect when the packet_spec
+              mode is not used.</p>
           </item>
         </taglist>
         <p>In addition to these options, <em>raw</em>

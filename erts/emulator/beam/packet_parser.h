@@ -44,7 +44,8 @@ enum PacketParseType {
     TCP_PB_HTTPH    = 11,
     TCP_PB_SSL_TLS  = 12,
     TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_PACKET_SPEC = 15
 };
 
 typedef struct http_atom {
@@ -92,6 +93,11 @@ typedef struct {
     SslTlsFn* ssl_tls;
 }PacketCallbacks;
 
+typedef struct {
+    unsigned char min_len; /* minimum length required */
+    unsigned char packet_spec[10]; /* 10 fields should be enough for anyone */
+    unsigned int extra_bytes;
+} packet_spec_t;
 
 /* Called once at emulator start
  */
@@ -106,7 +112,8 @@ int packet_get_length(enum PacketParseType htype,
 		      unsigned max_plen,      /* Packet max length, 0=no limit */
 		      unsigned trunc_len,     /* Truncate (lines) if longer, 0=no limit */
 		      char     delimiter,     /* Line delimiting character */
-		      int*     statep);       /* Internal protocol state */
+		      int*     statep,        /* Internal protocol state */
+		      packet_spec_t *spec);    /* Internal protocol state */
 
 ERTS_GLB_INLINE
 void packet_get_body(enum PacketParseType htype,
@@ -121,7 +128,6 @@ ERTS_GLB_INLINE
 int packet_parse(enum PacketParseType htype, 
 		 const char* buf, int len, /* Total packet */
 		 int* statep, PacketCallbacks* pcb, void* arg);
-
 
 
 /* Internals for the inlines below: */

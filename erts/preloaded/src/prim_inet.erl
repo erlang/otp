@@ -1457,6 +1457,8 @@ enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
+enc_opt(packet_spec)      -> ?INET_LOPT_PACKET_SPEC;
+enc_opt(packet_spec_extra_bytes) -> ?INET_LOPT_PACKET_SPEC_EXTRA_BYTES;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
 enc_opt(sctp_associnfo)	 	   -> ?SCTP_OPT_ASSOCINFO;
@@ -1524,6 +1526,8 @@ dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
+dec_opt(?INET_LOPT_PACKET_SPEC)     -> packet_spec;
+dec_opt(?INET_LOPT_PACKET_SPEC_EXTRA_BYTES) -> packet_spec_extra_bytes;
 dec_opt(I) when is_integer(I)     -> undefined.
 
 
@@ -1580,6 +1584,8 @@ type_opt_1(recvttl)         -> bool;
 type_opt_1(nodelay)         -> bool;
 type_opt_1(nopush)          -> bool;
 type_opt_1(ipv6_v6only)     -> bool;
+type_opt_1(packet_spec)      -> packet_spec;
+type_opt_1(packet_spec_extra_bytes) -> uint;
 %% multicast
 type_opt_1(multicast_ttl)   -> int;
 type_opt_1(multicast_loop)  -> bool;
@@ -1611,7 +1617,8 @@ type_opt_1(packet) ->
 	   {http_bin, ?TCP_PB_HTTP_BIN},
 	   {httph_bin,?TCP_PB_HTTPH_BIN},
 	   {ssl, ?TCP_PB_SSL_TLS}, % obsolete
-	   {ssl_tls, ?TCP_PB_SSL_TLS}]};
+	   {ssl_tls, ?TCP_PB_SSL_TLS},
+	   {packet_spec, ?TCP_PB_PACKET_SPEC}]};
 type_opt_1(line_delimiter)  -> int;
 type_opt_1(mode) ->
     {enum,[{list, ?INET_MODE_LIST},
@@ -1902,6 +1909,8 @@ type_value_2(binary_or_uint,Int)
 %% Type-checking of SCTP options
 type_value_2(sctp_assoc_id, X)
   when X band 16#ffffffff =:= X                     -> true;
+type_value_2(packet_spec, Spec) ->
+    lists:all(fun(E) -> lists:member(E, [u8, u16, u16le, u32, u32le, varint]) end, Spec);
 type_value_2(_, _)         -> false.
 
 
@@ -2155,6 +2164,15 @@ enc_opt_val([{active,N}|Opts], Acc) when is_integer(N), N < 32768, N >= -32768 -
     enc_opt_val(Opts, [<<?INET_LOPT_ACTIVE:8,?INET_MULTI:32,N:16>>|Acc]);
 enc_opt_val([{raw,P,O,B}|Opts], Acc) ->
     enc_opt_val(Opts, Acc, raw, {P,O,B});
+enc_opt_val([{packet_spec, Specs}|Opts], Acc) ->
+    EncSpecs = lists:map(fun(u8) -> <<8:8>>;
+                            (u16) -> <<16:8>>;
+                            (u16le) -> <<17:8>>;
+                            (u32) -> <<32:8>>;
+                            (u32le) -> <<33:8>>;
+                            (varint) -> <<1:8>>
+                         end, Specs) ++ [<<0:8>>],
+    enc_opt_val(Opts, [list_to_binary([<<?INET_LOPT_PACKET_SPEC:8, 0:32>>|EncSpecs])|Acc]);
 enc_opt_val([{Opt,Val}|Opts], Acc) ->
     enc_opt_val(Opts, Acc, Opt, Val);
 enc_opt_val([binary|Opts], Acc) ->

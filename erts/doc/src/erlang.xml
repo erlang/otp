@@ -1056,6 +1056,18 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
             <p>The variants <c>http_bin</c> and <c>httph_bin</c> return
               strings (<c>HttpString</c>) as binaries instead of lists.</p>
           </item>
+          <tag><c>packet_spec</c></tag>
+          <item>
+            <p>Packet specification. The packet specification is provided in
+              an associated <c>{packet_spec, [u8 | u16 | u16le | u32 | u32le | varint]}</c>
+              option where the last specified field is the packet's length field.</p>
+            <p>This protocol type is intended for use in handling simple 3rd party
+              binary protocols where the length field is not the first field in the
+              packet, the length field is little endian or the length field or any
+              preceding fields is a varint.</p>
+            <p>This protocol mode returns the entire packet, including the leading fields,
+              the length field and the payload.</p>
+          </item>
         </taglist>
         <p>Options:</p>
         <taglist>
@@ -1078,6 +1090,11 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
           <tag><c>{line_delimiter, 0 =&lt; byte() =&lt; 255}</c></tag>
           <item><p>For packet type <c>line</c>, sets the delimiting byte.
             Default is the latin-1 character <c>$\n</c>.</p>
+          </item>
+          <tag><c>{packet_spec_extra_bytes, integer >= 0}}</c></tag>
+          <item><p>For packet type <c>packet_spec</c>, sets the length of any
+            fixed-length footer bytes following the payload.
+            Default is 0.</p>
           </item>
         </taglist>
         <p>Examples:</p>

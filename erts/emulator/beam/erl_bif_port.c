@@ -1340,6 +1340,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     unsigned max_plen = 0;   /* Packet max length, 0=no limit */
     unsigned trunc_len = 0;  /* Truncate lines if longer, 0=no limit */
     int http_state = 0;      /* 0=request/response 1=header */
+    packet_spec_t packet_spec = { 0 };
     int packet_sz;           /*-------Binaries involved: ------------------*/
     byte* bin_ptr;           /*| orig: original binary                     */
     byte bin_bitsz;          /*| bin: BIF_ARG_2, may be sub-binary of orig */
@@ -1376,6 +1377,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     case am_http_bin: type = TCP_PB_HTTP_BIN; break;
     case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
     case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
+    case am_packet_spec: type = TCP_PB_PACKET_SPEC; break;
     default:
         BIF_ERROR(BIF_P, BADARG);
     }
@@ -1400,7 +1402,51 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
                         delimiter = (char)val;
                         goto next_option;
                     }
+                    break;
+                case am_packet_spec_extra_bytes:
+                    packet_spec.extra_bytes = val;
+                    goto next_option;
                 }
+            } else if (type == TCP_PB_PACKET_SPEC && tpl[0] == make_arityval(2) && tpl[1] == am_packet_spec && is_list(tpl[2])) {
+                Eterm spec = tpl[2];
+                int i = 0;
+                Uint field;
+                while (!is_nil(spec)) {
+                    field = CAR(list_val(spec));
+                    switch (field) {
+                        case am_u8:
+                            packet_spec.min_len += 1;
+                            packet_spec.packet_spec[i] = 8;
+                            break;
+                        case am_u16:
+                            packet_spec.min_len += 2;
+                            packet_spec.packet_spec[i] = 16;
+                            break;
+                        case am_u16le:
+                            packet_spec.min_len += 2;
+                            packet_spec.packet_spec[i] = 17;
+                            break;
+                        case am_u32:
+                            packet_spec.min_len += 4;
+                            packet_spec.packet_spec[i] = 32;
+                            break;
+                        case am_u32le:
+                            packet_spec.min_len += 4;
+                            packet_spec.packet_spec[i] = 33;
+                            break;
+                        case am_varint:
+                            /* varint is at least one byte */
+                            packet_spec.min_len += 1;
+                            packet_spec.packet_spec[i] = 1;
+                            break;
+                        default:
+                            BIF_ERROR(BIF_P, BADARG);
+
+                    }
+                    i++;
+                    spec = CDR(list_val(spec));
+                }
+                goto next_option;
             }
         }
         BIF_ERROR(BIF_P, BADARG);
@@ -1420,7 +1466,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
         pca.aligned_ptr = bin_ptr;
     }
     packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, pca.bin_sz,
-                                  max_plen, trunc_len, delimiter, &http_state);
+                                  max_plen, trunc_len, delimiter, &http_state, &packet_spec);
     if (!(packet_sz > 0 && packet_sz <= pca.bin_sz)) {
         if (packet_sz < 0) {
 	    goto error;
