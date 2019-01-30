@@ -971,7 +971,8 @@ output_file(true, true, Opts) ->
 
 create_logwindow(_Parent, false) -> {false, false};
 create_logwindow(Parent, true) ->
-    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750, 800}}]),
+    Scale = observer_wx:get_scale(),
+    LogWin = wxFrame:new(Parent, ?LOG_WIN, "Trace Log", [{size, {750*Scale, 800*Scale}}]),
     MB = wxMenuBar:new(),
     File = wxMenu:new(),
     wxMenu:append(File, ?LOG_CLEAR, "Clear Log\tCtrl-C"),
