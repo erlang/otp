@@ -1218,7 +1218,7 @@ live_opt_is([#b_set{op=succeeded,dst=SuccDst=SuccDstVar,
                     case gb_sets:is_member(SuccDst, Live0) of
                         true ->
                             Live1 = gb_sets:add(Dst, Live0),
-                            Live = gb_sets:delete_any(SuccDst, Live1),
+                            Live = gb_sets:delete(SuccDst, Live1),
                             live_opt_is([I|Is], Live, [SuccI|Acc]);
                         false ->
                             live_opt_is([I|Is], Live0, Acc)
@@ -1229,7 +1229,7 @@ live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
     case gb_sets:is_member(Dst, Live0) of
         true ->
             Live1 = gb_sets:union(Live0, gb_sets:from_ordset(beam_ssa:used(I))),
-            Live = gb_sets:delete_any(Dst, Live1),
+            Live = gb_sets:delete(Dst, Live1),
             live_opt_is(Is, Live, [I|Acc]);
         false ->
             case beam_ssa:no_side_effect(I) of
