@@ -81,9 +81,12 @@ init_connection_states(Role, BeastMitigation) ->
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Version, Buffer) ->
-    get_tls_records_aux(Version, <<Buffer/binary, Data/binary>>, []).
-                            
+
+get_tls_records(Data, Versions, Buffer) when is_binary(Buffer) ->
+    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, undefined);
+get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}) ->
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, Hdr).
+
 %%====================================================================
 %% Encoding
 %%====================================================================
@@ -384,51 +387,135 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       server_verify_data => undefined
      }.
 
-get_tls_records_aux({MajVer, MinVer} = Version, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
-                                                  ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) when Type == ?APPLICATION_DATA;
-                              Type == ?HANDSHAKE;
-                              Type == ?ALERT;
-                              Type == ?CHANGE_CIPHER_SPEC ->
-    get_tls_records_aux(Version, Rest, [#ssl_tls{type = Type,
-					version = Version,
-					fragment = Data} | Acc]);
-get_tls_records_aux(Versions, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
-                                ?UINT16(Length), Data:Length/binary, Rest/binary>>, 
-		    Acc) when is_list(Versions) andalso
-                              ((Type == ?APPLICATION_DATA) 
-                               orelse
-                                 (Type == ?HANDSHAKE)
-                               orelse
-                                 (Type == ?ALERT)
-                               orelse
-                                 (Type == ?CHANGE_CIPHER_SPEC)) ->
-    case is_acceptable_version({MajVer, MinVer}, Versions) of 
+
+parse_tls_records(Versions, Q, undefined) ->
+    decode_tls_records(Versions, Q, [], undefined, undefined, undefined);
+parse_tls_records(Versions, Q, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
+    decode_tls_records(Versions, Q, [], Type, Version, Length).
+
+decode_tls_records(Versions, {_,Size,_} = Q0, Acc, undefined, _Version, _Length) ->
+    if
+        5 =< Size ->
+            {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(5, Q0),
+            validate_tls_records_type(Versions, Q, Acc, Type, {MajVer,MinVer}, Length);
+        3 =< Size ->
+            {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(3, Q0),
+            validate_tls_records_type(Versions, Q, Acc, Type, {MajVer,MinVer}, undefined);
+        1 =< Size ->
+            {<<?BYTE(Type)>>, Q} = binary_from_front(1, Q0),
+            validate_tls_records_type(Versions, Q, Acc, Type, undefined, undefined);
         true ->
-            get_tls_records_aux(Versions, Rest, [#ssl_tls{type = Type,
-                                                          version = {MajVer, MinVer},
-                                                          fragment = Data} | Acc]);
-        false ->
-            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            validate_tls_records_type(Versions, Q0, Acc, undefined, undefined, undefined)
     end;
-get_tls_records_aux(_, <<?BYTE(Type),?BYTE(_MajVer),?BYTE(_MinVer),
-                           ?UINT16(Length), _:Length/binary, _Rest/binary>>, 
-		    _) when Type == ?APPLICATION_DATA;
-                            Type == ?HANDSHAKE;
-                            Type == ?ALERT;
-                            Type == ?CHANGE_CIPHER_SPEC ->
-    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC);
-get_tls_records_aux(_, <<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
-                         ?UINT16(Length), _/binary>>,
-                    _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
-    ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
-get_tls_records_aux(_, Data, Acc) ->
-    case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
-	true ->
-	    {lists:reverse(Acc), Data};
-	false ->
-	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
+decode_tls_records(Versions, {_,Size,_} = Q0, Acc, Type, undefined, _Length) ->
+    if
+        4 =< Size ->
+            {<<?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(4, Q0),
+            validate_tls_record_version(Versions, Q, Acc, Type, {MajVer,MinVer}, Length);
+        2 =< Size ->
+            {<<?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(2, Q0),
+            validate_tls_record_version(Versions, Q, Acc, Type, {MajVer,MinVer}, undefined);
+        true ->
+            validate_tls_record_version(Versions, Q0, Acc, Type, undefined, undefined)
+    end;
+decode_tls_records(Versions, {_,Size,_} = Q0, Acc, Type, Version, undefined) ->
+    if
+        2 =< Size ->
+            {<<?UINT16(Length)>>, Q} = binary_from_front(2, Q0),
+            validate_tls_record_length(Versions, Q, Acc, Type, Version, Length);
+        true ->
+            validate_tls_record_length(Versions, Q0, Acc, Type, Version, undefined)
+    end;
+decode_tls_records(Versions, Q, Acc, Type, Version, Length) ->
+    validate_tls_record_length(Versions, Q, Acc, Type, Version, Length).
+
+validate_tls_records_type(_Versions, Q, Acc, undefined, _Version, _Length) ->
+    {lists:reverse(Acc),
+     {undefined, Q}};
+validate_tls_records_type(Versions, Q, Acc, Type, Version, Length) ->
+    if
+        ?KNOWN_RECORD_TYPE(Type) ->
+            validate_tls_record_version(Versions, Q, Acc, Type, Version, Length);
+        true ->
+            %% Not ?KNOWN_RECORD_TYPE(Type)
+            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
     end.
+
+validate_tls_record_version(_Versions, Q, Acc, Type, undefined, _Length) ->
+    {lists:reverse(Acc),
+     {#ssl_tls{type = Type, version = undefined, fragment = undefined}, Q}};
+validate_tls_record_version(Versions, Q, Acc, Type, Version, Length) ->
+    if
+        is_list(Versions) ->
+            case is_acceptable_version(Version, Versions) of
+                true ->
+                    validate_tls_record_length(Versions, Q, Acc, Type, Version, Length);
+                false ->
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            end;
+        Version =:= Versions ->
+            %% Exact version match
+            validate_tls_record_length(Versions, Q, Acc, Type, Version, Length);
+        true ->
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end.
+
+validate_tls_record_length(_Versions, Q, Acc, Type, Version, undefined) ->
+    {lists:reverse(Acc),
+     {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
+validate_tls_record_length(Versions, {_,Size0,_} = Q0, Acc, Type, Version, Length) ->
+    if
+        Length =< ?MAX_CIPHER_TEXT_LENGTH ->
+            if
+                Length =< Size0 ->
+                    %% Complete record
+                    {Fragment, Q} = binary_from_front(Length, Q0),
+                    Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
+                    decode_tls_records(Versions, Q, [Record|Acc], undefined, undefined, undefined);
+                true ->
+                    {lists:reverse(Acc),
+                     {#ssl_tls{type = Type, version = Version, fragment = Length}, Q0}}
+            end;
+        true ->
+            ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW)
+    end.
+
+
+binary_from_front(BinSize, {Front,Size,Rear}) ->
+    binary_from_front(BinSize, Front, Size, Rear, []).
+%%
+binary_from_front(BinSize, [], Size, [_] = Rear, Acc) ->
+    %% Optimize a simple case
+    binary_from_front(BinSize, Rear, Size, [], Acc);
+binary_from_front(BinSize, [], Size, Rear, Acc) ->
+    binary_from_front(BinSize, lists:reverse(Rear), Size, [], Acc);
+binary_from_front(BinSize, [Bin|Front], Size, Rear, []) ->
+    %% Optimize a frequent case
+    case Bin of
+        <<RetBin:BinSize/binary, Rest/binary>> -> % More than enough - split here
+            {RetBin, {case Rest of
+                          <<>> ->
+                              Front;
+                          <<_/binary>> ->
+                              [Rest|Front]
+                      end,Size - BinSize,Rear}};
+        <<_/binary>> -> % Not enough
+            binary_from_front(BinSize - byte_size(Bin), Front, Size, Rear, [Bin])
+    end;
+binary_from_front(BinSize, [Bin|Front], Size, Rear, Acc) ->
+    case Bin of
+        <<Last:BinSize/binary, Rest/binary>> -> % More than enough - split here
+            RetBin = iolist_to_binary(lists:reverse(Acc, [Last])),
+            {RetBin,{case Rest of
+                         <<>> ->
+                             Front;
+                         <<_/binary>> ->
+                             [Rest|Front]
+                     end,Size - byte_size(RetBin),Rear}};
+        <<_/binary>> -> % Not enough
+            binary_from_front(BinSize - byte_size(Bin), Front, Size, Rear, [Bin|Acc])
+    end.
+
 %%--------------------------------------------------------------------
 encode_plain_text(Type, Version, Data, ConnectionStates0) ->
     {[CipherText],ConnectionStates} = encode_iolist(Type, Version, [Data], ConnectionStates0),
