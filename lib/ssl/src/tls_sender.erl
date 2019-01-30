@@ -386,10 +386,7 @@ send_tls_alert(Alert, #data{negotiated_version = Version,
     {BinMsg, ConnectionStates} =
 	Connection:encode_alert(Alert, Version, ConnectionStates0),
     Connection:send(Transport, Socket, BinMsg),
-    Report = #{direction => outbound,
-               protocol => 'tls_record',
-               message => BinMsg},
-    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
+    ssl_logger:debug(LogLevel, outbound, 'tls_record', BinMsg),
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
@@ -414,18 +411,12 @@ send_application_data(Data, From, StateName,
             StateData = StateData0#data{connection_states = ConnectionStates},
 	    case Connection:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
-                    Report = #{direction => outbound,
-                               protocol => 'tls_record',
-                               message => Msgs},
-                    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
+                    ssl_logger:debug(LogLevel, outbound, 'tls_record', Msgs),
                     {next_state, StateName, StateData, []};
                 Reason when DistHandle =/= undefined ->
                     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
                 ok ->
-                    Report = #{direction => outbound,
-                               protocol => 'tls_record',
-                               message => Msgs},
-                    ssl_logger:debug(LogLevel, Report, #{domain => [otp,ssl,tls_record]}),
+                    ssl_logger:debug(LogLevel, outbound, 'tls_record', Msgs),
                     {next_state, StateName, StateData,  [{reply, From, ok}]};
                 Result ->
                     {next_state, StateName, StateData,  [{reply, From, Result}]}

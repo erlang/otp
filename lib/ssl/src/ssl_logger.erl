@@ -20,7 +20,7 @@
 
 -module(ssl_logger).
 
--export([debug/3,
+-export([debug/4,
          format/2,
          notice/2]).
 
@@ -58,12 +58,20 @@ format(#{level:= _Level, msg:= {report, Msg}, meta:= _Meta}, _Config0) ->
     end.
 
 %% Stateful logging
-debug(Level, Report, Meta) ->
+debug(Level, Direction, Protocol, Message)
+  when (Direction =:= inbound orelse Direction =:= outbound) andalso
+       (Protocol =:= 'tls_record' orelse Protocol =:= 'handshake') ->
     case logger:compare_levels(Level, debug) of
         lt ->
-            ?LOG_DEBUG(Report, Meta);
+            ?LOG_DEBUG(#{direction => Direction,
+                         protocol => Protocol,
+                         message => Message},
+                       #{domain => [otp,ssl,Protocol]});
         eq ->
-            ?LOG_DEBUG(Report, Meta);
+            ?LOG_DEBUG(#{direction => Direction,
+                         protocol => Protocol,
+                         message => Message},
+                       #{domain => [otp,ssl,Protocol]});
         _ ->
             ok
     end.
