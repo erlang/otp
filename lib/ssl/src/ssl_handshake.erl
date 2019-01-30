@@ -592,7 +592,7 @@ encode_extensions(Exts) ->
     encode_extensions(Exts, <<>>).
     
 encode_extensions([], <<>>) ->
-    <<>>;
+    <<?UINT16(0)>>;
 encode_extensions([], Acc) ->
     Size = byte_size(Acc),
     <<?UINT16(Size), Acc/binary>>;

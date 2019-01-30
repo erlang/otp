@@ -35,6 +35,7 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
+-include("tls_handshake_1_3.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %%-------------------------------------------------------------------------
@@ -159,7 +160,23 @@ parse_handshake(Direction, #hello_request{} = HelloRequest) ->
     Header = io_lib:format("~s Handshake, HelloRequest",
                            [header_prefix(Direction)]),
     Message = io_lib:format("~p", [?rec_info(hello_request, HelloRequest)]),
+    {Header, Message};
+parse_handshake(Direction, #certificate_1_3{} = Certificate) ->
+    Header = io_lib:format("~s Handshake, Certificate",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_1_3, Certificate)]),
+    {Header, Message};
+parse_handshake(Direction, #certificate_verify_1_3{} = CertificateVerify) ->
+    Header = io_lib:format("~s Handshake, CertificateVerify",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(certificate_verify_1_3, CertificateVerify)]),
+    {Header, Message};
+parse_handshake(Direction, #encrypted_extensions{} = EncryptedExtensions) ->
+    Header = io_lib:format("~s Handshake, EncryptedExtensions",
+                           [header_prefix(Direction)]),
+    Message = io_lib:format("~p", [?rec_info(encrypted_extensions, EncryptedExtensions)]),
     {Header, Message}.
+
 
 parse_cipher_suites([_|_] = Ciphers) ->
     [format_cipher(C) || C <- Ciphers].
