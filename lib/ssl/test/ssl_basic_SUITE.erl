@@ -4435,7 +4435,7 @@ tls_record_1_3_encode_decode(_Config) ->
                        15,117,155,48,24,112,61,15,113,208,127,51,179,227,194,232>>,
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
-                     undefined,undefined,16},
+                     undefined,undefined,undefined,16},
                 client_verify_data => undefined,compression_state => undefined,
                 mac_secret => undefined,secure_renegotiation => undefined,
                 security_parameters =>
@@ -4461,7 +4461,7 @@ tls_record_1_3_encode_decode(_Config) ->
                        15,117,155,48,24,112,61,15,113,208,127,51,179,227,194,232>>,
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
-                     undefined,undefined,16},
+                     undefined,undefined,undefined,16},
                 client_verify_data => undefined,compression_state => undefined,
                 mac_secret => undefined,secure_renegotiation => undefined,
                 security_parameters =>
@@ -5026,7 +5026,164 @@ tls13_1_RTT_handshake(_Config) ->
     FinishedHS = #finished{verify_data = FinishedVerifyData},
 
     FinishedIOList = tls_handshake:encode_handshake(FinishedHS, {3,4}),
-    FinishedHSBin = iolist_to_binary(FinishedIOList).
+    FinishedHSBin = iolist_to_binary(FinishedIOList),
+
+    %% {server}  derive secret "tls13 c ap traffic":
+    %%
+    %%    PRK (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a 47
+    %%       80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19
+    %%
+    %%    hash (32 octets):  96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a
+    %%       00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    info (54 octets):  00 20 12 74 6c 73 31 33 20 63 20 61 70 20 74 72
+    %%       61 66 66 69 63 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b
+    %%       1a 00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    expanded (32 octets):  9e 40 64 6c e7 9a 7f 9d c0 5a f8 88 9b ce
+    %%       65 52 87 5a fa 0b 06 df 00 87 f7 92 eb b7 c1 75 04 a5
+
+    %% PRK = MasterSecret
+    CAPTHash =
+        hexstr2bin("96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a
+          00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13"),
+    CAPTInfo =
+        hexstr2bin("00 20 12 74 6c 73 31 33 20 63 20 61 70 20 74 72
+          61 66 66 69 63 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b
+          1a 00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13"),
+
+    CAPTrafficSecret =
+        hexstr2bin("9e 40 64 6c e7 9a 7f 9d c0 5a f8 88 9b ce
+          65 52 87 5a fa 0b 06 df 00 87 f7 92 eb b7 c1 75 04 a5"),
+
+    CHSF = <<ClientHello/binary,
+             ServerHello/binary,
+             EncryptedExtensions/binary,
+             Certificate/binary,
+             CertificateVerify/binary,
+             FinishedHSBin/binary>>,
+
+    CAPTHash = crypto:hash(HKDFAlgo, CHSF),
+
+    CAPTInfo =
+        tls_v1:create_info(<<"c ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+
+    CAPTrafficSecret =
+        tls_v1:client_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
+
+    %% {server}  derive secret "tls13 s ap traffic":
+    %%
+    %%    PRK (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a 47
+    %%       80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19
+    %%
+    %%    hash (32 octets):  96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a
+    %%       00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    info (54 octets):  00 20 12 74 6c 73 31 33 20 73 20 61 70 20 74 72
+    %%       61 66 66 69 63 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b
+    %%       1a 00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    expanded (32 octets):  a1 1a f9 f0 55 31 f8 56 ad 47 11 6b 45 a9
+    %%       50 32 82 04 b4 f4 4b fb 6b 3a 4b 4f 1f 3f cb 63 16 43
+
+    %% PRK = MasterSecret
+    %% hash = CAPTHash
+    SAPTInfo =
+        hexstr2bin(" 00 20 12 74 6c 73 31 33 20 73 20 61 70 20 74 72
+          61 66 66 69 63 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b
+          1a 00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13"),
+
+    SAPTrafficSecret =
+        hexstr2bin("a1 1a f9 f0 55 31 f8 56 ad 47 11 6b 45 a9
+          50 32 82 04 b4 f4 4b fb 6b 3a 4b 4f 1f 3f cb 63 16 43"),
+
+    SAPTInfo =
+        tls_v1:create_info(<<"s ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+
+    SAPTrafficSecret =
+        tls_v1:server_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
+
+    %% {server}  derive secret "tls13 exp master":
+    %%
+    %%    PRK (32 octets):  18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a 47
+    %%       80 01 bc 4d 4c 62 79 84 d5 a4 1d a8 d0 40 29 19
+    %%
+    %%    hash (32 octets):  96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a
+    %%       00 0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    info (52 octets):  00 20 10 74 6c 73 31 33 20 65 78 70 20 6d 61 73
+    %%       74 65 72 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a 00
+    %%       0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13
+    %%
+    %%    expanded (32 octets):  fe 22 f8 81 17 6e da 18 eb 8f 44 52 9e 67
+    %%       92 c5 0c 9a 3f 89 45 2f 68 d8 ae 31 1b 43 09 d3 cf 50
+
+    %% PRK = MasterSecret
+    %% hash = CAPTHash
+    ExporterInfo =
+        hexstr2bin("00 20 10 74 6c 73 31 33 20 65 78 70 20 6d 61 73
+          74 65 72 20 96 08 10 2a 0f 1c cc 6d b6 25 0b 7b 7e 41 7b 1a 00
+          0e aa da 3d aa e4 77 7a 76 86 c9 ff 83 df 13"),
+
+    ExporterMasterSecret =
+        hexstr2bin("fe 22 f8 81 17 6e da 18 eb 8f 44 52 9e 67
+          92 c5 0c 9a 3f 89 45 2f 68 d8 ae 31 1b 43 09 d3 cf 50"),
+
+    ExporterInfo =
+        tls_v1:create_info(<<"exp master">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+
+    ExporterMasterSecret =
+        tls_v1:exporter_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
+
+    %% {server}  derive write traffic keys for application data:
+    %%
+    %%    PRK (32 octets):  a1 1a f9 f0 55 31 f8 56 ad 47 11 6b 45 a9 50 32
+    %%       82 04 b4 f4 4b fb 6b 3a 4b 4f 1f 3f cb 63 16 43
+    %%
+    %%    key info (13 octets):  00 10 09 74 6c 73 31 33 20 6b 65 79 00
+    %%
+    %%    key expanded (16 octets):  9f 02 28 3b 6c 9c 07 ef c2 6b b9 f2 ac
+    %%       92 e3 56
+    %%
+    %%    iv info (12 octets):  00 0c 08 74 6c 73 31 33 20 69 76 00
+    %%
+    %%    iv expanded (12 octets):  cf 78 2b 88 dd 83 54 9a ad f1 e9 84
+
+    %% PRK = SAPTrafficsecret
+    %% key info = WriteKeyInfo
+    %% iv info = WrtieIVInfo
+    SWKey =
+        hexstr2bin("9f 02 28 3b 6c 9c 07 ef c2 6b b9 f2 ac 92 e3 56"),
+
+    SWIV =
+        hexstr2bin("cf 78 2b 88 dd 83 54 9a ad f1 e9 84"),
+
+    {SWKey, SWIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, SAPTrafficSecret),
+
+    %% {server}  derive read traffic keys for handshake data:
+    %%
+    %%    PRK (32 octets):  b3 ed db 12 6e 06 7f 35 a7 80 b3 ab f4 5e 2d 8f
+    %%       3b 1a 95 07 38 f5 2e 96 00 74 6a 0e 27 a5 5a 21
+    %%
+    %%    key info (13 octets):  00 10 09 74 6c 73 31 33 20 6b 65 79 00
+    %%
+    %%    key expanded (16 octets):  db fa a6 93 d1 76 2c 5b 66 6a f5 d9 50
+    %%       25 8d 01
+    %%
+    %%    iv info (12 octets):  00 0c 08 74 6c 73 31 33 20 69 76 00
+    %%
+    %%    iv expanded (12 octets):  5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f
+
+    %% PRK = CHSTrafficsecret
+    %% key info = WriteKeyInfo
+    %% iv info = WrtieIVInfo
+    SRKey =
+        hexstr2bin("db fa a6 93 d1 76 2c 5b 66 6a f5 d9 50 25 8d 01"),
+
+    SRIV =
+        hexstr2bin("5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f"),
+
+    {SRKey, SRIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, CHSTrafficSecret).
 
 
 tls13_finished_verify_data() ->

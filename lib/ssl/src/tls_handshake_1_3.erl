@@ -45,7 +45,8 @@
          encrypted_extensions/0,
          server_hello/4]).
 
--export([do_negotiated/2]).
+-export([do_negotiated/2,
+         do_wait_finished/2]).
 
 %%====================================================================
 %% Create handshake messages
@@ -148,12 +149,11 @@ finished(#state{connection_states = ConnectionStates,
                 handshake_env =
                     #handshake_env{
                        tls_handshake_history = {Messages, _}}}) ->
-    #{security_parameters := SecParamsR} =
+    #{security_parameters := SecParamsR,
+     cipher_state := #cipher_state{finished_key = FinishedKey}} =
         ssl_record:current_connection_state(ConnectionStates, write),
-    #security_parameters{prf_algorithm = HKDFAlgo,
-                         master_secret = SHTS} = SecParamsR,
+    #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    FinishedKey = tls_v1:finished_key(SHTS, HKDFAlgo),
     VerifyData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
 
     #finished{
@@ -468,12 +468,8 @@ do_negotiated(#{client_share := ClientKey,
 
         {State1, _} = tls_connection:send_handshake(ServerHello, State0),
 
-        {HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV} =
-            calculate_security_parameters(ClientKey, SelectedGroup, KeyShare, State1),
-
         State2 =
-            update_pending_connection_states(State1, HandshakeSecret,
-                                             ReadKey, ReadIV, WriteKey, WriteIV),
+            calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare, State1),
 
         State3 = ssl_record:step_encryption_state(State2),
 
@@ -498,15 +494,13 @@ do_negotiated(#{client_share := ClientKey,
         %% Create Finished
         Finished = finished(State6),
 
-        %% Encode Certificate, CertifricateVerify
-        {_State7, _} = tls_connection:send_handshake(Finished, State6),
+        %% Encode Finished
+        State7 = tls_connection:queue_handshake(Finished, State6),
 
-        %% Send finished
+        %% Send first flight
+        {State8, _} = tls_connection:send_handshake_flight(State7),
 
-        %% Next record/Next event
-
-        Maybe(not_implemented(negotiated))
-
+        State8
 
     catch
         {Ref, {state_not_implemented, State}} ->
@@ -515,16 +509,73 @@ do_negotiated(#{client_share := ClientKey,
     end.
 
 
+do_wait_finished(#change_cipher_spec{},
+              #state{connection_states = _ConnectionStates0,
+                     session = #session{session_id = _SessionId,
+                                        own_certificate = _OwnCert},
+                     ssl_options = #ssl_options{} = _SslOpts,
+                     key_share = _KeyShare,
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     private_key = _CertPrivateKey,
+                     static_env = #static_env{
+                                     cert_db = _CertDbHandle,
+                                     cert_db_ref = _CertDbRef,
+                                     socket = _Socket,
+                                     transport_cb = _Transport}
+                    } = State0) ->
+    %% {Ref,Maybe} = maybe(),
+
+    try
+
+        State0
+
+    catch
+        {_Ref, {state_not_implemented, State}} ->
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+    end;
+do_wait_finished(#finished{},
+              #state{connection_states = _ConnectionStates0,
+                     session = #session{session_id = _SessionId,
+                                        own_certificate = _OwnCert},
+                     ssl_options = #ssl_options{} = _SslOpts,
+                     key_share = _KeyShare,
+                     handshake_env = #handshake_env{tls_handshake_history = _HHistory0},
+                     private_key = _CertPrivateKey,
+                     static_env = #static_env{
+                                     cert_db = _CertDbHandle,
+                                     cert_db_ref = _CertDbRef,
+                                     socket = _Socket,
+                                     transport_cb = _Transport}
+                    } = State0) ->
+
+    %% {Ref,Maybe} = maybe(),
+
+    try
+        %% TODO: validate client Finished
+
+        State1 = calculate_traffic_secrets(State0),
+
+        %% Configure traffic keys
+        ssl_record:step_encryption_state(State1)
+
+
+    catch
+        {_Ref, {state_not_implemented, State}} ->
+            %% TODO
+            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {state_not_implemented, State})
+    end.
+
+
 %% TODO: Remove this function!
-not_implemented(State) ->
-    {error, {state_not_implemented, State}}.
+%% not_implemented(State) ->
+%%     {error, {state_not_implemented, State}}.
 
 
-calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
+calculate_handshake_secrets(ClientKey, SelectedGroup, KeyShare,
                               #state{connection_states = ConnectionStates,
                                      handshake_env =
                                          #handshake_env{
-                                            tls_handshake_history = HHistory}}) ->
+                                            tls_handshake_history = HHistory}} = State0) ->
     #{security_parameters := SecParamsR} =
         ssl_record:pending_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDFAlgo,
@@ -550,23 +601,46 @@ calculate_security_parameters(ClientKey, SelectedGroup, KeyShare,
     {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientHSTrafficSecret),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerHSTrafficSecret),
 
-    %% TODO: store all relevant secrets in state!
-    {ServerHSTrafficSecret, ReadKey, ReadIV, WriteKey, WriteIV}.
+    %% Calculate Finished Keys
+    ReadFinishedKey = tls_v1:finished_key(ClientHSTrafficSecret, HKDFAlgo),
+    WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
-    %% %% Update pending connection state
-    %% PendingRead0 = ssl_record:pending_connection_state(ConnectionStates, read),
-    %% PendingWrite0 = ssl_record:pending_connection_state(ConnectionStates, write),
+    update_pending_connection_states(State0, HandshakeSecret,
+                                     ReadKey, ReadIV, ReadFinishedKey,
+                                     WriteKey, WriteIV, WriteFinishedKey).
 
-    %% PendingRead = update_conn_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
-    %% PendingWrite = update_conn_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+calculate_traffic_secrets(#state{connection_states = ConnectionStates,
+                                 handshake_env =
+                                     #handshake_env{
+                                        tls_handshake_history = HHistory}} = State0) ->
+    #{security_parameters := SecParamsR} =
+        ssl_record:pending_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDFAlgo,
+                         cipher_suite = CipherSuite,
+                         master_secret = HandshakeSecret} = SecParamsR,
 
-    %% %% Update pending and copy to current (activate)
-    %% %% All subsequent handshake messages are encrypted
-    %% %% ([sender]_handshake_traffic_secret)
-    %% #{current_read => PendingRead,
-    %%   current_write => PendingWrite,
-    %%   pending_read => PendingRead,
-    %%   pending_write => PendingWrite}.
+    MasterSecret =
+        tls_v1:key_schedule(master_secret, HKDFAlgo, HandshakeSecret),
+
+    {Messages0, _} =  HHistory,
+
+    %% Drop Client Finish
+    [_|Messages] = Messages0,
+
+    %% Calculate [sender]_application_traffic_secret_0
+    ClientAppTrafficSecret0 =
+        tls_v1:client_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+    ServerAppTrafficSecret0 =
+        tls_v1:server_application_traffic_secret_0(HKDFAlgo, MasterSecret, lists:reverse(Messages)),
+
+    %% Calculate traffic keys
+    #{cipher := Cipher} = ssl_cipher_format:suite_definition(CipherSuite),
+    {ReadKey, ReadIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ClientAppTrafficSecret0),
+    {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
+
+    update_pending_connection_states(State0, MasterSecret,
+                                     ReadKey, ReadIV, undefined,
+                                     WriteKey, WriteIV, undefined).
 
 
 get_server_private_key(#key_share_server_hello{server_share = ServerShare}) ->
@@ -602,24 +676,31 @@ calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)
 update_pending_connection_states(#state{connection_states =
                                             CS = #{pending_read := PendingRead0,
                                                    pending_write := PendingWrite0}} = State,
-                         HandshakeSecret, ReadKey, ReadIV, WriteKey, WriteIV) ->
-    PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ReadKey, ReadIV),
-    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, WriteKey, WriteIV),
+                                 HandshakeSecret,
+                                 ReadKey, ReadIV, ReadFinishedKey,
+                                 WriteKey, WriteIV, WriteFinishedKey) ->
+    PendingRead = update_connection_state(PendingRead0, HandshakeSecret,
+                                          ReadKey, ReadIV, ReadFinishedKey),
+    PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret,
+                                           WriteKey, WriteIV, WriteFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
-                                   pending_write => PendingWrite}}.
+                                        pending_write => PendingWrite}}.
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
-                        HandshakeSecret, Key, IV) ->
+                        HandshakeSecret, Key, IV, FinishedKey) ->
     %% Store secret
     SecurityParameters = SecurityParameters0#security_parameters{
                            master_secret = HandshakeSecret},
     ConnectionState#{security_parameters => SecurityParameters,
-                     cipher_state => cipher_init(Key, IV)}.
+                     cipher_state => cipher_init(Key, IV, FinishedKey)}.
 
 
 
-cipher_init(Key, IV) ->
-    #cipher_state{key = Key, iv = IV, tag_len = 16}.
+cipher_init(Key, IV, FinishedKey) ->
+    #cipher_state{key = Key,
+                  iv = IV,
+                  finished_key = FinishedKey,
+                  tag_len = 16}.
 
 
 %% If there is no overlap between the received

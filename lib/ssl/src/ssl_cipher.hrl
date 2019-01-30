@@ -47,6 +47,7 @@
 -record(cipher_state, {
 	  iv,
 	  key,
+	  finished_key,
 	  state,
 	  nonce,
           tag_len       

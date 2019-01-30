@@ -123,6 +123,23 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
                                        ReadState0#{sequence_number => Seq + 1}},
 	    {decode_inner_plaintext(PlainFragment), ConnectionStates}
     end;
+
+%% RFC8446 - TLS 1.3
+%% D.4.  Middlebox Compatibility Mode
+%%    -  If not offering early data, the client sends a dummy
+%%       change_cipher_spec record (see the third paragraph of Section 5)
+%%       immediately before its second flight.  This may either be before
+%%       its second ClientHello or before its encrypted handshake flight.
+%%       If offering early data, the record is placed immediately after the
+%%       first ClientHello.
+decode_cipher_text(#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
+                            version = ?LEGACY_VERSION,
+                            fragment = <<1>>},
+		   ConnectionStates0) ->
+    {#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
+              version = {3,4}, %% Internally use real version
+              fragment = <<1>>}, ConnectionStates0};
+
 decode_cipher_text(#ssl_tls{type = Type,
                             version = ?LEGACY_VERSION,
                             fragment = CipherFragment},

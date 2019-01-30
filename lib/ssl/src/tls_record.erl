@@ -398,6 +398,18 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       server_verify_data => undefined
      }.
 
+%% TLS 1.3
+get_tls_records_aux({3,4} = Version, <<?BYTE(Type),?BYTE(3),?BYTE(3),
+                                       ?UINT16(Length), Data:Length/binary,
+                                       Rest/binary>> = RawTLSRecord,
+		    Acc, SslOpts) when Type == ?APPLICATION_DATA;
+                                       Type == ?HANDSHAKE;
+                                       Type == ?ALERT;
+                                       Type == ?CHANGE_CIPHER_SPEC ->
+    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'tls_record', [RawTLSRecord]),
+    get_tls_records_aux(Version, Rest, [#ssl_tls{type = Type,
+					version = {3,3}, %% Use legacy version
+					fragment = Data} | Acc], SslOpts);
 get_tls_records_aux({MajVer, MinVer} = Version, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),
                                                   ?UINT16(Length), Data:Length/binary, Rest/binary>> = RawTLSRecord, 
 		    Acc, SslOpts) when Type == ?APPLICATION_DATA;

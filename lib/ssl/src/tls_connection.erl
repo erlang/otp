@@ -50,7 +50,8 @@
          handle_protocol_record/3]).
 
 %% Handshake handling
--export([renegotiation/2, renegotiate/2, send_handshake/2, 
+-export([renegotiation/2, renegotiate/2, send_handshake/2,
+         send_handshake_flight/1,
 	 queue_handshake/2, queue_change_cipher/2,
 	 reinit/1, reinit_handshake_data/1, select_sni_extension/1, 
          empty_connection_state/2]).
@@ -225,8 +226,8 @@ decode_cipher_texts(Version, Type,
 	{#ssl_tls{type = ?APPLICATION_DATA, fragment = Plain}, ConnectionStates} ->		      
             decode_cipher_texts(Version, Type, CipherTexts, 
                                 ConnectionStates, Check, <<Acc/binary, Plain/binary>>);
-        {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates} ->
-            {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates, CipherTexts};
+        {#ssl_tls{type = Type0, fragment = Plain}, ConnectionStates} ->
+            {#ssl_tls{type = Type0, fragment = Plain}, ConnectionStates, CipherTexts};
         #alert{} = Alert ->
             {Alert, ConnectionStates0, CipherTexts}
     end;

@@ -109,7 +109,8 @@
 
 %% gen_statem helper functions
 -export([start/4,
-         negotiated/4
+         negotiated/4,
+         wait_finished/4
         ]).
 
 start(internal,
@@ -135,18 +136,36 @@ start(internal,
     end.
 
 
-%% TODO: remove suppression when function implemented!
--dialyzer([{nowarn_function, [negotiated/4]}, no_match]).
 negotiated(internal, Map, State0, _Module) ->
     case tls_handshake_1_3:do_negotiated(Map, State0) of
         #alert{} = Alert ->
             ssl_connection:handle_own_alert(Alert, {3,4}, negotiated, State0);
-        M ->
-            %% TODO: implement update_state
-            %% State = update_state(State0, M),
-            {next_state, wait_flight2, State0, [{next_event, internal, M}]}
+        State ->
+            {next_state, wait_finished, State, []}
 
     end.
+
+
+wait_finished(internal,
+             #change_cipher_spec{} = ChangeCipherSpec, State0, _Module) ->
+    case tls_handshake_1_3:do_wait_finished(ChangeCipherSpec, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_finished, State0);
+        State1 ->
+            {Record, State} = tls_connection:next_record(State1),
+            tls_connection:next_event(?FUNCTION_NAME, Record, State)
+    end;
+wait_finished(internal,
+             #finished{} = Finished, State0, Module) ->
+    case tls_handshake_1_3:do_wait_finished(Finished, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, finished, State0);
+        State1 ->
+            {Record, State} = ssl_connection:prepare_connection(State1, Module),
+            tls_connection:next_event(connection, Record, State)
+    end;
+wait_finished(Type, Msg, State, Connection) ->
+    ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 
 update_state(#state{connection_states = ConnectionStates0,
