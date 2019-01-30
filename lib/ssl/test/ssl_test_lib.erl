@@ -30,6 +30,7 @@
 
 -record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
+-define(DEFAULT_CURVE, secp256r1).
 
 %% For now always run locally
 run_where(_) ->
@@ -618,9 +619,12 @@ make_rsa_cert_chains(UserConf, Config, Suffix) ->
     }.
 
 make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config) ->
+    make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config, ?DEFAULT_CURVE).
+%%
+make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config, Curve) ->
     ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
     ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
-    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain),
+    CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain, Curve),
     ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
     ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
     GenCertData = public_key:pkix_test_data(CertChainConf),
@@ -635,7 +639,11 @@ default_cert_chain_conf() ->
     %% Use only default options
     [[],[],[]].
 
-gen_conf(mix, mix, UserClient, UserServer) ->
+
+gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
+    gen_conf(ClientChainType, ServerChainType, UserClient, UserServer, ?DEFAULT_CURVE).
+%%
+gen_conf(mix, mix, UserClient, UserServer, _) ->
     ClientTag = conf_tag("client"),
     ServerTag = conf_tag("server"),
 
@@ -646,12 +654,12 @@ gen_conf(mix, mix, UserClient, UserServer) ->
     ServerConf = merge_chain_spec(UserServer, DefaultServer, []),
     
     new_format([{ClientTag, ClientConf}, {ServerTag, ServerConf}]);
-gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
+gen_conf(ClientChainType, ServerChainType, UserClient, UserServer, Curve) ->
     ClientTag = conf_tag("client"),
     ServerTag = conf_tag("server"),
 
-    DefaultClient = chain_spec(client, ClientChainType), 
-    DefaultServer = chain_spec(server, ServerChainType),
+    DefaultClient = chain_spec(client, ClientChainType, Curve),
+    DefaultServer = chain_spec(server, ServerChainType, Curve),
     
     ClientConf = merge_chain_spec(UserClient, DefaultClient, []),
     ServerConf = merge_chain_spec(UserServer, DefaultServer, []),
@@ -673,43 +681,43 @@ proplist_to_map([Head | Rest]) ->
 conf_tag(Role) ->
     list_to_atom(Role ++ "_chain").
 
-chain_spec(_Role, ecdh_rsa) ->
+chain_spec(_Role, ecdh_rsa, Curve) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
-    CurveOid = hd(tls_v1:ecc_curves(0)),
+    CurveOid = pubkey_cert_records:namedCurves(Curve),
      [[Digest, {key, {namedCurve, CurveOid}}],
       [Digest, {key, hardcode_rsa_key(1)}],
       [Digest, {key, {namedCurve, CurveOid}}]];
 
-chain_spec(_Role, ecdhe_ecdsa) ->
+chain_spec(_Role, ecdhe_ecdsa, Curve) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
-    CurveOid = hd(tls_v1:ecc_curves(0)),
+    CurveOid = pubkey_cert_records:namedCurves(Curve),
     [[Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}]];
 
-chain_spec(_Role, ecdh_ecdsa) ->
+chain_spec(_Role, ecdh_ecdsa, Curve) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
-    CurveOid = hd(tls_v1:ecc_curves(0)),
+    CurveOid = pubkey_cert_records:namedCurves(Curve),
     [[Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}]];
-chain_spec(_Role, ecdhe_rsa) ->
+chain_spec(_Role, ecdhe_rsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_rsa_key(1)}],
      [Digest, {key, hardcode_rsa_key(2)}],
      [Digest, {key, hardcode_rsa_key(3)}]];
-chain_spec(_Role, ecdsa) ->
+chain_spec(_Role, ecdsa, Curve) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
-    CurveOid = hd(tls_v1:ecc_curves(0)),
+    CurveOid = pubkey_cert_records:namedCurves(Curve),
     [[Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}],
      [Digest, {key, {namedCurve, CurveOid}}]];
-chain_spec(_Role, rsa) ->
+chain_spec(_Role, rsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_rsa_key(1)}],
                                       [Digest, {key, hardcode_rsa_key(2)}],
                                       [Digest, {key, hardcode_rsa_key(3)}]];
-chain_spec(_Role, dsa) ->
+chain_spec(_Role, dsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_dsa_key(1)}],
      [Digest, {key, hardcode_dsa_key(2)}],
@@ -742,7 +750,7 @@ merge_spec(User, Default, [Conf | Rest], Acc) ->
 make_mix_cert(Config) ->
     Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
     Digest = {digest, appropriate_sha(crypto:supports())},
-    CurveOid = hd(tls_v1:ecc_curves(0)),
+    CurveOid = pubkey_cert_records:namedCurves(?DEFAULT_CURVE),
     Mix = proplists:get_value(mix, Config, peer_ecc),
     ClientChainType =ServerChainType = mix,
     {ClientChain, ServerChain} = mix(Mix, Digest, CurveOid, Ext),
