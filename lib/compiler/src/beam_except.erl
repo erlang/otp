@@ -31,7 +31,7 @@
 %%% erlang:error(function_clause, Args)  => jump FuncInfoLabel
 %%%
 
--import(lists, [reverse/1,seq/2,splitwith/2]).
+-import(lists, [reverse/1,reverse/2,seq/2,splitwith/2]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -53,7 +53,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 -record(st,
 	{lbl :: beam_asm:label(),              %func_info label
 	 loc :: [_],                           %location for func_info
-	 arity :: arity()                       %arity for function
+	 arity :: arity()                      %arity for function
 	 }).
 
 function_1(Is0) ->
@@ -150,10 +150,15 @@ dig_out_fc(Arity, Is0) ->
                              (_) -> true
                           end, Is0),
     {Regs,Acc} = dig_out_fc_1(reverse(Is), Regs0, Acc0),
-    case is_fc(Arity, Regs) of
-        true ->
-            {yes,function_clause,Acc};
-        false ->
+    case Regs of
+        #{{x,0}:={atom,function_clause},{x,1}:=Args} ->
+            case moves_from_stack(Args, 0, []) of
+                {Moves,Arity} ->
+                    {yes,function_clause,reverse(Moves, Acc)};
+                {_,_} ->
+                    no
+            end;
+        #{} ->
             no
     end.
 
@@ -187,22 +192,30 @@ dig_out_fc_block([], Regs) -> Regs.
 prune_xregs(Live, Regs) ->
     maps:filter(fun({x,X}, _) -> X < Live end, Regs).
 
-is_fc(Arity, Regs) ->
-    case Regs of
-        #{{x,0}:={atom,function_clause},{x,1}:=Args} ->
-            is_fc_1(Args, 0) =:= Arity;
-        #{} ->
-            false
-    end.
-
-is_fc_1({cons,{arg,I},T}, I) ->
-    is_fc_1(T, I+1);
-is_fc_1(nil, I) ->
-    I;
-is_fc_1(_, _) -> -1.
+moves_from_stack({cons,{arg,N},_}, I, _Acc) when N =/= I ->
+    %% Wrong argument. Give up.
+    {[],-1};
+moves_from_stack({cons,H,T}, I, Acc) ->
+    case H of
+        {arg,I} ->
+            moves_from_stack(T, I+1, Acc);
+        _ ->
+            moves_from_stack(T, I+1, [{move,H,{x,I}}|Acc])
+    end;
+moves_from_stack(nil, I, Acc) ->
+    {reverse(Acc),I};
+moves_from_stack({literal,[H|T]}, I, Acc) ->
+    Cons = {cons,tag_literal(H),tag_literal(T)},
+    moves_from_stack(Cons, I, Acc).
 
 get_reg(R, Regs) ->
     case Regs of
         #{R:=Val} -> Val;
         #{} -> R
     end.
+
+tag_literal([]) -> nil;
+tag_literal(T) when is_atom(T) -> {atom,T};
+tag_literal(T) when is_float(T) -> {float,T};
+tag_literal(T) when is_integer(T) -> {integer,T};
+tag_literal(T) -> {literal,T}.
