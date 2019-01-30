@@ -1104,6 +1104,7 @@ handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
               {next_state, connection = StateName, #state{user_data_buffer = Buffer,
+                                                          socket_options = #socket_options{active = false},
                                                           protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
                    State}) when (Buffer =/= <<>>) orelse
                                 (CTs =/= []) -> 
