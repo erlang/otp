@@ -80,6 +80,37 @@ static struct cipher_type_t cipher_types[] =
 #else
     {{"chacha20"}, {NULL}, 0, NO_FIPS_CIPHER},
 #endif
+
+    /*==== AEAD ciphers ====*/
+#if defined(HAVE_CHACHA20_POLY1305)
+    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER},
+#else
+    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER},
+#endif
+
+#if defined(HAVE_GCM)
+    {{"aes_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER},
+    {{"aes_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER},
+    {{"aes_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER},
+#else
+    {{"aes_gcm"}, {NULL}, 0, AEAD_CIPHER},
+#endif
+
+#if defined(HAVE_CCM)
+    {{"aes_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER},
+    {{"aes_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER},
+    {{"aes_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER},
+#else
+    {{"aes_ccm"}, {NULL}, 0, AEAD_CIPHER},
+#endif
+
+    /*==== Specialy handled ciphers, only for inclusion in algorithm's list ====*/
+#ifdef HAVE_AES_IGE
+    {{"aes_ige256"}, {NULL}, 0, NO_FIPS_CIPHER | NON_EVP_CIPHER},
+#endif
+
+    /*==== End of list ==== */
+
     {{NULL},{NULL},0,0}
 };
 
@@ -146,4 +177,25 @@ int cmp_cipher_types(const void *keyp, const void *elemp) {
         if (!elem->key_len || key->key_len == elem->key_len) return 0;
         else if (key->key_len < elem->key_len) return -1;
         else return 1;
+}
+
+
+ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
+{
+    struct cipher_type_t* p;
+    ERL_NIF_TERM prev, hd;
+
+    hd = enif_make_list(env, 0);
+    prev = atom_undefined;
+
+    for (p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
+        if ((prev != p->type.atom) &&
+            ((p->cipher.p != NULL) || (p->flags & NON_EVP_CIPHER)) && /* Special handling. Bad indeed... */
+            ! FORBIDDEN_IN_FIPS(p)
+            )
+        hd = enif_make_list_cell(env, p->type.atom, hd);
+        prev = p->type.atom;
+    }
+
+    return hd;
 }

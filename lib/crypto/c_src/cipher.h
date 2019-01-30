@@ -40,6 +40,9 @@ struct cipher_type_t {
 #define NO_FIPS_CIPHER 1
 #define AES_CFBx 2
 #define ECB 4
+#define AEAD_CIPHER 8
+#define NON_EVP_CIPHER 16
+
 
 #ifdef FIPS_SUPPORT
 /* May have FIPS support, must check dynamically if it is enabled */
@@ -60,5 +63,7 @@ void init_cipher_types(ErlNifEnv* env);
 struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
 int cmp_cipher_types(const void *keyp, const void *elemp);
+
+ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env);
 
 #endif /* E_CIPHER_H__ */

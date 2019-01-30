@@ -349,7 +349,7 @@ stop() ->
 supports()->
     {Hashs, PubKeys, Ciphers, Macs, Curves, RsaOpts} = algorithms(),
     [{hashs, Hashs},
-     {ciphers, Ciphers},
+     {ciphers, prepend_cipher_aliases(Ciphers)},
      {public_keys, PubKeys},
      {macs, Macs},
      {curves, Curves},
@@ -2273,6 +2273,10 @@ ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
 
 %%%================================================================
+
+prepend_cipher_aliases(L) ->
+    [des3_cbc, des_ede3, des_ede3_cbf, des3_cbf, des3_cfb, aes_cbc128, aes_cbc256 | L].
+
 
 %%%---- des_ede3_cbc
 alias(des3_cbc)     -> des_ede3_cbc;

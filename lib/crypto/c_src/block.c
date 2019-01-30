@@ -41,6 +41,8 @@ ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         goto bad_arg;
     if ((cipherp = get_cipher_type(argv[0], key.size)) == NULL)
         goto bad_arg;
+    if (cipherp->flags & (NON_EVP_CIPHER | AEAD_CIPHER))
+        goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[argc - 2], &text))
         goto bad_arg;
     if (text.size > INT_MAX)
