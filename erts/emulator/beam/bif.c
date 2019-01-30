@@ -2365,7 +2365,7 @@ accumulate(Eterm acc, Uint size)
 	 * bignum buffer with one extra word to be used if
 	 * the bignum grows in the future.
 	 */
-	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_TEMP_TERM,
+	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_SHORT_LIVED_TERM,
 					 (BIG_UINT_HEAP_SIZE+1) *
 					 sizeof(Eterm));
 	return uint_to_big(size, hp);
@@ -2385,7 +2385,7 @@ accumulate(Eterm acc, Uint size)
 	     * The extra word has been consumed. Grow the
 	     * allocation by one word.
 	     */
-	    big = (Eterm *) erts_realloc(ERTS_ALC_T_TEMP_TERM,
+	    big = (Eterm *) erts_realloc(ERTS_ALC_T_SHORT_LIVED_TERM,
 					 big_val(acc),
 					 (need_heap+1) * sizeof(Eterm));
 	    acc = make_big(big);
@@ -2414,29 +2414,85 @@ consolidate(Process* p, Eterm acc, Uint size)
 	while (sz--) {
 	    *hp++ = *big++;
 	}
-	erts_free(ERTS_ALC_T_TEMP_TERM, (void *) big_val(acc));
+	erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(acc));
 	return res;
     }
 }
 
+typedef struct {
+    Eterm obj;
+    Uint size;
+    Eterm acc;
+    Eterm input_list;
+    ErtsEStack stack;
+    int is_trap_at_L_iter_list;
+} ErtsIOListSizeContext;
+
+static int iolist_size_ctx_bin_dtor(Binary *context_bin) {
+    ErtsIOListSizeContext* context = ERTS_MAGIC_BIN_DATA(context_bin);
+    DESTROY_SAVED_ESTACK(&context->stack);
+    if (context->acc != THE_NON_VALUE) {
+        erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(context->acc));
+    }
+    return 1;
+}
+
 BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
 {
-    Eterm obj, hd;
+    static const Uint ITERATIONS_PER_RED = 64;
+    Eterm input_list, obj, hd;
     Eterm* objp;
     Uint size = 0;
     Uint cur_size;
     Uint new_size;
     Eterm acc = THE_NON_VALUE;
     DECLARE_ESTACK(s);
-
-    obj = BIF_ARG_1;
+    Uint max_iterations;
+    Uint iterations_until_trap = max_iterations =
+        ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
+    ErtsIOListSizeContext* context = NULL;
+    Eterm state_mref;
+    int is_trap_at_L_iter_list;
+    ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
+#ifdef DEBUG
+    iterations_until_trap = iterations_until_trap / 10;
+#endif
+    input_list = obj = BIF_ARG_1;
+    if (is_internal_magic_ref(obj)) {
+        /* Restore state after a trap */
+        Binary* state_bin;
+        state_mref = obj;
+        state_bin = erts_magic_ref2bin(state_mref);
+        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != iolist_size_ctx_bin_dtor) {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+        context = ERTS_MAGIC_BIN_DATA(state_bin);
+        obj = context->obj;
+        size = context->size;
+        acc = context->acc;
+        input_list = context->input_list;
+        ESTACK_RESTORE(s, &context->stack);
+        ASSERT(BIF_P->flags & F_DISABLE_GC);
+        erts_set_gc_state(BIF_P, 1);
+        if (context->is_trap_at_L_iter_list) {
+            goto L_iter_list;
+        }
+    }
     goto L_again;
 
     while (!ESTACK_ISEMPTY(s)) {
 	obj = ESTACK_POP(s);
+        if (iterations_until_trap == 0) {
+            is_trap_at_L_iter_list = 0;
+            goto L_save_state_and_trap;
+        }
     L_again:
 	if (is_list(obj)) {
 	L_iter_list:
+            if (iterations_until_trap == 0) {
+                is_trap_at_L_iter_list = 1;
+                goto L_save_state_and_trap;
+            }
 	    objp = list_val(obj);
 	    hd = CAR(objp);
 	    obj = CDR(objp);
@@ -2458,12 +2514,14 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
 	    } else if (is_list(hd)) {
 		ESTACK_PUSH(s, obj);
 		obj = hd;
+                iterations_until_trap--;
 		goto L_iter_list;
 	    } else if (is_not_nil(hd)) {
 		goto L_type_error;
 	    }
 	    /* Tail */
 	    if (is_list(obj)) {
+                iterations_until_trap--;
 		goto L_iter_list;
 	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
 		cur_size = binary_size(obj);
@@ -2487,14 +2545,55 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
 	} else if (is_not_nil(obj)) {
 	    goto L_type_error;
 	}
+        iterations_until_trap--;
     }
 
     DESTROY_ESTACK(s);
+    BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
+    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+    if (context != NULL) {
+        /* context->acc needs to be reset so that
+           iolist_size_ctx_bin_dtor does not deallocate twice */
+        context->acc = THE_NON_VALUE;
+    }
     BIF_RET(consolidate(BIF_P, acc, size));
 
  L_type_error:
     DESTROY_ESTACK(s);
-    BIF_ERROR(BIF_P, BADARG);
+    if (acc != THE_NON_VALUE) {
+	erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(acc));
+        if (context != NULL) {
+            context->acc = THE_NON_VALUE;
+        }
+    }
+    BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
+    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+    if (context == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
+    } else {
+        ERTS_BIF_ERROR_TRAPPED1(BIF_P,
+                                BADARG,
+                                bif_export[BIF_iolist_size_1],
+                                input_list);
+    }
+
+ L_save_state_and_trap:
+    if (context == NULL) {
+        Binary *state_bin = erts_create_magic_binary(sizeof(ErtsIOListSizeContext),
+                                                     iolist_size_ctx_bin_dtor);
+        Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
+        state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
+        context = ERTS_MAGIC_BIN_DATA(state_bin);
+    }
+    context->obj = obj;
+    context->size = size;
+    context->acc = acc;
+    context->is_trap_at_L_iter_list = is_trap_at_L_iter_list;
+    context->input_list = input_list;
+    ESTACK_SAVE(s, &context->stack);
+    erts_set_gc_state(BIF_P, 0);
+    BUMP_ALL_REDS(BIF_P);
+    BIF_TRAP1(bif_export[BIF_iolist_size_1], BIF_P, state_mref);
 }
 
 /**********************************************************************/
