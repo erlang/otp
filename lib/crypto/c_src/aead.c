@@ -88,10 +88,10 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto err;
     } else
 #endif
-    {
-        if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-            goto err;
-    }
+        {
+            if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+                goto err;
+        }
 
     if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
         goto err;
@@ -174,7 +174,7 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         goto bad_arg;
     if (cipherp->flags & NON_EVP_CIPHER)
         goto bad_arg;
-    if (! (cipherp->flags & AEAD_CIPHER) )
+    if ( !(cipherp->flags & AEAD_CIPHER) )
         goto bad_arg;
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
@@ -196,25 +196,24 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (type == atom_aes_ccm) {
         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
             goto err;
-    }
-#endif
-
-    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
-        goto err;
-
-#if defined(HAVE_CCM)
-    if (type == atom_aes_ccm) {
+        if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+            goto err;
         if (EVP_DecryptUpdate(ctx, NULL, &len, NULL, (int)in.size) != 1)
             goto err;
     }
+    else
 #endif
+        {
+            if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
+                goto err;
+        }
 
     if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
         goto err;
     if (EVP_DecryptUpdate(ctx, outp, &len, in.data, (int)in.size) != 1)
         goto err;
 
-#if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
+#if defined(HAVE_GCM)
     if (type == atom_aes_gcm) {
         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
              goto err;
