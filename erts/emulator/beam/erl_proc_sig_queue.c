@@ -265,7 +265,7 @@ destroy_dist_proc_demonitor(ErtsSigDistProcDemonitor *dmon)
     Eterm ref = dmon->ref;
     if (is_external(ref)) {
         ExternalThing *etp = external_thing_ptr(ref);
-        erts_deref_node_entry(etp->node);
+        erts_deref_node_entry(etp->node, ref);
     }
     erts_free(ERTS_ALC_T_DIST_DEMONITOR, dmon);
 }
@@ -300,7 +300,8 @@ destroy_sig_dist_link_op(ErtsSigDistLinkOp *sdlnk)
 {
     ASSERT(is_external_pid(sdlnk->remote));
     ASSERT(boxed_val(sdlnk->remote) == &sdlnk->heap[0]);
-    erts_deref_node_entry(((ExternalThing *) &sdlnk->heap[0])->node);
+    erts_deref_node_entry(((ExternalThing *) &sdlnk->heap[0])->node,
+                          make_boxed(&sdlnk->heap[0]));
     erts_free(ERTS_ALC_T_SIG_DATA, sdlnk);
 }
 

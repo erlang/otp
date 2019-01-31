@@ -1303,7 +1303,8 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     ExternalThing *etp;
                     ASSERT(is_external_header(ptr->thing_word));
                     etp = (ExternalThing *) ptr;
-                    erts_refc_inc(&etp->node->refc, 1);
+                    erts_ref_node_entry(etp->node, 1,
+                                        make_boxed(&oh->thing_word));
                     break;
                 }
             }
@@ -2836,7 +2837,11 @@ sweep_off_heap(Process *p, int fullsweep)
     while (ptr) {
 	if (IS_MOVED_BOXED(ptr->thing_word)) {
 	    ASSERT(!ErtsInArea(ptr, oheap, oheap_sz));
-	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
+            if (is_external_header(((struct erl_off_heap_header*) boxed_val(ptr->thing_word))->thing_word))
+                erts_node_bookkeep(((ExternalThing*)ptr)->node,
+                                   make_boxed(&ptr->thing_word),
+                                   ERL_NODE_DEC);
+            *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
 	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
 	    switch (ptr->thing_word) {
 	    case HEADER_PROC_BIN: {
@@ -2863,6 +2868,11 @@ sweep_off_heap(Process *p, int fullsweep)
                 /* fall through... */
             }
             default:
+                if (is_external_header(ptr->thing_word)) {
+                    erts_node_bookkeep(((ExternalThing*)ptr)->node,
+                                       make_boxed(&ptr->thing_word),
+                                       ERL_NODE_INC);
+                }
 		prev = &ptr->next;
 		ptr = ptr->next;
 	    }
@@ -2896,7 +2906,8 @@ sweep_off_heap(Process *p, int fullsweep)
 		}
 	    default:
 		ASSERT(is_external_header(ptr->thing_word));
-		erts_deref_node_entry(((ExternalThing*)ptr)->node);
+		erts_deref_node_entry(((ExternalThing*)ptr)->node,
+                                      make_boxed(&ptr->thing_word));
 	    }
 	    *prev = ptr = ptr->next;
 	}
@@ -3028,6 +3039,13 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      case EXTERNAL_REF_SUBTAG:
 		  {
 		      struct erl_off_heap_header* oh = (struct erl_off_heap_header*) hp;
+
+                      if (is_external_header(oh->thing_word)) {
+                          erts_node_bookkeep(((ExternalThing*)oh)->node,
+                                             make_boxed(((Eterm*)oh)-offs), ERL_NODE_DEC);
+                          erts_node_bookkeep(((ExternalThing*)oh)->node,
+                                             make_boxed((Eterm*)oh), ERL_NODE_INC);
+                      }
 
 		      if (ErtsInArea(oh->next, area, area_size)) {
 			  Eterm** uptr = (Eterm **) (void *) &oh->next;

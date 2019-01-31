@@ -854,7 +854,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap, Uint 
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		  ExternalThing *etp = (ExternalThing *) objp;
-		  erts_refc_inc(&etp->node->refc, 2);
+		  erts_ref_node_entry(etp->node, 2, make_boxed(htop));
 		}
 	    L_off_heap_node_container_common:
 		{
@@ -1660,7 +1660,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 	    case EXTERNAL_REF_SUBTAG:
 	    {
 		ExternalThing *etp = (ExternalThing *) ptr;
-		erts_refc_inc(&etp->node->refc, 2);
+                erts_ref_node_entry(etp->node, 2, make_boxed(hp));
 	    }
 	  off_heap_node_container_common:
 	    {
@@ -1866,7 +1866,7 @@ Eterm copy_shallow(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp,
 	    case EXTERNAL_REF_SUBTAG:
 		{
 		    ExternalThing* etp = (ExternalThing *) (tp-1);
-		    erts_refc_inc(&etp->node->refc, 2);
+                    erts_ref_node_entry(etp->node, 2, make_boxed(hp-1));
 		}
 	    off_heap_common:
 		{

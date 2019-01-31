@@ -4063,10 +4063,12 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
       
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_pid_header(1);
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
@@ -4130,10 +4132,11 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
 
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
+      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_port_header(1);
       etp->next = MSO(BIF_P).first;
       etp->node = enp;
@@ -4236,9 +4239,6 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
       if (is_nil(dep->cid))
 	  goto bad;
       
-      enp = erts_find_or_insert_node(dep->sysname, dep->creation);
-      ASSERT(enp != erts_this_node);
-
       hsz = EXTERNAL_THING_HEAD_SIZE;
 #if defined(ARCH_64)
       hsz += n/2 + 1;
@@ -4247,6 +4247,11 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
 #endif
 
       etp = (ExternalThing *) HAlloc(BIF_P, hsz);
+
+      enp = erts_find_or_insert_node(dep->sysname, dep->creation,
+                                     make_boxed(&etp->header));
+      ASSERT(enp != erts_this_node);
+
       etp->header = make_external_ref_header(n/2);
       etp->next = BIF_P->off_heap.first;
       etp->node = enp;

@@ -181,7 +181,7 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
 	    break;
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
-	    erts_deref_node_entry(u.ext->node);
+	    erts_deref_node_entry(u.ext->node, make_boxed(u.ep));
 	    break;
 	}
     }

@@ -2480,7 +2480,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     return ep;
 }
 
-static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation)
+static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation, Eterm book)
 {
     if (sysname == INTERNAL_LOCAL_SYSNAME)  /* && DFLAG_INTERNAL_TAGS */
 	return erts_this_node;
@@ -2489,7 +2489,7 @@ static ERTS_INLINE ErlNode* dec_get_node(Eterm sysname, Uint32 creation)
 	&& (creation == erts_this_node->creation || creation == ORIG_CREATION))
 	return erts_this_node;
 
-    return erts_find_or_insert_node(sysname,creation);
+    return erts_find_or_insert_node(sysname,creation,book);
 }
 
 static byte*
@@ -2535,7 +2535,7 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, byte* ep,
      * We are careful to create the node entry only after all
      * validity tests are done.
      */
-    node = dec_get_node(sysname, cre);
+    node = dec_get_node(sysname, cre, make_boxed(factory->hp));
 
     if(node == erts_this_node) {
 	*objp = make_internal_pid(data);
@@ -3529,7 +3529,7 @@ dec_term_atom_common:
                     cre = get_int32(ep);
                     ep += 4;
                 }
-		node = dec_get_node(sysname, cre);
+		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
 		    *objp = make_internal_port(num);
 		}
@@ -3609,7 +3609,7 @@ dec_term_atom_common:
 		if (ref_words > ERTS_MAX_REF_NUMBERS)
 		    goto error;
 
-		node = dec_get_node(sysname, cre);
+		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
 	
 		    rtp = (ErtsORefThing *) hp;

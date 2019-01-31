@@ -3312,7 +3312,7 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
 	    ASSERT(u.pb != &tmp);
-	    erts_deref_node_entry(u.ext->node);
+	    erts_deref_node_entry(u.ext->node, make_boxed(u.ep));
 	    break;
 	}
     }

@@ -817,10 +817,15 @@ node_table_alloc(void *venp_tmpl)
 
     node_entries++;
 
-    erts_refc_init(&enp->refc, -1);
+    erts_init_node_entry(enp, -1);
     enp->creation = ((ErlNode *) venp_tmpl)->creation;
     enp->sysname = ((ErlNode *) venp_tmpl)->sysname;
     enp->dist_entry = erts_find_or_insert_dist_entry(((ErlNode *) venp_tmpl)->sysname);
+
+#ifdef ERL_NODE_BOOKKEEP
+    erts_atomic_init_nob(&enp->slot, 0);
+    sys_memzero(enp->books, sizeof(struct erl_node_bookkeeping) * 1024);
+#endif
 
     return (void *) enp;
 }
@@ -874,7 +879,7 @@ erts_node_table_info(fmtfn_t to, void *to_arg)
 }
 
 
-ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
+ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation, Eterm book)
 {
     ErlNode *res;
     ErlNode ne;
@@ -884,9 +889,9 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
     erts_rwmtx_rlock(&erts_node_table_rwmtx);
     res = hash_get(&erts_node_table, (void *) &ne);
     if (res && res != erts_this_node) {
-	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_ref_node_entry(res, 0, book);
 	if (refc < 2) /* New or pending delete */
-	    erts_refc_inc(&res->refc, 1);
+            erts_ref_node_entry(res, 1, THE_NON_VALUE);
     }
     erts_rwmtx_runlock(&erts_node_table_rwmtx);
     if (res)
@@ -896,9 +901,9 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
     res = hash_put(&erts_node_table, (void *) &ne);
     ASSERT(res);
     if (res != erts_this_node) {
-	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_ref_node_entry(res, 0, book);
 	if (refc < 2) /* New or pending delete */
-	    erts_refc_inc(&res->refc, 1);
+	    erts_ref_node_entry(res, 1, THE_NON_VALUE);
     }
     erts_rwmtx_rwunlock(&erts_node_table_rwmtx);
     return res;
@@ -925,6 +930,7 @@ static void try_delete_node(void *venp)
      *
      * If refc > 0, the entry is in use. Keep the entry.
      */
+    erts_node_bookkeep(enp, THE_NON_VALUE, ERL_NODE_DEC);
     refc = erts_refc_dectest(&enp->refc, -1);
     if (refc == -1)
 	(void) hash_erase(&erts_node_table, (void *) enp);
@@ -1022,7 +1028,7 @@ erts_set_this_node(Eterm sysname, Uint creation)
     erts_deref_dist_entry(erts_this_dist_entry);
 
     erts_this_node = NULL; /* to make sure refc is bumped for this node */
-    erts_this_node = erts_find_or_insert_node(sysname, creation);
+    erts_this_node = erts_find_or_insert_node(sysname, creation, THE_NON_VALUE);
     erts_this_dist_entry = erts_this_node->dist_entry;
 
     erts_ref_dist_entry(erts_this_dist_entry);
@@ -1091,7 +1097,7 @@ void erts_init_node_tables(int dd_sec)
     node_tmpl.creation = 0;
     erts_this_node = hash_put(&erts_node_table, &node_tmpl);
      /* +1 for erts_this_node */
-    erts_refc_init(&erts_this_node->refc, 1);
+    erts_init_node_entry(erts_this_node, 1);
 
     ASSERT(erts_this_node->dist_entry != NULL);
     erts_this_dist_entry = erts_this_node->dist_entry;
@@ -1843,6 +1849,25 @@ insert_sig_ext(ErtsDistExternal *edep, void *arg)
     Process *proc = arg;
     insert_dist_entry(edep->dep, SIGNAL_REF, proc->common.id, 0);
 }
+
+#ifdef ERL_NODE_BOOKKEEP
+void
+erts_node_bookkeep(ErlNode *np, Eterm term, int what)
+{
+    erts_aint_t slot = (erts_atomic_inc_read_nob(&np->slot) - 1) % 1024;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    Eterm who = THE_NON_VALUE;
+    ASSERT(np);
+    np->books[slot].what = what;
+    np->books[slot].term = term;
+    if (esdp->current_process) {
+        who = esdp->current_process->common.id;
+    } else if (esdp->current_port) {
+        who = esdp->current_port->common.id;
+    }
+    np->books[slot].who = who;
+}
+#endif
 
 static void
 setup_reference_table(void)

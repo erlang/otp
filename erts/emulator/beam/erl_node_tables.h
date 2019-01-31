@@ -176,12 +176,53 @@ struct dist_entry_ {
     struct dist_sequences *sequences; /* Ongoing distribution sequences */
 };
 
+/*
+#define ERL_NODE_BOOKKEEP
+ * Bookkeeping of ErlNode inc and dec operations to help debug refc problems.
+ * This is best used together with cerl -rr. Type the below into gdb:
+ * gdb:
+set pagination off
+set $i = 0
+set $node = referred_nodes[$node_ix].node
+while $i < $node->slot.counter
+ printf "%p: ", $node->books[$i].term
+ etp-1 $node->books[$i].who
+ printf " "
+ p $node->books[$i].what
+ set $i++
+end
+
+  * Then save that into a file called test.txt and run the below in
+  * an erlang shell in order to get all inc/dec that do not have a
+  * match.
+
+f(), {ok, B} = file:read_file("test.txt").
+Vs = [begin [Val, _, _, _, What] = All = string:lexemes(Ln, " "),{Val,What,All} end || Ln <- string:lexemes(B,"\n")].
+Accs = lists:foldl(fun({V,<<"ERL_NODE_INC">>,_},M) -> Val = maps:get(V,M,0), M#{ V => Val + 1 }; ({V,<<"ERL_NODE_DEC">>,_},M) -> Val = maps:get(V,M,0), M#{ V => Val - 1 } end, #{}, Vs).
+lists:usort(lists:filter(fun({V,N}) -> N /= 0 end, maps:to_list(Accs))).
+
+ * There are bound to be bugs in the the instrumentation code, but
+ * atleast this is a place to start when hunting refc bugs.
+ *
+ */
+#ifdef ERL_NODE_BOOKKEEP
+struct erl_node_bookkeeping {
+    Eterm who;
+    Eterm term;
+    enum { ERL_NODE_INC, ERL_NODE_DEC } what;
+};
+#endif
+
 typedef struct erl_node_ {
   HashBucket hash_bucket;	/* Hash bucket */
   erts_refc_t refc;		/* Reference count */
   Eterm	sysname;		/* name@host atom for efficiency */
   Uint32 creation;		/* Creation */
   DistEntry *dist_entry;	/* Corresponding dist entry */
+#ifdef ERL_NODE_BOOKKEEP
+  struct erl_node_bookkeeping books[1024];
+  erts_atomic_t slot;
+#endif
 } ErlNode;
 
 
@@ -214,7 +255,7 @@ void erts_dist_table_info(fmtfn_t, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
 void erts_set_dist_entry_pending(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
-ErlNode *erts_find_or_insert_node(Eterm, Uint32);
+ErlNode *erts_find_or_insert_node(Eterm, Uint32, Eterm);
 void erts_schedule_delete_node(ErlNode *);
 void erts_set_this_node(Eterm, Uint);
 Uint erts_node_table_size(void);
@@ -232,18 +273,38 @@ DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle, Uint32* connection_id);
 Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*, Uint32 conn_id);
 Eterm erts_make_dhandle(Process *c_p, DistEntry*, Uint32 conn_id);
 
-ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
+ERTS_GLB_INLINE void erts_init_node_entry(ErlNode *np, erts_aint_t val);
+ERTS_GLB_INLINE erts_aint_t erts_ref_node_entry(ErlNode *np, int min_val, Eterm term);
+ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np, Eterm term);
 ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_runlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwlock(DistEntry *dep);
 ERTS_GLB_INLINE void erts_de_rwunlock(DistEntry *dep);
+#ifdef ERL_NODE_BOOKKEEP
+void erts_node_bookkeep(ErlNode *, Eterm , int);
+#else
+#define erts_node_bookkeep(...)
+#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-erts_deref_node_entry(ErlNode *np)
+erts_init_node_entry(ErlNode *np, erts_aint_t val)
 {
-    ASSERT(np);
+    erts_refc_init(&np->refc, val);
+}
+
+ERTS_GLB_INLINE erts_aint_t
+erts_ref_node_entry(ErlNode *np, int min_val, Eterm term)
+{
+    erts_node_bookkeep(np, term, ERL_NODE_INC);
+    return erts_refc_inctest(&np->refc, min_val);
+}
+
+ERTS_GLB_INLINE void
+erts_deref_node_entry(ErlNode *np, Eterm term)
+{
+    erts_node_bookkeep(np, term, ERL_NODE_DEC);
     if (erts_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
 }
