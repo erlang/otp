@@ -3854,7 +3854,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp)
             break;
 
         case ERTS_SIG_Q_OP_MONITOR: {
-            ErtsProcExitContext pectxt = {c_p, am_noproc};
+            ErtsProcExitContext pectxt = {c_p, am_noproc, NULL, NULL, NIL};
             erts_proc_exit_handle_monitor((ErtsMonitor *) sig,
                                           (void *) &pectxt, -1);
             cnt += 4;

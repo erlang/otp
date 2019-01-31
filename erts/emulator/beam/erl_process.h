@@ -381,7 +381,10 @@ struct ErtsSchedulerSleepInfo_ {
 
 typedef struct ErtsProcList_ ErtsProcList;
 struct ErtsProcList_ {
-    Eterm pid;
+    union {
+        Eterm pid;
+        Process *p;
+    } u;
     Uint64 started_interval;
     ErtsProcList* next;
     ErtsProcList* prev;
@@ -1580,7 +1583,7 @@ ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *, ErtsProcList *);
 ERTS_GLB_INLINE int
 erts_proclist_same(ErtsProcList *plp, Process *p)
 {
-    return (plp->pid == p->common.id
+    return ((plp->u.pid == p->common.id || plp->u.p == p)
 	    && (plp->started_interval
 		== p->common.u.alive.started_interval));
 }
@@ -1819,6 +1822,9 @@ Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
 typedef struct {
     Process *c_p;
     Eterm reason;
+    ErtsLink *dist_links;
+    ErtsMonitor *dist_monitors;
+    Eterm dist_state;
 } ErtsProcExitContext;
 int erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds);
 int erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds);
