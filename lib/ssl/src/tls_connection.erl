@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,18 +149,10 @@ next_record(#state{handshake_env =
     {no_record, State#state{handshake_env = 
                                 HsEnv#handshake_env{unprocessed_handshake_events = N-1}}};
 next_record(#state{protocol_buffers =
-		       #protocol_buffers{tls_cipher_texts = [#ssl_tls{type = Type}| _] = CipherTexts0}
-                   = Buffers,
-                   connection_states = ConnectionStates0,
+                       #protocol_buffers{tls_cipher_texts = [_|_] = CipherTexts},
+                   connection_states = ConnectionStates,
                    ssl_options = #ssl_options{padding_check = Check}} = State) ->
-    case decode_cipher_texts(Type, CipherTexts0, ConnectionStates0, Check, <<>>) of
-        {#ssl_tls{} = Record, ConnectionStates, CipherTexts} ->
-            {Record, State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
-                                 connection_states = ConnectionStates}};
-        {#alert{} = Alert, ConnectionStates, CipherTexts} ->
-            {Alert, State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
-                                connection_states = ConnectionStates}}
-    end;            
+    next_record(State, CipherTexts, ConnectionStates, Check);
 next_record(#state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                    protocol_specific = #{active_n_toggle := true, active_n := N} = ProtocolSpec,
                    static_env = #static_env{socket = Socket,
@@ -176,6 +168,37 @@ next_record(#state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
      end;
 next_record(State) ->
     {no_record, State}.
+
+%% Decipher next record and concatenate consecutive ?APPLICATION_DATA records into one
+%%
+next_record(State, CipherTexts, ConnectionStates, Check) ->
+    next_record(State, CipherTexts, ConnectionStates, Check, []).
+%%
+next_record(State, [#ssl_tls{type = ?APPLICATION_DATA} = CT|CipherTexts], ConnectionStates0, Check, Acc) ->
+    case tls_record:decode_cipher_text(CT, ConnectionStates0, Check) of
+        {#ssl_tls{fragment = Fragment}, ConnectionStates} ->
+            next_record(State, CipherTexts, ConnectionStates, Check, [Fragment|Acc]);
+        #alert{} = Alert ->
+            Alert
+    end;
+next_record(State, [CT|CipherTexts], ConnectionStates0, Check, []) ->
+    case tls_record:decode_cipher_text(CT, ConnectionStates0, Check) of
+        {Record, ConnectionStates} ->
+            next_record_done(State, CipherTexts, ConnectionStates, Record);
+        #alert{} = Alert ->
+            Alert
+    end;
+next_record(State, CipherTexts, ConnectionStates, _Check, Acc) ->
+    %% Not ?APPLICATION_DATA but we have a nonempty Acc
+    %% -> build an ?APPLICATION_DATA record with the accumulated fragments
+    next_record_done(State, CipherTexts, ConnectionStates,
+                     #ssl_tls{type = ?APPLICATION_DATA, fragment = iolist_to_binary(lists:reverse(Acc))}).
+
+next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, ConnectionStates, Record) ->
+    {Record,
+     State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
+                 connection_states = ConnectionStates}}.
+
 
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
@@ -198,21 +221,6 @@ next_event(StateName, Record, State, Actions) ->
 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
     end.
 
-decode_cipher_texts(Type, [] = CipherTexts, ConnectionStates, _, Acc) ->
-    {#ssl_tls{type = Type, fragment = Acc}, ConnectionStates, CipherTexts};
-decode_cipher_texts(Type, 
-                    [#ssl_tls{type = Type} = CT | CipherTexts], ConnectionStates0, Check, Acc) ->
-    case tls_record:decode_cipher_text(CT, ConnectionStates0, Check) of
-	{#ssl_tls{type = ?APPLICATION_DATA, fragment = Plain}, ConnectionStates} ->		      
-            decode_cipher_texts(Type, CipherTexts, 
-                                ConnectionStates, Check, <<Acc/binary, Plain/binary>>);
-        {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates} ->
-            {#ssl_tls{type = Type, fragment = Plain}, ConnectionStates, CipherTexts};
-        #alert{} = Alert ->
-            {Alert, ConnectionStates0, CipherTexts}
-    end;
-decode_cipher_texts(Type, CipherTexts, ConnectionStates, _, Acc) ->
-    {#ssl_tls{type = Type, fragment = Acc}, ConnectionStates, CipherTexts}.
 
 %%% TLS record protocol level application data messages 
 
