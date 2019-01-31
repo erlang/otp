@@ -50,8 +50,9 @@
 
 %% Experiment
 -export([crypto_init/4,
-         crypto_update/2,
-         crypto_update/3
+         crypto_update/2, crypto_update/3,
+         
+         crypto_block/5
         ]).
 
 
@@ -2271,6 +2272,20 @@ call_ng_crypto_update_nif_no_blocking(State, Data, Acc) ->
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
+
+%%%================================================================
+%%% Compatibility functions to be called by "old" api functions.
+
+crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
+    case crypto_init(Cipher, iolist_to_binary(Key), IV, EncryptFlag) of
+        {ok, Ref} ->
+            case crypto_update(Ref, Data) of
+                {ok, Bin} -> Bin;
+                Others -> Others
+            end;
+
+        Others -> Others
+    end.
 
 %%%================================================================
 
