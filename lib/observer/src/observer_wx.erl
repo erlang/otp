@@ -771,7 +771,11 @@ ensure_sasl_started(Node) ->
 
 ensure_mf_h_handler_used(Node) ->
    %% is log_mf_h used ?
-   Handlers = rpc:block_call(Node, gen_event, which_handlers, [error_logger]),
+   Handlers =
+        case rpc:block_call(Node, gen_event, which_handlers, [error_logger]) of
+            {badrpc,{'EXIT',noproc}} -> []; % OTP-21+ and no event handler exists
+            Hs -> Hs
+        end,
    case lists:any(fun(L)-> L == log_mf_h end, Handlers) of
        false -> throw("Error: log_mf_h handler not used in sasl."),
                 error;
