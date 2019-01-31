@@ -194,6 +194,15 @@ send(Connection,Cmd,Opts) ->
 
 check_send_opts([{newline,Bool}|Opts]) when is_boolean(Bool) ->
     check_send_opts(Opts);
+check_send_opts([{newline,String}|Opts]) when is_list(String) ->
+    case lists:all(fun(I) when is_integer(I), I>=0, I=<127 -> true;
+                      (_) -> false
+                   end, String) of
+        true ->
+            check_send_opts(Opts);
+        false ->
+            {error,{invalid_option,{newline,String}}}
+    end;
 check_send_opts([Invalid|_]) ->
     {error,{invalid_option,Invalid}};
 check_send_opts([]) ->
