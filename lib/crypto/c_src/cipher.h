@@ -32,19 +32,33 @@ struct cipher_type_t {
 	const EVP_CIPHER* (*funcp)(void); /* before init, NULL if notsup */
 	const EVP_CIPHER* p;              /* after init, NULL if notsup */
     }cipher;
-    const size_t key_len;      /* != 0 to also match on key_len */
+    size_t key_len;      /* != 0 to also match on key_len */
+    unsigned flags;
 };
 
-#ifdef HAVE_EVP_AES_CTR
+/* masks in the flags field if cipher_type_t */
+#define NO_FIPS_CIPHER 1
+#define AES_CFBx 2
+#define ECB 4
+
+#ifdef FIPS_SUPPORT
+/* May have FIPS support, must check dynamically if it is enabled */
+# define FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
+#else
+/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
+# define FORBIDDEN_IN_FIPS(P) 0
+#endif
+
 extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
 };
-#endif
 
 int init_cipher_ctx(ErlNifEnv *env);
 
 void init_cipher_types(ErlNifEnv* env);
 struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
+
+int cmp_cipher_types(const void *keyp, const void *elemp);
 
 #endif /* E_CIPHER_H__ */

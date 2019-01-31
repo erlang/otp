@@ -25,7 +25,7 @@ static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
 static unsigned int algo_cipher_cnt, algo_cipher_fips_cnt;
-static ERL_NIF_TERM algo_cipher[25]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[29]; /* increase when extending the list */
 static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
@@ -99,10 +99,14 @@ void init_algorithms_types(ErlNifEnv* env)
 #endif
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc192");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr128");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr192");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");

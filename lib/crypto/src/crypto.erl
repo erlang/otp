@@ -47,6 +47,14 @@
 -export([privkey_to_pubkey/2]).
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
+
+%% Experiment
+-export([crypto_init/4,
+         crypto_update/2,
+         crypto_update/3
+        ]).
+
+
 %% Engine
 -export([
          engine_get_all_methods/0,
@@ -2179,3 +2187,92 @@ check_otp_test_engine(LibDir) ->
                     {error, notexist}
             end
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Experimental NG
+%%%
+
+%%% -> {ok,State::ref()} | {error,Reason}
+
+crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
+                                               is_binary(Key),
+                                               is_binary(IV),
+                                               is_atom(EncryptFlag) ->
+    try ng_crypto_init_nif(alias(Cipher), Key, IV, EncryptFlag) of
+        {error,Error} ->
+            {error,Error};
+        Ref when is_reference(Ref) ->
+            {ok,Ref};
+        State when is_tuple(State),
+                   size(State)==4 ->
+            {ok,State} % compatibility with old cryptolibs < 1.0.1
+    catch
+        C:E -> {error, {C,E}}
+    end.
+
+
+%%% -> {ok,binary()} | {error,Reason}
+crypto_update(State, Data, EncryptFlag) ->
+    case ng_crypto_flag_nif(State, EncryptFlag) of
+        ok -> crypto_update(State, Data);
+        {error,Error} -> {error,Error}
+    end.
+
+
+%%% -> {ok,binary()} | {error,Reason}
+crypto_update(State, Data) ->
+    Size = iolist_size(Data),
+    if
+        Size =< ?MAX_BYTES_TO_NIF ->
+            case ng_crypto_update_nif(State, Data) of
+                {error,Error} -> {error,Error};
+                Bin when is_binary(Bin) -> {ok,Bin};
+                {State1,Bin} when is_tuple(State1),
+                                  size(State1) == 4,
+                                  is_binary(Bin) -> {ok,{State1,Bin}} % compatibility with old cryptolibs < 1.0.1
+            end;
+
+        Size > ?MAX_BYTES_TO_NIF ->
+            %% FIXME: Too much work for now to use an iolist as input...
+            case call_ng_crypto_update_nif_no_blocking(State, iolist_to_binary(Data), []) of
+                {error,Error} -> {error,Error};
+                Bin when is_binary(Bin) -> {ok,Bin};
+                {compat,State1,Bin} when is_binary(Bin) -> {ok,{State1,Bin}} % compatibility with old cryptolibs < 1.0.1
+            end
+    end.
+
+-define(SAVE(X,ACC), [(X)|(ACC)]).
+-define(RETURN(X,ACC), iolist_to_binary(lists:reverse(?SAVE(X,ACC)))).
+
+%%% Avoid blocking the scheduler for large chunks of data
+call_ng_crypto_update_nif_no_blocking(State, <<Data:?MAX_BYTES_TO_NIF/binary, RestData/binary>>, Acc) when size(RestData)>0 ->
+    case ng_crypto_update_nif(State, Data) of
+        Bin when is_binary(Bin) ->
+            call_ng_crypto_update_nif_no_blocking(State, RestData, ?SAVE(Bin,Acc));
+        {State1,Bin} when is_tuple(State1),
+                          size(State1) == 4,
+                          is_binary(Bin) -> % compatibility with old cryptolibs < 1.0.1
+            call_ng_crypto_update_nif_no_blocking(State1, RestData, ?SAVE(Bin,Acc));
+        Other ->
+            Other
+    end;
+
+call_ng_crypto_update_nif_no_blocking(State, Data, Acc) ->
+    %% size(Data) < ?MAX_BYTES_TO_NIF but > 0
+    case ng_crypto_update_nif(State, Data) of
+        Bin when is_binary(Bin) ->
+            ?RETURN(Bin,Acc);
+        {State1,Bin} when is_tuple(State1),
+                          size(State1) == 4,
+                          is_binary(Bin) -> % compatibility with old cryptolibs < 1.0.1
+            {compat,State1, ?RETURN(Bin,Acc)};
+        Other ->
+            Other
+    end.
+
+ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
+ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
+ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
+

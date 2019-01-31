@@ -28,6 +28,7 @@
 #include "aead.h"
 #include "aes.h"
 #include "algorithms.h"
+#include "api_ng.h"
 #include "block.h"
 #include "bn.h"
 #include "chacha20.h"
@@ -83,6 +84,9 @@ static ErlNifFunc nif_funcs[] = {
     {"aes_ctr_stream_init", 2, aes_ctr_stream_init, 0},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt, 0},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt, 0},
+    {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
+    {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
+    {"ng_crypto_flag_nif", 2, ng_crypto_flag_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
     {"rand_uniform_nif", 2, rand_uniform_nif, 0},
@@ -132,7 +136,6 @@ static ErlNifFunc nif_funcs[] = {
     {"engine_get_id_nif", 1, engine_get_id_nif, 0},
     {"engine_get_name_nif", 1, engine_get_name_nif, 0},
     {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
-
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)

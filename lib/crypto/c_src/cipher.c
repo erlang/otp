@@ -28,50 +28,64 @@
 
 static struct cipher_type_t cipher_types[] =
 {
-    {{"rc2_cbc"},
 #ifndef OPENSSL_NO_RC2
-     {&EVP_rc2_cbc}
+    {{"rc2_cbc"}, {&EVP_rc2_cbc}, 0, NO_FIPS_CIPHER},
 #else
-     {NULL}
+    {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER},
 #endif
-    ,0},
-    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0},
-    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0},
-    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0},
-    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}, 0},
-    {{"des_ede3_cbf"}, /* Misspelled, retained */
+    {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER},
+    {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0, NO_FIPS_CIPHER},
+    {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0, NO_FIPS_CIPHER},
+    {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0, NO_FIPS_CIPHER | ECB},
+
+    {{"des_ede3_cbc"}, {COND_NO_DES_PTR(&EVP_des_ede3_cbc)}, 0, 0},
+
 #ifdef HAVE_DES_ede3_cfb_encrypt
-     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+    {{"des_ede3_cfb"}, {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}, 0, 0},
 #else
-     {NULL}
+    {{"des_ede3_cfb"}, {NULL}, 0, 0},
 #endif
-     ,0},
-    {{"des_ede3_cfb"},
-#ifdef HAVE_DES_ede3_cfb_encrypt
-     {COND_NO_DES_PTR(&EVP_des_ede3_cfb8)}
+
+    {{"blowfish_cbc"}, {&EVP_bf_cbc}, 0, NO_FIPS_CIPHER},
+    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER},
+    {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0, NO_FIPS_CIPHER},
+    {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0, NO_FIPS_CIPHER | ECB},
+    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
+    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
+    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
+    {{"aes_128_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
+    {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
+    {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER},
+    {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER},
+    {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER},
+    {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER},
+    {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER},
+    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16, ECB},
+    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24, ECB},
+    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32, ECB},
+#if defined(HAVE_EVP_AES_CTR)
+    {{"aes_128_ctr"}, {&EVP_aes_128_ctr}, 16, 0},
+    {{"aes_192_ctr"}, {&EVP_aes_192_ctr}, 24, 0},
+    {{"aes_256_ctr"}, {&EVP_aes_256_ctr}, 32, 0},
+    {{"aes_ctr"},    {&EVP_aes_128_ctr}, 16, 0},
+    {{"aes_ctr"},    {&EVP_aes_192_ctr}, 24, 0},
+    {{"aes_ctr"},    {&EVP_aes_256_ctr}, 32, 0},
 #else
-     {NULL}
+    {{"aes_ctr"},    {NULL}, 0, 0},
 #endif
-     ,0},
-    {{"blowfish_cbc"}, {&EVP_bf_cbc}, 0},
-    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0},
-    {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0},
-    {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0},
-    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16},
-    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24},
-    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32},
-    {{"aes_cbc128"}, {&EVP_aes_128_cbc}, 0},
-    {{"aes_cbc256"}, {&EVP_aes_256_cbc}, 0},
-    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 0},
-    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 0},
-    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16},
-    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24},
-    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32},
-    {{NULL},{NULL},0}
+#if defined(HAVE_CHACHA20)
+    {{"chacha20"}, {&EVP_chacha20}, 32, NO_FIPS_CIPHER},
+#else
+    {{"chacha20"}, {NULL}, 0, NO_FIPS_CIPHER},
+#endif
+    {{NULL},{NULL},0,0}
 };
 
-#ifdef HAVE_EVP_AES_CTR
 ErlNifResourceType* evp_cipher_ctx_rtype;
+
+int num_cipher_types = 0;
 
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
     if (ctx == NULL)
@@ -80,25 +94,20 @@ static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
     if (ctx->ctx)
         EVP_CIPHER_CTX_free(ctx->ctx);
 }
-#endif
 
 int init_cipher_ctx(ErlNifEnv *env) {
-#ifdef HAVE_EVP_AES_CTR
     evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
                                                    (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
                                                    ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                    NULL);
     if (evp_cipher_ctx_rtype == NULL)
         goto err;
-#endif
 
     return 1;
 
-#ifdef HAVE_EVP_AES_CTR
  err:
     PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
     return 0;
-#endif
 }
 
 void init_cipher_types(ErlNifEnv* env)
@@ -106,20 +115,35 @@ void init_cipher_types(ErlNifEnv* env)
     struct cipher_type_t* p = cipher_types;
 
     for (p = cipher_types; p->type.str; p++) {
+        num_cipher_types++;
 	p->type.atom = enif_make_atom(env, p->type.str);
 	if (p->cipher.funcp)
 	    p->cipher.p = p->cipher.funcp();
     }
     p->type.atom = atom_false; /* end marker */
+
+    qsort(cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types);
 }
 
 struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
 {
-    struct cipher_type_t* p = NULL;
-    for (p = cipher_types; p->type.atom != atom_false; p++) {
-	if (type == p->type.atom && (!p->key_len || key_len == p->key_len)) {
-	    return p;
-	}
-    }
-    return NULL;
+    struct cipher_type_t key;
+
+    key.type.atom = type;
+    key.key_len = key_len;
+
+    return bsearch(&key, cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types);
+}
+
+
+int cmp_cipher_types(const void *keyp, const void *elemp) {
+    struct cipher_type_t *key  = (struct cipher_type_t *) keyp;
+    struct cipher_type_t *elem = (struct cipher_type_t *) elemp;
+
+    if (key->type.atom < elem->type.atom) return -1;
+    else if (key->type.atom > elem->type.atom) return 1;
+    else /* key->type.atom == elem->type.atom */
+        if (!elem->key_len || key->key_len == elem->key_len) return 0;
+        else if (key->key_len < elem->key_len) return -1;
+        else return 1;
 }

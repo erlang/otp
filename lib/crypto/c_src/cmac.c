@@ -43,6 +43,8 @@ ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (!enif_inspect_iolist_as_binary(env, argv[2], &data))
         goto bad_arg;
 
+    if (FORBIDDEN_IN_FIPS(cipherp))
+        return enif_raise_exception(env, atom_notsup);
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
 
