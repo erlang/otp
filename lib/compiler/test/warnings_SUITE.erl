@@ -42,7 +42,7 @@
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1,inlining/1]).
+	 bit_syntax/1,inlining/1,tuple_calls/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -64,7 +64,8 @@ groups() ->
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
-       underscore,no_warnings,bit_syntax,inlining]}].
+       underscore,no_warnings,bit_syntax,inlining,
+       tuple_calls]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -963,6 +964,20 @@ inlining(Config) ->
               add(1, 0) -> 1;
               add(1, Y) -> 1 + Y;
               add(X, Y) -> X + Y.
+           ">>,
+           [],
+           []}
+	 ],
+    run(Config, Ts),
+    ok.
+
+tuple_calls(Config) ->
+    %% Make sure that no spurious warnings are generated.
+    Ts = [{inlining_1,
+           <<"-compile(tuple_calls).
+              dispatch(X) ->
+                (list_to_atom(\"prefix_\" ++
+                atom_to_list(suffix))):doit(X).
            ">>,
            [],
            []}

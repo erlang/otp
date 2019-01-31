@@ -2627,7 +2627,8 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
      [],A#a.us,St2}.
 
 c_call_erl(Fun, Args) ->
-    cerl:c_call(cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+    As = [compiler_generated],
+    cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
 
 %% lit_vars(Literal) -> [Var].
 
