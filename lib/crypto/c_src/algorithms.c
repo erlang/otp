@@ -25,7 +25,7 @@ static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
 static unsigned int algo_cipher_cnt, algo_cipher_fips_cnt;
-static ERL_NIF_TERM algo_cipher[29]; /* increase when extending the list */
+static ERL_NIF_TERM algo_cipher[36]; /* increase when extending the list */
 static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
 static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
@@ -90,23 +90,25 @@ void init_algorithms_types(ErlNifEnv* env)
     // Validated algorithms first
     algo_cipher_cnt = 0;
 #ifndef OPENSSL_NO_DES
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3_cbc"); /* The name used outside Erlang/OTP */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc"); /* Old alias kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3"); /* Old alias kept for compatibility */
 #ifdef HAVE_DES_ede3_cfb_encrypt
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cfb");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3_cfb"); /* The name used outside Erlang/OTP */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cfb"); /* Old alias kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf"); /* Misspelled but maybe used out there. Compat. */
 #endif
 #endif
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc192");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr128");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr192");
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr256");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc"); /* Generic name, kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");/* Old alias kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");/* Old alias kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_128_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_192_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_256_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr"); /* Generic name, kept for compatibility */
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_128_ctr");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_192_ctr");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_256_ctr");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
 #if defined(HAVE_GCM)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
@@ -116,6 +118,8 @@ void init_algorithms_types(ErlNifEnv* env)
 #endif
     // Non-validated algorithms follow
     algo_cipher_fips_cnt = algo_cipher_cnt;
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif

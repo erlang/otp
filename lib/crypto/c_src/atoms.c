@@ -60,9 +60,9 @@ ERL_NIF_TERM atom_aes_cfb8;
 ERL_NIF_TERM atom_aes_cfb128;
 ERL_NIF_TERM atom_aes_cbc;
 ERL_NIF_TERM atom_aes_ctr;
-ERL_NIF_TERM atom_aes_ctr128;
-ERL_NIF_TERM atom_aes_ctr192;
-ERL_NIF_TERM atom_aes_ctr256;
+ERL_NIF_TERM atom_aes_128_ctr;
+ERL_NIF_TERM atom_aes_192_ctr;
+ERL_NIF_TERM atom_aes_256_ctr;
 #ifdef HAVE_GCM
 ERL_NIF_TERM atom_aes_gcm;
 #endif
@@ -192,9 +192,9 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
     atom_aes_cbc = enif_make_atom(env, "aes_cbc");
     atom_aes_ctr = enif_make_atom(env, "aes_ctr");
-    atom_aes_ctr128 = enif_make_atom(env, "aes_ctr128");
-    atom_aes_ctr192 = enif_make_atom(env, "aes_ctr192");
-    atom_aes_ctr256 = enif_make_atom(env, "aes_ctr256");
+    atom_aes_128_ctr = enif_make_atom(env, "aes_128_ctr");
+    atom_aes_192_ctr = enif_make_atom(env, "aes_192_ctr");
+    atom_aes_256_ctr = enif_make_atom(env, "aes_256_ctr");
 #ifdef HAVE_GCM
     atom_aes_gcm = enif_make_atom(env, "aes_gcm");
 #endif

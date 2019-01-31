@@ -480,7 +480,7 @@ hmac_final_n(Context, HashLen) ->
                            Data :: iodata(),
                            Mac :: binary().
 cmac(Type, Key, Data) ->
-    notsup_to_error(cmac_nif(Type, Key, Data)).
+    notsup_to_error(cmac_nif(alias(Type), Key, Data)).
 
 -spec cmac(Type, Key, Data, MacLength) ->
                   Mac when Type :: ?CMAC_CIPHER_ALGORITHM,
@@ -488,8 +488,9 @@ cmac(Type, Key, Data) ->
                            Data :: iodata(),
                            MacLength :: integer(), 
                            Mac :: binary().
+
 cmac(Type, Key, Data, MacLength) ->
-    erlang:binary_part(cmac(Type, Key, Data), 0, MacLength).
+    erlang:binary_part(cmac(alias(Type), Key, Data), 0, MacLength).
 
 %%%---- POLY1305
 
@@ -506,91 +507,80 @@ poly1305(Key, Data) ->
 
 %%%---- Block ciphers
 
+%%%----------------------------------------------------------------
 -spec block_encrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), PlainText::iodata()) -> binary();
                    (Type::aead_cipher(),  Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata()}) ->
                            {binary(), binary()};
                    (aes_gcm | aes_ccm, Key::iodata(), Ivec::binary(), {AAD::binary(), PlainText::iodata(), TagLength::1..16}) ->
                            {binary(), binary()}.
 
-block_encrypt(Type, Key, Ivec, PlainText) when Type =:= des_cbc;
-                                               Type =:= des_cfb;
-                                               Type =:= blowfish_cbc;
-                                               Type =:= blowfish_cfb64;
-                                               Type =:= blowfish_ofb64;
-                                               Type =:= aes_cbc128;
-                                               Type =:= aes_cfb8;
-                                               Type =:= aes_cfb128;
-                                               Type =:= aes_cbc256;
-                                               Type =:= aes_cbc;
-                                               Type =:= rc2_cbc ->
-    block_crypt_nif(Type, Key, Ivec, PlainText, true);
-block_encrypt(Type, Key0, Ivec, PlainText) when Type =:= des3_cbc;
-                                                Type =:= des_ede3 ->
+
+block_encrypt(Type, Key, Ivec, Data) ->
+    do_block_encrypt(alias(Type), Key, Ivec, Data).
+
+do_block_encrypt(Type, Key0, Ivec, Data) when Type =:= des_ede3_cbc;
+                                           Type =:= des_ede3_cfb ->
     Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbc, Key, Ivec, PlainText, true);
-block_encrypt(des3_cbf, Key0, Ivec, PlainText) -> % cfb misspelled
-    Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbf, Key, Ivec, PlainText, true);
-block_encrypt(des3_cfb, Key0, Ivec, PlainText) ->
-    Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cfb, Key, Ivec, PlainText, true);
-block_encrypt(aes_ige256, Key, Ivec, PlainText) ->
+    block_crypt_nif(Type, Key, Ivec, Data, true);
+
+do_block_encrypt(Type, Key, Ivec, PlainText) when Type =:= aes_ige256 ->
     notsup_to_error(aes_ige_crypt_nif(Key, Ivec, PlainText, true));
-block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= aes_gcm;
-                                                      Type =:= aes_ccm ->
-    aead_encrypt(Type, Key, Ivec, AAD, PlainText);
-block_encrypt(Type, Key, Ivec, {AAD, PlainText, TagLength}) when Type =:= aes_gcm;
-                                                                 Type =:= aes_ccm ->
-    aead_encrypt(Type, Key, Ivec, AAD, PlainText, TagLength);
-block_encrypt(chacha20_poly1305=Type, Key, Ivec, {AAD, PlainText}) ->
-    aead_encrypt(Type, Key, Ivec, AAD, PlainText, 16).
 
+do_block_encrypt(Type, Key, Ivec, {AAD, PlainText}) when Type =:= chacha20_poly1305 ->
+    aead_encrypt(Type, Key, Ivec, AAD, PlainText, 16);
 
--spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
-		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
-		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
-block_decrypt(Type, Key, Ivec, Data) when Type =:= des_cbc;
-                                          Type =:= des_cfb;
-                                          Type =:= blowfish_cbc;
-                                          Type =:= blowfish_cfb64;
-                                          Type =:= blowfish_ofb64;
-					  Type =:= aes_cbc;
-                                          Type =:= aes_cbc128;
-                                          Type =:= aes_cfb8;
-                                          Type =:= aes_cfb128;
-                                          Type =:= aes_cbc256;
-                                          Type =:= rc2_cbc ->
-    block_crypt_nif(Type, Key, Ivec, Data, false);
-block_decrypt(Type, Key0, Ivec, Data) when Type =:= des3_cbc;
-                                           Type =:= des_ede3 ->
-    Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbc, Key, Ivec, Data, false);
-block_decrypt(des3_cbf, Key0, Ivec, Data) -> % cfb misspelled
-    Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cbf, Key, Ivec, Data, false);
-block_decrypt(des3_cfb, Key0, Ivec, Data) ->
-    Key = check_des3_key(Key0),
-    block_crypt_nif(des_ede3_cfb, Key, Ivec, Data, false);
-block_decrypt(aes_ige256, Key, Ivec, Data) ->
-    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
-block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
-                                                      Type =:= aes_ccm;
-                                                      Type =:= chacha20_poly1305 ->
-    aead_decrypt(Type, Key, Ivec, AAD, Data, Tag).
+do_block_encrypt(Type, Key, Ivec, Data) when Type =:= aes_gcm;
+                                          Type =:= aes_ccm ->
+    case Data of
+        {AAD, PlainText} ->
+            aead_encrypt(Type, Key, Ivec, AAD, PlainText);
+        {AAD, PlainText, TagLength} ->
+            aead_encrypt(Type, Key, Ivec, AAD, PlainText, TagLength)
+    end;
+
+do_block_encrypt(Type, Key, Ivec, PlainText) ->
+    block_crypt_nif(Type, Key, Ivec, PlainText, true).
+
 
 
 -spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) -> binary().
 
 block_encrypt(Type, Key, PlainText) ->
-    block_crypt_nif(Type, Key, PlainText, true).
+    block_crypt_nif(alias(Type), Key, PlainText, true).
+
+%%%----------------------------------------------------------------
+%%%----------------------------------------------------------------
+-spec block_decrypt(Type::block_cipher_with_iv(), Key::key()|des3_key(), Ivec::binary(), Data::iodata()) -> binary();
+		   (Type::aead_cipher(), Key::iodata(), Ivec::binary(),
+		    {AAD::binary(), Data::iodata(), Tag::binary()}) -> binary() | error.
+
+block_decrypt(Type, Key, Ivec, Data) ->
+    do_block_decrypt(alias(Type), Key, Ivec, Data).
+
+do_block_decrypt(Type, Key0, Ivec, Data) when Type =:= des_ede3_cbc;
+                                           Type =:= des_ede3_cfb ->
+    Key = check_des3_key(Key0),
+    block_crypt_nif(Type, Key, Ivec, Data, false);
+
+do_block_decrypt(aes_ige256, Key, Ivec, Data) ->
+    notsup_to_error(aes_ige_crypt_nif(Key, Ivec, Data, false));
+
+do_block_decrypt(Type, Key, Ivec, {AAD, Data, Tag}) when Type =:= aes_gcm;
+                                                      Type =:= aes_ccm;
+                                                      Type =:= chacha20_poly1305 ->
+    aead_decrypt(Type, Key, Ivec, AAD, Data, Tag);
+
+do_block_decrypt(Type, Key, Ivec, Data) ->
+    block_crypt_nif(Type, Key, Ivec, Data, false).
+
 
 
 -spec block_decrypt(Type::block_cipher_without_iv(), Key::key(), Data::iodata()) -> binary().
 
 block_decrypt(Type, Key, Data) ->
-    block_crypt_nif(Type, Key, Data, false).
+    block_crypt_nif(alias(Type), Key, Data, false).
 
-
+%%%----------------------------------------------------------------
 -spec next_iv(Type:: cbc_cipher(), Data) -> NextIVec when % Type :: cbc_cipher(), %des_cbc | des3_cbc | aes_cbc | aes_ige,
                                            Data :: iodata(),
                                            NextIVec :: binary().
@@ -628,6 +618,12 @@ next_iv(Type, Data, _Ivec) ->
                                                  IVec :: binary(),
                                                  State :: stream_state() .
 stream_init(aes_ctr, Key, Ivec) ->
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
+stream_init(aes_128_ctr, Key, Ivec) ->
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
+stream_init(aes_192_ctr, Key, Ivec) ->
+    {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
+stream_init(aes_256_ctr, Key, Ivec) ->
     {aes_ctr, aes_ctr_stream_init(Key, Ivec)};
 stream_init(chacha20, Key, Ivec) ->
     {chacha20, chacha20_stream_init(Key,Ivec)}.
@@ -2276,3 +2272,17 @@ ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
 ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
 
+%%%================================================================
+
+%%%---- des_ede3_cbc
+alias(des3_cbc)     -> des_ede3_cbc;
+alias(des_ede3)     -> des_ede3_cbc;
+%%%---- des_ede3_cfb
+alias(des_ede3_cbf) -> des_ede3_cfb;
+alias(des3_cbf)     -> des_ede3_cfb;
+alias(des3_cfb)     -> des_ede3_cfb;
+%%%---- aes_*_cbc
+alias(aes_cbc128)   -> aes_128_cbc;
+alias(aes_cbc256)   -> aes_256_cbc;
+
+alias(Alg) -> Alg.

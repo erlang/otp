@@ -51,27 +51,33 @@ ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
 
-    if (argv[0] == atom_aes_cfb8
-        && (key.size == 24 || key.size == 32)) {
-        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
-         * Fall back on low level API
-         */
-        return aes_cfb_8_crypt(env, argc-1, argv+1);
+    if (cipherp->flags & AES_CFBx) {
+        if (argv[0] == atom_aes_cfb8
+            && (key.size == 24 || key.size == 32)) {
+            /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+             * Fall back on low level API
+             */
+            return aes_cfb_8_crypt(env, argc-1, argv+1);
+        }
+        else if (argv[0] == atom_aes_cfb128
+                 && (key.size == 24 || key.size == 32)) {
+            /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+             * Fall back on low level API
+             */
+            return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
+        }
     }
-    else if (argv[0] == atom_aes_cfb128
-        && (key.size == 24 || key.size == 32)) {
-        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
-         * Fall back on low level API
-         */
-        return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
-   }
 
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
 #ifdef HAVE_ECB_IVEC_BUG
-    if (argv[0] == atom_aes_ecb || argv[0] == atom_blowfish_ecb ||
-	argv[0] == atom_des_ecb)
-	ivec_size = 0; /* 0.9.8l returns faulty ivec_size */
+    if (cipherp->flags & ECB) {
+        if (argv[0] == atom_aes_ecb ||
+            argv[0] == atom_blowfish_ecb ||
+            argv[0] == atom_des_ecb
+            )
+            ivec_size = 0; /* 0.9.8l returns faulty ivec_size */
+    }
 #endif
     if (ivec_size < 0)
         goto bad_arg;

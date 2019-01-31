@@ -64,9 +64,9 @@ extern ERL_NIF_TERM atom_aes_cfb8;
 extern ERL_NIF_TERM atom_aes_cfb128;
 extern ERL_NIF_TERM atom_aes_cbc;
 extern ERL_NIF_TERM atom_aes_ctr;
-extern ERL_NIF_TERM atom_aes_ctr128;
-extern ERL_NIF_TERM atom_aes_ctr192;
-extern ERL_NIF_TERM atom_aes_ctr256;
+extern ERL_NIF_TERM atom_aes_128_ctr;
+extern ERL_NIF_TERM atom_aes_192_ctr;
+extern ERL_NIF_TERM atom_aes_256_ctr;
 #ifdef HAVE_GCM
 extern ERL_NIF_TERM atom_aes_gcm;
 #endif
