@@ -583,7 +583,7 @@ get_config(Client, Source, Filter, Timeout) ->
 -spec edit_config(Client, Target, Config) -> Result when
       Client :: client(),
       Target :: netconf_db(),
-      Config :: simple_xml(),
+      Config :: simple_xml() | [simple_xml()],
       Result :: ok | {error,error_reason()}.
 edit_config(Client, Target, Config) ->
     edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
@@ -591,7 +591,7 @@ edit_config(Client, Target, Config) ->
 -spec edit_config(Client, Target, Config, OptParams) -> Result when
       Client :: client(),
       Target :: netconf_db(),
-      Config :: simple_xml(),
+      Config :: simple_xml() | [simple_xml()],
       OptParams :: [simple_xml()],
       Result :: ok | {error,error_reason()};
                  (Client, Target, Config, Timeout) -> Result when
@@ -608,10 +608,12 @@ edit_config(Client, Target, Config, OptParams) when is_list(OptParams) ->
 -spec edit_config(Client, Target, Config, OptParams, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
-      Config :: simple_xml(),
+      Config :: simple_xml() | [simple_xml()],
       OptParams :: [simple_xml()],
       Timeout :: timeout(),
       Result :: ok | {error,error_reason()}.
+edit_config(Client, Target, Config, OptParams, Timeout) when not is_list(Config)->
+    edit_config(Client, Target, [Config], OptParams, Timeout);
 edit_config(Client, Target, Config, OptParams, Timeout) ->
     call(Client, {send_rpc_op, edit_config, [Target,Config,OptParams], Timeout}).
 
@@ -1113,7 +1115,7 @@ encode_rpc_operation(get,[Filter]) ->
 encode_rpc_operation(get_config,[Source,Filter]) ->
     {'get-config',[{source,[Source]}] ++ filter(Filter)};
 encode_rpc_operation(edit_config,[Target,Config,OptParams]) ->
-    {'edit-config',[{target,[Target]}] ++ OptParams ++ [{config,[Config]}]};
+    {'edit-config',[{target,[Target]}] ++ OptParams ++ [{config,Config}]};
 encode_rpc_operation(delete_config,[Target]) ->
     {'delete-config',[{target,[Target]}]};
 encode_rpc_operation(copy_config,[Target,Source]) ->
