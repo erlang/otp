@@ -805,12 +805,11 @@ handle_unix_socket_options(#request{unix_socket = UnixSocket},
             error({badarg, [{ipfamily, Else}, {unix_socket, UnixSocket}]})
     end.
 
-connect_and_send_first_request(Address, #request{ipv6_host_with_brackets = HasBrackets} = Request, 
-                               #state{options = Options0} = State) ->
+connect_and_send_first_request(Address, Request, #state{options = Options0} = State) ->
     SocketType  = socket_type(Request),
     ConnTimeout = (Request#request.settings)#http_options.connect_timeout,
     Options = handle_unix_socket_options(Request, Options0),
-    case connect(SocketType, format_address(Address, HasBrackets), Options, ConnTimeout) of
+    case connect(SocketType, format_address(Address), Options, ConnTimeout) of
         {ok, Socket} ->
             ClientClose =
 		httpc_request:is_client_closing(
@@ -1739,9 +1738,8 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
                      {stacktrace, Stacktrace}]}}
     end.
 
-
-format_address({Host, Port}, true) when is_list(Host)->
-    {ok, Address} = inet:parse_address(string:strip(string:strip(Host, right, $]), left, $[)),
+format_address({[$[|T], Port}) ->
+    {ok, Address} = inet:parse_address(string:strip(T, right, $])),
     {Address, Port};
-format_address(HostPort, _) ->
+format_address(HostPort) ->
     HostPort.
