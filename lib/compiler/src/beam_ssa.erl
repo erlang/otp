@@ -324,8 +324,8 @@ def(Ls, Blocks) ->
 def_used(Ls, Blocks) ->
     Top = rpo(Ls, Blocks),
     Blks = [map_get(L, Blocks) || L <- Top],
-    Preds = gb_sets:from_list(Top),
-    def_used_1(Blks, Preds, [], gb_sets:empty()).
+    Preds = cerl_sets:from_list(Top),
+    def_used_1(Blks, Preds, [], []).
 
 -spec dominators(Blocks) -> Result when
       Blocks :: block_map(),
@@ -626,10 +626,10 @@ is_commutative(_) -> false.
 
 def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
     {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
-    Used = gb_sets:union(gb_sets:from_list(used(Last)), Used1),
+    Used = ordsets:union(used(Last), Used1),
     def_used_1(Bs, Preds, Def, Used);
 def_used_1([], _Preds, Def, Used) ->
-    {ordsets:from_list(Def),gb_sets:to_list(Used)}.
+    {ordsets:from_list(Def),Used}.
 
 def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
             Preds, Def0, Used0) ->
@@ -637,12 +637,12 @@ def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Used1 = [V || {#b_var{}=V,L} <- Args, gb_sets:is_member(L, Preds)],
-    Used = gb_sets:union(gb_sets:from_list(Used1), Used0),
+    Used1 = [V || {#b_var{}=V,L} <- Args, cerl_sets:is_element(L, Preds)],
+    Used = ordsets:union(ordsets:from_list(Used1), Used0),
     def_used_is(Is, Preds, Def, Used);
 def_used_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Used0) ->
     Def = [Dst|Def0],
-    Used = gb_sets:union(gb_sets:from_list(used(I)), Used0),
+    Used = ordsets:union(used(I), Used0),
     def_used_is(Is, Preds, Def, Used);
 def_used_is([], _Preds, Def, Used) ->
     {Def,Used}.
