@@ -32,19 +32,42 @@ struct cipher_type_t {
 	const EVP_CIPHER* (*funcp)(void); /* before init, NULL if notsup */
 	const EVP_CIPHER* p;              /* after init, NULL if notsup */
     }cipher;
-    const size_t key_len;      /* != 0 to also match on key_len */
+    size_t key_len;      /* != 0 to also match on key_len */
+    unsigned flags;
+    union {
+        struct aead_ctrl {int ctx_ctrl_set_ivlen, ctx_ctrl_get_tag,  ctx_ctrl_set_tag;} aead;
+    } extra;
 };
 
-#ifdef HAVE_EVP_AES_CTR
+/* masks in the flags field if cipher_type_t */
+#define NO_FIPS_CIPHER 1
+#define AES_CFBx 2
+#define ECB_BUG_0_9_8L 4
+#define AEAD_CIPHER 8
+#define NON_EVP_CIPHER 16
+#define AES_CTR_COMPAT 32
+
+
+#ifdef FIPS_SUPPORT
+/* May have FIPS support, must check dynamically if it is enabled */
+# define FORBIDDEN_IN_FIPS(P) (((P)->flags & NO_FIPS_CIPHER) && FIPS_mode())
+#else
+/* No FIPS support since the symbol FIPS_SUPPORT is undefined */
+# define FORBIDDEN_IN_FIPS(P) 0
+#endif
+
 extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
 };
-#endif
 
 int init_cipher_ctx(ErlNifEnv *env);
 
 void init_cipher_types(ErlNifEnv* env);
-struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
+const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
+
+int cmp_cipher_types(const void *keyp, const void *elemp);
+
+ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env);
 
 #endif /* E_CIPHER_H__ */

@@ -193,10 +193,12 @@
     <datatype_title>Ciphers</datatype_title>
     <datatype>
       <name name="stream_cipher"/>
+      <name name="stream_cipher_iv"/>
+      <name name="stream_cipher_no_iv"/>
       <desc>
 	<p>Stream ciphers for
-	<seealso marker="#stream_encrypt-2">stream_encrypt/2</seealso> and
-	<seealso marker="#stream_decrypt-2">stream_decrypt/2</seealso> .
+	<seealso marker="#stream_init-3">stream_init/3</seealso> and
+	<seealso marker="#stream_init-2">stream_init/2</seealso> .
 	</p>
       </desc>
     </datatype>
@@ -210,6 +212,18 @@
 	<seealso marker="#block_encrypt-4">block_encrypt/4</seealso> and
 	<seealso marker="#block_decrypt-4">block_decrypt/4</seealso> .
 	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="alias_cfb"/>
+      <name name="alias_cbc"/>
+      <desc>
+	<p>Names that are replaced by more common names. They may deprecated in futer releases.</p>
+	<p><c>des3_cbc</c> and <c>des_ede3</c> should be replaced by <c>des_ede3_cbc</c></p>
+	<p><c>des_ede3_cbf</c>, <c>des3_cbf</c> and <c>des3_cfb</c> should be replaced by <c>des_ede3_cfb</c>.</p>
+	<p><c>aes_cbc128</c> should be replaced by <c>aes_128_cbc</c>.</p>
+	<p><c>aes_cbc256</c> should be replaced by <c>aes_256_cbc</c>.</p>
       </desc>
     </datatype>
 

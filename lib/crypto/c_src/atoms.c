@@ -31,12 +31,6 @@ ERL_NIF_TERM atom_signature_md;
 ERL_NIF_TERM atom_undefined;
 
 ERL_NIF_TERM atom_ok;
-ERL_NIF_TERM atom_not_prime;
-ERL_NIF_TERM atom_not_strong_prime;
-ERL_NIF_TERM atom_unable_to_check_generator;
-ERL_NIF_TERM atom_not_suitable_generator;
-ERL_NIF_TERM atom_check_failed;
-ERL_NIF_TERM atom_unknown;
 ERL_NIF_TERM atom_none;
 ERL_NIF_TERM atom_notsup;
 ERL_NIF_TERM atom_digest;
@@ -48,7 +42,6 @@ ERL_NIF_TERM atom_not_supported;
 #endif
 
 #if defined(HAVE_EC)
-ERL_NIF_TERM atom_ec;
 ERL_NIF_TERM atom_prime_field;
 ERL_NIF_TERM atom_characteristic_two_field;
 ERL_NIF_TERM atom_tpbasis;
@@ -63,14 +56,6 @@ ERL_NIF_TERM atom_aes_gcm;
 #endif
 #ifdef HAVE_CCM
 ERL_NIF_TERM atom_aes_ccm;
-#endif
-#ifdef HAVE_CHACHA20_POLY1305
-ERL_NIF_TERM atom_chacha20_poly1305;
-#endif
-#ifdef HAVE_ECB_IVEC_BUG
-ERL_NIF_TERM atom_aes_ecb;
-ERL_NIF_TERM atom_des_ecb;
-ERL_NIF_TERM atom_blowfish_ecb;
 #endif
 
 ERL_NIF_TERM atom_rsa;
@@ -99,16 +84,6 @@ ERL_NIF_TERM atom_rsa_sslv23_padding;
 #endif
 ERL_NIF_TERM atom_rsa_x931_padding;
 ERL_NIF_TERM atom_rsa_pss_saltlen;
-ERL_NIF_TERM atom_sha224;
-ERL_NIF_TERM atom_sha256;
-ERL_NIF_TERM atom_sha384;
-ERL_NIF_TERM atom_sha512;
-ERL_NIF_TERM atom_sha3_224;
-ERL_NIF_TERM atom_sha3_256;
-ERL_NIF_TERM atom_sha3_384;
-ERL_NIF_TERM atom_sha3_512;
-ERL_NIF_TERM atom_md5;
-ERL_NIF_TERM atom_ripemd160;
 
 #ifdef HAVE_BLAKE2
 ERL_NIF_TERM atom_blake2b;
@@ -116,14 +91,6 @@ ERL_NIF_TERM atom_blake2s;
 #endif
 
 #ifdef HAS_ENGINE_SUPPORT
-ERL_NIF_TERM atom_bad_engine_method;
-ERL_NIF_TERM atom_bad_engine_id;
-ERL_NIF_TERM atom_ctrl_cmd_failed;
-ERL_NIF_TERM atom_engine_init_failed;
-ERL_NIF_TERM atom_register_engine_failed;
-ERL_NIF_TERM atom_add_engine_failed;
-ERL_NIF_TERM atom_remove_engine_failed;
-ERL_NIF_TERM atom_engine_method_not_supported;
 
 ERL_NIF_TERM atom_engine_method_rsa;
 ERL_NIF_TERM atom_engine_method_dsa;
@@ -169,18 +136,11 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_signature_md = enif_make_atom(env,"signature_md");
     atom_undefined = enif_make_atom(env,"undefined");
     atom_ok = enif_make_atom(env,"ok");
-    atom_not_prime = enif_make_atom(env,"not_prime");
-    atom_not_strong_prime = enif_make_atom(env,"not_strong_prime");
-    atom_unable_to_check_generator = enif_make_atom(env,"unable_to_check_generator");
-    atom_not_suitable_generator = enif_make_atom(env,"not_suitable_generator");
-    atom_check_failed = enif_make_atom(env,"check_failed");
-    atom_unknown = enif_make_atom(env,"unknown");
     atom_none = enif_make_atom(env,"none");
     atom_notsup = enif_make_atom(env,"notsup");
     atom_digest = enif_make_atom(env,"digest");
 
 #if defined(HAVE_EC)
-    atom_ec = enif_make_atom(env,"ec");
     atom_prime_field = enif_make_atom(env,"prime_field");
     atom_characteristic_two_field = enif_make_atom(env,"characteristic_two_field");
     atom_tpbasis = enif_make_atom(env,"tpbasis");
@@ -196,14 +156,6 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
 #ifdef HAVE_CCM
     atom_aes_ccm = enif_make_atom(env, "aes_ccm");
 #endif
-#ifdef HAVE_CHACHA20_POLY1305
-    atom_chacha20_poly1305 = enif_make_atom(env,"chacha20_poly1305");
-#endif
-#ifdef HAVE_ECB_IVEC_BUG
-    atom_aes_ecb = enif_make_atom(env, "aes_ecb");
-    atom_des_ecb = enif_make_atom(env, "des_ecb");
-    atom_blowfish_ecb = enif_make_atom(env, "blowfish_ecb");
-#endif
 
 #ifdef FIPS_SUPPORT
     atom_enabled = enif_make_atom(env,"enabled");
@@ -214,6 +166,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_rsa = enif_make_atom(env,"rsa");
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
+
 #ifdef HAVE_ED_CURVE_DH
     atom_x25519 = enif_make_atom(env,"x25519");
     atom_x448 = enif_make_atom(env,"x448");
@@ -234,29 +187,8 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
 #endif
     atom_rsa_x931_padding = enif_make_atom(env,"rsa_x931_padding");
     atom_rsa_pss_saltlen = enif_make_atom(env,"rsa_pss_saltlen");
-    atom_sha224 = enif_make_atom(env,"sha224");
-    atom_sha256 = enif_make_atom(env,"sha256");
-    atom_sha384 = enif_make_atom(env,"sha384");
-    atom_sha512 = enif_make_atom(env,"sha512");
-    atom_sha3_224 = enif_make_atom(env,"sha3_224");
-    atom_sha3_256 = enif_make_atom(env,"sha3_256");
-    atom_sha3_384 = enif_make_atom(env,"sha3_384");
-    atom_sha3_512 = enif_make_atom(env,"sha3_512");
-    atom_md5 = enif_make_atom(env,"md5");
-    atom_ripemd160 = enif_make_atom(env,"ripemd160");
-#ifdef HAVE_BLAKE2
-    atom_blake2b = enif_make_atom(env,"blake2b");
-    atom_blake2s = enif_make_atom(env,"blake2s");
-#endif
 
 #ifdef HAS_ENGINE_SUPPORT
-    atom_bad_engine_method = enif_make_atom(env,"bad_engine_method");
-    atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
-    atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
-    atom_engine_init_failed = enif_make_atom(env,"engine_init_failed");
-    atom_engine_method_not_supported = enif_make_atom(env,"engine_method_not_supported");
-    atom_add_engine_failed = enif_make_atom(env,"add_engine_failed");
-    atom_remove_engine_failed = enif_make_atom(env,"remove_engine_failed");
 
     atom_engine_method_rsa = enif_make_atom(env,"engine_method_rsa");
     atom_engine_method_dsa = enif_make_atom(env,"engine_method_dsa");
