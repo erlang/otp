@@ -946,7 +946,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, []),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -969,19 +969,22 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
 used_vars([], UsedVars, Skip) ->
     {UsedVars,Skip}.
 
-used_vars_succ([S|Ss], L, UsedVars) ->
-    Live0 = used_vars_succ(Ss, L, UsedVars),
+used_vars_succ([S|Ss], L, LiveMap, Live0) ->
     Key = {S,L},
-    case UsedVars of
+    case LiveMap of
         #{Key:=Live} ->
-            ordsets:union(Live, Live0);
+            %% The successor has a phi node, and the value for
+            %% this block in the phi node is a variable.
+            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
         #{S:=Live} ->
-            ordsets:union(Live, Live0);
+            %% No phi node in the successor, or the value for
+            %% this block in the phi node is a literal.
+            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
         #{} ->
-            Live0
+            %% A peek_message block which has not been processed yet.
+            used_vars_succ(Ss, L, LiveMap, Live0)
     end;
-used_vars_succ([], _, _) ->
-    ordsets:new().
+used_vars_succ([], _, _, Acc) -> Acc.
 
 used_vars_phis(Is, L, Live0, UsedVars0) ->
     UsedVars = UsedVars0#{L=>Live0},

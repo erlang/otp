@@ -1149,25 +1149,28 @@ ssa_opt_live({#st{ssa=Linear0}=St, FuncDb}) ->
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
     Blk1 = beam_ssa_share:block(Blk0, Blocks),
     Successors = beam_ssa:successors(Blk1),
-    Live0 = live_opt_succ(Successors, L, LiveMap0),
+    Live0 = live_opt_succ(Successors, L, LiveMap0, gb_sets:empty()),
     {Blk,Live} = live_opt_blk(Blk1, Live0),
     LiveMap = live_opt_phis(Blk#b_blk.is, L, Live, LiveMap0),
     live_opt(Bs, LiveMap, Blocks#{L:=Blk});
 live_opt([], _, Acc) -> Acc.
 
-live_opt_succ([S|Ss], L, LiveMap) ->
-    Live0 = live_opt_succ(Ss, L, LiveMap),
+live_opt_succ([S|Ss], L, LiveMap, Live0) ->
     Key = {S,L},
     case LiveMap of
         #{Key:=Live} ->
-            gb_sets:union(Live, Live0);
+            %% The successor has a phi node, and the value for
+            %% this block in the phi node is a variable.
+            live_opt_succ(Ss, L, LiveMap, gb_sets:union(Live, Live0));
         #{S:=Live} ->
-            gb_sets:union(Live, Live0);
+            %% No phi node in the successor, or the value for
+            %% this block in the phi node is a literal.
+            live_opt_succ(Ss, L, LiveMap, gb_sets:union(Live, Live0));
         #{} ->
-            Live0
+            %% A peek_message block which has not been processed yet.
+            live_opt_succ(Ss, L, LiveMap, Live0)
     end;
-live_opt_succ([], _, _) ->
-    gb_sets:empty().
+live_opt_succ([], _, _, Acc) -> Acc.
 
 live_opt_phis(Is, L, Live0, LiveMap0) ->
     LiveMap = LiveMap0#{L=>Live0},
