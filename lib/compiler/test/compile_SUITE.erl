@@ -33,7 +33,7 @@
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
-	 core_roundtrip/1, asm/1, optimized_guards/1,
+	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1
@@ -50,7 +50,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core_pp, core_roundtrip, asm, optimized_guards,
+     cover, env, core_pp, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths].
@@ -1173,85 +1173,6 @@ do_asm(Beam, Outdir) ->
 	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
 	    error
     end.
-
-%% Make sure that guards are fully optimized. Guards should
-%% should use 'test' instructions, not 'bif' instructions.
-
-optimized_guards(_Config) ->
-    TestBeams = get_unique_beam_files(),
-    test_lib:p_run(fun(F) -> do_opt_guards(F) end, TestBeams).
-
-do_opt_guards(Beam) ->
-    {ok,{M,[{abstract_code,{raw_abstract_v1,A}}]}} =
-	beam_lib:chunks(Beam, [abstract_code]),
-    try
-	{ok,M,Asm} = compile:forms(A, ['S']),
-	do_opt_guards_mod(Asm)
-    catch Class:Error:Stk ->
-	    io:format("~p: ~p ~p\n~p\n", [M,Class,Error,Stk]),
-	    error
-    end.
-
-do_opt_guards_mod({Mod,_Exp,_Attr,Asm,_NumLabels}) ->
-    case do_opt_guards_fs(Mod, Asm) of
-	[] ->
-	    ok;
-	[_|_]=Bifs ->
-	    io:format("ERRORS FOR ~p:\n~p\n", [Mod,Bifs]),
-	    error
-    end.
-
-do_opt_guards_fs(Mod, [{function,Name,Arity,_,Is}|Fs]) ->
-    Bifs0 = do_opt_guards_fun(Is),
-
-    %% The compiler does not attempt to optimize 'xor'.
-    %% Therefore, ignore all functions that use 'xor' in
-    %% a guard.
-    Bifs = case lists:any(fun({bif,'xor',_,_,_}) -> true;
-			     (_) -> false
-			  end, Bifs0) of
-	       true -> [];
-	       false -> Bifs0
-	   end,
-
-    %% Filter out the allowed exceptions.
-    FA = {Name,Arity},
-    case {Bifs,is_exception(Mod, FA)} of
-	{[_|_],true} ->
-	    io:format("~p:~p/~p IGNORED:\n~p\n",
-		      [Mod,Name,Arity,Bifs]),
-	    do_opt_guards_fs(Mod, Fs);
-	{[_|_],false} ->
-	    [{FA,Bifs}|do_opt_guards_fs(Mod, Fs)];
-	{[],false} ->
-	    do_opt_guards_fs(Mod, Fs);
-	{[],true} ->
-	    io:format("Redundant exception for ~p:~p/~p\n",
-		      [Mod,Name,Arity]),
-	    error(redundant)
-    end;
-do_opt_guards_fs(_, []) -> [].
-
-do_opt_guards_fun([{bif,Name,{f,F},As,_}=I|Is]) when F =/= 0 ->
-    Arity = length(As),
-    case erl_internal:comp_op(Name, Arity) orelse
-	erl_internal:bool_op(Name, Arity) orelse
-	erl_internal:new_type_test(Name, Arity) of
-	true ->
-	    [I|do_opt_guards_fun(Is)];
-	false ->
-	    do_opt_guards_fun(Is)
-    end;
-do_opt_guards_fun([_|Is]) ->
-    do_opt_guards_fun(Is);
-do_opt_guards_fun([]) -> [].
-
-is_exception(guard_SUITE, {'-complex_not/1-fun-4-',1}) -> true;
-is_exception(guard_SUITE, {'-complex_not/1-fun-5-',1}) -> true;
-is_exception(guard_SUITE, {bad_guards,1}) -> true;
-is_exception(guard_SUITE, {nested_not_2b,6}) -> true; %% w/o type optimization
-is_exception(guard_SUITE, {nested_not_2b,2}) -> true; %% with type optimization
-is_exception(_, _) -> false.
 
 sys_pre_attributes(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
