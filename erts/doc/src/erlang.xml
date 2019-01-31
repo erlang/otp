@@ -4170,9 +4170,16 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>badarg</c></tag>
           <item>
-            If the port driver so decides for any reason (probably
+            <p>If the port driver so decides for any reason (probably
             something wrong with <c><anno>Operation</anno></c>
-            or <c><anno>Data</anno></c>).
+            or <c><anno>Data</anno></c>).</p>
+	    <warning>
+	      <p>Do not call <c>port_call</c> with an unknown
+	      <c><anno>Port</anno></c> identifier and expect <c>badarg</c>
+	      exception. Any undefined behavior is possible (including node
+	      crash) depending on how the port driver interprets the supplied
+	      arguments.</p>
+	    </warning>
           </item>
         </taglist>
       </desc>
@@ -4262,6 +4269,11 @@ RealSystem = system + MissedSystem</code>
             <p>If <c><anno>Data</anno></c> is an invalid I/O list.</p>
           </item>
         </taglist>
+	<warning>
+	  <p>Do not send data to an unknown port. Any undefined behavior is
+	  possible (including node crash) depending on how the port driver
+	  interprets the data.</p>
+	</warning>
       </desc>
     </func>
 
@@ -4321,6 +4333,11 @@ RealSystem = system + MissedSystem</code>
             a busy port.
           </item>
         </taglist>
+	<warning>
+	  <p>Do not send data to an unknown port. Any undefined behavior is
+	  possible (including node crash) depending on how the port driver
+	  interprets the data.</p>
+	</warning>
       </desc>
     </func>
 
@@ -4425,6 +4442,13 @@ RealSystem = system + MissedSystem</code>
             If the port driver so decides for any reason (probably
             something wrong with <c><anno>Operation</anno></c> or
             <c><anno>Data</anno></c>).
+	    <warning>
+	      <p>Do not call <c>port_control/3</c> with an unknown
+	      <c><anno>Port</anno></c> identifier and expect <c>badarg</c>
+	      exception. Any undefined behavior is possible (including node
+	      crash) depending on how the port driver interprets the supplied
+	      arguments.</p>
+	    </warning>
           </item>
         </taglist>
       </desc>

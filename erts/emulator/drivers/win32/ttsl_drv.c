@@ -176,6 +176,8 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 {
     char resbuff[2*sizeof(Uint32)];
     ErlDrvSizeT res_size;
+
+    command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case CTRL_OP_GET_WINSIZE:
 	{
@@ -201,7 +203,7 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 	}
 	break;
     default:
-	return 0;
+	return -1;
     }
     if (rlen < res_size) {
 	*rbuf = driver_alloc(res_size);
