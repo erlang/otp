@@ -21,7 +21,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 multiple_allocs/1,coverage/1]).
+	 multiple_allocs/1,bs_get_tail/1,coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -31,6 +31,7 @@ all() ->
 groups() ->
     [{p,[parallel],
       [multiple_allocs,
+       bs_get_tail,
        coverage]}].
 
 init_per_suite(Config) ->
@@ -62,6 +63,17 @@ place(lee) ->
 
 conditions() ->
     (talking = going) = storage + [large = wanted].
+
+bs_get_tail(Config) ->
+    {<<"abc">>,0,0,Config} = bs_get_tail_1(id(<<0:32, "abc">>), 0, 0, Config),
+    {'EXIT',
+     {function_clause,
+      [{?MODULE,bs_get_tail_1,[<<>>,0,0,Config],_}|_]}} =
+        (catch bs_get_tail_1(id(<<>>), 0, 0, Config)),
+    ok.
+
+bs_get_tail_1(<<_:32, Rest/binary>>, Z1, Z2, F1) ->
+    {Rest,Z1,Z2,F1}.
 
 coverage(_) ->
     File = {file,"fake.erl"},
@@ -98,6 +110,8 @@ coverage(_) ->
     ok.
 
 fake_function_clause(A) -> error(function_clause, [A,42.0]).
+
+id(I) -> I.
 
 -file("fake.erl", 1).
 fc(a) ->	                                %Line 2
