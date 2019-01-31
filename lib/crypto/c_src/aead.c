@@ -20,17 +20,19 @@
 
 #include "aead.h"
 #include "aes.h"
+#include "cipher.h"
 
 ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In) */
 #if defined(HAVE_AEAD)
+    struct cipher_type_t *cipherp = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
     unsigned int tag_len;
     unsigned char *outp, *tagp;
     ERL_NIF_TERM type, out, out_tag, ret;
-    int len, ctx_ctrl_set_ivlen, ctx_ctrl_get_tag;
+    int len, ctx_ctrl_set_ivlen, ctx_ctrl_get_tag, ctx_ctrl_set_tag;
 
     type = argv[0];
 
@@ -55,77 +57,19 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         || aad.size > INT_MAX)
         goto bad_arg;
 
-    /* Use cipher_type some day.  Must check block_encrypt|decrypt first */
-#if defined(HAVE_GCM)
-    if (type == atom_aes_gcm) {
-        if (iv.size == 0)
-            goto bad_arg;
-        if (tag_len < 1 || tag_len > 16)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
-        ctx_ctrl_get_tag = EVP_CTRL_GCM_GET_TAG;
-
-        switch (key.size) {
-        case 16:
-            cipher = EVP_aes_128_gcm();
-            break;
-        case 24:
-            cipher = EVP_aes_192_gcm();
-            break;
-        case 32:
-            cipher = EVP_aes_256_gcm();
-            break;
-        default:
-            goto bad_arg;
-        }
-    } else
-#endif
-#if defined(HAVE_CCM)
-    if (type == atom_aes_ccm) {
-        if (iv.size < 7 || iv.size > 13)
-            goto bad_arg;
-        if (tag_len < 4 || tag_len > 16)
-            goto bad_arg;
-        if ((tag_len & 1) != 0)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
-        ctx_ctrl_get_tag = EVP_CTRL_CCM_GET_TAG;
-
-        switch (key.size) {
-        case 16:
-            cipher = EVP_aes_128_ccm();
-            break;
-        case 24:
-            cipher = EVP_aes_192_ccm();
-            break;
-        case 32:
-            cipher = EVP_aes_256_ccm();
-            break;
-        default:
-            goto bad_arg;
-        }
-    } else
-#endif
-#if defined(HAVE_CHACHA20_POLY1305)
-    if (type == atom_chacha20_poly1305) {
-        if (key.size != 32)
-            goto bad_arg;
-        if (iv.size < 1 || iv.size > 16)
-            goto bad_arg;
-        if (tag_len != 16)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
-        ctx_ctrl_get_tag = EVP_CTRL_AEAD_GET_TAG;
-
-        cipher = EVP_chacha20_poly1305();
-
-    } else
-#endif
+    if ((cipherp = get_cipher_type(type, key.size)) == NULL)
+        goto bad_arg;
+    if (cipherp->flags & NON_EVP_CIPHER)
+        goto bad_arg;
+    if (! (cipherp->flags & AEAD_CIPHER) )
+        goto bad_arg;
+    if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
- 
+
+    ctx_ctrl_set_ivlen = cipherp->extra.aead.ctx_ctrl_set_ivlen;
+    ctx_ctrl_get_tag =  cipherp->extra.aead.ctx_ctrl_get_tag;
+    ctx_ctrl_set_tag =  cipherp->extra.aead.ctx_ctrl_set_tag;
+    
     if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
         goto err;
 
@@ -136,7 +80,7 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, (int)tag_len, NULL) != 1)
+        if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag_len, NULL) != 1)
             goto err;
         if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1)
             goto err;
@@ -190,6 +134,7 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_AEAD)
+    struct cipher_type_t *cipherp = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
@@ -225,69 +170,17 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         || aad.size > INT_MAX)
         goto bad_arg;
 
-    /* Use cipher_type some day.  Must check block_encrypt|decrypt first */
-#if defined(HAVE_GCM)
-    if (type == atom_aes_gcm) {
-        if (iv.size == 0)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
-        ctx_ctrl_set_tag = EVP_CTRL_GCM_SET_TAG;
-
-        switch (key.size) {
-        case 16:
-            cipher = EVP_aes_128_gcm();
-            break;
-        case 24:
-            cipher = EVP_aes_192_gcm();
-            break;
-        case 32:
-            cipher = EVP_aes_256_gcm();
-            break;
-        default:
-            goto bad_arg;
-        }
-    } else
-#endif
-#if defined(HAVE_CCM)
-    if (type == atom_aes_ccm) {
-        if (iv.size == 0)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
-        ctx_ctrl_set_tag = EVP_CTRL_CCM_SET_TAG;
-
-        switch (key.size) {
-        case 16:
-            cipher = EVP_aes_128_ccm();
-            break;
-        case 24:
-            cipher = EVP_aes_192_ccm();
-            break;
-        case 32:
-            cipher = EVP_aes_256_ccm();
-            break;
-        default:
-            goto bad_arg;
-        }
-    } else
-#endif
-#if defined(HAVE_CHACHA20_POLY1305)
-    if (type == atom_chacha20_poly1305) {
-        if (key.size != 32)
-            goto bad_arg;
-        if (iv.size < 1 || iv.size > 16)
-            goto bad_arg;
-        if (tag.size != 16)
-            goto bad_arg;
-
-        ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
-        ctx_ctrl_set_tag = EVP_CTRL_AEAD_SET_TAG;
-
-        cipher = EVP_chacha20_poly1305();
-    } else
-#endif
+    if ((cipherp = get_cipher_type(type, key.size)) == NULL)
+        goto bad_arg;
+    if (cipherp->flags & NON_EVP_CIPHER)
+        goto bad_arg;
+    if (! (cipherp->flags & AEAD_CIPHER) )
+        goto bad_arg;
+    if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
+
+    ctx_ctrl_set_ivlen = cipherp->extra.aead.ctx_ctrl_set_ivlen;
+    ctx_ctrl_set_tag =  cipherp->extra.aead.ctx_ctrl_set_tag;
 
     if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
         goto err;
@@ -301,7 +194,7 @@ ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 #if defined(HAVE_CCM)
     if (type == atom_aes_ccm) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, (int)tag.size, tag.data) != 1)
+        if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, (int)tag.size, tag.data) != 1)
             goto err;
     }
 #endif

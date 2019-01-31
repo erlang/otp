@@ -83,25 +83,25 @@ static struct cipher_type_t cipher_types[] =
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER},
+    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
 #else
-    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER},
+    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_GCM)
-    {{"aes_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER},
-    {{"aes_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER},
-    {{"aes_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER},
+    {{"aes_gcm"}, {&EVP_aes_128_gcm}, 16, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
+    {{"aes_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
 #else
-    {{"aes_gcm"}, {NULL}, 0, AEAD_CIPHER},
+    {{"aes_gcm"}, {NULL}, 0, AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_CCM)
-    {{"aes_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER},
-    {{"aes_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER},
-    {{"aes_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER},
+    {{"aes_ccm"}, {&EVP_aes_128_ccm}, 16, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
+    {{"aes_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
 #else
-    {{"aes_ccm"}, {NULL}, 0, AEAD_CIPHER},
+    {{"aes_ccm"}, {NULL}, 0, AEAD_CIPHER, {{0,0,0}}},
 #endif
 
     /*==== Specialy handled ciphers, only for inclusion in algorithm's list ====*/

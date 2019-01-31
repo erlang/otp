@@ -34,6 +34,9 @@ struct cipher_type_t {
     }cipher;
     size_t key_len;      /* != 0 to also match on key_len */
     unsigned flags;
+    union {
+        struct aead_ctrl {int ctx_ctrl_set_ivlen, ctx_ctrl_get_tag,  ctx_ctrl_set_tag;} aead;
+    } extra;
 };
 
 /* masks in the flags field if cipher_type_t */
