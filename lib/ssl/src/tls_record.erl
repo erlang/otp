@@ -155,25 +155,20 @@ encode_data(Frag, Version,
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
-decode_cipher_text(#ssl_tls{type = Type, version = Version,
-			    fragment = CipherFragment} = CipherText,
+decode_cipher_text(#ssl_tls{type = Type, version = Version} = CipherText,
 		   #{current_read :=
-			 #{compression_state := CompressionS0,
-			   sequence_number := Seq,
-                           cipher_state := CipherS0,
-			   security_parameters :=
-			       #security_parameters{
-				  cipher_type = ?AEAD,
-                                  bulk_cipher_algorithm =
-                                      BulkCipherAlgo,
-				  compression_algorithm = CompAlg}
+			 #{sequence_number := Seq,
+			   security_parameters := #security_parameters{cipher_type = ?AEAD} = SecParams
 			  } = ReadState0} = ConnnectionStates0, _) ->
     AAD = start_additional_data(Type, Version, Seq),
+    #{cipher_state := CipherS0} = ReadState0,
+    BulkCipherAlgo = SecParams#security_parameters.bulk_cipher_algorithm,
     CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT64(Seq)>>, CipherS0),
-    case ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherFragment, Version) of
+    case ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherText#ssl_tls.fragment, Version) of
 	{PlainFragment, CipherState} ->
-	    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
-							   PlainFragment, CompressionS0),
+            #{compression_state := CompressionS0} = ReadState0,
+	    {Plain, CompressionS1} = ssl_record:uncompress(SecParams#security_parameters.compression_algorithm,
+                                                           PlainFragment, CompressionS0),
 	    ConnnectionStates = ConnnectionStates0#{
 				  current_read => ReadState0#{
                                                     cipher_state => CipherState,
@@ -184,28 +179,27 @@ decode_cipher_text(#ssl_tls{type = Type, version = Version,
 	    Alert
     end;
 
-decode_cipher_text(#ssl_tls{type = Type, version = Version,
+decode_cipher_text(#ssl_tls{version = Version,
 			    fragment = CipherFragment} = CipherText,
-		   #{current_read :=
-			 #{compression_state := CompressionS0,
-			   sequence_number := Seq,
-			   security_parameters :=
-			       #security_parameters{compression_algorithm = CompAlg}
-			  } = ReadState0} = ConnnectionStates0, PaddingCheck) ->
+		   #{current_read := ReadState0} = ConnnectionStates0, PaddingCheck) ->
     case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
-	    MacHash = ssl_cipher:calc_mac_hash(Type, Version, PlainFragment, ReadState1),
+	    MacHash = ssl_cipher:calc_mac_hash(CipherText#ssl_tls.type, Version, PlainFragment, ReadState1),
 	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->
+                    #{sequence_number := Seq,
+                      compression_state := CompressionS0,
+                      security_parameters :=
+                          #security_parameters{compression_algorithm = CompAlg}} = ReadState0,
 		    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
 								   PlainFragment, CompressionS0),
-		    ConnnectionStates = ConnnectionStates0#{
-					  current_read => ReadState1#{
-							    sequence_number => Seq + 1,
-							    compression_state => CompressionS1}},
+		    ConnnectionStates =
+                        ConnnectionStates0#{current_read =>
+                                                ReadState1#{sequence_number => Seq + 1,
+                                                            compression_state => CompressionS1}},
 		    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
 		false ->
-			?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
 	    end;
 	    #alert{} = Alert ->
 	    Alert
