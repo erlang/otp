@@ -9955,6 +9955,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
 
+    cmd -= ERTS_INET_DRV_CONTROL_MAGIC_NUMBER;
     switch(cmd) {
     case INET_REQ_OPEN: { /* open socket and return internal index */
 	int domain;
@@ -12184,6 +12185,7 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
     int type = SOCK_DGRAM;
     int af = AF_INET;
 
+    cmd -= ERTS_INET_DRV_CONTROL_MAGIC_NUMBER;
     switch(cmd) {
     case INET_REQ_OPEN:   /* open socket and return internal index */
 	DEBUGF(("packet_inet_ctl(%ld): OPEN\r\n", (long)desc->port)); 

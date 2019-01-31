@@ -732,7 +732,8 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         proto->u.start.fds[1] = ifd[1];
         proto->u.start.fds[2] = stderrfd;
         proto->u.start.port_id = opts->exit_status ? erts_drvport2id(port_num) : THE_NON_VALUE;
-        if (erl_drv_port_control(forker_port, 'S', (char*)proto, sizeof(*proto))) {
+        if (erl_drv_port_control(forker_port, ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER,
+                                 (char*)proto, sizeof(*proto))) {
             /* The forker port has been killed, we close both fd's which will
                make open_port throw an epipe error */
             close(ofd[0]);
@@ -758,6 +759,9 @@ static ErlDrvSSizeT spawn_control(ErlDrvData e, unsigned int cmd, char *buf,
 {
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
+
+    if (cmd != ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER)
+        return -1;
 
     ASSERT(len == sizeof(*proto));
     ASSERT(proto->action == ErtsSysForkerProtoAction_SigChld);
@@ -799,6 +803,8 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 {
     int fd = (int)(long)drv_data;
     char resbuff[2*sizeof(Uint32)];
+
+    command -= ERTS_TTYSL_DRV_CONTROL_MAGIC_NUMBER;
     switch (command) {
     case FD_CTRL_OP_GET_WINSIZE:
 	{
@@ -810,7 +816,7 @@ static ErlDrvSSizeT fd_control(ErlDrvData drv_data,
 	}
 	break;
     default:
-	return 0;
+	return -1;
     }
     if (rlen < 2*sizeof(Uint32)) {
 	*rbuf = driver_alloc(2*sizeof(Uint32));
@@ -1693,7 +1699,8 @@ static void forker_sigchld(Eterm port_id, int error)
        already used by the spawn_driver, we use control instead.
        Note that when using erl_drv_port_control it is an asynchronous
        control. */
-    erl_drv_port_control(port_id, 'S', (char*)proto, sizeof(*proto));
+    erl_drv_port_control(port_id, ERTS_SPAWN_DRV_CONTROL_MAGIC_NUMBER,
+                         (char*)proto, sizeof(*proto));
 }
 
 static void forker_ready_input(ErlDrvData e, ErlDrvEvent fd)
@@ -1777,6 +1784,9 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
     ErtsSysForkerProto *proto = (ErtsSysForkerProto *)buf;
     ErlDrvPort port_num = (ErlDrvPort)e;
     int res;
+
+    if (cmd != ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER)
+        return -1;
 
     if (first_call) {
         /*
