@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,9 +31,9 @@
 #include <stddef.h>
 
 #include "socket_int.h"
+#include "sys.h"
 #include "socket_util.h"
 #include "socket_dbg.h"
-#include "sys.h"
 
 /* We don't have a "debug flag" to check here, so we 
  * should use the compile debug flag, whatever that is...
@@ -89,7 +89,7 @@ char* esock_encode_iov(ErlNifEnv*    env,
                        ERL_NIF_TERM* eIOV)
 {
     int          rem = read;
-    uint16_t     i;
+    Uint16       i;
     BOOLEAN_T    done = FALSE;
     ERL_NIF_TERM a[len]; // At most this length
 
@@ -158,7 +158,7 @@ char* esock_decode_iov(ErlNifEnv*    env,
                        size_t        len,
                        ssize_t*      totSize)
 {
-    uint16_t     i;
+    Uint16       i;
     ssize_t      sz;
     ERL_NIF_TERM elem, tail, list;
 

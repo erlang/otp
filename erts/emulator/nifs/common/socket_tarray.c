@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,16 @@
  *
  */
 
-#include <arpa/inet.h>
+/* #ifdef HAVE_CONFIG_H */
+/* #include "config.h" */
+/* #endif */
+
 #include <stdio.h>
 
 #include <erl_nif.h>
 
 #include "socket_int.h"
+#include <sys.h>
 #include "socket_util.h"
 #include "socket_tarray.h"
 
@@ -40,8 +44,8 @@
  */
 
 typedef struct {
-  uint32_t      sz;
-  uint32_t      idx;
+  Uint32        sz;
+  Uint32        idx;
   ERL_NIF_TERM* array;
 } SocketTArrayInt;
 
@@ -51,7 +55,7 @@ typedef struct {
  */
 
 static void esock_tarray_add1(SocketTArrayInt* taP, ERL_NIF_TERM t);
-static void esock_tarray_ensure_fits(SocketTArrayInt* taP, uint32_t needs);
+static void esock_tarray_ensure_fits(SocketTArrayInt* taP, Uint32 needs);
 
 
 /* ----------------------------------------------------------------------
@@ -59,7 +63,7 @@ static void esock_tarray_ensure_fits(SocketTArrayInt* taP, uint32_t needs);
  */
 
 extern
-void* esock_tarray_create(uint32_t sz)
+void* esock_tarray_create(Uint32 sz)
 {
     SocketTArrayInt* tarrayP;
 
@@ -87,7 +91,7 @@ void esock_tarray_delete(SocketTArray ta)
 
 
 extern
-uint32_t esock_tarray_sz(SocketTArray a)
+Uint32 esock_tarray_sz(SocketTArray a)
 {
   return ( ((SocketTArrayInt*) a)->idx );
 }
@@ -125,11 +129,11 @@ void esock_tarray_add1(SocketTArrayInt* taP, ERL_NIF_TERM t)
 }
 
 static
-void esock_tarray_ensure_fits(SocketTArrayInt* taP, uint32_t needs)
+void esock_tarray_ensure_fits(SocketTArrayInt* taP, Uint32 needs)
 { 
   if (taP->sz < (taP->idx + needs)) {
-    uint32_t newSz = (needs < taP->sz) ? 2*taP->sz : 2*needs;
-    void*    mem   = REALLOC(taP->array, newSz * sizeof(ERL_NIF_TERM));
+    Uint32 newSz = (needs < taP->sz) ? 2*taP->sz : 2*needs;
+    void*  mem   = REALLOC(taP->array, newSz * sizeof(ERL_NIF_TERM));
     
     ESOCK_ASSERT( (mem != NULL) );
     

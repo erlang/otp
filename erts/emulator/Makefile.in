@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1161,7 +1161,15 @@ endif
 BEAM_SRC=$(wildcard beam/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
+ifeq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with badarg in the win32 case.
+NIF_SOCKET_UTILS_SRC=$(filter-out nifs/common/socket_nif.c, $(wildcard nifs/common/socket_*.c))
+NIF_COMMON_SRC=$(filter-out $(NIF_SOCKET_UTILS_SRC), $(wildcard nifs/common/*.c))
+else
 NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
+endif
 NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 # We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at

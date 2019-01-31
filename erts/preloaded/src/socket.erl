@@ -1055,6 +1055,10 @@ open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
     catch
         throw:T ->
             T;
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason}
     end.
@@ -1088,6 +1092,10 @@ bind(#socket{ref = SockRef}, Addr)
         inet6 ->
             nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr))
     catch
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end;
@@ -1097,6 +1105,10 @@ bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
             nif_bind(SockRef, ensure_sockaddr(Addr))
         end
     catch
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
@@ -1131,6 +1143,10 @@ bind(#socket{ref = SockRef}, Addrs, Action)
             nif_bind(SockRef, Addrs, Action)
         end
     catch
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
@@ -2135,6 +2151,10 @@ shutdown(#socket{ref = SockRef}, How) ->
     catch
         throw:T ->
             T;
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason}
     end.
@@ -2207,6 +2227,10 @@ setopt(#socket{ref = SockRef}, Level, Key, Value) ->
     catch
         throw:T ->
             T;
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason} % Process more?
     end.
@@ -2289,6 +2313,10 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
     catch
         throw:E:_S ->
             E;
+        %% <WIN32-TEMPORARY>
+        error:nosup:S ->
+            erlang:raise(error, nosup, S);
+        %% </WIN32-TEMPORARY>
         error:Reason:_Stack ->
             {error, Reason} % Process more?
     end.

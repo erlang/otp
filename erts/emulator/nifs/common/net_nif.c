@@ -462,7 +462,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM info, tmp;
 
@@ -498,7 +498,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM ecmd, result;
 
@@ -569,7 +569,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
                              const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM result;
     
@@ -645,7 +645,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
                              const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM  result;
     ERL_NIF_TERM  eSockAddr, eFlags;
@@ -795,7 +795,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
                              const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
@@ -977,7 +977,7 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
                                const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
@@ -1049,7 +1049,7 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
                                const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM result;
     unsigned int idx;
@@ -1114,7 +1114,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, MKA(env, "nosup"));
 #else
     ERL_NIF_TERM result;
 
@@ -1673,7 +1673,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                     ERL_NIF_RT_CREATE,
                                     NULL);
 
+#if !defined(__WIN32__)    
     NDBG( ("NET", "on_load -> done\r\n") );
+#endif
 
     return !net;
 }

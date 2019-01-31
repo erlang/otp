@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@
 
 typedef void* SocketTArray;
 
-extern SocketTArray esock_tarray_create(uint32_t sz);
+extern SocketTArray esock_tarray_create(Uint32 sz);
 extern void         esock_tarray_delete(SocketTArray ta);
-extern uint32_t     esock_tarray_sz(SocketTArray ta);
+extern Uint32       esock_tarray_sz(SocketTArray ta);
 extern void         esock_tarray_add(SocketTArray ta, ERL_NIF_TERM t);
 extern void         esock_tarray_tolist(SocketTArray  ta,
                                         ErlNifEnv*    env,
