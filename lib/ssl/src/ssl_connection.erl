@@ -464,7 +464,7 @@ read_application_data(
   Data,
   #state{
      user_data_buffer = Buffer0,
-     erl_dist_handle = DHandle} = State) ->
+     connection_env = #connection_env{erl_dist_handle = DHandle}} = State) ->
     %%
     Buffer = bincat(Buffer0, Data),
     case DHandle of
@@ -1110,12 +1110,13 @@ connection(cast, {internal_renegotiate, WriteState}, #state{static_env = #static
                                        connection_states = ConnectionStates#{current_write => WriteState}}, []);
 connection(cast, {dist_handshake_complete, DHandle},
            #state{ssl_options = #ssl_options{erl_dist = true},
+                  connection_env = CEnv,
                   socket_options = SockOpts} = State0, Connection) ->
     process_flag(priority, normal),
     State1 =
         State0#state{
           socket_options = SockOpts#socket_options{active = true},
-          erl_dist_handle = DHandle,
+          connection_env = CEnv#connection_env{erl_dist_handle = DHandle},
           bytes_to_read = undefined},
     {Record, State} = read_application_data(<<>>, State1),
     Connection:next_event(connection, Record, State);

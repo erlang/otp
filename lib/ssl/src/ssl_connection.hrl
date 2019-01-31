@@ -76,7 +76,8 @@
                           user_application      :: {Monitor::reference(), User::pid()},
                           downgrade,
                           terminated = false                          ::boolean() | closed,  
-                          negotiated_version    :: ssl_record:ssl_version() | 'undefined'  
+                          negotiated_version    :: ssl_record:ssl_version() | 'undefined',
+                          erl_dist_handle = undefined :: erlang:dist_handle() | undefined
                         }).
 
 -record(state, {
@@ -113,7 +114,6 @@
                 %% The mecahnism is also usefull in TLS although we do not
                 %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
                 flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.
-                erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
                 protocol_specific = #{}      :: map()
                }).
 
