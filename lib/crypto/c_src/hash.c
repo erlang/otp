@@ -54,9 +54,11 @@ int init_hash_ctx(ErlNifEnv* env) {
 
     return 1;
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
  err:
     PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
     return 0;
+#endif
 }
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
