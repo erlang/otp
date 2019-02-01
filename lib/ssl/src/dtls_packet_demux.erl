@@ -144,11 +144,11 @@ handle_info({Transport, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket
 %% UDP socket does not have a connection and should not receive an econnreset
 %% This does however happens on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
-handle_info({Error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
+handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket, transport = {_,_,_, udp_error}} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State};
-handle_info({Error, Socket, Error}, #state{listener = Socket, transport = {_,_,_, Error}} = State) ->
+handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,_,_, ErrorTag}} = State) ->
     Report = io_lib:format("SSL Packet muliplxer shutdown: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State#state{close=true}};
