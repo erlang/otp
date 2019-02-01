@@ -104,11 +104,11 @@ is_cloned_mod(Mod) ->
 
 %% Test whether Mod is a cloned module.
 
-is_cloned_mod_1("no_opt_SUITE") -> true;
-is_cloned_mod_1("post_opt_SUITE") -> true;
-is_cloned_mod_1("inline_SUITE") -> true;
-is_cloned_mod_1("21_SUITE") -> true;
-is_cloned_mod_1("no_module_opt_SUITE") -> true;
+is_cloned_mod_1("_no_opt_SUITE") -> true;
+is_cloned_mod_1("_post_opt_SUITE") -> true;
+is_cloned_mod_1("_inline_SUITE") -> true;
+is_cloned_mod_1("_21_SUITE") -> true;
+is_cloned_mod_1("_no_module_opt_SUITE") -> true;
 is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
 is_cloned_mod_1([]) -> false.
 
