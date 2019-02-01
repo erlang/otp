@@ -2308,16 +2308,12 @@ exit_cancel_bif_timer(ErtsBifTimer *tmr, void *vesdp)
         tw_timer_dec_refc(&tmr->type.twt);
 }
 
-<<<<<<< HEAD
 #ifdef ERTS_HLT_DEBUG
 #  define ERTS_BTM_MAX_DESTROY_LIMIT 2
 #else
 #  define ERTS_BTM_MAX_DESTROY_LIMIT 50
 #endif
 
-#ifndef ERTS_MAGIC_REF_BIF_TIMERS
-=======
->>>>>>> 19e59d5... erts: Remove dead ERTS_MAGIC_REF_BIF_TIMERS code
 typedef struct {
     ErtsBifTimers *bif_timers;
     union {
@@ -2328,19 +2324,7 @@ typedef struct {
 int erts_cancel_bif_timers(Process *p, ErtsBifTimers **btm, void **vyspp)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
-<<<<<<< HEAD
 
-#ifdef ERTS_MAGIC_REF_BIF_TIMERS
-
-    return proc_btm_list_foreach_destroy_yielding(btm,
-                                                  exit_cancel_bif_timer,
-                                                  (void *) esdp,
-                                                  ERTS_BTM_MAX_DESTROY_LIMIT);
-
-#else /* !ERTS_MAGIC_REF_BIF_TIMERS */
-
-=======
->>>>>>> 19e59d5... erts: Remove dead ERTS_MAGIC_REF_BIF_TIMERS code
     ErtsBifTimerYieldState ys = {*btm, {ERTS_RBT_YIELD_STAT_INITER}};
     ErtsBifTimerYieldState *ysp;
     int res;
@@ -2835,27 +2819,7 @@ btm_print(ErtsBifTimer *tmr, void *vbtmp, ErtsMonotonicTime tpos, int is_hlt)
 	       (Sint64) left);
 }
 
-<<<<<<< HEAD
-#ifdef ERTS_MAGIC_REF_BIF_TIMERS
-
 static void
-hlt_btm_print(ErtsHLTimer *tmr, void *vbtmp)
-{
-    btm_print((ErtsBifTimer *) tmr, vbtmp, 0, 1);
-}
-
-static void
-twt_btm_print(void *vbtmp, ErtsMonotonicTime tpos, void *vtwtp)
-{
-    btm_print((ErtsBifTimer *) vtwtp, vbtmp, tpos, 0);
-}
-
-#else
-
-static void
-=======
-static int
->>>>>>> 19e59d5... erts: Remove dead ERTS_MAGIC_REF_BIF_TIMERS code
 btm_tree_print(ErtsBifTimer *tmr, void *vbtmp)
 {
     int is_hlt = !!(tmr->type.head.roflgs & ERTS_TMR_ROFLG_HLT);
