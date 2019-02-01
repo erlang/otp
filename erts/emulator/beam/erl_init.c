@@ -78,7 +78,7 @@ const char etp_erts_version[] = ERLANG_VERSION;
 const char etp_otp_release[] = ERLANG_OTP_RELEASE;
 const char etp_compile_date[] = ERLANG_COMPILE_DATE;
 const char etp_arch[] = ERLANG_ARCHITECTURE;
-#ifdef ERTS_ENABLE_KERNEL_POLL
+#if ERTS_ENABLE_KERNEL_POLL
 const int erts_use_kernel_poll = 1;
 const int etp_kernel_poll_support = 1;
 #else
