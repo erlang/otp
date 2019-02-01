@@ -52,7 +52,13 @@
 -export([crypto_init/4,
          crypto_update/2, crypto_update/3,
          
-         crypto_block/5
+         crypto_block/5,
+         %% Emulates old api:
+         crypto_stream_init/2, crypto_stream_init/3,
+         crypto_stream_encrypt/2,
+         crypto_stream_decrypt/2,
+         crypto_block_encrypt/3, crypto_block_encrypt/4,
+         crypto_block_decrypt/3, crypto_block_decrypt/4
         ]).
 
 
@@ -2276,6 +2282,17 @@ ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
 %%%================================================================
 %%% Compatibility functions to be called by "old" api functions.
 
+%%%--------------------------------
+%%%---- block encrypt/decrypt
+crypto_block_encrypt(Cipher, Key, Data) -> crypto_block_encrypt(Cipher, Key, <<>>, Data).
+crypto_block_decrypt(Cipher, Key, Data) -> crypto_block_decrypt(Cipher, Key, <<>>, Data).
+
+crypto_block_encrypt(Cipher, Key, Ivec, Data) -> crypto_block(Cipher, Key, Ivec, Data, true).
+crypto_block_decrypt(Cipher, Key, Ivec, Data) -> crypto_block(Cipher, Key, Ivec, Data, false).
+
+%% AEAD: use old funcs
+
+%%% Helper:
 crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
     case crypto_init(Cipher, iolist_to_binary(Key), IV, EncryptFlag) of
         {ok, Ref} ->
@@ -2284,6 +2301,31 @@ crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
                 Others -> Others
             end;
 
+        Others -> Others
+    end.
+
+%%%--------------------------------
+%%%---- stream init, encrypt/decrypt
+crypto_stream_init(Cipher, Key) ->
+    crypto_stream_init(Cipher, Key, <<>>).
+
+crypto_stream_init(Cipher, Key, IV) ->
+    {unfinished, Cipher, Key, IV}.
+
+crypto_stream_encrypt(State, Data) -> crypto_stream_emulate(State, Data, true).
+crypto_stream_decrypt(State, Data) -> crypto_stream_emulate(State, Data, false).
+
+crypto_stream_emulate({unfinished,Cipher,Key,IV}, Data, EncryptFlag) ->
+    case crypto_init(Cipher, Key, IV, EncryptFlag) of
+        {ok,State} ->
+            crypto_stream_emulate(State, Data, EncryptFlag);
+        Others ->
+            Others
+    end;
+crypto_stream_emulate(State, Data, _) ->
+    case crypto_update(State, Data) of
+        {ok, {State1,Bin}} -> {State1,Bin};
+        {ok,Bin} -> {State,Bin};
         Others -> Others
     end.
 
