@@ -84,7 +84,7 @@ phase([FuncId | Ids], Ps, StMap, FuncDb0) ->
             phase(Ids, Ps, StMap#{ FuncId => St }, FuncDb)
     catch
         Class:Error:Stack ->
-            #b_local{name=Name,arity=Arity} = FuncId,
+            #b_local{name=#b_literal{val=Name},arity=Arity} = FuncId,
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end;
