@@ -167,8 +167,10 @@ dig_out_fc_1([{block,Bl}|Is], Regs0, Acc) ->
     dig_out_fc_1(Is, Regs, Acc);
 dig_out_fc_1([{bs_set_position,_,_}=I|Is], Regs, Acc) ->
     dig_out_fc_1(Is, Regs, [I|Acc]);
-dig_out_fc_1([{bs_get_tail,_,_,Live}=I|Is], Regs0, Acc) ->
-    Regs = prune_xregs(Live, Regs0),
+dig_out_fc_1([{bs_get_tail,Src,Dst,Live0}|Is], Regs0, Acc) ->
+    Regs = prune_xregs(Live0, Regs0),
+    Live = dig_out_stack_live(Regs, Live0),
+    I = {bs_get_tail,Src,Dst,Live},
     dig_out_fc_1(Is, Regs, [I|Acc]);
 dig_out_fc_1([_|_], _Regs, _Acc) ->
     {#{},[]};
@@ -188,6 +190,23 @@ dig_out_fc_block([{set,_,_,_}|_], _Regs) ->
     %% Unknown instruction. Fail.
     #{};
 dig_out_fc_block([], Regs) -> Regs.
+
+dig_out_stack_live(Regs, Default) ->
+    Reg = {x,2},
+    case Regs of
+        #{Reg:=List} ->
+            dig_out_stack_live_1(List, Default);
+        #{} ->
+            Default
+    end.
+
+dig_out_stack_live_1({cons,{arg,N},T}, Live) ->
+    dig_out_stack_live_1(T, max(N + 1, Live));
+dig_out_stack_live_1({cons,_,T}, Live) ->
+    dig_out_stack_live_1(T, Live);
+dig_out_stack_live_1(nil, Live) ->
+    Live;
+dig_out_stack_live_1(_, Live) -> Live.
 
 prune_xregs(Live, Regs) ->
     maps:filter(fun({x,X}, _) -> X < Live end, Regs).
