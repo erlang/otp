@@ -211,6 +211,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_lis
 ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TERM keys[], ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out));
 
 ERL_NIF_API_FUNC_DECL(int,enif_select_x,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_monitor_term,(ErlNifEnv* env, const ErlNifMonitor*));
 
 
 /*
@@ -396,6 +397,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_select_x,(ErlNifEnv* env, ErlNifEvent e, enum Erl
 #  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
 #  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
 #  define enif_select_x ERL_NIF_API_FUNC_MACRO(enif_select_x)
+#  define enif_make_monitor_term ERL_NIF_API_FUNC_MACRO(enif_make_monitor_term)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

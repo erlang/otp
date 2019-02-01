@@ -822,8 +822,11 @@ demonitor_process(Config) ->
                      end),
     R_ptr = alloc_monitor_resource_nif(),
     {0,MonBin1} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm1 = make_monitor_term_nif(MonBin1),
     [R_ptr] = monitored_by(Pid),
     {0,MonBin2} = monitor_process_nif(R_ptr, Pid, true, self()),
+    MonTerm2 = make_monitor_term_nif(MonBin2),
+    true = (MonTerm1 =/= MonTerm2),
     [R_ptr, R_ptr] = monitored_by(Pid),
     0 = demonitor_process_nif(R_ptr, MonBin1),
     [R_ptr] = monitored_by(Pid),
@@ -837,6 +840,10 @@ demonitor_process(Config) ->
     {R_ptr, _, 1} = last_resource_dtor_call(),
     [] = monitored_by(Pid),
     Pid ! return,
+
+    erlang:garbage_collect(),
+    true = (MonTerm1 =/= MonTerm2),
+    io:format("MonTerm1 = ~p\nMonTerm2 = ~p\n", [MonTerm1, MonTerm2]),
     ok.
 
 
@@ -3421,6 +3428,7 @@ alloc_monitor_resource_nif() -> ?nif_stub.
 monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
 compare_monitors_nif(_,_) -> ?nif_stub.
+make_monitor_term_nif(_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
 ioq_nif(_) -> ?nif_stub.
 ioq_nif(_,_) -> ?nif_stub.

@@ -3362,6 +3362,12 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
     return 0;
 }
 
+ERL_NIF_TERM enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* monitor)
+{
+    Eterm* hp = alloc_heap(env, ERTS_REF_THING_SIZE);
+    return erts_driver_monitor_to_ref(hp, monitor);
+}
+
 int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monitor)
 {
     ErtsResource* rsrc = DATA_TO_RESOURCE(obj);
