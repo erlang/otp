@@ -1390,44 +1390,49 @@ env_compiler_options(_Config) ->
 bc_options(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    101 = highest_opcode(DataDir, small_float, [no_get_hd_tl,no_line_info]),
+    L = [{101, small_float, [no_get_hd_tl,no_line_info]},
+         {103, big, [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                     no_line_info,no_stack_trimming]},
+         {125, small_float, [no_get_hd_tl,no_line_info,no_ssa_opt_float]},
 
-    103 = highest_opcode(DataDir, big,
-                         [no_put_tuple2,
-                          no_get_hd_tl,no_ssa_opt_record,
-                          no_line_info,no_stack_trimming]),
+         {132, small, [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                       no_ssa_opt_float,no_line_info,no_bsm3]},
 
-    125 = highest_opcode(DataDir, small_float,
-                         [no_get_hd_tl,no_line_info,no_ssa_opt_float]),
+         {153, small, [r20]},
+         {153, small, [r21]},
 
-    132 = highest_opcode(DataDir, small,
-                         [no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                          no_ssa_opt_float,no_line_info,no_bsm3]),
+         {136, big, [no_put_tuple2,no_get_hd_tl,
+                     no_ssa_opt_record,no_line_info]},
 
-    153 = highest_opcode(DataDir, small, [r20]),
-    153 = highest_opcode(DataDir, small, [r21]),
+         {153, big, [no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
+         {153, big, [r16]},
+         {153, big, [r17]},
+         {153, big, [r18]},
+         {153, big, [r19]},
+         {153, small_float, [r16]},
+         {153, small_float, []},
 
-    136 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
-                                        no_ssa_opt_record,no_line_info]),
+         {158, small_maps, [r17]},
+         {158, small_maps, [r18]},
+         {158, small_maps, [r19]},
+         {158, small_maps, [r20]},
+         {158, small_maps, [r21]},
 
-    153 = highest_opcode(DataDir, big, [no_put_tuple2,no_get_hd_tl,
-                                        no_ssa_opt_record]),
-    153 = highest_opcode(DataDir, big, [r16]),
-    153 = highest_opcode(DataDir, big, [r17]),
-    153 = highest_opcode(DataDir, big, [r18]),
-    153 = highest_opcode(DataDir, big, [r19]),
-    153 = highest_opcode(DataDir, small_float, [r16]),
-    153 = highest_opcode(DataDir, small_float, []),
+         {164, small_maps, []},
+         {164, big, []}
+        ],
 
-    158 = highest_opcode(DataDir, small_maps, [r17]),
-    158 = highest_opcode(DataDir, small_maps, [r18]),
-    158 = highest_opcode(DataDir, small_maps, [r19]),
-    158 = highest_opcode(DataDir, small_maps, [r20]),
-    158 = highest_opcode(DataDir, small_maps, [r21]),
-
-    164 = highest_opcode(DataDir, small_maps, []),
-    164 = highest_opcode(DataDir, big, []),
-
+    Test = fun({Expected,Mod,Options}) ->
+                   case highest_opcode(DataDir, Mod, Options) of
+                       Expected ->
+                           ok;
+                       Got ->
+                           io:format("*** module ~p, options ~p => got ~p; expected ~p\n",
+                                     [Mod,Options,Got,Expected]),
+                           error
+                   end
+           end,
+    test_lib:p_run(Test, L),
     ok.
 
 highest_opcode(DataDir, Mod, Opt) ->
