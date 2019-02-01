@@ -53,27 +53,23 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if (enc == -100)
         return ERROR_Str(env, "Bad enc flag");
 
-
     if (!enif_inspect_binary(env, argv[1], &key_bin))
         return ERROR_Str(env, "Bad key");
 
-    if (!(cipherp = get_cipher_type(argv[0], key_bin.size))) {
-#if !defined(HAVE_EVP_AES_CTR)
-        if ((argv[0]==atom_aes_128_ctr) ||
-            (argv[0]==atom_aes_192_ctr) ||
-            (argv[0]==atom_aes_256_ctr) ||
-            (argv[0]==atom_aes_ctr)
-            )
-            return aes_ctr_stream_init_compat(env, argv[1], argv[2]);
-        else
-#endif        
-            return ERROR_Str(env, "Unknown cipher or bad key size");
-    }
+    if (!(cipherp = get_cipher_type(argv[0], key_bin.size)))
+        return ERROR_Str(env, "Unknown cipher or bad key size");
 
-    if (!(cipher = cipherp->cipher.p))
-        return enif_raise_exception(env, atom_notsup);
     if (FORBIDDEN_IN_FIPS(cipherp))
         return enif_raise_exception(env, atom_notsup);
+
+    if (!(cipher = cipherp->cipher.p)) {
+#if !defined(HAVE_EVP_AES_CTR)
+        if (cipherp->flags & AES_CTR_COMPAT)
+            return aes_ctr_stream_init_compat(env, argv[1], argv[2]);
+        else
+#endif
+            return enif_raise_exception(env, atom_notsup);
+    }
 
     iv_len = EVP_CIPHER_iv_length(cipher);
 

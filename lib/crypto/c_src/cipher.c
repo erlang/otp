@@ -34,6 +34,7 @@ static struct cipher_type_t cipher_types[] =
     {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER},
 #endif
     {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER},
+
     {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0, NO_FIPS_CIPHER},
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0, NO_FIPS_CIPHER},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0, NO_FIPS_CIPHER | ECB},
@@ -50,21 +51,27 @@ static struct cipher_type_t cipher_types[] =
     {{"blowfish_cfb64"}, {&EVP_bf_cfb64}, 0, NO_FIPS_CIPHER},
     {{"blowfish_ofb64"}, {&EVP_bf_ofb}, 0, NO_FIPS_CIPHER},
     {{"blowfish_ecb"}, {&EVP_bf_ecb}, 0, NO_FIPS_CIPHER | ECB},
+
     {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
     {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
     {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
+
     {{"aes_128_cbc"}, {&EVP_aes_128_cbc}, 16, 0},
     {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
     {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
+
     {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER},
     {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER},
     {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER},
+
     {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER},
     {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER},
     {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER},
+
     {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16, ECB},
     {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24, ECB},
     {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32, ECB},
+
 #if defined(HAVE_EVP_AES_CTR)
     {{"aes_128_ctr"}, {&EVP_aes_128_ctr}, 16, 0},
     {{"aes_192_ctr"}, {&EVP_aes_192_ctr}, 24, 0},
@@ -73,8 +80,12 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_ctr"},    {&EVP_aes_192_ctr}, 24, 0},
     {{"aes_ctr"},    {&EVP_aes_256_ctr}, 32, 0},
 #else
-    {{"aes_ctr"},    {NULL}, 0, 0},
+    {{"aes_128_ctr"}, {NULL}, 16, AES_CTR_COMPAT},
+    {{"aes_192_ctr"}, {NULL}, 24, AES_CTR_COMPAT},
+    {{"aes_256_ctr"}, {NULL}, 32, AES_CTR_COMPAT},
+    {{"aes_ctr"},     {NULL}, 16, AES_CTR_COMPAT},
 #endif
+
 #if defined(HAVE_CHACHA20)
     {{"chacha20"}, {&EVP_chacha20}, 32, NO_FIPS_CIPHER},
 #else
@@ -196,7 +207,8 @@ ERL_NIF_TERM cipher_types_as_list(ErlNifEnv* env)
 
     for (p = cipher_types; (p->type.atom & (p->type.atom != atom_false)); p++) {
         if ((prev != p->type.atom) &&
-            ((p->cipher.p != NULL) || (p->flags & NON_EVP_CIPHER)) && /* Special handling. Bad indeed... */
+            ((p->cipher.p != NULL) ||
+             (p->flags & (NON_EVP_CIPHER|AES_CTR_COMPAT)) ) && /* Special handling. Bad indeed... */
             ! FORBIDDEN_IN_FIPS(p)
             )
         hd = enif_make_list_cell(env, p->type.atom, hd);

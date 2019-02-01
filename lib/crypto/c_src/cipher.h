@@ -45,6 +45,7 @@ struct cipher_type_t {
 #define ECB 4
 #define AEAD_CIPHER 8
 #define NON_EVP_CIPHER 16
+#define AES_CTR_COMPAT 32
 
 
 #ifdef FIPS_SUPPORT
