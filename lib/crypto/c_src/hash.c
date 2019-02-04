@@ -34,7 +34,11 @@ struct evp_md_ctx {
 static ErlNifResourceType* evp_md_ctx_rtype;
 
 static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
-    EVP_MD_CTX_free(ctx->ctx);
+    if (ctx == NULL)
+        return;
+
+    if (ctx->ctx)
+        EVP_MD_CTX_free(ctx->ctx);
 }
 #endif
 
@@ -44,13 +48,15 @@ int init_hash_ctx(ErlNifEnv* env) {
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                NULL);
-    if (evp_md_ctx_rtype == NULL) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
-        return 0;
-    }
+    if (evp_md_ctx_rtype == NULL)
+        goto err;
 #endif
 
     return 1;
+
+ err:
+    PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
+    return 0;
 }
 
 ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -60,28 +66,36 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifBinary         data;
     ERL_NIF_TERM         ret;
     unsigned             ret_size;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
+    ASSERT(argc == 2);
+
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
+    if ((md = digp->md.p) == NULL)
+        goto err;
 
     ret_size = (unsigned)EVP_MD_size(md);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
-    if (!EVP_Digest(data.data, data.size,
-                    enif_make_new_binary(env, ret_size, &ret), &ret_size,
-                    md, NULL)) {
-        return atom_notsup;
-    }
+
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
+        goto err;
+    if (EVP_Digest(data.data, data.size, outp, &ret_size, md, NULL) != 1)
+        goto err;
+
     ASSERT(ret_size == (unsigned)EVP_MD_size(md));
 
     CONSUME_REDS(env, data);
     return ret;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
@@ -89,50 +103,73 @@ ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     struct digest_type_t *digp = NULL;
-    struct evp_md_ctx    *ctx;
+    struct evp_md_ctx    *ctx = NULL;
     ERL_NIF_TERM         ret;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    ASSERT(argc == 1);
 
-    ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
-    ctx->ctx = EVP_MD_CTX_new();
-    if (!EVP_DigestInit(ctx->ctx, digp->md.p)) {
-        enif_release_resource(ctx);
-        return atom_notsup;
-    }
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (digp->md.p == NULL)
+        goto err;
+
+    if ((ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+        goto err;
+    if ((ctx->ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
+        goto err;
+
     ret = enif_make_resource(env, ctx);
-    enif_release_resource(ctx);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (ctx)
+        enif_release_resource(ctx);
     return ret;
 }
 
 ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    struct evp_md_ctx   *ctx, *new_ctx;
+    struct evp_md_ctx   *ctx, *new_ctx = NULL;
     ErlNifBinary data;
     ERL_NIF_TERM ret;
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx) ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-        return enif_make_badarg(env);
-    }
+    ASSERT(argc == 2);
 
-    new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
-    new_ctx->ctx = EVP_MD_CTX_new();
-    if (!EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) ||
-        !EVP_DigestUpdate(new_ctx->ctx, data.data, data.size)) {
-        enif_release_resource(new_ctx);
-        return atom_notsup;
-    }
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
+    if ((new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx))) == NULL)
+        goto err;
+    if ((new_ctx->ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) != 1)
+        goto err;
+    if (EVP_DigestUpdate(new_ctx->ctx, data.data, data.size) != 1)
+        goto err;
 
     ret = enif_make_resource(env, new_ctx);
-    enif_release_resource(new_ctx);
     CONSUME_REDS(env, data);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (new_ctx)
+        enif_release_resource(new_ctx);
     return ret;
 }
 
@@ -142,25 +179,37 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     EVP_MD_CTX        *new_ctx;
     ERL_NIF_TERM  ret;
     unsigned      ret_size;
+    unsigned char     *outp;
 
-    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx)) {
-        return enif_make_badarg(env);
-    }
+    ASSERT(argc == 1);
+
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx))
+        goto bad_arg;
 
     ret_size = (unsigned)EVP_MD_CTX_size(ctx->ctx);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
 
-    new_ctx = EVP_MD_CTX_new();
-    if (!EVP_MD_CTX_copy(new_ctx, ctx->ctx) ||
-        !EVP_DigestFinal(new_ctx,
-                         enif_make_new_binary(env, ret_size, &ret),
-                         &ret_size)) {
-	EVP_MD_CTX_free(new_ctx);
-        return atom_notsup;
-    }
-    EVP_MD_CTX_free(new_ctx);
-    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
+    if ((new_ctx = EVP_MD_CTX_new()) == NULL)
+        goto err;
+    if (EVP_MD_CTX_copy(new_ctx, ctx->ctx) != 1)
+        goto err;
+    if ((outp = enif_make_new_binary(env, ret_size, &ret)) == NULL)
+        goto err;
+    if (EVP_DigestFinal(new_ctx, outp, &ret_size) != 1)
+        goto err;
 
+    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (new_ctx)
+        EVP_MD_CTX_free(new_ctx);
     return ret;
 }
 
@@ -173,14 +222,14 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM         ctx;
     size_t               ctx_size = 0;
     init_fun             ctx_init = 0;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    ASSERT(argc == 1);
+
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (digp->md.p == NULL)
+        goto err;
 
     switch (EVP_MD_type(digp->md.p))
     {
@@ -225,13 +274,24 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_init);
 
-    ctx_init(enif_make_new_binary(env, ctx_size, &ctx));
+    if ((outp = enif_make_new_binary(env, ctx_size, &ctx)) == NULL)
+        goto err;
+
+    if (ctx_init(outp) != 1)
+        goto err;
+
     return enif_make_tuple2(env, argv[0], ctx);
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -246,16 +306,21 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     size_t               ctx_size   = 0;
     update_fun           ctx_update = 0;
 
-    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
-        arity != 2 ||
-        !(digp = get_digest_type(tuple[0])) ||
-        !enif_inspect_binary(env, tuple[1], &ctx) ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-        return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-	return atom_notsup;
-    }
+    ASSERT(argc == 2);
+
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple))
+        goto bad_arg;
+    if (arity != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(tuple[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, tuple[1], &ctx))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
+    if (digp->md.p == NULL)
+        goto err;
 
     switch (EVP_MD_type(digp->md.p))
     {
@@ -300,21 +365,29 @@ ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_update);
 
-    if (ctx.size != ctx_size) {
-        return enif_make_badarg(env);
-    }
+    if (ctx.size != ctx_size)
+        goto bad_arg;
 
-    ctx_buff = enif_make_new_binary(env, ctx_size, &new_ctx);
+    if ((ctx_buff = enif_make_new_binary(env, ctx_size, &new_ctx)) == NULL)
+        goto err;
     memcpy(ctx_buff, ctx.data, ctx_size);
-    ctx_update(ctx_buff, data.data, data.size);
+
+    if (ctx_update(ctx_buff, data.data, data.size) != 1)
+        goto err;
 
     CONSUME_REDS(env, data);
     return enif_make_tuple2(env, tuple[0], new_ctx);
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -326,20 +399,24 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     int                  arity;
     struct digest_type_t *digp = NULL;
     const EVP_MD         *md;
-    void                 *new_ctx;
+    void                 *new_ctx = NULL;
     size_t               ctx_size  = 0;
     final_fun            ctx_final = 0;
+    unsigned char        *outp;
 
-    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
-        arity != 2 ||
-        !(digp = get_digest_type(tuple[0])) ||
-        !enif_inspect_binary(env, tuple[1], &ctx)) {
-        return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
+    ASSERT(argc == 1);
+
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple))
+        goto bad_arg;
+    if (arity != 2)
+        goto bad_arg;
+    if ((digp = get_digest_type(tuple[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_binary(env, tuple[1], &ctx))
+        goto bad_arg;
+
+    if ((md = digp->md.p) == NULL)
+        goto err;
 
     switch (EVP_MD_type(md))
     {
@@ -384,21 +461,36 @@ ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
     default:
-        return atom_notsup;
+        goto err;
     }
     ASSERT(ctx_size);
     ASSERT(ctx_final);
 
-    if (ctx.size != ctx_size) {
-        return enif_make_badarg(env);
-    }
+    if (ctx.size != ctx_size)
+        goto bad_arg;
 
-    new_ctx = enif_alloc(ctx_size);
+    if ((new_ctx = enif_alloc(ctx_size)) == NULL)
+        goto err;
+
     memcpy(new_ctx, ctx.data, ctx_size);
-    ctx_final(enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret),
-              new_ctx);
-    enif_free(new_ctx);
 
+    if ((outp = enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret)) == NULL)
+        goto err;
+
+    if (ctx_final(outp, new_ctx) != 1)
+        goto err;
+
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (new_ctx)
+        enif_free(new_ctx);
     return ret;
 }
 

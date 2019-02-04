@@ -62,76 +62,76 @@ static int library_refc = 0; /* number of users of this dynamic library */
 static int library_initialized = 0;
 
 static ErlNifFunc nif_funcs[] = {
-    {"info_lib", 0, info_lib},
-    {"info_fips", 0, info_fips},
-    {"enable_fips_mode", 1, enable_fips_mode},
-    {"algorithms", 0, algorithms},
-    {"hash_nif", 2, hash_nif},
-    {"hash_init_nif", 1, hash_init_nif},
-    {"hash_update_nif", 2, hash_update_nif},
-    {"hash_final_nif", 1, hash_final_nif},
-    {"hmac_nif", 3, hmac_nif},
-    {"hmac_nif", 4, hmac_nif},
-    {"hmac_init_nif", 2, hmac_init_nif},
-    {"hmac_update_nif", 2, hmac_update_nif},
-    {"hmac_final_nif", 1, hmac_final_nif},
-    {"hmac_final_nif", 2, hmac_final_nif},
-    {"cmac_nif", 3, cmac_nif},
-    {"block_crypt_nif", 5, block_crypt_nif},
-    {"block_crypt_nif", 4, block_crypt_nif},
-    {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif},
-    {"aes_ctr_stream_init", 2, aes_ctr_stream_init},
-    {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
-    {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
-    {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
-    {"strong_rand_range_nif", 1, strong_rand_range_nif},
-    {"rand_uniform_nif", 2, rand_uniform_nif},
-    {"mod_exp_nif", 4, mod_exp_nif},
-    {"do_exor", 2, do_exor},
-    {"rc4_set_key", 1, rc4_set_key},
-    {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
-    {"pkey_sign_nif", 5, pkey_sign_nif},
-    {"pkey_verify_nif", 6, pkey_verify_nif},
-    {"pkey_crypt_nif", 6, pkey_crypt_nif},
-    {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
-    {"dh_generate_key_nif", 4, dh_generate_key_nif},
-    {"dh_compute_key_nif", 3, dh_compute_key_nif},
-    {"evp_compute_key_nif", 3, evp_compute_key_nif},
-    {"evp_generate_key_nif", 1, evp_generate_key_nif},
-    {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif},
-    {"srp_value_B_nif", 5, srp_value_B_nif},
-    {"srp_user_secret_nif", 7, srp_user_secret_nif},
-    {"srp_host_secret_nif", 5, srp_host_secret_nif},
+    {"info_lib", 0, info_lib, 0},
+    {"info_fips", 0, info_fips, 0},
+    {"enable_fips_mode", 1, enable_fips_mode, 0},
+    {"algorithms", 0, algorithms, 0},
+    {"hash_nif", 2, hash_nif, 0},
+    {"hash_init_nif", 1, hash_init_nif, 0},
+    {"hash_update_nif", 2, hash_update_nif, 0},
+    {"hash_final_nif", 1, hash_final_nif, 0},
+    {"hmac_nif", 3, hmac_nif, 0},
+    {"hmac_nif", 4, hmac_nif, 0},
+    {"hmac_init_nif", 2, hmac_init_nif, 0},
+    {"hmac_update_nif", 2, hmac_update_nif, 0},
+    {"hmac_final_nif", 1, hmac_final_nif, 0},
+    {"hmac_final_nif", 2, hmac_final_nif, 0},
+    {"cmac_nif", 3, cmac_nif, 0},
+    {"block_crypt_nif", 5, block_crypt_nif, 0},
+    {"block_crypt_nif", 4, block_crypt_nif, 0},
+    {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif, 0},
+    {"aes_ctr_stream_init", 2, aes_ctr_stream_init, 0},
+    {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt, 0},
+    {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt, 0},
+    {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
+    {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
+    {"rand_uniform_nif", 2, rand_uniform_nif, 0},
+    {"mod_exp_nif", 4, mod_exp_nif, 0},
+    {"do_exor", 2, do_exor, 0},
+    {"rc4_set_key", 1, rc4_set_key, 0},
+    {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state, 0},
+    {"pkey_sign_nif", 5, pkey_sign_nif, 0},
+    {"pkey_verify_nif", 6, pkey_verify_nif, 0},
+    {"pkey_crypt_nif", 6, pkey_crypt_nif, 0},
+    {"rsa_generate_key_nif", 2, rsa_generate_key_nif, 0},
+    {"dh_generate_key_nif", 4, dh_generate_key_nif, 0},
+    {"dh_compute_key_nif", 3, dh_compute_key_nif, 0},
+    {"evp_compute_key_nif", 3, evp_compute_key_nif, 0},
+    {"evp_generate_key_nif", 1, evp_generate_key_nif, 0},
+    {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif, 0},
+    {"srp_value_B_nif", 5, srp_value_B_nif, 0},
+    {"srp_user_secret_nif", 7, srp_user_secret_nif, 0},
+    {"srp_host_secret_nif", 5, srp_host_secret_nif, 0},
 
-    {"ec_key_generate", 2, ec_key_generate},
-    {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
+    {"ec_key_generate", 2, ec_key_generate, 0},
+    {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif, 0},
 
-    {"rand_seed_nif", 1, rand_seed_nif},
+    {"rand_seed_nif", 1, rand_seed_nif, 0},
 
-    {"aead_encrypt", 6, aead_encrypt},
-    {"aead_decrypt", 6, aead_decrypt},
+    {"aead_encrypt", 6, aead_encrypt, 0},
+    {"aead_decrypt", 6, aead_decrypt, 0},
 
-    {"chacha20_stream_init",    2, chacha20_stream_init},
-    {"chacha20_stream_encrypt", 2, chacha20_stream_crypt},
-    {"chacha20_stream_decrypt", 2, chacha20_stream_crypt},
+    {"chacha20_stream_init",    2, chacha20_stream_init, 0},
+    {"chacha20_stream_encrypt", 2, chacha20_stream_crypt, 0},
+    {"chacha20_stream_decrypt", 2, chacha20_stream_crypt, 0},
 
-    {"poly1305_nif", 2, poly1305_nif},
+    {"poly1305_nif", 2, poly1305_nif, 0},
 
-    {"engine_by_id_nif", 1, engine_by_id_nif},
-    {"engine_init_nif", 1, engine_init_nif},
-    {"engine_finish_nif", 1, engine_finish_nif},
-    {"engine_free_nif", 1, engine_free_nif},
-    {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif},
-    {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif},
-    {"engine_register_nif", 2, engine_register_nif},
-    {"engine_unregister_nif", 2, engine_unregister_nif},
-    {"engine_add_nif", 1, engine_add_nif},
-    {"engine_remove_nif", 1, engine_remove_nif},
-    {"engine_get_first_nif", 0, engine_get_first_nif},
-    {"engine_get_next_nif", 1, engine_get_next_nif},
-    {"engine_get_id_nif", 1, engine_get_id_nif},
-    {"engine_get_name_nif", 1, engine_get_name_nif},
-    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif}
+    {"engine_by_id_nif", 1, engine_by_id_nif, 0},
+    {"engine_init_nif", 1, engine_init_nif, 0},
+    {"engine_finish_nif", 1, engine_finish_nif, 0},
+    {"engine_free_nif", 1, engine_free_nif, 0},
+    {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif, 0},
+    {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif, 0},
+    {"engine_register_nif", 2, engine_register_nif, 0},
+    {"engine_unregister_nif", 2, engine_unregister_nif, 0},
+    {"engine_add_nif", 1, engine_add_nif, 0},
+    {"engine_remove_nif", 1, engine_remove_nif, 0},
+    {"engine_get_first_nif", 0, engine_get_first_nif, 0},
+    {"engine_get_next_nif", 1, engine_get_next_nif, 0},
+    {"engine_get_id_nif", 1, engine_get_id_nif, 0},
+    {"engine_get_name_nif", 1, engine_get_name_nif, 0},
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif, 0}
 
 };
 
@@ -166,20 +166,24 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     int vernum;
     ErlNifBinary lib_bin;
     char lib_buf[1000];
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    void *handle;
+#endif
 
     if (!verify_lib_version())
 	return __LINE__;
 
     /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
-    if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
-	|| tpl_arity != 3
-	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 302
-	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
-
-	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-	return __LINE__;
-    }
+    if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array))
+        return __LINE__;
+    if (tpl_arity != 3)
+        return __LINE__;
+    if (!enif_get_int(env, tpl_array[0], &vernum))
+        return __LINE__;
+    if (vernum != 302)
+        return __LINE__;
+    if (!enif_inspect_binary(env, tpl_array[1], &lib_bin))
+        return __LINE__;
 
     if (!init_hmac_ctx(env)) {
 	return __LINE__;
@@ -206,19 +210,13 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
-    {
-	void* handle;
-	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
-	    return __LINE__;
-	}
-	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	    return __LINE__;
-	}
-	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
-							   &error_handler, NULL))) {
-	    return __LINE__;
-	}
-    }
+    if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name))
+        return __LINE__;
+    if ((handle = enif_dlopen(lib_buf, &error_handler, NULL)) == NULL)
+        return __LINE__;
+    if ((funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
+                                                       &error_handler, NULL)) == NULL)
+        return __LINE__;
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
 #endif
@@ -238,7 +236,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return __LINE__;
     }
 
-    CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
+#ifdef HAS_CRYPTO_MEM_FUNCTIONS
+    if (!CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free))
+        return __LINE__;
+#endif
 
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {

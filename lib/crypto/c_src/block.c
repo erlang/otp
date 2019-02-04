@@ -27,20 +27,27 @@ ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     struct cipher_type_t *cipherp = NULL;
     const EVP_CIPHER     *cipher;
     ErlNifBinary         key, ivec, text;
-    EVP_CIPHER_CTX*      ctx;
+    EVP_CIPHER_CTX       *ctx = NULL;
     ERL_NIF_TERM         ret;
     unsigned char        *out;
     int                  ivec_size, out_size = 0;
+    int                  cipher_len;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
-        || !(cipherp = get_cipher_type(argv[0], key.size))
-        || !enif_inspect_iolist_as_binary(env, argv[argc - 2], &text)) {
-        return enif_make_badarg(env);
-    }
-    cipher = cipherp->cipher.p;
-    if (!cipher) {
+    ASSERT(argc == 4 || argc == 5);
+
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX)
+        goto bad_arg;
+    if ((cipherp = get_cipher_type(argv[0], key.size)) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[argc - 2], &text))
+        goto bad_arg;
+    if (text.size > INT_MAX)
+        goto bad_arg;
+
+    if ((cipher = cipherp->cipher.p) == NULL)
         return enif_raise_exception(env, atom_notsup);
-    }
 
     if (argv[0] == atom_aes_cfb8
         && (key.size == 24 || key.size == 32)) {
@@ -64,42 +71,73 @@ ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 	argv[0] == atom_des_ecb)
 	ivec_size = 0; /* 0.9.8l returns faulty ivec_size */
 #endif
+    if (ivec_size < 0)
+        goto bad_arg;
 
-    if (text.size % EVP_CIPHER_block_size(cipher) != 0 ||
-        (ivec_size == 0 ? argc != 4
-                      : (argc != 5 ||
-                         !enif_inspect_iolist_as_binary(env, argv[2], &ivec) ||
-                         ivec.size != ivec_size))) {
-        return enif_make_badarg(env);
+    if ((cipher_len = EVP_CIPHER_block_size(cipher)) < 0)
+        goto bad_arg;
+    if (text.size % (size_t)cipher_len != 0)
+        goto bad_arg;
+
+    if (ivec_size == 0) {
+        if (argc != 4)
+            goto bad_arg;
+    } else {
+        if (argc != 5)
+            goto bad_arg;
+        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec))
+            goto bad_arg;
+        if (ivec.size != (size_t)ivec_size)
+            goto bad_arg;
     }
 
-    out = enif_make_new_binary(env, text.size, &ret);
+    if ((out = enif_make_new_binary(env, text.size, &ret)) == NULL)
+        goto err;
+    if ((ctx = EVP_CIPHER_CTX_new()) == NULL)
+        goto err;
 
-    ctx = EVP_CIPHER_CTX_new();
     if (!EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL,
-                           (argv[argc - 1] == atom_true)) ||
-        !EVP_CIPHER_CTX_set_key_length(ctx, key.size) ||
-        !(EVP_CIPHER_type(cipher) != NID_rc2_cbc ||
-          EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_SET_RC2_KEY_BITS, key.size * 8, NULL)) ||
-        !EVP_CipherInit_ex(ctx, NULL, NULL,
-                           key.data, ivec_size ? ivec.data : NULL, -1) ||
-        !EVP_CIPHER_CTX_set_padding(ctx, 0)) {
+                           (argv[argc - 1] == atom_true)))
+        goto err;
+    if (!EVP_CIPHER_CTX_set_key_length(ctx, (int)key.size))
+        goto err;
 
-        EVP_CIPHER_CTX_free(ctx);
-        return enif_raise_exception(env, atom_notsup);
+    if (EVP_CIPHER_type(cipher) == NID_rc2_cbc) {
+        if (key.size > INT_MAX / 8)
+            goto err;
+        if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_SET_RC2_KEY_BITS, (int)key.size * 8, NULL))
+            goto err;
     }
 
-    if (text.size > 0 && /* OpenSSL 0.9.8h asserts text.size > 0 */
-        (!EVP_CipherUpdate(ctx, out, &out_size, text.data, text.size)
-         || (ASSERT(out_size == text.size), 0)
-         || !EVP_CipherFinal_ex(ctx, out + out_size, &out_size))) {
+    if (!EVP_CipherInit_ex(ctx, NULL, NULL, key.data,
+                           ivec_size ? ivec.data : NULL, -1))
+        goto err;
+    if (!EVP_CIPHER_CTX_set_padding(ctx, 0))
+        goto err;
 
-        EVP_CIPHER_CTX_free(ctx);
-        return enif_raise_exception(env, atom_notsup);
+    /* OpenSSL 0.9.8h asserts text.size > 0 */
+    if (text.size > 0) {
+        if (!EVP_CipherUpdate(ctx, out, &out_size, text.data, (int)text.size))
+            goto err;
+        if (ASSERT(out_size == text.size), 0)
+            goto err;
+        if (!EVP_CipherFinal_ex(ctx, out + out_size, &out_size))
+            goto err;
     }
+
     ASSERT(out_size == 0);
-    EVP_CIPHER_CTX_free(ctx);
     CONSUME_REDS(env, text);
+    goto done;
 
+ bad_arg:
+    ret = enif_make_badarg(env);
+    goto done;
+
+ err:
+    ret = enif_raise_exception(env, atom_notsup);
+
+ done:
+    if (ctx)
+        EVP_CIPHER_CTX_free(ctx);
     return ret;
 }

@@ -20,17 +20,17 @@
 
 #include "algorithms.h"
 
-static int algo_hash_cnt, algo_hash_fips_cnt;
+static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
 static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
-static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
+static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
-static int algo_cipher_cnt, algo_cipher_fips_cnt;
+static unsigned int algo_cipher_cnt, algo_cipher_fips_cnt;
 static ERL_NIF_TERM algo_cipher[25]; /* increase when extending the list */
-static int algo_mac_cnt, algo_mac_fips_cnt;
+static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
 static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
-static int algo_curve_cnt, algo_curve_fips_cnt;
+static unsigned int algo_curve_cnt, algo_curve_fips_cnt;
 static ERL_NIF_TERM algo_curve[89]; /* increase when extending the list */
-static int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
+static unsigned int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
 static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
 
 void init_algorithms_types(ErlNifEnv* env)
@@ -295,19 +295,20 @@ ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef FIPS_SUPPORT
     int fips_mode  = FIPS_mode();
-    int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
-    int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
-    int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
-    int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
-    int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
-    int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
+
+    unsigned int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
+    unsigned int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    unsigned int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
+    unsigned int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
+    unsigned int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
+    unsigned int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
 #else
-    int hash_cnt   = algo_hash_cnt;
-    int pubkey_cnt = algo_pubkey_cnt;
-    int cipher_cnt = algo_cipher_cnt;
-    int mac_cnt    = algo_mac_cnt;
-    int curve_cnt    = algo_curve_cnt;
-    int rsa_opts_cnt = algo_rsa_opts_cnt;
+    unsigned int hash_cnt   = algo_hash_cnt;
+    unsigned int pubkey_cnt = algo_pubkey_cnt;
+    unsigned int cipher_cnt = algo_cipher_cnt;
+    unsigned int mac_cnt    = algo_mac_cnt;
+    unsigned int curve_cnt    = algo_curve_cnt;
+    unsigned int rsa_opts_cnt = algo_rsa_opts_cnt;
 #endif
     return enif_make_tuple6(env,
                             enif_make_list_from_array(env, algo_hash,   hash_cnt),

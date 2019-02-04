@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <openssl/opensslconf.h>
+#include <stdint.h>
 
 #include <erl_nif.h>
 #include "crypto_callback.h"
@@ -64,22 +65,36 @@ static void nomem(size_t size, const char* op)
 
 static void* crypto_alloc(size_t size CCB_FILE_LINE_ARGS)
 {
-    void *ret = enif_alloc(size);
+    void *ret;
 
-    if (!ret && size)
-	nomem(size, "allocate");
+    if ((ret = enif_alloc(size)) == NULL)
+        goto err;
     return ret;
+
+ err:
+    if (size)
+	nomem(size, "allocate");
+    return NULL;
 }
 static void* crypto_realloc(void* ptr, size_t size CCB_FILE_LINE_ARGS)
 {
-    void* ret = enif_realloc(ptr, size);
+    void* ret;
 
-    if (!ret && size)
-	nomem(size, "reallocate");
+    if ((ret = enif_realloc(ptr, size)) == NULL)
+        goto err;
     return ret;
+
+ err:
+    if (size)
+	nomem(size, "reallocate");
+    return NULL;
 }
+
 static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 {
+    if (ptr == NULL)
+        return;
+
     enif_free(ptr);
 }
 
@@ -160,19 +175,26 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 #ifdef OPENSSL_THREADS
 	if (nlocks > 0) {
 	    int i;
-	    lock_vec = enif_alloc(nlocks*sizeof(*lock_vec));
-	    if (lock_vec==NULL) return NULL;
-	    memset(lock_vec, 0, nlocks*sizeof(*lock_vec));
-	    
+
+            if ((size_t)nlocks > SIZE_MAX / sizeof(*lock_vec))
+                goto err;
+            if ((lock_vec = enif_alloc((size_t)nlocks * sizeof(*lock_vec))) == NULL)
+                goto err;
+
+            memset(lock_vec, 0, (size_t)nlocks * sizeof(*lock_vec));
+
 	    for (i=nlocks-1; i>=0; --i) {
-		lock_vec[i] = enif_rwlock_create("crypto_stat");
-		if (lock_vec[i]==NULL) return NULL;
+		if ((lock_vec[i] = enif_rwlock_create("crypto_stat")) == NULL)
+                    goto err;
 	    }
 	}
 #endif
 	is_initialized = 1;
     }
     return &the_struct;
+
+ err:
+    return NULL;
 }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB

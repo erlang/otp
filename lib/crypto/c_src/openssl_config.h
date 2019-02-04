@@ -89,6 +89,11 @@
 #  undef FIPS_SUPPORT
 # endif
 
+/* LibreSSL has never supported the custom mem functions */
+#ifndef HAS_LIBRESSL
+#  define HAS_CRYPTO_MEM_FUNCTIONS
+#endif
+
 # if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
 /* LibreSSL wants the 1.0.1 API */
 # define NEED_EVP_COMPATIBILITY_FUNCTIONS
@@ -291,11 +296,11 @@
                       (((unsigned char*) (s))[2] << 8)  | \
                       (((unsigned char*) (s))[3]))
 
-#define put_int32(s,i) \
-{ (s)[0] = (char)(((i) >> 24) & 0xff);\
-  (s)[1] = (char)(((i) >> 16) & 0xff);\
-  (s)[2] = (char)(((i) >> 8) & 0xff);\
-  (s)[3] = (char)((i) & 0xff);\
+#define put_uint32(s,i) \
+{ (s)[0] = (unsigned char)(((i) >> 24) & 0xff);\
+  (s)[1] = (unsigned char)(((i) >> 16) & 0xff);\
+  (s)[2] = (unsigned char)(((i) >> 8) & 0xff);\
+  (s)[3] = (unsigned char)((i) & 0xff);\
 }
 
 /* This shall correspond to the similar macro in crypto.erl */
@@ -303,11 +308,16 @@
 #define MAX_BYTES_TO_NIF 20000
 
 #define CONSUME_REDS(NifEnv, Ibin)			\
-do {							\
-    int _cost = ((Ibin).size  * 100) / MAX_BYTES_TO_NIF;\
+do {                                                    \
+    size_t _cost = (Ibin).size;                         \
+    if (_cost > SIZE_MAX / 100)                         \
+        _cost = 100;                                    \
+    else                                                \
+        _cost = (_cost * 100) / MAX_BYTES_TO_NIF;       \
+                                                        \
     if (_cost) {                                        \
         (void) enif_consume_timeslice((NifEnv),		\
-	          (_cost > 100) ? 100 : _cost);		\
+                (_cost > 100) ? 100 : (int)_cost);      \
     }                                                   \
  } while (0)
 
@@ -317,15 +327,15 @@ do {							\
 #  define HAVE_OPAQUE_BN_GENCB
 #endif
 
-/*
-#define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
-#define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
-#define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
-*/
-
-#define PRINTF_ERR0(FMT)
-#define PRINTF_ERR1(FMT,A1)
-#define PRINTF_ERR2(FMT,A1,A2)
+#if 0
+#  define PRINTF_ERR0(FMT)         enif_fprintf(stderr, FMT "\n")
+#  define PRINTF_ERR1(FMT, A1)     enif_fprintf(stderr, FMT "\n", A1)
+#  define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
+#else
+#  define PRINTF_ERR0(FMT)
+#  define PRINTF_ERR1(FMT,A1)
+#  define PRINTF_ERR2(FMT,A1,A2)
+#endif
 
 #ifdef FIPS_SUPPORT
 /* In FIPS mode non-FIPS algorithms are disabled and return badarg. */

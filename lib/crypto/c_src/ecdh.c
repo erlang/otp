@@ -32,48 +32,62 @@ ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ERL_NIF_TERM ret;
     unsigned char *p;
     EC_KEY* key = NULL;
-    int field_size = 0;
-    int i;
-    EC_GROUP *group;
+    int degree;
+    size_t field_size;
+    EC_GROUP *group = NULL;
     const BIGNUM *priv_key;
     EC_POINT *my_ecpoint = NULL;
     EC_KEY *other_ecdh = NULL;
 
-    if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
-	return make_badarg_maybe(env);
+    ASSERT(argc == 3);
 
-    group    = EC_GROUP_dup(EC_KEY_get0_group(key));
+    if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
+        goto bad_arg;
+    if ((group = EC_GROUP_dup(EC_KEY_get0_group(key))) == NULL)
+        goto bad_arg;
     priv_key = EC_KEY_get0_private_key(key);
 
     if (!term2point(env, argv[0], group, &my_ecpoint)) {
-	goto out_err;
+        goto err;
     }
 
-    if ((other_ecdh = EC_KEY_new()) == NULL
-	|| !EC_KEY_set_group(other_ecdh, group)
-	|| !EC_KEY_set_private_key(other_ecdh, priv_key))
-	goto out_err;
+    if ((other_ecdh = EC_KEY_new()) == NULL)
+        goto err;
+    if (!EC_KEY_set_group(other_ecdh, group))
+        goto err;
+    if (!EC_KEY_set_private_key(other_ecdh, priv_key))
+        goto err;
 
-    field_size = EC_GROUP_get_degree(group);
-    if (field_size <= 0)
-	goto out_err;
+    if ((degree = EC_GROUP_get_degree(group)) <= 0)
+        goto err;
 
-    p = enif_make_new_binary(env, (field_size+7)/8, &ret);
-    i = ECDH_compute_key(p, (field_size+7)/8, my_ecpoint, other_ecdh, NULL);
+    field_size = (size_t)degree;
+    if ((p = enif_make_new_binary(env, (field_size+7)/8, &ret)) == NULL)
+        goto err;
+    if (ECDH_compute_key(p, (field_size+7)/8, my_ecpoint, other_ecdh, NULL) < 1)
+        goto err;
 
-    if (i < 0)
-	    goto out_err;
-out:
-    if (group) EC_GROUP_free(group);
-    if (my_ecpoint) EC_POINT_free(my_ecpoint);
-    if (other_ecdh) EC_KEY_free(other_ecdh);
-    if (key) EC_KEY_free(key);
+    goto done;
+
+ bad_arg:
+    ret = make_badarg_maybe(env);
+    goto done;
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    if (group)
+        EC_GROUP_free(group);
+    if (my_ecpoint)
+        EC_POINT_free(my_ecpoint);
+    if (other_ecdh)
+        EC_KEY_free(other_ecdh);
+    if (key)
+        EC_KEY_free(key);
 
     return ret;
 
-out_err:
-    ret = enif_make_badarg(env);
-    goto out;
 #else
     return atom_notsup;
 #endif

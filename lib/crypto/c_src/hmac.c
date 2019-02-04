@@ -37,11 +37,14 @@ int init_hmac_ctx(ErlNifEnv *env) {
 						 (ErlNifResourceDtor*) hmac_context_dtor,
 						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
 						 NULL);
-    if (hmac_context_rtype == NULL) {
-        PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
-        return 0;
-    }
+    if (hmac_context_rtype == NULL)
+        goto err;
+
     return 1;
+
+ err:
+    PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
+    return 0;
 }
 
 ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -51,44 +54,67 @@ ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned char        buff[EVP_MAX_MD_SIZE];
     unsigned             size = 0, req_size = 0;
     ERL_NIF_TERM         ret;
+    unsigned char        *outp;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &key) ||
-        !enif_inspect_iolist_as_binary(env, argv[2], &data) ||
-        (argc == 4 && !enif_get_uint(env, argv[3], &req_size))) {
-        return enif_make_badarg(env);
+    ASSERT(argc == 3 || argc == 4);
+
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[2], &data))
+        goto bad_arg;
+    if (argc == 4) {
+        if (!enif_get_uint(env, argv[3], &req_size))
+            goto bad_arg;
     }
 
-    if (!digp->md.p ||
-        !HMAC(digp->md.p,
-              key.data, key.size,
-              data.data, data.size,
-              buff, &size)) {
-        return atom_notsup;
-    }
+    if (digp->md.p == NULL)
+        goto err;
+    if (HMAC(digp->md.p,
+             key.data, (int)key.size,
+             data.data, data.size,
+             buff, &size) == NULL)
+        goto err;
+
     ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
     CONSUME_REDS(env, data);
 
     if (argc == 4) {
-        if (req_size <= size) {
-            size = req_size;
-        }
-        else {
-            return enif_make_badarg(env);
-        }
+        if (req_size > size)
+            goto bad_arg;
+
+        size = req_size;
     }
-    memcpy(enif_make_new_binary(env, size, &ret), buff, size);
+
+    if ((outp = enif_make_new_binary(env, size, &ret)) == NULL)
+        goto err;
+
+    memcpy(outp, buff, size);
     return ret;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    return atom_notsup;
 }
 
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 {
+    if (obj == NULL)
+        return;
+
     if (obj->alive) {
-	HMAC_CTX_free(obj->ctx);
+        if (obj->ctx)
+            HMAC_CTX_free(obj->ctx);
 	obj->alive = 0;
     }
-    enif_mutex_destroy(obj->mtx);
+
+    if (obj->mtx != NULL)
+        enif_mutex_destroy(obj->mtx);
 }
 
 ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -96,56 +122,95 @@ ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     struct digest_type_t *digp = NULL;
     ErlNifBinary         key;
     ERL_NIF_TERM         ret;
-    struct hmac_context  *obj;
+    struct hmac_context  *obj = NULL;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp ||
-        !enif_inspect_iolist_as_binary(env, argv[1], &key)) {
-        return enif_make_badarg(env);
-    }
-    if (!digp->md.p) {
-        return atom_notsup;
-    }
+    ASSERT(argc == 2);
 
-    obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
-    obj->mtx = enif_mutex_create("crypto.hmac");
+    if ((digp = get_digest_type(argv[0])) == NULL)
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
+        goto bad_arg;
+    if (key.size > INT_MAX)
+        goto bad_arg;
+
+    if (digp->md.p == NULL)
+        goto err;
+
+    if ((obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context))) == NULL)
+        goto err;
+    obj->ctx = NULL;
+    obj->mtx = NULL;
+    obj->alive = 0;
+
+    if ((obj->ctx = HMAC_CTX_new()) == NULL)
+        goto err;
     obj->alive = 1;
-    obj->ctx = HMAC_CTX_new();
+    if ((obj->mtx = enif_mutex_create("crypto.hmac")) == NULL)
+        goto err;
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL)) {
-        enif_release_resource(obj);
-        return atom_notsup;
-    }
+    if (!HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL))
+        goto err;
 #else
-    HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL);
+    // In ancient versions of OpenSSL, this was a void function.
+    HMAC_Init_ex(obj->ctx, key.data, (int)key.size, digp->md.p, NULL);
 #endif
 
     ret = enif_make_resource(env, obj);
-    enif_release_resource(obj);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = atom_notsup;
+
+ done:
+    if (obj)
+        enif_release_resource(obj);
     return ret;
 }
 
 ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
+    ERL_NIF_TERM ret;
     ErlNifBinary data;
-    struct hmac_context* obj;
+    struct hmac_context *obj = NULL;
 
-    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
-	return enif_make_badarg(env);
-    }
+    ASSERT(argc == 2);
+
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+        goto bad_arg;
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data))
+        goto bad_arg;
+
     enif_mutex_lock(obj->mtx);
-    if (!obj->alive) {
-	enif_mutex_unlock(obj->mtx);
-	return enif_make_badarg(env);
-    }
+    if (!obj->alive)
+        goto err;
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    if (!HMAC_Update(obj->ctx, data.data, data.size))
+        goto err;
+#else
+    // In ancient versions of OpenSSL, this was a void function.
     HMAC_Update(obj->ctx, data.data, data.size);
-    enif_mutex_unlock(obj->mtx);
+#endif
 
     CONSUME_REDS(env,data);
-    return argv[0];
+    ret = argv[0];
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_mutex_unlock(obj->mtx);
+    return ret;
 }
 
 ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -157,29 +222,49 @@ ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     unsigned int req_len = 0;
     unsigned int mac_len;
 
-    if (!enif_get_resource(env,argv[0],hmac_context_rtype, (void**)&obj)
-	|| (argc == 2 && !enif_get_uint(env, argv[1], &req_len))) {
-	return enif_make_badarg(env);
+    ASSERT(argc == 1 || argc == 2);
+
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj))
+        goto bad_arg;
+    if (argc == 2) {
+        if (!enif_get_uint(env, argv[1], &req_len))
+            goto bad_arg;
     }
 
     enif_mutex_lock(obj->mtx);
-    if (!obj->alive) {
-	enif_mutex_unlock(obj->mtx);
-	return enif_make_badarg(env);
-    }
+    if (!obj->alive)
+        goto err;
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+    if (!HMAC_Final(obj->ctx, mac_buf, &mac_len))
+        goto err;
+#else
+    // In ancient versions of OpenSSL, this was a void function.
     HMAC_Final(obj->ctx, mac_buf, &mac_len);
-    HMAC_CTX_free(obj->ctx);
+#endif
+
+    if (obj->ctx)
+        HMAC_CTX_free(obj->ctx);
     obj->alive = 0;
-    enif_mutex_unlock(obj->mtx);
 
     if (argc == 2 && req_len < mac_len) {
         /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
-    mac_bin = enif_make_new_binary(env, mac_len, &ret);
-    memcpy(mac_bin, mac_buf, mac_len);
+    if ((mac_bin = enif_make_new_binary(env, mac_len, &ret)) == NULL)
+        goto err;
 
+    memcpy(mac_bin, mac_buf, mac_len);
+    goto done;
+
+ bad_arg:
+    return enif_make_badarg(env);
+
+ err:
+    ret = enif_make_badarg(env);
+
+ done:
+    enif_mutex_unlock(obj->mtx);
     return ret;
 }
 

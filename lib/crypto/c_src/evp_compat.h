@@ -37,19 +37,27 @@ static INLINE void HMAC_CTX_free(HMAC_CTX *ctx);
 
 static INLINE HMAC_CTX *HMAC_CTX_new()
 {
-    HMAC_CTX *ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__);
+    HMAC_CTX *ctx;
+
+    if ((ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__)) == NULL)
+        return NULL;
+
     HMAC_CTX_init(ctx);
     return ctx;
 }
 
 static INLINE void HMAC_CTX_free(HMAC_CTX *ctx)
 {
+    if (ctx == NULL)
+        return;
+
     HMAC_CTX_cleanup(ctx);
     CRYPTO_free(ctx);
 }
 
+/* Renamed in 1.1.0 */
 #define EVP_MD_CTX_new() EVP_MD_CTX_create()
-#define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
+#define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy((ctx))
 
 static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb);
 
@@ -141,8 +149,11 @@ DSA_get0_pqg(const DSA *dsa, const BIGNUM **p, const BIGNUM **q, const BIGNUM **
 static INLINE void
 DSA_get0_key(const DSA *dsa, const BIGNUM **pub_key, const BIGNUM **priv_key)
 {
-    if (pub_key) *pub_key = dsa->pub_key;
-    if (priv_key) *priv_key = dsa->priv_key;
+    if (pub_key)
+        *pub_key = dsa->pub_key;
+
+    if (priv_key)
+        *priv_key = dsa->priv_key;
 }
 
 
@@ -189,8 +200,11 @@ DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
 static INLINE void
 DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
 {
-    if (pub_key) *pub_key = dh->pub_key;
-    if (priv_key) *priv_key = dh->priv_key;
+    if (pub_key)
+        *pub_key = dh->pub_key;
+
+    if (priv_key)
+        *priv_key = dh->priv_key;
 }
 
 #endif /* E_EVP_COMPAT_H__ */
