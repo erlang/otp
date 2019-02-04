@@ -45,6 +45,9 @@ defined $release or die "No otp release specified";
 my $otp_version = shift;
 defined $otp_version or die "No otp version specified";
 
+my ($otp_minor_version) = $otp_version =~ m/^\d+\.(\d+)/;
+defined $otp_minor_version or die "No otp minor version detected in OTP version $otp_version";
+
 my $version = shift;
 defined $version or die "No version name specified";
 
@@ -58,6 +61,7 @@ print FILE <<EOF;
 /* This file was created by 'make_version' -- don't modify. */
 #define ERLANG_OTP_RELEASE "$release"
 #define ERLANG_OTP_VERSION "$otp_version"
+#define ERLANG_OTP_MINOR_VERSION "$otp_minor_version"
 #define ERLANG_VERSION "$version"
 #if ERTS_SAVED_COMPILE_TIME
 #  define ERLANG_COMPILE_DATE "$time_str"

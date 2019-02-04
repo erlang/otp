@@ -124,6 +124,7 @@ misc_smoke_tests(Config) when is_list(Config) ->
     true = is_binary(erlang:system_info(procs)),
     true = is_binary(erlang:system_info(loaded)),
     true = is_binary(erlang:system_info(dist)),
+    true = is_list(erlang:system_info(otp_minor_version)),
     ok = try erlang:system_info({cpu_topology,erts_get_cpu_topology_error_case}), fail catch error:badarg -> ok end,
     true = lists:member(erlang:system_info(tolerant_timeofday), [enabled, disabled]),
     ok.

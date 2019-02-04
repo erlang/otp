@@ -9053,6 +9053,17 @@ ok
               <seealso marker="doc/system_principles:versions">
               System principles</seealso> in System Documentation.</p>
           </item>
+          <tag><marker id="system_info_otp_minor_version"/>
+            <c>otp_minor_version</c></tag>
+          <item>
+            <p>Returns a string containing the OTP minor version number of the
+              OTP release that the currently executing ERTS application
+              is part of. For example, if the OTP version is 21.2.3,
+              this would return "2".</p>
+          <p>For more information, see the description of versions in
+              <seealso marker="doc/system_principles:versions">
+              System principles</seealso> in System Documentation.</p>
+          </item>
           <tag><marker id="system_info_port_parallelism"/>
             <c>port_parallelism</c></tag>
           <item>

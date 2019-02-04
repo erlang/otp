@@ -155,6 +155,11 @@ bar(X) ->
         application is part of, as an integer. For details, see
         <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seealso>.
         This macro was introduced in OTP release 21.</item>
+      <tag><c>?OTP_MINOR_VERSION</c></tag>
+      <item>The OTP minor version of the release that the currently executing ERTS
+        application is part of, as an integer. For details, see
+        <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_minor_version)</c></seealso>.
+        This macro was introduced in OTP release 21.</item>
     </taglist>
   </section>
 

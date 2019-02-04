@@ -801,7 +801,7 @@ otp_8130(Config) when is_list(Config) ->
     ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE',
      'FUNCTION_ARITY','FUNCTION_NAME',
      'LINE','MACHINE','MODULE','MODULE_STRING',
-     'OTP_RELEASE'] = PreDefMacs,
+     'OTP_RELEASE', 'OTP_MINOR_VERSION'] = PreDefMacs,
     {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
@@ -1234,7 +1234,15 @@ test_if(Config) ->
 	     "-else.\n"
 	     "t() -> ok.\n"
 	     "-endif.\n">>,
-	   ok}
+	     ok},
+
+      {if_9,
+	   <<"-if(?OTP_MINOR_VERSION >= 0).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+         ok}
 	 ],
     [] = run(Config, Ts),
 

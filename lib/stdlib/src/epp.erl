@@ -577,6 +577,7 @@ predef_macros(File) ->
     Machine = list_to_atom(erlang:system_info(machine)),
     Anno = line1(),
     OtpVersion = list_to_integer(erlang:system_info(otp_release)),
+    OtpMinVersion = list_to_integer(erlang:system_info(otp_minor_version)), 
     Defs = [{'FILE', 	           {none,[{string,Anno,File}]}},
 	    {'FUNCTION_NAME',      undefined},
 	    {'FUNCTION_ARITY',     undefined},
@@ -587,7 +588,8 @@ predef_macros(File) ->
 	    {'BASE_MODULE_STRING', undefined},
 	    {'MACHINE',	           {none,[{atom,Anno,Machine}]}},
 	    {Machine,	           {none,[{atom,Anno,true}]}},
-	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}}
+	    {'OTP_RELEASE',	   {none,[{integer,Anno,OtpVersion}]}},
+	    {'OTP_MINOR_VERSION', {none, [{integer, Anno, OtpMinVersion}]}}
 	   ],
     maps:from_list(Defs).
 

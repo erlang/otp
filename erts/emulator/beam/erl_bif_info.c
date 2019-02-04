@@ -2832,6 +2832,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	int n = sizeof(ERLANG_OTP_RELEASE)-1;
 	hp = HAlloc(BIF_P, 2*n);
 	BIF_RET(buf_to_intlist(&hp, ERLANG_OTP_RELEASE, n, NIL));
+    } else if (ERTS_IS_ATOM_STR("otp_minor_version", BIF_ARG_1)) {
+	int n = sizeof(ERLANG_OTP_MINOR_VERSION)-1;
+	hp = HAlloc(BIF_P, 2*n);
+	BIF_RET(buf_to_intlist(&hp, ERLANG_OTP_MINOR_VERSION, n, NIL));
     } else if (ERTS_IS_ATOM_STR("driver_version", BIF_ARG_1)) {
 	char buf[42];
 	int n = erts_snprintf(buf, 42, "%d.%d",
