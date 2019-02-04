@@ -110,6 +110,11 @@ ERL_NIF_TERM atom_sha3_512;
 ERL_NIF_TERM atom_md5;
 ERL_NIF_TERM atom_ripemd160;
 
+#ifdef HAVE_BLAKE2
+ERL_NIF_TERM atom_blake2b;
+ERL_NIF_TERM atom_blake2s;
+#endif
+
 #ifdef HAS_ENGINE_SUPPORT
 ERL_NIF_TERM atom_bad_engine_method;
 ERL_NIF_TERM atom_bad_engine_id;
@@ -239,6 +244,10 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_sha3_512 = enif_make_atom(env,"sha3_512");
     atom_md5 = enif_make_atom(env,"md5");
     atom_ripemd160 = enif_make_atom(env,"ripemd160");
+#ifdef HAVE_BLAKE2
+    atom_blake2b = enif_make_atom(env,"blake2b");
+    atom_blake2s = enif_make_atom(env,"blake2s");
+#endif
 
 #ifdef HAS_ENGINE_SUPPORT
     atom_bad_engine_method = enif_make_atom(env,"bad_engine_method");
