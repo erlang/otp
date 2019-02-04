@@ -275,17 +275,36 @@
 %%% 
 -type block_cipher_with_iv() :: cbc_cipher()
                               | cfb_cipher()
-                              | aes_cbc128
-                              | aes_cbc256
                               | aes_ige256
                               | blowfish_ofb64
-                              | des3_cbf % cfb misspelled
-                              | des_ede3
                               | rc2_cbc .
 
--type cbc_cipher()  :: des_cbc | des3_cbc | aes_cbc | blowfish_cbc .
--type aead_cipher() :: aes_gcm | aes_ccm | chacha20_poly1305 .
--type cfb_cipher()  :: aes_cfb128 | aes_cfb8 | blowfish_cfb64 | des3_cfb | des_cfb .
+-type cbc_cipher()  :: des_cbc | des_ede3_cbc
+                     | blowfish_cbc
+                     | aes_cbc | aes_128_cbc  | aes_192_cbc | aes_256_cbc
+                     | alias_cbc() .
+-type alias_cbc() :: des3_cbc | des_ede3
+                   | aes_cbc128  | aes_cbc256 .
+
+-type aead_cipher() :: aes_gcm
+                     | aes_128_gcm
+                     | aes_192_gcm
+                     | aes_256_gcm
+                     | aes_ccm
+                     | aes_128_ccm
+                     | aes_192_ccm
+                     | aes_256_ccm
+                     | chacha20_poly1305 .
+
+-type cfb_cipher()  :: aes_cfb8
+                     | aes_cfb128
+                     | blowfish_cfb64
+                     | des_cfb
+                     | des_ede3_cfb
+                     | alias_cfb() .
+-type alias_cfb() :: des_ede3_cbf | des3_cbf
+                   | des3_cfb .
+
 
 -type block_cipher_without_iv() :: ecb_cipher() .
 -type ecb_cipher()  :: des_ecb | blowfish_ecb | aes_ecb .
@@ -618,7 +637,12 @@ next_iv(Type, Data, _Ivec) ->
 
 -opaque stream_state() :: {stream_cipher(), reference()}.
 
--type stream_cipher() :: rc4 | aes_ctr | chacha20 .
+-type stream_cipher() :: rc4
+                       | aes_ctr
+                       | aes_128_ctr
+                       | aes_192_ctr
+                       | aes_256_ctr
+                       | chacha20 .
 
 -spec stream_init(Type, Key, IVec) -> State when Type :: aes_ctr | chacha20,
                                                  Key :: iodata(),
