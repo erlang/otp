@@ -1407,16 +1407,13 @@ update_eq_types(LHS, RHS, Vst0) ->
 assign_1(Src, Dst, Vst0) ->
     Type = get_move_term_type(Src, Vst0),
     Vst = set_type_reg(Type, Dst, Vst0),
-    case Src of
-        {Kind,_} when Kind =:= x; Kind =:= y ->
-            #vst{current=St0} = Vst,
-            #st{aliases=Aliases0} = St0,
-            Aliases = Aliases0#{Src=>Dst,Dst=>Src},
-            St = St0#st{aliases=Aliases},
-            Vst#vst{current=St};
-        _ ->
-            Vst
-    end.
+
+    #vst{current=St0} = Vst,
+    #st{aliases=Aliases0} = St0,
+    Aliases = Aliases0#{Src=>Dst,Dst=>Src},
+    St = St0#st{aliases=Aliases},
+
+    Vst#vst{current=St}.
 
 set_aliased_type(Type, Reg, #vst{current=#st{aliases=Aliases}}=Vst0) ->
     Vst1 = set_type(Type, Reg, Vst0),
@@ -1451,7 +1448,6 @@ set_type_reg(Type, Src, Dst, Vst) ->
         _ ->
             set_type_reg(Type, Dst, Vst)
     end.
-
 set_type_reg(Type, Reg, Vst) ->
     set_type_reg_expr(Type, none, Reg, Vst).
 
