@@ -8387,7 +8387,7 @@ Metadata = #{ pid => pid(),
               system time</seealso> that is used by the runtime system.</p>
             <p>The list contains two-tuples with <c>Key</c>s
               as first element, and <c>Value</c>s as second element. The
-              order if these tuples is undefined. The following
+              order of these tuples is undefined. The following
               tuples can be part of the list, but more tuples can be
               introduced in the future:</p>
             <taglist>
