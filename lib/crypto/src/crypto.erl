@@ -2224,6 +2224,17 @@ check_otp_test_engine(LibDir) ->
 
 %%% -> {ok,State::ref()} | {error,Reason}
 
+-type crypto_state() :: term().
+
+-spec crypto_init(Cipher, Key, IV, EncryptFlag) -> {ok,State} | {error,term()}
+                                                       when Cipher :: stream_cipher()
+                                                                    | block_cipher_with_iv()
+                                                                    | block_cipher_without_iv() ,
+                                                            Key :: iodata(),
+                                                            IV :: binary(),
+                                                            EncryptFlag :: boolean(),
+                                                            State :: crypto_state() .
+
 crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
                                                is_binary(Key),
                                                is_binary(IV),
@@ -2241,6 +2252,11 @@ crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
     end.
 
 
+-spec crypto_update(State, Data, EncryptFlag) -> {ok,Result} | {error,term()}
+                                                     when State :: crypto_state(),
+                                                          Data :: iodata(),
+                                                          EncryptFlag :: boolean(),
+                                                          Result :: binary() | {crypto_state(),binary()}.
 %%% -> {ok,binary()} | {error,Reason}
 crypto_update(State, Data, EncryptFlag) ->
     case ng_crypto_flag_nif(State, EncryptFlag) of
@@ -2249,6 +2265,10 @@ crypto_update(State, Data, EncryptFlag) ->
     end.
 
 
+-spec crypto_update(State, Data) -> {ok,Result} | {error,term()}
+                                        when State :: crypto_state(),
+                                             Data :: iodata(),
+                                             Result :: binary() | {crypto_state(),binary()}.
 %%% -> {ok,binary()} | {error,Reason}
 crypto_update(State, Data) ->
     Size = iolist_size(Data),
