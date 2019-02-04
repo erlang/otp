@@ -104,9 +104,11 @@ static int test_init(ENGINE *e) {
 
     return 111;
 
- err:
+#if defined(FAKE_RSA_IMPL)
+err:
     fprintf(stderr, "Setup RSA_METHOD failed\r\n");
     return 0;
+#endif
 }
 
 static void add_test_data(unsigned char *md, unsigned int len)

@@ -94,9 +94,11 @@ int init_cipher_ctx(ErlNifEnv *env) {
 
     return 1;
 
+#ifdef HAVE_EVP_AES_CTR
  err:
     PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
     return 0;
+#endif
 }
 
 void init_cipher_types(ErlNifEnv* env)
