@@ -55,7 +55,9 @@ XML_REF3_EFILES = \
 	persistent_term.xml \
 	atomics.xml \
 	counters.xml \
-	zlib.xml
+	zlib.xml \
+	socket.xml \
+	net.xml
 
 XML_REF3_FILES = \
 	$(XML_REF3_EFILES) \
@@ -77,6 +79,7 @@ XML_CHAPTER_FILES = \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
+	socket_usage.xml \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \

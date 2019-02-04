@@ -1,7 +1,8 @@
+
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2018. All Rights Reserved.
+# Copyright Ericsson AB 1996-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -641,6 +642,8 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/net.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
@@ -833,6 +836,18 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
+ifneq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with nosup in the win32 case.
+ESOCK_RUN_OBJS = \
+	$(OBJDIR)/socket_dbg.o \
+	$(OBJDIR)/socket_tarray.o \
+	$(OBJDIR)/socket_util.o
+else
+ESOCK_RUN_OBJS =
+endif
+
 RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
@@ -865,7 +880,7 @@ RUN_OBJS += \
 	$(OBJDIR)/register.o		$(OBJDIR)/break.o \
 	$(OBJDIR)/erl_async.o		$(OBJDIR)/erl_lock_check.o \
 	$(OBJDIR)/erl_gc.o 		$(OBJDIR)/erl_lock_count.o \
-	$(OBJDIR)/erl_posix_str.o	 \
+	$(OBJDIR)/erl_posix_str.o	\
 	$(OBJDIR)/erl_bits.o 		$(OBJDIR)/erl_math.o \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \
@@ -879,14 +894,18 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_thr_queue.o	$(OBJDIR)/erl_sched_spec_pre_alloc.o \
 	$(OBJDIR)/erl_ptab.o		$(OBJDIR)/erl_map.o \
 	$(OBJDIR)/erl_msacc.o		$(OBJDIR)/erl_lock_flags.o \
-	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o
+	$(OBJDIR)/erl_io_queue.o	$(OBJDIR)/erl_db_catree.o \
+	$(ESOCK_RUN_OBJS)
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
+
 NIF_OBJS = \
-	   $(OBJDIR)/erl_tracer_nif.o \
-	   $(OBJDIR)/prim_buffer_nif.o \
-	   $(OBJDIR)/prim_file_nif.o \
-	   $(OBJDIR)/zlib_nif.o
+	$(OBJDIR)/erl_tracer_nif.o \
+	$(OBJDIR)/prim_buffer_nif.o \
+	$(OBJDIR)/prim_file_nif.o \
+	$(OBJDIR)/zlib_nif.o \
+	$(OBJDIR)/socket_nif.o \
+	$(OBJDIR)/net_nif.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
@@ -1147,7 +1166,15 @@ endif
 BEAM_SRC=$(wildcard beam/*.c)
 DRV_COMMON_SRC=$(wildcard drivers/common/*.c)
 DRV_OSTYPE_SRC=$(wildcard drivers/$(ERLANG_OSTYPE)/*.c)
+ifeq ($(TARGET), win32)
+# These are *currently* only needed for non-win32,
+# since the nif-functions for socket and net are basically
+# stubbed with badarg in the win32 case.
+NIF_SOCKET_UTILS_SRC=$(filter-out nifs/common/socket_nif.c, $(wildcard nifs/common/socket_*.c))
+NIF_COMMON_SRC=$(filter-out $(NIF_SOCKET_UTILS_SRC), $(wildcard nifs/common/*.c))
+else
 NIF_COMMON_SRC=$(wildcard nifs/common/*.c)
+endif
 NIF_OSTYPE_SRC=$(wildcard nifs/$(ERLANG_OSTYPE)/*.c)
 ALL_SYS_SRC=$(wildcard sys/$(ERLANG_OSTYPE)/*.c) $(wildcard sys/common/*.c)
 # We use $(shell ls) here instead of wildcard as $(wildcard ) resolved at

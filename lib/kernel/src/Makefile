@@ -123,7 +123,6 @@ MODULES = \
         logger_server \
         logger_simple_h \
         logger_sup \
-	net \
 	net_adm \
 	net_kernel \
 	os \

@@ -31,6 +31,8 @@
 
 .PHONY : debug opt release clean distclean depend
 
+include $(ERL_TOP)/make/target.mk
+
 # ----------------------------------------------------
 # Application version and release dir specification
 # ----------------------------------------------------

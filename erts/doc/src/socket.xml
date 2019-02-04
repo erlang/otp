@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>socket</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>socket.xml</file>
+  </header>
+  <module>socket</module>
+  <modulesummary>Socket interface.</modulesummary>
+  <description>
+    <p>This module provides an API for the socket interface.
+      It is used to create, delete and manipulate sockets.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="domain"/>
+    </datatype>
+    <datatype>
+      <name name="type"/>
+    </datatype>
+    <datatype>
+      <name name="protocol"/>
+    </datatype>
+    <datatype>
+      <name>socket()</name>
+      <desc><p>As returned by
+        <seealso marker="#open/1"><c>open/2,3,4</c></seealso> and
+        <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ip4_address"/>
+    </datatype>
+    <datatype>
+      <name name="ip6_address"/>
+    </datatype>
+    <datatype>
+      <name name="ip_address"/>
+    </datatype>
+    <datatype>
+      <name name="sockaddr"/>
+    </datatype>
+    <datatype>
+      <name name="sockaddr_in4"/>
+    </datatype>
+    <datatype>
+      <name name="sockaddr_in6"/>
+    </datatype>
+    <datatype>
+      <name name="sockaddr_un"/>
+    </datatype>
+    <datatype>
+      <name name="port_number"/>
+    </datatype>
+    <datatype>
+      <name name="accept_flags"/>
+    </datatype>
+    <datatype>
+      <name name="accept_flag"/>
+    </datatype>
+    <datatype>
+      <name name="send_flags"/>
+    </datatype>
+    <datatype>
+      <name name="send_flag"/>
+    </datatype>
+    <datatype>
+      <name name="shutdown_how"/>
+    </datatype>
+    <datatype>
+      <name name="sockopt_level"/>
+    </datatype>
+    <datatype>
+      <name name="otp_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="ip_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="ipv6_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="tcp_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="udp_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_socket_option"/>
+    </datatype>
+    <datatype>
+      <name name="timeval"/>
+    </datatype>
+    <datatype>
+      <name name="ip_tos"/>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq"/>
+    </datatype>
+    <datatype>
+      <name name="ip_mreq_source"/>
+    </datatype>
+    <datatype>
+      <name name="ip_pmtudisc"/>
+    </datatype>
+    <datatype>
+      <name name="ip_msfilter_mode"/>
+    </datatype>
+    <datatype>
+      <name name="ip_msfilter"/>
+    </datatype>
+    <datatype>
+      <name name="ip_pktinfo"/>
+    </datatype>
+    <datatype>
+      <name name="ipv6_mreq"/>
+    </datatype>
+    <datatype>
+      <name name="ipv6_pmtudisc"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_assoc_id"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_sndrcvinfo"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_event_subscribe"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_assocparams"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_initmsg"/>
+    </datatype>
+    <datatype>
+      <name name="sctp_rtoinfo"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr_flag"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr_flags"/>
+    </datatype>
+    <datatype>
+      <name name="msghdr"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_level"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_type"/>
+    </datatype>
+    <!--
+    <datatype>
+      <name name="cmsghdr_data"/>
+    </datatype>
+    -->
+    <datatype>
+      <name name="cmsghdr_recv"/>
+    </datatype>
+    <datatype>
+      <name name="cmsghdr_send"/>
+    </datatype>
+    <datatype>
+      <name name="uint8"/>
+    </datatype>
+    <datatype>
+      <name name="uint16"/>
+    </datatype>
+    <datatype>
+      <name name="uint20"/>
+    </datatype>
+    <datatype>
+      <name name="uint32"/>
+    </datatype>
+    <datatype>
+      <name name="int32"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_socket"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_ip"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_ipv6"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_tcp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_udp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options_sctp"/>
+    </datatype>
+    <datatype>
+      <name name="supports_options"/>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name name="accept" arity="1"/>
+      <name name="accept" arity="2"/>
+      <fsummary>Accept a connection on a socket.</fsummary>
+      <desc>
+        <p>Accept a connection on a socket.</p>
+        <p>This call is used with connection-based socket types
+	(<c>stream</c> or <c>seqpacket</c>). It extracs the first pending
+	connection request for the listen socket and returns the (newly)
+	connected socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="bind" arity="2"/>
+      <fsummary>Bind a name to a socket.</fsummary>
+      <desc>
+        <p>Bind a name to a socket.</p>
+        <p>When a socket is created
+	(with <seealso marker="#open/2"><c>open</c></seealso>),
+	it has no address assigned to it. <c>bind</c> assigns the
+	address specified by the <c>Addr</c> argument.</p>
+	<p>The rules used for name binding vary between domains.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="close" arity="1"/>
+      <fsummary>Close a socket.</fsummary>
+      <desc>
+	<p>Closes the socket.</p>
+
+	<note>
+	  <p>Note that for e.g. <c>protocol</c> = <c>tcp</c>, most implementations
+	  doing a close does not guarantee that any data sent is delivered to
+	  the recipient before the close is detected at the remote side. </p>
+	  <p>One way to handle this is to use the
+	  <seealso marker="#shutdown/2"><c>shutdown</c></seealso>
+	  function
+	  (<c>socket:shutdown(Socket, write)</c>) to signal that no more data is
+	  to be sent and then wait for the read side of the socket to be closed.</p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="connect" arity="2"/>
+      <name name="connect" arity="3"/>
+      <fsummary>Initiate a connection on a socket.</fsummary>
+      <desc>
+        <p>This function connects the socket to the address
+	specied by the <c>SockAddr</c> argument.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getopt" arity="3" clause_i="1"/>
+      <name name="getopt" arity="3" clause_i="2"/>
+      <name name="getopt" arity="3" clause_i="3"/>
+      <name name="getopt" arity="3" clause_i="4"/>
+      <name name="getopt" arity="3" clause_i="5"/>
+      <name name="getopt" arity="3" clause_i="6"/>
+      <name name="getopt" arity="3" clause_i="7"/>
+      <fsummary>Get an option on a socket.</fsummary>
+      <desc>
+        <p>Get an option on a socket.</p>
+	<p>What properties are valid depend  both on <c>Level</c> and
+	on what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
+
+	<note><p>Not all options are valid on all platforms. That is,
+	even if "we" support an option, that does not mean that the
+	underlying OS does.</p></note>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="getopt" arity="3" clause_i="8"/>
+      <fsummary>Get an option on a socket.</fsummary>
+      <desc>
+        <p>Get an option on a socket.</p>
+	<p>What properties are valid depend  both on <c>Level</c> and
+	on what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
+	<p>When specifying <c>Level</c> as an integer, and therefor
+	using "native mode", it is *currently* up to the caller to
+	know how to interpret the result.</p>
+
+	<note><p>Not all options are valid on all platforms. That is,
+	even if "we" support an option, that does not mean that the
+	underlying OS does.</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="listen" arity="1"/>
+      <name name="listen" arity="2"/>
+      <fsummary>Listen for connections on a socket.</fsummary>
+      <desc>
+        <p>Listen for connections on a socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="2"/>
+      <name name="open" arity="3"/>
+      <name name="open" arity="4"/>
+      <fsummary>Create an endpoint for communication.</fsummary>
+      <desc>
+        <p>Creates an endpoint (socket) for communication.</p>
+        <p>For some <c>types</c> there is a default protocol, which will
+	be used if no protocol is specified: </p>
+
+	<list>
+	  <item><p><c>stream</c>: <c>tcp</c></p></item>
+          <item><p><c>dgram</c>: <c>udp</c></p></item>
+          <item><p><c>seqpacket</c>: <c>sctp</c></p></item>
+	</list>
+
+	<p>The <c>Extra</c> argument is intended for "obscure" options.
+	Currently the only supported option is <c>netns</c>, which
+	is only supported on the linux platform.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="peername" arity="1"/>
+      <fsummary>Get name of connected socket peer.</fsummary>
+      <desc>
+        <p>Returns the address of the peer connected to the socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recv" arity="1"/>
+      <name name="recv" arity="2"/>
+      <name name="recv" arity="3" clause_i="1"/>
+      <name name="recv" arity="3" clause_i="2"/>
+      <name name="recv" arity="4"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+	<p>There is a special case for the argument <c>Length</c>.
+	If it is set to zero (0), it means "give me everything you 
+	currently have".</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recvfrom" arity="1"/>
+      <name name="recvfrom" arity="2"/>
+      <name name="recvfrom" arity="3" clause_i="1"/>
+      <name name="recvfrom" arity="3" clause_i="2"/>
+      <name name="recvfrom" arity="3" clause_i="3"/>
+      <name name="recvfrom" arity="4"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message.</p>
+        <p>The <c>BufSz</c> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <c>Level</c> = <c>otp</c>) is used.</p>
+        <p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvfrom call
+	is needed, possibly with a then adjusted buffer size.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recvmsg" arity="1"/>
+      <name name="recvmsg" arity="2" clause_i="1"/>
+      <name name="recvmsg" arity="2" clause_i="2"/>
+      <name name="recvmsg" arity="3" clause_i="1"/>
+      <name name="recvmsg" arity="3" clause_i="2"/>
+      <name name="recvmsg" arity="5"/>
+      <fsummary>Receive a message from a socket.</fsummary>
+      <desc>
+        <p>Receive a message from a socket.</p>
+        <p>This function reads "messages", which means that regardless of
+	how much we want to read, it returns when we get a message.</p>
+	<p>The message will be delivered in the form of a <c>msghdr()</c>,
+	which may contain the source address (if socket not connected),
+	a list of <c>cmsghdr_recv()</c> (depends on what socket options have
+	been set and what the protocol and platform supports) and
+	also a set of flags, providing further info about the read. </p>
+	
+        <p>The <c>BufSz</c> argument basically defines the size of the
+	receive buffer. By setting the value to zero (0), the configured
+	size (setopt with <c>Level</c> = <c>otp</c>) is used.</p>
+
+        <p>The <c>CtrlSz</c> argument basically defines the size of the
+	receive buffer for the control messages.
+	By setting the value to zero (0), the configured size (setopt
+	with <c>Level</c> = <c>otp</c>) is used.</p>
+
+	<p>It may be impossible to know what (buffer) size is appropriate
+	"in advance", and in those cases it may be convenient to use the
+	(recv) 'peek' flag. When this flag is provided, the message is *not*
+	"consumed" from the underlying buffers, so another recvmsg call
+	is needed, possibly with a then adjusted buffer size.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="2"/>
+      <name name="send" arity="3" clause_i="1"/>
+      <name name="send" arity="3" clause_i="2"/>
+      <name name="send" arity="4"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+        <p>Send a message on a connected socket.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendmsg" arity="2"/>
+      <name name="sendmsg" arity="3" clause_i="1"/>
+      <name name="sendmsg" arity="3" clause_i="2"/>
+      <name name="sendmsg" arity="4"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+	<p>Send a message on a socket. The destination, if needed
+	(socket <em>not</em> connected) is provided in the <c>MsgHdr</c>,
+	which also contains the message to send,
+	The <c>MsgHdr</c> may also contain an list of optional <c>cmsghdr_send()</c>
+	(depends on what the protocol and platform supports).</p>
+
+	<p>Unlike the <seealso marker="#send"><c>send</c></seealso> function,
+	this one sends <em>one message</em>.
+	This means that if, for whatever reason, its not possible to send the
+	message in one go, the function will instead return with the
+	<em>remaining</em> data (<c>{ok, Remaining}</c>). Thereby leaving it
+	up to the caller to decide what to do (retry with the remaining data
+	of give up). </p>
+
+      </desc>
+    </func>
+
+    <func>
+      <name name="sendto" arity="3"/>
+      <name name="sendto" arity="4" clause_i="1"/>
+      <name name="sendto" arity="4" clause_i="2"/>
+      <name name="sendto" arity="5"/>
+      <fsummary>Send a message on a socket.</fsummary>
+      <desc>
+        <p>Send a message on a socket, to the specified destination.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="setopt" arity="4" clause_i="1"/>
+      <name name="setopt" arity="4" clause_i="2"/>
+      <name name="setopt" arity="4" clause_i="3"/>
+      <name name="setopt" arity="4" clause_i="4"/>
+      <name name="setopt" arity="4" clause_i="5"/>
+      <name name="setopt" arity="4" clause_i="6"/>
+      <name name="setopt" arity="4" clause_i="7"/>
+      <fsummary>Set options on a socket.</fsummary>
+      <desc>
+        <p>Set options on a socket.</p>
+	<p>What properties are valid depend both on <c>Level</c> and on
+	what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
+
+	<note><p>Not all options are valid on all platforms. That is,
+	even if "we" support an option, that does not mean that the
+	underlying OS does.</p></note>
+
+	<note><p>Sockets are set 'non-blocking' when created, so this option
+	is *not* available (as it would adversely effect the Erlang VM
+	to set a socket 'blocking').</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="setopt" arity="4" clause_i="8"/>
+      <fsummary>Set options on a socket.</fsummary>
+      <desc>
+        <p>Set options on a socket.</p>
+	<p>What properties are valid depend both on <c>Level</c> and on
+	what kind of socket it is (<c>domain</c>, <c>type</c> and
+	<c>protocol</c>).</p>
+
+	<note><p>Not all options are valid on all platforms. That is,
+	even if "we" support an option, that does not mean that the
+	underlying OS does.</p></note>
+
+	<note><p>Sockets are set 'non-blocking' when created, so this option
+	is *not* available (as it would adversely effect the Erlang VM
+	to set a socket 'blocking').</p></note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="shutdown" arity="2"/>
+      <fsummary>Shut down part of a full-duplex connection.</fsummary>
+      <desc>
+        <p>Shut down all or part of a full-duplex connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="sockname" arity="1"/>
+      <fsummary>Get socket name.</fsummary>
+      <desc>
+        <p>Returns the current address to which the socket is bound.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="supports" arity="0"/>
+      <name name="supports" arity="1" clause_i="1"/>
+      <name name="supports" arity="1" clause_i="2"/>
+      <name name="supports" arity="1" clause_i="3"/>
+      <name name="supports" arity="1" clause_i="4"/>
+      <name name="supports" arity="2" clause_i="1"/>
+      <name name="supports" arity="2" clause_i="2"/>
+      <name name="supports" arity="2" clause_i="3"/>
+      <name name="supports" arity="2" clause_i="4"/>
+      <name name="supports" arity="2" clause_i="5"/>
+      <name name="supports" arity="2" clause_i="6"/>
+      <name name="supports" arity="2" clause_i="7"/>
+      <name name="supports" arity="3" clause_i="1"/>
+      <name name="supports" arity="3" clause_i="2"/>
+      <name name="supports" arity="3" clause_i="3"/>
+      <name name="supports" arity="3" clause_i="4"/>
+      <name name="supports" arity="3" clause_i="5"/>
+      <name name="supports" arity="3" clause_i="6"/>
+      <name name="supports" arity="3" clause_i="7"/>
+      <fsummary>Report info about what the platform supports.</fsummary>
+      <desc>
+	<p>This function intends to retreive information about what the
+	platform supports. Such as if SCTP is supported. Or which socket
+	options are supported. </p>
+      </desc>
+    </func>
+
+  </funcs>
+  <section>
+    <title>Examples</title>
+    <marker id="examples"></marker>
+    <p>TBD</p>
+  </section>
+</erlref>
+
