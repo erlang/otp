@@ -1081,43 +1081,50 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
 used_once(Linear, Args) ->
     Map0 = used_once_1(reverse(Linear), #{}),
     Map = maps:without(Args, Map0),
-    Used0 = cerl_sets:from_list(maps:keys(Map)),
-    Used1 = used_in_terminators(Linear, []),
-    cerl_sets:intersection(Used0, Used1).
-
-used_in_terminators([{_,#b_blk{last=Last}}|Bs], Acc) ->
-    used_in_terminators(Bs, beam_ssa:used(Last) ++ Acc);
-used_in_terminators([], Acc) ->
-    cerl_sets:from_list(Acc).
+    cerl_sets:from_list(maps:keys(Map)).
 
 used_once_1([{L,#b_blk{is=Is,last=Last}}|Bs], Uses0) ->
-    Uses = used_once_2([Last|reverse(Is)], L, Uses0),
+    Uses1 = used_once_last_uses(beam_ssa:used(Last), L, Uses0),
+    Uses = used_once_2(reverse(Is), L, Uses1),
     used_once_1(Bs, Uses);
 used_once_1([], Uses) -> Uses.
 
-used_once_2([I|Is], L, Uses0) ->
+used_once_2([#b_set{dst=Dst}=I|Is], L, Uses0) ->
     Uses = used_once_uses(beam_ssa:used(I), L, Uses0),
-    case I of
-        #b_set{dst=Dst} ->
-            case Uses of
-                #{Dst:=[L]} ->
-                    used_once_2(Is, L, Uses);
-                #{} ->
-                    used_once_2(Is, L, maps:remove(Dst, Uses))
-            end;
-        _ ->
-            used_once_2(Is, L, Uses)
+    case Uses of
+        #{Dst:=[L]} ->
+            used_once_2(Is, L, Uses);
+        #{} ->
+            %% Used more than once or used once in
+            %% in another block.
+            used_once_2(Is, L, maps:remove(Dst, Uses))
     end;
 used_once_2([], _, Uses) -> Uses.
 
 used_once_uses([V|Vs], L, Uses) ->
     case Uses of
-        #{V:=Us} ->
-            used_once_uses(Vs, L, Uses#{V:=[L|Us]});
+        #{V:=more_than_once} ->
+            used_once_uses(Vs, L, Uses);
         #{} ->
-            used_once_uses(Vs, L, Uses#{V=>[L]})
+            %% Already used or first use is not in
+            %% a terminator.
+            used_once_uses(Vs, L, Uses#{V=>more_than_once})
     end;
 used_once_uses([], _, Uses) -> Uses.
+
+used_once_last_uses([V|Vs], L, Uses) ->
+    case Uses of
+        #{V:=[_]} ->
+            %% Second time this variable is used.
+            used_once_last_uses(Vs, L, Uses#{V:=more_than_once});
+        #{V:=more_than_once} ->
+            %% Used at least twice before.
+            used_once_last_uses(Vs, L, Uses);
+        #{} ->
+            %% First time this variable is used.
+            used_once_last_uses(Vs, L, Uses#{V=>[L]})
+    end;
+used_once_last_uses([], _, Uses) -> Uses.
 
 
 get_types(Values, Ts) ->

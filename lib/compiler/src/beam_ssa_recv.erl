@@ -101,7 +101,7 @@ opt([{L,#b_blk{is=[#b_set{op=peek_message}|_]}=Blk0}|Bs], Blocks0, Preds) ->
     case recv_opt(Preds, L, Blocks0) of
         {yes,Blocks1} ->
             Blk = beam_ssa:add_anno(recv_set, L, Blk0),
-            Blocks = maps:put(L, Blk, Blocks1),
+            Blocks = Blocks1#{L:=Blk},
             opt(Bs, Blocks, []);
         no ->
             opt(Bs, Blocks0, [])
@@ -111,11 +111,11 @@ opt([{L,_}|Bs], Blocks, Preds) ->
 opt([], Blocks, _) -> Blocks.
 
 recv_opt([L|Ls], RecvLbl, Blocks) ->
-    #b_blk{is=Is0} = Blk0 = maps:get(L, Blocks),
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
     case recv_opt_is(Is0, RecvLbl, Blocks, []) of
         {yes,Is} ->
             Blk = Blk0#b_blk{is=Is},
-            {yes,maps:put(L, Blk, Blocks)};
+            {yes,Blocks#{L:=Blk}};
         no ->
             recv_opt(Ls, RecvLbl, Blocks)
     end;
@@ -174,7 +174,7 @@ opt_ref_used(RecvLbl, Ref, Blocks) ->
     end.
 
 opt_ref_used_1(L, Vs0, Blocks) ->
-    #b_blk{is=Is} = Blk = maps:get(L, Blocks),
+    #b_blk{is=Is} = Blk = map_get(L, Blocks),
     case opt_ref_used_is(Is, Vs0) of
         #{}=Vs ->
             opt_ref_used_last(Blk, Vs, Blocks);

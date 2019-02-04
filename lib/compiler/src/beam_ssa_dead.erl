@@ -375,7 +375,7 @@ is_forbidden(L, St) ->
 %% any instruction with potential side effects.
 
 eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], Bs0, St) ->
-    From = maps:get(from, Bs0),
+    From = map_get(from, Bs0),
     [Val] = [Val || {Val,Pred} <- Args, Pred =:= From],
     Bs = bind_var(Dst, Val, Bs0),
     eval_is(Is, Bs, St);
@@ -826,7 +826,7 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
                             %% Everything OK! Combine the lists.
                             Sw0 = #b_switch{arg=Arg,fail=Fail,list=List},
                             Sw = beam_ssa:normalize(Sw0),
-                            Blk0 = maps:get(L, Blocks0),
+                            Blk0 = map_get(L, Blocks0),
                             Blk = Blk0#b_blk{last=Sw},
                             Blocks = Blocks0#{L:=Blk},
                             St = St0#st{bs=Blocks},
@@ -850,8 +850,8 @@ combine_eqs_1([], St) -> St.
 comb_get_sw(L, Blocks) ->
     comb_get_sw(L, true, Blocks).
 
-comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}=St) ->
-    #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
+comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}) ->
+    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
     Safe1 = Safe0 andalso is_map_key(L, Skippable),
     case Last of
         #b_ret{} ->
@@ -865,8 +865,8 @@ comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}=St) ->
                 {#b_set{},_} ->
                     none
             end;
-        #b_br{bool=#b_literal{val=true},succ=Succ} ->
-            comb_get_sw(Succ, Safe1, St);
+        #b_br{} ->
+            none;
         #b_switch{arg=#b_var{}=Arg,fail=Fail,list=List} ->
             {none,Safe} = comb_is(Is, none, Safe1),
             {Safe,Arg,L,Fail,List}
@@ -946,7 +946,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, []),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -969,19 +969,22 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
 used_vars([], UsedVars, Skip) ->
     {UsedVars,Skip}.
 
-used_vars_succ([S|Ss], L, UsedVars) ->
-    Live0 = used_vars_succ(Ss, L, UsedVars),
+used_vars_succ([S|Ss], L, LiveMap, Live0) ->
     Key = {S,L},
-    case UsedVars of
+    case LiveMap of
         #{Key:=Live} ->
-            ordsets:union(Live, Live0);
+            %% The successor has a phi node, and the value for
+            %% this block in the phi node is a variable.
+            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
         #{S:=Live} ->
-            ordsets:union(Live, Live0);
+            %% No phi node in the successor, or the value for
+            %% this block in the phi node is a literal.
+            used_vars_succ(Ss, L, LiveMap, ordsets:union(Live, Live0));
         #{} ->
-            Live0
+            %% A peek_message block which has not been processed yet.
+            used_vars_succ(Ss, L, LiveMap, Live0)
     end;
-used_vars_succ([], _, _) ->
-    ordsets:new().
+used_vars_succ([], _, _, Acc) -> Acc.
 
 used_vars_phis(Is, L, Live0, UsedVars0) ->
     UsedVars = UsedVars0#{L=>Live0},
