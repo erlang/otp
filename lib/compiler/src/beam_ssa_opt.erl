@@ -2021,7 +2021,7 @@ do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
     Used = used_blocks(Linear, Defs, []),
 
     %% Calculate dominators.
-    Dom0 = beam_ssa:dominators(Blocks0),
+    {Dom,Numbering} = beam_ssa:dominators(Blocks0),
 
     %% It is not safe to move get_tuple_element instructions to blocks
     %% that begin with certain instructions. It is also unsafe to move
@@ -2029,20 +2029,10 @@ do_ssa_opt_sink(Linear, Defs, #st{ssa=Blocks0}=St) ->
     %% unsafe moves, pretend that the unsuitable blocks are not
     %% dominators.
     Unsuitable = unsuitable(Linear, Blocks0),
-    Dom = case gb_sets:is_empty(Unsuitable) of
-              true ->
-                  Dom0;
-              false ->
-                  F = fun(_, DomBy) ->
-                              [L || L <- DomBy,
-                                    not gb_sets:is_element(L, Unsuitable)]
-                      end,
-                  maps:map(F, Dom0)
-          end,
 
     %% Calculate new positions for get_tuple_element instructions. The new
     %% position is a block that dominates all uses of the variable.
-    DefLoc = new_def_locations(Used, Defs, Dom),
+    DefLoc = new_def_locations(Used, Defs, Dom, Numbering, Unsuitable),
 
     %% Now move all suitable get_tuple_element instructions to their
     %% new blocks.
@@ -2136,50 +2126,42 @@ unsuitable_loop_1([P|Ps], Blocks, Predecessors, Acc0) ->
     end;
 unsuitable_loop_1([], _, _, Acc) -> Acc.
 
-%% new_def_locations([{Variable,[UsedInBlock]}|Vs], Defs, Dominators) ->
-%%          [{Variable,NewDefinitionBlock}]
-%%  Calculate new locations for get_tuple_element instructions. For each
-%%  variable, the new location is a block that dominates all uses of
-%%  variable and as near to the uses of as possible. If no such block
-%%  distinct from the block where the instruction currently is, the
-%%  variable will not be included in the result list.
+%% new_def_locations([{Variable,[UsedInBlock]}|Vs], Defs,
+%%                   Dominators, Numbering, Unsuitable) ->
+%%  [{Variable,NewDefinitionBlock}]
+%%
+%%  Calculate new locations for get_tuple_element instructions. For
+%%  each variable, the new location is a block that dominates all uses
+%%  of the variable and as near to the uses of as possible.
 
-new_def_locations([{V,UsedIn}|Vs], Defs, Dom) ->
+new_def_locations([{V,UsedIn}|Vs], Defs, Dom, Numbering, Unsuitable) ->
     DefIn = map_get(V, Defs),
-    case common_dom(UsedIn, DefIn, Dom) of
-        [] ->
-            new_def_locations(Vs, Defs, Dom);
-        [_|_]=BetterDef ->
-            L = most_dominated(BetterDef, Dom),
-            [{V,L}|new_def_locations(Vs, Defs, Dom)]
-    end;
-new_def_locations([], _, _) -> [].
-
-common_dom([L|Ls], DefIn, Dom) ->
-    DomBy0 = map_get(L, Dom),
-    DomBy = ordsets:subtract(DomBy0, map_get(DefIn, Dom)),
-    common_dom_1(Ls, Dom, DomBy).
-
-common_dom_1(_, _, []) ->
-    [];
-common_dom_1([L|Ls], Dom, [_|_]=DomBy0) ->
-    DomBy1 = map_get(L, Dom),
-    DomBy = ordsets:intersection(DomBy0, DomBy1),
-    common_dom_1(Ls, Dom, DomBy);
-common_dom_1([], _, DomBy) -> DomBy.
-
-most_dominated([L|Ls], Dom) ->
-    most_dominated(Ls, L, map_get(L, Dom), Dom).
-
-most_dominated([L|Ls], L0, DomBy, Dom) ->
-    case member(L, DomBy) of
+    Common = common_dominator(UsedIn, Dom, Numbering, Unsuitable),
+    case member(Common, map_get(DefIn, Dom)) of
         true ->
-            most_dominated(Ls, L0, DomBy, Dom);
+            %% The common dominator is either DefIn or an
+            %% ancestor of DefIn.
+            new_def_locations(Vs, Defs, Dom, Numbering, Unsuitable);
         false ->
-            most_dominated(Ls, L, map_get(L, Dom), Dom)
+            %% We have found a suitable descendant of DefIn,
+            %% to which the get_tuple_element instruction can
+            %% be sunk.
+            [{V,Common}|new_def_locations(Vs, Defs, Dom, Numbering, Unsuitable)]
     end;
-most_dominated([], L, _, _) -> L.
+new_def_locations([], _, _, _, _) -> [].
 
+common_dominator(Ls0, Dom, Numbering, Unsuitable) ->
+    [Common|_] = beam_ssa:common_dominators(Ls0, Dom, Numbering),
+    case gb_sets:is_member(Common, Unsuitable) of
+        true ->
+            %% It is not allowed to place the instruction here. Try
+            %% to find another suitable dominating block by going up
+            %% one step in the dominator tree.
+            [Common,OneUp|_] = map_get(Common, Dom),
+            common_dominator([OneUp], Dom, Numbering, Unsuitable);
+        false ->
+            Common
+    end.
 
 %% Move get_tuple_element instructions to their new locations.
 

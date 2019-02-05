@@ -23,7 +23,7 @@
 -export([add_anno/3,get_anno/2,get_anno/3,
          clobbers_xregs/1,def/2,def_used/2,
          definitions/1,
-         dominators/1,
+         dominators/1,common_dominators/3,
          flatmapfold_instrs_rpo/4,
          fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
          fold_instrs_rpo/4,
@@ -85,7 +85,8 @@
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
--type dominator_map() :: #{label():=ordsets:ordset(label())}.
+-type dominator_map() :: #{label():=[label()]}.
+-type numbering_map() :: #{label():=non_neg_integer()}.
 -type usage_map() :: #{b_var():=[{label(),b_set() | terminator()}]}.
 -type definition_map() :: #{b_var():=b_set()}.
 -type rename_map() :: #{b_var():=value()}.
@@ -327,18 +328,41 @@ def_used(Ls, Blocks) ->
     Preds = cerl_sets:from_list(Top),
     def_used_1(Blks, Preds, [], []).
 
+%% dominators(BlockMap) -> {Dominators,Numbering}.
+%%  Calculate the dominator tree, returning a map where each entry
+%%  in the map is a list that gives the path from that block to
+%%  the top of the dominator tree. (Note that the suffixes of the
+%%  paths are shared with each other, which make the representation
+%%  of the dominator tree highly memory-efficient.)
+%%
+%%  The implementation is based on:
+%%
+%%     http://www.hipersoft.rice.edu/grads/publications/dom14.pdf
+%%     Cooper, Keith D.; Harvey, Timothy J; Kennedy, Ken (2001).
+%%        A Simple, Fast Dominance Algorithm.
+
 -spec dominators(Blocks) -> Result when
       Blocks :: block_map(),
-      Result :: dominator_map().
-
+      Result :: {dominator_map(), numbering_map()}.
 dominators(Blocks) ->
     Preds = predecessors(Blocks),
     Top0 = rpo(Blocks),
-    Top = [{L,map_get(L, Preds)} || L <- Top0],
+    Df = maps:from_list(number(Top0, 0)),
+    [{0,[]}|Top] = [{L,map_get(L, Preds)} || L <- Top0],
 
     %% The flow graph for an Erlang function is reducible, and
     %% therefore one traversal in reverse postorder is sufficient.
-    iter_dominators(Top, #{}).
+    Acc = #{0=>[0]},
+    {dominators_1(Top, Df, Acc),Df}.
+
+%% common_dominators([Label], Dominators, Numbering) -> [Label].
+%%  Calculate the common dominators for the given list of blocks
+%%  and Dominators and Numbering as returned from dominators/1.
+
+-spec common_dominators([label()], dominator_map(), numbering_map()) -> [label()].
+common_dominators(Ls, Dom, Numbering) ->
+    Doms = [map_get(L, Dom) || L <- Ls],
+    dom_intersection(Doms, Numbering).
 
 -spec fold_instrs_rpo(Fun, From, Acc0, Blocks) -> any() when
       Fun :: fun((b_blk()|terminator(), any()) -> any()),
@@ -657,14 +681,37 @@ def_is([#b_set{dst=Dst}|Is], Def) ->
     def_is(Is, [Dst|Def]);
 def_is([], Def) -> Def.
 
-iter_dominators([{0,[]}|Ls], _Doms) ->
-    Dom = [0],
-    iter_dominators(Ls, #{0=>Dom});
-iter_dominators([{L,Preds}|Ls], Doms) ->
+dominators_1([{L,Preds}|Ls], Df, Doms) ->
     DomPreds = [map_get(P, Doms) || P <- Preds, is_map_key(P, Doms)],
-    Dom = ordsets:add_element(L, ordsets:intersection(DomPreds)),
-    iter_dominators(Ls, Doms#{L=>Dom});
-iter_dominators([], Doms) -> Doms.
+    Dom = [L|dom_intersection(DomPreds, Df)],
+    dominators_1(Ls, Df, Doms#{L=>Dom});
+dominators_1([], _Df, Doms) -> Doms.
+
+dom_intersection([S], _Df) ->
+    S;
+dom_intersection([S|Ss], Df) ->
+    dom_intersection(S, Ss, Df).
+
+dom_intersection(S1, [S2|Ss], Df) ->
+    dom_intersection(dom_intersection_1(S1, S2, Df), Ss, Df);
+dom_intersection(S, [], _Df) -> S.
+
+dom_intersection_1([E1|Es1]=Set1, [E2|Es2]=Set2, Df) ->
+    %% Blocks are numbered in the order they are found in
+    %% reverse postorder.
+    #{E1:=Df1,E2:=Df2} = Df,
+    if Df1 > Df2 ->
+            dom_intersection_1(Es1, Set2, Df);
+       Df2 > Df1 ->
+            dom_intersection_1(Es2, Set1, Df);  %switch arguments!
+       true ->                                  %Set1 == Set2
+            %% The common suffix of the sets is the intersection.
+            Set1
+    end.
+
+number([L|Ls], N) ->
+    [{L,N}|number(Ls, N+1)];
+number([], _) -> [].
 
 fold_rpo_1([L|Ls], Fun, Blocks, Acc0) ->
     Block = map_get(L, Blocks),
