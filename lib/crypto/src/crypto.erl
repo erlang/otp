@@ -103,7 +103,8 @@
 -export_type([
               stream_state/0,
               hmac_state/0,
-              hash_state/0
+              hash_state/0,
+              crypto_state/0, unfinished_crypto_stream_state/0
              ]).
    
 %% Private. For tests.
@@ -2224,7 +2225,7 @@ check_otp_test_engine(LibDir) ->
 
 %%% -> {ok,State::ref()} | {error,Reason}
 
--type crypto_state() :: term().
+-opaque crypto_state() :: reference() | {any(),any(),any(),any()}.
 
 -spec crypto_init(Cipher, Key, IV, EncryptFlag) -> {ok,State} | {error,term()}
                                                        when Cipher :: stream_cipher()
@@ -2337,43 +2338,58 @@ crypto_block_decrypt(Cipher, Key, Ivec, Data) -> crypto_block(Cipher, Key, Ivec,
 
 %% AEAD: use old funcs
 
-%%% Helper:
+%%%---- helper
 crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
     case crypto_init(Cipher, iolist_to_binary(Key), IV, EncryptFlag) of
         {ok, Ref} ->
             case crypto_update(Ref, Data) of
-                {ok, Bin} -> Bin;
-                Others -> Others
+                {ok, {_,Bin}} when is_binary(Bin) -> Bin;
+                {ok, Bin} when is_binary(Bin) -> Bin;
+                {error,_} -> error(badarg)
             end;
 
-        Others -> Others
+        {error,_} -> error(badarg)
     end.
 
 %%%--------------------------------
 %%%---- stream init, encrypt/decrypt
 
+-opaque unfinished_crypto_stream_state() :: {stream_cipher(), binary(), binary()} .
+
+-spec crypto_stream_init(stream_cipher_no_iv(), binary()) -> unfinished_crypto_stream_state().
 crypto_stream_init(Cipher, Key) ->
-    crypto_stream_init(Cipher, Key, <<>>).
+    {Cipher, Key, <<>>}.
 
+-spec crypto_stream_init(stream_cipher_iv(), binary(), binary()) -> unfinished_crypto_stream_state().
 crypto_stream_init(Cipher, Key, IV) ->
-    {unfinished, Cipher, Key, IV}.
+    {Cipher, Key, IV}.
 
-crypto_stream_encrypt(State, Data) -> crypto_stream_emulate(State, Data, true).
-crypto_stream_decrypt(State, Data) -> crypto_stream_emulate(State, Data, false).
+crypto_stream_encrypt(State, PlainText) ->
+    crypto_stream_emulate(State, PlainText, true).
 
-crypto_stream_emulate({unfinished,Cipher,Key,IV}, Data, EncryptFlag) ->
+crypto_stream_decrypt(State, CryptoText) ->
+    crypto_stream_emulate(State, CryptoText, false).
+
+
+%%%---- helper
+-spec crypto_stream_emulate(crypto_state() | unfinished_crypto_stream_state(),
+                            iodata(),
+                            boolean()) ->  crypto_state() | {crypto_state(),binary()}.
+
+crypto_stream_emulate({Cipher,Key,IV}, Data, EncryptFlag) ->
     case crypto_init(Cipher, Key, IV, EncryptFlag) of
         {ok,State} ->
             crypto_stream_emulate(State, Data, EncryptFlag);
-        Others ->
-            Others
+        {error,_} ->
+            error(badarg)
     end;
 crypto_stream_emulate(State, Data, _) ->
     case crypto_update(State, Data) of
-        {ok, {State1,Bin}} -> {State1,Bin};
-        {ok,Bin} -> {State,Bin};
-        Others -> Others
+        {ok, {State1,Bin}}  when is_binary(Bin) -> {State1,Bin};
+        {ok,Bin}  when is_binary(Bin) -> {State,Bin};
+        {error,_} -> error(badarg)
     end.
+
 
 %%%================================================================
 
