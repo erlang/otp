@@ -193,10 +193,12 @@
     <datatype_title>Ciphers</datatype_title>
     <datatype>
       <name name="stream_cipher"/>
+      <name name="stream_cipher_iv"/>
+      <name name="stream_cipher_no_iv"/>
       <desc>
 	<p>Stream ciphers for
-	<seealso marker="#stream_encrypt-2">stream_encrypt/2</seealso> and
-	<seealso marker="#stream_decrypt-2">stream_decrypt/2</seealso> .
+	<seealso marker="#stream_init-3">stream_init/3</seealso> and
+	<seealso marker="#stream_init-2">stream_init/2</seealso> .
 	</p>
       </desc>
     </datatype>

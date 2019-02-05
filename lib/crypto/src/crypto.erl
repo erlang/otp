@@ -637,14 +637,15 @@ next_iv(Type, Data, _Ivec) ->
 
 -opaque stream_state() :: {stream_cipher(), reference()}.
 
--type stream_cipher() :: rc4
-                       | aes_ctr
-                       | aes_128_ctr
-                       | aes_192_ctr
-                       | aes_256_ctr
-                       | chacha20 .
+-type stream_cipher() :: stream_cipher_iv() | stream_cipher_no_iv() .
+-type stream_cipher_no_iv() :: rc4 .
+-type stream_cipher_iv() :: aes_ctr
+                          | aes_128_ctr
+                          | aes_192_ctr
+                          | aes_256_ctr
+                          | chacha20 .
 
--spec stream_init(Type, Key, IVec) -> State when Type :: aes_ctr | chacha20,
+-spec stream_init(Type, Key, IVec) -> State when Type :: stream_cipher_iv(),
                                                  Key :: iodata(),
                                                  IVec :: binary(),
                                                  State :: stream_state() .
@@ -659,7 +660,7 @@ stream_init(aes_256_ctr, Key, Ivec) ->
 stream_init(chacha20, Key, Ivec) ->
     {chacha20, chacha20_stream_init(Key,Ivec)}.
 
--spec stream_init(Type, Key) -> State when Type :: rc4,
+-spec stream_init(Type, Key) -> State when Type :: stream_cipher_no_iv(),
                                            Key :: iodata(),
                                            State :: stream_state() .
 stream_init(rc4, Key) ->
@@ -2330,6 +2331,7 @@ crypto_block(Cipher, Key, IV, Data, EncryptFlag) ->
 
 %%%--------------------------------
 %%%---- stream init, encrypt/decrypt
+
 crypto_stream_init(Cipher, Key) ->
     crypto_stream_init(Cipher, Key, <<>>).
 
