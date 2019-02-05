@@ -238,7 +238,7 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 		  end,	
     
     crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                     "certificate revoked").
+                     certificate_revoked).
 
 crl_verify_no_crl() ->
     [{doc,"Verify a simple CRL chain when the CRL is missing"}].
@@ -277,10 +277,10 @@ crl_verify_no_crl(Config) when is_list(Config) ->
             %% The error "revocation status undetermined" gets turned
             %% into "bad certificate".
             crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                             "bad certificate");
+                             bad_certificate);
         peer ->
             crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                             "bad certificate");
+                             bad_certificate);
         best_effort ->
             %% In "best effort" mode, we consider the certificate not
             %% to be revoked if we can't find the appropriate CRL.
@@ -341,7 +341,7 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
 
     %% First certificate revoked; first fails, second succeeds.
     crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
-                     "certificate revoked"),
+                     certificate_revoked),
     crl_verify_valid(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts),
 
     make_certs:revoke(PrivDir, CA2, "collision-client-2", CertsConfig),
@@ -352,9 +352,9 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
 
     %% Second certificate revoked; both fail.
     crl_verify_error(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts,
-                     "certificate revoked"),
+                     certificate_revoked),
     crl_verify_error(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts,
-                     "certificate revoked"),
+                     certificate_revoked),
 
     ok.
 
@@ -400,10 +400,10 @@ crl_hash_dir_expired(Config) when is_list(Config) ->
             %% The error "revocation status undetermined" gets turned
             %% into "bad certificate".
             crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                             "bad certificate");
+                             bad_certificate);
         peer ->
             crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts,
-                             "bad certificate");
+                             bad_certificate);
         best_effort ->
             %% In "best effort" mode, we consider the certificate not
             %% to be revoked if we can't find the appropriate CRL.
@@ -451,11 +451,8 @@ crl_verify_error(Hostname, ServerNode, ServerOpts, ClientNode, ClientOpts, Expec
 					      {host, Hostname},
 					      {from, self()},
 					      {options, ClientOpts}]),
-    receive
-	{Server, AlertOrClose} ->
-	    ct:pal("Server Alert or Close ~p", [AlertOrClose])
-    end,
-    ssl_test_lib:check_result(Client, {error, {tls_alert, ExpectedAlert}}).
+
+    ssl_test_lib:check_client_alert(Server, Client, ExpectedAlert).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

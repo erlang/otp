@@ -57,6 +57,11 @@
     <datatype>
       <name name="property"/>
     </datatype>
+
+    <datatype>
+      <name name="proplist"/>
+    </datatype>
+
   </datatypes>
 
   <funcs>

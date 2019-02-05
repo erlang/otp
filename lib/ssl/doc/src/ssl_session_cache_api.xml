@@ -38,30 +38,41 @@
       defining a new callback module implementing this API.
     </p>
   </description>
-  <section>
-    <title>DATA TYPES</title>
 
-    <p>The following data types are used in the functions for
-    <c>ssl_session_cache_api</c>:</p>
+ <!--
+      ================================================================
+      =  Data types                                                  =
+      ================================================================
+  -->
 
-    <taglist>
-      <tag><c>cache_ref() =</c></tag>
-      <item><p><c>opaque()</c></p></item>
+  <datatypes>
+    
+      <datatype>
+	<name name="session_cache_ref"/>
+      </datatype>
 
-      <tag><c>key() =</c></tag>
-      <item><p><c>{partialkey(), session_id()}</c></p></item>
+      <datatype>
+	<name name="session_cache_key"/>
+	<desc>
+	  <p>A key to an entry in the session cache.</p>
+	</desc>
+      </datatype>
 
-      <tag><c>partialkey() =</c></tag>
-      <item><p><c>opaque()</c></p></item>
-
-      <tag><c>session_id() =</c></tag>
-      <item><p><c>binary()</c></p></item>
-
-      <tag><c>session()</c> =</tag>
-      <item><p><c>opaque()</c></p></item>
-    </taglist>
-
-  </section>
+        <datatype>
+	  <name name="partial_key"/>
+	<desc>
+	   <p>The opaque part of the key. Does not need to be handled
+	  by the callback.</p>
+	</desc>
+      </datatype>
+      
+       <datatype>
+	<name name="session"/>
+	<desc>
+	   <p>The session data that is stored for each session.</p>
+	</desc>
+      </datatype>  
+  </datatypes>
 
   <funcs>
 
@@ -69,8 +80,8 @@
       <name since="OTP R14B">delete(Cache, Key) -> _</name>
       <fsummary>Deletes a cache entry.</fsummary>
       <type>
-	<v>Cache = cache_ref()</v>
-	<v>Key = key()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key() </seealso> </v>
       </type>
       <desc>
 	<p>Deletes a cache entry. Is only called from the cache
@@ -83,7 +94,9 @@
       <name since="OTP R14B">foldl(Fun, Acc0, Cache) -> Acc</name>
       <fsummary></fsummary>
       <type>
-	<v></v>
+	<v>Fun = fun()</v>
+	<v>Acc0 = Acc = term()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
       </type>
       <desc>
 	<p>Calls <c>Fun(Elem, AccIn)</c> on successive elements of the
@@ -96,10 +109,11 @@
     </func>
 
     <func>
-      <name since="OTP 18.0">init(Args) -> opaque() </name>
+      <name since="OTP 18.0">init(Args) -> Cache </name>
       <fsummary>Returns cache reference.</fsummary>
       <type>
-	<v>Args = proplists:proplist()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Args = <seealso marker="stdlib:proplists#type-proplist">proplists:proplist()</seealso></v>
       </type>
       <desc>
 	<p>Includes property <c>{role, client | server}</c>.
@@ -124,9 +138,9 @@
       <name since="OTP R14B">lookup(Cache, Key) -> Entry</name>
       <fsummary>Looks up a cache entry.</fsummary>
       <type>
-	<v>Cache = cache_ref()</v>
-	<v>Key = key()</v>
-	<v>Entry = session() | undefined</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key()</seealso> </v>
+	<v>Session = <seealso marker="#type-session">session()</seealso> | undefined</v>
       </type>
       <desc>
 	<p>Looks up a cache entry. Is to be callable from any
@@ -136,12 +150,12 @@
     </func>
 
     <func>
-      <name since="OTP R14B">select_session(Cache, PartialKey) -> [session()]</name>
+      <name since="OTP R14B">select_session(Cache, PartialKey) -> [Session]</name>
       <fsummary>Selects sessions that can be reused.</fsummary>
       <type>
-	<v>Cache = cache_ref()</v>
-	<v>PartialKey = partialkey()</v>
-	<v>Session = session()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>PartialKey = <seealso marker="#type-partial_key"> partial_key() </seealso></v>
+	<v>Session = <seealso marker="#type-session">session()</seealso></v>
       </type>
       <desc>
 	<p>Selects sessions that can be reused. Is to be callable
@@ -154,7 +168,7 @@
       <name since="OTP 19.3">size(Cache) -> integer()</name>
       <fsummary>Returns the number of sessions in the cache.</fsummary>
       <type>
-	<v>Cache = cache_ref()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
       </type>
       <desc>
 	<p>Returns the number of sessions in the cache. If size
@@ -170,7 +184,8 @@
       <fsummary>Called by the process that handles the cache when it
       is about to terminate.</fsummary>
       <type>
-	<v>Cache = term() - as returned by init/0</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<d>As returned by init/0</d>
       </type>
       <desc>
 	<p>Takes care of possible cleanup that is needed when the
@@ -183,9 +198,9 @@
       <name since="OTP R14B">update(Cache, Key, Session) -> _</name>
       <fsummary>Caches a new session or updates an already cached one.</fsummary>
       <type>
-	<v>Cache = cache_ref()</v>
-	<v>Key = key()</v>
-	<v>Session = session()</v>
+	<v>Cache = <seealso marker="#type-session_cache_ref"> session_cache_ref() </seealso></v>
+	<v>Key = <seealso marker="#type-session_cache_key">session_cache_key()</seealso> </v>
+	<v>Session = <seealso marker="#type-session">session()</seealso></v>
       </type>
       <desc>
 	<p>Caches a new session or updates an already cached one. Is

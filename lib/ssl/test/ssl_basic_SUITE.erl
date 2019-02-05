@@ -29,6 +29,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_api.hrl").
+-include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
@@ -713,14 +714,7 @@ hello_client_cancel(Config) when is_list(Config) ->
                                                       {from, self()}, 
                                                       {options, ssl_test_lib:ssl_options([{handshake, hello}], Config)},
                                                       {continue_options, cancel}]),    
-      receive
-          {Server, {error, {tls_alert, "user canceled"}}} ->
-              ok;
-          {Server, {error, closed}} ->
-              ct:pal("Did not receive the ALERT"),
-              ok
-      end.
-
+    ssl_test_lib:check_server_alert(Server, user_canceled).
 %%--------------------------------------------------------------------
 hello_server_cancel() ->
     [{doc, "Test API function ssl:handshake_cancel/1 on the server side"}].
@@ -1194,9 +1188,8 @@ fallback(Config) when is_list(Config) ->
                                                            [{fallback, true},
                                                             {versions, ['tlsv1']}
                                                             | ClientOpts]}]),
-    
-    ssl_test_lib:check_result(Server, {error,{tls_alert,"inappropriate fallback"}},
-                              Client, {error,{tls_alert,"inappropriate fallback"}}).
+    ssl_test_lib:check_server_alert(Server, Client, inappropriate_fallback).
+   
 
 %%--------------------------------------------------------------------
 cipher_format() ->
@@ -2662,8 +2655,7 @@ default_reject_anonymous(Config) when is_list(Config) ->
                                                [{ciphers,[CipherSuite]} |
                                                 ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "insufficient security"}},
-                              Client, {error, {tls_alert, "insufficient security"}}).
+    ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
 
 %%--------------------------------------------------------------------
 ciphers_ecdsa_signed_certs() ->
@@ -3515,8 +3507,7 @@ no_common_signature_algs(Config) when is_list(Config) ->
                                               {options, [{signature_algs, [{sha384, rsa}]}
                                                          | ClientOpts]}]),
     
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "insufficient security"}},
-                              Client, {error, {tls_alert, "insufficient security"}}).
+    ssl_test_lib:check_server_alert(Server, Client, insufficient_security).
 
 %%--------------------------------------------------------------------
 
@@ -4216,8 +4207,7 @@ tls_versions_option(Config) when is_list(Config) ->
 	{Server, _} ->
 	    ok
     end,	    
-   
-    ssl_test_lib:check_result(ErrClient, {error, {tls_alert, "protocol version"}}).
+    ssl_test_lib:check_client_alert(ErrClient, protocol_version).
 
 
 %%--------------------------------------------------------------------

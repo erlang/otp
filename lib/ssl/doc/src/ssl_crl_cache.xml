@@ -34,15 +34,27 @@
       the following functions are available.
     </p>
   </description>
+
+    <datatypes>
+    <datatype_title>DATA TYPES</datatype_title>
+
+      <datatype>
+	<name name="crl_src"/>
+      </datatype>
+
+      <datatype>
+	<name name="uri"/>
+      </datatype>
+
+    </datatypes>
   
     <funcs>
       <func>
 	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> Entries =  <seealso marker="stdlib:uri_string">uri_string:uri_string()</seealso> | {file, string()} | {der, [<seealso
-	  marker="public_key:public_key"> public_key:der_encoded() </seealso>]}</v>
-	  <v> Reason = term()</v>
+	  <v> Entries =  <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
+	  <v> Reason = crl_reason()</v>
 	</type>
 	<desc>
 	  <p>Delete CRLs from the ssl applications local cache. </p>
@@ -53,13 +65,12 @@
 	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> CRLSrc = {file, string()} | {der, [ <seealso
-	marker="public_key:public_key"> public_key:der_encoded() </seealso> ]}</v>
-	  <v> URI = <seealso marker="stdlib:uri_string">uri_string:uri_string() </seealso> </v>
+	  <v> CRLSrc = <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
+	  <v> URI = <seealso marker="#type-uri">uri()</seealso> </v>
 	  <v> Reason = term()</v>
 	</type>
 	<desc>
-	 <p>Insert CRLs into the ssl applications local cache. </p>
+	 <p>Insert CRLs, available to fetch on DER format from <c>URI</c>, into the ssl applications local cache. </p>
 	</desc>
       </func>
     </funcs>

@@ -23,14 +23,20 @@
 -module(ssl_session_cache_api).
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_api.hrl").
 
--type key() :: {{host(), inet:port_number()}, session_id()} |  {inet:port_number(), session_id()}.
+-export_type([session_cache_key/0, session/0, partial_key/0, session_cache_ref/0]).
 
--callback init(list()) -> db_handle().
--callback terminate(db_handle()) -> any().
--callback lookup(db_handle(), key()) -> #session{} | undefined.
--callback update(db_handle(), key(), #session{}) -> any().
--callback delete(db_handle(), key()) -> any().
--callback foldl(fun(), term(), db_handle()) -> term().
--callback select_session(db_handle(), {host(), inet:port_number()} | inet:port_number()) -> [#session{}].
--callback size(db_handle()) -> integer().
+-type session_cache_ref() :: any().
+-type session_cache_key() :: {partial_key(), ssl:session_id()}.
+-opaque session()         :: #session{}.
+-opaque partial_key()     :: {ssl:host(), inet:port_number()} | inet:port_number().
+
+-callback init(list()) -> session_cache_ref().
+-callback terminate(session_cache_ref()) -> any().
+-callback lookup(session_cache_ref(), session_cache_key()) -> #session{} | undefined.
+-callback update(session_cache_ref(), session_cache_key(), #session{}) -> any().
+-callback delete(session_cache_ref(), session_cache_key()) -> any().
+-callback foldl(fun(), term(), session_cache_ref()) -> term().
+-callback select_session(session_cache_ref(), {ssl:host(), inet:port_number()} | inet:port_number()) -> [#session{}].
+-callback size(session_cache_ref()) -> integer().

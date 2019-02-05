@@ -51,7 +51,7 @@
     <p>
       OTP/Crypto requires that the user provides two or three items of information about the key. The application used
       by the user is usually on a higher level, for example in
-      <seealso marker="ssl:ssl#key_option_def">SSL</seealso>. If using
+      <seealso marker="ssl:ssl#type-key">SSL</seealso>. If using
       the crypto application directly, it is required that:
     </p>
     <list>
