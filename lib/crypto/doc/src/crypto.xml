@@ -239,6 +239,7 @@
       <name name="sha1"/>
       <name name="sha2"/>
       <name name="sha3"/>
+      <name name="blake2"/>
       <desc>
       </desc>
     </datatype>
