@@ -28,6 +28,10 @@
 
 -behaviour(ssl_crl_cache_api).
 
+-export_type([crl_src/0, uri/0]).
+-type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
+-type uri()     :: uri_string:uri_string().
+
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
 

@@ -29,7 +29,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Application version
 # ----------------------------------------------------
 include ../vsn.mk
-VSN=$(GS_VSN)
+VSN=$(SSL_VSN)
 
 # ----------------------------------------------------
 # Target Specs

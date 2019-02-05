@@ -153,41 +153,41 @@ protocols_must_be_a_binary_list(Config) when is_list(Config) ->
 
 empty_client(Config) when is_list(Config) ->
     run_failing_handshake(Config,
-        [{alpn_advertised_protocols, []}],
-        [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
-        {error,{tls_alert,"no application protocol"}}).
+                          [{alpn_advertised_protocols, []}],
+                          [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
+                          no_application_protocol).
 
 %--------------------------------------------------------------------------------
 
 empty_server(Config) when is_list(Config) ->
     run_failing_handshake(Config,
-        [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
-        [{alpn_preferred_protocols, []}],
-        {error,{tls_alert,"no application protocol"}}).
+                          [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
+                          [{alpn_preferred_protocols, []}],
+                          no_application_protocol).
 
 %--------------------------------------------------------------------------------
 
 empty_client_empty_server(Config) when is_list(Config) ->
     run_failing_handshake(Config,
-        [{alpn_advertised_protocols, []}],
-        [{alpn_preferred_protocols, []}],
-        {error,{tls_alert,"no application protocol"}}).
+                          [{alpn_advertised_protocols, []}],
+                          [{alpn_preferred_protocols, []}],
+                          no_application_protocol).
 
 %--------------------------------------------------------------------------------
 
 no_matching_protocol(Config) when is_list(Config) ->
     run_failing_handshake(Config,
-        [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
-        [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
-        {error,{tls_alert,"no application protocol"}}).
+                          [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
+                          [{alpn_preferred_protocols, [<<"spdy/2">>, <<"spdy/3">>, <<"http/2">>]}],
+                          no_application_protocol).
 
 %--------------------------------------------------------------------------------
 
 client_alpn_and_server_alpn(Config) when is_list(Config) ->
     run_handshake(Config,
-		    [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
-		    [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}],
-		    {ok, <<"http/1.1">>}).
+                  [{alpn_advertised_protocols, [<<"http/1.0">>, <<"http/1.1">>]}],
+                  [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}],
+                  {ok, <<"http/1.1">>}).
 
 %--------------------------------------------------------------------------------
 
@@ -297,7 +297,7 @@ alpn_not_supported_server(Config) when is_list(Config)->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) ->
+run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedAlert) ->
     ClientOpts = ClientExtraOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ServerOpts = ServerExtraOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
@@ -313,8 +313,7 @@ run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) 
                                            {from, self()},
                                            {mfa, {?MODULE, placeholder, []}},
                                            {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server, ExpectedResult,
-                              Client, ExpectedResult).
+    ssl_test_lib:check_client_alert(Server, Client, ExpectedAlert).
 
 run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
