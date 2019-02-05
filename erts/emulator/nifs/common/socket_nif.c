@@ -2802,7 +2802,7 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     if (argc != 0) {
         return enif_make_badarg(env);
@@ -2867,7 +2867,7 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     int key;
     
@@ -4157,7 +4157,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     int          edomain, etype, eproto;
     int          domain, type, proto;
@@ -4451,7 +4451,7 @@ ERL_NIF_TERM nif_bind(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      eSockAddr;
@@ -4551,7 +4551,7 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
                          const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      eSockAddr;
@@ -4666,7 +4666,7 @@ ERL_NIF_TERM nif_finalize_connection(ErlNifEnv*         env,
                                      const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
 
@@ -4781,7 +4781,7 @@ ERL_NIF_TERM nif_listen(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     int               backlog;
@@ -4851,7 +4851,7 @@ ERL_NIF_TERM nif_accept(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      ref;
@@ -5235,7 +5235,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, sendRef;
@@ -5363,7 +5363,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, sendRef;
@@ -5499,7 +5499,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
                          const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ERL_NIF_TERM      res, sockRef, sendRef, eMsgHdr;
     SocketDescriptor* descP;
@@ -5799,7 +5799,7 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
@@ -5943,7 +5943,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
@@ -6112,7 +6112,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
                          const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      sockRef, recvRef;
@@ -6295,7 +6295,7 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
                        const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
 
@@ -6452,7 +6452,7 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
                                 const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
 
@@ -6536,7 +6536,7 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     unsigned int      ehow;
@@ -6617,7 +6617,7 @@ ERL_NIF_TERM nif_setopt(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__) 
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP = NULL;
     int               eLevel, level = -1;
@@ -10052,7 +10052,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     int               eLevel, level = -1;
@@ -12771,7 +12771,7 @@ ERL_NIF_TERM nif_sockname(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      res;
@@ -12845,7 +12845,7 @@ ERL_NIF_TERM nif_peername(ErlNifEnv*         env,
                           const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      res;
@@ -12920,7 +12920,7 @@ ERL_NIF_TERM nif_cancel(ErlNifEnv*         env,
                         const ERL_NIF_TERM argv[])
 {
 #if defined(__WIN32__)
-    return enif_raise_exception(env, MKA(env, "nosup"));
+    return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     SocketDescriptor* descP;
     ERL_NIF_TERM      op, opRef, result;

@@ -1056,8 +1056,8 @@ open(Domain, Type, Protocol0, Extra) when is_map(Extra) ->
         throw:T ->
             T;
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason}
@@ -1093,8 +1093,8 @@ bind(#socket{ref = SockRef}, Addr)
             nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr))
     catch
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
@@ -1106,8 +1106,8 @@ bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
         end
     catch
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
@@ -1144,8 +1144,8 @@ bind(#socket{ref = SockRef}, Addrs, Action)
         end
     catch
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
@@ -2152,8 +2152,8 @@ shutdown(#socket{ref = SockRef}, How) ->
         throw:T ->
             T;
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason}
@@ -2228,8 +2228,8 @@ setopt(#socket{ref = SockRef}, Level, Key, Value) ->
         throw:T ->
             T;
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         error:Reason ->
             {error, Reason} % Process more?
@@ -2314,8 +2314,8 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
         throw:E:_S ->
             E;
         %% <WIN32-TEMPORARY>
-        error:nosup:S ->
-            erlang:raise(error, nosup, S);
+        error:notsup:S ->
+            erlang:raise(error, notsup, S);
         %% </WIN32-TEMPORARY>
         error:Reason:_Stack ->
             {error, Reason} % Process more?

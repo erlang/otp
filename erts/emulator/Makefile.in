@@ -839,7 +839,7 @@ EMU_OBJS = \
 ifneq ($(TARGET), win32)
 # These are *currently* only needed for non-win32,
 # since the nif-functions for socket and net are basically
-# stubbed with nosup in the win32 case.
+# stubbed with notsup in the win32 case.
 ESOCK_RUN_OBJS = \
 	$(OBJDIR)/socket_dbg.o \
 	$(OBJDIR)/socket_tarray.o \
