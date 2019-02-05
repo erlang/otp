@@ -321,6 +321,8 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
 
 TESTCASE(test_ei_decode_long)
 {
+    ei_init();
+
     EI_DECODE_2     (decode_long,  2, long, 0);
     EI_DECODE_2     (decode_long,  2, long, 255);
     EI_DECODE_2     (decode_long,  5, long, 256);
@@ -363,6 +365,8 @@ TESTCASE(test_ei_decode_long)
 
 TESTCASE(test_ei_decode_ulong)
 {
+    ei_init();
+
     EI_DECODE_2     (decode_ulong,  2, unsigned long, 0);
     EI_DECODE_2     (decode_ulong,  2, unsigned long, 255);
     EI_DECODE_2     (decode_ulong,  5, unsigned long, 256);
@@ -409,6 +413,8 @@ TESTCASE(test_ei_decode_ulong)
 
 TESTCASE(test_ei_decode_longlong)
 {
+    ei_init();
+
 #ifndef VXWORKS
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 0);
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 255);
@@ -443,6 +449,8 @@ TESTCASE(test_ei_decode_longlong)
 
 TESTCASE(test_ei_decode_ulonglong)
 {
+    ei_init();
+
 #ifndef VXWORKS
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 0);
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 255);
@@ -478,6 +486,8 @@ TESTCASE(test_ei_decode_ulonglong)
 
 TESTCASE(test_ei_decode_char)
 {
+    ei_init();
+
     EI_DECODE_2(decode_char, 2, char, 0);
     EI_DECODE_2(decode_char, 2, char, 0x7f);
     EI_DECODE_2(decode_char, 2, char, 0xff);
@@ -491,6 +501,8 @@ TESTCASE(test_ei_decode_char)
 
 TESTCASE(test_ei_decode_nonoptimal)
 {
+    ei_init();
+
     EI_DECODE_2(decode_char,  2, char, 42);
     EI_DECODE_2(decode_char,  5, char, 42);
     EI_DECODE_2(decode_char,  4, char, 42);
@@ -612,6 +624,8 @@ TESTCASE(test_ei_decode_nonoptimal)
 
 TESTCASE(test_ei_decode_misc)
 {
+    ei_init();
+
 /*
     EI_DECODE_0(decode_version);
 */
@@ -647,6 +661,7 @@ TESTCASE(test_ei_decode_misc)
 
 TESTCASE(test_ei_decode_utf8_atom)
 {
+    ei_init();
 
   EI_DECODE_STRING_4(decode_my_atom_as, 4, P99({229,0}), /* LATIN1 "å" */
 		   P99({ERLANG_ANY,ERLANG_LATIN1,ERLANG_LATIN1}));

@@ -162,12 +162,20 @@ $ ld -L/usr/local/otp/lib/erl_interface-3.2.3/
   </section>
 
   <section>
-    <title>Initializing the Erl_Interface Library</title>
-    <p>Before calling any of the other <c>Erl_Interface</c> functions, call
-      <c>erl_init()</c> exactly once to initialize the library.
+    <title>Initializing the Libraries</title>
+    <p>
+      Before calling any of the other functions in the <c>erl_interface</c>
+      and <c>ei</c> libraries, call <c>erl_init()</c> exactly once to initialize
+      both libraries.
       <c>erl_init()</c> takes two arguments. However, the arguments
-      are no longer used by <c>Erl_Interface</c> and are therefore to be
-      specified as <c>erl_init(NULL,0)</c>.</p>
+      are no longer used by <c>erl_interface</c> and are therefore to be
+      specified as <c>erl_init(NULL,0)</c>.
+    </p>
+    <p>
+      If you only use the <c>ei</c> library, instead initialize it by calling
+      <c>ei_init()</c> exactly once before calling any other functions in
+      the <c>ei</c> library.
+    </p>
   </section>
 
   <section>

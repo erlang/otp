@@ -403,6 +403,8 @@
 
 TESTCASE(test_ei_encode_long)
 {
+    ei_init();
+
     EI_ENCODE_1(encode_long, 0);
 
     EI_ENCODE_1(encode_long, 255);
@@ -430,6 +432,8 @@ TESTCASE(test_ei_encode_long)
 
 TESTCASE(test_ei_encode_ulong)
 {
+    ei_init();
+
     EI_ENCODE_1(encode_ulong, 0);
 
     EI_ENCODE_1(encode_ulong, 255);
@@ -454,6 +458,7 @@ TESTCASE(test_ei_encode_ulong)
 
 TESTCASE(test_ei_encode_longlong)
 {
+    ei_init();
 
 #ifndef VXWORKS
 
@@ -494,6 +499,7 @@ TESTCASE(test_ei_encode_longlong)
 
 TESTCASE(test_ei_encode_ulonglong)
 {
+    ei_init();
 
 #ifndef VXWORKS
 
@@ -527,6 +533,8 @@ TESTCASE(test_ei_encode_ulonglong)
 
 TESTCASE(test_ei_encode_char)
 {
+    ei_init();
+
     EI_ENCODE_1(encode_char, 0);
 
     EI_ENCODE_1(encode_char, 0x7f);
@@ -540,6 +548,8 @@ TESTCASE(test_ei_encode_char)
 
 TESTCASE(test_ei_encode_misc)
 {
+    ei_init();
+
     EI_ENCODE_0(encode_version);
 
     EI_ENCODE_1(encode_double, 0.0);
@@ -593,6 +603,8 @@ TESTCASE(test_ei_encode_fails)
 {
     char buf[1024];
     int index;
+
+    ei_init();
 
     /* FIXME the ei_x versions are not tested */
 
@@ -660,6 +672,7 @@ TESTCASE(test_ei_encode_fails)
 
 TESTCASE(test_ei_encode_utf8_atom)
 {
+    ei_init();
 
   EI_ENCODE_3(encode_atom_as, "Å", ERLANG_LATIN1, ERLANG_UTF8);
   EI_ENCODE_3(encode_atom_as, "Å", ERLANG_LATIN1, ERLANG_LATIN1);
@@ -686,6 +699,7 @@ TESTCASE(test_ei_encode_utf8_atom)
 
 TESTCASE(test_ei_encode_utf8_atom_len)
 {
+    ei_init();
 
   EI_ENCODE_4(encode_atom_len_as, "ÅÄÖ", 1, ERLANG_LATIN1, ERLANG_UTF8);
   EI_ENCODE_4(encode_atom_len_as, "ÅÄÖ", 2, ERLANG_LATIN1, ERLANG_LATIN1);
