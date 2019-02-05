@@ -84,6 +84,8 @@ static void send_printed3f(char* format, float f1, float f2)
 
 TESTCASE(atoms)
 {
+    ei_init();
+
     send_printed("''");
     send_printed("'a'");
     send_printed("'A'");
@@ -118,6 +120,8 @@ TESTCASE(atoms)
 
 TESTCASE(tuples)
 {
+    ei_init();
+
     send_printed("{}");
     send_printed("{a}");
     send_printed("{a, b}");
@@ -137,6 +141,8 @@ TESTCASE(tuples)
 TESTCASE(lists)
 {
     ei_x_buff x;
+
+    ei_init();
 
     send_printed("[]");
     send_printed("[a]");
@@ -163,6 +169,8 @@ TESTCASE(lists)
 TESTCASE(strings)
 {
     ei_x_buff x;
+
+    ei_init();
 
     send_printed("\"\n\"");
     send_printed("\"\r\n\"");

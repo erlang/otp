@@ -96,6 +96,8 @@ TESTCASE(framework_check)
     int i;
 #endif
 
+    ei_init();
+
     OPEN_DEBUGFILE(1);
     
     DEBUGF(("Börjar... \n"));
@@ -340,6 +342,7 @@ TESTCASE(recv_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
 
+    ei_init();
 
     OPEN_DEBUGFILE(5);
 
@@ -450,6 +453,7 @@ TESTCASE(send_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
 
+    ei_init();
 
     OPEN_DEBUGFILE(4);
 
@@ -591,7 +595,7 @@ TESTCASE(connect_tmo)
     int com_sock = -1;
     ei_cnode nodeinfo;
     
-
+    ei_init();
 
     OPEN_DEBUGFILE(3);
 
@@ -680,7 +684,7 @@ TESTCASE(accept_tmo)
     ErlConnect peer;
     ei_cnode nodeinfo;
     
-
+    ei_init();
 
     OPEN_DEBUGFILE(2);
 

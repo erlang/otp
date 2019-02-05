@@ -65,7 +65,7 @@ void erl_init(void *hp,long heap_size)
 {
     erl_init_malloc(hp, heap_size);
     erl_init_marshal();
-    ei_init_resolve();
+    (void) ei_init();
 }
 
 void erl_set_compat_rel(unsigned rel)

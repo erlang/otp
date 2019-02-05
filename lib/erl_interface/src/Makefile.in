@@ -417,7 +417,8 @@ MISCSRC = \
 	misc/eimd5.c \
 	misc/get_type.c \
 	misc/show_msg.c \
-	misc/ei_compat.c
+	misc/ei_compat.c \
+	misc/ei_init.c
 
 REGISTRYSRC = \
 	registry/hash_dohash.c \

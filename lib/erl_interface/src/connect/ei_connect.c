@@ -96,6 +96,7 @@
 #include "ei_epmd.h"
 #include "ei_internal.h"
 
+static int ei_connect_initialized = 0;
 int ei_tracelevel = 0;
 
 #define COOKIE_FILE "/.erlang.cookie"
@@ -242,7 +243,7 @@ typedef struct {
 
 static ei_socket_info_data__ *socket_info_data = NULL;
 
-static int init_socket_info(void)
+static int init_socket_info(int late)
 {
     int max_fds;
     int i;
@@ -250,7 +251,7 @@ static int init_socket_info(void)
     ei_socket_info_data__ *info_data, *xchg;
 
     if (EI_ATOMIC_LOAD_ACQ(&socket_info_data) != NULL)
-        return !0; /* Already initialized... */
+        return 0; /* Already initialized... */
     
 #if defined(HAVE_SYSCONF) && defined(_SC_OPEN_MAX)
     max_fds = sysconf(_SC_OPEN_MAX);
@@ -259,14 +260,14 @@ static int init_socket_info(void)
 #endif
 
     if (max_fds < 0)
-        return 0;
+        return EIO;
 
     segments_len = ((max_fds-1)/EI_SOCKET_INFO_SEG_SIZE + 1);
     
     info_data = malloc(sizeof(ei_socket_info_data__)
                        + (sizeof(ei_socket_info *)*(segments_len-1)));
     if (!info_data)
-        return 0;
+        return ENOMEM;
 
     info_data->max_fds = max_fds;
     for (i = 0; i < segments_len; i++)
@@ -276,7 +277,7 @@ static int init_socket_info(void)
     if (!EI_ATOMIC_CMPXCHG_ACQ_REL(&socket_info_data, &xchg, info_data))
         free(info_data); /* Already initialized... */
 
-    return !0;
+    return 0;
 }
 
 static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *ec,
@@ -360,14 +361,16 @@ ei_socket_info *ei_sockets = NULL;
 ei_mutex_t* ei_sockets_lock = NULL;
 #endif /* _REENTRANT */
 
-static int init_socket_info(void)
+static int init_socket_info(int late)
 {
 #ifdef _REENTRANT
-    if (ei_sockets_lock == NULL) {
-	ei_sockets_lock = ei_mutex_create();
-    }
+    if (late)
+        return ENOTSUP; /* Refuse doing unsafe initialization... */
+    ei_sockets_lock = ei_mutex_create();
+    if (!ei_sockets_lock)
+        return ENOMEM;
 #endif /* _REENTRANT */
-    return !0;
+    return 0;
 }
 
 static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *ec,
@@ -600,6 +603,38 @@ static int initWinSock(void)
 }
 #endif
 
+static int init_connect(int late)
+{
+    int error;
+
+    /*
+     * 'late' is non-zero when not called via ei_init(). Such a
+     * call is not supported, but we for now save the day if
+     * it easy to do so; otherwise, return ENOTSUP.
+     */
+
+#ifdef __WIN32__
+    if (!initWinSock()) {
+	EI_TRACE_ERR0("ei_init_connect","can't initiate winsock");
+	return EIO;
+    }
+#endif /* win32 */
+
+    error = init_socket_info(late);
+    if (error) {
+        EI_TRACE_ERR0("ei_init_connect","can't initiate socket info");
+        return error;
+    }
+
+    ei_connect_initialized = !0;
+    return 0;
+}
+
+int ei_init_connect(void)
+{
+    return init_connect(0);
+}
+
 /*
 * Perhaps run this routine instead of ei_connect_init/2 ?
 * Initailize by setting:
@@ -613,24 +648,12 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
 {
     char *dbglevel;
 
+    if (!ei_connect_initialized)
+        init_connect(!0);
+
     if (cbs != &ei_default_socket_callbacks)
         EI_SET_HAVE_PLUGIN_SOCKET_IMPL__;
     
-/* FIXME this code was enabled for 'erl'_connect_xinit(), why not here? */
-#if 0    
-#ifdef __WIN32__
-    if (!initWinSock()) {
-	EI_TRACE_ERR0("ei_connect_xinit","can't initiate winsock");
-	return ERL_ERROR;
-    }
-#endif
-#endif
-
-    if (!init_socket_info()) {
-	EI_TRACE_ERR0("ei_connect_xinit","can't initiate socket info");
-	return ERL_ERROR;
-    }
-
     if (cbs_sz < EI_SOCKET_CALLBACKS_SZ_V1) {
 	EI_TRACE_ERR0("ei_connect_xinit","invalid size of ei_socket_callbacks struct");
         return ERL_ERROR;
@@ -718,13 +741,9 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
     int ei_h_errno;
     int res;
 
-#ifdef __WIN32__
-    if (!initWinSock()) {
-	EI_TRACE_ERR0("ei_connect_xinit","can't initiate winsock");
-	return ERL_ERROR;
-    }
-#endif /* win32 */
-
+    if (!ei_connect_initialized)
+        init_connect(!0);
+    
     /* gethostname requires len to be max(hostname) + 1 */
     if (gethostname(thishostname, EI_MAXHOSTNAMELEN+1) == -1) {
 #ifdef __WIN32__
