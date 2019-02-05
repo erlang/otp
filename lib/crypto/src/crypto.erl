@@ -52,7 +52,6 @@
 -export([crypto_init/4,
          crypto_update/2, crypto_update/3,
          
-         crypto_block/5,
          %% Emulates old api:
          crypto_stream_init/2, crypto_stream_init/3,
          crypto_stream_encrypt/2,
