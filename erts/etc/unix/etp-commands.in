@@ -149,7 +149,7 @@ define etp-1
       else
         # (($arg0) & 0x3) == 0
         if (($arg0) == etp_the_non_value)
-          printf "<the non-value>"
+          printf "<the-non-value>"
         else
           etp-cp-1 ($arg0)
         end
@@ -1241,7 +1241,7 @@ define etp-sig-int
     if $etp_sig_tag != etp_the_non_value
       etp-1 $etp_sig_tag 0
     else
-      print "!ENCODED-DIST-MSG"
+      printf "!ENCODED-DIST-MSG"
     end
     if ($arg0)->m[1] != $etp_nil
       printf " @token= "
@@ -1251,7 +1251,7 @@ define etp-sig-int
     etp-1 ($arg0)->m[2] 0
   else
     if ($etp_sig_tag & 0x3f) != 0x30
-      print "!INVALID-SIGNAL"
+      printf "!INVALID-SIGNAL"
     else
       set $etp_sig_op = (($etp_sig_tag >> 6) & 0xff)
       set $etp_sig_type = (($etp_sig_tag >> 14) & 0xff)
@@ -4326,6 +4326,20 @@ document etp-show
 %---------------------------------------------------------------------------
 end
 
+define etp-rr-run-until-beam
+  source @ERL_TOP@/erts/etc/unix/etp-rr-run-until-beam.py
+end
+
+document etp-rr-run-until-beam
+%---------------------------------------------------------------------------
+% etp-rr-run-until-beam
+%
+% Use this gdb macro to make cerl -rr replay -p PID walk until
+% the correct execute has been made. You may have to change the
+% file that is used to debug with.
+%---------------------------------------------------------------------------
+end
+
 ############################################################################
 # Init
 #
@@ -4359,11 +4373,19 @@ document etp-init
 %---------------------------------------------------------------------------
 end
 
+macro define offsetof(t, f) &((t *) 0)->f)
+
 define hook-run
   set $_exitsignal = -1
 end
 
+handle SIGPIPE nostop
+
 etp-init
 help etp-init
-etp-show
-etp-system-info
+if $etp_rr_run_until_beam
+  help etp-rr-run-until-beam
+else
+  etp-show
+  etp-system-info
+end
