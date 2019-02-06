@@ -113,6 +113,10 @@ extern ERL_NIF_TERM atom_sha3_384;
 extern ERL_NIF_TERM atom_sha3_512;
 extern ERL_NIF_TERM atom_md5;
 extern ERL_NIF_TERM atom_ripemd160;
+#ifdef HAVE_BLAKE2
+extern ERL_NIF_TERM atom_blake2b;
+extern ERL_NIF_TERM atom_blake2s;
+#endif
 
 #ifdef HAS_ENGINE_SUPPORT
 extern ERL_NIF_TERM atom_bad_engine_method;

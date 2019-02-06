@@ -287,6 +287,7 @@
 -type sha1() :: sha .
 -type sha2() :: sha224 | sha256 | sha384 | sha512 .
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
+-type blake2() :: blake2b | blake2s .
 
 -type compatibility_only_hash() :: md5 | md4 .
 
@@ -329,11 +330,11 @@ stop() ->
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash()],
                              Ciphers :: [stream_cipher()
                                          | block_cipher_with_iv() | block_cipher_without_iv()
                                          | aead_cipher()
-                                        ], 
+                                        ],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
@@ -367,7 +368,7 @@ enable_fips_mode(_) -> ?nif_stub.
 %%%
 %%%================================================================
 
--define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | ripemd160 | compatibility_only_hash() ).
+-define(HASH_HASH_ALGORITHM, sha1() | sha2() | sha3() | blake2() | ripemd160 | compatibility_only_hash() ).
 
 -spec hash(Type, Data) -> Digest when Type :: ?HASH_HASH_ALGORITHM,
                                       Data :: iodata(),

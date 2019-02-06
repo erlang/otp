@@ -44,6 +44,10 @@
 		  SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions [FIPS PUB 202]
 		</url>		  
 	      </item>
+            <tag>BLAKE2</tag>
+              <item>
+                <url href="https://blake2.net/">BLAKE2 — fast secure hashing</url>
+              </item>
 	    <tag>MD5</tag>
 	    <item>
 	      <url href="http://www.ietf.org/rfc/rfc1321.txt">The MD5 Message Digest Algorithm [RFC 1321]</url>
@@ -235,6 +239,7 @@
       <name name="sha1"/>
       <name name="sha2"/>
       <name name="sha3"/>
+      <name name="blake2"/>
       <desc>
       </desc>
     </datatype>
