@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 -export([all/0, suite/0,
          big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 send/1, recv/1,
-         ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
+         ip_port/1, file_port/1, file_port2/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
@@ -41,7 +41,7 @@ suite() ->
 all() -> 
     [big, tiny, simple, message, distributed, port, ip_port,
      send, recv,
-     file_port, file_port2, file_port_schedfix, ip_port_busy,
+     file_port, file_port2, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop,
      erl_tracer, distributed_erl_tracer].
@@ -478,8 +478,7 @@ port(Config) when is_list(Config) ->
         TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
         [{trace,Port,open,S,TraceFileDrv},
          {trace,Port,getting_linked,S},
-         {trace,Port,closed,normal},
-         {trace,Port,unlink,S}] = flush()
+         {trace,Port,closed,normal}] = flush()
     after
         dbg:stop()
     end,
@@ -622,99 +621,6 @@ file_port2(Config) when is_list(Config) ->
         file:delete(FName)
     end,
     ok.
-
-%% Test that the scheduling timestamp fix for trace flag 'running' works.
-file_port_schedfix(Config) when is_list(Config) ->
-    case (catch erlang:system_info(smp_support)) of
-        true ->
-            {skip, "No schedule fix on SMP"};
-        _ ->
-            try
-                file_port_schedfix1(Config)
-            after
-                dbg:stop()
-            end
-    end.
-file_port_schedfix1(Config) when is_list(Config) ->
-    stop(),
-    {A,B,C} = erlang:now(),
-    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-    "-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-    FName = filename:join([proplists:get_value(data_dir, Config), FTMP]),
-    %%
-    Port = dbg:trace_port(file, {FName, wrap, ".wraplog", 8*1024, 4}),
-    {ok, _} = dbg:tracer(port, Port),
-    {ok,[{matched,_node,0}]} = dbg:p(new,[running,procs,send,timestamp]),
-    %%
-    %% Generate the trace data
-    %%
-    %% This starts 3 processes that sends a message to each other in a ring,
-    %% 4 laps. Prior to sending the message to the next in the ring, each
-    %% process send 8 messages to itself, just to generate some trace data,
-    %% and to lower the possibility that the trace log wraps just after
-    %% a schedule out message (which would not burden any process and hence
-    %% not show up in the result)
-    %%
-    %% The wrap file trace is used because it burns a lot of time when the
-    %% driver swaps files, a lot more than the regular file trace. The test
-    %% case is dimensioned so that the log fills two files and just starts
-    %% on the third (out of four wrap files). This gives two file swaps,
-    %% and there are three processes, so one process will NOT be burdened.
-    %% The criterion for trace success is then that the max process
-    %% execution time must not be more than twice the min process
-    %% execution time. Wallclock. A normal result is about 10 times more
-    %% without schedule in - schedule out compensation (OTP-3938).
-    %%
-    ok = token_volleyball(3, 4, 8),
-    %%
-    {ok,[{matched,_,_}]} = dbg:p(all, [clear]),
-    stop(),
-    %%
-    %% Get the trace result
-    %%
-    Tag = make_ref(),
-    dbg:trace_client(file, {FName, wrap, ".wraplog"},
-                     {fun schedstat_handler/2, {self(), Tag, []}}),
-    Result =
-    receive
-        {Tag, D} ->
-            lists:map(
-              fun({Pid, {A1, B1, C1}}) ->
-                      {Pid, C1/1000000 + B1 + A1*1000000}
-              end,
-              D)
-    end,
-    ok = io:format("Result=~p", [Result]),
-    %    erlang:display({?MODULE, ?LINE, Result}),
-    %%
-    %% Analyze the result
-    %%
-    {Min, Max} = lists:foldl(fun({_Pid, M}, {Mi, Ma}) ->
-                                     {if M < Mi -> M; true -> Mi end,
-                                      if M > Ma -> M; true -> Ma end}
-                             end,
-                             {void, 0},
-                             Result),
-    % More PaN debug
-    io:format("Min = ~f, Max = ~f~n",[Min,Max]),
-    %%
-    %% Cleanup
-    %%
-    ToBeDeleted = filelib:wildcard(FName++"*"++".wraplog"),
-    lists:map(fun file:delete/1, ToBeDeleted),
-    %    io:format("ToBeDeleted=~p", [ToBeDeleted]),
-    %%
-    %% Present the result
-    %%
-    P = (Max / Min - 1) * 100,
-    BottomLine = lists:flatten(io_lib:format("~.2f %", [P])),
-    if P > 100 ->
-           Reason = {BottomLine, '>', "100%"},
-           erlang:display({file_port_schedfix, fail, Reason}),
-           ct:fail(Reason);
-       true ->
-           {comment, BottomLine}
-    end.
 
 %% Test tracing to wrapping file port
 wrap_port(Config) when is_list(Config) ->

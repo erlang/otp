@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,8 @@ VSN=$(GS_VSN)
 
 MODULES = \
 	ssl_test_lib \
+	ssl_bench_test_lib \
+	ssl_dist_test_lib \
 	ssl_alpn_handshake_SUITE \
 	ssl_basic_SUITE \
 	ssl_bench_SUITE \
@@ -44,6 +46,8 @@ MODULES = \
 	ssl_certificate_verify_SUITE\
 	ssl_crl_SUITE\
 	ssl_dist_SUITE \
+	ssl_dist_bench_SUITE \
+	ssl_engine_SUITE\
 	ssl_handshake_SUITE \
 	ssl_npn_hello_SUITE \
 	ssl_npn_handshake_SUITE \
@@ -53,15 +57,18 @@ MODULES = \
 	ssl_session_cache_SUITE	\
 	ssl_to_openssl_SUITE \
 	ssl_ECC_SUITE \
+	ssl_ECC_openssl_SUITE \
+	ssl_ECC\
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
 	make_certs\
-	erl_make_certs
+        x509_test
 
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-HRL_FILES =
+HRL_FILES = \
+	ssl_dist_test_lib.hrl
 
 HRL_FILES_SRC = \
 	ssl_api.hrl\

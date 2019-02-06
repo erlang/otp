@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2005</year><year>2016</year>
+      <year>2005</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -65,13 +65,22 @@ list_to_binary([Compressed|Last])</pre>
       <tag><c>badarg</c></tag>
       <item>Bad argument.
       </item>
+      <tag><c>not_initialized</c></tag>
+      <item>The stream hasn't been initialized, eg. if
+      <seealso marker="#inflateInit/1"><c>inflateInit/1</c></seealso> wasn't
+      called prior to a call to
+      <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
+      </item>
+      <tag><c>not_on_controlling_process</c></tag>
+      <item>The stream was used by a process that doesn't control it. Use
+      <seealso marker="#set_controlling_process/2">
+      <c>set_controlling_process/2</c></seealso> if you need to transfer
+      a stream to a different process.</item>
       <tag><c>data_error</c></tag>
       <item>The data contains errors.
       </item>
       <tag><c>stream_error</c></tag>
       <item>Inconsistent stream state.</item>
-      <tag><c>einval</c></tag>
-      <item>Bad value or wrong function called.</item>
       <tag><c>{need_dictionary,Adler32}</c></tag>
       <item>See <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
       </item>
@@ -88,6 +97,9 @@ list_to_binary([Compressed|Last])</pre>
     </datatype>
     <datatype>
       <name name="zlevel"/>
+    </datatype>
+    <datatype>
+      <name name="zflush"/>
     </datatype>
     <datatype>
       <name name="zmemlevel"/>
@@ -112,6 +124,11 @@ list_to_binary([Compressed|Last])</pre>
       <fsummary>Calculate the Adler checksum.</fsummary>
       <desc>
         <p>Calculates the Adler-32 checksum for <c><anno>Data</anno></c>.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#adler32/1">
+             <c>erlang:adler32/1</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -127,6 +144,11 @@ list_to_binary([Compressed|Last])</pre>
 Crc = lists:foldl(fun(Data,Crc0) ->
                       zlib:adler32(Z, Crc0, Data),
                   end, zlib:adler32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#adler32/2">
+             <c>erlang:adler32/2</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -141,6 +163,11 @@ Crc = lists:foldl(fun(Data,Crc0) ->
         <p>This function returns the <c><anno>Adler</anno></c> checksum of
           <c>[Data1,Data2]</c>, requiring only <c><anno>Adler1</anno></c>,
           <c><anno>Adler2</anno></c>, and <c><anno>Size2</anno></c>.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#adler32_combine/3">
+             <c>erlang:adler32_combine/3</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -165,6 +192,12 @@ Crc = lists:foldl(fun(Data,Crc0) ->
       <fsummary>Get current CRC.</fsummary>
       <desc>
         <p>Gets the current calculated CRC checksum.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#crc32/1">
+             <c>erlang:crc32/1</c></seealso> on the uncompressed data
+             instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -173,6 +206,11 @@ Crc = lists:foldl(fun(Data,Crc0) ->
       <fsummary>Calculate CRC.</fsummary>
       <desc>
         <p>Calculates the CRC checksum for <c><anno>Data</anno></c>.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#crc32/1">
+             <c>erlang:crc32/1</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -188,6 +226,11 @@ Crc = lists:foldl(fun(Data,Crc0) ->
 Crc = lists:foldl(fun(Data,Crc0) ->
                       zlib:crc32(Z, Crc0, Data),
                   end, zlib:crc32(Z,&lt;&lt; &gt;&gt;), Datas)</pre>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#crc32/2">
+             <c>erlang:crc32/2</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -202,6 +245,11 @@ Crc = lists:foldl(fun(Data,Crc0) ->
         <p>This function returns the <c><anno>CRC</anno></c> checksum of
           <c>[Data1,Data2]</c>, requiring only <c><anno>CRC1</anno></c>,
           <c><anno>CRC2</anno></c>, and <c><anno>Size2</anno></c>.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="erts:erlang#crc32_combine/3">
+             <c>erlang:crc32_combine/3</c></seealso> instead.</p>
+        </warning>
       </desc>
     </func>
 
@@ -315,6 +363,15 @@ list_to_binary([B1,B2])</pre>
               <c><anno>WindowBits</anno></c> value suppresses the zlib header
               (and checksum) from the stream. Notice that the zlib source
               mentions this only as a undocumented feature.</p>
+	      <warning>
+		<p>Due to a known bug in the underlying zlib library, <c>WindowBits</c> values 8 and -8
+		do not work as expected. In zlib versions before 1.2.9 values
+		8 and -8 are automatically changed to 9 and -9. <em>From zlib version 1.2.9
+		value -8 is rejected</em> causing <c>zlib:deflateInit/6</c> to fail
+		(8 is still changed to 9). It also seem possible that future versions
+		of zlib may fix this bug and start accepting 8 and -8 as is.</p>
+		<p>Conclusion: Avoid values 8 and -8 unless you know your zlib version supports them.</p>
+	      </warning>
           </item>
           <tag><c><anno>MemLevel</anno></c></tag>
           <item>
@@ -398,8 +455,8 @@ list_to_binary([B1,B2])</pre>
           <seealso marker="#deflateInit/1"><c>deflateInit/1,2,6</c></seealso> or
           <seealso marker="#deflateReset/1"><c>deflateReset/1</c></seealso>,
           before any call of
-          <seealso marker="#deflate/3"><c>deflate/3</c></seealso>.
-          The compressor and decompressor must use the same dictionary (see
+          <seealso marker="#deflate/3"><c>deflate/3</c></seealso>.</p>
+        <p>The compressor and decompressor must use the same dictionary (see
           <seealso marker="#inflateSetDictionary/2">
           <c>inflateSetDictionary/2</c></seealso>).</p>
         <p>The Adler checksum of the dictionary is returned.</p>
@@ -411,6 +468,10 @@ list_to_binary([B1,B2])</pre>
       <fsummary>Get buffer size.</fsummary>
       <desc>
         <p>Gets the size of the intermediate buffer.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release.</p>
+        </warning>
       </desc>
     </func>
 
@@ -434,14 +495,31 @@ list_to_binary([B1,B2])</pre>
       <name name="inflate" arity="2"/>
       <fsummary>Decompress data.</fsummary>
       <desc>
-        <p>Decompresses as much data as possible.
-          It can introduce some output latency (reading
-          input without producing any output).</p>
-        <p>If a preset dictionary is needed at this point (see
-          <seealso marker="#inflateSetDictionary/2">
-          <c>inflateSetDictionary/2</c></seealso>), <c>inflate/2</c> throws a
-          <c>{need_dictionary,Adler}</c> exception, where <c>Adler</c> is
-          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
+        <p>Equivalent to
+           <seealso marker="#inflate/3"><c>inflate(Z, Data, [])</c></seealso>
+           </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inflate" arity="3"/>
+      <fsummary>Decompress data.</fsummary>
+      <desc>
+        <p>Decompresses as much data as possible. It can introduce some output
+           latency (reading input without producing any output).</p>
+        <p>Currently the only available option is
+           <c>{exception_on_need_dict,boolean()}</c> which controls whether the
+           function should throw an exception when a preset dictionary is
+           required for decompression. When set to false, a
+           <c>need_dictionary</c> tuple will be returned instead. See
+           <seealso marker="#inflateSetDictionary/2">
+           <c>inflateSetDictionary/2</c></seealso> for details.</p>
+        <warning>
+           <p>This option defaults to <c>true</c> for backwards compatibility
+              but we intend to remove the exception behavior in a future
+              release. New code that needs to handle dictionaries manually
+              should always specify <c>{exception_on_need_dict,false}</c>.</p>
+        </warning>
       </desc>
     </func>
 
@@ -449,6 +527,11 @@ list_to_binary([B1,B2])</pre>
       <name name="inflateChunk" arity="1"/>
       <fsummary>Read next uncompressed chunk.</fsummary>
       <desc>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="#safeInflate/2"><c>safeInflate/2</c>
+             </seealso> instead.</p>
+        </warning>
         <p>Reads the next chunk of uncompressed data, initialized by
           <seealso marker="#inflateChunk/2"><c>inflateChunk/2</c></seealso>.</p>
         <p>This function is to be repeatedly called, while it returns
@@ -460,23 +543,27 @@ list_to_binary([B1,B2])</pre>
       <name name="inflateChunk" arity="2"/>
       <fsummary>Decompress data with limited output size.</fsummary>
       <desc>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release. Use <seealso marker="#safeInflate/2"><c>safeInflate/2</c>
+             </seealso> instead.</p>
+        </warning>
         <p>Like <seealso marker="#inflate/2"><c>inflate/2</c></seealso>,
-          but decompresses no more data than will fit in the buffer configured
-          through <seealso marker="#setBufSize/2"><c>setBufSize/2</c></seealso>.
-          Is is useful when decompressing a stream with a high compression
-          ratio, such that a small amount of compressed input can expand up to
-          1000 times.</p>
+           but decompresses no more data than will fit in the buffer configured
+           through <seealso marker="#setBufSize/2"><c>setBufSize/2</c>
+           </seealso>. Is is useful when decompressing a stream with a high
+           compression ratio, such that a small amount of compressed input can
+           expand up to 1000 times.</p>
         <p>This function returns <c>{more, Decompressed}</c>, when there is
-          more output available, and
-          <seealso marker="#inflateChunk/1"><c>inflateChunk/1</c></seealso>
-          is to be used to read it.</p>
-        <p>This function can introduce some output latency (reading
-          input without producing any output).</p>
-        <p>If a preset dictionary is needed at this point (see
-          <seealso marker="#inflateSetDictionary/2">
-          <c>inflateSetDictionary/2</c></seealso>), this function throws a
-          <c>{need_dictionary,Adler}</c> exception, where <c>Adler</c> is
-          the Adler-32 checksum of the dictionary chosen by the compressor.</p>
+           more output available, and
+           <seealso marker="#inflateChunk/1"><c>inflateChunk/1</c></seealso>
+           is to be used to read it.</p>
+        <p>This function can introduce some output latency (reading input
+           without producing any output).</p>
+        <p>An exception will be thrown if a preset dictionary is required for
+           further decompression. See
+           <seealso marker="#inflateSetDictionary/2">
+           <c>inflateSetDictionary/2</c></seealso> for details.</p>
         <p>Example:</p>
         <pre>
 walk(Compressed, Handler) ->
@@ -504,6 +591,18 @@ loop(Z, Handler, Uncompressed) ->
           that this function throws a <c>data_error</c> exception
           if no end of stream was found (meaning that not all data
           has been uncompressed).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="inflateGetDictionary" arity="1"/>
+      <fsummary>Return the decompression dictionary.</fsummary>
+      <desc>
+        <p>Returns the decompression dictionary currently in use
+          by the stream. This function must be called between
+          <seealso marker="#inflateInit/1"><c>inflateInit/1,2</c></seealso>
+          and <seealso marker="#inflateEnd/1"><c>inflateEnd</c></seealso>.</p>
+        <p>Only supported if ERTS was compiled with zlib >= 1.2.8.</p>
       </desc>
     </func>
 
@@ -553,25 +652,38 @@ loop(Z, Handler, Uncompressed) ->
       <fsummary>Initialize the decompression dictionary.</fsummary>
       <desc>
         <p>Initializes the decompression dictionary from the specified
-          uncompressed byte sequence. This function must be called
-          immediately after a call of
-          <seealso marker="#inflate/2"><c>inflate/2</c></seealso>
-          if this call threw a <c>{need_dictionary,Adler}</c> exception.
-          The dictionary chosen by the compressor can be determined from the
-          Adler value thrown by the call to <c>inflate/2</c>.
-          The compressor and decompressor must use the same dictionary (see
-          <seealso marker="#deflateSetDictionary/2">
-          <c>deflateSetDictionary/2</c></seealso>).</p>
+           uncompressed byte sequence. This function must be called as a
+           response to an inflate operation (eg.
+           <seealso marker="#safeInflate/2"><c>safeInflate/2</c></seealso>)
+           returning <c>{need_dictionary,Adler,Output}</c> or in the case of
+           deprecated functions, throwing an
+           <c>{'EXIT',{{need_dictionary,Adler},_StackTrace}}</c> exception.</p>
+        <p>The dictionary chosen by the compressor can be determined from the
+           Adler value returned or thrown by the call to the inflate function.
+           The compressor and decompressor must use the same dictionary (See
+           <seealso marker="#deflateSetDictionary/2">
+           <c>deflateSetDictionary/2</c></seealso>).</p>
+        <p>After setting the dictionary the inflate operation should be
+           retried without new input.</p>
         <p>Example:</p>
         <pre>
-unpack(Z, Compressed, Dict) ->
+deprecated_unpack(Z, Compressed, Dict) ->
      case catch zlib:inflate(Z, Compressed) of
-          {'EXIT',{{need_dictionary,DictID},_}} ->
-                   zlib:inflateSetDictionary(Z, Dict),
+          {'EXIT',{{need_dictionary,_DictID},_}} ->
+                 ok = zlib:inflateSetDictionary(Z, Dict),
                  Uncompressed = zlib:inflate(Z, []);
           Uncompressed ->
                  Uncompressed
-     end.</pre>
+     end.
+
+new_unpack(Z, Compressed, Dict) ->
+    case zlib:inflate(Z, Compressed, [{exception_on_need_dict, false}]) of
+        {need_dictionary, _DictId, Output} ->
+            ok = zlib:inflateSetDictionary(Z, Dict),
+            [Output | zlib:inflate(Z, [])];
+        Uncompressed ->
+            Uncompressed
+    end.</pre>
       </desc>
     </func>
 
@@ -584,10 +696,60 @@ unpack(Z, Compressed, Dict) ->
     </func>
 
     <func>
+      <name name="safeInflate" arity="2"/>
+      <fsummary>Decompress data with limited output size.</fsummary>
+      <desc>
+        <p>Like <seealso marker="#inflate/2"><c>inflate/2</c></seealso>,
+           but returns once it has expanded beyond a small 
+           implementation-defined threshold. It's useful when decompressing
+           untrusted input which could have been maliciously crafted to expand
+           until the system runs out of memory.</p>
+        <p>This function returns <c>{continue | finished, Output}</c>, where
+           <anno>Output</anno> is the data that was decompressed in this call.
+           New input can be queued up on each call if desired, and the function
+           will return <c>{finished, Output}</c> once all queued data has been
+           decompressed.</p>
+        <p>This function can introduce some output latency (reading
+           input without producing any output).</p>
+        <p>If a preset dictionary is required for further decompression, this
+           function returns a <c>need_dictionary</c> tuple. See
+           <seealso marker="#inflateSetDictionary/2">
+           <c>inflateSetDictionary/2</c></seealso>) for details.</p>
+        <p>Example:</p>
+        <pre>
+walk(Compressed, Handler) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+    loop(Z, Handler, zlib:safeInflate(Z, Compressed)),
+    zlib:inflateEnd(Z),
+    zlib:close(Z).
+
+loop(Z, Handler, {continue, Output}) ->
+    Handler(Output),
+    loop(Z, Handler, zlib:safeInflate(Z, []));
+loop(Z, Handler, {finished, Output}) ->
+    Handler(Output).</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="setBufSize" arity="2"/>
       <fsummary>Set buffer size.</fsummary>
       <desc>
         <p>Sets the intermediate buffer size.</p>
+        <warning>
+          <p>This function is deprecated and will be removed in a future
+             release.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_controlling_process" arity="2"/>
+      <fsummary>Transfers ownership of a zlib stream.</fsummary>
+      <desc>
+        <p>Changes the controlling process of <c><anno>Z</anno></c> to
+           <c><anno>Pid</anno></c>, which must be a local process.</p>
       </desc>
     </func>
 

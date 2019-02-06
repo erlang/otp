@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,166 +20,422 @@
 
 %%
 
+%%% Purpose:
+%%%  This module implements support for using the Erlang trace in a simple way for ssh
+%%%  debugging.
+%%%
+%%%  Begin the session with ssh_dbg:start(). This will do a dbg:start() if needed and
+%%%  then dbg:p/2 to set some flags.
+%%%
+%%%  Next select trace points to activate: for example plain text printouts of messages
+%%%  sent or received. This is switched on and off with ssh_dbg:on(TracePoint(s)) and
+%%%  ssh_dbg:off(TracePoint(s)).  For example:
+%%%
+%%%      ssh_dbg:on(messages)         -- switch on printing plain text messages
+%%%      ssh_dbg:on([alg,terminate])  -- switch on printing info about algorithm negotiation
+%%%      ssh_dbg:on()                 -- switch on all ssh debugging
+%%%
+%%%  To switch, use the off/0 or off/1 function in the same way, for example:
+%%%
+%%%      ssh_dbg:off(alg)             -- switch off algorithm negotiation tracing, but keep all other
+%%%      ssh_dbg:off()                -- switch off all ssh debugging
+%%%
+%%%  Present the trace result with some other method than the default io:format/2:
+%%%      ssh_dbg:start(fun(Format,Args) ->
+%%%                        my_special( io_lib:format(Format,Args) )
+%%%                    end)
+%%%
+
 -module(ssh_dbg).
 
--export([messages/0,
-	 messages/1,
-	 messages/2,
-	 stop/0
+-export([start/0, start/1, 
+         stop/0,
+         start_server/0,
+         start_tracer/0, start_tracer/1,
+         on/1,  on/0,
+         off/1, off/0,
+         go_on/0,
+         %% Circular buffer
+         cbuf_start/0, cbuf_start/1,
+         cbuf_stop_clear/0,
+         cbuf_in/1,
+         cbuf_list/0,
+         fmt_cbuf_items/0, fmt_cbuf_item/1
 	]).
+
+-export([shrink_bin/1,
+         reduce_state/1,
+         wr_record/3]).
+
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 
--record(data, {
-	  writer,
-	  acc = []}).
+-behaviour(gen_server).
+-define(SERVER, ?MODULE).
+
+-define(CALL_TIMEOUT, 15000). % 3x the default
+
 %%%================================================================
-messages() ->
-    messages(fun(String,_D) -> io:format(String) end).
 
-messages(Write) when is_function(Write,2) ->
-    messages(Write, fun(X) -> X end).
+-define(ALL_DBG_TYPES, get_all_dbg_types()).
 
-messages(Write, MangleArg) when is_function(Write,2),
-				is_function(MangleArg,1) ->
+start() -> start(fun io:format/2).
+
+start(IoFmtFun) when is_function(IoFmtFun,2) ; is_function(IoFmtFun,3) ->
+    start_server(),
     catch dbg:start(),
-    setup_tracer(Write, MangleArg),
-    dbg:p(new,c),
-    dbg_ssh_messages().
+    start_tracer(IoFmtFun),
+    dbg:p(all, get_all_trace_flags()),
+    ?ALL_DBG_TYPES.
 
-dbg_ssh_messages() ->
-    dbg:tp(ssh_message,encode,1, x),
-    dbg:tp(ssh_message,decode,1, x),
-    dbg:tpl(ssh_transport,select_algorithm,3, x).
-
-%%%----------------------------------------------------------------
 stop() ->
-    dbg:stop().
+    try
+        dbg:stop_clear(),
+        gen_server:stop(?SERVER)
+    catch
+        _:_ -> ok
+    end.
 
-%%%================================================================
-msg_formater({trace,Pid,call,{ssh_message,encode,[Msg]}}, D) ->
-    fmt("~nSEND ~p ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
-msg_formater({trace,_Pid,return_from,{ssh_message,encode,1},_Res}, D) -> 
-    D;
-	
-msg_formater({trace,_Pid,call,{ssh_message,decode,_}}, D) ->
-    D;
-msg_formater({trace,Pid,return_from,{ssh_message,decode,1},Msg}, D) -> 
-    fmt("~n~p RECV ~s~n", [Pid,wr_record(shrink_bin(Msg))], D);
-	
-msg_formater({trace,_Pid,call,{ssh_transport,select_algorithm,_}}, D) ->
-    D;
-msg_formater({trace,Pid,return_from,{ssh_transport,select_algorithm,3},{ok,Alg}}, D) ->
-    fmt("~n~p ALGORITHMS~n~s~n", [Pid, wr_record(Alg)], D);
+start_server() ->
+    gen_server:start({local,?SERVER}, ?MODULE, [], []).
 
 
-msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Pid}, D) ->
-    fmt("~n~p TCP SEND on ~p~n ~p~n", [Pid,Sock, shrink_bin(Bytes)], D);
+start_tracer() -> start_tracer(fun io:format/2).
 
-msg_formater({trace,Pid,send,{tcp,Sock,Bytes},Dest}, D) ->
-    fmt("~n~p TCP SEND from ~p TO ~p~n ~p~n", [Pid,Sock,Dest, shrink_bin(Bytes)], D);
-
-msg_formater({trace,Pid,send,ErlangMsg,Dest}, D) ->
-    fmt("~n~p ERL MSG SEND TO ~p~n ~p~n", [Pid,Dest, shrink_bin(ErlangMsg)], D);
+start_tracer(WriteFun) when is_function(WriteFun,2) ->
+    start_tracer(fun(F,A,S) -> WriteFun(F,A), S end);
+start_tracer(WriteFun) when is_function(WriteFun,3) ->
+    start_tracer(WriteFun, undefined).
 
 
-msg_formater({trace,Pid,'receive',{tcp,Sock,Bytes}}, D) ->
-    fmt("~n~p TCP RECEIVE on ~p~n ~p~n", [Pid,Sock,shrink_bin(Bytes)], D);
-
-msg_formater({trace,Pid,'receive',ErlangMsg}, D) ->
-    fmt("~n~p ERL MSG RECEIVE~n ~p~n", [Pid,shrink_bin(ErlangMsg)], D);
-
-
-msg_formater(M, D) ->
-    fmt("~nDBG ~n~p~n", [shrink_bin(M)], D).
-
-%% msg_formater(_, D) -> 
-%%     D.
-
-
-fmt(Fmt, Args,  D=#data{writer=Write,acc=Acc}) ->
-    D#data{acc = Write(io_lib:format(Fmt, Args), Acc)}.
+start_tracer(WriteFun, InitAcc) when is_function(WriteFun, 3) ->
+    Handler = 
+        fun(Arg, Acc0) ->
+                try_all_types_in_all_modules(gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
+                                             Arg, WriteFun,
+                                             Acc0)
+        end,
+    dbg:tracer(process, {Handler,InitAcc}).
 
 %%%----------------------------------------------------------------
-setup_tracer(Write, MangleArg) ->
-    Handler = fun(Arg, D) ->
-		      msg_formater(MangleArg(Arg), D)
-	      end,
-    InitialData = #data{writer = Write},
-    {ok,_} = dbg:tracer(process, {Handler, InitialData}),
-    ok.
+on() -> on(?ALL_DBG_TYPES).
+on(Type) -> switch(on, Type).
+
+
+off() -> off(?ALL_DBG_TYPES). % A bit overkill...
+off(Type) -> switch(off, Type).
+    
+go_on() ->
+    IsOn = gen_server:call(?SERVER, get_on, ?CALL_TIMEOUT),
+    on(IsOn).
 
 %%%----------------------------------------------------------------
-shrink_bin(B) when is_binary(B), size(B)>100 -> {'*** SHRINKED BIN',size(B),element(1,split_binary(B,20)),'***'};
+shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
+						 size(B),
+						 element(1,split_binary(B,64)),
+						 '...',
+						 element(2,split_binary(B,size(B)-64))
+						};
 shrink_bin(L) when is_list(L) -> lists:map(fun shrink_bin/1, L);
 shrink_bin(T) when is_tuple(T) -> list_to_tuple(shrink_bin(tuple_to_list(T)));
 shrink_bin(X) -> X.
 
+%%%----------------------------------------------------------------    
+%% Replace last element (the state) with "#<state-name>{}"
+reduce_state(T) ->
+    try
+        erlang:setelement(size(T), 
+                          T,
+                          lists:concat(['#',element(1,element(size(T),T)),'{}'])
+                         )
+    catch
+        _:_ ->
+            T
+    end.
+
+%%%================================================================
+-record(data, {
+          types_on = []
+         }).
+
 %%%----------------------------------------------------------------
--define(wr_record(N,BlackList), wr_record(R=#N{}) -> wr_record(R, record_info(fields,N), BlackList)).
+init(_) ->
+    {ok, #data{}}.
 
--define(wr_record(N), ?wr_record(N, [])).
+%%%----------------------------------------------------------------
+handle_call({switch,on,Types}, _From, D) ->
+    NowOn = lists:usort(Types ++ D#data.types_on),
+    call_modules(on, Types, NowOn),
+    {reply, {ok,NowOn}, D#data{types_on = NowOn}};
 
+handle_call({switch,off,Types}, _From, D) ->
+    StillOn = D#data.types_on -- Types,
+    call_modules(off, Types, StillOn),
+    call_modules(on, StillOn, StillOn),
+    {reply, {ok,StillOn}, D#data{types_on = StillOn}};
 
-?wr_record(alg);
+handle_call(get_on, _From, D) ->
+    {reply, D#data.types_on, D};
 
-?wr_record(ssh_msg_disconnect);
-?wr_record(ssh_msg_ignore);
-?wr_record(ssh_msg_unimplemented);
-?wr_record(ssh_msg_debug);
-?wr_record(ssh_msg_service_request);
-?wr_record(ssh_msg_service_accept);
-?wr_record(ssh_msg_kexinit);
-?wr_record(ssh_msg_kexdh_init);
-?wr_record(ssh_msg_kexdh_reply);
-?wr_record(ssh_msg_newkeys);
-?wr_record(ssh_msg_kex_dh_gex_request);
-?wr_record(ssh_msg_kex_dh_gex_request_old);
-?wr_record(ssh_msg_kex_dh_gex_group);
-?wr_record(ssh_msg_kex_dh_gex_init);
-?wr_record(ssh_msg_kex_dh_gex_reply);
-?wr_record(ssh_msg_kex_ecdh_init);
-?wr_record(ssh_msg_kex_ecdh_reply);
+handle_call(C, _From, D) ->
+    io:format('*** Unknown call: ~p~n',[C]),
+    {reply, {error,{unknown_call,C}}, D}.
+    
 
-?wr_record(ssh_msg_userauth_request);
-?wr_record(ssh_msg_userauth_failure);
-?wr_record(ssh_msg_userauth_success);
-?wr_record(ssh_msg_userauth_banner);
-?wr_record(ssh_msg_userauth_passwd_changereq);
-?wr_record(ssh_msg_userauth_pk_ok);
-?wr_record(ssh_msg_userauth_info_request);
-?wr_record(ssh_msg_userauth_info_response);
-
-?wr_record(ssh_msg_global_request);
-?wr_record(ssh_msg_request_success);
-?wr_record(ssh_msg_request_failure);
-?wr_record(ssh_msg_channel_open);
-?wr_record(ssh_msg_channel_open_confirmation);
-?wr_record(ssh_msg_channel_open_failure);
-?wr_record(ssh_msg_channel_window_adjust);
-?wr_record(ssh_msg_channel_data);
-?wr_record(ssh_msg_channel_extended_data);
-?wr_record(ssh_msg_channel_eof);
-?wr_record(ssh_msg_channel_close);
-?wr_record(ssh_msg_channel_request);
-?wr_record(ssh_msg_channel_success);
-?wr_record(ssh_msg_channel_failure);
-
-wr_record(R) -> io_lib:format('~p~n',[R]).
+handle_cast(C, D) ->
+    io:format('*** Unknown cast: ~p~n',[C]),
+    {noreply, D}.
+    
+handle_info(C, D) ->
+    io:format('*** Unknown info: ~p~n',[C]),
+    {noreply, D}.
 
 
+%%%================================================================
+
+%%%----------------------------------------------------------------
+ssh_modules_with_trace() ->
+    {ok,AllSshModules} = application:get_key(ssh, modules),
+    [M || M <- AllSshModules,
+          lists:member({dbg_trace,3}, M:module_info(exports))].
+
+%%%----------------------------------------------------------------
+get_all_trace_flags() ->
+    get_all_trace_flags(ssh_modules_with_trace()).
+
+get_all_trace_flags(Modules) ->
+    lists:usort(
+      lists:flatten(
+        lists:foldl(
+          fun(Type, Acc) ->
+                  call_modules(flags, Type, undefined, Acc, Modules)
+          end, [timestamp], ?ALL_DBG_TYPES))).
+
+%%%----------------------------------------------------------------
+get_all_dbg_types() ->
+    lists:usort(
+      lists:flatten(
+        call_modules(points, undefined) )).
+
+%%%----------------------------------------------------------------
+call_modules(Cmnd, Type) ->
+    call_modules(Cmnd, Type, undefined).
+
+call_modules(Cmnd, Type, Arg) ->
+    call_modules(Cmnd, Type, Arg, []).
+
+call_modules(Cmnd, Type, Arg, Acc0) ->
+    call_modules(Cmnd, Type, Arg, Acc0, ssh_modules_with_trace()).
+
+call_modules(Cmnd, Types, Arg, Acc0, Modules) when is_list(Types) ->
+    lists:foldl(
+       fun(Type, Acc) ->
+               call_modules(Cmnd, Type, Arg, Acc, Modules)
+       end, Acc0, Types);
+
+call_modules(Cmnd, Type, Arg, Acc0, Modules) ->
+    lists:foldl(
+      fun(Mod, Acc) ->
+              try Mod:dbg_trace(Cmnd, Type, Arg)
+              of
+                  Result -> [Result|Acc]
+              catch
+                  _:_ -> Acc
+              end
+      end, Acc0, Modules).
+
+%%%----------------------------------------------------------------
+switch(X, Type) when is_atom(Type) ->
+    switch(X, [Type]);
+
+switch(X, Types) when is_list(Types) -> 
+    case whereis(?SERVER) of
+        undefined ->
+            start();
+        _ ->
+            ok
+    end,
+    case lists:usort(Types) -- ?ALL_DBG_TYPES of
+        [] ->
+            gen_server:call(?SERVER, {switch,X,Types}, ?CALL_TIMEOUT);
+        L ->
+            {error, {unknown, L}}
+    end.
+
+%%%----------------------------------------------------------------
+%%% Format of trace messages are described in reference manual for erlang:trace/4
+%%%   {call,MFA}
+%%%   {return_from,{M,F,N},Result}
+%%%   {send,Msg,To}
+%%%   {'receive',Msg}
+
+trace_pid({trace,Pid,_}) -> Pid;
+trace_pid({trace,Pid,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_,_}) -> Pid;
+trace_pid({trace,Pid,_,_,_,_,_}) -> Pid;
+trace_pid({trace_ts,Pid,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_,_TS}) -> Pid;
+trace_pid({trace_ts,Pid,_,_,_,_,_,_TS}) -> Pid.
+
+trace_ts({trace_ts,_Pid,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,_,TS}) -> ts(TS);
+trace_ts({trace_ts,_Pid,_,_,_,_,_,TS}) -> ts(TS);
+trace_ts(_) -> "-".
+
+trace_info({trace,_Pid,A}) -> A;
+trace_info({trace,_Pid,A,B}) -> {A,B};
+trace_info({trace,_Pid,A,B,C}) -> {A,B,C};
+trace_info({trace,_Pid,A,B,C,D}) -> {A,B,C,D};
+trace_info({trace,_Pid,A,B,C,D,E}) -> {A,B,C,D,E};
+trace_info({trace_ts,_Pid,A,_TS}) -> A;
+trace_info({trace_ts,_Pid,A,B,_TS}) -> {A,B};
+trace_info({trace_ts,_Pid,A,B,C,_TS}) -> {A,B,C};
+trace_info({trace_ts,_Pid,A,B,C,D,_TS}) -> {A,B,C,D};
+trace_info({trace_ts,_Pid,A,B,C,D,E,_TS}) -> {A,B,C,D,E}.
+
+
+try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
+    SshModules = ssh_modules_with_trace(),
+    TS = trace_ts(Arg),
+    PID = trace_pid(Arg),
+    INFO = trace_info(Arg),
+    lists:foldl(
+      fun(Type, Acc1) ->
+              lists:foldl(
+                fun(SshMod,Acc) ->
+                        try WriteFun("~n~s ~p ~s~n", 
+                                     [lists:flatten(TS), PID, lists:flatten(SshMod:dbg_trace(format,Type,INFO))],
+                                     Acc)
+                        catch
+                            _:_ -> Acc
+                        end
+                end, Acc1, SshModules)
+      end, Acc0, TypesOn).
+
+%%%----------------------------------------------------------------
 wr_record(T, Fs, BL) when is_tuple(T) ->
     wr_record(tuple_to_list(T), Fs, BL);
-wr_record([Name|Values], Fields, BlackL) ->
+wr_record([_Name|Values], Fields, BlackL) ->
     W = case Fields of
 	    [] -> 0;
 	    _ -> lists:max([length(atom_to_list(F)) || F<-Fields])
 	end,
-    [io_lib:format("~p:~n",[string:to_upper(atom_to_list(Name))])
-     | [io_lib:format("  ~*p: ~p~n",[W,Tag,Value]) || {Tag,Value} <- lists:zip(Fields,Values),
-						      not lists:member(Tag,BlackL)
-       ]
+    [io_lib:format("  ~*p: ~p~n",[W,Tag,Value]) || {Tag,Value} <- lists:zip(Fields,Values),
+                                                   not lists:member(Tag,BlackL)
     ].
+
+%%%----------------------------------------------------------------
+ts({_,_,Usec}=Now) when is_integer(Usec) ->
+    {_Date,{HH,MM,SS}} = calendar:now_to_local_time(Now),
+    io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.6.0w",[HH,MM,SS,Usec]);
+ts(_) ->
+    "-".
+
+%%%================================================================
+-define(CIRC_BUF, circ_buf).
+
+cbuf_start() ->
+    cbuf_start(20).
+
+cbuf_start(CbufMaxLen) ->
+    put(?CIRC_BUF, {CbufMaxLen,queue:new()}),
+    ok.
+
+
+cbuf_stop_clear() ->
+    case erase(?CIRC_BUF) of
+        undefined ->
+            [];
+        {_CbufMaxLen,Queue} ->
+            queue:to_list(Queue)
+    end.
+
+
+cbuf_in(Value) ->
+    case get(?CIRC_BUF) of
+        undefined ->
+            disabled;
+        {CbufMaxLen,Queue} ->
+            UpdatedQueue =
+                try queue:head(Queue) of
+                    {Value, TS0, Cnt0} ->
+                        %% Same Value as last saved in the queue
+                        queue:in_r({Value, TS0, Cnt0+1},
+                                 queue:drop(Queue)
+                                );
+                    _ ->
+                        queue:in_r({Value, erlang:timestamp(), 1},
+                                   truncate_cbuf(Queue, CbufMaxLen)
+                                )
+                catch
+                    error:empty ->
+                        queue:in_r({Value, erlang:timestamp(), 1}, Queue)
+                end,
+            put(?CIRC_BUF, {CbufMaxLen,UpdatedQueue}),
+            ok
+    end.
+
+
+cbuf_list() ->
+    case get(?CIRC_BUF) of
+        undefined ->
+            [];
+        {_CbufMaxLen,Queue} ->
+            queue:to_list(Queue)
+    end.
+
+
+truncate_cbuf(Q, CbufMaxLen) ->
+    case queue:len(Q) of
+        N when N>=CbufMaxLen ->
+            truncate_cbuf(element(2,queue:out_r(Q)), CbufMaxLen);
+        _ ->
+            Q
+    end.
+
+fmt_cbuf_items() ->
+    lists:flatten(
+      io_lib:format("Circular trace buffer. Latest item first.~n~s~n",
+                    [case get(?CIRC_BUF) of
+                         {Max,_} ->
+                             L = cbuf_list(),
+                             [io_lib:format("==== ~.*w: ~s~n",[num_digits(Max),N,fmt_cbuf_item(X)]) ||
+                                 {N,X} <- lists:zip(lists:seq(1,length(L)), L)
+                             ];
+                         _ ->
+                             io_lib:format("Not started.~n",[])
+                     end])).
+                   
+
+num_digits(0) -> 1;
+num_digits(N) when N>0 -> 1+trunc(math:log10(N)).
+    
+
+fmt_cbuf_item({Value, TimeStamp, N}) ->
+    io_lib:format("~s~s~n~s~n",
+                  [fmt_ts(TimeStamp),
+                   [io_lib:format(" (Repeated ~p times)",[N]) || N>1],
+                   fmt_value(Value)]).
+
+
+fmt_ts(TS = {_,_,Us}) ->
+    {{YY,MM,DD},{H,M,S}} = calendar:now_to_universal_time(TS),
+    io_lib:format("~w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~.6.0w UTC",[YY,MM,DD,H,M,S,Us]).
+    
+fmt_value(#circ_buf_entry{module = M,
+                          line = L,
+                          function = {F,A},
+                          pid = Pid,
+                          value = V}) ->
+    io_lib:format("~p:~p  ~p/~p ~p~n~s",[M,L,F,A,Pid,fmt_value(V)]);
+fmt_value(Value) ->
+    io_lib:format("~p",[Value]).

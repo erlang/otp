@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,44 +11,58 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_amd64_specific_sse2).
 
--export([number_of_temporaries/1]).
+-export([number_of_temporaries/2]).
 
 % The following exports are used as M:F(...) calls from other modules;
 %% e.g. hipe_amd64_ra_ls.
--export([analyze/1,
-         bb/2,
-         args/1,
-         labels/1,
-         livein/2,
-         liveout/2,
-         uses/1,
-         defines/1,
-	 def_use/1,
-	 is_arg/1,	%% used by hipe_ls_regalloc
-	 is_move/1,
-	 is_fixed/1,	%% used by hipe_graph_coloring_regalloc
-         is_global/1,
-	 is_precoloured/1,
-         reg_nr/1,
-	 non_alloc/1,
-	 allocatable/0,
-         physical_name/1,
-	 all_precoloured/0,
-	 new_spill_index/1,	%% used by hipe_ls_regalloc
-	 var_range/1,
-         breadthorder/1,
-         postorder/1,
-         reverse_postorder/1]).
+-export([analyze/2,
+	 bb/3,
+	 args/2,
+	 labels/2,
+	 livein/3,
+	 liveout/3,
+	 uses/2,
+	 defines/2,
+	 defines_all_alloc/2,
+	 def_use/2,
+	 is_arg/2,	%% used by hipe_ls_regalloc
+	 is_move/2,
+	 is_spill_move/2,
+	 is_fixed/2,	%% used by hipe_graph_coloring_regalloc
+	 is_global/2,
+	 is_precoloured/2,
+	 reg_nr/2,
+	 non_alloc/2,
+	 allocatable/1,
+	 allocatable/2,
+	 temp0/1,
+	 physical_name/2,
+	 all_precoloured/1,
+	 new_spill_index/2,	%% used by hipe_ls_regalloc
+	 var_range/2,
+	 breadthorder/2,
+	 postorder/2,
+	 reverse_postorder/2]).
 
 %% callbacks for hipe_regalloc_loop
--export([defun_to_cfg/1,
-	 check_and_rewrite/2]).
+-export([check_and_rewrite/3,
+	 check_and_rewrite/4]).
+
+%% callbacks for hipe_regalloc_prepass, hipe_range_split
+-export([mk_move/3,
+	 mk_goto/2,
+	 redirect_jmp/4,
+	 new_label/1,
+	 new_reg_nr/1,
+	 update_reg_nr/3,
+	 update_bb/4,
+	 subst_temps/3]).
+
+%% callbacks for hipe_bb_weights
+-export([branch_preds/2]).
 
 %%----------------------------------------------------------------------------
 
@@ -60,86 +70,102 @@
 
 %%----------------------------------------------------------------------------
 
-defun_to_cfg(Defun) ->
-  hipe_x86_cfg:init(Defun).
+check_and_rewrite(CFG, Coloring, no_context) ->
+  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(CFG, Coloring).
 
-check_and_rewrite(Defun, Coloring) ->
-  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(Defun, Coloring).
+check_and_rewrite(CFG, Coloring, Strategy, no_context) ->
+  hipe_amd64_ra_sse2_postconditions:check_and_rewrite(
+    CFG, Coloring, Strategy).
 
-reverse_postorder(CFG) ->
+reverse_postorder(CFG, _) ->
   hipe_x86_cfg:reverse_postorder(CFG).
 
-breadthorder(CFG) ->
+breadthorder(CFG, _) ->
   hipe_x86_cfg:breadthorder(CFG).
 
-postorder(CFG) ->
+postorder(CFG, _) ->
   hipe_x86_cfg:postorder(CFG).
 
-is_global(_Reg) ->
-  false.
+is_global(Reg, _) ->
+  hipe_amd64_registers:sse2_temp0() =:= Reg.
  
-is_fixed(_Reg) ->
+is_fixed(_Reg, _) ->
   false.
 
-is_arg(_Reg) ->
+is_arg(_Reg, _) ->
   false.
 
--spec args(#cfg{}) -> [].
-args(_CFG) ->
+-spec args(#cfg{}, no_context) -> [].
+args(_CFG, _) ->
   [].
  
-non_alloc(_) ->
+non_alloc(_, _) ->
   [].
 
 %% Liveness stuff
 
-analyze(CFG) ->
+analyze(CFG, _) ->
   hipe_amd64_liveness:analyze(CFG).
 
-livein(Liveness, L) ->
+livein(Liveness, L, _) ->
   [X || X <- hipe_amd64_liveness:livein(Liveness, L),
  	     hipe_x86:temp_is_allocatable(X),
 	     hipe_x86:temp_type(X) =:= 'double'].
 
-liveout(BB_in_out_liveness, Label) ->
+liveout(BB_in_out_liveness, Label, _) ->
   [X || X <- hipe_amd64_liveness:liveout(BB_in_out_liveness, Label),
  	     hipe_x86:temp_is_allocatable(X),
 	     hipe_x86:temp_type(X) =:= 'double'].
 
 %% Registers stuff
 
-allocatable() ->
-  hipe_amd64_registers:allocatable_sse2().
+allocatable(Ctx) ->
+  allocatable('normal', Ctx).
 
-all_precoloured() ->
-  allocatable().
+allocatable('normal', _) ->
+  hipe_amd64_registers:allocatable_sse2();
+allocatable('linearscan', _) ->
+  hipe_amd64_registers:allocatable_sse2() --
+    [hipe_amd64_registers:sse2_temp0()].
 
-is_precoloured(Reg) ->
-  lists:member(Reg,all_precoloured()).
+temp0(_) ->
+  hipe_amd64_registers:sse2_temp0().
 
-physical_name(Reg) ->
+all_precoloured(Ctx) ->
+  allocatable(Ctx).
+
+is_precoloured(Reg, _) ->
+  hipe_amd64_registers:is_precoloured_sse2(Reg).
+
+physical_name(Reg, _) ->
   Reg.
 
 %% CFG stuff
 
-labels(CFG) ->
+labels(CFG, _) ->
   hipe_x86_cfg:labels(CFG).
 
-var_range(_CFG) ->
+var_range(_CFG, _) ->
   hipe_gensym:var_range(x86).
 
--spec number_of_temporaries(#cfg{}) -> non_neg_integer().
-number_of_temporaries(_CFG) ->
+-spec number_of_temporaries(#cfg{}, no_context) -> non_neg_integer().
+number_of_temporaries(_CFG, _) ->
   Highest_temporary = hipe_gensym:get_var(x86),
   %% Since we can have temps from 0 to Max adjust by +1.
   Highest_temporary + 1.
 
-bb(CFG, L) ->
+bb(CFG, L, _) ->
   hipe_x86_cfg:bb(CFG, L).
+
+update_bb(CFG,L,BB,_) ->
+  hipe_x86_cfg:bb_add(CFG,L,BB).
+
+branch_preds(Instr,_) ->
+  hipe_x86_cfg:branch_preds(Instr).
 
 %% AMD64 stuff
 
-def_use(Instruction) ->
+def_use(Instruction, _) ->
   {[X || X <- hipe_amd64_defuse:insn_def(Instruction), 
  	   hipe_x86:temp_is_allocatable(X),
  	   hipe_x86:temp_type(X) =:= 'double'],
@@ -148,17 +174,19 @@ def_use(Instruction) ->
 	   hipe_x86:temp_type(X) =:= 'double']
   }.
 
-uses(I) ->
+uses(I, _) ->
   [X || X <- hipe_amd64_defuse:insn_use(I),
  	     hipe_x86:temp_is_allocatable(X),
  	     hipe_x86:temp_type(X) =:= 'double'].
 
-defines(I) ->
+defines(I, _) ->
   [X || X <- hipe_amd64_defuse:insn_def(I),
 	     hipe_x86:temp_is_allocatable(X),
 	     hipe_x86:temp_type(X) =:= 'double'].
 
-is_move(Instruction) ->
+defines_all_alloc(I, _) -> hipe_amd64_defuse:insn_defs_all(I).
+
+is_move(Instruction, _) ->
   case hipe_x86:is_fmove(Instruction) of
     true ->
       Src = hipe_x86:fmove_src(Instruction),
@@ -167,10 +195,51 @@ is_move(Instruction) ->
 	andalso hipe_x86:is_temp(Dst) andalso hipe_x86:temp_is_allocatable(Dst);
     false -> false
   end.
+
+is_spill_move(Instruction,_) ->
+  hipe_x86:is_pseudo_spill_fmove(Instruction).
  
-reg_nr(Reg) ->
+reg_nr(Reg, _) ->
   hipe_x86:temp_reg(Reg).
 
--spec new_spill_index(non_neg_integer()) -> pos_integer().
-new_spill_index(SpillIndex) when is_integer(SpillIndex) ->
+mk_move(Src, Dst, _) ->
+  hipe_x86:mk_fmove(Src, Dst).
+
+mk_goto(Label, _) ->
+  hipe_x86:mk_jmp_label(Label).
+
+redirect_jmp(Jmp, ToOld, ToNew, _) when is_integer(ToOld), is_integer(ToNew) ->
+  Ref = make_ref(),
+  put(Ref, false),
+  I = hipe_x86_subst:insn_lbls(
+	fun(Tgt) ->
+	    if Tgt =:= ToOld -> put(Ref, true), ToNew;
+	       is_integer(Tgt) -> Tgt
+	    end
+	end, Jmp),
+  true = erase(Ref), % Assert that something was rewritten
+  I.
+
+new_label(_) ->
+  hipe_gensym:get_next_label(x86).
+
+new_reg_nr(_) ->
+  hipe_gensym:get_next_var(x86).
+
+update_reg_nr(Nr, _Temp, _) ->
+  hipe_x86:mk_temp(Nr, 'double').
+
+subst_temps(SubstFun, Instr, _) ->
+  hipe_amd64_subst:insn_temps(
+    fun(Op) ->
+	case hipe_x86:temp_is_allocatable(Op)
+	  andalso hipe_x86:temp_type(Op) =:= 'double'
+	of
+	  true -> SubstFun(Op);
+	  false -> Op
+	end
+    end, Instr).
+
+-spec new_spill_index(non_neg_integer(), no_context) -> pos_integer().
+new_spill_index(SpillIndex, _) when is_integer(SpillIndex) ->
   SpillIndex + 1.

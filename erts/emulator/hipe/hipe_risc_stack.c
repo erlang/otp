@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,10 @@ static void print_slot(Eterm *sp, unsigned int live)
     printf(" | 0x%0*lx | 0x%0*lx | ",
 	   2*(int)sizeof(long), (unsigned long)sp,
 	   2*(int)sizeof(long), val);
-    if (live)
+    if (live) {
+	fflush(stdout);
 	erts_printf("%.30T", val);
+    }
     printf("\r\n");
 }
 
@@ -56,8 +58,8 @@ void hipe_print_nstack(Process *p)
 {
     Eterm *nsp;
     Eterm *nsp_end;
-    const struct sdesc *sdesc1;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc1;
+    const struct hipe_sdesc *sdesc;
     unsigned long ra;
     unsigned long exnra;
     unsigned int mask;
@@ -68,7 +70,9 @@ void hipe_print_nstack(Process *p)
 	[0 ... 2*sizeof(long)+3] = '-'
     };
 
-    printf(" |      NATIVE  STACK      |\r\n");
+    printf(" | %*s NATIVE   STACK %*s |\r\n",
+	   2*(int)sizeof(long)-5, "",
+	   2*(int)sizeof(long)-4, "");
     printf(" |%s|%s|\r\n", dashes, dashes);
     printf(" | %*s | 0x%0*lx |\r\n",
 	   2+2*(int)sizeof(long), "heap",
@@ -175,7 +179,7 @@ void hipe_print_nstack(Process *p)
 #define MINSTACK	128
 #define NSKIPFRAMES	4
 
-void hipe_update_stack_trap(Process *p, const struct sdesc *sdesc)
+void hipe_update_stack_trap(Process *p, const struct hipe_sdesc *sdesc)
 {
     Eterm *nsp;
     Eterm *nsp_end;
@@ -216,7 +220,7 @@ void hipe_update_stack_trap(Process *p, const struct sdesc *sdesc)
 void (*hipe_handle_stack_trap(Process *p))(void)
 {
     void (*ngra)(void) = p->hipe.ngra;
-    const struct sdesc *sdesc = hipe_find_sdesc((unsigned long)ngra);
+    const struct hipe_sdesc *sdesc = hipe_find_sdesc((unsigned long)ngra);
     hipe_update_stack_trap(p, sdesc);
     return ngra;
 }
@@ -237,7 +241,7 @@ void hipe_find_handler(Process *p)
     unsigned long ra;
     unsigned long exnra;
     unsigned int arity;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
 
     nsp = p->hipe.nsp;
     nsp_end = p->hipe.nstend;
@@ -277,7 +281,7 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
     Eterm *nsp_end;
     unsigned long ra, prev_ra;
     unsigned int arity;
-    const struct sdesc *sdesc;
+    const struct hipe_sdesc *sdesc;
     int i;
 
     if (depth < 1)
@@ -292,7 +296,7 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
     ra = (unsigned long)p->hipe.nra;
     prev_ra = 0;
     i = 0;
-    for (;;) {
+    while (nsp < nsp_end) {
 	if (ra == (unsigned long)nbif_stack_trap_ra)
 	    ra = (unsigned long)p->hipe.ngra;
 	if (ra != prev_ra) {
@@ -302,8 +306,6 @@ int hipe_fill_stacktrace(Process *p, int depth, Eterm **trace)
 		break;
 	    prev_ra = ra;
 	}
-	if (nsp >= nsp_end)
-	    break;
 	sdesc = hipe_find_sdesc(ra);
 	nsp += arity + sdesc_fsize(sdesc);
 	arity = sdesc_arity(sdesc);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +29,13 @@
 %% CT Hooks
 -export([init/2]).
 -export([terminate/1]).
--export([on_tc_skip/3]).
+-export([on_tc_skip/4]).
 
 init(Id, Opts) ->
     empty_cth:init(Id, Opts).
 
-on_tc_skip(TC, Reason, State) ->
-    empty_cth:on_tc_skip(TC,Reason,State).
+on_tc_skip(Suite, TC, Reason, State) ->
+    empty_cth:on_tc_skip(Suite,TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).

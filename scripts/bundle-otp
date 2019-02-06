@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -e
+
+if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_REPO_SLUG" != "erlang/otp" ]; then
+    exit 0
+fi
+
+OTP_META_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.txt
+OTP_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.tar.gz
+
+REPOSITORIES="otp,$TRAVIS_TAG corba,.*"
+
+mkdir bundle
+
+## Turn off * expansion, needed for the .* regexp to work
+set -f
+
+for repo in $REPOSITORIES; do
+    OLD_IFS=$IFS
+    IFS=','
+    set -- $repo
+    IFS=$OLD_IFS
+    cd $ERL_TOP/bundle/
+    git clone https://github.com/erlang/$1 $1
+    cd $1
+    echo $1 $2
+    TAG=`git tag -l | grep -P "^$2$" | sort -V | tail -1`
+    git checkout $TAG
+    SHA=`git rev-parse --verify HEAD`
+    rm -rf .git
+    echo "$1 $TAG $SHA" >> $OTP_META_FILE
+done
+
+## Turn on * expansion
+set +f
+
+cd $ERL_TOP/bundle/
+tar czf $OTP_FILE *
+
+exit 0

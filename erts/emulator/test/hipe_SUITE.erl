@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,19 @@
 %%
 
 -module(hipe_SUITE).
--export([all/0, t_copy_literals/1]).
+-export([all/0
+	,t_copy_literals/1
+	,t_purge/1
+        ,t_trycatch/1
+	]).
 
 all() ->
     case erlang:system_info(hipe_architecture) of
 	undefined -> {skip, "HiPE is disabled"};
-	_ -> [t_copy_literals]
+	_ -> [t_copy_literals
+	     ,t_purge
+             ,t_trycatch
+	     ]
     end.
 
 t_copy_literals(doc) ->
@@ -64,4 +71,118 @@ t_copy_literals(Config) when is_list(Config) ->
     _ = (catch erlang:purge_module(ref_cell)),
     true = erlang:delete_module(ref_cell),
     true = erlang:purge_module(ref_cell),
+    ok.
+
+t_purge(doc) -> "Checks that native code is properly found and purged";
+t_purge(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    SrcFile = filename:join(Data, "ref_cell"),
+    BeamFile = filename:join(Priv, "ref_cell"),
+    {ok,ref_cell} = c:c(SrcFile, [{outdir,Priv},native]),
+    true = code:is_module_native(ref_cell),
+
+    PA = ref_cell:start_link(),
+
+    %% Unload, PA should still be running
+    true = erlang:delete_module(ref_cell),
+    %% Can't use ref_cel:call/2, it's in old code!
+    call(PA, {put_res_of, fun()-> hej end}),
+    hej = call(PA, get),
+
+    %% Load same module again
+    code:load_abs(BeamFile),
+    true = code:is_module_native(ref_cell),
+    PB = ref_cell:start_link(),
+
+    %% Purge old code, PA should be killed, PB should survive
+    unlink(PA),
+    ARef = monitor(process, PA),
+    true = erlang:purge_module(ref_cell),
+    receive {'DOWN', ARef, process, PA, killed} -> ok
+    after 1 -> ct:fail("PA was not killed")
+    end,
+
+    %% Unload, PB should still be running
+    true = erlang:delete_module(ref_cell),
+    call(PB, {put_res_of, fun()-> svejs end}),
+    svejs = call(PB, get),
+
+    unlink(PB),
+    BRef = monitor(process, PB),
+    true = erlang:purge_module(ref_cell),
+    receive {'DOWN', BRef, process, PB, killed} -> ok
+    after 1 -> ct:fail("PB was not killed")
+    end,
+
+    ok.
+
+call(Pid, Call) ->
+    Pid ! {Call, self()},
+    receive {Pid, Res} -> Res end.
+
+t_trycatch(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Files = ["trycatch_1.erl","trycatch_2.erl","trycatch_3.erl"],
+    Sources0 = [filename:join(DataDir, Src) || Src <- Files],
+    Sources = trycatch_combine(Sources0),
+    t_trycatch_1(Sources).
+
+t_trycatch_1([S|Ss]) ->
+    io:format("~p", [S]),
+    compile_and_load(S),
+    call_trycatch(try_catch),
+    call_trycatch(plain_catch),
+    io:nl(),
+    t_trycatch_1(Ss);
+t_trycatch_1([]) ->
+    ok.
+
+trycatch_combine([N|Ns]) ->
+    Combined = trycatch_combine(Ns),
+    lists:append([[[{N,[]}|C],[{N,[native]},C]] || C <- Combined]);
+trycatch_combine([]) ->
+    [[]].
+
+call_trycatch(Func) ->
+    case do_call_trycatch(error, Func, {error,whatever}) of
+        {error,whatever,[{trycatch_3,three,1,_}|_]} ->
+            ok
+    end,
+    case do_call_trycatch(error, Func, fc) of
+        {error,function_clause,[{trycatch_3,three,[fc],_}|_]} ->
+            ok;
+        {error,function_clause,[{trycatch_3,three,1,_}|_]} ->
+            ok
+    end,
+    case do_call_trycatch(throw, Func, {throw,{a,b}}) of
+        {throw,{a,b},[{trycatch_3,three,1,_}|_]} ->
+            ok
+    end,
+    case do_call_trycatch(exit, Func, {exit,{a,b,c}}) of
+        {exit,{a,b,c},[{trycatch_3,three,1,_}|_]} ->
+            ok
+    end,
+    ok.
+
+do_call_trycatch(_Class, try_catch, Argument) ->
+    trycatch_1:one_try_catch(Argument);
+do_call_trycatch(error, plain_catch, Argument) ->
+    {{'EXIT',{Reason,Stk}},Stk} = trycatch_1:one_plain_catch(Argument),
+    {error,Reason,Stk};
+do_call_trycatch(throw, plain_catch, Argument) ->
+    {Reason,Stk} = trycatch_1:one_plain_catch(Argument),
+    {throw,Reason,Stk};
+do_call_trycatch(exit, plain_catch, Argument) ->
+    {{'EXIT',Reason},Stk} = trycatch_1:one_plain_catch(Argument),
+    {exit,Reason,Stk}.
+
+compile_and_load(Sources) ->
+    _ = [begin
+             {ok,Mod,Bin} = compile:file(Src, [binary,report|Opts]),
+             code:purge(Mod),
+             code:delete(Mod),
+             code:purge(Mod),
+             {module,Mod} = code:load_binary(Mod, atom_to_list(Mod), Bin)
+         end || {Src,Opts} <- Sources],
     ok.

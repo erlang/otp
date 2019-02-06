@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,98 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
+
+<section><title>Parsetools 2.1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Warnings about unused functions in <c>leexinc.hrl</c>
+	    are suppressed. </p>
+          <p>
+	    Own Id: OTP-14697</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor documentation fixes</p>
+          <p>
+	    Own Id: OTP-14276 Aux Id: PR-1357 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Parsetools 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct counting of newlines when rules with newlines
+	    are used in Leex. </p>
+          <p>
+	    Own Id: OTP-13916 Aux Id: ERL-263 </p>
+        </item>
+        <item>
+	    <p> Correct handling of Unicode in Leex. </p>
+          <p>
+	    Own Id: OTP-13919</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Parsetools 2.1.3</title>
 

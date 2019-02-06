@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
       the <seealso marker="doc/design_principles:des_princ">
       OTP Design Principles</seealso>. Specifically, the functions in this
       module are used by the OTP standard behaviors (for example,
-      <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_statem</c>)
+      <c>gen_server</c> and <c>gen_statem</c>)
       when starting new processes. The functions
       can also be used to start <em>special processes</em>, user-defined
       processes that comply to the OTP design principles. For an example,
@@ -59,12 +59,17 @@
     <p>When a process that is started using <c>proc_lib</c> terminates
       abnormally (that is, with another exit reason than <c>normal</c>,
       <c>shutdown</c>, or <c>{shutdown,Term}</c>), a <em>crash report</em>
-      is generated, which is written to terminal by the default SASL
-      event handler. That is, the crash report is normally only visible
-      if the SASL application is started; see
-      <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso> and section
+      is generated, which is written to terminal by the default logger
+      handler setup by Kernel. For more information about how crash reports
+      were logged prior to Erlang/OTP 21.0, see
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
+
+    <p>Unlike in "plain Erlang", <c>proc_lib</c> processes will not generate
+      <em>error reports</em>, which are written to the terminal by the
+      emulator. All exceptions are
+      converted to <em>exits</em> which are ignored by the default
+      <c>logger</c> handler.</p>
 
     <p>The crash report contains the previously stored information, such
       as ancestors and initial function, the termination reason, and
@@ -109,12 +114,22 @@
       <name name="format" arity="2"/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
-        <p>This function can be used by a user-defined event handler to
+	<note>
+	  <p>This function is deprecated in the sense that
+	    the <c>error_logger</c> is no longer the preferred
+	    interface for logging in Erlang/OTP. A
+	    new <seealso marker="kernel:logger_chapter">logging
+	    API</seealso> was added in Erlang/OTP 21.0, but
+	    legacy <c>error_logger</c> handlers can still be used. New
+	    Logger handlers do not need to use this function, since
+	    the formatting callback (<c>report_cb</c>) is included as
+	    metadata in the log event.</p>
+	</note>
+        <p>This function can be used by a user-defined legacy
+	  <c>error_logger</c> event handler to
           format a crash report. The crash report is sent using
-          <seealso marker="kernel:error_logger#error_report/2">
-          <c>error_logger:error_report(crash_report,
-          <anno>CrashReport</anno>)</c></seealso>.
-          That is, the event to be handled is of the format
+          <seealso marker="kernel:logger">
+          <c>logger(3)</c></seealso>, and the event to be handled is of the format
           <c>{error_report, GL, {Pid, crash_report,
           <anno>CrashReport</anno>}}</c>,
           where <c>GL</c> is the group leader pid of process
@@ -126,7 +141,19 @@
       <name name="format" arity="3"/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
-        <p>This function can be used by a user-defined event handler to
+	<note>
+	  <p>This function is deprecated in the sense that
+	    the <c>error_logger</c> is no longer the preferred
+	    interface for logging in Erlang/OTP. A
+	    new <seealso marker="kernel:logger_chapter">logging
+	    API</seealso> was added in Erlang/OTP 21.0, but
+	    legacy <c>error_logger</c> handlers can still be used. New
+	    Logger handlers do not need to used this function, since
+	    the formatting callback (<c>report_cb</c>) is included as
+	    metadata in the log event.</p>
+	</note>
+        <p>This function can be used by a user-defined legacy
+	  <c>error_logger</c> event handler to
           format a crash report. When <anno>Depth</anno> is specified as a
           positive integer, it is used in the format string to
           limit the output as follows: <c>io_lib:format("~P",
@@ -389,6 +416,8 @@ init(Parent) ->
     <title>See Also</title>
     <p><seealso marker="kernel:error_logger">
       <c>error_logger(3)</c></seealso></p>
+    <p><seealso marker="kernel:logger">
+      <c>logger(3)</c></seealso></p>
   </section>
 </erlref>
 

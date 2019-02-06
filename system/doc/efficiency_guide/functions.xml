@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -65,7 +65,7 @@ atom_map1(six) -> 6.</code>
      thus, quite efficient even if there are many values) to select which
      one of the first three clauses to execute (if any).</item>
 
-     <item>>If none of the first three clauses match, the fourth clause
+     <item>If none of the first three clauses match, the fourth clause
      match as a variable always matches.</item>
 
      <item>If the guard test <c>is_integer(Int)</c> succeeds, the fourth
@@ -182,15 +182,6 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
        <p>Calling and applying a fun does not involve any hash-table lookup.
        A fun contains an (indirect) pointer to the function that implements
        the fun.</p>
-
-       <warning><p><em>Tuples are not fun(s)</em>.
-       A "tuple fun", <c>{Module,Function}</c>, is not a fun.
-       The cost for calling a "tuple fun" is similar to that
-       of <c>apply/3</c> or worse.
-       Using "tuple funs" is <em>strongly discouraged</em>,
-       as they might not be supported in a future Erlang/OTP release,
-       and because there exists a superior alternative from R10B,
-       namely the <c>fun Module:Function/Arity</c> syntax.</p></warning>
 
        <p><c>apply/3</c> must look up the code for the function to execute
        in a hash table. It is therefore always slower than a

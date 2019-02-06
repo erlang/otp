@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@ all() ->
      escaped_url_in_error_body,
      script_timeout,
      slowdose,
-     keep_alive_timeout
+     keep_alive_timeout,
+     invalid_rfc1123_date
     ].
 
 groups() -> 
@@ -302,7 +303,10 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
     HTMLEncodedPath = http_util:html_encode(Path),
-    URL2            = URL1 ++ Path,
+    URL2 = uri_string:recompose(#{scheme => "http",
+                                  host => "localhost",
+                                  port => Port,
+                                  path => Path}),
     {ok, {404, Body3}} = httpc:request(get, {URL2, []},
 				       [{url_encode,  true}, 
 					{version,     "HTTP/1.0"}],
@@ -381,6 +385,16 @@ slowdose(Config) when is_list(Config) ->
     after 6000 ->
 	    {error, closed} = gen_tcp:send(Socket, "Hey")
     end.
+
+%%-------------------------------------------------------------------------
+
+invalid_rfc1123_date() ->
+    [{doc, "Test that a non-DST date is handled correcly"}].
+invalid_rfc1123_date(Config) when is_list(Config) ->
+    Rfc1123FormattedDate = "Sun, 26 Mar 2017 01:00:00 GMT",
+    NonDSTDateTime = {{2017, 03, 26},{1, 0, 0}},
+    Rfc1123FormattedDate =:= httpd_util:rfc1123_date(NonDSTDateTime).
+
 
 %%-------------------------------------------------------------------------
 %% Internal functions

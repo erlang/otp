@@ -9,11 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
-# 
+#
 #     $Id$
 #
 include $(ERL_TOP)/make/target.mk
@@ -44,17 +44,14 @@ XML_REF4_FILES = appup.xml rel.xml relup.xml script.xml
 
 XML_REF6_FILES = sasl_app.xml
 
-XML_PART_FILES = part.xml part_notes.xml part_notes_history.xml
+XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = sasl_intro.xml \
 	error_logging.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 BOOK_FILES = book.xml
 
-GIF_FILES = \
-	note.gif \
-	warning.gif
+GIF_FILES =
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
@@ -78,14 +75,14 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif		
+$(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
 docs: pdf html man
@@ -100,19 +97,20 @@ man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)	# We depend just to copy them to ../html
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN4DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -130,4 +128,3 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
 
 release_spec:
-

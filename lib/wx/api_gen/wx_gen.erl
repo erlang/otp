@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	What(),
 	io:format("Completed successfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
-    catch Err:Reason ->
+    catch Err:Reason:Stacktrace ->
 	    io:format("Error in ~p ~p~n", [get(current_class),get(current_func)]),
-	    erlang:display({Err,Reason, erlang:get_stacktrace()}),
+	    erlang:display({Err,Reason,Stacktrace}),
 	    catch gen_util:close(),
 	    QuitOnErr andalso gen_util:halt(1)
     end.
@@ -93,9 +93,10 @@ mangle_info(E={not_const,List}) ->
     put(not_const,  [atom_to_list(M) || M <- List]),
     E;
 mangle_info(E={gvars,List}) ->
-    A2L = fun({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
+    A2L = fun({N,{test_if,C}}) -> {atom_to_list(N), {test_if,C}};
+             ({N,{T,C}}) -> {atom_to_list(N), {T,atom_to_list(C)}};
 	     ({N,C}) ->     {atom_to_list(N), atom_to_list(C)}
-	  end,    
+	  end,
     put(gvars, map(A2L,List)),
     E;
 mangle_info({class,CN,P,O,FL}) ->
@@ -271,33 +272,31 @@ parse_attr1([{{attr,_}, #xmlElement{content=C, attributes=Attrs}}|R], AttrList0,
 	#param{where=nowhere} ->
 	    parse_attr1(R,AttrList0,Opts,Res);
 	_ ->
-	    case keysearch(prot, #xmlAttribute.name, Attrs) of
-		{value, #xmlAttribute{value = "public"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=public,acc=Acc}|Res]);
-		{value, #xmlAttribute{value = "protected"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=protected,acc=Acc}|Res]);
-		{value, #xmlAttribute{value = "private"}} ->
-		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-		    parse_attr1(R,AttrList,Opts,
-				[Param0#param{in=false,prot=private,acc=Acc}|Res])
-	    end
+	    {value, #xmlAttribute{value=Type}} =
+                keysearch(prot, #xmlAttribute.name, Attrs),
+            {Param,AttrList} = attr_acc(Param0, list_to_atom(Type), AttrList0),
+            parse_attr1(R,AttrList,Opts,[Param|Res])
     end;
 parse_attr1([{_Id,_}|R],AttrList,Info, Res) ->
     parse_attr1(R,AttrList,Info, Res);
 parse_attr1([],Left,_, Res) ->
     {reverse(Res), Left}.
 
-attr_acc(#param{name=N}, List) ->
+attr_acc(#param{name=N}=P, Type, List) ->
     Name = list_to_atom(N),
     case get_value(Name, List, undefined) of
-	undefined -> {undefined, List};
-	Val -> {Val, lists:keydelete(Name,1,List)}
+	undefined -> {P#param{in=false,prot=Type,acc=undefined}, List};
+	Val when is_list(Val), is_integer(hd(Val)) ->
+            %% Function String
+            {P#param{in=false,prot=Type,acc=Val}, lists:keydelete(Name,1,List)};
+        OptList when is_list(OptList) ->
+            Param = foldl(fun handle_param_opt/2,P,OptList),
+            {Param#param{in=false,prot=Type,acc=undefined},
+             lists:keydelete(Name,1,List)};
+        Val ->
+            {P#param{in=false,prot=Type,acc=Val}, lists:keydelete(Name,1,List)}
     end.
-	        
+
 load_members(FileName, Class, Defs, Tab, Type,Opts) ->
     File = filename:join(["wx_xml",FileName ++ ".xml"]),
     put({loaded, FileName}, true),
@@ -503,10 +502,11 @@ parse_member2(_, _,M0) ->
     M0.
 
 add_param(InParam, Opts, M0) ->
-    Param0 = case InParam#param.name of
-		 undefined -> InParam#param{name="val"};
+    Param0 = case {InParam#param.name, InParam#param.type} of
+                 {undefined, void} -> InParam#param{where=nowhere};
+		 {undefined,_} -> InParam#param{name="val"};
 		 _ -> InParam
-	     end,  
+	     end,
     Param = case Param0#param.type of
 		#type{base={comp,_,_Comp}} ->   Param0;
 		#type{base={class,_Class}} -> Param0;

@@ -1,0 +1,547 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017-2018. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+// ================================================================
+// All guards with zero arguments have special instructions,
+// for example:
+//
+// 	self/0
+// 	node/0
+//
+// All other guard BIFs take one or two arguments.
+// ================================================================
+
+CALL_GUARD_BIF(BF, TmpReg, Dst) {
+    Eterm result;
+
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*$BF)(c_p, $TmpReg, I);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_HOLE_CHECK(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(result))) {
+        $Dst = result;
+        $NEXT0();
+    }
+}
+
+// Guard BIF in head.  On failure, ignore the error and jump
+// to the code for the next clause.  We don't support tracing
+// of guard BIFs.
+
+bif1(Fail, Bif, Src, Dst) {
+    ErtsBifFunc bf;
+    Eterm tmp_reg[1];
+
+    tmp_reg[0] = $Src;
+    bf = (BifFunction) $Bif;
+    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
+
+    $FAIL($Fail);
+}
+
+//
+// Guard BIF in body.  It can fail like any BIF.  No trace support.
+//
+
+bif1_body(Bif, Src, Dst) {
+    ErtsBifFunc bf;
+    Eterm tmp_reg[1];
+
+    tmp_reg[0] = $Src;
+    bf = (BifFunction) $Bif;
+    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
+
+    reg[0] = tmp_reg[0];
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
+    goto post_error_handling;
+}
+
+//
+// Guard bif in guard with two arguments ('and'/2, 'or'/2, 'xor'/2).
+//
+
+i_bif2(Fail, Bif, Src1, Src2, Dst) {
+    Eterm tmp_reg[2];
+    ErtsBifFunc bf;
+
+    tmp_reg[0] = $Src1;
+    tmp_reg[1] = $Src2;
+    bf = (ErtsBifFunc) $Bif;
+    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
+    $FAIL($Fail);
+}
+
+//
+// Guard bif in body with two arguments ('and'/2, 'or'/2, 'xor'/2).
+//
+
+i_bif2_body(Bif, Src1, Src2, Dst) {
+    Eterm tmp_reg[2];
+    ErtsBifFunc bf;
+
+    tmp_reg[0] = $Src1;
+    tmp_reg[1] = $Src2;
+    bf = (ErtsBifFunc) $Bif;
+    $CALL_GUARD_BIF(bf, tmp_reg, $Dst);
+    reg[0] = tmp_reg[0];
+    reg[1] = tmp_reg[1];
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, ubif2mfa((void *) bf));
+    goto post_error_handling;
+}
+
+//
+// Garbage-collecting BIF with one argument in either guard or body.
+//
+
+i_gc_bif1(Fail, Bif, Src, Live, Dst) {
+    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
+    GcBifFunction bf;
+    Eterm result;
+    Uint live = (Uint) $Live;
+
+    x(live) = $Src;
+    bf = (GcBifFunction) $Bif;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    SWAPOUT;
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*bf)(c_p, reg, live);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
+        $JUMP($Fail);
+    }
+
+    /* Handle error in body. */
+    x(0) = x(live);
+    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
+    goto post_error_handling;
+}
+
+//
+// Garbage-collecting BIF with two arguments in either guard or body.
+//
+
+i_gc_bif2(Fail, Bif, Live, Src1, Src2, Dst) {
+    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
+    GcBifFunction bf;
+    Eterm result;
+    Uint live = (Uint) $Live;
+
+    /*
+     * XXX This calling convention does not make sense. 'live'
+     * should point out the first argument, not the second
+     * (i.e. 'live' should not be incremented below).
+     */
+    x(live) = $Src1;
+    x(live+1) = $Src2;
+    live++;
+
+    bf = (GcBifFunction) $Bif;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    SWAPOUT;
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*bf)(c_p, reg, live);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+
+    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
+        $JUMP($Fail);
+    }
+
+    /* Handle error in body. */
+    live--;
+    x(0) = x(live);
+    x(1) = x(live+1);
+    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
+    goto post_error_handling;
+}
+
+//
+// Garbage-collecting BIF with three arguments in either guard or body.
+//
+
+i_gc_bif3(Fail, Bif, Live, Src2, Src3, Dst) {
+    typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
+    GcBifFunction bf;
+    Eterm result;
+    Uint live = (Uint) $Live;
+
+    /*
+     * XXX This calling convention does not make sense. 'live'
+     * should point out the first argument, not the third
+     * (i.e. 'live' should not be incremented below).
+     */
+    x(live) = x(SCRATCH_X_REG);
+    x(live+1) = $Src2;
+    x(live+2) = $Src3;
+    live += 2;
+
+    bf = (GcBifFunction) $Bif;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS;
+    SWAPOUT;
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*bf)(c_p, reg, live);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+
+    /* Handle error in guard. */
+    if (ERTS_LIKELY($Fail != 0)) {
+        $JUMP($Fail);
+    }
+
+    /* Handle error in body. */
+    live -= 2;
+    x(0) = x(live);
+    x(1) = x(live+1);
+    x(2) = x(live+2);
+    I = handle_error(c_p, I, reg, gcbif2mfa((void *) bf));
+    goto post_error_handling;
+}
+
+//
+// The most general BIF call.  The BIF may build any amount of data
+// on the heap.  The result is always returned in r(0).
+//
+call_bif(Exp) {
+    ErtsBifFunc bf;
+    Eterm result;
+    ErlHeapFragment *live_hf_end;
+    Export *export = (Export*) $Exp;
+
+    if (!((FCALLS - 1) > 0 || (FCALLS-1) > neg_o_reds)) {
+        /* If we have run out of reductions, we do a context
+           switch before calling the bif */
+        c_p->arity = GET_BIF_ARITY(export);
+        c_p->current = &export->info.mfa;
+        goto context_switch3;
+    }
+
+    ERTS_MSACC_SET_BIF_STATE_CACHED_X(GET_BIF_MODULE(export),
+                                      GET_BIF_ADDRESS(export));
+
+    bf = GET_BIF_ADDRESS(export);
+
+    PRE_BIF_SWAPOUT(c_p);
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    c_p->fcalls = FCALLS - 1;
+    if (FCALLS <= 0) {
+        save_calls(c_p, export);
+    }
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    live_hf_end = c_p->mbuf;
+    ERTS_CHK_MBUF_SZ(c_p);
+    result = (*bf)(c_p, reg, I);
+    ERTS_CHK_MBUF_SZ(c_p);
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_HOLE_CHECK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    if (ERTS_IS_GC_DESIRED(c_p)) {
+        Uint arity = GET_BIF_ARITY(export);
+        result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result,
+                                            reg, arity);
+        E = c_p->stop;
+    }
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    HTOP = HEAP_TOP(c_p);
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    /* We have to update the cache if we are enabled in order
+       to make sure no book keeping is done after we disabled
+       msacc. We don't always do this as it is quite expensive. */
+    if (ERTS_MSACC_IS_ENABLED_CACHED_X()) {
+        ERTS_MSACC_UPDATE_CACHE_X();
+    }
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+    if (ERTS_LIKELY(is_value(result))) {
+        r(0) = result;
+        CHECK_TERM(r(0));
+        $NEXT0();
+    } else if (c_p->freason == TRAP) {
+        SET_CP(c_p, I+2);
+        SET_I(c_p->i);
+        SWAPIN;
+        Dispatch();
+    }
+
+    /*
+     * Error handling.  SWAPOUT is not needed because it was done above.
+     */
+    ASSERT(c_p->stop == E);
+    I = handle_error(c_p, I, reg, &export->info.mfa);
+    goto post_error_handling;
+}
+
+//
+// Send is almost a standard call-BIF with two arguments, except for:
+//   1. It cannot be traced.
+//   2. There is no pointer to the send_2 function stored in
+//      the instruction.
+//
+
+send() {
+    Eterm result;
+
+    if (!(FCALLS > 0 || FCALLS > neg_o_reds)) {
+        /* If we have run out of reductions, we do a context
+           switch before calling the bif */
+        c_p->arity = 2;
+        c_p->current = NULL;
+        goto context_switch3;
+    }
+
+    PRE_BIF_SWAPOUT(c_p);
+    c_p->fcalls = FCALLS - 1;
+    result = erl_send(c_p, r(0), x(1));
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    HTOP = HEAP_TOP(c_p);
+    FCALLS = c_p->fcalls;
+    if (ERTS_LIKELY(is_value(result))) {
+        r(0) = result;
+        CHECK_TERM(r(0));
+    } else if (c_p->freason == TRAP) {
+        SET_CP(c_p, I+1);
+        SET_I(c_p->i);
+        SWAPIN;
+        Dispatch();
+    } else {
+        goto find_func_info;
+    }
+}
+
+call_nif := nif_bif.call_nif.epilogue;
+apply_bif := nif_bif.apply_bif.epilogue;
+
+nif_bif.head() {
+    Eterm nif_bif_result;
+    Eterm bif_nif_arity;
+    BifFunction vbf;
+    ErlHeapFragment *live_hf_end;
+    ErtsCodeMFA *codemfa;
+}
+
+nif_bif.call_nif() {
+    /*
+     * call_nif is always first instruction in function:
+     *
+     * I[-3]: Module
+     * I[-2]: Function
+     * I[-1]: Arity
+     * I[0]: &&call_nif
+     * I[1]: Function pointer to NIF function
+     * I[2]: Pointer to erl_module_nif
+     * I[3]: Function pointer to dirty NIF
+     *
+     * This layout is determined by the NifExport struct
+     */
+
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+
+    codemfa = erts_code_to_codemfa(I);
+
+    c_p->current = codemfa; /* current and vbf set to please handle_error */
+
+    DTRACE_NIF_ENTRY(c_p, codemfa);
+
+    HEAVY_SWAPOUT;
+
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    bif_nif_arity = codemfa->arity;
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+
+    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    {
+        typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
+        NifF* fp = vbf = (NifF*) I[1];
+        struct enif_environment_t env;
+        ASSERT(c_p->scheduler_data);
+        live_hf_end = c_p->mbuf;
+        ERTS_CHK_MBUF_SZ(c_p);
+        erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
+
+        ASSERT((c_p->scheduler_data)->current_nif == NULL);
+        (c_p->scheduler_data)->current_nif = &env;
+
+        nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
+        if (env.exception_thrown)
+            nif_bif_result = THE_NON_VALUE;
+
+        ASSERT((c_p->scheduler_data)->current_nif == &env);
+        (c_p->scheduler_data)->current_nif = NULL;
+
+        erts_post_nif(&env);
+        ERTS_CHK_MBUF_SZ(c_p);
+
+        PROCESS_MAIN_CHK_LOCKS(c_p);
+        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+        ASSERT(!env.exiting);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    }
+
+    DTRACE_NIF_RETURN(c_p, codemfa);
+}
+
+nif_bif.apply_bif() {
+    /*
+     * At this point, I points to the code[0] in the export entry for
+     * the BIF:
+     *
+     * code[-3]: Module
+     * code[-2]: Function
+     * code[-1]: Arity
+     * code[0]: &&apply_bif
+     * code[1]: Function pointer to BIF function
+     */
+
+    if (!((FCALLS - 1) > 0 || (FCALLS - 1) > neg_o_reds)) {
+        /* If we have run out of reductions, we do a context
+           switch before calling the bif */
+        goto context_switch;
+    }
+
+    codemfa = erts_code_to_codemfa(I);
+
+    ERTS_MSACC_SET_BIF_STATE_CACHED_X(codemfa->module, (BifFunction)Arg(0));
+
+
+    /* In case we apply process_info/1,2 or load_nif/1 */
+    c_p->current = codemfa;
+    $SET_CP_I_ABS(I);     /* In case we apply check_process_code/2. */
+    c_p->arity = 0;       /* To allow garbage collection on ourselves
+                           * (check_process_code/2).
+                           */
+    DTRACE_BIF_ENTRY(c_p, codemfa);
+
+    SWAPOUT;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS - 1);
+    c_p->fcalls = FCALLS - 1;
+    vbf = (BifFunction) Arg(0);
+    PROCESS_MAIN_CHK_LOCKS(c_p);
+    bif_nif_arity = codemfa->arity;
+    ASSERT(bif_nif_arity <= 4);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+    {
+        ErtsBifFunc bf = vbf;
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+        live_hf_end = c_p->mbuf;
+        ERTS_CHK_MBUF_SZ(c_p);
+        nif_bif_result = (*bf)(c_p, reg, I);
+        ERTS_CHK_MBUF_SZ(c_p);
+        ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
+               is_non_value(nif_bif_result));
+        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+        PROCESS_MAIN_CHK_LOCKS(c_p);
+    }
+    /* We have to update the cache if we are enabled in order
+       to make sure no book keeping is done after we disabled
+       msacc. We don't always do this as it is quite expensive. */
+    if (ERTS_MSACC_IS_ENABLED_CACHED_X())
+        ERTS_MSACC_UPDATE_CACHE_X();
+    ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+    DTRACE_BIF_RETURN(c_p, codemfa);
+}
+
+nif_bif.epilogue() {
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_IS_GC_DESIRED(c_p)) {
+        nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
+                                                    nif_bif_result,
+                                                    reg, bif_nif_arity);
+    }
+    SWAPIN;  /* There might have been a garbage collection. */
+    FCALLS = c_p->fcalls;
+    ERTS_DBG_CHK_REDS(c_p, FCALLS);
+    if (ERTS_LIKELY(is_value(nif_bif_result))) {
+        r(0) = nif_bif_result;
+        CHECK_TERM(r(0));
+        SET_I(c_p->cp);
+        c_p->cp = 0;
+        Goto(*I);
+    } else if (c_p->freason == TRAP) {
+        SET_I(c_p->i);
+        if (c_p->flags & F_HIBERNATE_SCHED) {
+            c_p->flags &= ~F_HIBERNATE_SCHED;
+            goto do_schedule;
+        }
+        Dispatch();
+    }
+    I = handle_error(c_p, c_p->cp, reg, c_p->current);
+    goto post_error_handling;
+}

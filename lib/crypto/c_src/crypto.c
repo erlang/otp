@@ -1,7 +1,7 @@
-/* 
+/*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  */
 
 /*
- * Purpose:  Dynamically loadable NIF library for cryptography. 
- * Based on OpenSSL. 
+ * Purpose:  Dynamically loadable NIF library for cryptography.
+ * Based on OpenSSL.
  */
 
 #ifdef __WIN32__
@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #define OPENSSL_THREAD_DEFINES
 #include <openssl/opensslconf.h>
@@ -50,96 +50,209 @@
 #include <openssl/ripemd.h>
 #include <openssl/bn.h>
 #include <openssl/objects.h>
-#include <openssl/rc4.h>
-#include <openssl/rc2.h>
+#ifndef OPENSSL_NO_RC4
+    #include <openssl/rc4.h>
+#endif /* OPENSSL_NO_RC4 */
+#ifndef OPENSSL_NO_RC2
+    #include <openssl/rc2.h>
+#endif
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
-
+#include <openssl/err.h>
 
 /* Helper macro to construct a OPENSSL_VERSION_NUMBER.
  * See openssl/opensslv.h
  */
-#define OpenSSL_version(MAJ, MIN, FIX, P)	\
+#define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)	\
     ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
 
-#define OpenSSL_version_plain(MAJ, MIN, FIX) \
-    OpenSSL_version(MAJ,MIN,FIX,('a'-1))
+#define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX) \
+    PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
 
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+/* LibreSSL was cloned from OpenSSL 1.0.1g and claims to be API and BPI compatible
+ * with 1.0.1.
+ *
+ * LibreSSL has the same names on include files and symbols as OpenSSL, but defines
+ * the OPENSSL_VERSION_NUMBER to be >= 2.0.0
+ *
+ * Therefor works tests like this as intendend:
+ *     OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+ * (The test is for example "2.4.2" >= "1.0.0" although the test
+ *  with the cloned OpenSSL test would be "1.0.1" >= "1.0.0")
+ *
+ * But tests like this gives wrong result:
+ *     OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+ * (The test is false since "2.4.2" < "1.1.0".  It should have been
+ *  true because the LibreSSL API version is "1.0.1")
+ *
+ */
+
+#ifdef LIBRESSL_VERSION_NUMBER
+/* A macro to test on in this file */
+#define HAS_LIBRESSL
+#endif
+
+#ifdef HAS_LIBRESSL
+/* LibreSSL dislikes FIPS */
+# ifdef FIPS_SUPPORT
+#  undef FIPS_SUPPORT
+# endif
+
+# if LIBRESSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(2,7,0)
+/* LibreSSL wants the 1.0.1 API */
+# define NEED_EVP_COMPATIBILITY_FUNCTIONS
+# endif
+#endif
+
+
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+# define NEED_EVP_COMPATIBILITY_FUNCTIONS
+#endif
+
+
+#ifndef HAS_LIBRESSL
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+#  define HAS_EVP_PKEY_CTX
+# endif
+#endif
+
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 #include <openssl/modes.h>
 #endif
 
 #include "crypto_callback.h"
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(0,9,8)	\
     && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224) \
     && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA224
 #endif
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(0,9,8)	\
     && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
 # define HAVE_SHA256
 #endif
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(0,9,8)	\
     && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
     && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA384
 #endif
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(0,9,8)	\
     && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,7,'e')
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
 # define HAVE_DES_ede3_cfb_encrypt
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'o') \
+// SHA3:
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
+// An error in beta releases of 1.1.1 fixed in production release
+# ifdef NID_sha3_224
+#  define HAVE_SHA3_224
+# endif
+# ifdef NID_sha3_256
+#  define HAVE_SHA3_256
+# endif
+#endif
+# ifdef NID_sha3_384
+#  define HAVE_SHA3_384
+# endif
+# ifdef NID_sha3_512
+#  define HAVE_SHA3_512
+# endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
 	&& !defined(OPENSSL_NO_ECDSA)
 # define HAVE_EC
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'c')
+// (test for >= 1.1.1pre8)
+#if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) -7) \
+    && !defined(HAS_LIBRESSL) \
+    && defined(HAVE_EC)
+# define HAVE_ED_CURVE_DH
+# if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
+#   define HAVE_EDDSA
+# endif
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'c')
 # define HAVE_AES_IGE
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,1)
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,1)
 # define HAVE_EVP_AES_CTR
+# define HAVE_AEAD
 # define HAVE_GCM
-# if OPENSSL_VERSION_NUMBER < OpenSSL_version(1,0,1,'d')
+# define HAVE_CCM
+# define HAVE_CMAC
+# if defined(RSA_PKCS1_OAEP_PADDING)
+#   define HAVE_RSA_OAEP_PADDING
+# endif
+# define HAVE_RSA_MGF1_MD
+# if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION(1,0,1,'d')
 #  define HAVE_GCM_EVP_DECRYPT_BUG
 # endif
 #endif
 
-#if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
-# define HAVE_CHACHA20_POLY1305
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
+# ifndef HAS_LIBRESSL
+#  define HAVE_CHACHA20
+#  define HAVE_CHACHA20_POLY1305
+#  define HAVE_RSA_OAEP_MD
+# endif
 #endif
 
-#if OPENSSL_VERSION_NUMBER <= OpenSSL_version(0,9,8,'l')
+// OPENSSL_VERSION_NUMBER >= 1.1.1-pre8
+#if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1)-7)
+# ifndef HAS_LIBRESSL
+#  define HAVE_POLY1305
+# endif
+#endif
+
+#if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION(0,9,8,'l')
 # define HAVE_ECB_IVEC_BUG
+#endif
+
+#ifndef HAS_LIBRESSL
+# ifdef RSA_SSLV23_PADDING
+#  define HAVE_RSA_SSLV23_PADDING
+# endif
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
+# ifdef RSA_PKCS1_PSS_PADDING
+#  define HAVE_RSA_PKCS1_PSS_PADDING
+# endif
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'h') \
+    && defined(HAVE_EC)
+/* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
+   So if EC is disabled, you can't use Engine either....
+*/
+# define HAS_ENGINE_SUPPORT
+#endif
+
+
+#if defined(HAS_ENGINE_SUPPORT)
+# include <openssl/engine.h>
+#endif
+
+#if defined(HAVE_CMAC)
+#include <openssl/cmac.h>
 #endif
 
 #if defined(HAVE_EC)
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
 #include <openssl/ecdsa.h>
-#endif
-
-#if defined(HAVE_CHACHA20_POLY1305)
-#include <openssl/chacha.h>
-#include <openssl/poly1305.h>
-
-#if !defined(CHACHA20_NONCE_LEN)
-# define CHACHA20_NONCE_LEN 8
-#endif
-#if !defined(POLY1305_TAG_LEN)
-# define POLY1305_TAG_LEN 16
-#endif
-
 #endif
 
 #ifdef VALGRIND
@@ -199,7 +312,7 @@
 
 /* This shall correspond to the similar macro in crypto.erl */
 /* Current value is: erlang:system_info(context_reductions) * 10 */
-#define MAX_BYTES_TO_NIF 20000 
+#define MAX_BYTES_TO_NIF 20000
 
 #define CONSUME_REDS(NifEnv, Ibin)			\
 do {							\
@@ -210,6 +323,186 @@ do {							\
     }                                                   \
  } while (0)
 
+
+#ifdef NEED_EVP_COMPATIBILITY_FUNCTIONS
+/*
+ * In OpenSSL 1.1.0, most structs are opaque. That means that
+ * the structs cannot be allocated as automatic variables on the
+ * C stack (because the size is unknown) and that it is necessary
+ * to use access functions.
+ *
+ * For backward compatibility to previous versions of OpenSSL, define
+ * on our versions of the new functions defined in 1.1.0 here, so that
+ * we don't have to sprinkle ifdefs throughout the code.
+ */
+
+static HMAC_CTX *HMAC_CTX_new(void);
+static void HMAC_CTX_free(HMAC_CTX *ctx);
+
+static HMAC_CTX *HMAC_CTX_new()
+{
+    HMAC_CTX *ctx = CRYPTO_malloc(sizeof(HMAC_CTX), __FILE__, __LINE__);
+    HMAC_CTX_init(ctx);
+    return ctx;
+}
+
+static void HMAC_CTX_free(HMAC_CTX *ctx)
+{
+    HMAC_CTX_cleanup(ctx);
+    CRYPTO_free(ctx);
+}
+
+#define EVP_MD_CTX_new() EVP_MD_CTX_create()
+#define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
+
+static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb);
+
+static INLINE void *BN_GENCB_get_arg(BN_GENCB *cb)
+{
+    return cb->arg;
+}
+
+static INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
+static INLINE void RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d);
+static INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q);
+static INLINE void RSA_get0_factors(const RSA *r, const BIGNUM **p, const BIGNUM **q);
+static INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp);
+static INLINE void RSA_get0_crt_params(const RSA *r, const BIGNUM **dmp1, const BIGNUM **dmq1, const BIGNUM **iqmp);
+
+static INLINE int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
+{
+    r->n = n;
+    r->e = e;
+    r->d = d;
+    return 1;
+}
+
+static INLINE void RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e, const BIGNUM **d)
+{
+    *n = r->n;
+    *e = r->e;
+    *d = r->d;
+}
+
+static INLINE int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
+{
+    r->p = p;
+    r->q = q;
+    return 1;
+}
+
+static INLINE void RSA_get0_factors(const RSA *r, const BIGNUM **p, const BIGNUM **q)
+{
+    *p = r->p;
+    *q = r->q;
+}
+
+static INLINE int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
+{
+    r->dmp1 = dmp1;
+    r->dmq1 = dmq1;
+    r->iqmp = iqmp;
+    return 1;
+}
+
+static INLINE void RSA_get0_crt_params(const RSA *r, const BIGNUM **dmp1, const BIGNUM **dmq1, const BIGNUM **iqmp)
+{
+    *dmp1 = r->dmp1;
+    *dmq1 = r->dmq1;
+    *iqmp = r->iqmp;
+}
+
+static INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key);
+static INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+static INLINE void DSA_get0_pqg(const DSA *dsa,
+			       const BIGNUM **p, const BIGNUM **q, const BIGNUM **g);
+static INLINE void DSA_get0_key(const DSA *dsa,
+			       const BIGNUM **pub_key, const BIGNUM **priv_key);
+
+static INLINE int DSA_set0_key(DSA *d, BIGNUM *pub_key, BIGNUM *priv_key)
+{
+    d->pub_key = pub_key;
+    d->priv_key = priv_key;
+    return 1;
+}
+
+static INLINE int DSA_set0_pqg(DSA *d, BIGNUM *p, BIGNUM *q, BIGNUM *g)
+{
+    d->p = p;
+    d->q = q;
+    d->g = g;
+    return 1;
+}
+
+static INLINE void
+DSA_get0_pqg(const DSA *dsa, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
+{
+    *p = dsa->p;
+    *q = dsa->q;
+    *g = dsa->g;
+}
+
+static INLINE void
+DSA_get0_key(const DSA *dsa, const BIGNUM **pub_key, const BIGNUM **priv_key)
+{
+    if (pub_key) *pub_key = dsa->pub_key;
+    if (priv_key) *priv_key = dsa->priv_key;
+}
+
+
+
+static INLINE int DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key);
+static INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
+static INLINE int DH_set_length(DH *dh, long length);
+static INLINE void DH_get0_pqg(const DH *dh,
+			       const BIGNUM **p, const BIGNUM **q, const BIGNUM **g);
+static INLINE void DH_get0_key(const DH *dh,
+			       const BIGNUM **pub_key, const BIGNUM **priv_key);
+
+static INLINE int DH_set0_key(DH *dh, BIGNUM *pub_key, BIGNUM *priv_key)
+{
+    dh->pub_key = pub_key;
+    dh->priv_key = priv_key;
+    return 1;
+}
+
+static INLINE int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g)
+{
+    dh->p = p;
+    dh->q = q;
+    dh->g = g;
+    return 1;
+}
+
+static INLINE int DH_set_length(DH *dh, long length)
+{
+    dh->length = length;
+    return 1;
+}
+
+
+
+static INLINE void
+DH_get0_pqg(const DH *dh, const BIGNUM **p, const BIGNUM **q, const BIGNUM **g)
+{
+    *p = dh->p;
+    *q = dh->q;
+    *g = dh->g;
+}
+
+static INLINE void
+DH_get0_key(const DH *dh, const BIGNUM **pub_key, const BIGNUM **priv_key)
+{
+    if (pub_key) *pub_key = dh->pub_key;
+    if (priv_key) *priv_key = dh->priv_key;
+}
+
+#else /* End of compatibility definitions. */
+
+#define HAVE_OPAQUE_BN_GENCB
+
+#endif
+
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
@@ -217,6 +510,8 @@ static void unload(ErlNifEnv* env, void* priv_data);
 
 /* The NIFs: */
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -226,50 +521,65 @@ static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 #ifdef HAVE_GCM_EVP_DECRYPT_BUG
 static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 #endif
 
-static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /* helpers */
 static void init_algorithms_types(ErlNifEnv*);
@@ -280,11 +590,20 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
 static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 		      EC_GROUP *group, EC_POINT **pptr);
 #endif
+static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn);
+
+#ifdef HAS_ENGINE_SUPPORT
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
+static int zero_terminate(ErlNifBinary bin, char **buf);
+#endif
 
 static int library_refc = 0; /* number of users of this dynamic library */
+static int library_initialized = 0;
 
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib},
+    {"info_fips", 0, info_fips},
+    {"enable_fips_mode", 1, enable_fips_mode},
     {"algorithms", 0, algorithms},
     {"hash_nif", 2, hash_nif},
     {"hash_init_nif", 1, hash_init_nif},
@@ -296,56 +615,66 @@ static ErlNifFunc nif_funcs[] = {
     {"hmac_update_nif", 2, hmac_update_nif},
     {"hmac_final_nif", 1, hmac_final_nif},
     {"hmac_final_nif", 2, hmac_final_nif},
+    {"cmac_nif", 3, cmac_nif},
     {"block_crypt_nif", 5, block_crypt_nif},
     {"block_crypt_nif", 4, block_crypt_nif},
     {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif},
-
-    {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
-    {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_stream_init", 2, aes_ctr_stream_init},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
-    {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
-    {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
+    {"strong_rand_range_nif", 1, strong_rand_range_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
-    {"dss_verify_nif", 4, dss_verify_nif},
-    {"rsa_verify_nif", 4, rsa_verify_nif},
     {"do_exor", 2, do_exor},
-    {"rc4_encrypt", 2, rc4_encrypt},
     {"rc4_set_key", 1, rc4_set_key},
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
-    {"rsa_sign_nif", 3, rsa_sign_nif},
-    {"dss_sign_nif", 3, dss_sign_nif},
-    {"rsa_public_crypt", 4, rsa_public_crypt},
-    {"rsa_private_crypt", 4, rsa_private_crypt},
-    {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
-    {"dh_check", 1, dh_check},
-    {"dh_generate_key_nif", 3, dh_generate_key_nif},
+    {"pkey_sign_nif", 5, pkey_sign_nif},
+    {"pkey_verify_nif", 6, pkey_verify_nif},
+    {"pkey_crypt_nif", 6, pkey_crypt_nif},
+    {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
+    {"dh_generate_key_nif", 4, dh_generate_key_nif},
     {"dh_compute_key_nif", 3, dh_compute_key_nif},
+    {"evp_compute_key_nif", 3, evp_compute_key_nif},
+    {"evp_generate_key_nif", 1, evp_generate_key_nif},
+    {"privkey_to_pubkey_nif", 2, privkey_to_pubkey_nif},
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
     {"srp_host_secret_nif", 5, srp_host_secret_nif},
 
     {"ec_key_generate", 2, ec_key_generate},
-    {"ecdsa_sign_nif", 4, ecdsa_sign_nif},
-    {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
     {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
 
     {"rand_seed_nif", 1, rand_seed_nif},
 
-    {"aes_gcm_encrypt", 5, aes_gcm_encrypt},
-    {"aes_gcm_decrypt", 5, aes_gcm_decrypt},
+    {"aead_encrypt", 6, aead_encrypt},
+    {"aead_decrypt", 6, aead_decrypt},
 
-    {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
-    {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt}
+    {"chacha20_stream_init",    2, chacha20_stream_init},
+    {"chacha20_stream_encrypt", 2, chacha20_stream_crypt},
+    {"chacha20_stream_decrypt", 2, chacha20_stream_crypt},
 
+    {"poly1305_nif", 2, poly1305_nif},
+
+    {"engine_by_id_nif", 1, engine_by_id_nif},
+    {"engine_init_nif", 1, engine_init_nif},
+    {"engine_finish_nif", 1, engine_finish_nif},
+    {"engine_free_nif", 1, engine_free_nif},
+    {"engine_load_dynamic_nif", 0, engine_load_dynamic_nif},
+    {"engine_ctrl_cmd_strings_nif", 3, engine_ctrl_cmd_strings_nif},
+    {"engine_register_nif", 2, engine_register_nif},
+    {"engine_unregister_nif", 2, engine_unregister_nif},
+    {"engine_add_nif", 1, engine_add_nif},
+    {"engine_remove_nif", 1, engine_remove_nif},
+    {"engine_get_first_nif", 0, engine_get_first_nif},
+    {"engine_get_next_nif", 1, engine_get_next_nif},
+    {"engine_get_id_nif", 1, engine_get_id_nif},
+    {"engine_get_name_nif", 1, engine_get_name_nif},
+    {"engine_get_all_methods_nif", 0, engine_get_all_methods_nif}
 
 };
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
-
 
 #define MD5_CTX_LEN       (sizeof(MD5_CTX))
 #define MD4_CTX_LEN       (sizeof(MD4_CTX))
@@ -359,6 +688,7 @@ static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
 static ERL_NIF_TERM atom_rsa_no_padding;
+static ERL_NIF_TERM atom_signature_md;
 static ERL_NIF_TERM atom_undefined;
 
 static ERL_NIF_TERM atom_ok;
@@ -371,6 +701,12 @@ static ERL_NIF_TERM atom_unknown;
 static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
+#ifdef FIPS_SUPPORT
+static ERL_NIF_TERM atom_enabled;
+static ERL_NIF_TERM atom_not_enabled;
+#else
+static ERL_NIF_TERM atom_not_supported;
+#endif
 
 #if defined(HAVE_EC)
 static ERL_NIF_TERM atom_ec;
@@ -383,10 +719,84 @@ static ERL_NIF_TERM atom_onbasis;
 
 static ERL_NIF_TERM atom_aes_cfb8;
 static ERL_NIF_TERM atom_aes_cfb128;
+#ifdef HAVE_GCM
+static ERL_NIF_TERM atom_aes_gcm;
+#endif
+#ifdef HAVE_CCM
+static ERL_NIF_TERM atom_aes_ccm;
+#endif
+#ifdef HAVE_CHACHA20_POLY1305
+static ERL_NIF_TERM atom_chacha20_poly1305;
+#endif
 #ifdef HAVE_ECB_IVEC_BUG
 static ERL_NIF_TERM atom_aes_ecb;
 static ERL_NIF_TERM atom_des_ecb;
 static ERL_NIF_TERM atom_blowfish_ecb;
+#endif
+
+static ERL_NIF_TERM atom_rsa;
+static ERL_NIF_TERM atom_dss;
+static ERL_NIF_TERM atom_ecdsa;
+
+#ifdef HAVE_ED_CURVE_DH
+static ERL_NIF_TERM atom_x25519;
+static ERL_NIF_TERM atom_x448;
+#endif
+
+static ERL_NIF_TERM atom_eddsa;
+#ifdef HAVE_EDDSA
+static ERL_NIF_TERM atom_ed25519;
+static ERL_NIF_TERM atom_ed448;
+#endif
+
+static ERL_NIF_TERM atom_rsa_mgf1_md;
+static ERL_NIF_TERM atom_rsa_oaep_label;
+static ERL_NIF_TERM atom_rsa_oaep_md;
+static ERL_NIF_TERM atom_rsa_pad; /* backwards compatibility */
+static ERL_NIF_TERM atom_rsa_padding;
+static ERL_NIF_TERM atom_rsa_pkcs1_pss_padding;
+#ifdef HAVE_RSA_SSLV23_PADDING
+static ERL_NIF_TERM atom_rsa_sslv23_padding;
+#endif
+static ERL_NIF_TERM atom_rsa_x931_padding;
+static ERL_NIF_TERM atom_rsa_pss_saltlen;
+static ERL_NIF_TERM atom_sha224;
+static ERL_NIF_TERM atom_sha256;
+static ERL_NIF_TERM atom_sha384;
+static ERL_NIF_TERM atom_sha512;
+static ERL_NIF_TERM atom_sha3_224;
+static ERL_NIF_TERM atom_sha3_256;
+static ERL_NIF_TERM atom_sha3_384;
+static ERL_NIF_TERM atom_sha3_512;
+static ERL_NIF_TERM atom_md5;
+static ERL_NIF_TERM atom_ripemd160;
+
+#ifdef HAS_ENGINE_SUPPORT
+static ERL_NIF_TERM atom_bad_engine_method;
+static ERL_NIF_TERM atom_bad_engine_id;
+static ERL_NIF_TERM atom_ctrl_cmd_failed;
+static ERL_NIF_TERM atom_engine_init_failed;
+static ERL_NIF_TERM atom_register_engine_failed;
+static ERL_NIF_TERM atom_add_engine_failed;
+static ERL_NIF_TERM atom_remove_engine_failed;
+static ERL_NIF_TERM atom_engine_method_not_supported;
+
+static ERL_NIF_TERM atom_engine_method_rsa;
+static ERL_NIF_TERM atom_engine_method_dsa;
+static ERL_NIF_TERM atom_engine_method_dh;
+static ERL_NIF_TERM atom_engine_method_rand;
+static ERL_NIF_TERM atom_engine_method_ecdh;
+static ERL_NIF_TERM atom_engine_method_ecdsa;
+static ERL_NIF_TERM atom_engine_method_ciphers;
+static ERL_NIF_TERM atom_engine_method_digests;
+static ERL_NIF_TERM atom_engine_method_store;
+static ERL_NIF_TERM atom_engine_method_pkey_meths;
+static ERL_NIF_TERM atom_engine_method_pkey_asn1_meths;
+static ERL_NIF_TERM atom_engine_method_ec;
+
+static ERL_NIF_TERM atom_engine;
+static ERL_NIF_TERM atom_key_id;
+static ERL_NIF_TERM atom_password;
 #endif
 
 static ErlNifResourceType* hmac_context_rtype;
@@ -394,7 +804,7 @@ struct hmac_context
 {
     ErlNifMutex* mtx;
     int alive;
-    HMAC_CTX ctx;
+    HMAC_CTX* ctx;
 };
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
 
@@ -409,7 +819,7 @@ struct digest_type_t {
     }md;
 };
 
-struct digest_type_t digest_types[] =
+static struct digest_type_t digest_types[] =
 {
     {{"md4"}, {&EVP_md4}},
     {{"md5"}, {&EVP_md5}},
@@ -443,6 +853,35 @@ struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+    {{"sha3_224"},
+#ifdef HAVE_SHA3_224
+     {&EVP_sha3_224}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_256"},
+#ifdef HAVE_SHA3_256
+     {&EVP_sha3_256}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_384"},
+#ifdef HAVE_SHA3_384
+     {&EVP_sha3_384}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha3_512"},
+#ifdef HAVE_SHA3_512
+     {&EVP_sha3_512}
+#else
+     {NULL}
+#endif
+    },
+
     {{NULL}}
 };
 
@@ -466,9 +905,15 @@ struct cipher_type_t {
 #define COND_NO_DES_PTR(Ptr) (Ptr)
 #endif
 
-struct cipher_type_t cipher_types[] =
+static struct cipher_type_t cipher_types[] =
 {
-    {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+    {{"rc2_cbc"},
+#ifndef OPENSSL_NO_RC2
+     {&EVP_rc2_cbc}
+#else
+     {NULL}
+#endif
+    },
     {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}},
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}},
@@ -506,27 +951,52 @@ struct cipher_type_t cipher_types[] =
 
 static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
+
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
 #define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
 #define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
 */
+
 #define PRINTF_ERR0(FMT)
 #define PRINTF_ERR1(FMT,A1)
 #define PRINTF_ERR2(FMT,A1,A2)
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 /* Define resource types for OpenSSL context structures. */
 static ErlNifResourceType* evp_md_ctx_rtype;
-static void evp_md_ctx_dtor(ErlNifEnv* env, EVP_MD_CTX* ctx) {
-    EVP_MD_CTX_cleanup(ctx);
+struct evp_md_ctx {
+    EVP_MD_CTX* ctx;
+};
+static void evp_md_ctx_dtor(ErlNifEnv* env, struct evp_md_ctx *ctx) {
+    EVP_MD_CTX_free(ctx->ctx);
 }
 #endif
 
 #ifdef HAVE_EVP_AES_CTR
 static ErlNifResourceType* evp_cipher_ctx_rtype;
-static void evp_cipher_ctx_dtor(ErlNifEnv* env, EVP_CIPHER_CTX* ctx) {
-    EVP_CIPHER_CTX_cleanup(ctx);
+struct evp_cipher_ctx {
+    EVP_CIPHER_CTX* ctx;
+};
+static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
+    EVP_CIPHER_CTX_free(ctx->ctx);
+}
+#endif
+
+// Engine
+#ifdef HAS_ENGINE_SUPPORT
+static ErlNifResourceType* engine_ctx_rtype;
+struct engine_ctx {
+    ENGINE *engine;
+    char *id;
+};
+static void engine_ctx_dtor(ErlNifEnv* env, struct engine_ctx* ctx) {
+    PRINTF_ERR0("engine_ctx_dtor");
+    if(ctx->id) {
+        PRINTF_ERR1("  non empty ctx->id=%s", ctx->id);
+        enif_free(ctx->id);
+    } else
+         PRINTF_ERR0("  empty ctx->id=NULL");
 }
 #endif
 
@@ -545,6 +1015,13 @@ static int verify_lib_version(void)
     return 1;
 }
 
+#ifdef FIPS_SUPPORT
+/* In FIPS mode non-FIPS algorithms are disabled and return badarg. */
+#define CHECK_NO_FIPS_MODE() { if (FIPS_mode()) return atom_notsup; }
+#else
+#define CHECK_NO_FIPS_MODE()
+#endif
+
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 
 # if defined(DEBUG)
@@ -558,7 +1035,7 @@ static char crypto_callback_name[] = "crypto_callback";
 static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
     int i;
-    
+
     for (i = bin->size; i > 0; i--) {
 	if (bin->data[i-1] == '/')
 	    break;
@@ -578,7 +1055,7 @@ static void error_handler(void* null, const char* errstr)
 }
 #endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
-static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
+static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
 #ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
@@ -593,17 +1070,17 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     char lib_buf[1000];
 
     if (!verify_lib_version())
-	return 0;
+	return __LINE__;
 
-    /* load_info: {301, <<"/full/path/of/this/library">>} */
+    /* load_info: {302, <<"/full/path/of/this/library">>,true|false} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
-	|| tpl_arity != 2
+	|| tpl_arity != 3
 	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 301
+	|| vernum != 302
 	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
-	return 0;
+	return __LINE__;
     }
 
     hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
@@ -612,16 +1089,16 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 						 NULL);
     if (!hmac_context_rtype) {
 	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
-	return 0;
+	return __LINE__;
     }
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
                                                (ErlNifResourceDtor*) evp_md_ctx_dtor,
                                                ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
                                                NULL);
     if (!evp_md_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
 #ifdef HAVE_EVP_AES_CTR
@@ -631,23 +1108,50 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
                                                    NULL);
     if (!evp_cipher_ctx_rtype) {
         PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
-        return 0;
+        return __LINE__;
     }
 #endif
-    if (library_refc > 0) {
+#ifdef HAS_ENGINE_SUPPORT
+    engine_ctx_rtype = enif_open_resource_type(env, NULL, "ENGINE_CTX",
+                                                   (ErlNifResourceDtor*) engine_ctx_dtor,
+                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   NULL);
+    if (!engine_ctx_rtype) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'ENGINE_CTX'");
+        return __LINE__;
+    }
+#endif
+
+    if (library_initialized) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
 	 */
-	return 1;
+	return 0;
     }
 
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
+    /* Enter FIPS mode */
+    if (tpl_array[2] == atom_true) {
+#ifdef FIPS_SUPPORT
+        if (!FIPS_mode_set(1)) {
+#else
+        {
+#endif
+            PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
+            return 0;
+        }
+    } else if (tpl_array[2] != atom_false) {
+        PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
+        return 0;
+    }
+
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
     atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
+    atom_signature_md = enif_make_atom(env,"signature_md");
     atom_undefined = enif_make_atom(env,"undefined");
     atom_ok = enif_make_atom(env,"ok");
     atom_not_prime = enif_make_atom(env,"not_prime");
@@ -668,53 +1172,127 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_ppbasis = enif_make_atom(env,"ppbasis");
     atom_onbasis = enif_make_atom(env,"onbasis");
 #endif
+
     atom_aes_cfb8 = enif_make_atom(env, "aes_cfb8");
     atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
+#ifdef HAVE_GCM
+    atom_aes_gcm = enif_make_atom(env, "aes_gcm");
+#endif
+#ifdef HAVE_CCM
+    atom_aes_ccm = enif_make_atom(env, "aes_ccm");
+#endif
+#ifdef HAVE_CHACHA20_POLY1305
+    atom_chacha20_poly1305 = enif_make_atom(env,"chacha20_poly1305");
+#endif
 #ifdef HAVE_ECB_IVEC_BUG
     atom_aes_ecb = enif_make_atom(env, "aes_ecb");
     atom_des_ecb = enif_make_atom(env, "des_ecb");
     atom_blowfish_ecb = enif_make_atom(env, "blowfish_ecb");
 #endif
 
-    init_digest_types(env);
-    init_cipher_types(env);
-    init_algorithms_types(env);
+#ifdef FIPS_SUPPORT
+    atom_enabled = enif_make_atom(env,"enabled");
+    atom_not_enabled = enif_make_atom(env,"not_enabled");
+#else
+    atom_not_supported = enif_make_atom(env,"not_supported");
+#endif
+    atom_rsa = enif_make_atom(env,"rsa");
+    atom_dss = enif_make_atom(env,"dss");
+    atom_ecdsa = enif_make_atom(env,"ecdsa");
+#ifdef HAVE_ED_CURVE_DH
+    atom_x25519 = enif_make_atom(env,"x25519");
+    atom_x448 = enif_make_atom(env,"x448");
+#endif
+    atom_eddsa = enif_make_atom(env,"eddsa");
+#ifdef HAVE_EDDSA
+    atom_ed25519 = enif_make_atom(env,"ed25519");
+    atom_ed448 = enif_make_atom(env,"ed448");
+#endif
+    atom_rsa_mgf1_md = enif_make_atom(env,"rsa_mgf1_md");
+    atom_rsa_oaep_label = enif_make_atom(env,"rsa_oaep_label");
+    atom_rsa_oaep_md = enif_make_atom(env,"rsa_oaep_md");
+    atom_rsa_pad = enif_make_atom(env,"rsa_pad"); /* backwards compatibility */
+    atom_rsa_padding = enif_make_atom(env,"rsa_padding");
+    atom_rsa_pkcs1_pss_padding = enif_make_atom(env,"rsa_pkcs1_pss_padding");
+#ifdef HAVE_RSA_SSLV23_PADDING
+    atom_rsa_sslv23_padding = enif_make_atom(env,"rsa_sslv23_padding");
+#endif
+    atom_rsa_x931_padding = enif_make_atom(env,"rsa_x931_padding");
+    atom_rsa_pss_saltlen = enif_make_atom(env,"rsa_pss_saltlen");
+    atom_sha224 = enif_make_atom(env,"sha224");
+    atom_sha256 = enif_make_atom(env,"sha256");
+    atom_sha384 = enif_make_atom(env,"sha384");
+    atom_sha512 = enif_make_atom(env,"sha512");
+    atom_sha3_224 = enif_make_atom(env,"sha3_224");
+    atom_sha3_256 = enif_make_atom(env,"sha3_256");
+    atom_sha3_384 = enif_make_atom(env,"sha3_384");
+    atom_sha3_512 = enif_make_atom(env,"sha3_512");
+    atom_md5 = enif_make_atom(env,"md5");
+    atom_ripemd160 = enif_make_atom(env,"ripemd160");
+
+#ifdef HAS_ENGINE_SUPPORT
+    atom_bad_engine_method = enif_make_atom(env,"bad_engine_method");
+    atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
+    atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
+    atom_engine_init_failed = enif_make_atom(env,"engine_init_failed");
+    atom_engine_method_not_supported = enif_make_atom(env,"engine_method_not_supported");
+    atom_add_engine_failed = enif_make_atom(env,"add_engine_failed");
+    atom_remove_engine_failed = enif_make_atom(env,"remove_engine_failed");
+
+    atom_engine_method_rsa = enif_make_atom(env,"engine_method_rsa");
+    atom_engine_method_dsa = enif_make_atom(env,"engine_method_dsa");
+    atom_engine_method_dh = enif_make_atom(env,"engine_method_dh");
+    atom_engine_method_rand = enif_make_atom(env,"engine_method_rand");
+    atom_engine_method_ecdh = enif_make_atom(env,"engine_method_ecdh");
+    atom_engine_method_ecdsa = enif_make_atom(env,"engine_method_ecdsa");
+    atom_engine_method_store = enif_make_atom(env,"engine_method_store");
+    atom_engine_method_ciphers = enif_make_atom(env,"engine_method_ciphers");
+    atom_engine_method_digests = enif_make_atom(env,"engine_method_digests");
+    atom_engine_method_pkey_meths = enif_make_atom(env,"engine_method_pkey_meths");
+    atom_engine_method_pkey_asn1_meths = enif_make_atom(env,"engine_method_pkey_asn1_meths");
+    atom_engine_method_ec = enif_make_atom(env,"engine_method_ec");
+
+    atom_engine = enif_make_atom(env,"engine");
+    atom_key_id = enif_make_atom(env,"key_id");
+    atom_password = enif_make_atom(env,"password");
+#endif
+
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
 	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
 	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
 							   &error_handler, NULL))) {
-	    return 0;
+	    return __LINE__;
 	}
     }
 #else /* !HAVE_DYNAMIC_CRYPTO_LIB */
     funcp = &get_crypto_callbacks;
 #endif
-    
+
 #ifdef OPENSSL_THREADS
     enif_system_info(&sys_info, sizeof(sys_info));
     if (sys_info.scheduler_threads > 1) {
-	nlocks = CRYPTO_num_locks(); 
+	nlocks = CRYPTO_num_locks();
     }
     /* else no need for locks */
 #endif
-    
+
     ccb = (*funcp)(nlocks);
-    
+
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
 	PRINTF_ERR0("Invalid 'crypto_callbacks'");
-	return 0;
+	return __LINE__;
     }
-    
+
     CRYPTO_set_mem_functions(ccb->crypto_alloc, ccb->crypto_realloc, ccb->crypto_free);
-    
+
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
 	CRYPTO_set_locking_callback(ccb->locking_function);
@@ -724,13 +1302,20 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
-    return 1;
+
+    init_digest_types(env);
+    init_cipher_types(env);
+    init_algorithms_types(env);
+
+    library_initialized = 1;
+    return 0;
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    if (!init(env, load_info)) {
-	return -1;
+    int errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
 
     *priv_data = NULL;
@@ -741,14 +1326,16 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
 		   ERL_NIF_TERM load_info)
 {
+    int errline;
     if (*old_priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
     if (*priv_data != NULL) {
-	return -1; /* Don't know how to do that */
+	return __LINE__; /* Don't know how to do that */
     }
-    if (!init(env, load_info)) {
-	return -1;
+    errline = initialize(env, load_info);
+    if (errline) {
+	return errline;
     }
     library_refc++;
     return 0;
@@ -759,15 +1346,22 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 }
 
-static int algo_hash_cnt;
-static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
-static int algo_pubkey_cnt;
-static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
-static int algo_cipher_cnt;
-static ERL_NIF_TERM algo_cipher[23]; /* increase when extending the list */
+static int algo_hash_cnt, algo_hash_fips_cnt;
+static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
+static int algo_pubkey_cnt, algo_pubkey_fips_cnt;
+static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
+static int algo_cipher_cnt, algo_cipher_fips_cnt;
+static ERL_NIF_TERM algo_cipher[25]; /* increase when extending the list */
+static int algo_mac_cnt, algo_mac_fips_cnt;
+static ERL_NIF_TERM algo_mac[3]; /* increase when extending the list */
+static int algo_curve_cnt, algo_curve_fips_cnt;
+static ERL_NIF_TERM algo_curve[89]; /* increase when extending the list */
+static int algo_rsa_opts_cnt, algo_rsa_opts_fips_cnt;
+static ERL_NIF_TERM algo_rsa_opts[11]; /* increase when extending the list */
 
 static void init_algorithms_types(ErlNifEnv* env)
 {
+    // Validated algorithms first
     algo_hash_cnt = 0;
     algo_hash[algo_hash_cnt++] = atom_sha;
 #ifdef HAVE_SHA224
@@ -782,6 +1376,20 @@ static void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_SHA512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
 #endif
+#ifdef HAVE_SHA3_224
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_224");
+#endif
+#ifdef HAVE_SHA3_256
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_256");
+#endif
+#ifdef HAVE_SHA3_384
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_384");
+#endif
+#ifdef HAVE_SHA3_512
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
+#endif
+    // Non-validated algorithms follow
+    algo_hash_fips_cnt = algo_hash_cnt;
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
@@ -797,8 +1405,15 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdsa");
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdh");
 #endif
+    // Non-validated algorithms follow
+    algo_pubkey_fips_cnt = algo_pubkey_cnt;
+    // Don't know if Edward curves are fips validated
+#if defined(HAVE_EDDSA)
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddsa");
+#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
+    // Validated algorithms first
     algo_cipher_cnt = 0;
 #ifndef OPENSSL_NO_DES
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
@@ -815,6 +1430,14 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
+#if defined(HAVE_GCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
+#endif
+#if defined(HAVE_CCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ccm");
+#endif
+    // Non-validated algorithms follow
+    algo_cipher_fips_cnt = algo_cipher_cnt;
 #ifdef HAVE_AES_IGE
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
 #endif
@@ -827,29 +1450,199 @@ static void init_algorithms_types(ErlNifEnv* env)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
+#ifndef OPENSSL_NO_RC2
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
+#endif
+#ifndef OPENSSL_NO_RC4
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
-#if defined(HAVE_GCM)
-    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
 #endif
 #if defined(HAVE_CHACHA20_POLY1305)
     algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
 #endif
+#if defined(HAVE_CHACHA20)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20");
+#endif
+ 
+    // Validated algorithms first
+    algo_mac_cnt = 0;
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");
+#ifdef HAVE_CMAC
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"cmac");
+#endif
+#ifdef HAVE_POLY1305
+    algo_mac[algo_mac_cnt++] = enif_make_atom(env,"poly1305");
+#endif
+    // Non-validated algorithms follow
+    algo_mac_fips_cnt = algo_mac_cnt;
 
+    // Validated algorithms first
+    algo_curve_cnt = 0;
+#if defined(HAVE_EC)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp160r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp192k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp224r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp256r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp384r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp521r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime192v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime239v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"prime256v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls7");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls9");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls12");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP160t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP192t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP224t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP256t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP320t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP384t1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"brainpoolP512t1");
+#if !defined(OPENSSL_NO_EC2M)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect163r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect193r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect233r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect239k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect283r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect409r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571k1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect571r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb163v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb176v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb191v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb208w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb239v3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb272w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb304w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb359v1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2pnb368w1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"c2tnb431r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls5");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls10");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls11");
+#endif
+#endif
+    // Non-validated algorithms follow
+    algo_curve_fips_cnt = algo_curve_cnt;
+#if defined(HAVE_EC)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp112r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"secp128r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls6");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls8");
+#if !defined(OPENSSL_NO_EC2M)
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect113r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"sect131r2");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls1");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"wtls4");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec3");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ipsec4");
+#endif
+#endif
+    //--
+#ifdef HAVE_EDDSA
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed25519");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed448");
+#endif
+#ifdef HAVE_ED_CURVE_DH
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
+    algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
+#endif
+
+    // Validated algorithms first
+    algo_rsa_opts_cnt = 0;
+#ifdef HAS_EVP_PKEY_CTX
+# ifdef HAVE_RSA_PKCS1_PSS_PADDING
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pkcs1_pss_padding");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pss_saltlen");
+# endif
+# ifdef HAVE_RSA_MGF1_MD
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_mgf1_md");
+# endif
+# ifdef HAVE_RSA_OAEP_PADDING
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
+# endif
+# ifdef HAVE_RSA_OAEP_MD
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_oaep_label");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_oaep_md");
+# endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"signature_md");
+#endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_pkcs1_padding");
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_x931_padding");
+#ifdef HAVE_RSA_SSLV23_PADDING
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_sslv23_padding");
+#endif
+    algo_rsa_opts[algo_rsa_opts_cnt++] = enif_make_atom(env,"rsa_no_padding");
+    algo_rsa_opts_fips_cnt = algo_rsa_opts_cnt;
+
+
+    // Check that the max number of algos is updated
     ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
     ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_mac_cnt <= sizeof(algo_mac)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_curve_cnt <= sizeof(algo_curve)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_rsa_opts_cnt <= sizeof(algo_rsa_opts)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+#ifdef FIPS_SUPPORT
+    int fips_mode  = FIPS_mode();
+    int hash_cnt   = fips_mode ? algo_hash_fips_cnt   : algo_hash_cnt;
+    int pubkey_cnt = fips_mode ? algo_pubkey_fips_cnt : algo_pubkey_cnt;
+    int cipher_cnt = fips_mode ? algo_cipher_fips_cnt : algo_cipher_cnt;
+    int mac_cnt    = fips_mode ? algo_mac_fips_cnt    : algo_mac_cnt;
+    int curve_cnt    = fips_mode ? algo_curve_fips_cnt    : algo_curve_cnt;
+    int rsa_opts_cnt = fips_mode ? algo_rsa_opts_fips_cnt : algo_rsa_opts_cnt;
+#else
     int hash_cnt   = algo_hash_cnt;
     int pubkey_cnt = algo_pubkey_cnt;
     int cipher_cnt = algo_cipher_cnt;
-    return enif_make_tuple3(env,
-			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
+    int mac_cnt    = algo_mac_cnt;
+    int curve_cnt    = algo_curve_cnt;
+    int rsa_opts_cnt = algo_rsa_opts_cnt;
+#endif
+    return enif_make_tuple6(env,
+                            enif_make_list_from_array(env, algo_hash,   hash_cnt),
 			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
-			    enif_make_list_from_array(env, algo_cipher, cipher_cnt));
+			    enif_make_list_from_array(env, algo_cipher, cipher_cnt),
+                            enif_make_list_from_array(env, algo_mac,    mac_cnt),
+			    enif_make_list_from_array(env, algo_curve,  curve_cnt),
+			    enif_make_list_from_array(env, algo_rsa_opts, rsa_opts_cnt)
+                            );
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -871,14 +1664,47 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
      * Version string is still from library though.
      */
 
-    memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);    
+    memcpy(enif_make_new_binary(env, name_sz, &name_term), libname, name_sz);
     memcpy(enif_make_new_binary(env, ver_sz, &ver_term), ver, ver_sz);
 
     return enif_make_list1(env, enif_make_tuple3(env, name_term,
-						 enif_make_int(env, ver_num),						 
+						 enif_make_int(env, ver_num),
 						 ver_term));
 }
 
+static ERL_NIF_TERM info_fips(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+#ifdef FIPS_SUPPORT
+    return FIPS_mode() ? atom_enabled : atom_not_enabled;
+#else
+    return atom_not_supported;
+#endif
+}
+
+static ERL_NIF_TERM enable_fips_mode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Boolean) */
+    if (argv[0] == atom_true) {
+#ifdef FIPS_SUPPORT
+        if (FIPS_mode_set(1)) {
+            return atom_true;
+        }
+#endif
+        PRINTF_ERR0("CRYPTO: Could not setup FIPS mode");
+        return atom_false;
+    } else if (argv[0] == atom_false) {
+#ifdef FIPS_SUPPORT
+        if (!FIPS_mode_set(0)) {
+            return atom_false;
+        }
+#endif
+        return atom_true;
+    } else {
+        return enif_make_badarg(env);
+    }
+}
+
+
+#if defined(HAVE_EC)
 static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
 {
     ERL_NIF_TERM reason;
@@ -887,6 +1713,7 @@ static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
     else
 	return enif_make_badarg(env);
 }
+#endif
 
 static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data) */
@@ -919,12 +1746,12 @@ static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return ret;
 }
 
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
 
 static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type) */
     struct digest_type_t *digp = NULL;
-    EVP_MD_CTX           *ctx;
+    struct evp_md_ctx    *ctx;
     ERL_NIF_TERM         ret;
 
     digp = get_digest_type(argv[0]);
@@ -935,8 +1762,9 @@ static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 	return atom_notsup;
     }
 
-    ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(EVP_MD_CTX));
-    if (!EVP_DigestInit(ctx, digp->md.p)) {
+    ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
+    ctx->ctx = EVP_MD_CTX_new();
+    if (!EVP_DigestInit(ctx->ctx, digp->md.p)) {
         enif_release_resource(ctx);
         return atom_notsup;
     }
@@ -946,7 +1774,7 @@ static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 }
 static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    EVP_MD_CTX   *ctx, *new_ctx;
+    struct evp_md_ctx   *ctx, *new_ctx;
     ErlNifBinary data;
     ERL_NIF_TERM ret;
 
@@ -955,9 +1783,10 @@ static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return enif_make_badarg(env);
     }
 
-    new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(EVP_MD_CTX));
-    if (!EVP_MD_CTX_copy(new_ctx, ctx) ||
-        !EVP_DigestUpdate(new_ctx, data.data, data.size)) {
+    new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(struct evp_md_ctx));
+    new_ctx->ctx = EVP_MD_CTX_new();
+    if (!EVP_MD_CTX_copy(new_ctx->ctx, ctx->ctx) ||
+        !EVP_DigestUpdate(new_ctx->ctx, data.data, data.size)) {
         enif_release_resource(new_ctx);
         return atom_notsup;
     }
@@ -969,7 +1798,8 @@ static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 }
 static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) */
-    EVP_MD_CTX    *ctx, new_ctx;
+    struct evp_md_ctx *ctx;
+    EVP_MD_CTX        *new_ctx;
     ERL_NIF_TERM  ret;
     unsigned      ret_size;
 
@@ -977,16 +1807,19 @@ static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return enif_make_badarg(env);
     }
 
-    ret_size = (unsigned)EVP_MD_CTX_size(ctx);
+    ret_size = (unsigned)EVP_MD_CTX_size(ctx->ctx);
     ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
 
-    if (!EVP_MD_CTX_copy(&new_ctx, ctx) ||
-        !EVP_DigestFinal(&new_ctx,
+    new_ctx = EVP_MD_CTX_new();
+    if (!EVP_MD_CTX_copy(new_ctx, ctx->ctx) ||
+        !EVP_DigestFinal(new_ctx,
                          enif_make_new_binary(env, ret_size, &ret),
                          &ret_size)) {
+	EVP_MD_CTX_free(new_ctx);
         return atom_notsup;
     }
-    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx));
+    EVP_MD_CTX_free(new_ctx);
+    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx->ctx));
 
     return ret;
 }
@@ -1229,6 +2062,7 @@ static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 }
 #endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
 
+
 static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) or (Type, Key, Data, MacSize) */
     struct digest_type_t *digp = NULL;
@@ -1270,7 +2104,7 @@ static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
 {
     if (obj->alive) {
-	HMAC_CTX_cleanup(&obj->ctx);
+	HMAC_CTX_free(obj->ctx);
 	obj->alive = 0;
     }
     enif_mutex_destroy(obj->mtx);
@@ -1295,15 +2129,16 @@ static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
     obj->mtx = enif_mutex_create("crypto.hmac");
     obj->alive = 1;
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    obj->ctx = HMAC_CTX_new();
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,0,0)
     // Check the return value of HMAC_Init: it may fail in FIPS mode
     // for disabled algorithms
-    if (!HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p)) {
+    if (!HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL)) {
         enif_release_resource(obj);
         return atom_notsup;
     }
 #else
-    HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p);
+    HMAC_Init_ex(obj->ctx, key.data, key.size, digp->md.p, NULL);
 #endif
 
     ret = enif_make_resource(env, obj);
@@ -1315,7 +2150,7 @@ static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 {/* (Context, Data) */
     ErlNifBinary data;
     struct hmac_context* obj;
-    
+
     if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
 	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
@@ -1325,7 +2160,7 @@ static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	enif_mutex_unlock(obj->mtx);
 	return enif_make_badarg(env);
     }
-    HMAC_Update(&obj->ctx, data.data, data.size);
+    HMAC_Update(obj->ctx, data.data, data.size);
     enif_mutex_unlock(obj->mtx);
 
     CONSUME_REDS(env,data);
@@ -1351,13 +2186,13 @@ static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	enif_mutex_unlock(obj->mtx);
 	return enif_make_badarg(env);
     }
-    
-    HMAC_Final(&obj->ctx, mac_buf, &mac_len);
-    HMAC_CTX_cleanup(&obj->ctx);
+
+    HMAC_Final(obj->ctx, mac_buf, &mac_len);
+    HMAC_CTX_free(obj->ctx);
     obj->alive = 0;
     enif_mutex_unlock(obj->mtx);
 
-    if (argc == 2 && req_len < mac_len) { 
+    if (argc == 2 && req_len < mac_len) {
         /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
@@ -1367,12 +2202,115 @@ static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ret;
 }
 
+static ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Key, Data) */
+#if defined(HAVE_CMAC)
+    struct cipher_type_t *cipherp = NULL;
+    const EVP_CIPHER     *cipher;
+    CMAC_CTX             *ctx;
+    ErlNifBinary         key;
+    ErlNifBinary         data;
+    ERL_NIF_TERM         ret;
+    size_t               ret_size;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
+        || !(cipherp = get_cipher_type(argv[0], key.size))
+        || !enif_inspect_iolist_as_binary(env, argv[2], &data)) {
+        return enif_make_badarg(env);
+    }
+    cipher = cipherp->cipher.p;
+    if (!cipher) {
+        return enif_raise_exception(env, atom_notsup);
+    }
+
+    ctx = CMAC_CTX_new();
+    if (!CMAC_Init(ctx, key.data, key.size, cipher, NULL)) {
+        CMAC_CTX_free(ctx);
+        return atom_notsup;
+    }
+
+    if (!CMAC_Update(ctx, data.data, data.size) ||
+        !CMAC_Final(ctx,
+                    enif_make_new_binary(env, EVP_CIPHER_block_size(cipher), &ret),
+                    &ret_size)) {
+        CMAC_CTX_free(ctx);
+        return atom_notsup;
+    }
+    ASSERT(ret_size == (unsigned)EVP_CIPHER_block_size(cipher));
+
+    CMAC_CTX_free(ctx);
+    CONSUME_REDS(env, data);
+    return ret;
+#else
+    /* The CMAC functionality was introduced in OpenSSL 1.0.1
+     * Although OTP requires at least version 0.9.8, the versions 0.9.8 and 1.0.0 are
+     * no longer maintained. */
+    return atom_notsup;
+#endif
+}
+
+/* For OpenSSL >= 1.1.1 the hmac_nif and cmac_nif could be integrated into poly1305 (with 'type' as parameter) */
+static ERL_NIF_TERM poly1305_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Text) */
+#ifdef HAVE_POLY1305
+    ErlNifBinary key_bin, text, ret_bin;
+    ERL_NIF_TERM ret = atom_error;
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *mctx = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    const EVP_MD *md = NULL;
+    size_t size;
+    int type;
+
+    type = EVP_PKEY_POLY1305;
+
+    if (!enif_inspect_binary(env, argv[0], &key_bin) ||
+        !(key_bin.size == 32) ) {
+        return enif_make_badarg(env);
+    }
+    
+    if (!enif_inspect_binary(env, argv[1], &text) ) {
+        return enif_make_badarg(env);
+    }
+
+    key = EVP_PKEY_new_raw_private_key(type, /*engine*/ NULL, key_bin.data,  key_bin.size);
+
+    if (!key ||
+        !(mctx = EVP_MD_CTX_new()) ||
+        !EVP_DigestSignInit(mctx, &pctx, md, /*engine*/ NULL, key) ||
+        !EVP_DigestSignUpdate(mctx, text.data, text.size)) {
+        goto err;
+    }
+    
+    if (!EVP_DigestSignFinal(mctx, NULL, &size) ||
+        !enif_alloc_binary(size, &ret_bin) ||
+        !EVP_DigestSignFinal(mctx, ret_bin.data, &size)) {
+        goto err;
+    }
+
+    if ((size != ret_bin.size) &&
+        !enif_realloc_binary(&ret_bin, size)) {
+        goto err;
+    }
+
+    ret = enif_make_binary(env, &ret_bin);
+
+ err:
+    EVP_MD_CTX_free(mctx);
+    EVP_PKEY_free(key);
+    return ret;
+
+#else
+    return atom_notsup;
+#endif
+}
+
 static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Ivec, Text, IsEncrypt) or (Type, Key, Text, IsEncrypt) */
     struct cipher_type_t *cipherp = NULL;
     const EVP_CIPHER     *cipher;
     ErlNifBinary         key, ivec, text;
-    EVP_CIPHER_CTX       ctx;
+    EVP_CIPHER_CTX*      ctx;
     ERL_NIF_TERM         ret;
     unsigned char        *out;
     int                  ivec_size, out_size = 0;
@@ -1387,13 +2325,20 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         return enif_raise_exception(env, atom_notsup);
     }
 
-    if ((argv[0] == atom_aes_cfb8 || argv[0] == atom_aes_cfb128)
+    if (argv[0] == atom_aes_cfb8
         && (key.size == 24 || key.size == 32)) {
         /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
          * Fall back on low level API
          */
         return aes_cfb_8_crypt(env, argc-1, argv+1);
     }
+    else if (argv[0] == atom_aes_cfb128
+        && (key.size == 24 || key.size == 32)) {
+        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+         * Fall back on low level API
+         */
+        return aes_cfb_128_crypt_nif(env, argc-1, argv+1);
+   }
 
     ivec_size  = EVP_CIPHER_iv_length(cipher);
 
@@ -1413,30 +2358,30 @@ static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     out = enif_make_new_binary(env, text.size, &ret);
 
-    EVP_CIPHER_CTX_init(&ctx);
-    if (!EVP_CipherInit_ex(&ctx, cipher, NULL, NULL, NULL,
+    ctx = EVP_CIPHER_CTX_new();
+    if (!EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL,
                            (argv[argc - 1] == atom_true)) ||
-        !EVP_CIPHER_CTX_set_key_length(&ctx, key.size) ||
+        !EVP_CIPHER_CTX_set_key_length(ctx, key.size) ||
         !(EVP_CIPHER_type(cipher) != NID_rc2_cbc ||
-          EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_SET_RC2_KEY_BITS, key.size * 8, NULL)) ||
-        !EVP_CipherInit_ex(&ctx, NULL, NULL,
+          EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_SET_RC2_KEY_BITS, key.size * 8, NULL)) ||
+        !EVP_CipherInit_ex(ctx, NULL, NULL,
                            key.data, ivec_size ? ivec.data : NULL, -1) ||
-        !EVP_CIPHER_CTX_set_padding(&ctx, 0)) {
+        !EVP_CIPHER_CTX_set_padding(ctx, 0)) {
 
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return enif_raise_exception(env, atom_notsup);
     }
 
     if (text.size > 0 && /* OpenSSL 0.9.8h asserts text.size > 0 */
-        (!EVP_CipherUpdate(&ctx, out, &out_size, text.data, text.size)
+        (!EVP_CipherUpdate(ctx, out, &out_size, text.data, text.size)
          || (ASSERT(out_size == text.size), 0)
-         || !EVP_CipherFinal_ex(&ctx, out + out_size, &out_size))) {
+         || !EVP_CipherFinal_ex(ctx, out + out_size, &out_size))) {
 
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return enif_raise_exception(env, atom_notsup);
     }
     ASSERT(out_size == 0);
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
     CONSUME_REDS(env, text);
 
     return ret;
@@ -1449,6 +2394,8 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
      unsigned char ivec_clone[16]; /* writable copy */
      int new_ivlen = 0;
      ERL_NIF_TERM ret;
+
+     CHECK_NO_FIPS_MODE();
 
      if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
          || !(key.size == 16 || key.size == 24 || key.size == 32)
@@ -1467,6 +2414,31 @@ static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
      return ret;
 }
 
+static ERL_NIF_TERM aes_cfb_128_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+    ErlNifBinary key, ivec, text;
+    AES_KEY aes_key;
+    unsigned char ivec_clone[16]; /* writable copy */
+    int new_ivlen = 0;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || !(key.size == 16 || key.size == 24 || key.size == 32)
+        || !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+        || !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+        return enif_make_badarg(env);
+    }
+
+    memcpy(ivec_clone, ivec.data, 16);
+    AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
+    AES_cfb128_encrypt((unsigned char *) text.data,
+                       enif_make_new_binary(env, text.size, &ret),
+                       text.size, &aes_key, ivec_clone, &new_ivlen,
+                       (argv[3] == atom_true));
+    CONSUME_REDS(env,text);
+    return ret;
+}
+
 static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data, IsEncrypt) */
 #ifdef HAVE_AES_IGE
@@ -1476,6 +2448,8 @@ static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     int i;
     unsigned char* ret_ptr;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
        || (key_bin.size != 16 && key_bin.size != 32)
@@ -1506,64 +2480,6 @@ static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 #endif
 }
 
-/* Common for both encrypt and decrypt
-*/
-static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, IVec, Data) */    
-    ErlNifBinary     key, ivec, text;
-#ifdef HAVE_EVP_AES_CTR
-    const EVP_CIPHER *cipher;
-    EVP_CIPHER_CTX   ctx;
-    unsigned char    *out;
-    int              outl = 0;
-#else
-    AES_KEY          aes_key;
-    unsigned char    ivec_clone[16]; /* writable copy */
-    unsigned char    ecount_buf[AES_BLOCK_SIZE];
-    unsigned int     num = 0;
-#endif
-    ERL_NIF_TERM     ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-#ifndef HAVE_EVP_AES_CTR
-	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
-#endif
-	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
-	return enif_make_badarg(env);
-    }
-#ifdef HAVE_EVP_AES_CTR
-    switch (key.size)
-    {
-    case 16: cipher = EVP_aes_128_ctr(); break;
-    case 24: cipher = EVP_aes_192_ctr(); break;
-    case 32: cipher = EVP_aes_256_ctr(); break;
-    default: return enif_make_badarg(env);
-    }
-
-    out = enif_make_new_binary(env,text.size,&ret);
-    EVP_CIPHER_CTX_init(&ctx);
-    EVP_CipherInit_ex(&ctx, cipher, NULL,
-                      key.data, ivec.data, (argv[3] == atom_true));
-    EVP_CIPHER_CTX_set_padding(&ctx, 0);
-    EVP_CipherUpdate(&ctx, out, &outl, text.data, text.size);
-    ASSERT(outl == text.size);
-    EVP_CipherFinal_ex(&ctx, out + outl, &outl);
-    ASSERT(outl == 0);
-    EVP_CIPHER_CTX_cleanup(&ctx);
-#else
-    memcpy(ivec_clone, ivec.data, 16);    
-    memset(ecount_buf, 0, sizeof(ecount_buf));
-    AES_ctr128_encrypt((unsigned char *) text.data,
-		       enif_make_new_binary(env, text.size, &ret), 
-		       text.size, &aes_key, ivec_clone, ecount_buf, &num);
-#endif
-    CONSUME_REDS(env,text);
-
-    /* To do an incremental {en|de}cryption, the state to to keep between calls
-	must include ivec_clone, ecount_buf and num. */
-    return ret;
-}
 
 /* Initializes state for ctr streaming (de)encryption
 */
@@ -1571,7 +2487,7 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec) */
     ErlNifBinary     key_bin, ivec_bin;
-    EVP_CIPHER_CTX   *ctx;
+    struct evp_cipher_ctx *ctx;
     const EVP_CIPHER *cipher;
     ERL_NIF_TERM     ret;
 
@@ -1589,18 +2505,18 @@ static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_
     default: return enif_make_badarg(env);
     }
 
-    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(EVP_CIPHER_CTX));
-    EVP_CIPHER_CTX_init(ctx);
-    EVP_CipherInit_ex(ctx, cipher, NULL,
+    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    ctx->ctx = EVP_CIPHER_CTX_new();
+    EVP_CipherInit_ex(ctx->ctx, cipher, NULL,
                       key_bin.data, ivec_bin.data, 1);
-    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
     ret = enif_make_resource(env, ctx);
     enif_release_resource(ctx);
     return ret;
 }
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    EVP_CIPHER_CTX *ctx, *new_ctx;
+    struct evp_cipher_ctx *ctx, *new_ctx;
     ErlNifBinary   data_bin;
     ERL_NIF_TERM   ret, cipher_term;
     unsigned char  *out;
@@ -1610,11 +2526,11 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
         || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
         return enif_make_badarg(env);
     }
-    new_ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(EVP_CIPHER_CTX));
-    EVP_CIPHER_CTX_init(new_ctx);
-    EVP_CIPHER_CTX_copy(new_ctx, ctx);
+    new_ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    new_ctx->ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX_copy(new_ctx->ctx, ctx->ctx);
     out = enif_make_new_binary(env, data_bin.size, &cipher_term);
-    EVP_CipherUpdate(new_ctx, out, &outl, data_bin.data, data_bin.size);
+    EVP_CipherUpdate(new_ctx->ctx, out, &outl, data_bin.data, data_bin.size);
     ASSERT(outl == data_bin.size);
 
     ret = enif_make_tuple2(env, enif_make_resource(env, new_ctx), cipher_term);
@@ -1643,7 +2559,7 @@ static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_
 }
 
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* ({Key, IVec, ECount, Num}, Data) */    
+{/* ({Key, IVec, ECount, Num}, Data) */
     ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
     AES_KEY aes_key;
     unsigned int num;
@@ -1664,14 +2580,14 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
         return enif_make_badarg(env);
     }
 
-    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term); 
+    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term);
     ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term);
-    
+
     memcpy(ivec2_buf, ivec_bin.data, 16);
     memcpy(ecount2_buf, ecount_bin.data, ecount_bin.size);
 
     AES_ctr128_encrypt((unsigned char *) text_bin.data,
-		       enif_make_new_binary(env, text_bin.size, &cipher_term), 
+		       enif_make_new_binary(env, text_bin.size, &cipher_term),
 		       text_bin.size, &aes_key, ivec2_buf, ecount2_buf, &num);
 
     num2_term = enif_make_uint(env, num);
@@ -1682,67 +2598,103 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
 }
 #endif /* !HAVE_EVP_AES_CTR */
 
-static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key,Iv,AAD,In) */
-#if defined(HAVE_GCM)
-    EVP_CIPHER_CTX ctx;
+static ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type,Key,Iv,AAD,In) */
+#if defined(HAVE_AEAD)
+    EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
     unsigned int tag_len;
     unsigned char *outp, *tagp;
-    ERL_NIF_TERM out, out_tag;
-    int len;
+    ERL_NIF_TERM type, out, out_tag;
+    int len, ctx_ctrl_set_ivlen, ctx_ctrl_get_tag;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| (key.size != 16 && key.size != 24 && key.size != 32)
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
-	|| !enif_get_uint(env, argv[4], &tag_len) || tag_len < 1 || tag_len > 16) {
+    type = argv[0];
+
+    if (!enif_is_atom(env, type)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &key)
+	|| !enif_inspect_binary(env, argv[2], &iv)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &in)
+	|| !enif_get_uint(env, argv[5], &tag_len)) {
 	return enif_make_badarg(env);
     }
 
-    if (key.size == 16)
-        cipher = EVP_aes_128_gcm();
-    else if (key.size == 24)
-        cipher = EVP_aes_192_gcm();
-    else if (key.size == 32)
-        cipher = EVP_aes_256_gcm();
+    /* Use cipher_type some day.  Must check block_encrypt|decrypt first */
+#if defined(HAVE_GCM)
+    if (type == atom_aes_gcm) {
+        if ((iv.size > 0)
+            && (1 <= tag_len && tag_len <= 16)) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
+            ctx_ctrl_get_tag = EVP_CTRL_GCM_GET_TAG;
+            if (key.size == 16)      cipher = EVP_aes_128_gcm();
+            else if (key.size == 24) cipher = EVP_aes_192_gcm();
+            else if (key.size == 32) cipher = EVP_aes_256_gcm();
+            else enif_make_badarg(env);
+        } else
+            enif_make_badarg(env);
+    } else
+#endif
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if ((7 <= iv.size && iv.size <= 13)
+            && (4 <= tag_len && tag_len <= 16)
+            && ((tag_len & 1) == 0)
+            ) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
+            ctx_ctrl_get_tag = EVP_CTRL_CCM_GET_TAG;
+            if (key.size == 16)      cipher = EVP_aes_128_ccm();
+            else if (key.size == 24) cipher = EVP_aes_192_ccm();
+            else if (key.size == 32) cipher = EVP_aes_256_ccm();
+            else enif_make_badarg(env);
+        } else
+            enif_make_badarg(env);
+    } else
+#endif
+#if defined(HAVE_CHACHA20_POLY1305)
+    if (type == atom_chacha20_poly1305) {
+        if ((key.size == 32)
+            && (1 <= iv.size && iv.size <= 16)
+            && (tag_len == 16)
+            ) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
+            ctx_ctrl_get_tag = EVP_CTRL_AEAD_GET_TAG,
+                cipher = EVP_chacha20_poly1305();
+        } else enif_make_badarg(env);
+    } else
+#endif
+        return enif_raise_exception(env, atom_notsup);
+ 
+    ctx = EVP_CIPHER_CTX_new();
+    if (EVP_EncryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_ivlen, iv.size, NULL) != 1) goto out_err;
 
-    EVP_CIPHER_CTX_init(&ctx);
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag_len, NULL) != 1) goto out_err;
+        if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
+        if (EVP_EncryptUpdate(ctx, NULL, &len, NULL, in.size) != 1) goto out_err;
+    } else
+#endif
+        if (EVP_EncryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
 
-    if (EVP_EncryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
-        goto out_err;
-
-    EVP_CIPHER_CTX_set_padding(&ctx, 0);
-
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
-        goto out_err;
-    if (EVP_EncryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
-        goto out_err;
-    if (EVP_EncryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
-        goto out_err;
+    if (EVP_EncryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1) goto out_err;
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    if (EVP_EncryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
-        goto out_err;
-    if (EVP_EncryptFinal_ex(&ctx, outp+len, &len) != 1)
-        goto out_err;
+    if (EVP_EncryptUpdate(ctx, outp, &len, in.data, in.size) != 1) goto out_err;
+    if (EVP_EncryptFinal_ex(ctx, outp/*+len*/, &len) != 1) goto out_err;
 
     tagp = enif_make_new_binary(env, tag_len, &out_tag);
 
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, tag_len, tagp) != 1)
-        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_get_tag, tag_len, tagp) != 1) goto out_err;
 
-    EVP_CIPHER_CTX_cleanup(&ctx);
-
+    EVP_CIPHER_CTX_free(ctx);
     CONSUME_REDS(env, in);
-
     return enif_make_tuple2(env, out, out_tag);
 
-out_err:
-    EVP_CIPHER_CTX_cleanup(&ctx);
+out_err: 
+    EVP_CIPHER_CTX_free(ctx);
     return atom_error;
 
 #else
@@ -1750,62 +2702,107 @@ out_err:
 #endif
 }
 
-static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key,Iv,AAD,In,Tag) */
-#if defined(HAVE_GCM_EVP_DECRYPT_BUG)
-    return aes_gcm_decrypt_NO_EVP(env, argc, argv);
-#elif defined(HAVE_GCM)
-    EVP_CIPHER_CTX ctx;
+static ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type,Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_AEAD)
+    EVP_CIPHER_CTX *ctx;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     unsigned char *outp;
-    ERL_NIF_TERM out;
-    int len;
+    ERL_NIF_TERM type, out;
+    int len, ctx_ctrl_set_ivlen, ctx_ctrl_set_tag;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| (key.size != 16 && key.size != 24 && key.size != 32)
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
+    type = argv[0];
+#if defined(HAVE_GCM_EVP_DECRYPT_BUG)
+    if (type == atom_aes_gcm)
+        return aes_gcm_decrypt_NO_EVP(env, argc, argv);
+#endif
+
+    if (!enif_is_atom(env, type)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &key)
+	|| !enif_inspect_binary(env, argv[2], &iv)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[5], &tag)) {
 	return enif_make_badarg(env);
     }
 
-    if (key.size == 16)
-        cipher = EVP_aes_128_gcm();
-    else if (key.size == 24)
-        cipher = EVP_aes_192_gcm();
-    else if (key.size == 32)
-        cipher = EVP_aes_256_gcm();
-
-    EVP_CIPHER_CTX_init(&ctx);
-
-    if (EVP_DecryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
-        goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
-        goto out_err;
-    if (EVP_DecryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
-        goto out_err;
-    if (EVP_DecryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
-        goto out_err;
+    /* Use cipher_type some day.  Must check block_encrypt|decrypt first */
+#if defined(HAVE_GCM)
+    if (type == atom_aes_gcm) {
+        if (iv.size > 0) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_GCM_SET_IVLEN;
+            ctx_ctrl_set_tag = EVP_CTRL_GCM_SET_TAG;
+            if (key.size == 16)      cipher = EVP_aes_128_gcm();
+            else if (key.size == 24) cipher = EVP_aes_192_gcm();
+            else if (key.size == 32) cipher = EVP_aes_256_gcm();
+            else enif_make_badarg(env);
+        } else
+            enif_make_badarg(env);
+    } else
+#endif
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (iv.size > 0) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_CCM_SET_IVLEN;
+            if (key.size == 16)      cipher = EVP_aes_128_ccm();
+            else if (key.size == 24) cipher = EVP_aes_192_ccm();
+            else if (key.size == 32) cipher = EVP_aes_256_ccm();
+            else enif_make_badarg(env);
+        } else
+            enif_make_badarg(env);
+    } else
+#endif
+#if defined(HAVE_CHACHA20_POLY1305)
+    if (type == atom_chacha20_poly1305) {
+        if ((key.size == 32)
+            && (1 <= iv.size && iv.size <= 16)
+            && tag.size == 16
+            ) {
+            ctx_ctrl_set_ivlen = EVP_CTRL_AEAD_SET_IVLEN;
+            ctx_ctrl_set_tag = EVP_CTRL_AEAD_SET_TAG;
+            cipher = EVP_chacha20_poly1305();
+        } else enif_make_badarg(env);
+    } else
+#endif
+        return enif_raise_exception(env, atom_notsup);
 
     outp = enif_make_new_binary(env, in.size, &out);
 
-    if (EVP_DecryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
-        goto out_err;
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, tag.size, tag.data) != 1)
-        goto out_err;
-    if (EVP_DecryptFinal_ex(&ctx, outp+len, &len) != 1)
-        goto out_err;
+    ctx = EVP_CIPHER_CTX_new();
+    if (EVP_DecryptInit_ex(ctx, cipher, NULL, NULL, NULL) != 1) goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(ctx,  ctx_ctrl_set_ivlen, iv.size, NULL) != 1) goto out_err;
 
-    EVP_CIPHER_CTX_cleanup(&ctx);
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag.size, tag.data) != 1) goto out_err;
+    }
+#endif
+
+    if (EVP_DecryptInit_ex(ctx, NULL, NULL, key.data, iv.data) != 1) goto out_err;
+
+#if defined(HAVE_CCM)
+    if (type == atom_aes_ccm) {
+        if (1 != EVP_DecryptUpdate(ctx, NULL, &len, NULL, in.size)) goto out_err;
+    }
+#endif
+
+    if (EVP_DecryptUpdate(ctx, NULL, &len, aad.data, aad.size) != 1) goto out_err;
+    if (EVP_DecryptUpdate(ctx, outp, &len, in.data, in.size) != 1) goto out_err;
+
+#if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
+    if (type == atom_aes_gcm) {
+         if (EVP_CIPHER_CTX_ctrl(ctx, ctx_ctrl_set_tag, tag.size, tag.data) != 1) goto out_err;
+         if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1) goto out_err;
+    }
+#endif
+    EVP_CIPHER_CTX_free(ctx);
 
     CONSUME_REDS(env, in);
-
     return out;
 
 out_err:
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
     return atom_error;
 #else
     return enif_raise_exception(env, atom_notsup);
@@ -1814,19 +2811,19 @@ out_err:
 
 #ifdef HAVE_GCM_EVP_DECRYPT_BUG
 static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
+{/* (Type,Key,Iv,AAD,In,Tag) */
     GCM128_CONTEXT *ctx;
     ErlNifBinary key, iv, aad, in, tag;
     AES_KEY aes_key;
     unsigned char *outp;
     ERL_NIF_TERM out;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
         || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
-        || !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
-        || !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-        || !enif_inspect_iolist_as_binary(env, argv[3], &in)
-        || !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
+        || !enif_inspect_binary(env, argv[2], &iv) || iv.size == 0
+        || !enif_inspect_iolist_as_binary(env, argv[3], &aad)
+        || !enif_inspect_iolist_as_binary(env, argv[4], &in)
+        || !enif_inspect_iolist_as_binary(env, argv[5], &tag)) {
         return enif_make_badarg(env);
     }
 
@@ -1859,147 +2856,71 @@ out_err:
 }
 #endif /* HAVE_GCM_EVP_DECRYPT_BUG */
 
-#if defined(HAVE_CHACHA20_POLY1305)
-static void
-poly1305_update_with_length(poly1305_state *poly1305,
-			    const unsigned char *data, size_t data_len)
-{
-        size_t j = data_len;
-        unsigned char length_bytes[8];
-        unsigned i;
 
-        for (i = 0; i < sizeof(length_bytes); i++) {
-                length_bytes[i] = j;
-                j >>= 8;
-        }
+static ERL_NIF_TERM chacha20_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IV) */
+#if defined(HAVE_CHACHA20)
+    ErlNifBinary     key_bin, ivec_bin;
+    struct evp_cipher_ctx *ctx;
+    const EVP_CIPHER *cipher;
+    ERL_NIF_TERM     ret;
 
-        CRYPTO_poly1305_update(poly1305, data, data_len);
-        CRYPTO_poly1305_update(poly1305, length_bytes, sizeof(length_bytes));
-}
-#endif
-
-static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key,Iv,AAD,In) */
-#if defined(HAVE_CHACHA20_POLY1305)
-    ErlNifBinary key, iv, aad, in;
-    unsigned char *outp;
-    ERL_NIF_TERM out, out_tag;
-    ErlNifUInt64 in_len_64;
-    unsigned char poly1305_key[32];
-    poly1305_state poly1305;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
-	return enif_make_badarg(env);
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+        || !enif_inspect_binary(env, argv[1], &ivec_bin)
+        || key_bin.size != 32
+        || ivec_bin.size != 16) {
+        return enif_make_badarg(env);
     }
 
-    /* Take from OpenSSL patch set/LibreSSL:
-     *
-     * The underlying ChaCha implementation may not overflow the block
-     * counter into the second counter word. Therefore we disallow
-     * individual operations that work on more than 2TB at a time.
-     * in_len_64 is needed because, on 32-bit platforms, size_t is only
-     * 32-bits and this produces a warning because it's always false.
-     * Casting to uint64_t inside the conditional is not sufficient to stop
-     * the warning. */
-    in_len_64 = in.size;
-    if (in_len_64 >= (1ULL << 32) * 64 - 64)
-	return enif_make_badarg(env);
+    cipher = EVP_chacha20();
 
-    memset(poly1305_key, 0, sizeof(poly1305_key));
-    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    ctx->ctx = EVP_CIPHER_CTX_new();
 
-    outp = enif_make_new_binary(env, in.size, &out);
 
-    CRYPTO_poly1305_init(&poly1305, poly1305_key);
-    poly1305_update_with_length(&poly1305, aad.data, aad.size);
-    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
-    poly1305_update_with_length(&poly1305, outp, in.size);
-
-    CRYPTO_poly1305_finish(&poly1305, enif_make_new_binary(env, POLY1305_TAG_LEN, &out_tag));
-
-    CONSUME_REDS(env, in);
-
-    return enif_make_tuple2(env, out, out_tag);
-
-#else
-    return enif_raise_exception(env, atom_notsup);
-#endif
-}
-
-static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key,Iv,AAD,In,Tag) */
-#if defined(HAVE_CHACHA20_POLY1305)
-    ErlNifBinary key, iv, aad, in, tag;
-    unsigned char *outp;
-    ERL_NIF_TERM out;
-    ErlNifUInt64 in_len_64;
-    unsigned char poly1305_key[32];
-    unsigned char mac[POLY1305_TAG_LEN];
-    poly1305_state poly1305;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
-	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
-	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != POLY1305_TAG_LEN) {
-	return enif_make_badarg(env);
-    }
-
-    /* Take from OpenSSL patch set/LibreSSL:
-     *
-     * The underlying ChaCha implementation may not overflow the block
-     * counter into the second counter word. Therefore we disallow
-     * individual operations that work on more than 2TB at a time.
-     * in_len_64 is needed because, on 32-bit platforms, size_t is only
-     * 32-bits and this produces a warning because it's always false.
-     * Casting to uint64_t inside the conditional is not sufficient to stop
-     * the warning. */
-    in_len_64 = in.size;
-    if (in_len_64 >= (1ULL << 32) * 64 - 64)
-	return enif_make_badarg(env);
-
-    memset(poly1305_key, 0, sizeof(poly1305_key));
-    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
-
-    CRYPTO_poly1305_init(&poly1305, poly1305_key);
-    poly1305_update_with_length(&poly1305, aad.data, aad.size);
-    poly1305_update_with_length(&poly1305, in.data, in.size);
-    CRYPTO_poly1305_finish(&poly1305, mac);
-
-    if (memcmp(mac, tag.data, POLY1305_TAG_LEN) != 0)
-	return atom_error;
-
-    outp = enif_make_new_binary(env, in.size, &out);
-
-    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
-
-    CONSUME_REDS(env, in);
-
-    return out;
-#else
-    return enif_raise_exception(env, atom_notsup);
-#endif
-}
-
-static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes) */     
-    unsigned bytes;
-    unsigned char* data;
-    ERL_NIF_TERM ret;
-
-    if (!enif_get_uint(env, argv[0], &bytes)) {
-	return enif_make_badarg(env);
-    }
-    data = enif_make_new_binary(env, bytes, &ret);
-    RAND_pseudo_bytes(data, bytes);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
+    EVP_CipherInit_ex(ctx->ctx, cipher, NULL,
+                      key_bin.data, ivec_bin.data, 1);
+    EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
     return ret;
-}
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+};
+
+static ERL_NIF_TERM chacha20_stream_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (State, Data) */
+#if defined(HAVE_CHACHA20)
+    struct evp_cipher_ctx *ctx, *new_ctx;
+    ErlNifBinary   data_bin;
+    ERL_NIF_TERM   ret, cipher_term;
+    unsigned char  *out;
+    int            outl = 0;
+
+    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+        return enif_make_badarg(env);
+    }
+    new_ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
+    new_ctx->ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX_copy(new_ctx->ctx, ctx->ctx);
+    out = enif_make_new_binary(env, data_bin.size, &cipher_term);
+    EVP_CipherUpdate(new_ctx->ctx, out, &outl, data_bin.data, data_bin.size);
+    ASSERT(outl == data_bin.size);
+
+    ret = enif_make_tuple2(env, enif_make_resource(env, new_ctx), cipher_term);
+    enif_release_resource(new_ctx);
+    CONSUME_REDS(env,data_bin);
+    return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+};
+
+
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes) */     
+{/* (Bytes) */
     unsigned bytes;
     unsigned char* data;
     ERL_NIF_TERM ret;
@@ -2015,49 +2936,6 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-
-static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes, TopMask, BottomMask) */    
-    unsigned bits;
-    BIGNUM *bn_rand;
-    int top, bottom;
-    unsigned char* data;
-    unsigned dlen;
-    ERL_NIF_TERM ret;
-
-    if (!enif_get_uint(env, argv[0], &bits)
-	|| !enif_get_int(env, argv[1], &top)
-	|| !enif_get_int(env, argv[2], &bottom)) {
-	return enif_make_badarg(env);
-    }
-    if (! (top == -1 || top == 0 || top == 1) ) {
-        return enif_make_badarg(env);
-    }
-    if (! (bottom == 0 || bottom == 1) ) {
-        return enif_make_badarg(env);
-    }
-
-    bn_rand = BN_new();
-    if (! bn_rand ) {
-        return enif_make_badarg(env);
-    }
-
-    /* Get a (bits) bit random number */
-    if (!BN_rand(bn_rand, bits, top, bottom)) {
-        ret = atom_false;
-    }
-    else {
-	/* Copy the bignum into an erlang mpint binary. */
-	dlen = BN_num_bytes(bn_rand);
-	data = enif_make_new_binary(env, dlen+4, &ret);
-	put_int32(data, dlen);
-	BN_bn2bin(bn_rand, data+4);
-	ERL_VALGRIND_MAKE_MEM_DEFINED(data+4, dlen);
-    }
-    BN_free(bn_rand);
-
-    return ret;
-}
 
 static int get_bn_from_mpint(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
 {
@@ -2086,6 +2964,41 @@ static int get_bn_from_bin(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp)
     return 1;
 }
 
+static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn)
+{
+    int bn_len;
+    unsigned char *bin_ptr;
+    ERL_NIF_TERM term;
+
+    /* Copy the bignum into an erlang binary. */
+    bn_len = BN_num_bytes(bn);
+    bin_ptr = enif_make_new_binary(env, bn_len, &term);
+    BN_bn2bin(bn, bin_ptr);
+
+    return term;
+}
+
+static ERL_NIF_TERM strong_rand_range_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Range) */
+    BIGNUM *bn_range, *bn_rand;
+    ERL_NIF_TERM ret;
+
+    if(!get_bn_from_bin(env, argv[0], &bn_range)) {
+        return enif_make_badarg(env);
+    }
+
+    bn_rand = BN_new();
+    if (BN_rand_range(bn_rand, bn_range) != 1) {
+        ret = atom_false;
+    }
+    else {
+        ret = bin_from_bn(env, bn_rand);
+    }
+    BN_free(bn_rand);
+    BN_free(bn_range);
+    return ret;
+}
+
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Lo,Hi) */
     BIGNUM *bn_from = NULL, *bn_to, *bn_rand;
@@ -2101,7 +3014,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
     bn_to = BN_new();
     BN_sub(bn_to, bn_rand, bn_from);
-    BN_pseudo_rand_range(bn_rand, bn_to);      
+    BN_pseudo_rand_range(bn_rand, bn_to);
     BN_add(bn_rand, bn_rand, bn_from);
     dlen = BN_num_bytes(bn_rand);
     data = enif_make_new_binary(env, dlen+4, &ret);
@@ -2119,7 +3032,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo=NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
-    unsigned dlen;      
+    unsigned dlen;
     unsigned bin_hdr; /* return type: 0=plain binary, 4: mpint */
     unsigned extra_byte;
     ERL_NIF_TERM ret;
@@ -2140,7 +3053,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     dlen = BN_num_bytes(bn_result);
     extra_byte = bin_hdr && BN_is_bit_set(bn_result, dlen*8-1);
     ptr = enif_make_new_binary(env, bin_hdr+extra_byte+dlen, &ret);
-    if (bin_hdr) {	
+    if (bin_hdr) {
 	put_int32(ptr, extra_byte+dlen);
 	ptr[4] = 0; /* extra zeroed byte to ensure a positive mpint */
 	ptr += bin_hdr + extra_byte;
@@ -2152,47 +3065,6 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     BN_free(bn_exponent);
     BN_free(bn_base);
     return ret;
-}
-
-static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (sha, Digest, Signature,Key=[P, Q, G, Y]) */
-    ErlNifBinary digest_bin, sign_bin;
-    BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
-    ERL_NIF_TERM head, tail;
-    DSA *dsa;
-    int i;
-
-    if (argv[0] != atom_sha
-        || !enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != SHA_DIGEST_LENGTH
-        || !enif_inspect_binary(env, argv[2], &sign_bin)
-	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa_p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa_q)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa_g)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa_y)
-	|| !enif_is_empty_list(env,tail)) {
-
-	if (dsa_p) BN_free(dsa_p);
-	if (dsa_q) BN_free(dsa_q);
-	if (dsa_g) BN_free(dsa_g);
-	if (dsa_y) BN_free(dsa_y);
-	return enif_make_badarg(env);
-    }
-
-    dsa = DSA_new();
-    dsa->p = dsa_p;
-    dsa->q = dsa_q;
-    dsa->g = dsa_g;
-    dsa->priv_key = NULL;
-    dsa->pub_key = dsa_y;
-    i =  DSA_verify(0, digest_bin.data, SHA_DIGEST_LENGTH,
-		    sign_bin.data, sign_bin.size, dsa);
-    DSA_free(dsa);
-    return(i > 0) ? atom_true : atom_false;
 }
 
 static void init_digest_types(ErlNifEnv* env)
@@ -2241,68 +3113,6 @@ static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
     return NULL;
 }
 
-static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Signature, Key=[E,N]) */
-    ErlNifBinary         digest_bin, sign_bin;
-    ERL_NIF_TERM         head, tail, ret;
-    int                  i;
-    RSA                  *rsa;
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
-    EVP_PKEY             *pkey;
-    EVP_PKEY_CTX         *ctx;
-#endif
-    const EVP_MD         *md;
-    const ERL_NIF_TERM   type = argv[0];
-    struct digest_type_t *digp = NULL;
-
-    digp = get_digest_type(type);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-
-    rsa = RSA_new();
-
-    if (!enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != EVP_MD_size(md)
-        || !enif_inspect_binary(env, argv[2], &sign_bin)
-	|| !enif_get_list_cell(env, argv[3], &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->n)
-	|| !enif_is_empty_list(env, tail)) {
-	
-	ret = enif_make_badarg(env);
-	goto done;
-    }
-
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
-    pkey = EVP_PKEY_new();
-    EVP_PKEY_set1_RSA(pkey, rsa);
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    EVP_PKEY_verify_init(ctx);
-    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING);
-    EVP_PKEY_CTX_set_signature_md(ctx, md);
-
-    i = EVP_PKEY_verify(ctx, sign_bin.data, sign_bin.size,
-                        digest_bin.data, digest_bin.size);
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-#else
-    i = RSA_verify(md->type, digest_bin.data, EVP_MD_size(md),
-		   sign_bin.data, sign_bin.size, rsa);
-#endif
-
-    ret = (i==1 ? atom_true : atom_false);
-
-done:
-    RSA_free(rsa);
-    return ret;
-}
 
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data1, Data2) */
@@ -2325,42 +3135,33 @@ static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return ret;
 }
 
-static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data) */
-    ErlNifBinary key, data;
-    RC4_KEY rc4_key;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env,argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env,argv[1], &data)) {
-	return enif_make_badarg(env);
-    }
-    RC4_set_key(&rc4_key, key.size, key.data);
-    RC4(&rc4_key, data.size, data.data,
-	enif_make_new_binary(env, data.size, &ret));
-    CONSUME_REDS(env,data);
-    return ret;
-}   
-
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key) */
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary key;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!enif_inspect_iolist_as_binary(env,argv[0], &key)) {
 	return enif_make_badarg(env);
     }
     RC4_set_key((RC4_KEY*)enif_make_new_binary(env, sizeof(RC4_KEY), &ret),
-		key.size, key.data);        
+		key.size, key.data);
     return ret;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
 }
 
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (State, Data) */
-
+#ifndef OPENSSL_NO_RC4
     ErlNifBinary state, data;
     RC4_KEY* rc4_key;
     ERL_NIF_TERM new_state, new_data;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!enif_inspect_iolist_as_binary(env,argv[0], &state)
 	|| state.size != sizeof(RC4_KEY)
@@ -2373,413 +3174,456 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
 	enif_make_new_binary(env, data.size, &new_data));
     CONSUME_REDS(env,data);
     return enif_make_tuple2(env,new_state,new_data);
-}   
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
+    BIGNUM *e, *n, *d;
+    BIGNUM *p, *q;
+    BIGNUM *dmp1, *dmq1, *iqmp;
 
     if (!enif_get_list_cell(env, key, &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->e)
+	|| !get_bn_from_bin(env, head, &e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->n)
+	|| !get_bn_from_bin(env, head, &n)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->d)
-	|| (!enif_is_empty_list(env, tail) &&
-	    (!enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_bin(env, head, &rsa->p)
-	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_bin(env, head, &rsa->q)
-	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_bin(env, head, &rsa->dmp1)
-	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_bin(env, head, &rsa->dmq1)
-	     || !enif_get_list_cell(env, tail, &head, &tail)
-	     || !get_bn_from_bin(env, head, &rsa->iqmp)
-	     || !enif_is_empty_list(env, tail)))) {
+	|| !get_bn_from_bin(env, head, &d)) {
 	return 0;
     }
+    (void) RSA_set0_key(rsa, n, e, d);
+    if (enif_is_empty_list(env, tail)) {
+	return 1;
+    }
+    if (!enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &p)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &q)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dmp1)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dmq1)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &iqmp)
+	|| !enif_is_empty_list(env, tail)) {
+	return 0;
+    }
+    (void) RSA_set0_factors(rsa, p, q);
+    (void) RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp);
     return 1;
 }
 
-static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
-    ErlNifBinary         digest_bin, ret_bin;
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
-    EVP_PKEY             *pkey;
-    EVP_PKEY_CTX         *ctx;
-    size_t               rsa_s_len;
-#else
-    unsigned             rsa_s_len, len;
-#endif
-    RSA                  *rsa;
-    int                  i;
-    struct digest_type_t *digp;
-    const EVP_MD         *md;
 
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-
-    if (!enif_inspect_binary(env,argv[1],&digest_bin)
-        || digest_bin.size != EVP_MD_size(md)) {
-        return enif_make_badarg(env);
-    }
-
-    rsa = RSA_new();
-    if (!get_rsa_private_key(env, argv[2], rsa)) {
-	RSA_free(rsa);
-	return enif_make_badarg(env);
-    }
-
-
-#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
-    pkey = EVP_PKEY_new();
-    EVP_PKEY_set1_RSA(pkey, rsa);
-    rsa_s_len=(size_t)EVP_PKEY_size(pkey);
-    enif_alloc_binary(rsa_s_len, &ret_bin);
-
-    ctx = EVP_PKEY_CTX_new(pkey, NULL);
-    EVP_PKEY_sign_init(ctx);
-    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING);
-    EVP_PKEY_CTX_set_signature_md(ctx, md);
-
-    i = EVP_PKEY_sign(ctx, ret_bin.data, &rsa_s_len,
-                      digest_bin.data, digest_bin.size);
-    ASSERT(i<=0 || rsa_s_len <= ret_bin.size);
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(pkey);
-#else
-    enif_alloc_binary(RSA_size(rsa), &ret_bin);
-    len = EVP_MD_size(md);
-
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
-    i =  RSA_sign(md->type, digest_bin.data, len,
-		  ret_bin.data, &rsa_s_len, rsa);
-#endif
-
-    RSA_free(rsa);
-    if (i > 0) {
-	ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, rsa_s_len);
-	if (rsa_s_len != ret_bin.size) {
-	    enif_realloc_binary(&ret_bin, rsa_s_len);
-	    ERL_VALGRIND_ASSERT_MEM_DEFINED(ret_bin.data, rsa_s_len);
-	}
-	return enif_make_binary(env,&ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
-}
-
-
-static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (sha, Digest, Key=[P,Q,G,PrivKey]) */
-    ErlNifBinary digest_bin, ret_bin;
-    ERL_NIF_TERM head, tail;
-    unsigned int dsa_s_len;
-    DSA* dsa;
-    int i;
-
-    if (argv[0] != atom_sha
-        || !enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != SHA_DIGEST_LENGTH) {
-	return enif_make_badarg(env);
-    }
-
-    dsa = DSA_new();
-
-    dsa->pub_key  = NULL;
-    if (!enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa->p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa->q)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa->g)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dsa->priv_key)
-	|| !enif_is_empty_list(env,tail)) {
-	DSA_free(dsa);
-	return enif_make_badarg(env);
-    }
-
-    enif_alloc_binary(DSA_size(dsa), &ret_bin);
-    i =  DSA_sign(NID_sha1, digest_bin.data, SHA_DIGEST_LENGTH,
-		  ret_bin.data, &dsa_s_len, dsa);
-    DSA_free(dsa);
-    if (i) {
-	if (dsa_s_len != ret_bin.size) {
-	    enif_realloc_binary(&ret_bin, dsa_s_len);
-	}
-	return enif_make_binary(env, &ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
-}
-
-
-static int rsa_pad(ERL_NIF_TERM term, int* padding)
+static int get_rsa_public_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {
-    if (term == atom_rsa_pkcs1_padding) {
-	*padding = RSA_PKCS1_PADDING;
-    }
-    else if (term == atom_rsa_pkcs1_oaep_padding) {
-	*padding = RSA_PKCS1_OAEP_PADDING;
-    }
-    else if (term == atom_rsa_no_padding) {
-	*padding = RSA_NO_PADDING;
-    }
-    else {
+    /* key=[E,N] */
+    ERL_NIF_TERM head, tail;
+    BIGNUM *e, *n;
+
+    if (!enif_get_list_cell(env, key, &head, &tail)
+	|| !get_bn_from_bin(env, head, &e)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &n)
+        || !enif_is_empty_list(env, tail)) {
 	return 0;
     }
+
+    (void) RSA_set0_key(rsa, n, e, NULL);
     return 1;
 }
 
-static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data, PublKey=[E,N], Padding, IsEncrypt) */
-    ErlNifBinary data_bin, ret_bin;
+#ifdef HAVE_EDDSA
+ static int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    /* key=[K] */
+    ERL_NIF_TERM head, tail, tail2, algo;
+    ErlNifBinary bin;
+    int type;
+
+    if (!enif_get_list_cell(env, key, &head, &tail)
+	|| !enif_inspect_binary(env, head, &bin)
+        || !enif_get_list_cell(env, tail, &algo, &tail2)
+        || !enif_is_empty_list(env, tail2)) {
+	return 0;
+    }
+    if (algo == atom_ed25519) type = EVP_PKEY_ED25519;
+    else if (algo == atom_ed448) type = EVP_PKEY_ED448;
+    else
+        return 0;
+
+    if (public)
+        *pkey = EVP_PKEY_new_raw_public_key(type, NULL, bin.data, bin.size);
+    else 
+        *pkey = EVP_PKEY_new_raw_private_key(type, NULL, bin.data, bin.size);
+
+    if (!pkey)
+        return 0;
+    return 1;
+}
+#endif
+
+static int get_dss_private_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
+{
+    /* key=[P,Q,G,KEY] */
     ERL_NIF_TERM head, tail;
-    int padding, i;
-    RSA* rsa;
+    BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL;
+    BIGNUM *dummy_pub_key, *priv_key = NULL;
 
-    rsa = RSA_new();
-
-    if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->e)
+    if (!enif_get_list_cell(env, key, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &rsa->n)
-	|| !enif_is_empty_list(env,tail)
-	|| !rsa_pad(argv[2], &padding)) {
-
-	RSA_free(rsa);
-	return enif_make_badarg(env);
+	|| !get_bn_from_bin(env, head, &dsa_q)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_g)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &priv_key)
+	|| !enif_is_empty_list(env,tail)) {
+	if (dsa_p) BN_free(dsa_p);
+	if (dsa_q) BN_free(dsa_q);
+	if (dsa_g) BN_free(dsa_g);
+	if (priv_key) BN_free(priv_key);
+	return 0;
     }
 
-    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
+    /* Note: DSA_set0_key() does not allow setting only the
+     * private key, although DSA_sign() does not use the
+     * public key. Work around this limitation by setting
+     * the public key to a copy of the private key.
+     */
+    dummy_pub_key = BN_dup(priv_key);
 
-    if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
-	i = RSA_public_encrypt(data_bin.size, data_bin.data,
-			       ret_bin.data, rsa, padding);
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	}
+    DSA_set0_pqg(dsa, dsa_p, dsa_q, dsa_g);
+    DSA_set0_key(dsa, dummy_pub_key, priv_key);
+    return 1;
+}
+
+
+static int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
+{
+    /* key=[P, Q, G, Y] */
+    ERL_NIF_TERM head, tail;
+    BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
+
+    if (!enif_get_list_cell(env, key, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_p)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_q)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_g)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_bin(env, head, &dsa_y)
+	|| !enif_is_empty_list(env,tail)) {
+	if (dsa_p) BN_free(dsa_p);
+	if (dsa_q) BN_free(dsa_q);
+	if (dsa_g) BN_free(dsa_g);
+	if (dsa_y) BN_free(dsa_y);
+	return 0;
     }
-    else {
-	i = RSA_public_decrypt(data_bin.size, data_bin.data,
-			       ret_bin.data, rsa, padding);    
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(&ret_bin, i);
-	}
-    }
-    RSA_free(rsa);
-    if (i > 0) {
-	return enif_make_binary(env,&ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
+
+    DSA_set0_pqg(dsa, dsa_p, dsa_q, dsa_g);
+    DSA_set0_key(dsa, dsa_y, NULL);
+    return 1;
+}
+
+/* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
+static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
+{
+    ERL_NIF_TERM result[8];
+    const BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
+
+    /* Return at least [E,N,D] */
+    n = NULL; e = NULL; d = NULL;
+    RSA_get0_key(rsa, &n, &e, &d);
+
+    result[0] = bin_from_bn(env, e);  // Exponent E
+    result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+    result[2] = bin_from_bn(env, d);  // Exponent D
+
+    /* Check whether the optional additional parameters are available */
+    p = NULL; q = NULL;
+    RSA_get0_factors(rsa, &p, &q);
+    dmp1 = NULL; dmq1 = NULL; iqmp = NULL;
+    RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
+
+    if (p && q && dmp1 && dmq1 && iqmp) {
+	result[3] = bin_from_bn(env, p);     // Factor p
+	result[4] = bin_from_bn(env, q);     // Factor q
+	result[5] = bin_from_bn(env, dmp1);  // D mod (p-1)
+	result[6] = bin_from_bn(env, dmq1);  // D mod (q-1)
+	result[7] = bin_from_bn(env, iqmp);  // (1/q) mod p
+
+	return enif_make_list_from_array(env, result, 8);
+    } else {
+	return enif_make_list_from_array(env, result, 3);
     }
 }
 
-static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Padding, IsEncrypt) */
-    ErlNifBinary data_bin, ret_bin;
-    int padding, i;
-    RSA* rsa;
+static int check_erlang_interrupt(int maj, int min, BN_GENCB *ctxt)
+{
+    ErlNifEnv *env = BN_GENCB_get_arg(ctxt);
+
+    if (!enif_is_current_process_alive(env)) {
+	return 0;
+    } else {
+	return 1;
+    }
+}
+
+static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (ModulusSize, PublicExponent) */
+    int modulus_bits;
+    BIGNUM *pub_exp, *three;
+    RSA *rsa;
+    int success;
+    ERL_NIF_TERM result;
+    BN_GENCB *intr_cb;
+#ifndef HAVE_OPAQUE_BN_GENCB
+    BN_GENCB intr_cb_buf;
+#endif
+
+    if (!enif_get_int(env, argv[0], &modulus_bits) || modulus_bits < 256) {
+	return enif_make_badarg(env);
+    }
+
+    if (!get_bn_from_bin(env, argv[1], &pub_exp)) {
+	return enif_make_badarg(env);
+    }
+
+    /* Make sure the public exponent is large enough (at least 3).
+     * Without this, RSA_generate_key_ex() can run forever. */
+    three = BN_new();
+    BN_set_word(three, 3);
+    success = BN_cmp(pub_exp, three);
+    BN_free(three);
+    if (success < 0) {
+	BN_free(pub_exp);
+	return enif_make_badarg(env);
+    }
+
+    /* For large keys, prime generation can take many seconds. Set up
+     * the callback which we use to test whether the process has been
+     * interrupted. */
+#ifdef HAVE_OPAQUE_BN_GENCB
+    intr_cb = BN_GENCB_new();
+#else
+    intr_cb = &intr_cb_buf;
+#endif
+    BN_GENCB_set(intr_cb, check_erlang_interrupt, env);
 
     rsa = RSA_new();
+    success = RSA_generate_key_ex(rsa, modulus_bits, pub_exp, intr_cb);
+    BN_free(pub_exp);
 
-    if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| !get_rsa_private_key(env, argv[1], rsa)
-	|| !rsa_pad(argv[2], &padding)) {
+#ifdef HAVE_OPAQUE_BN_GENCB
+    BN_GENCB_free(intr_cb);
+#endif
 
-	RSA_free(rsa);
-	return enif_make_badarg(env);
+    if (!success) {
+        RSA_free(rsa);
+	return atom_error;
     }
 
-    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
-
-    if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
-	i = RSA_private_encrypt(data_bin.size, data_bin.data,
-				ret_bin.data, rsa, padding);
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	}
-    }
-    else {
-	i = RSA_private_decrypt(data_bin.size, data_bin.data,
-				ret_bin.data, rsa, padding);       
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(&ret_bin, i);
-	}
-    }
+    result = put_rsa_private_key(env, rsa);
     RSA_free(rsa);
-    if (i > 0) {
-	return enif_make_binary(env,&ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
+
+    return result;
 }
 
-static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrimeLen, Generator) */
-    int prime_len, generator;
-    DH* dh_params;
-    int p_len, g_len;
-    unsigned char *p_ptr, *g_ptr;
-    ERL_NIF_TERM ret_p, ret_g;
-
-    if (!enif_get_int(env, argv[0], &prime_len)
-	|| !enif_get_int(env, argv[1], &generator)) {
-
-	return enif_make_badarg(env);
-    }
-    dh_params = DH_generate_parameters(prime_len, generator, NULL, NULL);
-    if (dh_params == NULL) {
-	return atom_error;
-    }
-    p_len = BN_num_bytes(dh_params->p);
-    g_len = BN_num_bytes(dh_params->g);
-    p_ptr = enif_make_new_binary(env, p_len, &ret_p);
-    g_ptr = enif_make_new_binary(env, g_len, &ret_g);
-    BN_bn2bin(dh_params->p, p_ptr);
-    BN_bn2bin(dh_params->g, g_ptr);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(p_ptr, p_len);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(g_ptr, g_len);
-    DH_free(dh_params);
-    return enif_make_list2(env, ret_p, ret_g);    
+static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    /* RSA key generation can take a long time (>1 sec for a large
+     * modulus), so schedule it as a CPU-bound operation. */
+    return enif_schedule_nif(env, "rsa_generate_key",
+			     ERL_NIF_DIRTY_JOB_CPU_BOUND,
+			     rsa_generate_key, argc, argv);
 }
-
-static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* ([PrimeLen, Generator]) */
-    DH* dh_params;
-    int i;
-    ERL_NIF_TERM ret, head, tail;
-
-    dh_params = DH_new();
-
-    if (!enif_get_list_cell(env, argv[0], &head, &tail)   
-	|| !get_bn_from_bin(env, head, &dh_params->p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)   
-	|| !get_bn_from_bin(env, head, &dh_params->g)
-	|| !enif_is_empty_list(env,tail)) {
-
-	DH_free(dh_params);
-	return enif_make_badarg(env);
-    }
-    if (DH_check(dh_params, &i)) {
-	if (i == 0) ret = atom_ok;
-	else if (i & DH_CHECK_P_NOT_PRIME) ret = atom_not_prime;
-	else if (i & DH_CHECK_P_NOT_SAFE_PRIME)	ret = atom_not_strong_prime;
-	else if (i & DH_UNABLE_TO_CHECK_GENERATOR) ret = atom_unable_to_check_generator;
-	else if (i & DH_NOT_SUITABLE_GENERATOR)	ret = atom_not_suitable_generator;
-	else ret = enif_make_tuple2(env, atom_unknown, enif_make_uint(env, i));
-    }
-    else { /* Check Failed */       
-	ret = enif_make_tuple2(env, atom_error, atom_check_failed);
-    }
-    DH_free(dh_params);
-    return ret;
-}   
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (PrivKey, DHParams=[P,G], Mpint) */
-    DH* dh_params;
-    int pub_len, prv_len;
-    unsigned char *pub_ptr, *prv_ptr;
-    ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
+{/* (PrivKey|undefined, DHParams=[P,G], Mpint, Len|0) */
+    DH *dh_params = NULL;
     int mpint; /* 0 or 4 */
 
-    dh_params = DH_new();
+    {
+        ERL_NIF_TERM head, tail;
+        BIGNUM
+            *dh_p = NULL,
+            *dh_g = NULL,
+            *priv_key_in = NULL;
+        unsigned long
+            len = 0;
 
-    if (!(get_bn_from_bin(env, argv[0], &dh_params->priv_key)
-	  || argv[0] == atom_undefined)
-	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_params->p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_params->g)
-	|| !enif_is_empty_list(env, tail)
-	|| !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)) {
-	DH_free(dh_params);
-	return enif_make_badarg(env);
+        if (!(get_bn_from_bin(env, argv[0], &priv_key_in)
+              || argv[0] == atom_undefined)
+            || !enif_get_list_cell(env, argv[1], &head, &tail)
+            || !get_bn_from_bin(env, head, &dh_p)
+            || !enif_get_list_cell(env, tail, &head, &tail)
+            || !get_bn_from_bin(env, head, &dh_g)
+            || !enif_is_empty_list(env, tail)
+            || !enif_get_int(env, argv[2], &mpint) || (mpint & ~4)
+            || !enif_get_ulong(env, argv[3], &len)
+
+            /* Load dh_params with values to use by the generator.
+               Mem mgmnt transfered from dh_p etc to dh_params */
+            || !(dh_params = DH_new())
+            || (priv_key_in && !DH_set0_key(dh_params, NULL, priv_key_in))
+            || !DH_set0_pqg(dh_params, dh_p, NULL, dh_g)
+            ) {
+            if (priv_key_in) BN_free(priv_key_in);
+            if (dh_p) BN_free(dh_p);
+            if (dh_g) BN_free(dh_g);
+            if (dh_params) DH_free(dh_params);
+            return enif_make_badarg(env);
+        }
+
+        if (len) {
+            if (len < BN_num_bits(dh_p))
+                DH_set_length(dh_params, len);
+            else {
+                if (priv_key_in) BN_free(priv_key_in);
+                if (dh_p) BN_free(dh_p);
+                if (dh_g) BN_free(dh_g);
+                if (dh_params) DH_free(dh_params);
+                return enif_make_badarg(env);
+            }
+        }
     }
 
-    if (DH_generate_key(dh_params)) {
-	pub_len = BN_num_bytes(dh_params->pub_key);
-	prv_len = BN_num_bytes(dh_params->priv_key);    
-	pub_ptr = enif_make_new_binary(env, pub_len+mpint, &ret_pub);
-	prv_ptr = enif_make_new_binary(env, prv_len+mpint, &ret_prv);
-	if (mpint) {
-	    put_int32(pub_ptr, pub_len); pub_ptr += 4;
-	    put_int32(prv_ptr, prv_len); prv_ptr += 4;
-	}
-	BN_bn2bin(dh_params->pub_key, pub_ptr);
-	BN_bn2bin(dh_params->priv_key, prv_ptr);
-	ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
-	ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
-	ret = enif_make_tuple2(env, ret_pub, ret_prv);
+#ifdef HAS_EVP_PKEY_CTX
+    {
+        EVP_PKEY_CTX *ctx;
+        EVP_PKEY *dhkey, *params;
+        int success;
+
+        params = EVP_PKEY_new();
+        success = EVP_PKEY_set1_DH(params, dh_params);   /* set the key referenced by params to dh_params... */
+        DH_free(dh_params);                              /* ...dh_params (and params) must be freed */
+        if (!success) return atom_error;
+
+        ctx = EVP_PKEY_CTX_new(params, NULL);
+        EVP_PKEY_free(params);
+        if (!ctx) {
+            return atom_error;
+        }
+
+        if (!EVP_PKEY_keygen_init(ctx)) {
+            /* EVP_PKEY_CTX_free(ctx); */
+            return atom_error;
+        }
+
+        dhkey = EVP_PKEY_new();
+        if (!EVP_PKEY_keygen(ctx, &dhkey)) {         /* "performs a key generation operation, the ... */
+                                                     /*... generated key is written to ppkey." (=last arg) */
+             /* EVP_PKEY_CTX_free(ctx); */
+             /* EVP_PKEY_free(dhkey); */
+             return atom_error;
+        }
+
+        dh_params = EVP_PKEY_get1_DH(dhkey); /* return the referenced key. dh_params and dhkey must be freed */
+        EVP_PKEY_free(dhkey);
+        if (!dh_params) {
+            /* EVP_PKEY_CTX_free(ctx); */
+            return atom_error;
+        }
+        EVP_PKEY_CTX_free(ctx);
     }
-    else {
-	ret = atom_error;
+#else
+    if (!DH_generate_key(dh_params)) return atom_error;
+#endif
+    {
+        unsigned char *pub_ptr, *prv_ptr;
+        int pub_len, prv_len;
+        ERL_NIF_TERM ret_pub, ret_prv;
+        const BIGNUM *pub_key_gen, *priv_key_gen;
+
+        DH_get0_key(dh_params,
+                    &pub_key_gen, &priv_key_gen); /* Get pub_key_gen and priv_key_gen.
+                                                     "The values point to the internal representation of
+                                                     the public key and private key values. This memory
+                                                     should not be freed directly." says man */
+        pub_len = BN_num_bytes(pub_key_gen);
+        prv_len = BN_num_bytes(priv_key_gen);
+        pub_ptr = enif_make_new_binary(env, pub_len+mpint, &ret_pub);
+        prv_ptr = enif_make_new_binary(env, prv_len+mpint, &ret_prv);
+        if (mpint) {
+            put_int32(pub_ptr, pub_len); pub_ptr += 4;
+            put_int32(prv_ptr, prv_len); prv_ptr += 4;
+        }
+        BN_bn2bin(pub_key_gen, pub_ptr);
+        BN_bn2bin(priv_key_gen, prv_ptr);
+        ERL_VALGRIND_MAKE_MEM_DEFINED(pub_ptr, pub_len);
+        ERL_VALGRIND_MAKE_MEM_DEFINED(prv_ptr, prv_len);
+
+        DH_free(dh_params);
+
+        return enif_make_tuple2(env, ret_pub, ret_prv);
     }
-    DH_free(dh_params);
-    return ret;
 }
 
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (OthersPublicKey, MyPrivateKey, DHParams=[P,G]) */
-    DH* dh_params;
-    BIGNUM* pubkey = NULL;
-    int i;
-    ErlNifBinary ret_bin;
-    ERL_NIF_TERM ret, head, tail;
+    BIGNUM *other_pub_key = NULL,
+        *dh_p = NULL,
+        *dh_g = NULL;
+    DH *dh_priv = DH_new();
 
-    dh_params = DH_new();
+    /* Check the arguments and get
+          my private key (dh_priv),
+          the peer's public key (other_pub_key),
+          the parameters p & q
+    */
 
-    if (!get_bn_from_bin(env, argv[0], &pubkey)
-	|| !get_bn_from_bin(env, argv[1], &dh_params->priv_key)
-	|| !enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_params->p)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &dh_params->g)
-	|| !enif_is_empty_list(env, tail)) {
+    {
+        BIGNUM *dummy_pub_key = NULL,
+               *priv_key = NULL;
+        ERL_NIF_TERM head, tail;
 
-	ret = enif_make_badarg(env);
+        if (!get_bn_from_bin(env, argv[0], &other_pub_key)
+            || !get_bn_from_bin(env, argv[1], &priv_key)
+            || !enif_get_list_cell(env, argv[2], &head, &tail)
+            || !get_bn_from_bin(env, head, &dh_p)
+            || !enif_get_list_cell(env, tail, &head, &tail)
+            || !get_bn_from_bin(env, head, &dh_g)
+            || !enif_is_empty_list(env, tail)
+
+            /* Note: DH_set0_key() does not allow setting only the
+             * private key, although DH_compute_key() does not use the
+             * public key. Work around this limitation by setting
+             * the public key to a copy of the private key.
+             */
+            || !(dummy_pub_key = BN_dup(priv_key))
+            || !DH_set0_key(dh_priv, dummy_pub_key, priv_key)
+            || !DH_set0_pqg(dh_priv, dh_p, NULL, dh_g)
+            ) {
+            if (dh_p) BN_free(dh_p);
+            if (dh_g) BN_free(dh_g);
+            if (other_pub_key) BN_free(other_pub_key);
+            if (dummy_pub_key) BN_free(dummy_pub_key);
+            if (priv_key) BN_free(priv_key);
+            return enif_make_badarg(env);
+        }
     }
-    else {
-	enif_alloc_binary(DH_size(dh_params), &ret_bin);
-	i = DH_compute_key(ret_bin.data, pubkey, dh_params);
-	if (i > 0) {
-	    if (i != ret_bin.size) {
-		enif_realloc_binary(&ret_bin, i); 
-	    }
-	    ret = enif_make_binary(env, &ret_bin);
-	}
-	else {
+    {
+        ErlNifBinary ret_bin;
+        int size;
+
+        enif_alloc_binary(DH_size(dh_priv), &ret_bin);
+        size = DH_compute_key(ret_bin.data, other_pub_key, dh_priv);
+        BN_free(other_pub_key);
+        DH_free(dh_priv);
+        if (size<=0) {
             enif_release_binary(&ret_bin);
-	    ret = atom_error;
-	}
+            return atom_error;
+        }
+
+        if (size != ret_bin.size) enif_realloc_binary(&ret_bin, size);
+        return enif_make_binary(env, &ret_bin);
     }
-    if (pubkey) BN_free(pubkey);
-    DH_free(dh_params);
-    return ret;
 }
+
 
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Multiplier, Verifier, Generator, Exponent, Prime) */
@@ -2789,6 +3633,8 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     unsigned char* ptr;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!get_bn_from_bin(env, argv[0], &bn_multiplier)
 	|| !get_bn_from_bin(env, argv[1], &bn_verifier)
@@ -2849,6 +3695,8 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     unsigned char* ptr;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!get_bn_from_bin(env, argv[0], &bn_a)
 	|| !get_bn_from_bin(env, argv[1], &bn_u)
@@ -2928,6 +3776,8 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     unsigned char* ptr;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
+    CHECK_NO_FIPS_MODE();
 
     if (!get_bn_from_bin(env, argv[0], &bn_verifier)
 	|| !get_bn_from_bin(env, argv[1], &bn_b)
@@ -3321,99 +4171,6 @@ badarg:
 #endif
 }
 
-static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Curve, Key) */
-#if defined(HAVE_EC)
-    ErlNifBinary digest_bin, ret_bin;
-    unsigned int dsa_s_len;
-    EC_KEY* key = NULL;
-    int i, len;
-    struct digest_type_t *digp;
-    const EVP_MD         *md;
-
-    digp = get_digest_type(argv[0]);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-    len = EVP_MD_size(md);
-
-    if (!enif_inspect_binary(env,argv[1],&digest_bin)
-        || digest_bin.size != len
-        || !get_ec_key(env, argv[2], argv[3], atom_undefined, &key))
-      goto badarg;
-
-    enif_alloc_binary(ECDSA_size(key), &ret_bin);
-
-    i = ECDSA_sign(md->type, digest_bin.data, len,
-		   ret_bin.data, &dsa_s_len, key);
-
-    EC_KEY_free(key);
-    if (i) {
-	if (dsa_s_len != ret_bin.size) {
-	    enif_realloc_binary(&ret_bin, dsa_s_len);
-	}
-	return enif_make_binary(env, &ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
-
-badarg:
-    if (key)
-	EC_KEY_free(key);
-    return make_badarg_maybe(env);
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Digest, Signature, Curve, Key) */
-#if defined(HAVE_EC)
-    ErlNifBinary digest_bin, sign_bin;
-    int i, len;
-    EC_KEY* key = NULL;
-    const ERL_NIF_TERM type = argv[0];
-    struct digest_type_t *digp = NULL;
-    const EVP_MD         *md;
-
-    digp = get_digest_type(type);
-    if (!digp) {
-	return enif_make_badarg(env);
-    }
-    md = digp->md.p;
-    if (!md) {
-	return atom_notsup;
-    }
-    len = EVP_MD_size(md);
-
-    if (!enif_inspect_binary(env, argv[1], &digest_bin)
-        || digest_bin.size != len
-        || !enif_inspect_binary(env, argv[2], &sign_bin)
-	|| !get_ec_key(env, argv[3], atom_undefined, argv[4], &key))
-	goto badarg;
-
-    i = ECDSA_verify(md->type, digest_bin.data, len,
-		     sign_bin.data, sign_bin.size, key);
-
-    EC_KEY_free(key);
-
-    return (i==1 ? atom_true : atom_false);
-
-badarg:
-    if (key)
-	EC_KEY_free(key);
-    return make_badarg_maybe(env);
-#else
-    return atom_notsup;
-#endif
-}
-
 /*
   (_OthersPublicKey, _MyPrivateKey)
   (_OthersPublicKey, _MyEC_Point)
@@ -3429,7 +4186,7 @@ static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF
     int i;
     EC_GROUP *group;
     const BIGNUM *priv_key;
-    EC_POINT *my_ecpoint;
+    EC_POINT *my_ecpoint = NULL;
     EC_KEY *other_ecdh = NULL;
 
     if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
@@ -3472,6 +4229,1289 @@ out_err:
 #endif
 }
 
+static ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+    /*    (Curve, PeerBin, MyBin) */
+{
+#ifdef HAVE_ED_CURVE_DH
+    int type;
+    EVP_PKEY_CTX *ctx = NULL;
+    ErlNifBinary peer_bin, my_bin, key_bin;
+    EVP_PKEY *peer_key = NULL, *my_key = NULL;
+    size_t max_size;
+
+    if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
+    else if (argv[0] == atom_x448) type = EVP_PKEY_X448;
+    else return enif_make_badarg(env);
+
+    if (!enif_inspect_binary(env, argv[1], &peer_bin) ||
+        !enif_inspect_binary(env, argv[2], &my_bin)) 
+        goto return_badarg;
+
+    if (!(my_key = EVP_PKEY_new_raw_private_key(type, NULL, my_bin.data, my_bin.size)) ||
+        !(ctx = EVP_PKEY_CTX_new(my_key, NULL))) 
+        goto return_badarg;
+
+    if (!EVP_PKEY_derive_init(ctx)) 
+        goto return_badarg;
+
+    if (!(peer_key = EVP_PKEY_new_raw_public_key(type, NULL, peer_bin.data, peer_bin.size)) ||
+        !EVP_PKEY_derive_set_peer(ctx, peer_key)) 
+        goto return_badarg;
+
+    if (!EVP_PKEY_derive(ctx, NULL, &max_size)) 
+        goto return_badarg;
+
+    if (!enif_alloc_binary(max_size, &key_bin) ||
+        !EVP_PKEY_derive(ctx, key_bin.data, &key_bin.size)) 
+        goto return_badarg;
+
+    if (key_bin.size < max_size) {
+        size_t actual_size = key_bin.size;
+        if (!enif_realloc_binary(&key_bin, actual_size)) 
+            goto return_badarg;
+    }
+
+    EVP_PKEY_free(my_key);
+    EVP_PKEY_free(peer_key);
+    EVP_PKEY_CTX_free(ctx);
+    return enif_make_binary(env, &key_bin);
+
+return_badarg:
+    if (my_key)   EVP_PKEY_free(my_key);
+    if (peer_key) EVP_PKEY_free(peer_key);
+    if (ctx)      EVP_PKEY_CTX_free(ctx);
+    return enif_make_badarg(env);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+/* (Curve) */
+{
+#ifdef HAVE_ED_CURVE_DH
+    int type;
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *pkey = NULL;
+    ERL_NIF_TERM ret_pub, ret_prv;
+    size_t key_len;
+
+    if (argv[0] == atom_x25519) type = EVP_PKEY_X25519;
+    else if (argv[0] == atom_x448) type = EVP_PKEY_X448;
+    else return enif_make_badarg(env);
+
+    if (!(ctx = EVP_PKEY_CTX_new_id(type, NULL))) return enif_make_badarg(env);
+
+    if (!EVP_PKEY_keygen_init(ctx)) goto return_error;
+    if (!EVP_PKEY_keygen(ctx, &pkey)) goto return_error;
+
+    if (!EVP_PKEY_get_raw_public_key(pkey, NULL, &key_len)) goto return_error;
+    if (!EVP_PKEY_get_raw_public_key(pkey,
+                                     enif_make_new_binary(env, key_len, &ret_pub),
+                                     &key_len))
+        goto return_error;
+
+    if (!EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len)) goto return_error;
+    if (!EVP_PKEY_get_raw_private_key(pkey,
+                                      enif_make_new_binary(env, key_len, &ret_prv),
+                                      &key_len))
+        goto return_error;
+
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_CTX_free(ctx);
+    return enif_make_tuple2(env, ret_pub, ret_prv);
+
+return_error:
+    if (pkey) EVP_PKEY_free(pkey);
+    if (ctx)  EVP_PKEY_CTX_free(ctx);
+    return atom_error;
+
+#else
+    return atom_notsup;
+#endif
+}
+
+/*================================================================*/
+#define PKEY_BADARG -1
+#define PKEY_NOTSUP 0
+#define PKEY_OK 1
+
+typedef struct PKeyCryptOptions {
+    const EVP_MD *rsa_mgf1_md;
+    ErlNifBinary rsa_oaep_label;
+    const EVP_MD *rsa_oaep_md;
+    int rsa_padding;
+    const EVP_MD *signature_md;
+} PKeyCryptOptions;
+
+typedef struct PKeySignOptions {
+    const EVP_MD *rsa_mgf1_md;
+    int rsa_padding;
+    int rsa_pss_saltlen;
+} PKeySignOptions;
+
+static int get_pkey_digest_type(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM type,
+				const EVP_MD **md)
+{
+    struct digest_type_t *digp = NULL;
+    *md = NULL;
+
+    if (type == atom_none && algorithm == atom_rsa) return PKEY_OK;
+#ifdef HAVE_EDDSA
+    if (algorithm == atom_eddsa) return PKEY_OK;
+#endif
+    digp = get_digest_type(type);
+    if (!digp) return PKEY_BADARG;
+    if (!digp->md.p) return PKEY_NOTSUP;
+
+    *md = digp->md.p;
+    return PKEY_OK;
+}
+
+
+static int get_pkey_sign_digest(ErlNifEnv *env, ERL_NIF_TERM algorithm,
+				ERL_NIF_TERM type, ERL_NIF_TERM data,
+				unsigned char *md_value, const EVP_MD **mdp,
+				unsigned char **tbsp, size_t *tbslenp)
+{
+    int i;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    ErlNifBinary tbs_bin;
+    EVP_MD_CTX *mdctx;
+    const EVP_MD *md = *mdp;
+    unsigned char *tbs = *tbsp;
+    size_t tbslen = *tbslenp;
+    unsigned int tbsleni;
+
+    if ((i = get_pkey_digest_type(env, algorithm, type, &md)) != PKEY_OK) {
+	return i;
+    }
+    if (enif_get_tuple(env, data, &tpl_arity, &tpl_terms)) {
+	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
+	    || !enif_inspect_binary(env, tpl_terms[1], &tbs_bin)
+	    || (md != NULL && tbs_bin.size != EVP_MD_size(md))) {
+	    return PKEY_BADARG;
+	}
+        /* We have a digest (= hashed text) in tbs_bin */
+	tbs = tbs_bin.data;
+	tbslen = tbs_bin.size;
+    } else if (md == NULL) {
+	if (!enif_inspect_binary(env, data, &tbs_bin)) {
+	    return PKEY_BADARG;
+	}
+        /* md == NULL, that is no hashing because DigestType argument was atom_none */
+	tbs = tbs_bin.data;
+	tbslen = tbs_bin.size;
+    } else {
+	if (!enif_inspect_binary(env, data, &tbs_bin)) {
+	    return PKEY_BADARG;
+	}
+        /* We have the cleartext in tbs_bin and the hash algo info in md */
+	tbs = md_value;
+	mdctx = EVP_MD_CTX_create();
+	if (!mdctx) {
+	    return PKEY_BADARG;
+	}
+        /* Looks well, now hash the plain text into a digest according to md */
+	if (EVP_DigestInit_ex(mdctx, md, NULL) <= 0) {
+	    EVP_MD_CTX_destroy(mdctx);
+	    return PKEY_BADARG;
+	}
+	if (EVP_DigestUpdate(mdctx, tbs_bin.data, tbs_bin.size) <= 0) {
+	    EVP_MD_CTX_destroy(mdctx);
+	    return PKEY_BADARG;
+	}
+	if (EVP_DigestFinal_ex(mdctx, tbs, &tbsleni) <= 0) {
+	    EVP_MD_CTX_destroy(mdctx);
+	    return PKEY_BADARG;
+	}
+	tbslen = (size_t)(tbsleni);
+	EVP_MD_CTX_destroy(mdctx);
+    }
+
+    *mdp = md;
+    *tbsp = tbs;
+    *tbslenp = tbslen;
+
+    return PKEY_OK;
+}
+
+
+static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
+                                 const EVP_MD *md, PKeySignOptions *opt)
+{
+    ERL_NIF_TERM head, tail;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    const EVP_MD *opt_md;
+    int i;
+
+    if (!enif_is_list(env, options)) {
+	return PKEY_BADARG;
+    }
+
+    /* defaults */
+    if (algorithm == atom_rsa) {
+	opt->rsa_mgf1_md = NULL;
+	opt->rsa_padding = RSA_PKCS1_PADDING;
+	opt->rsa_pss_saltlen = -2;
+    }
+
+    if (enif_is_empty_list(env, options)) {
+	return PKEY_OK;
+    }
+
+    if (algorithm == atom_rsa) {
+	tail = options;
+	while (enif_get_list_cell(env, tail, &head, &tail)) {
+	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
+		if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->rsa_mgf1_md = opt_md;
+		} else if (tpl_terms[0] == atom_rsa_padding) {
+		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
+			opt->rsa_padding = RSA_PKCS1_PADDING;
+                    } else if (tpl_terms[1] == atom_rsa_pkcs1_pss_padding) {
+#ifdef HAVE_RSA_PKCS1_PSS_PADDING
+                        opt->rsa_padding = RSA_PKCS1_PSS_PADDING;
+                        if (opt->rsa_mgf1_md == NULL) {
+                            opt->rsa_mgf1_md = md;
+                        }
+#else
+                        return PKEY_NOTSUP;
+#endif
+		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
+			opt->rsa_padding = RSA_X931_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
+			opt->rsa_padding = RSA_NO_PADDING;
+		    } else {
+			return PKEY_BADARG;
+		    }
+		} else if (tpl_terms[0] == atom_rsa_pss_saltlen) {
+		    if (!enif_get_int(env, tpl_terms[1], &(opt->rsa_pss_saltlen))
+			|| opt->rsa_pss_saltlen < -2) {
+			return PKEY_BADARG;
+		    }
+		} else {
+		    return PKEY_BADARG;
+		}
+	    } else {
+		return PKEY_BADARG;
+	    }
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+
+#ifdef HAS_ENGINE_SUPPORT
+static int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE **e)
+{
+    ERL_NIF_TERM engine_res, key_id_term;
+    struct engine_ctx *ctx;
+    ErlNifBinary key_id_bin;
+
+    if (!enif_get_map_value(env, key, atom_engine, &engine_res) ||
+        !enif_get_resource(env, engine_res, engine_ctx_rtype, (void**)&ctx) ||
+        !enif_get_map_value(env, key, atom_key_id, &key_id_term) ||
+        !enif_inspect_binary(env, key_id_term, &key_id_bin)) {
+        return 0;
+    }
+    else {
+        *e = ctx->engine;
+        return zero_terminate(key_id_bin, id);
+    }
+}
+
+
+static char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
+    ERL_NIF_TERM tmp_term;
+    ErlNifBinary pwd_bin;
+    char *pwd = NULL;
+    if (enif_get_map_value(env, key, atom_password, &tmp_term) &&
+        enif_inspect_binary(env, tmp_term, &pwd_bin) &&
+        zero_terminate(pwd_bin, &pwd)
+        ) return pwd;
+
+    return NULL;
+}
+
+static int zero_terminate(ErlNifBinary bin, char **buf) {
+    *buf = enif_alloc(bin.size+1);
+    if (!*buf)
+        return 0;
+    memcpy(*buf, bin.data, bin.size);
+    *(*buf+bin.size) = 0;
+    return 1;
+}
+#endif
+
+static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
+{
+    if (enif_is_map(env, key)) {
+#ifdef HAS_ENGINE_SUPPORT
+        /* Use key stored in engine */
+        ENGINE *e;
+        char *id = NULL;
+        char *password;
+
+        if (!get_engine_and_key_id(env, key, &id, &e))
+            return PKEY_BADARG;
+        password = get_key_password(env, key);
+        *pkey = ENGINE_load_private_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
+        if (!*pkey)
+            return PKEY_BADARG;
+#else
+        return PKEY_BADARG;
+#endif
+    }
+    else if (algorithm == atom_rsa) {
+	RSA *rsa = RSA_new();
+
+	if (!get_rsa_private_key(env, key, rsa)) {
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
+	    EVP_PKEY_free(*pkey);
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+    } else if (algorithm == atom_ecdsa) {
+#if defined(HAVE_EC)
+	EC_KEY *ec = NULL;
+	const ERL_NIF_TERM *tpl_terms;
+	int tpl_arity;
+
+	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
+	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
+	    && get_ec_key(env, tpl_terms[0], tpl_terms[1], atom_undefined, &ec)) {
+
+	    *pkey = EVP_PKEY_new();
+	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
+		EVP_PKEY_free(*pkey);
+		EC_KEY_free(ec);
+		return PKEY_BADARG;
+	    }
+	} else {
+	    return PKEY_BADARG;
+	}
+#else
+	return PKEY_NOTSUP;
+#endif
+    } else if (algorithm == atom_eddsa) {
+#if defined(HAVE_EDDSA)
+        if (!get_eddsa_key(env, 0, key, pkey)) {
+            return PKEY_BADARG;
+        }
+#else
+     return PKEY_NOTSUP;  
+#endif
+    } else if (algorithm == atom_dss) {
+	DSA *dsa = DSA_new();
+
+	if (!get_dss_private_key(env, key, dsa)) {
+	    DSA_free(dsa);
+            return PKEY_BADARG;
+        }
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
+	    EVP_PKEY_free(*pkey);
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+
+static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
+			       EVP_PKEY **pkey)
+{
+    if (enif_is_map(env, key)) {
+#ifdef HAS_ENGINE_SUPPORT
+        /* Use key stored in engine */
+        ENGINE *e;
+        char *id = NULL;
+        char *password;
+
+        if (!get_engine_and_key_id(env, key, &id, &e))
+            return PKEY_BADARG;
+        password = get_key_password(env, key);
+        *pkey = ENGINE_load_public_key(e, id, NULL, password);
+        if (password) enif_free(password);
+        enif_free(id);
+        if (!pkey)
+            return PKEY_BADARG;
+#else
+        return PKEY_BADARG;
+#endif
+    } else  if (algorithm == atom_rsa) {
+	RSA *rsa = RSA_new();
+
+	if (!get_rsa_public_key(env, key, rsa)) {
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
+	    EVP_PKEY_free(*pkey);
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+    } else if (algorithm == atom_ecdsa) {
+#if defined(HAVE_EC)
+	EC_KEY *ec = NULL;
+	const ERL_NIF_TERM *tpl_terms;
+	int tpl_arity;
+
+	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
+	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
+	    && get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec)) {
+
+	    *pkey = EVP_PKEY_new();
+	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
+		EVP_PKEY_free(*pkey);
+		EC_KEY_free(ec);
+		return PKEY_BADARG;
+	    }
+	} else {
+	    return PKEY_BADARG;
+	}
+#else
+	return PKEY_NOTSUP;
+#endif
+    } else if (algorithm == atom_eddsa) {
+#if defined(HAVE_EDDSA)
+        if (!get_eddsa_key(env, 1, key, pkey)) {
+            return PKEY_BADARG;
+        }
+#else
+     return PKEY_NOTSUP;  
+#endif
+    } else if (algorithm == atom_dss) {
+	DSA *dsa = DSA_new();
+
+	if (!get_dss_public_key(env, key, dsa)) {
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
+	    EVP_PKEY_free(*pkey);
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* (Algorithm, Type, Data|{digest,Digest}, Key|#{}, Options) */
+    int i;
+    const EVP_MD *md = NULL;
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    EVP_PKEY *pkey;
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx;
+    size_t siglen;
+#else
+    unsigned len, siglen;
+#endif
+    PKeySignOptions sig_opt;
+    ErlNifBinary sig_bin; /* signature */
+    unsigned char *tbs; /* data to be signed */
+    size_t tbslen;
+/*char buf[1024];
+enif_get_atom(env,argv[0],buf,1024,ERL_NIF_LATIN1); printf("algo=%s ",buf);
+enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
+printf("\r\n");
+*/
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[3])) {
+        return atom_notsup;
+    }
+#endif
+
+    i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    i = get_pkey_sign_options(env, argv[0], argv[4], md, &sig_opt);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    if (get_pkey_private_key(env, argv[0], argv[3], &pkey) != PKEY_OK) {
+	return enif_make_badarg(env);
+    }
+
+#ifdef HAS_EVP_PKEY_CTX
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!ctx) goto badarg;
+
+    if (argv[0] != atom_eddsa) {
+        if (EVP_PKEY_sign_init(ctx) <= 0) goto badarg;
+        if (md != NULL && EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0) goto badarg;
+    }
+
+    if (argv[0] == atom_rsa) {
+	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
+# ifdef HAVE_RSA_PKCS1_PSS_PADDING
+	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
+            if (sig_opt.rsa_mgf1_md != NULL) {
+# ifdef HAVE_RSA_MGF1_MD
+		if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+# else
+                EVP_PKEY_CTX_free(ctx);
+                EVP_PKEY_free(pkey);
+                return atom_notsup;
+# endif
+            }
+	    if (sig_opt.rsa_pss_saltlen > -2
+		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
+		goto badarg;
+	}
+#endif
+    }
+
+    if (argv[0] == atom_eddsa) {
+#ifdef HAVE_EDDSA
+        EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+        if (!EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey)) {
+            if (mdctx) EVP_MD_CTX_free(mdctx);
+            goto badarg;
+        }
+
+        if (!EVP_DigestSign(mdctx, NULL, &siglen, tbs, tbslen)) {
+            EVP_MD_CTX_free(mdctx);
+            goto badarg;
+        }
+        enif_alloc_binary(siglen, &sig_bin);
+
+        if (!EVP_DigestSign(mdctx, sig_bin.data, &siglen, tbs, tbslen)) {
+            EVP_MD_CTX_free(mdctx);
+            goto badarg;
+        }
+        EVP_MD_CTX_free(mdctx);
+#else
+        goto badarg;    
+#endif
+    }
+    else
+    {
+        if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) <= 0) goto badarg;
+        enif_alloc_binary(siglen, &sig_bin);
+
+        if (md != NULL) {
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
+        }
+        i = EVP_PKEY_sign(ctx, sig_bin.data, &siglen, tbs, tbslen);
+    }
+        
+    EVP_PKEY_CTX_free(ctx);
+#else
+/*printf("Old interface\r\n");
+ */
+    if (argv[0] == atom_rsa) {
+       RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+       enif_alloc_binary(RSA_size(rsa), &sig_bin);
+       len = EVP_MD_size(md);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
+       i = RSA_sign(md->type, tbs, len, sig_bin.data, &siglen, rsa);
+       RSA_free(rsa);
+    } else if (argv[0] == atom_dss) {
+       DSA *dsa = EVP_PKEY_get1_DSA(pkey);
+       enif_alloc_binary(DSA_size(dsa), &sig_bin);
+       len = EVP_MD_size(md);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
+       i = DSA_sign(md->type, tbs, len, sig_bin.data, &siglen, dsa);
+       DSA_free(dsa);
+    } else if (argv[0] == atom_ecdsa) {
+#if defined(HAVE_EC)
+       EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+       enif_alloc_binary(ECDSA_size(ec), &sig_bin);
+       len = EVP_MD_size(md);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
+       i = ECDSA_sign(md->type, tbs, len, sig_bin.data, &siglen, ec);
+       EC_KEY_free(ec);
+#else
+       EVP_PKEY_free(pkey);
+       return atom_notsup;
+#endif
+    } else {
+	goto badarg;
+    }
+#endif
+
+    EVP_PKEY_free(pkey);
+    if (i == 1) {
+	ERL_VALGRIND_MAKE_MEM_DEFINED(sig_bin.data, siglen);
+	if (siglen != sig_bin.size) {
+	    enif_realloc_binary(&sig_bin, siglen);
+	    ERL_VALGRIND_ASSERT_MEM_DEFINED(sig_bin.data, siglen);
+	}
+	return enif_make_binary(env, &sig_bin);
+    } else {
+	enif_release_binary(&sig_bin);
+	return atom_error;
+    }
+
+ badarg:
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#endif
+    EVP_PKEY_free(pkey);
+    return enif_make_badarg(env);
+}
+
+
+static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* (Algorithm, Type, Data|{digest,Digest}, Signature, Key, Options) */
+    int i;
+    const EVP_MD *md = NULL;
+    unsigned char md_value[EVP_MAX_MD_SIZE];
+    EVP_PKEY *pkey;
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx;
+#else
+#endif
+    PKeySignOptions sig_opt;
+    ErlNifBinary sig_bin; /* signature */
+    unsigned char *tbs; /* data to be signed */
+    size_t tbslen;
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[4])) {
+        return atom_notsup;
+    }
+#endif
+
+    if (!enif_inspect_binary(env, argv[3], &sig_bin)) {
+	return enif_make_badarg(env);
+    }
+
+    i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    i = get_pkey_sign_options(env, argv[0], argv[5], md, &sig_opt);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    if (get_pkey_public_key(env, argv[0], argv[4], &pkey) != PKEY_OK) {
+	return enif_make_badarg(env);
+    }
+
+#ifdef HAS_EVP_PKEY_CTX
+/* printf("EVP interface\r\n");
+ */
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!ctx) goto badarg;
+
+    if (argv[0] != atom_eddsa) {
+        if (EVP_PKEY_verify_init(ctx) <= 0) goto badarg;
+        if (md != NULL && EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0) goto badarg;
+    }
+
+    if (argv[0] == atom_rsa) {
+	if (EVP_PKEY_CTX_set_rsa_padding(ctx, sig_opt.rsa_padding) <= 0) goto badarg;
+	if (sig_opt.rsa_padding == RSA_PKCS1_PSS_PADDING) {
+            if (sig_opt.rsa_mgf1_md != NULL) {
+# ifdef HAVE_RSA_MGF1_MD
+		if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, sig_opt.rsa_mgf1_md) <= 0) goto badarg;
+# else
+                EVP_PKEY_CTX_free(ctx);
+                EVP_PKEY_free(pkey);
+                return atom_notsup;
+# endif
+            }
+	    if (sig_opt.rsa_pss_saltlen > -2
+		&& EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, sig_opt.rsa_pss_saltlen) <= 0)
+		goto badarg;
+	}
+    }
+
+        if (argv[0] == atom_eddsa) {
+#ifdef HAVE_EDDSA
+        EVP_MD_CTX* mdctx = EVP_MD_CTX_create();
+        
+        if (!EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey)) {
+            if (mdctx) EVP_MD_CTX_destroy(mdctx);
+            goto badarg;
+        }
+
+        i = EVP_DigestVerify(mdctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+        EVP_MD_CTX_destroy(mdctx);
+#else
+        goto badarg;    
+#endif
+        }
+    else
+        {
+            if (md != NULL) {
+                ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, EVP_MD_size(md));
+            }
+            i = EVP_PKEY_verify(ctx, sig_bin.data, sig_bin.size, tbs, tbslen);
+        }
+
+    EVP_PKEY_CTX_free(ctx);
+#else
+/*printf("Old interface\r\n");
+*/
+    if (argv[0] == atom_rsa) {
+        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+        i = RSA_verify(md->type, tbs, tbslen, sig_bin.data, sig_bin.size, rsa);
+        RSA_free(rsa);
+    } else if (argv[0] == atom_dss) {
+        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
+        i = DSA_verify(0, tbs, tbslen, sig_bin.data, sig_bin.size, dsa);
+        DSA_free(dsa);
+    } else if (argv[0] == atom_ecdsa) {
+#if defined(HAVE_EC)
+        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+        i = ECDSA_verify(EVP_MD_type(md), tbs, tbslen, sig_bin.data, sig_bin.size, ec);
+        EC_KEY_free(ec);
+#else
+        EVP_PKEY_free(pkey);
+        return atom_notsup;
+#endif
+    } else {
+	goto badarg;
+    }
+#endif
+
+    EVP_PKEY_free(pkey);
+    if (i == 1) {
+	return atom_true;
+    } else {
+	return atom_false;
+    }
+
+ badarg:
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#endif
+    EVP_PKEY_free(pkey);
+    return enif_make_badarg(env);
+}
+
+
+/*--------------------------------*/
+
+static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
+				  PKeyCryptOptions *opt)
+{
+    ERL_NIF_TERM head, tail;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    const EVP_MD *opt_md;
+    int i;
+
+    if (!enif_is_list(env, options)) {
+	return PKEY_BADARG;
+    }
+
+    /* defaults */
+    if (algorithm == atom_rsa) {
+	opt->rsa_mgf1_md = NULL;
+	opt->rsa_oaep_label.data = NULL;
+	opt->rsa_oaep_label.size = 0;
+	opt->rsa_oaep_md = NULL;
+	opt->rsa_padding = RSA_PKCS1_PADDING;
+	opt->signature_md = NULL;
+    }
+
+    if (enif_is_empty_list(env, options)) {
+	return PKEY_OK;
+    }
+
+    if (algorithm == atom_rsa) {
+	tail = options;
+	while (enif_get_list_cell(env, tail, &head, &tail)) {
+	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
+		if (tpl_terms[0] == atom_rsa_padding
+                    || tpl_terms[0] == atom_rsa_pad /* Compatibility */
+                    ) {
+		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
+			opt->rsa_padding = RSA_PKCS1_PADDING;
+#ifdef HAVE_RSA_OAEP_PADDING
+		    } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
+			opt->rsa_padding = RSA_PKCS1_OAEP_PADDING;
+#endif
+#ifdef HAVE_RSA_SSLV23_PADDING
+		    } else if (tpl_terms[1] == atom_rsa_sslv23_padding) {
+			opt->rsa_padding = RSA_SSLV23_PADDING;
+#endif
+		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
+			opt->rsa_padding = RSA_X931_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
+			opt->rsa_padding = RSA_NO_PADDING;
+		    } else {
+			return PKEY_BADARG;
+		    }
+		} else if (tpl_terms[0] == atom_signature_md && enif_is_atom(env, tpl_terms[1])) {
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->signature_md = opt_md;
+		} else if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+#ifndef HAVE_RSA_MGF1_MD
+		    if (tpl_terms[1] != atom_sha)
+			return PKEY_NOTSUP;
+#endif
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->rsa_mgf1_md = opt_md;
+		} else if (tpl_terms[0] == atom_rsa_oaep_label
+			   && enif_inspect_binary(env, tpl_terms[1], &(opt->rsa_oaep_label))) {
+#ifdef HAVE_RSA_OAEP_MD
+		    continue;
+#else
+		    return PKEY_NOTSUP;
+#endif
+		} else if (tpl_terms[0] == atom_rsa_oaep_md && enif_is_atom(env, tpl_terms[1])) {
+#ifndef HAVE_RSA_OAEP_MD
+		    if (tpl_terms[1] != atom_sha)
+			return PKEY_NOTSUP;
+#endif
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->rsa_oaep_md = opt_md;
+		} else {
+		    return PKEY_BADARG;
+		}
+	    } else {
+		return PKEY_BADARG;
+	    }
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+static size_t size_of_RSA(EVP_PKEY *pkey) {
+    size_t tmplen;
+    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+    if (rsa == NULL) return 0;
+    tmplen = RSA_size(rsa);
+    RSA_free(rsa);
+    return tmplen;
+}
+
+static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
+    int i;
+    EVP_PKEY *pkey;
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx;
+#else
+    RSA *rsa;
+#endif
+    PKeyCryptOptions crypt_opt;
+    ErlNifBinary in_bin, out_bin, tmp_bin;
+    size_t outlen;
+#ifdef HAVE_RSA_SSLV23_PADDING
+    size_t tmplen;
+#endif
+    int is_private = (argv[4] == atom_true),
+        is_encrypt = (argv[5] == atom_true);
+    int algo_init = 0;
+
+/* char algo[1024]; */
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[2])) {
+        return atom_notsup;
+    }
+#endif
+
+    if (!enif_inspect_binary(env, argv[1], &in_bin)) {
+	return enif_make_badarg(env);
+    }
+
+    i = get_pkey_crypt_options(env, argv[0], argv[3], &crypt_opt);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    if (is_private) {
+	if (get_pkey_private_key(env, argv[0], argv[2], &pkey) != PKEY_OK) {
+	    return enif_make_badarg(env);
+	}
+    } else {
+	if (get_pkey_public_key(env, argv[0], argv[2], &pkey) != PKEY_OK) {
+	    return enif_make_badarg(env);
+	}
+    }
+
+    out_bin.data = NULL;
+    out_bin.size = 0;
+    tmp_bin.data = NULL;
+    tmp_bin.size = 0;
+
+#ifdef HAS_EVP_PKEY_CTX
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!ctx) goto badarg;
+
+/* enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);  */
+
+    if (is_private) {
+        if (is_encrypt) {
+            /* private encrypt */
+            if ((algo_init=EVP_PKEY_sign_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s private encrypt algo_init=%d %s:%d\r\n", algo, algo_init, __FILE__, __LINE__); */
+                goto badarg;
+            }
+        } else {
+            /* private decrypt */
+            if ((algo_init=EVP_PKEY_decrypt_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s private decrypt algo_init=%d %s:%d\r\n", algo, algo_init, __FILE__, __LINE__); */
+                goto badarg;
+            }
+        }
+    } else {
+        if (is_encrypt) {
+            /* public encrypt */
+            if ((algo_init=EVP_PKEY_encrypt_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s public encrypt algo_init=%d %s:%d\r\n", algo,algo_init,__FILE__, __LINE__); */
+                goto badarg;
+            }
+        } else {
+            /* public decrypt */
+            if ((algo_init=EVP_PKEY_verify_recover_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s public decrypt algo_init=%d %s:%d\r\n", algo,algo_init,__FILE__, __LINE__); */
+                goto badarg;
+            }
+        }
+    }
+
+    if (argv[0] == atom_rsa) {
+	if (crypt_opt.signature_md != NULL
+	    && EVP_PKEY_CTX_set_signature_md(ctx, crypt_opt.signature_md) <= 0)
+		goto badarg;
+#ifdef HAVE_RSA_SSLV23_PADDING
+	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
+	    if (is_encrypt) {
+                tmplen = size_of_RSA(pkey);
+                if (tmplen == 0) goto badarg;
+		if (!enif_alloc_binary(tmplen, &tmp_bin)) goto badarg;
+		if (RSA_padding_add_SSLv23(tmp_bin.data, tmplen, in_bin.data, in_bin.size) <= 0)
+		    goto badarg;
+		in_bin = tmp_bin;
+	    }
+	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_NO_PADDING) <= 0) goto badarg;
+	} else
+#endif
+                {
+	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_opt.rsa_padding) <= 0) goto badarg;
+        }
+#ifdef HAVE_RSA_OAEP_MD
+	if (crypt_opt.rsa_padding == RSA_PKCS1_OAEP_PADDING) {
+	    if (crypt_opt.rsa_oaep_md != NULL
+		&& EVP_PKEY_CTX_set_rsa_oaep_md(ctx, crypt_opt.rsa_oaep_md) <= 0)
+		goto badarg;
+	    if (crypt_opt.rsa_mgf1_md != NULL
+		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, crypt_opt.rsa_mgf1_md) <= 0) goto badarg;
+	    if (crypt_opt.rsa_oaep_label.data != NULL && crypt_opt.rsa_oaep_label.size > 0) {
+		unsigned char *label_copy = NULL;
+		label_copy = OPENSSL_malloc(crypt_opt.rsa_oaep_label.size);
+		if (label_copy == NULL) goto badarg;
+		memcpy((void *)(label_copy), (const void *)(crypt_opt.rsa_oaep_label.data),
+		       crypt_opt.rsa_oaep_label.size);
+		if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, label_copy,
+						     crypt_opt.rsa_oaep_label.size) <= 0) {
+		    OPENSSL_free(label_copy);
+		    label_copy = NULL;
+		    goto badarg;
+		}
+	    }
+	}
+#endif
+    }
+
+    if (is_private) {
+	if (is_encrypt) {
+	    /* private_encrypt */
+	    i = EVP_PKEY_sign(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* private_decrypt */
+	    i = EVP_PKEY_decrypt(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	}
+    } else {
+	if (is_encrypt) {
+	    /* public_encrypt */
+	    i = EVP_PKEY_encrypt(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* public_decrypt */
+	    i = EVP_PKEY_verify_recover(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	}
+    }
+    /* fprintf(stderr,"i = %d %s:%d\r\n", i, __FILE__, __LINE__); */
+
+    if (i != 1) goto badarg;
+
+    enif_alloc_binary(outlen, &out_bin);
+
+    if (is_private) {
+	if (is_encrypt) {
+	    /* private_encrypt */
+	    i = EVP_PKEY_sign(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* private_decrypt */
+	    i = EVP_PKEY_decrypt(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	}
+    } else {
+	if (is_encrypt) {
+	    /* public_encrypt */
+	    i = EVP_PKEY_encrypt(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* public_decrypt */
+	    i = EVP_PKEY_verify_recover(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	}
+    }
+
+#else
+    /* Non-EVP cryptolib. Only support RSA */
+
+    if (argv[0] != atom_rsa) {
+        algo_init = -2;         /* exitcode: notsup */
+        goto badarg;
+    }
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    enif_alloc_binary(RSA_size(rsa), &out_bin);
+
+    if (is_private) {
+        if (is_encrypt) {
+            /* non-evp rsa private encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_private_encrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+            }
+        } else {
+            /* non-evp rsa private decrypt */
+            i = RSA_private_decrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    } else {
+        if (is_encrypt) {
+            /* non-evp rsa public encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_public_encrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+	}
+        } else {
+            /* non-evp rsa public decrypt */
+            i = RSA_public_decrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    }
+
+    outlen = i;
+    RSA_free(rsa);
+#endif
+
+    if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
+#ifdef HAVE_RSA_SSLV23_PADDING
+	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
+	    unsigned char *p;
+            tmplen = size_of_RSA(pkey);
+	    if (tmplen == 0) goto badarg;
+	    if (!enif_alloc_binary(tmplen, &tmp_bin))
+                goto badarg;
+	    p = out_bin.data;
+	    p++;
+	    i = RSA_padding_check_SSLv23(tmp_bin.data, tmplen, p, out_bin.size - 1, tmplen);
+	    if (i >= 0) {
+		outlen = i;
+		in_bin = out_bin;
+		out_bin = tmp_bin;
+		tmp_bin = in_bin;
+		i = 1;
+	    }
+	}
+#endif
+    }
+
+    if (tmp_bin.data != NULL) {
+	enif_release_binary(&tmp_bin);
+    }
+
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#else
+#endif
+    EVP_PKEY_free(pkey);
+    if (i > 0) {
+	ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, outlen);
+	if (outlen != out_bin.size) {
+	    enif_realloc_binary(&out_bin, outlen);
+	    ERL_VALGRIND_ASSERT_MEM_DEFINED(out_bin.data, outlen);
+	}
+	return enif_make_binary(env, &out_bin);
+    } else {
+	enif_release_binary(&out_bin);
+	return atom_error;
+    }
+
+ badarg:
+    if (out_bin.data != NULL) {
+	enif_release_binary(&out_bin);
+    }
+    if (tmp_bin.data != NULL) {
+	enif_release_binary(&tmp_bin);
+    }
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#else
+#endif
+    EVP_PKEY_free(pkey);
+    if (algo_init == -2)
+        return atom_notsup;
+    else
+        return enif_make_badarg(env);
+}
+
+
+
+/*--------------------------------*/
+static ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ /* (Algorithm, PrivKey | KeyMap) */
+    EVP_PKEY *pkey;
+    ERL_NIF_TERM alg = argv[0];
+    ERL_NIF_TERM result[8];
+    if (get_pkey_private_key(env, alg, argv[1], &pkey) != PKEY_OK) {
+	return enif_make_badarg(env);
+    }
+
+    if (alg == atom_rsa) {
+        const BIGNUM *n = NULL, *e = NULL, *d = NULL;
+        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+        if (rsa) {
+            RSA_get0_key(rsa, &n, &e, &d);
+            result[0] = bin_from_bn(env, e);  // Exponent E
+            result[1] = bin_from_bn(env, n);  // Modulus N = p*q
+            RSA_free(rsa);
+            EVP_PKEY_free(pkey);
+            return enif_make_list_from_array(env, result, 2);
+        }
+
+    } else if (argv[0] == atom_dss) {
+        const BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub_key = NULL;
+        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
+        if (dsa) {
+            DSA_get0_pqg(dsa, &p, &q, &g);
+            DSA_get0_key(dsa, &pub_key, NULL);
+            result[0] = bin_from_bn(env, p);
+            result[1] = bin_from_bn(env, q);
+            result[2] = bin_from_bn(env, g);
+            result[3] = bin_from_bn(env, pub_key);
+	    DSA_free(dsa);
+            EVP_PKEY_free(pkey);
+            return enif_make_list_from_array(env, result, 4);
+        }
+
+    } else if (argv[0] == atom_ecdsa) {
+#if defined(HAVE_EC)
+        /* not yet implemented
+          EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
+          if (ec) {
+          / * Example of result:
+               {
+                 Curve =  {Field, Prime, Point, Order, CoFactor} =
+                    {
+                      Field =  {prime_field,<<255,...,255>>},
+                      Prime = {<<255,...,252>>,
+                               <<90,...,75>>,
+                               <<196,...,144>>
+                              },
+                      Point =    <<4,...,245>>,
+                      Order =    <<255,...,81>>,
+                      CoFactor = <<1>>
+                    },
+                Key = <<151,...,62>>
+                }
+              or
+              {
+                Curve =
+                    {characteristic_two_field,
+                     M,
+                     Basis = {tpbasis, _}
+                           | {ppbasis, k1, k2, k3}
+                    },
+                Key
+               }
+        * /
+            EVP_PKEY_free(pkey);
+            return enif_make_list_from_array(env, ..., ...);
+        */
+#endif
+    }
+
+    if (pkey) EVP_PKEY_free(pkey);
+    return enif_make_badarg(env);
+}
+
+/*================================================================*/
+
 static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifBinary seed_bin;
@@ -3480,4 +5520,631 @@ static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         return enif_make_badarg(env);
     RAND_seed(seed_bin.data,seed_bin.size);
     return atom_ok;
+}
+
+/*================================================================*/
+/* Engine */
+/*================================================================*/
+static ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (EngineId) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ErlNifBinary engine_id_bin;
+    char *engine_id;
+    ENGINE *engine;
+    struct engine_ctx *ctx;
+
+    // Get Engine Id
+    if(!enif_inspect_binary(env, argv[0], &engine_id_bin)) {
+        PRINTF_ERR0("engine_by_id_nif Leaved: badarg");
+        return enif_make_badarg(env);
+    } else {
+        engine_id = enif_alloc(engine_id_bin.size+1);
+        (void) memcpy(engine_id, engine_id_bin.data, engine_id_bin.size);
+        engine_id[engine_id_bin.size] = '\0';
+    }
+
+    engine = ENGINE_by_id(engine_id);
+    if(!engine) {
+        enif_free(engine_id);
+        PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
+        return enif_make_tuple2(env, atom_error, atom_bad_engine_id);
+    }
+
+    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    ctx->engine = engine;
+    ctx->id = engine_id;
+
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret = atom_ok;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_init_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    if (!ENGINE_init(ctx->engine)) {
+        //ERR_print_errors_fp(stderr);
+        PRINTF_ERR0("engine_init_nif Leaved: {error, engine_init_failed}");
+        return enif_make_tuple2(env, atom_error, atom_engine_init_failed);
+    }
+
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_free_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_free_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    ENGINE_free(ctx->engine);
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_finish_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    ENGINE_finish(ctx->engine);
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_load_dynamic_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+#ifdef HAS_ENGINE_SUPPORT
+    ENGINE_load_dynamic();
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, Commands) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret = atom_ok;
+    unsigned int cmds_len = 0;
+    char **cmds = NULL;
+    struct engine_ctx *ctx;
+    int i, optional = 0;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    PRINTF_ERR1("Engine Id:  %s\r\n", ENGINE_get_id(ctx->engine));
+
+    // Get Command List
+    if(!enif_get_list_length(env, argv[1], &cmds_len)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Bad Command List");
+        return enif_make_badarg(env);
+    } else {
+        cmds_len *= 2; // Key-Value list from erlang
+        cmds = enif_alloc((cmds_len+1)*sizeof(char*));
+        if(get_engine_load_cmd_list(env, argv[1], cmds, 0)) {
+            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Couldn't read Command List");
+            ret = enif_make_badarg(env);
+            goto error;
+        }
+    }
+
+    if(!enif_get_int(env, argv[2], &optional)) {
+        PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: Parameter optional not an integer");
+        return enif_make_badarg(env);
+    }
+
+    for(i = 0; i < cmds_len; i+=2) {
+        PRINTF_ERR2("Cmd:  %s:%s\r\n",
+                   cmds[i] ? cmds[i] : "(NULL)",
+                   cmds[i+1] ? cmds[i+1] : "(NULL)");
+        if(!ENGINE_ctrl_cmd_string(ctx->engine, cmds[i], cmds[i+1], optional)) {
+            PRINTF_ERR2("Command failed:  %s:%s\r\n",
+                        cmds[i] ? cmds[i] : "(NULL)",
+                        cmds[i+1] ? cmds[i+1] : "(NULL)");
+            //ENGINE_free(ctx->engine);
+            ret = enif_make_tuple2(env, atom_error, atom_ctrl_cmd_failed);
+            PRINTF_ERR0("engine_ctrl_cmd_strings_nif Leaved: {error, ctrl_cmd_failed}");
+            goto error;
+        }
+    }
+
+ error:
+    for(i = 0; cmds != NULL && cmds[i] != NULL; i++)
+        enif_free(cmds[i]);
+    enif_free(cmds);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_add_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    if (!ENGINE_add(ctx->engine)) {
+        PRINTF_ERR0("engine_add_nif Leaved: {error, add_engine_failed}");
+        return enif_make_tuple2(env, atom_error, atom_add_engine_failed);
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_remove_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    if (!ENGINE_remove(ctx->engine)) {
+        PRINTF_ERR0("engine_remove_nif Leaved: {error, remove_engine_failed}");
+        return enif_make_tuple2(env, atom_error, atom_remove_engine_failed);
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, EngineMethod) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+    unsigned int method;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_register_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    // Get Method
+    if (!enif_get_uint(env, argv[1], &method)) {
+        PRINTF_ERR0("engine_register_nif Leaved: Parameter Method not an uint");
+        return enif_make_badarg(env);
+    }
+
+    switch(method)
+    {
+#ifdef ENGINE_METHOD_RSA
+    case ENGINE_METHOD_RSA:
+        if (!ENGINE_register_RSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    case ENGINE_METHOD_DSA:
+        if (!ENGINE_register_DSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DH
+    case ENGINE_METHOD_DH:
+        if (!ENGINE_register_DH(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    case ENGINE_METHOD_RAND:
+        if (!ENGINE_register_RAND(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    case ENGINE_METHOD_ECDH:
+        if (!ENGINE_register_ECDH(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    case ENGINE_METHOD_ECDSA:
+        if (!ENGINE_register_ECDSA(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    case ENGINE_METHOD_STORE:
+        if (!ENGINE_register_STORE(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    case ENGINE_METHOD_CIPHERS:
+        if (!ENGINE_register_ciphers(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    case ENGINE_METHOD_DIGESTS:
+        if (!ENGINE_register_digests(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    case ENGINE_METHOD_PKEY_METHS:
+        if (!ENGINE_register_pkey_meths(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    case ENGINE_METHOD_PKEY_ASN1_METHS:
+        if (!ENGINE_register_pkey_asn1_meths(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+#ifdef ENGINE_METHOD_EC
+    case ENGINE_METHOD_EC:
+        if (!ENGINE_register_EC(ctx->engine))
+            return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+        break;
+#endif
+    default:
+        return  enif_make_tuple2(env, atom_error, atom_engine_method_not_supported);
+        break;
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_unregister_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine, EngineMethod) */
+#ifdef HAS_ENGINE_SUPPORT
+    struct engine_ctx *ctx;
+    unsigned int method;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    // Get Method
+    if (!enif_get_uint(env, argv[1], &method)) {
+        PRINTF_ERR0("engine_unregister_nif Leaved: Parameter Method not an uint");
+        return enif_make_badarg(env);
+    }
+
+    switch(method)
+    {
+#ifdef ENGINE_METHOD_RSA
+    case ENGINE_METHOD_RSA:
+        ENGINE_unregister_RSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    case ENGINE_METHOD_DSA:
+        ENGINE_unregister_DSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DH
+    case ENGINE_METHOD_DH:
+        ENGINE_unregister_DH(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    case ENGINE_METHOD_RAND:
+        ENGINE_unregister_RAND(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    case ENGINE_METHOD_ECDH:
+        ENGINE_unregister_ECDH(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    case ENGINE_METHOD_ECDSA:
+        ENGINE_unregister_ECDSA(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    case ENGINE_METHOD_STORE:
+        ENGINE_unregister_STORE(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    case ENGINE_METHOD_CIPHERS:
+        ENGINE_unregister_ciphers(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    case ENGINE_METHOD_DIGESTS:
+        ENGINE_unregister_digests(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    case ENGINE_METHOD_PKEY_METHS:
+        ENGINE_unregister_pkey_meths(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    case ENGINE_METHOD_PKEY_ASN1_METHS:
+        ENGINE_unregister_pkey_asn1_meths(ctx->engine);
+        break;
+#endif
+#ifdef ENGINE_METHOD_EC
+    case ENGINE_METHOD_EC:
+        ENGINE_unregister_EC(ctx->engine);
+        break;
+#endif
+    default:
+        break;
+    }
+    return atom_ok;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_first_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ENGINE *engine;
+    ErlNifBinary engine_bin;
+    struct engine_ctx *ctx;
+
+    engine = ENGINE_get_first();
+    if(!engine) {
+        enif_alloc_binary(0, &engine_bin);
+        engine_bin.size = 0;
+        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
+    }
+
+    ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    ctx->engine = engine;
+    ctx->id = NULL;
+
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM ret;
+    ENGINE *engine;
+    ErlNifBinary engine_bin;
+    struct engine_ctx *ctx, *next_ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_next_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+    engine = ENGINE_get_next(ctx->engine);
+    if (!engine) {
+        enif_alloc_binary(0, &engine_bin);
+        engine_bin.size = 0;
+        return enif_make_tuple2(env, atom_ok, enif_make_binary(env, &engine_bin));
+    }
+
+    next_ctx = enif_alloc_resource(engine_ctx_rtype, sizeof(struct engine_ctx));
+    next_ctx->engine = engine;
+    next_ctx->id = NULL;
+
+    ret = enif_make_resource(env, next_ctx);
+    enif_release_resource(next_ctx);
+
+    return enif_make_tuple2(env, atom_ok, ret);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ErlNifBinary engine_id_bin;
+    const char *engine_id;
+    int size;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_id_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    engine_id = ENGINE_get_id(ctx->engine);
+    if (!engine_id) {
+        enif_alloc_binary(0, &engine_id_bin);
+        engine_id_bin.size = 0;
+        return enif_make_binary(env, &engine_id_bin);
+    }
+
+    size = strlen(engine_id);
+    enif_alloc_binary(size, &engine_id_bin);
+    engine_id_bin.size = size;
+    memcpy(engine_id_bin.data, engine_id, size);
+
+    return enif_make_binary(env, &engine_id_bin);
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM engine_get_name_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Engine) */
+#ifdef HAS_ENGINE_SUPPORT
+    ErlNifBinary engine_name_bin;
+    const char *engine_name;
+    int size;
+    struct engine_ctx *ctx;
+
+    // Get Engine
+    if (!enif_get_resource(env, argv[0], engine_ctx_rtype, (void**)&ctx)) {
+        PRINTF_ERR0("engine_get_id_nif Leaved: Parameter not an engine resource object");
+        return enif_make_badarg(env);
+    }
+
+    engine_name = ENGINE_get_name(ctx->engine);
+    if (!engine_name) {
+        enif_alloc_binary(0, &engine_name_bin);
+        engine_name_bin.size = 0;
+        return enif_make_binary(env, &engine_name_bin);
+    }
+
+    size = strlen(engine_name);
+    enif_alloc_binary(size, &engine_name_bin);
+    engine_name_bin.size = size;
+    memcpy(engine_name_bin.data, engine_name, size);
+
+    return enif_make_binary(env, &engine_name_bin);
+#else
+    return atom_notsup;
+#endif
+}
+
+#ifdef HAS_ENGINE_SUPPORT
+static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i)
+{
+    ERL_NIF_TERM head, tail;
+    const ERL_NIF_TERM *tmp_tuple;
+    ErlNifBinary tmpbin;
+    int arity;
+    char* tmpstr;
+
+    if(!enif_is_empty_list(env, term)) {
+        if(!enif_get_list_cell(env, term, &head, &tail)) {
+            cmds[i] = NULL;
+            return -1;
+        } else {
+            if(!enif_get_tuple(env, head, &arity, &tmp_tuple)  || arity != 2) {
+                cmds[i] = NULL;
+                return -1;
+            } else {
+                if(!enif_inspect_binary(env, tmp_tuple[0], &tmpbin)) {
+                    cmds[i] = NULL;
+                    return -1;
+                } else {
+                    tmpstr = enif_alloc(tmpbin.size+1);
+                    (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
+                    tmpstr[tmpbin.size] = '\0';
+                    cmds[i++] = tmpstr;
+                }
+                if(!enif_inspect_binary(env, tmp_tuple[1], &tmpbin)) {
+                    cmds[i] = NULL;
+                    return -1;
+                } else {
+                    if(tmpbin.size == 0)
+                        cmds[i++] = NULL;
+                    else {
+                        tmpstr = enif_alloc(tmpbin.size+1);
+                        (void) memcpy(tmpstr, tmpbin.data, tmpbin.size);
+                        tmpstr[tmpbin.size] = '\0';
+                        cmds[i++] = tmpstr;
+                    }
+                }
+                return get_engine_load_cmd_list(env, tail, cmds, i);
+            }
+        }
+    } else {
+        cmds[i] = NULL;
+        return 0;
+    }
+}
+#endif
+
+static ERL_NIF_TERM engine_get_all_methods_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+#ifdef HAS_ENGINE_SUPPORT
+    ERL_NIF_TERM method_array[12];
+    int i = 0;
+
+#ifdef ENGINE_METHOD_RSA
+    method_array[i++] = atom_engine_method_rsa;
+#endif
+#ifdef ENGINE_METHOD_DSA
+    method_array[i++] = atom_engine_method_dsa;
+#endif
+#ifdef ENGINE_METHOD_DH
+    method_array[i++] = atom_engine_method_dh;
+#endif
+#ifdef ENGINE_METHOD_RAND
+    method_array[i++] = atom_engine_method_rand;
+#endif
+#ifdef ENGINE_METHOD_ECDH
+    method_array[i++] = atom_engine_method_ecdh;
+#endif
+#ifdef ENGINE_METHOD_ECDSA
+    method_array[i++] = atom_engine_method_ecdsa;
+#endif
+#ifdef ENGINE_METHOD_STORE
+    method_array[i++] = atom_engine_method_store;
+#endif
+#ifdef ENGINE_METHOD_CIPHERS
+    method_array[i++] = atom_engine_method_ciphers;
+#endif
+#ifdef ENGINE_METHOD_DIGESTS
+    method_array[i++] = atom_engine_method_digests;
+#endif
+#ifdef ENGINE_METHOD_PKEY_METHS
+    method_array[i++] = atom_engine_method_pkey_meths;
+#endif
+#ifdef ENGINE_METHOD_PKEY_ASN1_METHS
+    method_array[i++] = atom_engine_method_pkey_asn1_meths;
+#endif
+#ifdef ENGINE_METHOD_EC
+    method_array[i++] = atom_engine_method_ec;
+#endif
+
+    return enif_make_list_from_array(env, method_array, i);
+#else
+    return atom_notsup;
+#endif
 }

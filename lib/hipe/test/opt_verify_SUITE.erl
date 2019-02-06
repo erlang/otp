@@ -1,6 +1,9 @@
 -module(opt_verify_SUITE).
 
--compile([export_all]).
+-export([all/0, groups/0,
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2,
+	 call_elim/0, call_elim/1]).
 
 all() ->
     [call_elim].
@@ -23,23 +26,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-call_elim_test_file(Config, FileName, Option) ->
-    PrivDir = test_server:lookup_config(priv_dir, Config),
-    TempOut = test_server:temp_name(filename:join(PrivDir, "call_elim_out")),
-    {ok, TestCase} = compile:file(FileName),
-    {ok, TestCase} = hipe:c(TestCase, [Option, {pp_range_icode, {file, TempOut}}]),
-    {ok, Icode} = file:read_file(TempOut),
-    ok = file:delete(TempOut),
-    Icode.
-
-substring_count(Icode, Substring) ->
-    substring_count(Icode, Substring, 0).
-substring_count(Icode, Substring, N) ->
-    case string:str(Icode, Substring) of
-        0 -> N;
-        I -> substring_count(lists:nthtail(I, Icode), Substring, N+1)
-    end.
-
 call_elim() ->
     [{doc, "Test that the call elimination optimization pass is ok"}].
 call_elim(Config) ->
@@ -58,5 +44,22 @@ call_elim(Config) ->
     Icode5 = call_elim_test_file(Config, F3, icode_call_elim),
     0 = substring_count(binary:bin_to_list(Icode5), "is_key"),
     Icode6 = call_elim_test_file(Config, F3, no_icode_call_elim),
-    3 = substring_count(binary:bin_to_list(Icode6), "is_key"),
+    2 = substring_count(binary:bin_to_list(Icode6), "is_key"),
     ok.
+
+call_elim_test_file(Config, FileName, Option) ->
+    PrivDir = test_server:lookup_config(priv_dir, Config),
+    TempOut = test_server:temp_name(filename:join(PrivDir, "call_elim_out")),
+    {ok, TestCase} = compile:file(FileName),
+    {ok, TestCase} = hipe:c(TestCase, [Option, {pp_range_icode, {file, TempOut}}]),
+    {ok, Icode} = file:read_file(TempOut),
+    ok = file:delete(TempOut),
+    Icode.
+
+substring_count(Icode, Substring) ->
+    substring_count(Icode, Substring, 0).
+substring_count(Icode, Substring, N) ->
+    case string:find(Icode, Substring) of
+        nomatch -> N;
+        Prefix -> substring_count(string:prefix(Prefix, Substring), Substring, N+1)
+    end.

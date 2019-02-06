@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ s|@ARCH@|simlinux|
 s|@CC@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ccpentium|
 
 s|@HCC@|gcc|
+s|@GCC@|yes|
 
 s|@LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldpentium|
 

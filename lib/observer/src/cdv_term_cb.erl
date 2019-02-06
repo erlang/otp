@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,23 +30,31 @@ detail_pages() ->
     [{"Term", fun init_term_page/2}].
 
 init_term_page(ParentWin, {Type, [Term, Tab]}) ->
+    observer_lib:report_progress({ok,"Expanding term"}),
+    observer_lib:report_progress({ok,start_pulse}),
     Expanded = expand(Term, true),
     BinSaved = expand(Term, Tab),
+    observer_lib:report_progress({ok,stop_pulse}),
     cdv_multi_wx:start_link(
       ParentWin,
       [{"Format \~p",cdv_html_wx,{Type, format_term_fun("~p",BinSaved,Tab)}},
        {"Format \~tp",cdv_html_wx,{Type,format_term_fun("~tp",BinSaved,Tab)}},
        {"Format \~w",cdv_html_wx,{Type,format_term_fun("~w",BinSaved,Tab)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_term_fun("~tw",BinSaved,Tab)}},
        {"Format \~s",cdv_html_wx,{Type,format_term_fun("~s",Expanded,Tab)}},
        {"Format \~ts",cdv_html_wx,{Type,format_term_fun("~ts",Expanded,Tab)}}]).
 
 format_term_fun(Format,Term,Tab) ->
     fun() ->
+            observer_lib:report_progress({ok,"Formatting term"}),
+            observer_lib:report_progress({ok,start_pulse}),
 	    try io_lib:format(Format,[Term]) of
 		Str -> {expand, plain_html(Str), Tab}
 	    catch error:badarg ->
 		    Warning = "This term can not be formatted with " ++ Format,
 		    observer_html_lib:warning(Warning)
+            after
+                    observer_lib:report_progress({ok,stop_pulse})
 	    end
     end.
 
@@ -57,13 +65,7 @@ expand(['#CDVBin',Offset,Size,Pos], true) ->
     {ok,Bin} = crashdump_viewer:expand_binary({Offset,Size,Pos}),
     Bin;
 expand(Bin, Tab) when is_binary(Bin), not is_boolean(Tab) ->
-    Size = byte_size(Bin),
-    PrevSize = min(Size, 10) * 8,
-    <<Preview:PrevSize, _/binary>> = Bin,
-    Hash = erlang:phash2(Bin),
-    Key = {Preview, Size, Hash},
-    ets:insert(Tab, {Key,Bin}),
-    ['#OBSBin',Preview,Size,Hash];
+    observer_lib:make_obsbin(Bin, Tab);
 expand([H|T], Expand) ->
     case expand(T, Expand) of
 	ET when is_list(ET) ->

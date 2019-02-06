@@ -33,7 +33,6 @@
   <xi:include href="../specs/specs_gen_statem.xml"/>
   <xi:include href="../specs/specs_io.xml"/>
   <xi:include href="../specs/specs_io_lib.xml"/>
-  <xi:include href="../specs/specs_lib.xml"/>
   <xi:include href="../specs/specs_lists.xml"/>
   <xi:include href="../specs/specs_log_mf_h.xml"/>
   <xi:include href="../specs/specs_maps.xml"/>
@@ -60,6 +59,7 @@
   <xi:include href="../specs/specs_sys.xml"/>
   <xi:include href="../specs/specs_timer.xml"/>
   <xi:include href="../specs/specs_unicode.xml"/>
+  <xi:include href="../specs/specs_uri_string.xml"/>
   <xi:include href="../specs/specs_win32reg.xml"/>
   <xi:include href="../specs/specs_zip.xml"/>
 </specs>

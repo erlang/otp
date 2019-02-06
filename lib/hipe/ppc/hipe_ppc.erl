@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,10 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
-
 
 -module(hipe_ppc).
 -export([
@@ -106,6 +98,9 @@
 	 pseudo_move_dst/1,
 	 pseudo_move_src/1,
 
+	 mk_pseudo_spill_move/3,
+	 is_pseudo_spill_move/1,
+
 	 mk_pseudo_tailcall/4,
 	 pseudo_tailcall_func/1,
 	 pseudo_tailcall_stkargs/1,
@@ -138,6 +133,9 @@
 	 is_pseudo_fmove/1,
 	 pseudo_fmove_dst/1,
 	 pseudo_fmove_src/1,
+
+	 mk_pseudo_spill_fmove/3,
+	 is_pseudo_spill_fmove/1,
 
 	 mk_defun/8,
 	 defun_mfa/1,
@@ -420,6 +418,10 @@ is_pseudo_move(I) -> case I of #pseudo_move{} -> true; _ -> false end.
 pseudo_move_dst(#pseudo_move{dst=Dst}) -> Dst.
 pseudo_move_src(#pseudo_move{src=Src}) -> Src.
 
+mk_pseudo_spill_move(Dst, Temp, Src) ->
+  #pseudo_spill_move{dst=Dst, temp=Temp, src=Src}.
+is_pseudo_spill_move(I) -> is_record(I, pseudo_spill_move).
+
 mk_pseudo_tailcall(FunC, Arity, StkArgs, Linkage) ->
   #pseudo_tailcall{func=FunC, arity=Arity, stkargs=StkArgs, linkage=Linkage}.
 pseudo_tailcall_func(#pseudo_tailcall{func=FunC}) -> FunC.
@@ -502,6 +504,10 @@ mk_pseudo_fmove(Dst, Src) -> #pseudo_fmove{dst=Dst, src=Src}.
 is_pseudo_fmove(I) -> case I of #pseudo_fmove{} -> true; _ -> false end.
 pseudo_fmove_dst(#pseudo_fmove{dst=Dst}) -> Dst.
 pseudo_fmove_src(#pseudo_fmove{src=Src}) -> Src.
+
+mk_pseudo_spill_fmove(Dst, Temp, Src) ->
+  #pseudo_spill_fmove{dst=Dst, temp=Temp, src=Src}.
+is_pseudo_spill_fmove(I) -> is_record(I, pseudo_spill_fmove).
 
 mk_defun(MFA, Formals, IsClosure, IsLeaf, Code, Data, VarRange, LabelRange) ->
   #defun{mfa=MFA, formals=Formals, code=Code, data=Data,

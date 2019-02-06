@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,10 +22,12 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
--export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
+-export([space_in_cwd/1, quoting/1, cmd_unicode/1, 
+         null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
-         message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
+         message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
+         perf_counter_api/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -34,10 +36,11 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
+    [space_in_cwd, quoting, cmd_unicode, null_in_command,
+     space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
-     close_stdin, perf_counter_api].
+     close_stdin, max_size_command, perf_counter_api].
 
 groups() ->
     [].
@@ -125,6 +128,14 @@ cmd_unicode(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
+null_in_command(Config) ->
+    {Ok, Error} = case os:type() of
+                      {win32,_} -> {"dir", "di\0r"};
+                      _ -> {"ls", "l\0s"}
+                  end,
+    true = is_list(try os:cmd(Ok) catch Class0:_ -> Class0 end),
+    error = try os:cmd(Error) catch Class1:_ -> Class1 end,
+    ok.
 
 %% Test that program with a space in its name can be executed.
 space_in_name(Config) when is_list(Config) ->
@@ -216,8 +227,8 @@ find_executable(Config) when is_list(Config) ->
 	    DataDir = proplists:get_value(data_dir, Config),
 
 	    %% Smoke test.
-	    case lib:progname() of
-		erl ->
+	    case ct:get_progname() of
+		"erl" ->
 		    ErlPath = os:find_executable("erl"),
 		    true = is_list(ErlPath),
 		    true = filelib:is_regular(ErlPath);
@@ -312,6 +323,19 @@ close_stdin(Config) ->
 
     "-1" = os:cmd(Fds).
 
+max_size_command(_Config) ->
+
+    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    20 = length(Res20),
+
+    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    0 = length(Res0),
+
+    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    32768 = length(Res32768),
+
+    ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
+    5 = length(ResHello).
 
 %% Test that the os:perf_counter api works as expected
 perf_counter_api(_Config) ->
@@ -319,31 +343,38 @@ perf_counter_api(_Config) ->
     true = is_integer(os:perf_counter()),
     true = os:perf_counter() > 0,
 
-    T1 = os:perf_counter(),
+    Conv = fun(T1, T2) ->
+                   erlang:convert_time_unit(T2 - T1, perf_counter, nanosecond)
+           end,
+
+    do_perf_counter_test([], Conv, 120000000, 80000000),
+    do_perf_counter_test([1000], fun(T1, T2) -> T2 - T1 end, 120, 80).
+
+do_perf_counter_test(CntArgs, Conv, Upper, Lower) ->
+    %% We run the test multiple times to try to get a somewhat
+    %% stable value... what does this test? That the
+    %% calculate_perf_counter_unit in sys_time.c works somewhat ok.
+    do_perf_counter_test(CntArgs, Conv, Upper, Lower, 10).
+
+do_perf_counter_test(CntArgs, _Conv, Upper, Lower, 0) ->
+    ct:fail("perf_counter_test ~p ~p ~p",[CntArgs, Upper, Lower]);
+do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters) ->
+
+    T1 = apply(os, perf_counter, CntArgs),
     timer:sleep(100),
-    T2 = os:perf_counter(),
-    TsDiff = erlang:convert_time_unit(T2 - T1, perf_counter, nano_seconds),
-    ct:pal("T1: ~p~n"
+    T2 = apply(os, perf_counter, CntArgs),
+    TsDiff = Conv(T1, T2),
+    ct:log("T1: ~p~n"
            "T2: ~p~n"
            "TsDiff: ~p~n",
            [T1,T2,TsDiff]),
 
-    %% We allow a 15% diff
-    true = TsDiff < 115000000,
-    true = TsDiff > 85000000,
-
-    T1Ms = os:perf_counter(1000),
-    timer:sleep(100),
-    T2Ms = os:perf_counter(1000),
-    MsDiff = T2Ms - T1Ms,
-    ct:pal("T1Ms: ~p~n"
-           "T2Ms: ~p~n"
-           "MsDiff: ~p~n",
-           [T1Ms,T2Ms,MsDiff]),
-
-    %% We allow a 15% diff
-    true = MsDiff < 115,
-    true = MsDiff > 85.
+    if
+        TsDiff < Upper, TsDiff > Lower ->
+            ok;
+        true ->
+            do_perf_counter_test(CntArgs, Conv, Upper, Lower, Iters-1)
+    end.
 
 %% Util functions
 
@@ -357,7 +388,7 @@ comp(Expected, Got) ->
 	    ct:fail(failed)
     end.
 
-%% Like lib:nonl/1, but strips \r as well as \n.
+%% strips \n and \r\n from end of string
 
 strip_nl([$\r, $\n]) -> [];
 strip_nl([$\n])      -> [];

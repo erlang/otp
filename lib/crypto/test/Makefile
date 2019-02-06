@@ -8,7 +8,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES = \
 	blowfish_SUITE \
 	crypto_SUITE \
-	old_crypto_SUITE
+	engine_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -28,7 +28,7 @@ RELSYSDIR = $(RELEASE_PATH)/crypto_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_export_all
 
 EBIN = .
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -78,6 +78,7 @@ release_spec:
 release_tests_spec: $(TEST_TARGET)
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) crypto.spec crypto.cover $(RELTEST_FILES) "$(RELSYSDIR)"
+	@tar cfh - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	chmod -R u+w "$(RELSYSDIR)"
 
 release_docs_spec:

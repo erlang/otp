@@ -123,20 +123,14 @@ declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=B,single={list,Sz}}})
   when is_number(Sz) -> 
     w(" ~s ~s[~p] = {~s};~n", [T,N,Sz,args(fun zero/1,",",lists:duplicate(Sz,B))]),
     A;
-declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=string,size={Max,_}, single=Single}}) -> 
+declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=string,size={Max,_}}}) ->
     case is_integer(Max) of
-	true -> 
+	true ->
 	    w(" ~s ~s[~p];~n", [T,N,Max]);
 	false ->
-	    %% w(" ~s ~s[*~s];~n", [T,N,Max]),
-	    w(" ~s *~s;~n", [T,N]), 
+	    w(" ~s *~s;~n", [T,N]),
 	    w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~s);~n", [N,T,T,Max]),
-	    store_free(N)		
-	    %% case Single of
-	    %% 	{list, _, _} -> 
-	    %% 	    w(" ~s *~s_p = ~s;~n", [T,N,N]);
-	    %% 	_ -> ok
-	    %% end	    
+	    store_free(N)
     end,
     A;
 declare_var(A=#arg{name=N,in=false,type=#type{base=binary,size={MaxSz, _}}}) -> 
@@ -163,9 +157,9 @@ declare_var(A=#arg{name=N,in=false,
 		   type=#type{name=T,base=B,by_val=false,single=true}}) -> 
     w(" ~s ~s[1] = {~s};~n", [T,N,zero(B)]),
     A;
-declare_var(A=#arg{where=c, type=#type{name=T}, alt={size,Var}}) -> 
+declare_var(A=#arg{where=c, type=#type{name=T}, alt={size,Var}}) ->
     w(" ~s ~s_size = bins_sz[~p];~n", [T, Var, get(bin_count)]),
-    A;    
+    A;
 declare_var(A=#arg{where=_}) -> 
     A.
 
@@ -194,9 +188,16 @@ decode_arg(P=#arg{where=erl},A) -> {P,A};
 decode_arg(P=#arg{where=c},A)   -> {P,A};
 decode_arg(P=#arg{in=false},A)  -> {P,A};
 
-decode_arg(P=#arg{name=Name,type=#type{name=Type,base=binary}},A0) ->
+decode_arg(P=#arg{name=Name,alt=Alt,type=#type{name=Type,base=binary}},A0) ->
     w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
-    {P, A0};
+    case Alt of
+        list_binary ->
+            A = align(4, A0),
+            w(" int * ~sLen = (int *) bp; bp += 4; (void) ~sLen;~n", [Name, Name]),
+            {P, A};
+        _ ->
+            {P, A0}
+    end;
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=memory}},A0) ->
     w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
     {P, A0};
@@ -217,7 +218,7 @@ decode_arg(P=#arg{name=Name,type=#type{size=Sz,single=list,name=Type}},A0) ->
     A = align(max([Sz,4]),A0),
     w(" int * ~sLen = (int *) bp; bp += ~p;~n",    [Name, max([4,Sz])]),
     w(" ~s * ~s = (~s *) bp; ", [Type,Name,Type]),
-    w(" bp += (8-((*~sLen*~p+~p)%8))%8;~n", [Name,Sz,A]),
+    w(" bp += *~sLen*~p + (8-((*~sLen*~p+~p)%8))%8;~n", [Name,Sz,Name,Sz,A]),
     {P, 0};
 decode_arg(P=#arg{name=Name,type=#type{size=TSz,name=Type,single={tuple,undefined}}},A0) ->
     A = align(TSz,A0),

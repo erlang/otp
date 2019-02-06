@@ -5,7 +5,7 @@
 -export([t/0]).
 
 t() ->
-    Fs = [fun i1/0, fun i2/0, fun i3/0, fun i4/0, fun f1/0],
+    Fs = [fun i1/0, fun i2/0, fun i3/0, fun i4/0, fun f1/0, fun erl_551/0],
     _ = [catch F() || F <- Fs],
     ok.
 
@@ -59,6 +59,13 @@ f1() ->
 
 f1(A) ->
     abs(A).
+
+erl_551() ->
+    accept(9),
+    accept(-3).
+
+accept(Number) when abs(Number) >= 8 -> first;
+accept(_Number) -> second.
 
 -spec int() -> integer().
 

@@ -1,0 +1,25 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%%% 3 comment chars: always left indented
+%%% 2 comment chars: Context indented
+%%% 1 comment char: Rigth indented
+
+%%% left
+%% context dependent
+                                                % rigth
+
+func() ->
+%%% left
+    %% context dependent
+                                                % right indented
+    case get(foo) of
+        undefined ->
+            %% Testing indention
+            ok;
+        %% Catch all
+        Other ->
+            Other
+    end,
+    ok.
+

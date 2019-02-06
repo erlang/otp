@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,9 +118,10 @@ get_data(Pid) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 init(Parent, Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
+    ct_util:mark_process(),
     case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,NoDelay}], Timeout) of
 	{ok,Sock} ->
-	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
+	    dbg("~tp connected to: ~tp (port: ~w, keep_alive: ~w)\n",
 		[ConnName,Server,Port,KeepAlive]),
 	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock, ConnName),	      
 	    Parent ! {open,self()},

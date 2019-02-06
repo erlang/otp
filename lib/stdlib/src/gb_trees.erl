@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,8 +9,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %% =====================================================================
 %% General Balanced Trees - highly efficient dictionaries.
@@ -58,6 +51,13 @@
 %%
 %% - delete_any(X, T): removes key X from tree T if the key is present
 %%   in the tree, otherwise does nothing; returns new tree.
+%%
+%% - take(X, T): removes element with key X from tree T; returns new tree
+%%   without removed element. Assumes that the key is present in the tree.
+%%
+%% - take_any(X, T): removes element with key X from tree T and returns
+%%   a new tree if the key is present; otherwise does nothing and returns
+%%   'error'.
 %%
 %% - balance(T): rebalances tree T. Note that this is rarely necessary,
 %%   but may be motivated when a large number of entries have been
@@ -121,7 +121,8 @@
 -export([empty/0, is_empty/1, size/1, lookup/2, get/2, insert/3,
 	 update/3, enter/3, delete/2, delete_any/2, balance/1,
 	 is_defined/2, keys/1, values/1, to_list/1, from_orddict/1,
-	 smallest/1, largest/1, take_smallest/1, take_largest/1,
+	 smallest/1, largest/1, take/2, take_any/2,
+         take_smallest/1, take_largest/1,
 	 iterator/1, iterator_from/2, next/1, map/2]).
 
 
@@ -420,6 +421,41 @@ merge(nil, Larger) ->
 merge(Smaller, Larger) ->
     {Key, Value, Larger1} = take_smallest1(Larger),
     {Key, Value, Smaller, Larger1}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec take_any(Key, Tree1) -> {Value, Tree2} | 'error' when
+      Tree1 :: tree(Key, _),
+      Tree2 :: tree(Key, _),
+      Key   :: term(),
+      Value :: term().
+
+take_any(Key, Tree) ->
+    case is_defined(Key, Tree) of
+        true -> take(Key, Tree);
+        false -> error
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec take(Key, Tree1) -> {Value, Tree2} when
+      Tree1 :: tree(Key, _),
+      Tree2 :: tree(Key, _),
+      Key   :: term(),
+      Value :: term().
+
+take(Key, {S, T}) when is_integer(S), S >= 0 ->
+    {Value, Res} = take_1(Key, T),
+    {Value, {S - 1, Res}}.
+
+take_1(Key, {Key1, Value, Smaller, Larger}) when Key < Key1 ->
+    {Value2, Smaller1} = take_1(Key, Smaller),
+    {Value2, {Key1, Value, Smaller1, Larger}};
+take_1(Key, {Key1, Value, Smaller, Bigger}) when Key > Key1 ->
+    {Value2, Bigger1} = take_1(Key, Bigger),
+    {Value2, {Key1, Value, Smaller, Bigger1}};
+take_1(_, {_Key, Value, Smaller, Larger}) ->
+    {Value, merge(Smaller, Larger)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

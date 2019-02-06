@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,10 +46,11 @@ void kill_epmd(EpmdVars *g)
     if ((rval = read_fill(fd,buf,2)) == 2) {
 	if (buf[0] == 'O' && buf[1] == 'K') {
 	    printf("Killed\n");
+	    epmd_cleanup_exit(g,0);
 	} else {
 	    printf("Killing not allowed - living nodes in database.\n");
+	    epmd_cleanup_exit(g,1);
 	}
-	epmd_cleanup_exit(g,0);
     } else if (rval < 0) {
 	printf("epmd: failed to read answer from local epmd\n");
 	epmd_cleanup_exit(g,1);

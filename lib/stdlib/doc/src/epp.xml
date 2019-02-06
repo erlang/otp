@@ -124,6 +124,10 @@
       <fsummary>Open a file for preprocessing.</fsummary>
       <desc>
         <p>Opens a file for preprocessing.</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
         <p>If <c>extra</c> is specified in
           <c><anno>Options</anno></c>, the return value is
           <c>{ok, <anno>Epp</anno>, <anno>Extra</anno>}</c> instead
@@ -169,6 +173,10 @@
         <p>Preprocesses and parses an Erlang source file.
           Notice that tuple <c>{eof, <anno>Line</anno>}</c> returned at the
           end of the file is included as a "form".</p>
+        <p>If you want to change the file name of the implicit -file()
+          attributes inserted during preprocessing, you can do with
+          <c>{source_name, <anno>SourceName</anno>}</c>. If unset it will
+          default to the name of the opened file.</p>
         <p>If <c>extra</c> is specified in
          <c><anno>Options</anno></c>, the return value is
          <c>{ok, [<anno>Form</anno>], <anno>Extra</anno>}</c> instead

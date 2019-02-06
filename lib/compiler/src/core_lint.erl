@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -353,12 +353,6 @@ expr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     Pc = case_patcount(Cs),
     St1 = body(Arg, Def, Pc, St0),
     clauses(Cs, Def, Pc, Rt, St1);
-expr(#c_receive{clauses=Cs,timeout=#c_literal{val=infinity},
-		action=#c_literal{}},
-     Def, Rt, St) ->
-    %% If the timeout is 'infinity', the after code can never
-    %% be reached. We don't care if the return count is wrong.
-    clauses(Cs, Def, 1, Rt, St);
 expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
     St1 = expr(T, Def, 1, St0),
     St2 = body(A, Def, Rt, St1),
@@ -497,8 +491,10 @@ pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
 pattern(#c_map{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
-pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
-    pattern_list([K,V],Def,Ps,St);
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V}, Def, Ps, St) ->
+    %% The key is an input.
+    pat_map_expr(K, Def, St),
+    pattern_list([V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
@@ -560,6 +556,10 @@ pat_bit_expr(#c_binary{}, _, _Def, St) ->
     St;
 pat_bit_expr(_, _, _, St) ->
     add_error({illegal_expr,St#lint.func}, St).
+
+pat_map_expr(#c_var{name=N}, Def, St) -> expr_var(N, Def, St);
+pat_map_expr(#c_literal{}, _Def, St) -> St;
+pat_map_expr(_, _, St) -> add_error({illegal_expr,St#lint.func}, St).
 
 %% pattern_list([Var], Defined, State) -> {[PatVar],State}.
 %% pattern_list([Var], Defined, [PatVar], State) -> {[PatVar],State}.

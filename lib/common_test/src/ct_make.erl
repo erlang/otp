@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ read_emakefile(Emakefile,Opts) ->
 	    Mods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -151,7 +151,7 @@ get_opts_from_emakefile(Mods,Emakefile,Opts) ->
 	{error,enoent} ->
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -280,15 +280,47 @@ recompile(File, NoExec, Load, Opts) ->
 
 do_recompile(_File, true, _Load, _Opts) ->
     out_of_date;
-do_recompile(File, false, noload, Opts) ->
+do_recompile(File, false, Load, Opts) ->
     io:format("Recompile: ~ts\n",[File]),
-    compile:file(File, [report_errors, report_warnings, error_summary |Opts]);
-do_recompile(File, false, load, Opts) ->
-    io:format("Recompile: ~ts\n",[File]),
-    c:c(File, Opts);
-do_recompile(File, false, netload, Opts) ->
-    io:format("Recompile: ~ts\n",[File]),
-    c:nc(File, Opts).
+    case compile:file(File, [report_errors, report_warnings |Opts]) of
+        Ok when is_tuple(Ok), element(1,Ok)==ok ->
+            maybe_load(element(2,Ok), Load, Opts);
+        _Error ->
+            error
+    end.
+
+maybe_load(_Mod, noload, _Opts) ->
+    ok;
+maybe_load(Mod, Load, Opts) ->
+    %% We have compiled File with options Opts. Find out where the
+    %% output file went to, and load it.
+    case compile:output_generated(Opts) of
+        true ->
+            Dir = proplists:get_value(outdir,Opts,"."),
+            do_load(Dir, Mod, Load);
+        false ->
+            io:format("** Warning: No object file created - nothing loaded **~n"),
+            ok
+    end.
+
+do_load(Dir, Mod, load) ->
+    code:purge(Mod),
+    case code:load_abs(filename:join(Dir, Mod),Mod) of
+        {module,Mod} ->
+            {ok,Mod};
+        Other ->
+            Other
+    end;
+do_load(Dir, Mod, netload) ->
+    Obj = atom_to_list(Mod) ++ code:objfile_extension(),
+    Fname = filename:join(Dir, Obj),
+    case file:read_file(Fname) of
+        {ok,Bin} ->
+            rpc:eval_everywhere(code,load_binary,[Mod,Fname,Bin]),
+            {ok,Mod};
+        Other ->
+            Other
+    end.
 
 exists(File) ->
     case file:read_file_info(File) of

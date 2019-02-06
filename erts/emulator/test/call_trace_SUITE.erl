@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,9 +43,9 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 30}}].
+     {timetrap, {minutes, 2}}].
 
-all() -> 
+all() ->
     Common = [errors, on_load],
     NotHipe = [process_specs, basic, flags, pam, change_pam,
                upgrade,
@@ -60,7 +60,7 @@ all() ->
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     %% Reloading the module will clear all trace patterns, and
     %% in a debug-compiled emulator run assertions of the counters
     %% for the number of traced exported functions in this module.
@@ -233,7 +233,7 @@ basic() ->
     trace_func({'_','_','_'}, false),
     [b,a] = lists:reverse([a,b]),
 
-    %% Read out the remaing trace messages.
+    %% Read out the remaining trace messages.
 
     ?MODULE:expect({trace,Self,call,{lists,seq,[1,10]}}),
     ?MODULE:expect({trace,Self,call,{erlang,list_to_integer,["777"]}}),
@@ -1090,8 +1090,7 @@ exception_nocatch() ->
                        {trace,t2,exception_from,{erlang,throw,1},
                         {error,{nocatch,Q2}}}],
                       exception_from, {error,{nocatch,Q2}}),
-    expect({trace,T2,exit,{{nocatch,Q2},[{erlang,throw,[Q2],[]},
-                                         {?MODULE,deep_4,1,
+    expect({trace,T2,exit,{{nocatch,Q2},[{?MODULE,deep_4,1,
                                           Deep4LocThrow}]}}),
     Q3 = {dump,[dump,{dump}]},
     T3 = 
@@ -1100,8 +1099,7 @@ exception_nocatch() ->
                        {trace,t3,exception_from,{erlang,error,1},
                         {error,Q3}}],
                       exception_from, {error,Q3}),
-    expect({trace,T3,exit,{Q3,[{erlang,error,[Q3],[]},
-                               {?MODULE,deep_4,1,Deep4LocError}]}}),
+    expect({trace,T3,exit,{Q3,[{?MODULE,deep_4,1,Deep4LocError}]}}),
     T4 = 
     exception_nocatch(?LINE, '=', [17,4711], 5, [], 
                       exception_from, {error,{badmatch,4711}}),
@@ -1118,8 +1116,8 @@ get_deep_4_loc(Arg) ->
         deep_4(Arg),
         ct:fail(should_not_return_to_here)
     catch
-        _:_ ->
-            [{?MODULE,deep_4,1,Loc0}|_] = erlang:get_stacktrace(),
+        _:_:Stk ->
+            [{?MODULE,deep_4,1,Loc0}|_] = Stk,
             Loc0
     end.
 

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2015. All Rights Reserved.
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,43 +44,49 @@ BEHAVIOUR_MODULES= \
 
 MODULES= \
 	ssl \
-	tls \
-	dtls \
 	ssl_alert \
 	ssl_app \
-	ssl_dist_sup\
 	ssl_sup \
+	ssl_admin_sup\
+	tls_connection_sup \
+        ssl_connection_sup \
+        ssl_listen_tracker_sup\
+	dtls_connection_sup \
+	dtls_packet_demux \
+	dtls_listener_sup \
+	ssl_dist_sup\
+        ssl_dist_admin_sup\
+        ssl_dist_connection_sup\
 	inet_tls_dist \
 	inet6_tls_dist \
 	ssl_certificate\
 	ssl_pkix_db\
 	ssl_cipher \
+	ssl_cipher_format \
 	ssl_srp_primes \
 	tls_connection \
 	dtls_connection \
+	tls_sender\
 	ssl_config \
 	ssl_connection \
-	tls_connection_sup \
-	dtls_connection_sup \
 	tls_handshake \
 	dtls_handshake\
 	ssl_handshake\
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
+	ssl_pem_cache \
 	ssl_crl\
 	ssl_crl_cache \
 	ssl_crl_hash_dir \
-	ssl_socket \
-	ssl_listen_tracker_sup \
+	tls_socket \
+	dtls_socket \
 	tls_record \
 	dtls_record \
 	ssl_record \
-	ssl_v2 \
 	ssl_v3 \
 	tls_v1 \
-	dtls_v1 \
-	ssl_tls_dist_proxy
+	dtls_v1
 
 INTERNAL_HRL_FILES = \
 	ssl_alert.hrl ssl_cipher.hrl \

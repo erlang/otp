@@ -2,7 +2,7 @@ changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,10 @@ include(`hipe/hipe_arm_asm.m4')
 	.p2align 2
 	.arm
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	ldr r14, =F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
+#  define CALL_BIF(F)	ldr r14, =nbif_impl_##F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
 #else
-#  define CALL_BIF(F)	bl	F
+#  define CALL_BIF(F)	bl	nbif_impl_##F
 #endif'
 
 define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */

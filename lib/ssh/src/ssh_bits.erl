@@ -30,39 +30,31 @@
 -export([random/1]).
 
 %%%----------------------------------------------------------------
-name_list([Name]) -> to_bin(Name);
-name_list([Name|Ns]) -> <<(to_bin(Name))/binary, ",", (name_list(Ns))/binary>>;
-name_list([]) -> <<>>.
-
-to_bin(A) when is_atom(A) -> list_to_binary(atom_to_list(A));
-to_bin(S) when is_list(S) -> list_to_binary(S);
-to_bin(B) when is_binary(B) -> B.
+name_list(NamesList) -> list_to_binary(lists:join($,, NamesList)).
 
 %%%----------------------------------------------------------------
 %%% Multi Precision Integer encoding
 mpint(-1) -> <<0,0,0,1,16#ff>>;
 mpint(0) -> <<0,0,0,0>>;
-mpint(X) when X < 0 -> mpint_neg(X,0,[]);
-mpint(X) -> mpint_pos(X,0,[]).
-    
-mpint_neg(-1,I,Ds=[MSB|_]) ->
-    if MSB band 16#80 =/= 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([255|Ds]))/binary>>;
-       true ->
-	    <<?UINT32(I), (list_to_binary(Ds))/binary>>
+mpint(I) when I>0 ->
+    <<B1,V/binary>> = binary:encode_unsigned(I),
+    case B1 band 16#80 of
+	16#80 ->
+	    <<(size(V)+2):32/unsigned-big-integer, 0,B1,V/binary >>;
+	_ ->
+	    <<(size(V)+1):32/unsigned-big-integer, B1,V/binary >>
     end;
-mpint_neg(X,I,Ds)  ->
-    mpint_neg(X bsr 8,I+1,[(X band 255)|Ds]).
-    
-mpint_pos(0,I,Ds=[MSB|_]) ->
-    if MSB band 16#80 == 16#80 ->
-	    <<?UINT32((I+1)), (list_to_binary([0|Ds]))/binary>>;
-       true ->
-	    <<?UINT32(I), (list_to_binary(Ds))/binary>>
-    end;
-mpint_pos(X,I,Ds) ->
-    mpint_pos(X bsr 8,I+1,[(X band 255)|Ds]).
-
+mpint(N) when N<0 -> 
+    Sxn =  8*size(binary:encode_unsigned(-N)),
+    Sxn1 = Sxn+8,
+    <<W:Sxn1>> = <<1, 0:Sxn>>,
+    <<B1,V/binary>> = binary:encode_unsigned(W+N),
+    case B1 band 16#80 of
+	16#80 ->
+	    <<(size(V)+1):32/unsigned-big-integer, B1,V/binary >>;
+	_ ->
+	    <<(size(V)+2):32/unsigned-big-integer, 255,B1,V/binary >>
+    end.
 
 %%%----------------------------------------------------------------
 %% random/1

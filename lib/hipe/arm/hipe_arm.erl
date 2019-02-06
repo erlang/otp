@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_arm).
 -export([
@@ -85,6 +78,9 @@
 	 is_pseudo_move/1,
 	 pseudo_move_dst/1,
 	 pseudo_move_src/1,
+
+	 mk_pseudo_spill_move/3,
+	 is_pseudo_spill_move/1,
 
 	 mk_pseudo_switch/3,
 
@@ -256,6 +252,10 @@ mk_pseudo_move(Dst, Src) -> #pseudo_move{dst=Dst, src=Src}.
 is_pseudo_move(I) -> case I of #pseudo_move{} -> true; _ -> false end.
 pseudo_move_dst(#pseudo_move{dst=Dst}) -> Dst.
 pseudo_move_src(#pseudo_move{src=Src}) -> Src.
+
+mk_pseudo_spill_move(Dst, Temp, Src) ->
+  #pseudo_spill_move{dst=Dst, temp=Temp, src=Src}.
+is_pseudo_spill_move(I) -> is_record(I, pseudo_spill_move).
 
 mk_pseudo_switch(JTab, Index, Labels) ->
   #pseudo_switch{jtab=JTab, index=Index, labels=Labels}.

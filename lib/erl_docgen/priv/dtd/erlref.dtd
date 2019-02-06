@@ -33,4 +33,5 @@
 <!ATTLIST name                 name CDATA #IMPLIED
                                arity CDATA #IMPLIED
 	                       clause_i CDATA #IMPLIED
+                               anchor CDATA #IMPLIED
                                n_vars CDATA #IMPLIED>

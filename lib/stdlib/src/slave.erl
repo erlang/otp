@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ start_pseudo(_,_,_) -> ok.  %% It's already there
       Pid :: pid().
 
 relay({badrpc,Reason}) ->
-    error_msg(" ** exiting relay server ~w :~w  **~n", [self(),Reason]),
+    error_msg(" ** exiting relay server ~w :~tw  **~n", [self(),Reason]),
     exit(Reason);
 relay(undefined) ->
     error_msg(" ** exiting relay server ~w  **~n", [self()]),
@@ -187,7 +187,7 @@ start_link(Host, Name, Args) ->
     start(Host, Name, Args, self()).
 
 start(Host0, Name, Args, LinkTo) ->
-    Prog = lib:progname(),
+    Prog = progname(),
     start(Host0, Name, Args, LinkTo, Prog).
 
 start(Host0, Name, Args, LinkTo, Prog) ->
@@ -296,7 +296,6 @@ mk_cmd(Host, Name, Args, Waiter, Prog0) ->
 			     " -s slave slave_start ", node(),
 			     " ", Waiter,
 			     " ", Args]),
-	   
     case after_char($@, atom_to_list(node())) of
 	Host ->
 	    {ok, BasicCmd};
@@ -309,6 +308,15 @@ mk_cmd(Host, Name, Args, Waiter, Prog0) ->
 	    end
     end.
 
+%% Return the name of the script that starts (this) erlang
+progname() ->
+    case init:get_argument(progname) of
+	{ok, [[Prog]]} ->
+	    Prog;
+	_Other ->
+	    "no_prog_name"
+    end.
+
 %% This is an attempt to distinguish between spaces in the program
 %% path and spaces that separate arguments. The program is quoted to
 %% allow spaces in the path.
@@ -317,10 +325,10 @@ mk_cmd(Host, Name, Args, Waiter, Prog0) ->
 %% (through start/5) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same
-%% emulator and flags as the test node. The return from lib:progname()
+%% emulator and flags as the test node. The result from progname()
 %% could then typically be '/<full_path_to>/cerl -gcov').
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(to_list(Progname)," ")).
+    do_quote_progname(string:lexemes(to_list(Progname)," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";

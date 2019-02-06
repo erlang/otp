@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -420,7 +420,7 @@ upgrade_app(App, NewDir) ->
 %%          located in the ebin dir of the _current_ version
 %%-----------------------------------------------------------------
 downgrade_app(App, OldDir) ->
-    case string:tokens(filename:basename(OldDir), "-") of
+    case string:lexemes(filename:basename(OldDir), "-") of
 	[_AppS, OldVsn] ->
 	    downgrade_app(App, OldVsn, OldDir);
 	_ ->
@@ -640,8 +640,8 @@ handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
 	    {noreply, NS};
 	{'EXIT', Reason} ->
 	    io:format("release_handler:"
-		      "install_release(Vsn=~p Opts=~p) failed, "
-		      "Reason=~p~n", [Vsn, Opts, Reason]),
+		      "install_release(Vsn=~tp Opts=~tp) failed, "
+		      "Reason=~tp~n", [Vsn, Opts, Reason]),
 	    gen_server:reply(From, {error, Reason}),
 	    case ErrorAction of
 		restart ->
@@ -831,7 +831,7 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     Tar = filename:join(RelDir, ReleaseName ++ ".tar.gz"),
     do_check_file(Tar, regular),
     Rel = ReleaseName ++ ".rel",
-    extract_rel_file(filename:join("releases", Rel), Tar, Root),
+    _ = extract_rel_file(filename:join("releases", Rel), Tar, Root),
     RelFile = filename:join(RelDir, Rel),
     Release = check_rel(Root, RelFile, false),
     #release{vsn = Vsn} = Release,
@@ -1052,8 +1052,8 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
     ToVsn = ToRelease#release.vsn,
     TmpVsn = ?tmp_vsn(CurrentVsn),
     case get_base_libs(ToRelease#release.libs) of
-	{ok,{Kernel,Stdlib,Sasl}=BaseLibs,_} ->
-	    case get_base_libs(ToRelease#release.libs) of
+	{ok,{Kernel,Stdlib,Sasl},_} ->
+	    case get_base_libs(CurrentRelease#release.libs) of
 		{ok,_,RestLibs} ->
 		    TmpErtsVsn = ToRelease#release.erts_vsn,
 		    TmpLibs = [Kernel,Stdlib,Sasl|RestLibs],
@@ -1062,7 +1062,7 @@ new_emulator_make_tmp_release(CurrentRelease,ToRelease,RelDir,Opts,Masters) ->
 							libs = TmpLibs,
 							status = unpacked},
 		    new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,
-						  BaseLibs,RelDir,Opts,Masters),
+						  RelDir,Opts,Masters),
 		    new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,
 						    RelDir,Masters),
 		    {TmpVsn,TmpRelease};
@@ -1095,7 +1095,7 @@ get_base_libs([],_Kernel,_Stdlib,undefined,_Rest) ->
 get_base_libs([],Kernel,Stdlib,Sasl,Rest) ->
     {ok,{Kernel,Stdlib,Sasl},lists:reverse(Rest)}.
 
-new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Masters) ->
+new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,RelDir,Opts,Masters) ->
     FromBootFile = filename:join([RelDir,CurrentVsn,"start.boot"]),
     ToBootFile = filename:join([RelDir,ToVsn,"start.boot"]),
     TmpBootFile = filename:join([RelDir,TmpVsn,"start.boot"]),
@@ -1103,11 +1103,7 @@ new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     Args = [ToVsn,Opts],
     {ok,FromBoot} = read_file(FromBootFile,Masters),
     {ok,ToBoot} = read_file(ToBootFile,Masters),
-    {{_,_,KernelPath},{_,_,StdlibPath},{_,_,SaslPath}} = BaseLibs,
-    Paths = {filename:join(KernelPath,"ebin"),
-	     filename:join(StdlibPath,"ebin"),
-	     filename:join(SaslPath,"ebin")},
-    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Paths,Args) of
+    case systools_make:make_hybrid_boot(TmpVsn,FromBoot,ToBoot,Args) of
 	{ok,TmpBoot} ->
 	    write_file(TmpBootFile,TmpBoot,Masters);
 	{error,Reason} ->
@@ -1124,7 +1120,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[FC]} ->
 		FC;
 	    {error,Error1} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,FromFile,Error1]),
 		[]
 	end,
@@ -1134,7 +1130,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[ToConfig]} ->
 		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
 	    {error,Error2} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,ToFile,Error2]),
 		[false,false,false]
 	end,
@@ -1143,8 +1139,9 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
     Config2 = replace_config(stdlib,Config1,Stdlib),
     Config3 = replace_config(sasl,Config2,Sasl),
 
-    ConfigStr = io_lib:format("~p.~n",[Config3]),
-    write_file(TmpFile,ConfigStr,Masters).
+    ConfigStr = io_lib:format("%% ~s~n~tp.~n",
+                              [epp:encoding_to_string(utf8),Config3]),
+    write_file(TmpFile,unicode:characters_to_binary(ConfigStr),Masters).
 
 %% Take the configuration for application App from the new config and
 %% insert in the old config.
@@ -1173,8 +1170,8 @@ new_emulator_rm_tmp_release(_,_,_,_,Releases,_) ->
 
 %% Rename the tempoarary service (for erts ugprade) to the real ToVsn
 rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
-    FromName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
-    ToName = hd(string:tokens(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
+    FromName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ TmpVsn,
+    ToName = hd(string:lexemes(atom_to_list(node()),"@")) ++ "_" ++ NewVsn,
     case erlsrv:get_service(EVsn,ToName) of
 	{error, _Error} ->
 	    ok;
@@ -1206,9 +1203,9 @@ rename_service(EVsn,FromName,ToName) ->
 %%% in which case we try to rename the old service to the new name and try
 %%% to update heart's view of what service we are really running.
 do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
-    PermName = hd(string:tokens(atom_to_list(node()),"@")) 
+    PermName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ PermanentVsn,
-    Name = hd(string:tokens(atom_to_list(node()),"@")) 
+    Name = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     case erlsrv:get_service(EVsn,Name) of
 	{error, _Error} ->
@@ -1295,7 +1292,7 @@ do_make_permanent(#state{releases = Releases,
 
 
 do_back_service(OldVersion, CurrentVersion,OldEVsn,CurrentEVsn) ->
-    NN = hd(string:tokens(atom_to_list(node()),"@")),
+    NN = hd(string:lexemes(atom_to_list(node()),"@")),
     OldName = NN ++ "_" ++ OldVersion,
     CurrentName = NN ++ "_" ++ CurrentVersion,
     UpdData = case erlsrv:get_service(CurrentEVsn,CurrentName) of
@@ -1384,7 +1381,7 @@ do_remove_service(Vsn) ->
     %% Very unconditionally remove the service.
     %% Note that the service could already have been removed when
     %% making another release permanent.
-    ServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    ServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     case erlsrv:get_service(ServiceName) of
 	{error, _Error} ->
@@ -1669,9 +1666,9 @@ flush() ->
 prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
 		   #release{erts_vsn = PermEVsn, vsn = PermVsn},
 		   DataFileName) ->
-    CurrentServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    CurrentServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ PermVsn,
-    FutureServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
+    FutureServiceName = hd(string:lexemes(atom_to_list(node()),"@"))
 	++ "_" ++ Vsn,
     CurrentService = case erlsrv:get_service(PermEVsn,CurrentServiceName) of
 			 {error, _} = Error1 ->
@@ -1807,7 +1804,7 @@ check_opt_file(FileName, Type, Masters) ->
 	ok ->
 	    true;
 	_Error ->
-	    io:format("Warning: ~p missing (optional)~n", [FileName]),
+	    io:format("Warning: ~tp missing (optional)~n", [FileName]),
 	    false
     end.
 
@@ -1841,14 +1838,12 @@ do_check_file(Master, FileName, Type) ->
 %% by the user in another way, i.e. ignore this here.
 %%-----------------------------------------------------------------
 extract_rel_file(Rel, Tar, Root) ->
-    erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
+    _ = erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
 
 extract_tar(Root, Tar) ->
     case erl_tar:extract(Tar, [keep_old_files, {cwd, Root}, compressed]) of
 	ok ->
 	    ok;
-	{error, Reason, Name} ->		% Old erl_tar.
-	    throw({error, {cannot_extract_file, Name, Reason}});
 	{error, {Name, Reason}} ->		% New erl_tar (R3A).
 	    throw({error, {cannot_extract_file, Name, Reason}})
     end.
@@ -1876,9 +1871,10 @@ write_releases_1(Dir, NewReleases, Masters) ->
     write_releases_m(Dir, NewReleases, Masters).
 
 do_write_release(Dir, RELEASES, NewReleases) ->
-    case file:open(filename:join(Dir, RELEASES), [write]) of
+    case file:open(filename:join(Dir, RELEASES), [write,{encoding,utf8}]) of
 	{ok, Fd} ->
-	    ok = io:format(Fd, "~p.~n", [NewReleases]),
+	    ok = io:format(Fd, "%% ~s~n~tp.~n",
+                           [epp:encoding_to_string(utf8),NewReleases]),
 	    ok = file:close(Fd);
 	{error, Reason} ->
 	    {error, Reason}

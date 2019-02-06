@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2015</year>
+      <year>2009</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -130,7 +130,7 @@ dns_header() = DnsHeader
     inet_dns:header(DnsHeader) ->
         [ {id, integer()}
         | {qr, boolean()}
-        | {opcode, 'query' | iquery | status | integer()}
+        | {opcode, query | iquery | status | integer()}
         | {aa, boolean()}
         | {tc, boolean()}
         | {rd, boolean()}
@@ -230,9 +230,7 @@ inet_dns:record_type(_) -> undefined.</pre>
           <seealso marker="#getbyname/2"><c>getbyname/2,3</c></seealso>.
         </p>
         <p>If resolver option <c>inet6</c> is <c>true</c>,
-          an IPv6 address is looked up. If that fails,
-          the IPv4 address is looked up and returned on
-          IPv6-mapped IPv4 format.</p>
+          an IPv6 address is looked up.</p>
       </desc>
     </func>
 

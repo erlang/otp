@@ -13,7 +13,8 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2016</year>
+<year>2011</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -319,7 +320,7 @@ or &peer_down; callback.</p>
 <v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
 <v>Send = {send, &packet; | &message;}</v>
 <v>Discard = {discard, Reason} | discard</v>
-<v>PostF = &mod_evaluable;}</v>
+<v>PostF = &mod_eval;}</v>
 </type>
 <desc>
 <p>
@@ -371,7 +372,7 @@ discarded}</c>.</p>
 <v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
 <v>Send = {send, &packet; | &message;}</v>
 <v>Discard = {discard, Reason} | discard</v>
-<v>PostF = &mod_evaluable;}</v>
+<v>PostF = &mod_eval;}</v>
 </type>
 <desc>
 <p>
@@ -478,7 +479,7 @@ not selected.</p>
            | {answer_message, 3000..3999|5000..5999}
            | {protocol_error, 3000..3999}</v>
 <v>Opt     = &mod_call_opt;</v>
-<v>PostF   = &mod_evaluable;</v>
+<v>PostF   = &mod_eval;</v>
 </type>
 <desc>
 <p>

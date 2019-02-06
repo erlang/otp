@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,8 +81,7 @@ visit_module_1([{Name,F0}|Fs], Env, Acc) ->
 	{F,_} ->
 	    visit_module_1(Fs, Env, [{Name,F}|Acc])
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    #c_var{name={Func,Arity}} = Name,
 	    io:fwrite("Function: ~w/~w\n", [Func,Arity]),
 	    erlang:raise(Class, Error, Stack)

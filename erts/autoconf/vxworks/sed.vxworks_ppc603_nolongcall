@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ s|@system_type@|vxworks_ppc603|
 s|@ARCH@|ppc603|
 s|@CC@|@TTPREFIX@ccppc|
 s|@HCC@|gcc|
+s|@GCC@|yes|
 s|@LD@|@TTPREFIX@ldppc|
 s|@STRIP@|@TTPREFIX@stripppc|
 s|@SYMPREFIX@||

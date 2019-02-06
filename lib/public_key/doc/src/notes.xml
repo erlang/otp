@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,351 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Public_Key 1.6.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ed25519 and ed448 sign/verify.</p>
+          <p>
+	    Requires OpenSSL 1.1.1 or higher as cryptolib under the
+	    OTP application <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-15419 Aux Id: OTP-15094 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DSA SHA2 oids in public_keys ASN1-spec and
+	    public_key:pkix_sign_types/1</p>
+          <p>
+	    Own Id: OTP-15367</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed <c>#DSAPrivateKey{}</c> as acceptable input to
+	    <c>public_key:verify/5</c>.</p>
+          <p>
+	    Own Id: OTP-15284</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The typing in the CRYPTO and PUBLIC_KEY applications are
+	    reworked and a few mistakes are corrected.</p>
+          <p>
+	    The documentation is now generated from the typing and
+	    some clarifications are made.</p>
+          <p>
+	    A new chapter on Algorithm Details such as key sizes and
+	    availability is added to the CRYPTO User's Guide.</p>
+          <p>
+	    Own Id: OTP-15134</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some of the keylengths in the newly generated moduli file
+	    in public_key are not universally supported. This could
+	    cause the SSH key exchange
+	    diffie-hellman-group-exchange-sha* to fail.</p>
+          <p>
+	    Those keylengths are now removed.</p>
+          <p>
+	    Own Id: OTP-15151 Aux Id: OTP-15113 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update calls to the base64 module to conform to that
+	    module's type specifications.</p>
+          <p>
+	    Own Id: OTP-14788 Aux Id: OTP-14624 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+        <item>
+          <p>
+	    A new function -
+	    <c>public_key:pkix_verify_hostname_match_fun/1</c> -
+	    returns a fun to be given as option <c>match_fun</c> to
+	    <c>public_key:pkix_verify_hostname/3</c> or via ssl.</p>
+          <p>
+	    The fun makes the verify hostname matching according to
+	    the specific rules for the protocol in the argument.
+	    Presently only <c>https</c> is supported.</p>
+          <p>
+	    Own Id: OTP-14962 Aux Id: ERL-542, OTP-15102 </p>
+        </item>
+        <item>
+          <p>
+	    Compleate PKCS-8 encoding support and enhance the
+	    decoding of 'PrivateKeyInfo' to conform to the rest of
+	    Erlang public_key API.</p>
+          <p>
+	    Own Id: OTP-15093</p>
+        </item>
+        <item>
+          <p>
+	    A new moduli file is generated. This file is used for the
+	    recommended <c>diffie-hellman-group-exchange-sha256</c>
+	    key exchange algorithm in SSH.</p>
+          <p>
+	    Own Id: OTP-15113</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in <c>public_key:ssh_encode/2</c> that made
+	    it possible to erroneously encode e.g. an RSA key with
+	    another type e.g. ECDSA in the resulting binary.</p>
+          <p>
+	    Own Id: OTP-14570 Aux Id: ERIERL-52, OTP-14676 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected handling of parameterized EC keys in
+	    public_key:generate_key/1 so that it will work as
+	    expected instead of causing a runtime error in crypto.</p>
+          <p>
+	    Own Id: OTP-14620</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Hostname verification: Add handling of the general name
+	    <c>iPAddress</c> in certificate's subject alternative
+	    name extension (<c>subjAltName</c>).</p>
+          <p>
+	    Own Id: OTP-14653</p>
+        </item>
+        <item>
+          <p>
+	    Correct key handling in pkix_test_data/1 and use a
+	    generic example mail address instead of an existing one.</p>
+          <p>
+	    Own Id: OTP-14766</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    public_key now handles elliptic curve parameters in a
+	    consistent way so that decoded ECDSA keys can be
+	    correctly re-encoded.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14621 Aux Id: ERL-480, ERL-481 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend crypto:sign, crypto:verify, public_key:sign and
+	    public_key:verify with:</p>
+          <p>
+	    * support for RSASSA-PS padding for signatures and for
+	    saltlength setting<br/> * X9.31 RSA padding.<br/> * sha,
+	    sha224, sha256, sha384, and sha512 for dss signatures as
+	    mentioned in NIST SP 800-57 Part 1.<br/> * ripemd160 to
+	    be used for rsa signatures.</p>
+          <p>
+	    This is a manual merge of half of the pull request 838 by
+	    potatosalad from Sept 2015.</p>
+          <p>
+	    Own Id: OTP-13704 Aux Id: PR838 </p>
+        </item>
+        <item>
+          <p>
+	    Add API function pkix_test_data/1 for facilitating
+	    automated testing. This is useful for applications that
+	    preform X509-certifcate path validation of so called
+	    certificate chains, such as TLS.</p>
+          <p>
+	    Own Id: OTP-14181</p>
+        </item>
+        <item>
+          <p>
+	    Improved error propagation and reports</p>
+          <p>
+	    Own Id: OTP-14236</p>
+        </item>
+        <item>
+          <p>
+	    RSAPrivateKey version is set to 'two-prime' instead of
+	    using the underlying enumeration value directly.</p>
+          <p>
+	    Own Id: OTP-14534</p>
+        </item>
+        <item>
+          <p>
+	    Deprecated function <c>crypto:rand_uniform/2</c> is
+	    replaced by <c>rand:uniform/1</c>.</p>
+          <p>
+	    Own Id: OTP-14608</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Bug for <c>public_key:generate_key({namedCurve,OID})</c>
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-14258</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Modernized internal representation used for crl
+	    validation by use of maps.</p>
+          <p>
+	    Own Id: OTP-14111</p>
+        </item>
+        <item>
+          <p>
+	    Support EC key in pkix_sign/2</p>
+          <p>
+	    Own Id: OTP-14294</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function <c>pkix_verify_hostname/2,3</c> Implements
+	    certificate hostname checking. See the manual and RFC
+	    6125.</p>
+          <p>
+	    Own Id: OTP-13009</p>
+        </item>
+        <item>
+          <p>
+	    The ssh host key fingerprint generation now also takes a
+	    list of algorithms and returns a list of corresponding
+	    fingerprints. See
+	    <c>public_key:ssh_hostkey_fingerprint/2</c> and the
+	    option <c>silently_accept_hosts</c> in
+	    <c>ssh:connect</c>.</p>
+          <p>
+	    Own Id: OTP-14223</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Public_Key 1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function
+	    <c>public_key:ssh_hostkey_fingerprint/1,2</c> to
+	    calculate the SSH host key fingerprint string.</p>
+          <p>
+	    Own Id: OTP-13888 Aux Id: OTP-13887 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Public_Key 1.2</title>
 

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,230 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>ei_connect</c> and friends also accept state
+	    <c>ok_simultaneous</c> during handshake, which means the
+	    other node has initiated a connection setup that will be
+	    cancelled in favor of this connection.</p>
+          <p>
+	    Own Id: OTP-15161 Aux Id: ERIERL-191 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_receive_msg</c>,
+	    <c>ei_xreceive_msg</c>, <c>ei_receive_msg_tmo</c> and
+	    <c>ei_xreceive_msg_tmo</c>. The <c>x-&gt;index</c> was
+	    set to entire buffer size instead of the number of bytes
+	    actually received.</p>
+          <p>
+	    Own Id: OTP-15171</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ei_connect_init</c> which could be
+	    provoked if called by concurrent threads.
+	    <c>ei_connect_init</c> called posix interface
+	    <c>gethostbyname</c> which is documented as not thread
+	    safe.</p>
+          <p>
+	    Own Id: OTP-15191</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in erl_compare_ext() ignoring the tail of lists
+	    of otherwise equal content. Example: <c>[a | b]</c> and
+	    <c>[a | c]</c> compared equal and <c>{[a], b}</c> and
+	    <c>{[a], c}</c> compared equal.</p>
+          <p>
+	    Own Id: OTP-15277 Aux Id: PR-1929 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where calling erl_init on certain platforms could
+	    result in a buffer overflow bug.</p>
+          <p>
+	    Own Id: OTP-15033</p>
+        </item>
+        <item>
+          <p>
+	    Fixed <c>erl_call -m</c> to not deallocate module source
+	    binary before it has been read.</p>
+          <p>
+	    Own Id: OTP-15105 Aux Id: ERL-629 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The program <c>erl_call</c> calls
+	    <c>erl_eval:eval_str/1</c> when it used to call
+	    <c>lib:eval_str/1</c>. This means that <c>erl_call</c>
+	    will fail when trying interact with an Erlang node
+	    running Erlang/OTP 20 or earlier. </p>
+          <p>
+	    Own Id: OTP-15114 Aux Id: OTP-15072, ERL-634 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>ei_connect</c> and friends also accept state
+	    <c>ok_simultaneous</c> during handshake, which means the
+	    other node has initiated a connection setup that will be
+	    cancelled in favor of this connection.</p>
+          <p>
+	    Own Id: OTP-15161 Aux Id: ERIERL-191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in <c>ei_connect</c> functions that may cause
+	    failure due to insufficient buffer space for
+	    gethostbyname_r.</p>
+          <p>
+	    Own Id: OTP-15022 Aux Id: ERIERL-163 </p>
+        </item>
+        <item>
+          <p>
+	    Optimize encoding/decoding for pure 7-bit ascii atoms.</p>
+          <p>
+	    Own Id: OTP-15023 Aux Id: ERIERL-150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug where gethostname would incorrectly fail with
+	    enametoolong on Linux.</p>
+          <p>
+	    Own Id: OTP-14310</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove generation of atoms in old latin1 external format
+	    in the distribution between erlang nodes,
+	    <c>erl_interface</c>, and <c>jinterface</c>. The new utf8
+	    format for atoms was introduced in OTP R16. An OTP 20
+	    node can therefore not connect to nodes older than R16.</p>
+          <p>
+	    Atoms that can be encoded using latin1 are still encoded
+	    by <c>term_to_binary()</c> using latin1 encoding. Note
+	    that all atoms will by default be encoded using utf8 in a
+	    future Erlang/OTP release. For more information see the
+	    documentation of <seealso
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+          <p>
+	    Own Id: OTP-14337</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor documentation update</p>
+          <p>
+	    Own Id: OTP-14233 Aux Id: PR-1343 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>ei_connect_init</c> and <c>ei_connect_xinit</c> to
+	    adjust the <c>creation</c> argument to be compatible with
+	    nodes older than OTP-19.</p>
+          <p>
+	    Own Id: OTP-13981</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Editorial documentation changes</p>
+          <p>
+	    Own Id: OTP-13980</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erl_Interface 3.9.1</title>
 

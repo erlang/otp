@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,17 +67,27 @@
 
 %%------------------------------------------------------------------------
 
+
+%% The rex server may receive a huge amount of
+%% messages. Make sure that they are stored off heap to
+%% avoid exessive GCs.
+
+-define(SPAWN_OPTS, [{spawn_opt,[{message_queue_data,off_heap}]}]).
+
 %% Remote execution and broadcasting facility
 
 -spec start() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start() ->
-    gen_server:start({local,?NAME}, ?MODULE, [], []).
+    gen_server:start({local,?NAME}, ?MODULE, [], ?SPAWN_OPTS).
 
 -spec start_link() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start_link() ->
-    gen_server:start_link({local,?NAME}, ?MODULE, [], []).
+    %% The rex server process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    gen_server:start_link({local,?NAME}, ?MODULE, [], ?SPAWN_OPTS).
 
 -spec stop() -> term().
 
@@ -408,10 +418,7 @@ abcast(Name, Mess) ->
 
 abcast([Node|Tail], Name, Mess) ->
     Dest = {Name,Node},
-    case catch erlang:send(Dest, Mess, [noconnect]) of
-	noconnect -> spawn(erlang, send, [Dest,Mess]), ok;
-	_ -> ok
-    end,
+    try erlang:send(Dest, Mess) catch error:_ -> ok end,
     abcast(Tail, Name, Mess);
 abcast([], _,_) -> abcast.
 
@@ -488,7 +495,7 @@ start_monitor(Node, Name) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      ResL :: [term()],
+      ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
       BadNodes :: [node()].
 
 multicall(M, F, A) -> 
@@ -499,14 +506,14 @@ multicall(M, F, A) ->
                   Module :: module(),
                   Function :: atom(),
                   Args :: [term()],
-                  ResL :: [term()],
+                  ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
                   BadNodes :: [node()];
                (Module, Function, Args, Timeout) -> {ResL, BadNodes} when
                   Module :: module(),
                   Function :: atom(),
                   Args :: [term()],
                   Timeout :: timeout(),
-                  ResL :: [term()],
+                  ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
                   BadNodes :: [node()].
 
 multicall(Nodes, M, F, A) when is_list(Nodes) ->
@@ -521,7 +528,7 @@ multicall(M, F, A, Timeout) ->
       Function :: atom(),
       Args :: [term()],
       Timeout :: timeout(),
-      ResL :: [term()],
+      ResL :: [Res :: term() | {'badrpc', Reason :: term()}],
       BadNodes :: [node()].
 
 multicall(Nodes, M, F, A, infinity)

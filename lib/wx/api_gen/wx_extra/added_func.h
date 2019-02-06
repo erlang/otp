@@ -34,8 +34,13 @@ class wxToolBar {
 };
 
 
-class wxWindow {
+/* class wxWindow { */
+/*  public: */
+/*     bool IsDoubleBuffered(); */
+/*     void SetDoubleBuffered(bool on); */
+/* }; */
+
+class wxWindowGTK {
  public:
-    bool IsDoubleBuffered();
-    void SetDoubleBuffered(bool on);
+    double GetContentScaleFactor();
 };

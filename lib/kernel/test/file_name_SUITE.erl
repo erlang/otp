@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([normal/1,icky/1,very_icky/1,normalize/1,home_dir/1]).
 
+-define(PRIM_FILE, prim_file).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -131,7 +132,7 @@ home_dir(Config) when is_list(Config) ->
 					     os:putenv("HOME",NewHome),
 					     {"HOME",Save};
 					 _ ->
-					     rm_rf(prim_file,NewHome),
+					     rm_rf(?PRIM_FILE,NewHome),
 					     throw(unsupported_os)
 				     end,
 	try
@@ -145,7 +146,7 @@ home_dir(Config) when is_list(Config) ->
 		_ ->
 		    os:putenv(SaveOldName,SaveOldValue)
 	    end,
-	    rm_rf(prim_file,NewHome)
+	    rm_rf(?PRIM_FILE,NewHome)
 	end
     catch
 	throw:need_unicode_mode ->
@@ -190,7 +191,7 @@ normal(Config) when is_list(Config) ->
     try
 	Priv = proplists:get_value(priv_dir, Config),
 	file:set_cwd(Priv),
-	ok = check_normal(prim_file),
+	ok = check_normal(?PRIM_FILE),
 	ok = check_normal(file),
 	%% If all is good, delete dir again (avoid hanging dir on windows)
 	rm_rf(file,"normal_dir"),
@@ -210,7 +211,7 @@ icky(Config) when is_list(Config) ->
 	    try
 		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
-		ok = check_icky(prim_file),
+		ok = check_icky(?PRIM_FILE),
 		ok = check_icky(file),
 		%% If all is good, delete dir again (avoid hanging dir on windows)
 		rm_rf(file,"icky_dir"),
@@ -229,7 +230,7 @@ very_icky(Config) when is_list(Config) ->
 	    try
 		Priv = proplists:get_value(priv_dir, Config),
 		file:set_cwd(Priv),
-		case check_very_icky(prim_file) of
+		case check_very_icky(?PRIM_FILE) of
 		    need_unicode_mode ->
 			{skipped,"VM needs to be started in Unicode filename mode"};
 		    ok ->
@@ -292,17 +293,14 @@ check_normal(Mod) ->
 		ok
 	end,
 	[ begin
-	      {ok, FD} = Mod:open(Name,[read]),
-	      {ok, Content} = Mod:read(FD,1024),
-	      ok = file:close(FD)
-	  end || {regular,Name,Content} <- NormalDir ],
-	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary(Content),
 	      {ok, BC} = Mod:read(FD,1024),
 	      ok = file:close(FD)
 	  end || {regular,Name,Content} <- NormalDir ],
+	{error, badarg} = Mod:rename("fil1\0tmp_fil2","tmp_fil1"),
 	Mod:rename("fil1","tmp_fil1"),
+	{error, badarg} = Mod:read_file("tmp_fil1\0.txt"),
 	{ok, <<"fil1">>} = Mod:read_file("tmp_fil1"),
 	{error,enoent} = Mod:read_file("fil1"),
 	Mod:rename("tmp_fil1","fil1"),
@@ -383,7 +381,7 @@ check_icky(Mod) ->
 		ok
 	end,
 
-	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir">>)),
+	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir"/utf8>>)),
 	if 
 	    UniMode and (OS =/= win32) ->
 		{error,enoent} = Mod:set_cwd("åäö_dir");
@@ -409,11 +407,6 @@ check_icky(Mod) ->
 	    {error,enotsup} ->
 		ok
 	end,
-	[ begin
-	      {ok, FD} = Mod:open(Name,[read]),
-	      {ok, Content} = Mod:read(FD,1024),
-	      ok = file:close(FD)
-	  end || {regular,Name,Content} <- IckyDir ],
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary([Content]),
@@ -518,11 +511,6 @@ check_very_icky(Mod) ->
 	    {error,enotsup} ->
 		ok
 	end,
-	[ begin
-	      {ok, FD} = Mod:open(Name,[read]),
-	      {ok, Content} = Mod:read(FD,1024),
-	      ok = file:close(FD)
-	  end || {regular,Name,Content} <- VeryIckyDir ],
 	[ begin
 	      {ok, FD} = Mod:open(Name,[read,binary]),
 	      BC = list_to_binary([Content]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework Event Handler
+%%% Common Test Framework Event Handler
 %%%
-%%% <p>This module implements an event handler that the CT Master
+%%% This module implements an event handler that the CT Master
 %%% uses to handle status and progress notifications sent to the
 %%% master node during test runs. This module may be used as a 
 %%% template for other event handlers that can be plugged in to 
-%%% handle logging and reporting on the master node.</p>
+%%% handle logging and reporting on the master node.
 -module(ct_master_event).
 
 -behaviour(gen_event).
@@ -71,7 +71,7 @@ stop() ->
 	{error,Reason} ->
 	    ct_master_logs:log("Error",
 			       "No response from CT Master Event.\n"
-			       "Reason = ~p\n"
+			       "Reason = ~tp\n"
 			       "Terminating now!\n",[Reason]),
 	    %% communication with event manager fails, kill it
 	    catch exit(whereis(?CT_MEVMGR_REF), kill);
@@ -116,6 +116,7 @@ sync_notify(Event) ->
 %% this function is called to initialize the event handler.
 %%--------------------------------------------------------------------
 init(_) ->
+    ct_util:mark_process(),
     ct_master_logs:log("CT Master Event Handler started","",[]),
     {ok,#state{}}.
 
@@ -135,7 +136,7 @@ handle_event(#event{name=start_logging,node=Node,data=RunDir},State) ->
 
 handle_event(#event{name=Name,node=Node,data=Data},State) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~w on ~w: ~p~n", [Name,Node,Data]),
+    print("~tw on ~w: ~tp~n", [Name,Node,Data]),
     {ok,State}.
 
 %%--------------------------------------------------------------------

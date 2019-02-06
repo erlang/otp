@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -177,10 +177,10 @@ disconnect(Node) ->
 log_decision(D) ->
     cast({log_decision, D}).
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _Reason} ->
-	    mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 
@@ -762,7 +762,7 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 
 handle_call(Msg, _From, State) ->
-    error("~p got unexpected call: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 do_log_mnesia_up(Node) ->
@@ -881,7 +881,7 @@ handle_cast({log_dump_overload, Flag}, State) when is_boolean(Flag) ->
     {noreply, State#state{log_dump_overload = Flag}};
 
 handle_cast(Msg, State) ->
-    error("~p got unexpected cast: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected cast: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -927,11 +927,11 @@ handle_info({force_decision, Tid}, State) ->
     end;
 
 handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
-    mnesia_lib:dbg_out("~p was ~p~n",[?MODULE, R]),
+    mnesia_lib:dbg_out("~p was ~tp~n",[?MODULE, R]),
     {stop, shutdown, State};
 
 handle_info(Msg, State) ->
-    error("~p got unexpected info: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected info: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------

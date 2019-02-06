@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,53 @@
 #ifndef ERL_TIME_H__
 #define ERL_TIME_H__
 
-/* timer wheel size NEED to be a power of 2 */
-#ifdef SMALL_MEMORY
-#define ERTS_TIW_SIZE (1 << 13)
-#else
-#define ERTS_TIW_SIZE (1 << 16)
+#include "erl_monitor_link.h"
+
+#if 0
+#  define ERTS_TW_DEBUG
+#endif
+#if defined(DEBUG) && !defined(ERTS_TW_DEBUG)
+#  define ERTS_TW_DEBUG
 #endif
 
-#if defined(DEBUG) || 0
+#if defined(ERTS_TW_DEBUG)
 #define ERTS_TIME_ASSERT(B) ERTS_ASSERT(B)
 #else
 #define ERTS_TIME_ASSERT(B) ((void) 1)
 #endif
+
+#ifdef ERTS_TW_DEBUG
+/*
+ * Soon wheel will handle about 1 seconds
+ * Later wheel will handle about 8 minutes
+ */
+#  define ERTS_TW_SOON_WHEEL_BITS 10
+#  define ERTS_TW_LATER_WHEEL_BITS 10
+#else
+#  ifdef SMALL_MEMORY
+/*
+ * Soon wheel will handle about 4 seconds
+ * Later wheel will handle about 2 hours and 19 minutes
+ */
+#    define ERTS_TW_SOON_WHEEL_BITS 12
+#    define ERTS_TW_LATER_WHEEL_BITS 12
+#  else
+/*
+ * Soon wheel will handle about 16 seconds
+ * Later wheel will handle about 37 hours and 16 minutes
+ */
+#    define ERTS_TW_SOON_WHEEL_BITS 14
+#    define ERTS_TW_LATER_WHEEL_BITS 14
+#  endif
+#endif
+
+/*
+ * Number of slots in each timer wheel...
+ *
+ * These *need* to be a power of 2
+ */
+#define ERTS_TW_SOON_WHEEL_SIZE (1 << ERTS_TW_SOON_WHEEL_BITS)
+#define ERTS_TW_LATER_WHEEL_SIZE (1 << ERTS_TW_LATER_WHEEL_BITS)
 
 typedef enum {
     ERTS_NO_TIME_WARP_MODE,
@@ -46,8 +81,8 @@ typedef ErtsMonotonicTime * ErtsNextTimeoutRef;
 extern SysTimeval erts_first_emu_time;
 
 
-void erts_monitor_time_offset(Eterm id, Eterm ref);
-int erts_demonitor_time_offset(Eterm ref);
+void erts_monitor_time_offset(ErtsMonitor *mon);
+void erts_demonitor_time_offset(ErtsMonitor *mon);
 
 int erts_init_time_sup(int, ErtsTimeWarpMode);
 void erts_late_init_time_sup(void);
@@ -74,9 +109,6 @@ void erts_p_slpq(void);
 void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 #endif
 
-typedef UWord erts_approx_time_t;
-erts_approx_time_t erts_get_approx_time(void);
-
 int erts_has_time_correction(void);
 int erts_check_time_adj_support(int time_correction,
 				ErtsTimeWarpMode time_warp_mode);
@@ -97,13 +129,23 @@ Eterm erts_get_monotonic_end_time(struct process *c_p);
 Eterm erts_monotonic_time_source(struct process*c_p);
 Eterm erts_system_time_source(struct process*c_p);
 
+void erts_runtime_elapsed_both(ErtsMonotonicTime *ms_user,
+                               ErtsMonotonicTime *ms_sys, 
+                               ErtsMonotonicTime *ms_user_diff,
+                               ErtsMonotonicTime *ms_sys_diff);
+void erts_wall_clock_elapsed_both(ErtsMonotonicTime *total,
+                                  ErtsMonotonicTime *diff);
+
 #ifdef SYS_CLOCK_RESOLUTION
 #define ERTS_CLKTCK_RESOLUTION ((ErtsMonotonicTime) (SYS_CLOCK_RESOLUTION*1000))
 #else
 #define ERTS_CLKTCK_RESOLUTION (erts_time_sup__.r.o.clktck_resolution)
 #endif
 
-#define ERTS_TIMER_WHEEL_MSEC (ERTS_TIW_SIZE/(ERTS_CLKTCK_RESOLUTION/1000))
+#define ERTS_TW_SOON_WHEEL_MSEC (ERTS_TW_SOON_WHEEL_SIZE/(ERTS_CLKTCK_RESOLUTION/1000))
+#define ERTS_TW_LATER_WHEEL_MSEC (ERTS_TW_LATER_WHEEL_SIZE*ERTS_TW_SOON_WHEEL_MSEC/2)
+
+#define ERTS_TIMER_WHEEL_MSEC ERTS_TW_LATER_WHEEL_MSEC
 
 struct erts_time_sup_read_only__ {
     ErtsMonotonicTime monotonic_time_unit;
@@ -412,34 +454,25 @@ erts_time_unit_conversion(Uint64 value,
 void erts_sched_init_time_sup(ErtsSchedulerData *esdp);
 
 
-#define ERTS_TWHEEL_SLOT_AT_ONCE -1
-#define ERTS_TWHEEL_SLOT_INACTIVE -2
+#define ERTS_TW_SLOT_INACTIVE (-2)
 
 /*
 ** Timer entry:
 */
 typedef struct erl_timer {
-    struct erl_timer* next;	/* next entry tiw slot or chain */
-    struct erl_timer* prev;	/* prev entry tiw slot or chain */
-    union {
-	struct {
-	    void (*timeout)(void*); /* called when timeout */
-	    void (*cancel)(void*);  /* called when cancel (may be NULL) */
-	    void* arg;              /* argument to timeout/cancel procs */
-	} func;
-	ErtsThrPrgrLaterOp cleanup;
-    } u;
     ErtsMonotonicTime timeout_pos; /* Timeout in absolute clock ticks */
+    struct erl_timer* next;     /* next entry tiw slot or chain */
+    struct erl_timer* prev;	/* prev entry tiw slot or chain */
+    void (*timeout)(void*); /* called when timeout */
+    void* arg;              /* argument to timeout/cancel procs */
     int slot;
 } ErtsTWheelTimer;
 
 typedef void (*ErlTimeoutProc)(void*);
-typedef void (*ErlCancelProc)(void*);
 
 void erts_twheel_set_timer(ErtsTimerWheel *tiw,
 			   ErtsTWheelTimer *p, ErlTimeoutProc timeout,
-			   ErlCancelProc cancel, void *arg,
-			   ErtsMonotonicTime timeout_pos);
+			   void *arg, ErtsMonotonicTime timeout_pos);
 void erts_twheel_cancel_timer(ErtsTimerWheel *tiw, ErtsTWheelTimer *p);
 ErtsTimerWheel *erts_create_timer_wheel(ErtsSchedulerData *esdp);
 
@@ -447,17 +480,24 @@ ErtsMonotonicTime erts_check_next_timeout_time(ErtsSchedulerData *);
 
 ERTS_GLB_INLINE void erts_twheel_init_timer(ErtsTWheelTimer *p);
 ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef);
+ERTS_GLB_INLINE ErtsMonotonicTime erts_tweel_read_timeout(ErtsTWheelTimer *twt);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void erts_twheel_init_timer(ErtsTWheelTimer *p)
 {
-    p->slot = ERTS_TWHEEL_SLOT_INACTIVE;
+    p->slot = ERTS_TW_SLOT_INACTIVE;
 }
 
 ERTS_GLB_INLINE ErtsMonotonicTime erts_next_timeout_time(ErtsNextTimeoutRef nxt_tmo_ref)
 {
     return *((ErtsMonotonicTime *) nxt_tmo_ref);
+}
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_tweel_read_timeout(ErtsTWheelTimer *twt)
+{
+    return twt->timeout_pos;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ is_prefix_op('#') -> numeric;
 is_prefix_op(_) -> false.
 
 check_regexp(String) ->
-    case re:compile(String) of
+    case re:compile(String, [unicode]) of
 	{ok, _Expr} ->
 	    {regexpr, String};
 	{error, {ErrString, Position}} ->
@@ -274,7 +274,7 @@ mfa2s({M,F,A}) ->
     [c2s(M),':',c2s(F),'/',A].
 
 c2s(C) ->
-    [S] = io_lib:format("~p", [C]),
+    [S] = io_lib:format("~tp", [C]),
     list_to_atom(S).
 
 re(variable) -> ['_'];

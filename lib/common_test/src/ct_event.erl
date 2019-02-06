@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework Event Handler
+%%% doc Common Test Framework Event Handler
 %%%
-%%% <p>This module implements an event handler that CT uses to
+%%% This module implements an event handler that CT uses to
 %%% handle status and progress notifications during test runs.
 %%% The notifications are handled locally (per node) and passed
 %%% on to ct_master when CT runs in distributed mode. This
 %%% module may be used as a template for other event handlers
-%%% that can be plugged in to handle local logging and reporting.</p>
+%%% that can be plugged in to handle local logging and reporting.
 -module(ct_event).
 
 -behaviour(gen_event).
@@ -137,6 +137,7 @@ is_alive() ->
 %% this function is called to initialize the event handler.
 %%--------------------------------------------------------------------
 init(RecvPids) ->
+    ct_util:mark_process(),
     %% RecvPids = [{RecvTag,Pid}]
     {ok,#state{receivers=RecvPids}}.
 
@@ -151,7 +152,7 @@ init(RecvPids) ->
 %%--------------------------------------------------------------------
 handle_event(Event,State=#state{receivers=RecvPids}) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~w: ~w~n", [Event#event.name,Event#event.data]),
+    print("~tw: ~tw~n", [Event#event.name,Event#event.data]),
     lists:foreach(fun(Recv) -> report_event(Recv,Event) end, RecvPids),
     {ok,State}.
 

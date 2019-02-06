@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ sync(Conf) when is_list(Conf) ->
     %% Reset wall_clock
     {T1,_} = erlang:statistics(wall_clock),
     io:format("~p~n", [{t1, T1}]),
-    Command = lists:concat([lib:progname(),
+    Command = lists:append([ct:get_progname(),
 			    " -detached -sname cp1 ",
 			    "-config ", Config,
 			    " -env ERL_CRASH_DUMP erl_crash_dump.cp1"]),

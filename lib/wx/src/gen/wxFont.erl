@@ -49,7 +49,7 @@ new() ->
 -spec new(Fontname) -> wxFont() when
 	Fontname::unicode:chardata().
 new(Fontname)
- when is_list(Fontname) ->
+ when ?is_chardata(Fontname) ->
   Fontname_UC = unicode:characters_to_binary([Fontname,0]),
   wxe_util:construct(?wxFont_new_1,
   <<(byte_size(Fontname_UC)):32/?UI,(Fontname_UC)/binary, 0:(((8- ((4+byte_size(Fontname_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -183,7 +183,7 @@ setDefaultEncoding(Encoding)
 -spec setFaceName(This, FaceName) -> boolean() when
 	This::wxFont(), FaceName::unicode:chardata().
 setFaceName(#wx_ref{type=ThisT,ref=ThisRef},FaceName)
- when is_list(FaceName) ->
+ when ?is_chardata(FaceName) ->
   ?CLASS(ThisT,wxFont),
   FaceName_UC = unicode:characters_to_binary([FaceName,0]),
   wxe_util:call(?wxFont_SetFaceName,

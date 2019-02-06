@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,12 @@
 -define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 65000).
 
+-define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
+-define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
+
+-define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
+-define(DEFAULT_CIPHERS, [{client2server,?CIPHERS}, {server2client,?CIPHERS}]).
+
 -define(v(Key, Config), proplists:get_value(Key, Config)).
 -define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
 
@@ -48,11 +54,14 @@ suite() ->
 
 all() -> 
     [{group,tool_tests},
+     client_info_line,
      {group,kex},
      {group,service_requests},
      {group,authentication},
      {group,packet_size_error},
-     {group,field_size_error}
+     {group,field_size_error},
+     {group,ext_info},
+     {group,preferred_algorithms}
     ].
 
 groups() ->
@@ -83,7 +92,18 @@ groups() ->
 			     bad_service_name_then_correct
 			    ]},
      {authentication, [], [client_handles_keyboard_interactive_0_pwds
-			  ]}
+			  ]},
+     {ext_info, [], [no_ext_info_s1,
+                     no_ext_info_s2,
+                     ext_info_s,
+                     ext_info_c
+                    ]},
+     {preferred_algorithms, [], [preferred_algorithms,
+                                 modify_append,
+                                 modify_prepend,
+                                 modify_rm,
+                                 modify_combo
+                                ]}
     ].
 
 
@@ -96,7 +116,9 @@ end_per_suite(Config) ->
 
 
 init_per_testcase(no_common_alg_server_disconnects, Config) ->
-    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']}]}]);
+    start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
+                                                     {cipher,?DEFAULT_CIPHERS}
+                                                    ]}]);
 
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
@@ -106,7 +128,10 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
-		   [{dh_gex_groups, [{2345, 3, 41}]}];
+		   [{dh_gex_groups, 
+                     [{1023, 5, 
+                       16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F
+                      }]}];
 	       gex_client_init_option_groups_file ->
 		   DataDir = proplists:get_value(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test"),
@@ -118,16 +143,19 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 	       _ when TC == gex_server_gex_limit ;
 		      TC == gex_client_old_request_exact ;
 		      TC == gex_client_old_request_noexact ->
-		    [{dh_gex_groups, [{ 500, 3, 17},
-				      {1000, 7, 91},
-				      {3000, 5, 61}]},
-		     {dh_gex_limits,{500,1500}}
+		    [{dh_gex_groups, 
+                      [{1023, 2, 16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A771225323},
+                       {1535, 5, 16#D1391174233D315398FE2830AC6B2B66BCCD01B0A634899F339B7879F1DB85712E9DC4E4B1C6C8355570C1D2DCB53493DF18175A9C53D1128B592B4C72D97136F5542FEB981CBFE8012FDD30361F288A42BD5EBB08BAB0A5640E1AC48763B2ABD1945FEE36B2D55E1D50A1C86CED9DD141C4E7BE2D32D9B562A0F8E2E927020E91F58B57EB9ACDDA106A59302D7E92AD5F6E851A45FA1CFE86029A0F727F65A8F475F33572E2FDAB6073F0C21B8B54C3823DB2EF068927E5D747498F96E1E827},
+                       {3071, 2, 16#DFAA35D35531E0F524F0099877A482D2AC8D589F374394A262A8E81A8A4FB2F65FADBAB395E05D147B29D486DFAA41F41597A256DA82A8B6F76401AED53D0253F956CEC610D417E42E3B287F7938FC24D8821B40BFA218A956EB7401BED6C96C68C7FD64F8170A8A76B953DD2F05420118F6B144D8FE48060A2BCB85056B478EDEF96DBC70427053ECD2958C074169E9550DD877779A3CF17C5AC850598C7586BEEA9DCFE9DD2A5FB62DF5F33EA7BC00CDA31B9D2DD721F979EA85B6E63F0C4E30BDDCD3A335522F9004C4ED50B15DC537F55324DD4FA119FB3F101467C6D7E1699DE4B3E3C478A8679B8EB3FA5C9B826B44530FD3BE9AD3063B240B0C853EBDDBD68DD940332D98F148D5D9E1DC977D60A0D23D0CA1198637FEAE4E7FAAC173AF2B84313A666CFB4EE6972811921D0AD867CE57F3BBC8D6CB057E3B66757BB46C9F72662624D44E14528327E3A7100E81A12C43C4E236118318CD90C8AA185BBB0C764826DAEAEE8DD245C5B451B4944E6122CC522D1C335C2EEF9429825A2B}
+                      ]},
+                     {dh_gex_limits, {1023,2000}}
 		    ];
 	       _ ->
 		   []
 	   end,
     start_std_daemon(Config,
-		     [{preferred_algorithms, ssh:default_algorithms()}
+		     [{preferred_algorithms,[{cipher,?DEFAULT_CIPHERS}
+                                            ]}
 		      | Opts]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
@@ -236,7 +264,10 @@ lib_works_as_server(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client:
     {ok,_} = std_connect(HostPort, Config, 
-			 [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]}]
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]}
+                         ]
 			).
 
 %%--------------------------------------------------------------------
@@ -276,7 +307,9 @@ no_common_alg_server_disconnects(Config) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{public_key,['ssh-dss']}]}
+	     {preferred_algorithms,[{public_key,['ssh-dss']},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
@@ -310,7 +343,7 @@ no_common_alg_client_disconnects(Config) ->
 			  {match, #ssh_msg_kexinit{_='_'}, receive_msg},
 			  {send,  #ssh_msg_kexinit{ % with unsupported "SOME-UNSUPPORTED"
 				     cookie = <<80,158,95,51,174,35,73,130,246,141,200,49,180,190,82,234>>,
-				     kex_algorithms = ["diffie-hellman-group1-sha1"],
+				     kex_algorithms = [atom_to_list(?DEFAULT_KEX)],
 				     server_host_key_algorithms = ["SOME-UNSUPPORTED"],  % SIC!
 				     encryption_algorithms_client_to_server = ["aes128-ctr"],
 				     encryption_algorithms_server_to_client = ["aes128-ctr"],
@@ -331,7 +364,9 @@ no_common_alg_client_disconnects(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client
     %% which of course does not support SOME-UNSUPPORTED as pub key algo:
-    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']}]}]),
+    Result = std_connect(HostPort, Config, [{preferred_algorithms,[{public_key,['ssh-dss']},
+                                                                   {cipher,?DEFAULT_CIPHERS}
+                                                                  ]}]),
     ct:log("Result of connect is ~p",[Result]),
 
     receive
@@ -350,20 +385,25 @@ no_common_alg_client_disconnects(Config) ->
 
 %%%--------------------------------------------------------------------
 gex_client_init_option_groups(Config) ->
-    do_gex_client_init(Config, {2000, 2048, 4000}, 
-		       {3,41}).
+    do_gex_client_init(Config, {512, 2048, 4000},
+		       {5,16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F}
+                      ).
 
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
-		       {5,61}).
+                       {5, 16#DFAA35D35531E0F524F0099877A482D2AC8D589F374394A262A8E81A8A4FB2F65FADBAB395E05D147B29D486DFAA41F41597A256DA82A8B6F76401AED53D0253F956CEC610D417E42E3B287F7938FC24D8821B40BFA218A956EB7401BED6C96C68C7FD64F8170A8A76B953DD2F05420118F6B144D8FE48060A2BCB85056B478EDEF96DBC70427053ECD2958C074169E9550DD877779A3CF17C5AC850598C7586BEEA9DCFE9DD2A5FB62DF5F33EA7BC00CDA31B9D2DD721F979EA85B6E63F0C4E30BDDCD3A335522F9004C4ED50B15DC537F55324DD4FA119FB3F101467C6D7E1699DE4B3E3C478A8679B8EB3FA5C9B826B44530FD3BE9AD3063B240B0C853EBDDBD68DD940332D98F148D5D9E1DC977D60A0D23D0CA1198637FEAE4E7FAAC173AF2B84313A666CFB4EE6972811921D0AD867CE57F3BBC8D6CB057E3B66757BB46C9F72662624D44E14528327E3A7100E81A12C43C4E236118318CD90C8AA185BBB0C764826DAEAEE8DD245C5B451B4944E6122CC522D1C335C2EEF9424273F1F}
+                      ).
 
 gex_client_init_option_groups_moduli_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
-		       {5,16#B7}).
+                       {5, 16#DD2047CBDBB6F8E919BC63DE885B34D0FD6E3DB2887D8B46FE249886ACED6B46DFCD5553168185FD376122171CD8927E60120FA8D01F01D03E58281FEA9A1ABE97631C828E41815F34FDCDF787419FE13A3137649AA93D2584230DF5F24B5C00C88B7D7DE4367693428C730376F218A53E853B0851BAB7C53C15DA7839CBE1285DB63F6FA45C1BB59FE1C5BB918F0F8459D7EF60ACFF5C0FA0F3FCAD1C5F4CE4416D4F4B36B05CDCEBE4FB879E95847EFBC6449CD190248843BC7EDB145FBFC4EDBB1A3C959298F08F3BA2CFBE231BBE204BE6F906209D28BD4820AB3E7BE96C26AE8A809ADD8D1A5A0B008E9570FA4C4697E116B8119892C604293683A9635F}
+                       ).
 
 gex_server_gex_limit(Config) ->
     do_gex_client_init(Config, {1000, 3000, 4000},
-		       {7,91}).
+		       %% {7,91}).
+                       {5, 16#D1391174233D315398FE2830AC6B2B66BCCD01B0A634899F339B7879F1DB85712E9DC4E4B1C6C8355570C1D2DCB53493DF18175A9C53D1128B592B4C72D97136F5542FEB981CBFE8012FDD30361F288A42BD5EBB08BAB0A5640E1AC48763B2ABD1945FEE36B2D55E1D50A1C86CED9DD141C4E7BE2D32D9B562A0F8E2E927020E91F58B57EB9ACDDA106A59302D7E92AD5F6E851A45FA1CFE86029A0F727F65A8F475F33572E2FDAB6073F0C21B8B54C3823DB2EF068927E5D747498F96E1E827}
+                       ).
 
 
 do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
@@ -375,7 +415,9 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']}]}
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
@@ -389,8 +431,15 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	 ).
 
 %%%--------------------------------------------------------------------
-gex_client_old_request_exact(Config)  ->  do_gex_client_init_old(Config, 500, {3,17}).
-gex_client_old_request_noexact(Config) -> do_gex_client_init_old(Config, 800, {7,91}).
+gex_client_old_request_exact(Config)  ->
+    do_gex_client_init_old(Config, 1023,
+                           {2, 16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A771225323}
+                           ).
+
+gex_client_old_request_noexact(Config) ->
+    do_gex_client_init_old(Config, 1400,
+                           {5, 16#D1391174233D315398FE2830AC6B2B66BCCD01B0A634899F339B7879F1DB85712E9DC4E4B1C6C8355570C1D2DCB53493DF18175A9C53D1128B592B4C72D97136F5542FEB981CBFE8012FDD30361F288A42BD5EBB08BAB0A5640E1AC48763B2ABD1945FEE36B2D55E1D50A1C86CED9DD141C4E7BE2D32D9B562A0F8E2E927020E91F58B57EB9ACDDA106A59302D7E92AD5F6E851A45FA1CFE86029A0F727F65A8F475F33572E2FDAB6073F0C21B8B54C3823DB2EF068927E5D747498F96E1E827}
+                           ).
     
 do_gex_client_init_old(Config, N, {G,P}) ->
     {ok,_} =
@@ -401,7 +450,9 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']}]}
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]}
 	    ]},
 	   receive_hello,
 	   {send, hello},
@@ -422,7 +473,7 @@ bad_long_service_name(Config) ->
 
 bad_very_long_service_name(Config) -> 
     bad_service_name(Config,
-		     lists:duplicate(4*?SSH_MAX_PACKET_SIZE, $a)).
+		     lists:duplicate(?SSH_MAX_PACKET_SIZE+5, $a)).
 
 empty_service_name(Config) ->
     bad_service_name(Config, "").
@@ -571,13 +622,275 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 
     %% and finally connect to it with a regular Erlang SSH client:
     {ok,_} = std_connect(HostPort, Config, 
-			 [{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]}]
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]}]
 			).
 
+
+
+%%%--------------------------------------------------------------------
+client_info_line(Config) ->
+    %% A client must not send an info-line. If it does, the server should handle
+    %% handle this gracefully
+    {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
+    DataDir = proplists:get_value(data_dir, Config),
+    {_, _, Port} = ssh_test_lib:daemon([{system_dir,DataDir}]),
+
+    %% Fake client:
+    {ok,S} = gen_tcp:connect("localhost",Port,[]),
+    gen_tcp:send(S,"An illegal info-string\r\n"),
+    gen_tcp:close(S),
+
+    %% wait for server to react:
+    timer:sleep(1000),
+
+    %% check if a badmatch was received:
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),
+    case lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) -> 
+			   lists:member({reason,{badmatch,{error,closed}}}, L);
+		      (_) ->
+			   false
+		   end, Reports) of
+	true ->
+	    ct:fail("Bad error report on info_line from client");
+	false ->
+	    ok
+    end.
+	
+%%%--------------------------------------------------------------------
+%%% The server does not send the extension because
+%%% the client does not tell the server to send it
+no_ext_info_s1(Config) ->
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{server,Server}|Config]),
+    {ok,_} = 
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The server does not send the extension because
+%%% the server is not configured to send it
+no_ext_info_s2(Config) ->    
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,false},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
+                                          {server,Server}
+                                          | Config]),
+    {ok,_} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+          ], AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The server sends the extension
+ext_info_s(Config) ->    
+    %% Start the dameon
+    Server = {Pid,_,_} = ssh_test_lib:daemon([{send_ext_info,true},
+                                              {system_dir, system_dir(Config)}]),
+    {ok,AfterKexState} = connect_and_kex([{extra_options,[{recv_ext_info,true}]},
+                                          {server,Server}
+                                          | Config]),
+    {ok,_} =
+        ssh_trpt_test_lib:exec(
+          [{match, #ssh_msg_ext_info{_='_'}, receive_msg}
+          ],
+          AfterKexState),
+    ssh:stop_daemon(Pid).
+
+%%%--------------------------------------------------------------------
+%%% The client sends the extension
+ext_info_c(Config) ->    
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    Parent = self(),
+    %% Start a process handling one connection on the server side:
+    Pid =
+        spawn_link(
+          fun() ->
+                  Result =
+                      ssh_trpt_test_lib:exec(
+                        [{set_options, [print_ops, print_messages]},
+                         {accept, [{system_dir, system_dir(Config)},
+                                   {user_dir, user_dir(Config)},
+                                   {recv_ext_info, true}
+                                  ]},
+                         receive_hello,
+                         {send, hello},
+                         
+                         {send, ssh_msg_kexinit},
+                         {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                         
+                         {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+                         {send, ssh_msg_kexdh_reply},
+
+                         {send, #ssh_msg_newkeys{}},
+                         {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+                         {match, #ssh_msg_ext_info{_='_'}, receive_msg},
+
+                         close_socket,
+                         print_state
+                        ],
+                        InitialState),
+                  Parent ! {result,self(),Result}
+          end),
+
+    %% connect to it with a regular Erlang SSH client
+    %% (expect error due to the close_socket in daemon):
+    {error,_} = std_connect(HostPort, Config, 
+                            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                    {cipher,?DEFAULT_CIPHERS}
+                                                   ]},
+                             {tstflg, [{ext_info_client,true}]},
+                             {send_ext_info, true}
+                            ]
+                           ),
+    
+    %% Check that the daemon got expected result:
+    receive
+        {result, Pid, {ok,_}} -> ok;
+        {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
+    end.
+
+
+%%%----------------------------------------------------------------
+%%%
+preferred_algorithms(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {error,{eoptions,{{preferred_algorithms,{kex,[some_unknown_algo]}},
+                      "Unsupported value(s) found"}}} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[some_unknown_algo,?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_append(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX, ?EXTRA_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{append,[{kex,[some_unknown_algo,?EXTRA_KEX]}]}]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_prepend(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?EXTRA_KEX, ?DEFAULT_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{prepend,[{kex,[some_unknown_algo,?EXTRA_KEX]}]}]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_rm(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      tl(Ciphers),
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{rm,[{kex,[some_unknown_algo,?EXTRA_KEX]},
+                                                 {cipher,[hd(Ciphers)]}
+                                                ]}
+                                           ]}
+                      ]).
+
+
+%%%----------------------------------------------------------------
+%%%
+modify_combo(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    LastC = lists:last(Ciphers),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      [LastC] ++ (tl(Ciphers)--[LastC]) ++ [hd(Ciphers)],
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{rm,[{kex,[some_unknown_algo,?EXTRA_KEX]}
+                                                ]},
+                                            {prepend,[{cipher,[{server2client,[LastC]}]}
+                                                     ]},
+                                            {append,[{cipher,[a,hd(Ciphers),b]}
+                                                    ]}
+                                           ]}
+                      ]).
 
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
+
+chk_pref_algs(Config,
+              ExpectedKex,
+              ExpectedCiphers,
+              ServerPrefOpts) ->
+    %% Start the dameon
+    case ssh_test_lib:daemon(
+                      [{send_ext_info,false},
+                       {recv_ext_info,false},
+                       {system_dir, system_dir(Config)}
+                       | ServerPrefOpts])
+    of
+        {_,Host,Port} ->
+            %% Check the Kex part
+            ssh_trpt_test_lib:exec(
+              [{set_options, [print_ops, {print_messages,detail}]},
+               {connect, Host, Port,
+                [{silently_accept_hosts, true},
+                 {user_dir, user_dir(Config)},
+                 {user_interaction, false}
+                ]},
+               {send, hello},
+               receive_hello,
+               {match,
+                #ssh_msg_kexinit{
+                   kex_algorithms = to_lists(ExpectedKex),
+                   encryption_algorithms_server_to_client = to_lists(ExpectedCiphers),
+                   _   = '_'},
+                receive_msg}
+              ]);
+        Error ->
+            Error
+    end.
+
+
+filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
+
+supported(_K) -> proplists:get_value(
+                   server2client,
+                   ssh_transport:supported_algorithms(cipher)).
+
+to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
+    
 
 %%%---- init_suite and end_suite ---------------------------------------	
 start_apps(Config) ->
@@ -592,6 +905,7 @@ stop_apps(_Config) ->
 setup_dirs(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config.
 
@@ -677,10 +991,15 @@ connect_and_kex(Config, InitialState) ->
     ssh_trpt_test_lib:exec(
       [{connect,
 	server_host(Config),server_port(Config),
-	[{preferred_algorithms,[{kex,['diffie-hellman-group1-sha1']}]},
-	 {silently_accept_hosts, true},
+	[{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                {cipher,?DEFAULT_CIPHERS}
+                               ]},
+         {silently_accept_hosts, true},
+         {recv_ext_info, false},
 	 {user_dir, user_dir(Config)},
-	 {user_interaction, false}]},
+	 {user_interaction, false}
+         | proplists:get_value(extra_options,Config,[])
+        ]},
        receive_hello,
        {send, hello},
        {send, ssh_msg_kexinit},

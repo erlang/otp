@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,8 +27,9 @@
 -export([exprs/2,exprs/3,exprs/4,expr/2,expr/3,expr/4,expr/5,
          expr_list/2,expr_list/3,expr_list/4]).
 -export([new_bindings/0,bindings/1,binding/2,add_binding/3,del_binding/2]).
-
--export([is_constant_expr/1, partial_eval/1]).
+-export([extended_parse_exprs/1, extended_parse_term/1,
+         subst_values_for_vars/2]).
+-export([is_constant_expr/1, partial_eval/1, eval_str/1]).
 
 %% Is used by standalone Erlang (escript).
 %% Also used by shell.erl.
@@ -69,6 +70,9 @@
 -type(non_local_function_handler() :: {value, nlfun_handler()}
                                     | none).
 
+-define(STACKTRACE,
+        element(2, erlang:process_info(self(), current_stacktrace))).
+
 %% exprs(ExpressionSeq, Bindings)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler)
 %% exprs(ExpressionSeq, Bindings, LocalFuncHandler, ExternalFuncHandler)
@@ -90,7 +94,7 @@ exprs(Exprs, Bs) ->
         ok -> 
             exprs(Exprs, Bs, none, none, none);
         {error,{_Line,_Mod,Error}} ->
-	    erlang:raise(error, Error, [{?MODULE,exprs,2}])
+	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
 -spec(exprs(Expressions, Bindings, LocalFunctionHandler) ->
@@ -141,7 +145,7 @@ expr(E, Bs) ->
         ok -> 
             expr(E, Bs, none, none, none);
         {error,{_Line,_Mod,Error}} ->
-	    erlang:raise(error, Error, [{?MODULE,expr,2}])
+	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
 -spec(expr(Expression, Bindings, LocalFunctionHandler) ->
@@ -182,7 +186,7 @@ check_command(Es, Bs) ->
 
 fun_data(F) when is_function(F) ->
     case erlang:fun_info(F, module) of
-        {module,erl_eval} ->
+        {module,?MODULE} ->
             case erlang:fun_info(F, env) of
                 {env,[{FBs,_FLf,_FEf,FCs}]} ->
                     {fun_data,FBs,FCs};
@@ -209,8 +213,8 @@ expr({var,_,V}, Bs, _Lf, _Ef, RBs) ->
     case binding(V, Bs) of
 	{value,Val} ->
             ret_expr(Val, Bs, RBs);
-	unbound -> % Should not happen.
-	    erlang:raise(error, {unbound,V}, stacktrace())
+	unbound -> % Cannot not happen if checked by erl_lint
+	    erlang:raise(error, {unbound,V}, ?STACKTRACE)
     end;
 expr({char,_,C}, Bs, _Lf, _Ef, RBs) ->
     ret_expr(C, Bs, RBs);
@@ -236,13 +240,13 @@ expr({tuple,_,Es}, Bs0, Lf, Ef, RBs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef),
     ret_expr(list_to_tuple(Vs), Bs, RBs);
 expr({record_field,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record_index,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 expr({record,_,_,Name,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {undef_record,Name}, stacktrace());
+    erlang:raise(error, {undef_record,Name}, ?STACKTRACE);
 
 %% map
 expr({map,_,Binding,Es}, Bs0, Lf, Ef, RBs) ->
@@ -281,7 +285,7 @@ expr({'fun',_Line,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs) ->
     ret_expr(F, Bs, RBs);    
 expr({'fun',_Line,{function,Name,Arity}}, _Bs0, _Lf, _Ef, _RBs) -> % R8
     %% Don't know what to do...
-    erlang:raise(error, undef, [{erl_eval,Name,Arity}|stacktrace()]);
+    erlang:raise(error, undef, [{?MODULE,Name,Arity}|?STACKTRACE]);
 expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
     %% Save only used variables in the function environment.
     %% {value,L,V} are hidden while lint finds used variables.
@@ -325,8 +329,9 @@ expr({'fun',Line,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs) ->
         20 -> fun (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
            eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T], Info) end;
 	_Other ->
-	    erlang:raise(error, {'argument_limit',{'fun',Line,Cs}},
-			 stacktrace())
+            L = erl_anno:location(Line),
+	    erlang:raise(error, {'argument_limit',{'fun',L,to_terms(Cs)}},
+			 ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
 expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
@@ -377,8 +382,10 @@ expr({named_fun,Line,Name,Cs} = Ex, Bs, Lf, Ef, RBs) ->
            eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],
                           RF, Info) end;
         _Other ->
-            erlang:raise(error, {'argument_limit',{named_fun,Line,Name,Cs}},
-                         stacktrace())
+            L = erl_anno:location(Line),
+            erlang:raise(error, {'argument_limit',
+                                 {named_fun,L,Name,to_terms(Cs)}},
+                         ?STACKTRACE)
     end,
     ret_expr(F, Bs, RBs);
 expr({call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[{lc,_,_E,_Qs}=LC | As0]}, 
@@ -422,25 +429,28 @@ expr({call,_,Func0,As0}, Bs0, Lf, Ef, RBs) -> % function or {Mod,Fun}
     {As,Bs2} = expr_list(As0, Bs1, Lf, Ef),
     case Func of
 	{M,F} when is_atom(M), is_atom(F) ->
-	    erlang:raise(error, {badfun,Func}, stacktrace());
+	    erlang:raise(error, {badfun,Func}, ?STACKTRACE);
 	_ ->
 	    do_apply(Func, As, Bs2, Ef, RBs)
     end;
 expr({'catch',_,Expr}, Bs0, Lf, Ef, RBs) ->
-    Ref = make_ref(),
-    case catch {Ref,expr(Expr, Bs0, Lf, Ef, none)} of
-	{Ref,{value,V,Bs}} ->	  % Nothing was thrown (guaranteed).
-            ret_expr(V, Bs, RBs);
-	Other ->
-            ret_expr(Other, Bs0, RBs)
+    try expr(Expr, Bs0, Lf, Ef, none) of
+        {value,V,Bs} ->
+            ret_expr(V, Bs, RBs)
+    catch
+        throw:Term ->
+            ret_expr(Term, Bs0, RBs);
+        exit:Reason ->
+            ret_expr({'EXIT',Reason}, Bs0, RBs);
+        error:Reason:Stacktrace ->
+            ret_expr({'EXIT',{Reason,Stacktrace}}, Bs0, RBs)
     end;
 expr({match,_,Lhs,Rhs0}, Bs0, Lf, Ef, RBs) ->
     {value,Rhs,Bs1} = expr(Rhs0, Bs0, Lf, Ef, none),
     case match(Lhs, Rhs, Bs1) of
 	{match,Bs} ->
             ret_expr(Rhs, Bs, RBs);
-	nomatch ->
-	    erlang:raise(error, {badmatch,Rhs}, stacktrace())
+	nomatch -> erlang:raise(error, {badmatch,Rhs}, ?STACKTRACE)
     end;
 expr({op,_,Op,A0}, Bs0, Lf, Ef, RBs) ->
     {value,A,Bs} = expr(A0, Bs0, Lf, Ef, none),
@@ -452,7 +462,7 @@ expr({op,_,'andalso',L0,R0}, Bs0, Lf, Ef, RBs) ->
 		{value,R,_} = expr(R0, Bs1, Lf, Ef, none),
 		R;
 	    false -> false;
-	    _ -> erlang:raise(error, {badarg,L}, stacktrace())
+	    _ -> erlang:raise(error, {badarg,L}, ?STACKTRACE)
 	end,
     ret_expr(V, Bs1, RBs);
 expr({op,_,'orelse',L0,R0}, Bs0, Lf, Ef, RBs) ->
@@ -462,7 +472,7 @@ expr({op,_,'orelse',L0,R0}, Bs0, Lf, Ef, RBs) ->
 	    false ->
 		{value,R,_} = expr(R0, Bs1, Lf, Ef, none),
 		R;
-	    _ -> erlang:raise(error, {badarg,L}, stacktrace())
+	    _ -> erlang:raise(error, {badarg,L}, ?STACKTRACE)
 	end,
     ret_expr(V, Bs1, RBs);
 expr({op,_,Op,L0,R0}, Bs0, Lf, Ef, RBs) ->
@@ -474,7 +484,7 @@ expr({bin,_,Fs}, Bs0, Lf, Ef, RBs) ->
     {value,V,Bs} = eval_bits:expr_grp(Fs, Bs0, EvalFun),
     ret_expr(V, Bs, RBs);
 expr({remote,_,_,_}, _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, {badexpr,':'}, stacktrace());
+    erlang:raise(error, {badexpr,':'}, ?STACKTRACE);
 expr({value,_,Val}, Bs, _Lf, _Ef, RBs) ->    % Special case straight values.
     ret_expr(Val, Bs, RBs).
 
@@ -570,7 +580,7 @@ local_func(Func, As, _Bs, {M,F,Eas}, _Ef, RBs) ->
     local_func2(apply(M, F, [Func,As|Eas]), RBs);
 %% Default unknown function handler to undefined function.
 local_func(Func, As0, _Bs0, none, _Ef, _RBs) ->
-    erlang:raise(error, undef, [{erl_eval,Func,length(As0)}|stacktrace()]).
+    erlang:raise(error, undef, [{?MODULE,Func,length(As0)}|?STACKTRACE]).
 
 local_func2({value,V,Bs}, RBs) ->
     ret_expr(V, Bs, RBs);
@@ -637,7 +647,7 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
                 {{arity, Arity}, Arity} ->
                     eval_fun(FCs, As, FBs, FLf, FEf, NRBs);
                 _ ->
-                    erlang:raise(error, {badarity,{Func,As}},stacktrace())
+                    erlang:raise(error, {badarity,{Func,As}},?STACKTRACE)
             end;
         {{env,[{FBs,FLf,FEf,FCs,FName}]},_} ->
             NRBs = if
@@ -648,7 +658,7 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
                 {{arity, Arity}, Arity} ->
                     eval_named_fun(FCs, As, FBs, FLf, FEf, FName, Func, NRBs);
                 _ ->
-                    erlang:raise(error, {badarity,{Func,As}},stacktrace())
+                    erlang:raise(error, {badarity,{Func,As}},?STACKTRACE)
             end;
         {no_env,none} when RBs =:= value ->
             %% Make tail recursive calls when possible.
@@ -730,7 +740,7 @@ eval_generate([V|Rest], P, Bs0, Lf, Ef, CompFun, Acc) ->
 eval_generate([], _P, _Bs0, _Lf, _Ef, _CompFun, Acc) ->
     Acc;
 eval_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
-    erlang:raise(error, {bad_generator,Term}, stacktrace()).
+    erlang:raise(error, {bad_generator,Term}, ?STACKTRACE).
 
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
     Mfun = match_fun(Bs0),
@@ -746,7 +756,7 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
 	    Acc
     end;
 eval_b_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
-    erlang:raise(error, {bad_generator,Term}, stacktrace()).
+    erlang:raise(error, {bad_generator,Term}, ?STACKTRACE).
 
 eval_filter(F, Bs0, Lf, Ef, CompFun, Acc) ->
     case erl_lint:is_guard_test(F) of
@@ -760,7 +770,7 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, Acc) ->
 		{value,true,Bs1} -> CompFun(Bs1);
 		{value,false,_} -> Acc;
 		{value,V,_} -> 
-                    erlang:raise(error, {bad_filter,V}, stacktrace())
+                    erlang:raise(error, {bad_filter,V}, ?STACKTRACE)
 	    end
     end.
 
@@ -816,7 +826,7 @@ eval_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, RBs) ->
     end;
 eval_fun([], As, _Bs, _Lf, _Ef, _RBs) ->
     erlang:raise(error, function_clause, 
-		 [{?MODULE,'-inside-an-interpreted-fun-',As}|stacktrace()]).
+		 [{?MODULE,'-inside-an-interpreted-fun-',As}|?STACKTRACE]).
 
 
 eval_named_fun(As, Fun, {Bs0,Lf,Ef,Cs,Name}) ->
@@ -836,7 +846,7 @@ eval_named_fun([{clause,_,H,G,B}|Cs], As, Bs0, Lf, Ef, Name, Fun, RBs) ->
     end;
 eval_named_fun([], As, _Bs, _Lf, _Ef, _Name, _Fun, _RBs) ->
     erlang:raise(error, function_clause,
-                 [{?MODULE,'-inside-an-interpreted-fun-',As}|stacktrace()]).
+                 [{?MODULE,'-inside-an-interpreted-fun-',As}|?STACKTRACE]).
 
 
 %% expr_list(ExpressionList, Bindings)
@@ -894,13 +904,13 @@ if_clauses([{clause,_,[],G,B}|Cs], Bs, Lf, Ef, RBs) ->
 	false -> if_clauses(Cs, Bs, Lf, Ef, RBs)
     end;
 if_clauses([], _Bs, _Lf, _Ef, _RBs) ->
-    erlang:raise(error, if_clause, stacktrace()).
+    erlang:raise(error, if_clause, ?STACKTRACE).
 
 %% try_clauses(Body, CaseClauses, CatchClauses, AfterBody, Bindings, 
 %%             LocalFuncHandler, ExtFuncHandler, RBs)
-%% When/if variable bindings between the different parts of a
-%% try-catch expression are introduced this will have to be rewritten.
+
 try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
+    check_stacktrace_vars(Catches, Bs),
     try exprs(B, Bs, Lf, Ef, none) of
 	{value,V,Bs1} when Cases =:= [] ->
 	    ret_expr(V, Bs1, RBs);
@@ -909,23 +919,18 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 		{B2,Bs2} ->
 		    exprs(B2, Bs2, Lf, Ef, RBs);
 		nomatch ->
-		    erlang:raise(error, {try_clause,V}, stacktrace())
+		    erlang:raise(error, {try_clause,V}, ?STACKTRACE)
 	    end
     catch
-	Class:Reason when Catches =:= [] ->
-	    %% Rethrow
-	    erlang:raise(Class, Reason, stacktrace());
-	Class:Reason ->
-%%% 	    %% Set stacktrace
-%%% 	    try erlang:raise(Class, Reason, stacktrace())
-%%% 	    catch _:_ -> ok 
-%%% 	    end,
-            V = {Class,Reason,erlang:get_stacktrace()},
-	    case match_clause(Catches, [V],Bs, Lf, Ef) of
+	Class:Reason:Stacktrace when Catches =:= [] ->
+	    erlang:raise(Class, Reason, Stacktrace);
+	Class:Reason:Stacktrace ->
+            V = {Class,Reason,Stacktrace},
+	    case match_clause(Catches, [V], Bs, Lf, Ef) of
 		{B2,Bs2} ->
 		    exprs(B2, Bs2, Lf, Ef, RBs);
 		nomatch ->
-		    erlang:raise(Class, Reason, stacktrace())
+		    erlang:raise(Class, Reason, Stacktrace)
 	    end
     after
 	if AB =:= [] -> 
@@ -935,6 +940,23 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 	end
     end.
 
+check_stacktrace_vars([{clause,_,[{tuple,_,[_,_,STV]}],_,_}|Cs], Bs) ->
+    case STV of
+        {var,_,V} ->
+            case binding(V, Bs) of
+                {value, _} ->
+                    erlang:raise(error, stacktrace_bound, ?STACKTRACE);
+                unbound ->
+                    check_stacktrace_vars(Cs, Bs)
+            end;
+        _ ->
+            erlang:raise(error,
+                         {illegal_stacktrace_variable,STV},
+                         ?STACKTRACE)
+    end;
+check_stacktrace_vars([], _Bs) ->
+    ok.
+
 %% case_clauses(Value, Clauses, Bindings, LocalFuncHandler, ExtFuncHandler, 
 %%              RBs)
 
@@ -943,7 +965,7 @@ case_clauses(Val, Cs, Bs, Lf, Ef, RBs) ->
 	{B, Bs1} ->
 	    exprs(B, Bs1, Lf, Ef, RBs);
 	nomatch ->
-	    erlang:raise(error, {case_clause,Val}, stacktrace())
+	    erlang:raise(error, {case_clause,Val}, ?STACKTRACE)
     end.
 
 %%
@@ -1018,7 +1040,7 @@ guard0([G|Gs], Bs0, Lf, Ef) ->
                 {value,false,_} -> false
 	    end;
 	false ->
-	    erlang:raise(error, guard_expr, stacktrace())
+	    erlang:raise(error, guard_expr, ?STACKTRACE)
     end;
 guard0([], _Bs, _Lf, _Ef) -> true.
 
@@ -1073,7 +1095,7 @@ match(Pat, Term, Bs) ->
 match(Pat, Term, Bs, BBs) ->
     case catch match1(Pat, Term, Bs, BBs) of
 	invalid ->
-	    erlang:raise(error, {illegal_pattern,Pat}, stacktrace());
+	    erlang:raise(error, {illegal_pattern,to_term(Pat)}, ?STACKTRACE);
 	Other ->
 	    Other
     end.
@@ -1254,7 +1276,7 @@ merge_bindings(Bs1, Bs2) ->
 		  case orddict:find(Name, Bs) of
 		      {ok,Val} -> Bs;		%Already with SAME value
 		      {ok,V1} -> 
-			  erlang:raise(error, {badmatch,V1}, stacktrace());
+			  erlang:raise(error, {badmatch,V1}, ?STACKTRACE);
 		      error -> orddict:store(Name, Val, Bs)
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
@@ -1264,10 +1286,234 @@ merge_bindings(Bs1, Bs2) ->
 %%       fun (Name, Val, Bs) ->
 %% 	      case orddict:find(Name, Bs) of
 %% 		  {ok,Val} -> orddict:erase(Name, Bs);
-%% 		  {ok,V1} -> erlang:raise(error,{badmatch,V1},stacktrace());
+%% 		  {ok,V1} -> erlang:raise(error,{badmatch,V1},?STACKTRACE);
 %% 		  error -> Bs
 %% 	      end
 %%       end, Bs2, Bs1).
+
+to_terms(Abstrs) ->
+    [to_term(Abstr) || Abstr <- Abstrs].
+
+to_term(Abstr) ->
+    erl_parse:anno_to_term(Abstr).
+
+%% Substitute {value, A, Item} for {var, A, Var}, preserving A.
+%% {value, A, Item} is a shell/erl_eval convention, and for example
+%% the linter cannot handle it.
+
+-spec subst_values_for_vars(ExprList, Bindings) -> [term()] when
+      ExprList :: [erl_parse:abstract_expr()],
+      Bindings :: binding_struct().
+
+subst_values_for_vars({var, A, V}=Var, Bs) ->
+    case erl_eval:binding(V, Bs) of
+        {value, Value} ->
+            {value, A, Value};
+        unbound ->
+            Var
+    end;
+subst_values_for_vars(L, Bs) when is_list(L) ->
+    [subst_values_for_vars(E, Bs) || E <- L];
+subst_values_for_vars(T, Bs) when is_tuple(T) ->
+    list_to_tuple(subst_values_for_vars(tuple_to_list(T), Bs));
+subst_values_for_vars(T, _Bs) ->
+    T.
+
+%% `Tokens' is assumed to have been scanned with the 'text' option.
+%% The annotations of the returned expressions are locations.
+%%
+%% Can handle pids, ports, references, and external funs ("items").
+%% Known items are represented by variables in the erl_parse tree, and
+%% the items themselves are stored in the returned bindings.
+
+-spec extended_parse_exprs(Tokens) ->
+                {'ok', ExprList, Bindings} | {'error', ErrorInfo} when
+      Tokens :: [erl_scan:token()],
+      ExprList :: [erl_parse:abstract_expr()],
+      Bindings :: erl_eval:binding_struct(),
+      ErrorInfo :: erl_parse:error_info().
+
+extended_parse_exprs(Tokens) ->
+    Ts = tokens_fixup(Tokens),
+    case erl_parse:parse_exprs(Ts) of
+        {ok, Exprs0} ->
+            {Exprs, Bs} = expr_fixup(Exprs0),
+            {ok, reset_expr_anno(Exprs), Bs};
+        _ErrorInfo ->
+            erl_parse:parse_exprs(reset_token_anno(Ts))
+    end.
+
+tokens_fixup([]) -> [];
+tokens_fixup([T|Ts]=Ts0) ->
+    try token_fixup(Ts0) of
+        {NewT, NewTs} ->
+            [NewT|tokens_fixup(NewTs)]
+    catch
+        _:_ ->
+            [T|tokens_fixup(Ts)]
+    end.
+
+token_fixup(Ts) ->
+    {AnnoL, NewTs, FixupTag} = unscannable(Ts),
+    String = lists:append([erl_anno:text(A) || A <- AnnoL]),
+    _ = (fixup_fun(FixupTag))(String),
+    NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
+    {{string, NewAnno, String}, NewTs}.
+
+unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
+             {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, function};
+unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
+             {'.', A5}, {atom, A6, _}, {'.', A7}, {integer, A8, _},
+             {'>', A9}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7, A8, A9], Ts, function};
+unscannable([{'<', A1}, {float, A2, _}, {'.', A3}, {integer, A4, _},
+             {'>', A5}|Ts]) ->
+    {[A1, A2, A3, A4, A5], Ts, pid};
+unscannable([{'#', A1}, {var, A2, 'Port'}, {'<', A3}, {float, A4, _},
+             {'>', A5}|Ts]) ->
+    {[A1, A2, A3, A4, A5], Ts, port};
+unscannable([{'#', A1}, {var, A2, 'Ref'}, {'<', A3}, {float, A4, _},
+             {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference}.
+
+expr_fixup(Expr0) ->
+    {Expr, Bs, _} = expr_fixup(Expr0, erl_eval:new_bindings(), 1),
+    {Expr, Bs}.
+
+expr_fixup({string,A,S}=T, Bs0, I) ->
+    try string_fixup(A, S) of
+        Value ->
+            Var = new_var(I),
+            Bs = erl_eval:add_binding(Var, Value, Bs0),
+            {{var, A, Var}, Bs, I+1}
+    catch
+        _:_ ->
+            {T, Bs0, I}
+    end;
+expr_fixup(Tuple, Bs0, I0) when is_tuple(Tuple) ->
+    {L, Bs, I} = expr_fixup(tuple_to_list(Tuple), Bs0, I0),
+    {list_to_tuple(L), Bs, I};
+expr_fixup([E0|Es0], Bs0, I0) ->
+    {E, Bs1, I1} = expr_fixup(E0, Bs0, I0),
+    {Es, Bs, I} = expr_fixup(Es0, Bs1, I1),
+    {[E|Es], Bs, I};
+expr_fixup(T, Bs, I) ->
+    {T, Bs, I}.
+
+string_fixup(A, S) ->
+    Text = erl_anno:text(A),
+    FixupTag = fixup_tag(Text, S),
+    (fixup_fun(FixupTag))(S).
+
+new_var(I) ->
+    list_to_atom(lists:concat(['__ExtendedParseExprs_', I, '__'])).
+
+reset_token_anno(Tokens) ->
+    [setelement(2, T, (reset_anno())(element(2, T))) || T <- Tokens].
+
+reset_expr_anno(Exprs) ->
+    [erl_parse:map_anno(reset_anno(), E) || E <- Exprs].
+
+reset_anno() ->
+    fun(A) -> erl_anno:new(erl_anno:location(A)) end.
+
+fixup_fun(function)  -> fun function/1;
+fixup_fun(pid)       -> fun erlang:list_to_pid/1;
+fixup_fun(port)      -> fun erlang:list_to_port/1;
+fixup_fun(reference) -> fun erlang:list_to_ref/1.
+
+function(S) ->
+    %% External function.
+    {ok, [_, _, _,
+          {atom, _, Module}, _,
+          {atom, _, Function}, _,
+          {integer, _, Arity}|_], _} = erl_scan:string(S),
+    erlang:make_fun(Module, Function, Arity).
+
+fixup_text(function)  -> "function";
+fixup_text(pid)       -> "pid";
+fixup_text(port)      -> "port";
+fixup_text(reference) -> "reference".
+
+fixup_tag("function",  "#"++_) -> function;
+fixup_tag("pid",       "<"++_) -> pid;
+fixup_tag("port",      "#"++_) -> port;
+fixup_tag("reference", "#"++_) -> reference.
+
+%%% End of extended_parse_exprs.
+
+%% `Tokens' is assumed to have been scanned with the 'text' option.
+%%
+%% Can handle pids, ports, references, and external funs.
+
+-spec extended_parse_term(Tokens) ->
+                {'ok', Term} | {'error', ErrorInfo} when
+      Tokens :: [erl_scan:token()],
+      Term :: term(),
+      ErrorInfo :: erl_parse:error_info().
+
+extended_parse_term(Tokens) ->
+    case extended_parse_exprs(Tokens) of
+        {ok, [Expr], Bindings} ->
+            try normalise(Expr, Bindings) of
+                Term ->
+                    {ok, Term}
+            catch
+                _:_ ->
+                    Loc = erl_anno:location(element(2, Expr)),
+                    {error,{Loc,?MODULE,"bad term"}}
+            end;
+        {ok, [_,Expr|_], _Bindings} ->
+                Loc = erl_anno:location(element(2, Expr)),
+                {error,{Loc,?MODULE,"bad term"}};
+        {error, _} = Error ->
+            Error
+    end.
+
+%% From erl_parse.
+normalise({var, _, V}, Bs) ->
+    {value, Value} = erl_eval:binding(V, Bs),
+    Value;
+normalise({char,_,C}, _Bs) -> C;
+normalise({integer,_,I}, _Bs) -> I;
+normalise({float,_,F}, _Bs) -> F;
+normalise({atom,_,A}, _Bs) -> A;
+normalise({string,_,S}, _Bs) -> S;
+normalise({nil,_}, _Bs) -> [];
+normalise({bin,_,Fs}, Bs) ->
+    {value, B, _} =
+	eval_bits:expr_grp(Fs, [],
+			   fun(E, _) ->
+				   {value, normalise(E, Bs), []}
+			   end, [], true),
+    B;
+normalise({cons,_,Head,Tail}, Bs) ->
+    [normalise(Head, Bs)|normalise(Tail, Bs)];
+normalise({tuple,_,Args}, Bs) ->
+    list_to_tuple(normalise_list(Args, Bs));
+normalise({map,_,Pairs}, Bs) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) ->
+                                     {normalise(K, Bs),normalise(V, Bs)}
+	    end, Pairs));
+%% Special case for unary +/-.
+normalise({op,_,'+',{char,_,I}}, _Bs) -> I;
+normalise({op,_,'+',{integer,_,I}}, _Bs) -> I;
+normalise({op,_,'+',{float,_,F}}, _Bs) -> F;
+normalise({op,_,'-',{char,_,I}}, _Bs) -> -I;   %Weird, but compatible!
+normalise({op,_,'-',{integer,_,I}}, _Bs) -> -I;
+normalise({op,_,'-',{float,_,F}}, _Bs) -> -F;
+normalise({'fun',_,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Bs) ->
+    %% Since "#Fun<M.F.A>" is recognized, "fun M:F/A" should be too.
+    fun M:F/A.
+
+normalise_list([H|T], Bs) ->
+    [normalise(H, Bs)|normalise_list(T, Bs)];
+normalise_list([], _Bs) ->
+    [].
+
 %%----------------------------------------------------------------------------
 %%
 %% Evaluate expressions:
@@ -1306,6 +1552,7 @@ partial_eval(Expr) ->
 ev_expr({op,_,Op,L,R}) -> erlang:Op(ev_expr(L), ev_expr(R));
 ev_expr({op,_,Op,A}) -> erlang:Op(ev_expr(A));
 ev_expr({integer,_,X}) -> X;
+ev_expr({char,_,X})    -> X;
 ev_expr({float,_,X})   -> X;
 ev_expr({atom,_,X})    -> X;
 ev_expr({tuple,_,Es}) ->
@@ -1319,13 +1566,53 @@ ev_expr({cons,_,H,T}) -> [ev_expr(H) | ev_expr(T)].
 %%    true = erl_internal:guard_bif(F, length(As)),
 %%    apply(erlang, F, [ev_expr(X) || X <- As]);
 
+%% eval_str(InStr) -> {ok, OutStr} | {error, ErrStr'}
+%%   InStr must represent a body
+%%   Note: If InStr is a binary it has to be a Latin-1 string.
+%%   If you have a UTF-8 encoded binary you have to call
+%%   unicode:characters_to_list/1 before the call to eval_str().
+
+-define(result(F,D), lists:flatten(io_lib:format(F, D))).
+
+-spec eval_str(string() | unicode:latin1_binary()) ->
+                      {'ok', string()} | {'error', string()}.
+
+eval_str(Str) when is_list(Str) ->
+    case erl_scan:tokens([], Str, 0) of
+	{more, _} ->
+	    {error, "Incomplete form (missing .<cr>)??"};
+	{done, {ok, Toks, _}, Rest} ->
+	    case all_white(Rest) of
+		true ->
+		    case erl_parse:parse_exprs(Toks) of
+			{ok, Exprs} ->
+			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
+				{value, Val, _} ->
+				    {ok, Val};
+				Other ->
+				    {error, ?result("*** eval: ~p", [Other])}
+			    end;
+			{error, {_Line, Mod, Args}} ->
+                            Msg = ?result("*** ~ts",[Mod:format_error(Args)]),
+                            {error, Msg}
+		    end;
+		false ->
+		    {error, ?result("Non-white space found after "
+				    "end-of-form :~ts", [Rest])}
+		end
+    end;
+eval_str(Bin) when is_binary(Bin) ->
+    eval_str(binary_to_list(Bin)).
+
+all_white([$\s|T]) -> all_white(T);
+all_white([$\n|T]) -> all_white(T);
+all_white([$\t|T]) -> all_white(T);
+all_white([])      -> true;
+all_white(_)       -> false.
+
 ret_expr(_Old, New) ->
     %%    io:format("~w: reduced ~s => ~s~n",
     %%	      [line(Old), erl_pp:expr(Old), erl_pp:expr(New)]),
     New.
 
 line(Expr) -> element(2, Expr).
-
-%% {?MODULE,expr,3} is still the stacktrace, despite the
-%% fact that expr() now takes two, three or four arguments...
-stacktrace() -> [{?MODULE,expr,3}].

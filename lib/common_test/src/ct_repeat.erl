@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework module that handles repeated test runs
+%%% doc Common Test Framework module that handles repeated test runs
 %%%
-%%% <p>This module exports functions for repeating tests. The following
+%%% This module exports functions for repeating tests. The following
 %%% start flags (or equivalent ct:run_test/1 options) are supported:
 %%% -until <StopTime>, StopTime = YYMoMoDDHHMMSS | HHMMSS
 %%% -duration <DurTime>, DurTime = HHMMSS
 %%% -force_stop [skip_rest]
-%%% -repeat <N>, N = integer()</p>
+%%% -repeat <N>, N = integer()
 
 -module(ct_repeat).
 
@@ -43,7 +43,7 @@ loop_test(If,Args) when is_list(Args) ->
 	no_loop ->
 	    false;
 	E = {error,_} ->
-	    io:format("Common Test error: ~p\n\n",[E]),
+	    io:format("Common Test error: ~tp\n\n",[E]),
 	    ok = file:set_cwd(Cwd),
 	    E;
 	{repeat,N} ->
@@ -70,6 +70,7 @@ loop_test(If,Args) when is_list(Args) ->
 				    CtrlPid = self(),
 				    spawn(
 				      fun() ->
+                                              ct_util:mark_process(),
 					      stop_after(CtrlPid,Secs,ForceStop)
 				      end)
 			    end,
@@ -89,18 +90,18 @@ loop(If,Type,N,Data0,Data1,Args,TPid,AccResult) ->
 	{'EXIT',Pid,Reason} ->
 	    case Reason of
 		{user_error,What} ->
-		    io:format("\nTest run failed!\nReason: ~p\n\n\n", [What]),
+		    io:format("\nTest run failed!\nReason: ~tp\n\n\n", [What]),
 		    cancel(TPid),
 		    {error,What};			
 		_ ->
 		    io:format("Test run crashed! This could be an internal error "
 			      "- please report!\n\n"
-			      "~p\n\n\n",[Reason]),
+			      "~tp\n\n\n",[Reason]),
 		    cancel(TPid),
 		    {error,Reason}
 	    end;
 	{Pid,{error,Reason}} ->
-	    io:format("\nTest run failed!\nReason: ~p\n\n\n",[Reason]),
+	    io:format("\nTest run failed!\nReason: ~tp\n\n\n",[Reason]),
 	    cancel(TPid),
 	    {error,Reason};
 	{Pid,Result} ->
@@ -134,6 +135,7 @@ spawn_tester(script,Ctrl,Args) ->
 
 spawn_tester(func,Ctrl,Opts) ->
     Tester = fun() ->
+                     ct_util:mark_process(),
 		     case catch ct_run:run_test2(Opts) of
 			 {'EXIT',Reason} ->
 			     exit(Reason);

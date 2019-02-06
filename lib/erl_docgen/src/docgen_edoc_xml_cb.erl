@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +10,10 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
+%% Copyright (c) 2001-2016 Richard Carlsson. Parts written by Ericsson
+%% are Copyright (c) Ericsson AB 2001-2017. All Rights Reserved.
 %%
+
 -module(docgen_edoc_xml_cb).
 
 %% This is the EDoc callback module for creating erlref
@@ -27,7 +24,7 @@
 %%                  {preprocess,true}]).
 %%
 %% The origin of this file is the edoc module otpsgml_layout.erl
-%% written by Richard Carlsson.
+%% written by Richard Carlsson and Kenneth Lundin.
 
 -export([module/2, overview/2]).
 
@@ -111,7 +108,16 @@ root_attributes(Element, Opts) ->
                    Enc ->
                        Enc
                end,
-    [#xmlAttribute{name=encoding, value=Encoding}].
+    [#xmlAttribute{name=encoding, value=reformat_encoding(Encoding)}].
+
+%% epp:default_encoding/0 returns 'utf8'
+reformat_encoding(utf8) -> "UTF-8";
+reformat_encoding(List) when is_list(List) ->
+    case string:lowercase(List) of
+        "utf8" -> "UTF-8";
+        _ -> List
+    end;
+reformat_encoding(Other) -> Other.
 
 layout_chapter(#xmlElement{name=overview, content=Es}) ->
     Title = get_text(title, Es),
@@ -482,6 +488,8 @@ filter_a_attrs([]) ->
 otp_xmlify_a_href("#"++_ = Marker, Es0) -> % <seealso marker="#what">
     {Marker, Es0};
 otp_xmlify_a_href("http:"++_ = URL, Es0) -> % external URL
+    {URL, Es0};
+otp_xmlify_a_href("https:"++_ = URL, Es0) -> % external URL
     {URL, Es0};
 otp_xmlify_a_href("OTPROOT"++AppRef, Es0) -> % <.. marker="App:FileRef
     [AppS, "doc", FileRef1] = split(AppRef, "/"),

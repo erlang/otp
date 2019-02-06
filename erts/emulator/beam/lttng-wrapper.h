@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,13 @@
 #define lttng_proc_to_mfa_str(p, Name)                              \
     do {                                                            \
         if (ERTS_PROC_IS_EXITING((p))) {                            \
-            strcpy(Name, "<exiting>");                              \
+            sys_strcpy(Name, "<exiting>");                              \
         } else {                                                    \
             BeamInstr *_fptr = find_function_from_pc((p)->i);       \
             if (_fptr) {                                            \
                 lttng_mfa_to_str(_fptr[0],_fptr[1],_fptr[2], Name); \
             } else {                                                \
-                strcpy(Name, "<unknown>");                          \
+                sys_strcpy(Name, "<unknown>");                          \
             }                                                       \
         }                                                           \
     } while(0)

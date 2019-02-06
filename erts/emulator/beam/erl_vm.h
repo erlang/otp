@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 #define EMULATOR "BEAM"
 #define SEQ_TRACE 1
 
-#define CONTEXT_REDS 2000	/* Swap process out after this number */
+#define CONTEXT_REDS 4000	/* Swap process out after this number */
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
@@ -46,8 +46,6 @@
  */
 #define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
-#define INPUT_REDUCTIONS (2 * CONTEXT_REDS)
-
 #define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
 #define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */
@@ -55,7 +53,7 @@
 #define CP_SIZE 1
 
 #define ErtsHAllocLockCheck(P) \
-  ERTS_SMP_LC_ASSERT(erts_dbg_check_halloc_lock((P)))
+  ERTS_LC_ASSERT(erts_dbg_check_halloc_lock((P)))
 
 
 #ifdef DEBUG
@@ -71,7 +69,7 @@
 #  ifdef CHECK_FOR_HOLES
 #    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(HEAP_TOP(p), (sz))
 #  else
-#    define INIT_HEAP_MEM(p,sz) memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
+#    define INIT_HEAP_MEM(p,sz) sys_memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
 #  endif
 #else
 #  define INIT_HEAP_MEM(p,sz) ((void)0)
@@ -102,16 +100,31 @@
   if ((ptr) == (endp)) {					\
      ;								\
   } else if (HEAP_START(p) <= (ptr) && (ptr) < HEAP_TOP(p)) {	\
+     ASSERT(HEAP_TOP(p) == (endp));                             \
      HEAP_TOP(p) = (ptr);					\
   } else {							\
-     erts_heap_frag_shrink(p, ptr);					\
+     ASSERT(MBUF(p)->mem + MBUF(p)->used_size == (endp));       \
+     erts_heap_frag_shrink(p, ptr);                             \
   }
 
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
-#endif /* egil: 32-bit ? */
+
+/*
+ * ERTS_HOLE_MARKER must *not* be mistaken for a valid term
+ * on the heap...
+ */
+#  ifdef ARCH_64
+#    define ERTS_HOLE_MARKER \
+    make_catch(UWORD_CONSTANT(0xdeadbeaf00000000) >> _TAG_IMMED2_SIZE)
+/* Will (at the time of writing) appear as 0xdeadbeaf0000001b */
+#  else
+#    define ERTS_HOLE_MARKER \
+    make_catch(UWORD_CONSTANT(0xdead0000) >> _TAG_IMMED2_SIZE)
+/* Will (at the time of writing) appear as 0xdead001b */
+#  endif
+#endif
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap
@@ -144,13 +157,15 @@ typedef struct op_entry {
    Uint32 mask[3];		/* Signature mask. */
    unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
+   int adjust;                  /* Adjustment for start of instruction. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */
-   unsigned count;		/* Number of times executed. */
 } OpEntry;
 
-extern OpEntry opc[];		/* Description of all instructions. */
-extern int num_instructions;	/* Number of instruction in opc[]. */
+extern const OpEntry opc[];	/* Description of all instructions. */
+extern const int num_instructions; /* Number of instruction in opc[]. */
+
+extern Uint erts_instr_count[];
 
 /* some constants for various table sizes etc */
 
@@ -184,5 +199,25 @@ extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 #define make_signed_32(x3,x2,x1,x0) ((sint32) (((x3) << 24) | ((x2) << 16) | ((x1) << 8) | (x0)))
 
 #include "erl_term.h"
+
+#if defined(NO_JUMP_TABLE)
+#  define BeamOpsAreInitialized() (1)
+#  define BeamOpCodeAddr(OpCode) ((BeamInstr)(OpCode))
+#else
+extern void** beam_ops;
+#  define BeamOpsAreInitialized() (beam_ops != 0)
+#  define BeamOpCodeAddr(OpCode) ((BeamInstr)beam_ops[(OpCode)])
+#endif
+
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+#  define BeamCodeAddr(InstrWord) ((BeamInstr)(Uint32)(InstrWord))
+#  define BeamSetCodeAddr(InstrWord, Addr) (((InstrWord) & ~((1ull << 32)-1)) | (Addr))
+#  define BeamExtraData(InstrWord) ((InstrWord) >> 32)
+#else
+#  define BeamCodeAddr(InstrWord) ((BeamInstr)(InstrWord))
+#  define BeamSetCodeAddr(InstrWord, Addr) (Addr)
+#endif
+
+#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
 #endif	/* __ERL_VM_H__ */

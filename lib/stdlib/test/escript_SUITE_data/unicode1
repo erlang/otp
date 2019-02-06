@@ -8,7 +8,7 @@ main(_) ->
     _D = erlang:system_flag(backtrace_depth, 0),
     A = <<"\x{aaa}"/utf8>>,
     S = lists:flatten(io_lib:format("~p/~p.", [A, A])),
-    {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+    {ok, Ts, _} = erl_scan:string(S, 1),
     {ok, Es} = erl_parse:parse_exprs(Ts),
     B = erl_eval:new_bindings(),
     erl_eval:exprs(Es, B).

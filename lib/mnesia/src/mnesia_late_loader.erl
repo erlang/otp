@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,13 +87,13 @@ loop(State) ->
 	    loop(State);
 
 	{system, From, Msg} ->
-	    mnesia_lib:dbg_out("~p got {system, ~p, ~p}~n",
+	    mnesia_lib:dbg_out("~p got {system, ~p, ~tp}~n",
 			       [?SERVER_NAME, From, Msg]),
 	    Parent = State#state.supervisor,
 	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], State);
 	    
 	Msg ->
-	    mnesia_lib:error("~p got unexpected message: ~p~n",
+	    mnesia_lib:error("~p got unexpected message: ~tp~n",
 			     [?SERVER_NAME, Msg]),
 	    loop(State)
     end.

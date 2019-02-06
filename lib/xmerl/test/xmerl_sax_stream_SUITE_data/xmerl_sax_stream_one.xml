@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<person>
+<name>
+Arne Andersson
+</name>
+<address>
+<street>
+ Old Road 456
+</street>
+<zip>
+12323
+</zip>
+<city>
+Small City
+</city>
+</address>
+</person>

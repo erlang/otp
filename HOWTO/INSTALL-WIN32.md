@@ -392,7 +392,7 @@ tools:
 
         LIB="$WIN_VISUAL_STUDIO_ROOT\\VC\\lib\\;$WIN_SDK\\lib\\winv6.3\\um\\x86"
 
-        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;$WIN_SDK\\include\\shared\\;
+        INCLUDE="$WIN_VISUAL_STUDIO_ROOT\\VC\\include\\;$WIN_SDK\\include\\shared\\;\
         $WIN_SDK\\include\\um;$WIN_SDK\\include\\winrt\\;$WIN_SDK\\include\\um\\gl"
 
         export CYGWIN PATH LIBPATH LIB INCLUDE
@@ -612,7 +612,7 @@ tools:
 
     We would recommend using 1.0.2d. 
 
-*   Building with wxWidgets. Download wxWidgets-3.0.2 or higher.
+*   Building with wxWidgets. Download wxWidgets-3.0.3 or higher.
 
     Install or unpack it to the pgm folder:
     Cygwin: 
@@ -622,19 +622,19 @@ tools:
     MSYS2:
         `DRIVE:/PATH/msys<32/64>/opt/local/pgm`
 
-    If the `wxUSE_POSTSCRIPT` isn't enabled in  `<path\to\pgm>\wxMSW-3.0.2\include\wx\msw\setup.h`,
+    If the `wxUSE_POSTSCRIPT` isn't enabled in  `<path\to\pgm>\wxMSW-3.0.3\include\wx\msw\setup.h`,
     enable it.
 
     build: From a command prompt with the VC tools available (See the
     instructions for OpenSSL build above for help on starting the
     proper command prompt in RELEASE mode):
 	   
-        C:\...\> cd <path\to\pgm>\wxMSW-3.0.2\build\msw
+        C:\...\> cd <path\to\pgm>\wxMSW-3.0.3\build\msw
         C:\...\> nmake BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     
     Or - if building a 64bit version:
 
-        C:\...\> cd <path\to\pgm>\wxMSW-3.0.2\build\msw
+        C:\...\> cd <path\to\pgm>\wxMSW-3.0.3\build\msw
         C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
     	   
 *   Get the Erlang source distribution (from <http://www.erlang.org/download.html>).
@@ -882,28 +882,6 @@ however not compatible with the full version from MinGW, so you will
 need to check out files using MsysGIT's command prompt and then switch
 to a common MSYS command prompt for building. Also all test suites
 cannot be built as MsysGIT/MSYS does not handle symbolic links. 
-
-
-Copyright and License
----------------------
-
-%CopyrightBegin%
-
-Copyright Ericsson AB 2003-2015. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
- 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-%CopyrightEnd%
 
 
    [1]: http://www.erlang.org/static/doc/mailinglist.html

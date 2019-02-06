@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [pending, bif_calls, math_functions,
      mixed_float_and_int].
 
@@ -35,6 +34,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -149,6 +149,18 @@ math_functions(Config) when is_list(Config) ->
     ?OPTIONAL(0.0, math:atanh(id(0))),
     ?OPTIONAL(0.0, math:erf(id(0))),
     ?OPTIONAL(1.0, math:erfc(id(0))),
+
+    5.0 = math:floor(5.6),
+    6.0 = math:ceil(5.6),
+    5.0 = math:floor(id(5.4)),
+    6.0 = math:ceil(id(5.4)),
+
+    0.0 = math:fmod(42, 42),
+    0.25 = math:fmod(1, 0.75),
+    -1.0 = math:fmod(-4.0, 1.5),
+    -0.375 = math:fmod(-3.0, -0.875),
+    0.125 = math:fmod(8.125, -4),
+    {'EXIT',{badarith,_}} = (catch math:fmod(5.0, 0.0)),
 
     %% Only for coverage (of beam_type.erl).
     {'EXIT',{undef,_}} = (catch math:fnurfla(0)),

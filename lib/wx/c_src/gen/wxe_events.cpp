@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -306,6 +306,7 @@ void initEventTable()
    {wxEVT_ACTIVATE_APP, 232, "activate_app"},
    {wxEVT_HIBERNATE, 232, "hibernate"},
    {wxEVT_MOUSE_CAPTURE_LOST, 235, "mouse_capture_lost"},
+   {wxEVT_DROP_FILES, 238, "drop_files"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -881,6 +882,18 @@ case 235: {// wxMouseCaptureLostEvent
     rt.addTupleCount(2);
   break;
 }
+case 238: {// wxDropFilesEvent
+ wxDropFilesEvent * ev = (wxDropFilesEvent *) event;
+    evClass = (char*)"wxDropFilesEvent";
+    rt.addAtom((char*)"wxDropFiles");
+    rt.addAtom(Etype->eName);
+ rt.addInt(ev->m_noFiles);
+ rt.add(ev->m_pos);
+ wxArrayString tmpArrayStr(ev->m_noFiles, ev->m_files);
+ rt.add(tmpArrayStr);
+    rt.addTupleCount(5);
+  break;
+}
  }
 
  rt.addTupleCount(5);
@@ -897,7 +910,7 @@ case 235: {// wxMouseCaptureLostEvent
  } else {
    send_res =  rt.send();
    if(cb->skip) event->Skip();
-   if(app->recurse_level < 1) {
+   if(app->recurse_level < 1 && Etype->cID != 168) {
      app->recurse_level++;
      app->dispatch_cmds();
      app->recurse_level--;

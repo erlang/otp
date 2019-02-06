@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -317,6 +317,7 @@ guard_bifs(Config) when is_list(Config) ->
     try_gbif('float/1', Big, float(id(Big))),
     try_gbif('trunc/1', Float, 387924.0),
     try_gbif('round/1', Float, 387925.0),
+    try_gbif('round/1', 6209607916799025.0, 6209607916799025),
     try_gbif('length/1', [], 0),
 
     try_gbif('length/1', [a], 1),
@@ -499,7 +500,7 @@ all_types() ->
      {atom, xxxx},
      {ref, make_ref()},
      {pid, self()},
-     {port, open_port({spawn, efile}, [])},
+     {port, make_port()},
      {function, fun(_) -> "" end},
      {function, fun erlang:abs/1},
      {binary, list_to_binary([])},
@@ -549,5 +550,8 @@ type_test(bitstring, X) when is_bitstring(X) ->
     bitstring;
 type_test(function, X) when is_function(X) ->
     function.
+
+make_port() ->
+    hd(erlang:ports()).
 
 id(I) -> I.

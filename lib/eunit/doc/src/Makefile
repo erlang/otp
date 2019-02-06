@@ -1,5 +1,5 @@
 #<copyright>
-# <year>2004-2007</year>
+# <year>2004-2017</year>
 # <holder>Ericsson AB, All Rights Reserved</holder>
 #</copyright>
 #<legalnotice>
@@ -51,11 +51,10 @@ EUNIT_MODULES = \
 
 XML_APPLICATION_FILES = ref_man.xml
 
-XML_REF3_FILES =  $(EUNIT_MODULES:=.xml) 
+XML_REF3_FILES =  $(EUNIT_MODULES:=.xml)
 
 XML_PART_FILES =  \
-	part.xml \
-	part_notes.xml
+	part.xml
 
 XML_CHAPTER_FILES =  \
 	chapter.xml
@@ -63,7 +62,7 @@ XML_CHAPTER_FILES =  \
 XML_NOTES_FILES =  \
 	notes.xml
 
-HTML_EXAMPLE_FILES =  
+HTML_EXAMPLE_FILES =
 
 HTML_STYLESHEET_FILES = \
 	../stylesheet.css
@@ -71,9 +70,10 @@ HTML_STYLESHEET_FILES = \
 BOOK_FILES = book.xml
 
 XML_FILES = \
-	$(BOOK_FILES) $(XML_CHAPTER_FILES)  $(XML_NOTES_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+	$(BOOK_FILES) $(XML_NOTES_FILES) \
+	$(XML_PART_FILES) $(XML_APPLICATION_FILES)
 
+XML_GEN_FILES = $(XML_REF3_FILES:%=$(XMLDIR)/%) $(XML_CHAPTER_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 INFO_FILE = ../../info
@@ -99,10 +99,10 @@ TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -123,11 +123,11 @@ man: $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-$(XML_REF3_FILES): 
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EUNIT_VSN) -i $(EUNIT_INC_DIR) $(EUNIT_DIR)/$(@:%.xml=%.erl) 
+$(XML_REF3_FILES:%=$(XMLDIR)/%):
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EUNIT_VSN) -i $(EUNIT_INC_DIR) -dir $(XMLDIR) $(EUNIT_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
 
-$(XML_CHAPTER_FILES):
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EUNIT_VSN) -chapter ../overview.edoc
+$(XML_CHAPTER_FILES:%=$(XMLDIR)/%):
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(EUNIT_VSN) -chapter -dir $(XMLDIR) ../overview.edoc
 
 info:
 	@echo "XML_PART_FILES: $(XML_PART_FILES)"
@@ -142,19 +142,20 @@ info:
 
 xml: $(XML_REF3_FILES) $(XML_CHAPTER_FILES)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(XML_REF3_FILES) $(XML_CHAPTER_FILES) *.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -169,6 +170,3 @@ release_docs_spec: docs
 
 
 release_spec:
-
-
-

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,13 @@
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1, 
          versions/1,new_binary_types/1, call_purged_fun_code_gone/1,
 	 call_purged_fun_code_reload/1, call_purged_fun_code_there/1,
-         t_check_process_code/1,t_check_old_code/1,
-         t_check_process_code_ets/1,
-         external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
-         make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
+         multi_proc_purge/1, t_check_old_code/1,
+         external_fun/1,get_chunk/1,module_md5/1,
+         constant_pools/1,constant_refc_binaries/1,
+         fake_literals/1,
          false_dependency/1,coverage/1,fun_confusion/1,
-         t_copy_literals/1, t_copy_literals_frags/1]).
+         t_copy_literals/1, t_copy_literals_frags/1,
+         erl_544/1, max_heap_size/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -36,11 +37,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [versions, new_binary_types, call_purged_fun_code_gone,
-     call_purged_fun_code_reload, call_purged_fun_code_there, t_check_process_code,
-     t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
-     module_md5, make_stub, make_stub_many_funs,
-     constant_pools, constant_refc_binaries, false_dependency,
-     coverage, fun_confusion, t_copy_literals, t_copy_literals_frags].
+     call_purged_fun_code_reload, call_purged_fun_code_there,
+     multi_proc_purge, t_check_old_code, external_fun, get_chunk,
+     module_md5,
+     constant_pools, constant_refc_binaries, fake_literals,
+     false_dependency,
+     coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
+     erl_544, max_heap_size].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -66,9 +69,9 @@ versions(Config) when is_list(Config) ->
     2 = versions:version(),
 
     %% Kill processes, unload code.
-    P1 ! P2 ! done,
     _ = monitor(process, P1),
     _ = monitor(process, P2),
+    P1 ! P2 ! done,
     receive
         {'DOWN',_,process,P1,normal} -> ok
     end,
@@ -154,306 +157,81 @@ call_purged_fun_code_there(Config) when is_list(Config) ->
     ok.
 
 call_purged_fun_test(Priv, Data, Type) ->
-    File = filename:join(Data, "my_code_test2"),
-    Code = filename:join(Priv, "my_code_test2"),
+    OptsList = case erlang:system_info(hipe_architecture) of
+                   undefined -> [[]];
+                   _ -> [[], [native,{d,hipe}]]
+               end,
+    [call_purged_fun_test_do(Priv, Data, Type, CO, FO)
+     || CO <- OptsList, FO <- OptsList].
 
-    catch erlang:purge_module(my_code_test2),
-    catch erlang:delete_module(my_code_test2),
-    catch erlang:purge_module(my_code_test2),
 
-    {ok,my_code_test2} = c:c(File, [{outdir,Priv}]),
+call_purged_fun_test_do(Priv, Data, Type, CallerOpts, FunOpts) ->
+    io:format("Compile caller as ~p and funs as ~p\n", [CallerOpts, FunOpts]),
+    SrcFile = filename:join(Data, "call_purged_fun_tester.erl"),
+    ObjFile = filename:join(Priv, "call_purged_fun_tester.beam"),
+    {ok,Mod,Code} = compile:file(SrcFile, [binary, report | CallerOpts]),
+    {module,Mod} = code:load_binary(Mod, ObjFile, Code),
 
-    T = ets:new(my_code_test2_fun_table, []),
-    ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
-    ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
+    call_purged_fun_tester:do(Priv, Data, Type, FunOpts).
 
-    spawn(fun () ->
-		  [{my_fun2,F2}] = ets:lookup(T, my_fun2),
-		  F2(fun () ->
-			     receive after infinity -> ok end
-		     end,
-		     fun () -> ok end),
-		  exit(completed)
-	  end),
 
-    PurgeType = case Type of
-		    code_gone ->
-			ok = file:delete(Code++".beam"),
-			true;
-		    code_reload ->
-			true;
-		    code_there ->
-			false
-		end,
-
-    true = erlang:delete_module(my_code_test2),
-
-    Purge = start_purge(my_code_test2, PurgeType),
-
-    {P0, M0} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4712 = F(1),
-				     exit(completed)
-			     end),
-
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P0, status)
-	       end),
-
-    ok = continue_purge(Purge),
-
-    {P1, M1} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4713 = F(2),
-				     exit(completed)
-			     end),
-    {P2, M2} = spawn_monitor(fun () ->
-				     [{my_fun,F}] = ets:lookup(T, my_fun),
-				     4714 = F(3),
-				     exit(completed)
-			     end),
-
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P1, status)
-	       end),
-    wait_until(fun () ->
-		       {status, suspended}
-			   == process_info(P2, status)
-	       end),
-
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P0, current_function),
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P1, current_function),
-    {current_function,
-     {erts_code_purger,
-      pending_purge_lambda,
-      3}} = process_info(P2, current_function),
-
-    case Type of
-	code_there ->
-	    false = complete_purge(Purge);
-	_ ->
-	    {true, true} = complete_purge(Purge)
-    end,
-
-    case Type of
-	code_gone ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    {undef, _} = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    {undef, _} = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    {undef, _} = Reason2
-	    end;
-	_ ->
-	    receive
-		{'DOWN', M0, process, P0, Reason0} ->
-		    completed = Reason0
-	    end,
-	    receive
-		{'DOWN', M1, process, P1, Reason1} ->
-		    completed = Reason1
-	    end,
-	    receive
-		{'DOWN', M2, process, P2, Reason2} ->
-		    completed = Reason2
-	    end,
-	    catch erlang:purge_module(my_code_test2),
-	    catch erlang:delete_module(my_code_test2),
-	    catch erlang:purge_module(my_code_test2)
-    end,
-    ok.
-
-t_check_process_code(Config) when is_list(Config) ->
-    case check_process_code_handle(indirect_references) of
-	false -> {skipped, "check_process_code() ignores funs"};
-	true -> t_check_process_code_test(Config)
-    end.
-
-t_check_process_code_test(Config) ->
+multi_proc_purge(Config) when is_list(Config) ->
+    %%
+    %% Make sure purge requests aren't lost when
+    %% purger process is working.
+    %%
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "my_code_test"),
-    Code = filename:join(Priv, "my_code_test"),
-
-    catch erlang:purge_module(my_code_test),
-    catch erlang:delete_module(my_code_test),
-    catch erlang:purge_module(my_code_test),
-
-    {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
-
-    MyFun = fun(X, Y) -> X + Y end,	%Confuse things.
-    F = my_code_test:make_fun(42),
-    2 = fun_refc(F),
-    MyFun2 = fun(X, Y) -> X * Y end,	%Confuse things.
-    44 = F(2),
-
-    %% Delete the module and call the fun again.
-    true = erlang:delete_module(my_code_test),
-    2 = fun_refc(F),
-    45 = F(3),
-    {'EXIT',{undef,_}} = (catch my_code_test:make_fun(33)),
-
-    %% The fun should still be there, preventing purge.
-    true = erlang:check_process_code(self(), my_code_test),
-    gc(),
-    gc(),					%Place funs on the old heap.
-    true = erlang:check_process_code(self(), my_code_test),
-
-    %% Using the funs here guarantees that they will not be prematurely garbed.
-    48 = F(6),
-    3 = MyFun(1, 2),
-    12 = MyFun2(3, 4),
-
-    %% Kill all funs.
-    t_check_process_code1(Code, []).
-
-%% The real fun was killed, but we have some fakes which look similar.
-
-t_check_process_code1(Code, Fakes) ->
-    MyFun = fun(X, Y) -> X + Y + 1 end,	%Confuse things.
-    false = erlang:check_process_code(self(), my_code_test),
-    4 = MyFun(1, 2),
-    t_check_process_code2(Code, Fakes).
-
-t_check_process_code2(Code, _) ->
-    false = erlang:check_process_code(self(), my_code_test),
-    true = erlang:purge_module(my_code_test),
-
-    %% In the next test we will load the same module twice.
-    {module,my_code_test} = code:load_abs(Code),
-    F = my_code_test:make_fun(37),
-    2 = fun_refc(F),
-    false = erlang:check_process_code(self(), my_code_test),
-    {module,my_code_test} = code:load_abs(Code),
-    2 = fun_refc(F),
-
-    %% Still false because the fun with the same identify is found
-    %% in the current code.
-    false = erlang:check_process_code(self(), my_code_test),
-
-    %% Some fake funs in the same module should not do any difference.
-    false = erlang:check_process_code(self(), my_code_test),
-
-    38 = F(1),
-    t_check_process_code3(Code, F, []).
-
-t_check_process_code3(Code, F, Fakes) ->
-    Pid = spawn_link(fun() -> body(F, Fakes) end),
-    true = erlang:purge_module(my_code_test),
-    false = erlang:check_process_code(self(), my_code_test),
-    false = erlang:check_process_code(Pid, my_code_test),
-
-    true = erlang:delete_module(my_code_test),
-    true = erlang:check_process_code(self(), my_code_test),
-    true = erlang:check_process_code(Pid, my_code_test),
-    39 = F(2),
-    t_check_process_code4(Code, Pid).
-
-t_check_process_code4(_Code, Pid) ->
-    Pid ! drop_funs,
-    receive after 1 -> ok end,
-    false = erlang:check_process_code(Pid, my_code_test),
-    ok.
-
-body(F, Fakes) ->
-    receive
-        jog ->
-            40 = F(3),
-            erlang:garbage_collect(),
-            body(F, Fakes);
-        drop_funs ->
-            dropped_body()
-    end.
-
-dropped_body() ->
-    receive
-        X -> exit(X)
-    end.
-
-gc() ->
-    erlang:garbage_collect(),
-    gc1().
-gc1() -> ok.
-
-%% Test check_process_code/2 in combination with a fun obtained from an ets table.
-t_check_process_code_ets(Config) when is_list(Config) ->
-    case check_process_code_handle(indirect_references) of
-	false ->
-	    {skipped, "check_process_code() ignores funs"};
-	true ->
-	    case test_server:is_native(?MODULE) of
-		true ->
-		    {skip,"Native code"};
-		false ->
-		    do_check_process_code_ets(Config)
-	    end
-    end.
-
-do_check_process_code_ets(Config) ->
-    Priv = proplists:get_value(priv_dir, Config),
-    Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "my_code_test"),
-
-    catch erlang:purge_module(my_code_test),
-    catch erlang:delete_module(my_code_test),
-    catch erlang:purge_module(my_code_test),
-    {ok,my_code_test} = c:c(File, [{outdir,Priv}]),
-
-    T = ets:new(my_code_test, []),
-    ets:insert(T, {7,my_code_test:make_fun(107)}),
-    ets:insert(T, {8,my_code_test:make_fun(108)}),
+    File1 = filename:join(Data, "my_code_test"),
+    File2 = filename:join(Data, "my_code_test2"),
+    
+    {ok,my_code_test} = c:c(File1, [{outdir,Priv}]),
+    {ok,my_code_test2} = c:c(File2, [{outdir,Priv}]),
     erlang:delete_module(my_code_test),
-    false = erlang:check_process_code(self(), my_code_test),
-    Body = fun() ->
-                   [{7,F1}] = ets:lookup(T, 7),
-                   [{8,F2}] = ets:lookup(T, 8),
-                   IdleLoop = fun() -> receive _X -> ok end end,
-                   RecLoop = fun(Again) ->
-                                     receive
-                                         call -> 110 = F1(3),
-                                                 100 = F2(-8),
-                                                 Again(Again);
-                                         {drop_funs,To} ->
-                                             To ! funs_dropped,
-                                             IdleLoop()
-                                     end
-                             end,
-                   true = erlang:check_process_code(self(), my_code_test),
-                   RecLoop(RecLoop)
-           end,
-    Pid = spawn_link(Body),
-    receive after 1 -> ok end,
-    true = erlang:check_process_code(Pid, my_code_test),
-    Pid ! call,
-    Pid ! {drop_funs,self()},
+    erlang:delete_module(my_code_test2),
 
-    receive
-        funs_dropped -> ok;
-        Other -> ct:fail({unexpected,Other})
-    after 10000 ->
-              ct:fail(no_funs_dropped_answer)
-    end,
+    Self = self(),
 
-    false = erlang:check_process_code(Pid, my_code_test),
+    Fun1 = fun () ->
+		   erts_code_purger:purge(my_code_test),
+		   Self ! {self(), done}
+	   end,
+    Fun2 = fun () ->
+		   erts_code_purger:soft_purge(my_code_test2),
+		   Self ! {self(), done}
+	   end,
+    Fun3 = fun () ->
+		   erts_code_purger:purge('__nonexisting_module__'),
+		   Self ! {self(), done}
+	   end,
+    Fun4 = fun () ->
+		   erts_code_purger:soft_purge('__another_nonexisting_module__'),
+		   Self ! {self(), done}
+	   end,
+
+    Pid1 = spawn_link(Fun1),
+    Pid2 = spawn_link(Fun2),
+    Pid3 = spawn_link(Fun3),
+    Pid4 = spawn_link(Fun4),
+    Pid5 = spawn_link(Fun1),
+    Pid6 = spawn_link(Fun2),
+    Pid7 = spawn_link(Fun3),
+    receive after 50 -> ok end,
+    Pid8 = spawn_link(Fun4),
+    Pid9 = spawn_link(Fun1),
+    Pid10 = spawn_link(Fun2),
+    Pid11 = spawn_link(Fun3),
+    Pid12 = spawn_link(Fun4),
+    Pid13 = spawn_link(Fun1),
+    receive after 50 -> ok end,
+    Pid14 = spawn_link(Fun2),
+    Pid15 = spawn_link(Fun3),
+    Pid16 = spawn_link(Fun4),
+
+    lists:foreach(fun (P) -> receive {P, done} -> ok end end,
+		  [Pid1, Pid2, Pid3, Pid4, Pid5, Pid6, Pid7, Pid8,
+		   Pid9, Pid10, Pid11, Pid12, Pid13, Pid14, Pid15, Pid16]),
     ok.
-
-fun_refc(F) ->
-    {refc,Count} = erlang:fun_info(F, refc),
-    Count.
-
 
 %% Test the erlang:check_old_code/1 BIF.
 t_check_old_code(Config) when is_list(Config) ->
@@ -501,16 +279,16 @@ get_chunk(Config) when is_list(Config) ->
     {ok,my_code_test,Code} = compile:file(File, [binary]),
 
     %% Should work.
-    Chunk = get_chunk_ok("Atom", Code),
-    Chunk = get_chunk_ok("Atom", make_sub_binary(Code)),
-    Chunk = get_chunk_ok("Atom", make_unaligned_sub_binary(Code)),
+    Chunk = get_chunk_ok("AtU8", Code),
+    Chunk = get_chunk_ok("AtU8", make_sub_binary(Code)),
+    Chunk = get_chunk_ok("AtU8", make_unaligned_sub_binary(Code)),
 
     %% Should fail.
-    {'EXIT',{badarg,_}} = (catch code:get_chunk(bit_sized_binary(Code), "Atom")),
+    {'EXIT',{badarg,_}} = (catch code:get_chunk(bit_sized_binary(Code), "AtU8")),
     {'EXIT',{badarg,_}} = (catch code:get_chunk(Code, "bad chunk id")),
 
     %% Invalid beam code or missing chunk should return 'undefined'.
-    undefined = code:get_chunk(<<"not a beam module">>, "Atom"),
+    undefined = code:get_chunk(<<"not a beam module">>, "AtU8"),
     undefined = code:get_chunk(Code, "XXXX"),
 
     ok.
@@ -542,67 +320,6 @@ module_md5_ok(Code) ->
         Bin when is_binary(Bin), size(Bin) =:= 16 -> Bin
     end.
 
-
-make_stub(Config) when is_list(Config) ->
-    catch erlang:purge_module(my_code_test),
-    MD5 = erlang:md5(<<>>),
-
-    Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "my_code_test"),
-    {ok,my_code_test,Code} = compile:file(File, [binary]),
-
-    my_code_test = code:make_stub_module(my_code_test, Code, {[],[],MD5}),
-    true = erlang:delete_module(my_code_test),
-    true = erlang:purge_module(my_code_test),
-
-    my_code_test = code:make_stub_module(my_code_test, 
-                                         make_unaligned_sub_binary(Code),
-                                         {[],[],MD5}),
-    true = erlang:delete_module(my_code_test),
-    true = erlang:purge_module(my_code_test),
-
-    my_code_test = code:make_stub_module(my_code_test, zlib:gzip(Code),
-                                         {[],[],MD5}),
-    true = erlang:delete_module(my_code_test),
-    true = erlang:purge_module(my_code_test),
-
-    %% Should fail.
-    {'EXIT',{badarg,_}} =
-    (catch code:make_stub_module(my_code_test, <<"bad">>, {[],[],MD5})),
-    {'EXIT',{badarg,_}} =
-    (catch code:make_stub_module(my_code_test,
-                                 bit_sized_binary(Code),
-                                 {[],[],MD5})),
-    {'EXIT',{badarg,_}} =
-    (catch code:make_stub_module(my_code_test_with_wrong_name,
-                                 Code, {[],[],MD5})),
-    ok.
-
-make_stub_many_funs(Config) when is_list(Config) ->
-    catch erlang:purge_module(many_funs),
-    MD5 = erlang:md5(<<>>),
-
-    Data = proplists:get_value(data_dir, Config),
-    File = filename:join(Data, "many_funs"),
-    {ok,many_funs,Code} = compile:file(File, [binary]),
-
-    many_funs = code:make_stub_module(many_funs, Code, {[],[],MD5}),
-    true = erlang:delete_module(many_funs),
-    true = erlang:purge_module(many_funs),
-    many_funs = code:make_stub_module(many_funs, 
-                                      make_unaligned_sub_binary(Code),
-                                      {[],[],MD5}),
-    true = erlang:delete_module(many_funs),
-    true = erlang:purge_module(many_funs),
-
-    %% Should fail.
-    {'EXIT',{badarg,_}} =
-    (catch code:make_stub_module(many_funs, <<"bad">>, {[],[],MD5})),
-    {'EXIT',{badarg,_}} =
-    (catch code:make_stub_module(many_funs,
-                                 bit_sized_binary(Code),
-                                 {[],[],MD5})),
-    ok.
 
 constant_pools(Config) when is_list(Config) ->
     Data = proplists:get_value(data_dir, Config),
@@ -645,9 +362,40 @@ constant_pools(Config) when is_list(Config) ->
     erlang:purge_module(literals),
     OldHeap ! done,
     receive
-        {'EXIT',OldHeap,{A,B,C,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
-            ok
-    end.
+	{'EXIT',OldHeap,{A,B,C,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
+	    ok
+    end,
+
+    {module,literals} = erlang:load_module(literals, Code),
+    %% Have a hibernated process that references the literals
+    %% in the 'literals' module.
+    {Hib, Mon} = spawn_monitor(fun() -> hibernated(Self) end),
+    receive go -> ok end,
+    [{heap_size,OldHeapSz},
+     {total_heap_size,OldTotHeapSz}] = process_info(Hib, [heap_size,
+							  total_heap_size]),
+    OldHeapSz = OldTotHeapSz,
+    io:format("OldHeapSz=~p OldTotHeapSz=~p~n", [OldHeapSz, OldTotHeapSz]),
+    true = erlang:delete_module(literals),
+    false = erlang:check_process_code(Hib, literals),
+    erlang:check_process_code(self(), literals),
+    erlang:purge_module(literals),
+    receive after 1000 -> ok end,
+    [{heap_size,HeapSz},
+     {total_heap_size,TotHeapSz}] = process_info(Hib, [heap_size,
+						       total_heap_size]),
+    io:format("HeapSz=~p TotHeapSz=~p~n", [HeapSz, TotHeapSz]),
+    Hib ! hej,
+    receive
+	{'DOWN', Mon, process, Hib, Reason} ->
+	    {undef, [{no_module,
+		      no_function,
+		      [{A,B,C,[1,2,3|_]=Seq}], _}]} = Reason,
+	    16 = length(Seq)
+    end,
+    HeapSz = TotHeapSz, %% Ensure restored to hibernated state...
+    true = HeapSz > OldHeapSz,
+    ok.
 
 no_old_heap(Parent) ->
     A = literals:a(),
@@ -669,6 +417,13 @@ old_heap(Parent) ->
         done ->
             exit(Res)
     end.
+
+hibernated(Parent) ->
+    A = literals:a(),
+    B = literals:b(),
+    Res = {A,B,literals:huge_bignum(),lists:seq(1, 16)},
+    Parent ! go,
+    erlang:hibernate(no_module, no_function, [Res]).
 
 create_old_heap() ->
     case process_info(self(), [heap_size,total_heap_size]) of
@@ -802,6 +557,62 @@ wait_for_memory_deallocations() ->
             erts_debug:set_internal_state(available_internal_state, true),
             wait_for_memory_deallocations()
     end.
+
+fake_literals(_Config) ->
+    Mod = fake__literals__module,
+    try
+        do_fake_literals(Mod)
+    after
+        _ = code:purge(Mod),
+        _ = code:delete(Mod),
+        _ = code:purge(Mod),
+        _ = code:delete(Mod)
+    end,
+    ok.
+
+do_fake_literals(Mod) ->
+    Tid = ets:new(test, []),
+    ExtTerms = get_external_terms(),
+    Term0 = {self(),make_ref(),Tid,fun() -> ok end,ExtTerms},
+    Terms = [begin
+                 make_literal_module(Mod, Term0),
+                 Mod:term()
+             end || _ <- lists:seq(1, 10)],
+    verify_lit_terms(Terms, Term0),
+    true = ets:delete(Tid),
+    ok.
+
+make_literal_module(Mod, Term) ->
+    Exp = [{term,0}],
+    Attr = [],
+    Fs = [{function,term,0,2,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,term},0},
+            {label,2},
+            {move,{literal,Term},{x,0}},
+            return]}],
+    Asm = {Mod,Exp,Attr,Fs,2},
+    {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
+    code:load_binary(Mod, atom_to_list(Mod), Beam).
+
+verify_lit_terms([H|T], Term) ->
+    case H =:= Term of
+        true ->
+            verify_lit_terms(T, Term);
+        false ->
+            error({bad_term,H})
+    end;
+verify_lit_terms([], _) ->
+    ok.
+
+get_external_terms() ->
+    {ok,Node} =	test_server:start_node(?FUNCTION_NAME, slave, []),
+    Ref = rpc:call(Node, erlang, make_ref, []),
+    Ports = rpc:call(Node, erlang, ports, []),
+    Pid = rpc:call(Node, erlang, self, []),
+    _ = test_server:stop_node(Node),
+    {Ref,hd(Ports),Pid}.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency
 %% to a module in a process. (Thanks to Richard Carlsson.)
@@ -1109,6 +920,86 @@ reloader(Mod,Code,Time) ->
               reloader(Mod,Code,Time)
     end.
 
+erl_544(Config) when is_list(Config) ->
+    case file:native_name_encoding() of
+        utf8 ->
+            {ok, CWD} = file:get_cwd(),
+            try
+                Mod = erl_544,
+                FileName = atom_to_list(Mod) ++ ".erl",
+                Priv = proplists:get_value(priv_dir, Config),
+                Data = proplists:get_value(data_dir, Config),
+                {ok, FileContent} = file:read_file(filename:join(Data,
+                                                                 FileName)),
+                Dir = filename:join(Priv, [16#2620,16#2620,16#2620]),
+                File = filename:join(Dir, FileName),
+                io:format("~ts~n", [File]),
+                ok = file:make_dir(Dir),
+                ok = file:set_cwd(Dir),
+                ok = file:write_file(File, [FileContent]),
+                {ok, Mod} = compile:file(File),
+                Res1 = (catch Mod:err()),
+                io:format("~p~n", [Res1]),
+                {'EXIT', {err, [{Mod, err, 0, Info1}|_]}} = Res1,
+                File = proplists:get_value(file, Info1),
+                Me = self(),
+                Go = make_ref(),
+                Tester = spawn_link(fun () ->
+                                            Mod:wait(Me, Go),
+                                            Mod:err()
+                                    end),
+                receive Go -> ok end,
+                Res2 = process_info(Tester, current_stacktrace),
+                io:format("~p~n", [Res2]),
+                {current_stacktrace, Stack} = Res2,
+                [{Mod, wait, 2, Info2}|_] = Stack,
+                File = proplists:get_value(file, Info2),
+                StackFun = fun(_, _, _) -> false end,
+                FormatFun = fun (Term, _) -> io_lib:format("~tp", [Term]) end,
+                Formated =
+                    erl_error:format_stacktrace(1, Stack, StackFun, FormatFun),
+                true = is_list(Formated),
+                ok
+            after
+                ok = file:set_cwd(CWD)
+            end,
+            ok;
+        _Enc ->
+            {skipped, "Only run when native file name encoding is utf8"}
+    end.
+
+%% Test that the copying of literals to a process during purging of
+%% literals will cause the process to be killed if the max heap size
+%% is exceeded.
+max_heap_size(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Value = [I || I <- lists:seq(1, 5000)],
+    Code = gen_lit(Mod, [{term,Value}]),
+    {module,Mod} = erlang:load_module(Mod, Code),
+    SpawnOpts = [monitor,
+                 {max_heap_size,
+                  #{size=>1024,
+                    kill=>true,
+                    error_logger=>true}}],
+    {Pid,Ref} = spawn_opt(fun() ->
+                                  max_heap_size_proc(Mod)
+                          end, SpawnOpts),
+    receive
+        {'DOWN',Ref,process,Pid,Reason} ->
+            killed = Reason;
+        Other ->
+            ct:fail({unexpected_message,Other})
+    after 10000 ->
+            ct:fail({process_did_not_die, Pid, erlang:process_info(Pid)})
+    end.
+
+max_heap_size_proc(Mod) ->
+    Value = Mod:term(),
+    code:delete(Mod),
+    code:purge(Mod),
+    receive
+        _ -> Value
+    end.
 
 %% Utilities.
 
@@ -1137,38 +1028,3 @@ flush() ->
 
 id(I) -> I.
 
-check_process_code_handle(What) ->
-    lists:member(What, erlang:system_info(check_process_code)).
-
-wait_until(Fun) ->
-    case Fun() of
-	true ->
-	    ok;
-	false ->
-	    receive after 100 -> ok end,
-	    wait_until(Fun)
-    end.
-
-start_purge(Mod, Type) when is_atom(Mod)
-			    andalso ((Type == true)
-				     orelse (Type == false)) ->
-    Ref = make_ref(),
-    erts_code_purger ! {test_purge, Mod, self(), Type, Ref},
-    receive
-	{started, Ref} ->
-	    Ref
-    end.
-
-continue_purge(Ref) when is_reference(Ref) ->
-    erts_code_purger ! {continue, Ref},
-    receive
-	{continued, Ref} ->
-	    ok
-    end.
-
-complete_purge(Ref) when is_reference(Ref) ->
-    erts_code_purger ! {complete, Ref},
-    receive
-	{test_purge, Res, Ref} ->
-	    Res
-    end.

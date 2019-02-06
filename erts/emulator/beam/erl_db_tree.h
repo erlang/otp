@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ typedef struct db_table_tree {
     /* Tree-specific fields */
     TreeDbTerm *root;         /* The tree root */
     Uint deletion;		/* Being deleted */
-    erts_smp_atomic_t is_stack_busy;
+    erts_atomic_t is_stack_busy;
     DbTreeStack static_stack;
 } DbTableTree;
 

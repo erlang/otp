@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -382,12 +382,15 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    break;
 	}
 	case REF_DEF:
+            if (!ERTS_IS_CRASH_DUMPING)
+                erts_magic_ref_save_bin(obj);
+            /* fall through... */
 	case EXTERNAL_REF_DEF:
 	    PRINT_STRING(res, fn, arg, "#Ref<");
 	    PRINT_UWORD(res, fn, arg, 'u', 0, 1,
 			(ErlPfUWord) ref_channel_no(wobj));
 	    ref_num = ref_numbers(wobj);
-	    for (i = ref_no_of_numbers(wobj)-1; i >= 0; i--) {
+	    for (i = ref_no_numbers(wobj)-1; i >= 0; i--) {
 		PRINT_CHAR(res, fn, arg, '.');
 		PRINT_UWORD(res, fn, arg, 'u', 0, 1, (ErlPfUWord) ref_num[i]);
 	    }
@@ -526,17 +529,16 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	case EXPORT_DEF:
 	    {
 		Export* ep = *((Export **) (export_val(wobj) + 1));
-		Atom* module = atom_tab(atom_val(ep->code[0]));
-		Atom* name = atom_tab(atom_val(ep->code[1]));
+		Atom* module = atom_tab(atom_val(ep->info.mfa.module));
+		Atom* name = atom_tab(atom_val(ep->info.mfa.function));
 
-		PRINT_STRING(res, fn, arg, "#Fun<");
+		PRINT_STRING(res, fn, arg, "fun ");
 		PRINT_BUF(res, fn, arg, module->name, module->len);
-		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_CHAR(res, fn, arg, ':');
 		PRINT_BUF(res, fn, arg, name->name, name->len);
-		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_CHAR(res, fn, arg, '/');
 		PRINT_SWORD(res, fn, arg, 'd', 0, 1,
-			    (ErlPfSWord) ep->code[2]);
-		PRINT_CHAR(res, fn, arg, '>');
+			    (ErlPfSWord) ep->info.mfa.arity);
 	    }
 	    break;
 	case FUN_DEF:

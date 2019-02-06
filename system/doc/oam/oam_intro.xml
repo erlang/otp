@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -211,7 +211,7 @@ snmp:c("MY-MIB", [{il, ["sasl/priv/mibs"]}]).</code>
 
       <p>The following MIBs are defined in the OTP system:</p>
       <list type="bulleted">
-	<item><p><c>OTP-REG)</c> (in SASL) contains the top-level
+	<item><p><c>OTP-REG</c> (in SASL) contains the top-level
 	OTP registration objects, used by all other MIBs.</p></item>
 	<item><p><c>OTP-TC</c> (in SASL) contains the general
 	Textual Conventions, which can be used by any other MIB.</p></item>
@@ -243,8 +243,8 @@ snmp:c("MY-MIB", [{il, ["sasl/priv/mibs"]}]).</code>
       loading the MIBs into the agent. Some MIB implementations are
       code-only, while others need a server. One way, used by the
       code-only MIB implementations, is for the user to call a
-      function such as <c>otp_mib:init(Agent)</c> to load the MIB,
-      and <c>otp_mib:stop(Agent)</c> to unload the MIB. See the
+      function such as <c>otp_mib:load(Agent)</c> to load the MIB,
+      and <c>otp_mib:unload(Agent)</c> to unload the MIB. See the
       manual page for each application for a description of how
       to load each MIB.</p>
     </section>

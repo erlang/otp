@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@
 -import(gen_util, [lowercase/1, lowercase_all/1, uppercase/1, uppercase_all/1,
 		   open_write/1, open_write/2, close/0, erl_copyright/0, w/2,
 		   args/3, args/4, strip_name/2]).
+
+
+-define(HTTP_TOP, "https://www.khronos.org/registry/OpenGL-Refpages/").
 
 gl_defines(Defs) ->
     open_write("../include/gl.hrl"),
@@ -96,7 +99,7 @@ gl_api(Fs) ->
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  Standard OpenGL api.~n", []),
-    w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
+    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
@@ -116,7 +119,7 @@ gl_api(Fs) ->
     w("call(Op, Args) ->~n", []),
     w("    Port = get(opengl_port), ~n", []),
     w("    _ = erlang:port_control(Port,Op,Args),~n", []),
-    w("    rec().~n", []),
+    w("    rec(Op).~n", []),
     w("    ~n", []),
     w("%% @hidden~n", []),
     w("cast(Op, Args) ->~n", []),
@@ -125,11 +128,15 @@ gl_api(Fs) ->
     w("    ok.~n", []),
     w("    ~n", []),
     w("%% @hidden~n", []),
-    w("rec() ->~n", []),
-    w("    receive ~n", []),
+    w("rec(Op) ->~n", []),
+    w("    receive~n", []),
     w("        {'_egl_result_', Res} -> Res;~n", []),
-    w("        {'_egl_error_',  Op, Res} -> error({error,Res,Op})~n", []),
-    w("    end. ~n", []),
+    w("        {'_egl_error_',  Op, Res} -> error({error,Res,Op});~n", []),
+    w("        {'_egl_error_', Other, Res} ->~n ", []),
+    w("               Err = io_lib:format(\"~~p in op: ~~p\", [Res, Other]),~n", []),
+    w("               error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),~n", []),
+    w("               rec(Op)~n", []),
+    w("    end.~n", []),
     w("~n", []),
     w("%% @hidden~n", []),
     w("send_bin(Bin) when is_binary(Bin) ->~n", []),
@@ -154,7 +161,7 @@ glu_api(Fs) ->
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  A part of the standard OpenGL Utility api.~n", []),
-    w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
+    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
@@ -239,8 +246,8 @@ gen_types(Where) ->
 
 gen_export(F) ->
     try gen_export_1(F)
-    catch E:R ->
-	    io:format("Crash ~p:~p in ~p ~n",[E,R, erlang:get_stacktrace()]),
+    catch E:R:S ->
+	    io:format("Crash ~p:~p in ~p ~n",[E,R,S]),
 	    io:format("Func = ~p~n  ~p", [F, get(F)])
     end.
 
@@ -296,8 +303,7 @@ gen_doc(Name0, Alt, Export) ->
     Name = doc_name(Name0, Alt),
     case get({doc, Name}) of
 	undefined ->
-	    GLDoc = "http://www.opengl.org/sdk/docs/man/xhtml/",
-	    case parse_doc(Name, _Dir1 ="gl_man4", _Dir2="gl_man2") of
+	    case parse_doc(Name, Dir1 ="gl_man4", Dir2="gl_man2") of
 		{error, _} ->
 		    case reverse(Name) of
 			"BRA" ++ _ -> ok;
@@ -307,13 +313,18 @@ gen_doc(Name0, Alt, Export) ->
 			    %% 	      [Name, Name0, Dir1, Dir2]),
 			    ok
 		    end,
-		    w("%% @doc ~s~n%%~n%% See <a href=\"~s~s.xml\">external</a> documentation.~n",
-		      [Name, GLDoc, Name]);
-		Doc ->
+		    w("%% @doc ~s~n%%~n"
+                      "%% See <a href=\"~s\">external</a> documentation.~n",
+		      [Name, ?HTTP_TOP]);
+		{Found, Doc} ->
+                    {Dir,Ext} = case Found of
+                                    Dir1 -> {"gl4/html", "xhtml"};
+                                    Dir2 -> {"gl2.1/xhtml", "xml"}
+                                end,
 		    put({doc, Name}, Export),
 		    format_doc(Doc, ?LINE_LEN),
-		    w("~n%%~n%% See <a href=\"~s~s.xml\">external</a> documentation.~n",
-		      [GLDoc, Name])
+		    w("~n%%~n%% See <a href=\"~s~s/~s.~s\">external</a> documentation.~n",
+		      [?HTTP_TOP, Dir, Name, Ext])
 	    end;
 	Where ->
 	    w("%% @doc ~n", []),
@@ -323,9 +334,12 @@ gen_doc(Name0, Alt, Export) ->
 parse_doc(Name, Dir1, Dir2) ->
     case gl_scan_doc:file(filename:join(Dir1, Name++".xml"), []) of
 	{error, {_, "no such" ++ _}} ->
-	    gl_scan_doc:file(filename:join(Dir2, Name++".xml"), []);
+	    case gl_scan_doc:file(filename:join(Dir2, Name++".xml"), []) of
+                {error, _} = Err -> Err;
+                Doc -> {Dir2, Doc}
+            end;
 	Doc ->
-	    Doc
+	    {Dir1, Doc}
     end.
 
 format_doc(Strs, Count) when Count < 0 ->
@@ -475,8 +489,8 @@ doc_return_types2(T, Ps) ->
 doc_arg_type(#arg{name=Name,type=T}) ->
     try
 	erl_arg_name(Name) ++ " :: " ++ doc_arg_type2(T)
-    catch _:Error ->
-	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, erlang:get_stacktrace()]),
+    catch _:Error:Stacktrace ->
+	    io:format("Error spec: ~p ~p~n~p~n",[Name, Error, Stacktrace]),
 	    exit(error)
     end.
 
@@ -492,6 +506,8 @@ doc_arg_type2(#type{base=string, single=list}) ->
     "iolist()";
 doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
+doc_arg_type2(#type{base=guard_int, single=list}) ->
+    "[integer()]|mem()";
 doc_arg_type2(T=#type{single=list}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
 doc_arg_type2(T=#type{single={list, _Max}}) ->
@@ -512,7 +528,9 @@ doc_arg_type3(#type{base=binary}) ->    "binary()";
 doc_arg_type3(#type{base=memory}) ->    "mem()".
 
 guard_test(As) ->
-    Str = args(fun(#arg{name=N,type=#type{base=guard_int}}) ->
+    Str = args(fun(#arg{name=N,type=#type{base=guard_int, single=list}}) ->
+		       " is_list("++erl_arg_name(N)++")";
+                   (#arg{name=N,type=#type{base=guard_int}}) ->
 		       " is_integer("++erl_arg_name(N)++")";
 		  (_) ->
 		       skip
@@ -522,6 +540,13 @@ guard_test(As) ->
 	Other -> " when " ++ Other
     end.
 
+pre_marshal([#arg{name=N,in=true, type=#type{base=binary, single=list}=T, alt=list_binary}=A|R]) ->
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
+    w("  ~sLen = byte_size(if is_binary(~s) -> ~s; is_tuple(~s) -> element(2, ~s) end) div 4,~n",
+      [erl_arg_name(N),erl_arg_name(N), erl_arg_name(N), erl_arg_name(N), erl_arg_name(N)]),
+    Type = T#type{base=int, by_val=true, single=true, ref=undefined},
+    Arg=A#arg{name=N++"Len", where=both, type=Type},
+    [Arg|pre_marshal(R)];
 pre_marshal([#arg{name=N,in=true,type=#type{base=binary}}|R]) ->
     w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
@@ -530,8 +555,18 @@ pre_marshal([#arg{name=N,type=#type{base=memory}}|R]) ->
     pre_marshal(R);
 pre_marshal([A=#arg{name=N,type=#type{base=string,single=list}}|R]) ->
     %% With null terminations
-    w(" ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
+    w("  ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
       [erl_arg_name(N), erl_arg_name(N)]),
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{base=string,single=true,ref={pointer,1}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single=list}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single={tuple_list,_}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
     [A|pre_marshal(R)];
 pre_marshal([A|R]) ->
     [A|pre_marshal(R)];
@@ -583,9 +618,9 @@ marshal_arg(#type{size=BSz,name=Type,single={tuple,matrix12}},Name,A0) ->
     align(BSz,16,A0,All);
 
 marshal_arg(#type{size=Sz,name=Type,base=Base,single=list},Name,A0)
-  when Base =:= float; Base =:= int ->
+  when Base =:= float; Base =:= int; Base =:= guard_int ->
     KeepA = case Sz of 8 -> "0:32,"; _ -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<C:?"++Type++">> || C <- "++Name++">>)/binary",
     {Str,Align} = align(max([Sz,4]),A0,Str0),
     align_after(Sz,Align,0,1,Name,Str);
@@ -606,7 +641,7 @@ marshal_arg(#type{base=string,single=true,ref={pointer,1}},Name,A0) ->
 
 marshal_arg(#type{base=string,single=list,ref={pointer,2}},Name,A0) ->
     Str0 =
-	"(length("++Name++")):?GLuint,"
+	Name++"Len:?GLuint,"
         "(size("++Name ++ "Temp)):?GLuint,"
 	"(" ++ Name ++ "Temp)/binary",
     {Str,A} = align(4,A0,Str0),
@@ -620,7 +655,7 @@ marshal_arg(#type{size=Sz,name=Type,single={tuple_list,TSz}},Name,A0) ->
     TBin = args(fun(ElName) -> ElName ++ ":?" ++ Type end, ",", Names),
 
     KeepA = case Sz of 8 -> "0:32,"; 4 -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<"++TBin++">> || {"++TTup++"} <- "++Name++">>)/binary",
     align(Sz,A0,Str0);
 
@@ -656,19 +691,19 @@ align(8,_,7,Str) -> {"0:8," ++Str, 0}.
 align_after(8,0,_Add,_Multiplier,_Name,Str) -> {Str,0};
 align_after(4,0,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:((("++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(4,4,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((1+length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:(((1+"++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(2,A,Add,Mult,Name,Str) when (A rem 2) =:= 0 ->
     Extra = extra_align(A+Add*2,Mult),
-    Align = ",0:((8-((length("++Name++")*2"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len*2"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(1,A,Add,Mult,Name,Str) ->
     Extra = extra_align(A+Add,Mult),
-    Align = ",0:((8-((length("++Name++")"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(Sz,A,Add,Mult,Name,Str) ->
     io:format("~p ~p with ~p ~p ~s~n, ~p", [Sz,A,Add,Mult,Name,Str]),

@@ -80,7 +80,7 @@ send_range_response(Path,Info,Ranges,FileInfo,LastModified)->
 	    send_range_response(Path,Info,Start,Stop,FileInfo,LastModified)
     end.
 %%More than one range specified
-%%Send a multipart reponse to the user
+%%Send a multipart response to the user
 %
 %%An example of an multipart range response
 

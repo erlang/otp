@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2012</year><year>2016</year>
+      <year>2012</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -74,12 +74,17 @@
       <c>id_ecdsa_key</c>,
       <c>known_hosts</c>, and <c>authorized_keys</c> in ~/.ssh,
       and for the host key files in <c>/etc/ssh</c>. These locations can be changed
-      by the options <c>user_dir</c> and <c>system_dir</c>.
+      by the options
+      <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
+      <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
       </p>
       <p>Public key handling can also be customized through a callback module that
       implements the behaviors
       <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and
       <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+      </p>
+      <p>See also the default callback module documentation in
+      <seealso marker="ssh_file">ssh_file</seealso>.
       </p>
 
   </section>
@@ -97,7 +102,7 @@
     <p>The <c>known_hosts</c> file contains a list of approved servers and
       their public keys. Once a server is listed, it can be verified
       without user interaction.
-      </p>
+     </p>
   </section>
  <section>
     <title>Authorized Keys</title>
@@ -109,7 +114,7 @@
   </section>
  <section>
     <title>Host Keys</title>
-    <p>RSA and DSA host keys are supported and are
+    <p>RSA, DSA and ECDSA host keys are supported and are
        expected to be found in files named <c>ssh_host_rsa_key</c>,
        <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
        </p>
@@ -130,33 +135,51 @@
     For the list on a particular installation, use the command
     <seealso marker="ssh:ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>. 
     The user may override the default algorithm configuration both on the server side and the client side.
-    See the option <c>preferred_algorithms</c> in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
+    See the options
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    and
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    in the <seealso marker="ssh:ssh#daemon/1">ssh:daemon/1,2,3</seealso> and
     <seealso marker="ssh:ssh#connect/3">ssh:connect/3,4</seealso> functions.
     </p>
 
-    <p>Supported algorithms are:</p>
-
+    <p>Supported algorithms are (in the default order):</p>
+    <marker id="supported_algos"></marker>
     <taglist>
       <tag>Key exchange algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdh-sha2-nistp256</item>
 	  <item>ecdh-sha2-nistp384</item>
 	  <item>ecdh-sha2-nistp521</item>
-	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>ecdh-sha2-nistp256</item>
 	  <item>diffie-hellman-group-exchange-sha256</item>
+	  <item>diffie-hellman-group16-sha512</item>
+	  <item>diffie-hellman-group18-sha512</item>
+	  <item>diffie-hellman-group14-sha256</item>
+	  <item>curve25519-sha256</item>
+	  <item>curve25519-sha256@libssh.org</item>
+	  <item>curve448-sha512</item>
 	  <item>diffie-hellman-group14-sha1</item>
-	  <item>diffie-hellman-group1-sha1</item>
+	  <item>diffie-hellman-group-exchange-sha1</item>
+	  <item>(diffie-hellman-group1-sha1, retired: It can be enabled with the 
+    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    or
+    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    options)</item>
 	</list>
       </item>
 
       <tag>Public key algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdsa-sha2-nistp256</item>
 	  <item>ecdsa-sha2-nistp384</item>
 	  <item>ecdsa-sha2-nistp521</item>
+	  <item>ecdsa-sha2-nistp256</item>
+	  <item>ssh-ed25519</item>
+	  <item>ssh-ed448</item>
 	  <item>ssh-rsa</item>
+	  <item>rsa-sha2-256</item>
+	  <item>rsa-sha2-512</item>
 	  <item>ssh-dss</item>
 	</list>
       </item>
@@ -173,20 +196,23 @@
       <tag>Encryption algorithms (ciphers)</tag>
       <item>
 	<list type="bulleted">
-	  <item>aes128-gcm@openssh.com (AEAD_AES_128_GCM)</item>
-          <item>aes256-gcm@openssh.com (AEAD_AES_256_GCM)</item>
-	  <item>aes128-ctr</item>
-	  <item>aes192-ctr</item>
+	  <item>chacha20-poly1305@openssh.com</item>
+          <item>aes256-gcm@openssh.com</item>
 	  <item>aes256-ctr</item>
+	  <item>aes192-ctr</item>
+          <item>aes128-gcm@openssh.com</item>
+	  <item>aes128-ctr</item>
 	  <item>aes128-cbc</item>
 	  <item>3des-cbc</item>
+	  <item>(AEAD_AES_128_GCM, not enabled per default)</item>
+          <item>(AEAD_AES_256_GCM, not enabled per default)</item>
 	</list>
+	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
+	for more information regarding AEAD_AES_*_GCM.
+	</p>
 	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
 	cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
 	cipher aes256-gcm@openssh.com is negotiated.
-	</p>
-	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
-	for more information.
 	</p>
       </item>
 	
@@ -232,7 +258,15 @@
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
-       <p></p>
+      <p>Except</p>
+      <list type="bulleted">
+	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.</item>
+      </list>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
@@ -269,7 +303,10 @@
       <p><marker id="rfc5647_note"/>There is an ambiguity in the synchronized selection of cipher and mac algorithm. 
       This is resolved by OpenSSH in the ciphers aes128-gcm@openssh.com and aes256-gcm@openssh.com which are implemented.
       If the explicit ciphers and macs AEAD_AES_128_GCM or AEAD_AES_256_GCM are needed, 
-      they could be enabled with the option preferred_algorithms.
+      they could be enabled with the options
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
       </p>
       <warning>
 	<p>
@@ -306,7 +343,48 @@
       <p>Comment: Defines hmac-sha2-256 and hmac-sha2-512
       </p>
       </item>
+
+      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-kex-sha2">Draft-ietf-curdle-ssh-kex-sha2 (work in progress)</url>, Key Exchange (KEX) Method Updates and Recommendations for Secure Shell (SSH).
+      <p>Deviations:</p>
+      <list type="bulleted">
+	<item>The <c>diffie-hellman-group1-sha1</c> is not enabled by default, but is still supported and can be enabled
+	with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	</item>
+	<item>The questionable sha1-based algorithms <c>diffie-hellman-group-exchange-sha1</c> and
+	<c>diffie-hellman-group14-sha1</c> are still enabled by default for compatibility with ancient clients and servers.
+	They can be disabled with the options
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+	They will be disabled by default when the draft is turned into an RFC.</item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/rfc8332">RFC 8332</url>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol.
+      </item>
       
+      <item><marker id="supported-ext-info"/>
+      <url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
+      <p>Implemented are:</p>
+      <list type="bulleted">
+	<item>The Extension Negotiation Mechanism</item>
+	<item>The extension <c>server-sig-algs</c></item>
+      </list>
+      <p/>
+      </item>
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
+      </item>
+
+      <item>
+	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448">Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol (work in progress)</url>
+      </item>
+
     </list>
 
   </section>

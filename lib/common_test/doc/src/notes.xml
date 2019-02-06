@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,376 @@
     <rev>A</rev>
     <file>notes.xml</file>
     </header>
+
+<section><title>Common_Test 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The Logger handler cth_log_redirect earlier called the
+	    report callback (report_cb) before calling the logger
+	    formatter. In some cases this would fail, since
+	    cth_log_redirect could not handle report callbacks with
+	    two arguments. This is now corrected, so only the
+	    formatter will call the report callback.</p>
+          <p>
+	    Own Id: OTP-15307</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.16</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use the compiler option <c>nowarn_export_all</c> to
+	    disable <c>export_all</c> warnings when automatically
+	    compiling test suites.</p>
+          <p>
+	    Own Id: OTP-14810</p>
+        </item>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.15.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed problem with 'skip_groups' in combination with 'all
+	    suites' option in test specification.</p>
+          <p>
+	    Own Id: OTP-14953</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.15.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new function, <c>ct:remaining_test_procs/0</c>, returns
+	    the identity of test- and group leader processes that are
+	    still running at the time of the call.</p>
+          <p>
+	    Own Id: OTP-13832</p>
+        </item>
+        <item>
+          <p>
+	    A "latest test result" link is now displayed in the
+	    footer of each test index page, which performs a jump to
+	    the most recently generated test index. This is useful
+	    for making quick comparisons of results between test runs
+	    without having to traverse the log file tree.</p>
+          <p>
+	    Own Id: OTP-14281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.15.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In OTP-20.0, the behavior of c, make, and ct_make was
+	    changed so that in some cases the beam files by default
+	    would be written to the directory where the source files
+	    were found. This is now changed back to the old behavior
+	    so beam files are by default written to current
+	    directory.</p>
+          <p>
+	    Own Id: OTP-14489 Aux Id: ERL-438 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Errors in the documentation for user HTML stylesheets
+	    have been corrected.</p>
+          <p>
+	    Own Id: OTP-14332 Aux Id: seq13299 </p>
+        </item>
+        <item>
+	    <p>Internal code change: Calls to <c>catch</c> followed
+	    by a call to <c>erlang:get_stacktrace/0</c> has been
+	    rewritten to use <c>try</c> instead of <c>catch</c> to
+	    make the code future-proof.</p>
+          <p>
+	    Own Id: OTP-14400</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>ct_slave</c> modules now handle nodenames in
+	    the same way as nodenames passed to <c>-sname</c>. That
+	    means <c>ct_slave:start('b@127.0.0.1').</c> will now
+	    work.</p>
+          <p>
+	    Own Id: OTP-13806</p>
+        </item>
+        <item>
+          <p>
+	    Added the new option, <c>keep_logs</c>. If setting the
+	    value for this option to an integer, N, common_test will
+	    remove all ct_run.* directories in the current log
+	    directory, except the N newest.</p>
+          <p>
+	    Own Id: OTP-14179</p>
+        </item>
+        <item>
+          <p>
+	    The existing <c>ct_netconfc:open/1,2</c> opens an SSH
+	    connection with one SSH channel realizing one Netconf
+	    session. To allow testing of multiple sessions over the
+	    same SSH connection, the following functions are added to
+	    <c>ct_netconfc</c>:</p>
+          <p>
+	    * <c>connect/1,2</c> - establish an SSH connection *
+	    <c>disconnect/1</c> - close the given SSH connection *
+	    <c>session/1,2,3</c> - open an ssh channel on the given
+	    connection and send 'hello' to start a Netconf session</p>
+          <p>
+	    Own Id: OTP-14284</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+          <p>
+	    The function ct_ssh:shell/2,3 is added.</p>
+          <p>
+	    Own Id: OTP-14415 Aux Id: seq13315 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The following corrections and improvements are done in
+	    the common_test hook handling:</p> <list> <item> <p>An
+	    extra argument, <c>Suite</c>, is added as the first
+	    argument to each of the following hook callback
+	    functions:</p> <list>
+	    <item><c>pre_init_per_group</c></item>
+	    <item><c>post_init_per_group</c></item>
+	    <item><c>pre_end_per_group</c></item>
+	    <item><c>post_end_per_group</c></item>
+	    <item><c>pre_init_per_testcase</c></item>
+	    <item><c>post_init_per_testcase</c></item>
+	    <item><c>pre_end_per_testcase</c></item>
+	    <item><c>post_end_per_testcase</c></item>
+	    <item><c>on_tc_fail</c></item>
+	    <item><c>on_tc_skip</c></item> </list> <p>For backwards
+	    compatibility, if the new function is not exported from a
+	    hook callback module, <c>common_test</c> will fall back
+	    to the old interface and call the function without the
+	    <c>Suite</c> argument.</p> </item> <item> <p>If either
+	    <c>init_per_suite</c> or <c>end_per_suite</c> exists, but
+	    not the other, then the non-existing function will be
+	    reported as failed with reason <c>undef</c> in the test
+	    log. The same goes for <c>init/end_per_group</c>. This
+	    has always been a requirement according to the user's
+	    guide, but now <c>common_test</c> is more explicit in the
+	    report.</p> </item> <item> <p>If <c>init_per_suite</c>
+	    was exported from a test suite, but not
+	    <c>end_per_suite</c>, then <c>pre/post_end_per_suite</c>
+	    was called with <c>Suite=ct_framework</c> instead of the
+	    correct suite name. This is now corrected.</p> </item>
+	    <item> <p>If <c>end_per_group</c> was exported from a
+	    suite, but not <c>init_per_group</c>, then
+	    <c>end_per_group</c> was never called. This is now
+	    corrected.</p> </item> <item> <p>Tests that were skipped
+	    before calling <c>pre_init_per_*</c> got faulty calls to
+	    the corresponding <c>post_init_per_*</c>. E.g. if a test
+	    was skipped because <c>suite/0</c> failed, then
+	    <c>post_init_per_suite</c> would be called even though
+	    <c>pre_init_per_suite</c> and <c>init_per_suite</c> were
+	    not called. This is now corrected so a <c>post_*</c>
+	    callback will never be called unless the corresponding
+	    <c>pre_*</c> callback has been called first.</p> </item>
+	    <item> <p>Tests that were skipped before or in
+	    <c>init_per_testcase</c> got faulty calls to
+	    <c>pre_end_per_testcase</c> and
+	    <c>post_end_per_testcase</c>. This is now corrected so
+	    <c>pre/post_end_per_testcase</c> are not called when
+	    <c>end_per_testcase</c> is not called.</p> </item> <item>
+	    <p>If an exit signal causes the test case process to die
+	    while running <c>init_per_testcase</c>, the case was
+	    earlier reported as failed with reason <c>{skip,...}</c>.
+	    This is now corrected so the case will be marked as
+	    skipped.</p> </item> <item> <p>If an exist signal causes
+	    the test case process to die while running
+	    <c>end_per_testcase</c>, the case was earlier marked as
+	    failed. This is now corrected so the status of the test
+	    case is not changed - there is only a warning added to
+	    the comment field.</p> </item> <item> <p>If a test case
+	    was skipped because of option
+	    <c>{force_stop,skip_rest}</c> or because of a failed
+	    sequence, then no <c>tc_start</c> event would be sent,
+	    only <c>tc_done</c>. This is now corrected so both events
+	    are sent.</p> </item> <item> <p>When skipping or failing
+	    in a configuration function, the configuration function
+	    itself would get <c>{auto_skipped,Reason}</c>,
+	    <c>{skipped,Reason}</c> or <c>{failed,Reason}</c> in the
+	    hook callbacks <c>on_tc_skip</c> or <c>on_tc_fail</c>.
+	    The other test cases that were skipped as a result of
+	    this would only get <c>Reason</c> in <c>on_tc_skip</c>.
+	    This is now corrected so even the configuration function
+	    that caused the skip/fail will only get <c>Reason</c> in
+	    the hook callback.</p> </item> </list>
+          <p>
+	    Own Id: OTP-10599 Aux Id: kunagi-344 [255] </p>
+        </item>
+        <item>
+          <p>
+	    When a test case was skipped by a <c>skip_cases</c>
+	    statement in a test spec, then <c>cth_surefire</c> would
+	    erroneously mark the previous test case as skipped in the
+	    xml report. The actually skipped test case would not be
+	    present in the xml report at all. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14129 Aux Id: seq13244 </p>
+        </item>
+        <item>
+	    <p>The <c>multiply_timetraps</c> and
+	    <c>scale_timetraps</c> options did not work with test
+	    specifications, which has been corrected.</p>
+          <p>
+	    Own Id: OTP-14210</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ct_testspec:get_tests/1 is added. This is used by rebar3
+	    to get all directories that must be compiled when running
+	    tests from testspec - instead of implementing testspec
+	    parsing in rebar3.</p>
+          <p>
+	    Own Id: OTP-14132</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Common_Test 1.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some types of printouts to screen during test runs
+	    (including <c>ct:print/1,2,3,4</c>) used the local
+	    <c>user</c> process as IO device and these printouts
+	    would not be visible when e.g. running tests via a shell
+	    on a remote node. A default Common Test group leader
+	    process has been introduced to solve the problem. This
+	    process routes printouts to the group leader of the
+	    starting process, if available, otherwise to <c>user</c>.</p>
+          <p>
+	    Own Id: OTP-13973 Aux Id: ERL-279 </p>
+        </item>
+        <item>
+          <p>
+	    Some Common Test processes, that act as I/O group leaders
+	    for test cases, would not terminate as expected at the
+	    end of test runs. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-14026 Aux Id: ERL-287 </p>
+        </item>
+        <item>
+          <p>
+	    The logging verbosity feature was incorrectly documented.
+	    The default verbosity levels for test runs is e.g. not 50
+	    (<c>?STD_VERBOSITY</c>), but 100 (<c>?MAX_VERBOSITY</c>).
+	    Also, some of the examples had errors and flaws. The
+	    corresponding chapter (5.18) in the User's Guide has been
+	    updated.</p>
+          <p>
+	    Own Id: OTP-14044 Aux Id: seq13223 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A feature to let the user specify headings to log
+	    printouts has been added. The heading is specified as
+	    <c>{heading,string()}</c> in the <c>Opts</c> list
+	    argument to <c>ct:pal/3,4,5</c>, <c>ct:print/3,4,5</c>,
+	    or <c>ct:log/3,4,5</c>. If the heading option is omitted,
+	    the category name, or <c>"User"</c>, is used as the
+	    heading instead.</p>
+          <p>
+	    Own Id: OTP-14043 Aux Id: seq13226 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Common_Test 1.12.3</title>
 

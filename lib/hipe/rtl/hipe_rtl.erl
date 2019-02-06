@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @doc
@@ -187,18 +181,14 @@
 
 	 mk_branch/5,
 	 mk_branch/6,
-	 branch_src1/1,
-	 branch_src2/1,
-	 branch_cond/1,
-	 branch_true_label/1,
-	 branch_false_label/1,
-	 branch_pred/1,
+	 mk_branch/7,
 	 %% is_branch/1,
 	 %% branch_true_label_update/2,
 	 %% branch_false_label_update/2,
 
 	 mk_alub/7,
 	 mk_alub/8,
+	 alub_has_dst/1,
 	 alub_dst/1,
 	 alub_src1/1,
 	 alub_op/1,
@@ -338,6 +328,7 @@
 	 defines/1,
 	 redirect_jmp/3,
 	 is_safe/1,
+	 reduce_unused/1,
 	 %% highest_var/1,
 	 pp/1,
 	 pp/2,
@@ -588,37 +579,25 @@ is_label(#label{}) -> true;
 is_label(_) -> false.
 
 %%
-%% branch
-%%
-
-mk_branch(Src1, Op, Src2, True, False) ->
-  mk_branch(Src1, Op, Src2, True, False, 0.5).
-mk_branch(Src1, Op, Src2, True, False, P) ->
-  #branch{src1=Src1, 'cond'=Op, src2=Src2, true_label=True,
-	  false_label=False, p=P}.
-branch_src1(#branch{src1=Src1}) -> Src1.
-branch_src1_update(Br, NewSrc) -> Br#branch{src1=NewSrc}.
-branch_src2(#branch{src2=Src2}) -> Src2.
-branch_src2_update(Br, NewSrc) -> Br#branch{src2=NewSrc}.
-branch_cond(#branch{'cond'=Cond}) -> Cond.
-branch_true_label(#branch{true_label=TrueLbl}) -> TrueLbl.
-branch_true_label_update(Br, NewTrue) -> Br#branch{true_label=NewTrue}.
-branch_false_label(#branch{false_label=FalseLbl}) -> FalseLbl.
-branch_false_label_update(Br, NewFalse) -> Br#branch{false_label=NewFalse}.
-branch_pred(#branch{p=P}) -> P.
-
-%%
 %% alub
 %%
 
 -type alub_cond() :: 'eq' | 'ne' | 'ge' | 'geu' | 'gt' | 'gtu' | 'le'
                    | 'leu' | 'lt' | 'ltu' | 'overflow' | 'not_overflow'.
 
+mk_branch(Src1, Cond, Src2, True, False) ->
+  mk_branch(Src1, Cond, Src2, True, False, 0.5).
+mk_branch(Src1, Cond, Src2, True, False, P) ->
+  mk_branch(Src1, 'sub', Src2, Cond, True, False, P).
+mk_branch(Src1, Op, Src2, Cond, True, False, P) ->
+  mk_alub([], Src1, Op, Src2, Cond, True, False, P).
+
 mk_alub(Dst, Src1, Op, Src2, Cond, True, False) ->
   mk_alub(Dst, Src1, Op, Src2, Cond, True, False, 0.5).
 mk_alub(Dst, Src1, Op, Src2, Cond, True, False, P) ->
   #alub{dst=Dst, src1=Src1, op=Op, src2=Src2, 'cond'=Cond,
 	true_label=True, false_label=False, p=P}.
+alub_has_dst(#alub{dst=Dst}) -> Dst =/= [].
 alub_dst(#alub{dst=Dst}) -> Dst.
 alub_dst_update(A, NewDst) -> A#alub{dst=NewDst}.
 alub_src1(#alub{src1=Src1}) -> Src1.
@@ -943,8 +922,7 @@ args(I) ->
   case I of
     #alu{} -> [alu_src1(I), alu_src2(I)];
     #alub{} -> [alub_src1(I), alub_src2(I)];
-    #branch{} -> [branch_src1(I), branch_src2(I)];
-    #call{} -> 
+    #call{} ->
       Args = call_arglist(I) ++ hipe_rtl_arch:call_used(),
       case call_is_known(I) of
 	false -> [call_fun(I) | Args];
@@ -987,8 +965,8 @@ args(I) ->
 defines(Instr) ->
   Defs = case Instr of
 	   #alu{} -> [alu_dst(Instr)];
+	   #alub{dst=[]} -> [];
 	   #alub{} -> [alub_dst(Instr)];
-	   #branch{} -> [];
 	   #call{} -> call_dstlist(Instr) ++ hipe_rtl_arch:call_defined();
 	   #comment{} -> [];
 	   #enter{} -> [];
@@ -1042,9 +1020,6 @@ subst_uses(Subst, I) ->
     #alub{} ->
       I0 = alub_src1_update(I, subst1(Subst, alub_src1(I))),
       alub_src2_update(I0, subst1(Subst, alub_src2(I)));
-    #branch{} ->
-      I0 = branch_src1_update(I, subst1(Subst, branch_src1(I))),
-      branch_src2_update(I0, subst1(Subst, branch_src2(I)));
     #call{} ->
       case call_is_known(I) of
 	false ->
@@ -1126,11 +1101,6 @@ subst_uses_llvm(Subst, I) ->
       {NewSrc1, _ } = subst1_llvm(Subst1, alub_src1(I)),
       I0 =  alub_src1_update(I, NewSrc1),
       alub_src2_update(I0, NewSrc2);
-    #branch{} ->
-      {NewSrc2, Subst1} = subst1_llvm(Subst, branch_src2(I)),
-      {NewSrc1, _ } = subst1_llvm(Subst1, branch_src1(I)),
-      I0 = branch_src1_update(I, NewSrc1),
-      branch_src2_update(I0, NewSrc2);
     #call{} ->
       case call_is_known(I) of
         false ->
@@ -1243,10 +1213,10 @@ subst_defines(Subst, I)->
   case I of
     #alu{} ->
       alu_dst_update(I, subst1(Subst, alu_dst(I)));
+    #alub{dst=[]} ->
+      I;
     #alub{} ->
       alub_dst_update(I, subst1(Subst, alub_dst(I)));
-    #branch{} ->
-      I;
     #call{} ->
       call_dstlist_update(I, subst_list(Subst, call_dstlist(I)));
     #comment{} ->
@@ -1313,7 +1283,6 @@ is_safe(Instr) ->
   case Instr of
     #alu{} -> true;
     #alub{} -> false;
-    #branch{} -> false;
     #call{} -> false;
     #comment{} -> false;
     #enter{} -> false;
@@ -1338,6 +1307,24 @@ is_safe(Instr) ->
     #return{} -> false;
     #store{} -> false;
     #switch{} -> false %% Maybe this is safe...
+  end.
+
+%% @spec reduce_unused(rtl_instruction())
+%%           -> false | [rtl_instruction()].
+%%
+%% @doc Produces a simplified instruction sequence that is equivalent to [Instr]
+%% under the assumption that all results of Instr are unused, or 'false' if
+%% there is no such sequence (other than [Instr] itself).
+
+reduce_unused(Instr) ->
+  case Instr of
+    #alub{dst=Dst} when Dst =/= [] ->
+      [Instr#alub{dst=[]}];
+    _ ->
+      case is_safe(Instr) of
+	true -> [];
+	false -> false
+      end
   end.
 
 %%
@@ -1386,17 +1373,6 @@ redirect_jmp(Jmp, ToOld, ToNew) ->
   %% OBS: In a jmp instruction more than one labels may be identical
   %%      and thus need redirection!
   case Jmp of
-    #branch{} ->
-      TmpJmp = case branch_true_label(Jmp) of
-		 ToOld -> branch_true_label_update(Jmp, ToNew);
-		 _ -> Jmp
-	       end,
-      case branch_false_label(TmpJmp) of
-	ToOld ->
-	  branch_false_label_update(TmpJmp, ToNew);
-	_ ->
-	  TmpJmp
-      end;
     #switch{} ->
       NewLbls = [case Lbl =:= ToOld of
 		   true -> ToNew;
@@ -1591,13 +1567,6 @@ pp_instr(Dev, I) ->
       io:format(Dev, "~n", []);
     #label{} ->
       io:format(Dev, "L~w:~n", [label_name(I)]);
-    #branch{} ->
-      io:format(Dev, "    if (", []),
-      pp_arg(Dev, branch_src1(I)),
-      io:format(Dev, " ~w ", [branch_cond(I)]),
-      pp_arg(Dev, branch_src2(I)),
-      io:format(Dev, ") then L~w (~.2f) else L~w~n", 
-		[branch_true_label(I), branch_pred(I), branch_false_label(I)]);
     #switch{} ->
       io:format(Dev, "    switch (", []),
       pp_arg(Dev, switch_src(I)),
@@ -1606,7 +1575,10 @@ pp_instr(Dev, I) ->
       io:format(Dev, ">\n", []);
     #alub{} ->
       io:format(Dev, "    ", []),
-      pp_arg(Dev, alub_dst(I)),
+      case alub_has_dst(I) of
+	true -> pp_arg(Dev, alub_dst(I));
+	false -> io:format(Dev, "_", [])
+      end,
       io:format(Dev, " <- ", []),
       pp_arg(Dev, alub_src1(I)),
       io:format(Dev, " ~w ", [alub_op(I)]),
@@ -1768,7 +1740,10 @@ pp_reg(Dev, Arg) ->
     true ->
       pp_hard_reg(Dev, reg_index(Arg));
     false ->
-      io:format(Dev, "r~w", [reg_index(Arg)])
+      case reg_is_gcsafe(Arg) of
+        true -> io:format(Dev, "rs~w", [reg_index(Arg)]);
+        false -> io:format(Dev, "r~w", [reg_index(Arg)])
+      end
   end.
 
 pp_var(Dev, Arg) ->

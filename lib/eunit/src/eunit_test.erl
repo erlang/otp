@@ -1,17 +1,22 @@
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @copyright 2006 Richard Carlsson
@@ -34,11 +39,11 @@
 %% somewhat, but you can't have everything.) Note that we assume that
 %% this particular module is the boundary between eunit and user code.
 
-get_stacktrace() ->
-    get_stacktrace([]).
+get_stacktrace(Trace) ->
+    get_stacktrace(Trace, []).
 
-get_stacktrace(Ts) ->
-    eunit_lib:uniq(prune_trace(erlang:get_stacktrace(), Ts)).
+get_stacktrace(Trace, Ts) ->
+    eunit_lib:uniq(prune_trace(Trace, Ts)).
 
 -dialyzer({no_match, prune_trace/2}).
 prune_trace([{eunit_data, _, _} | Rest], Tail) ->
@@ -70,8 +75,8 @@ run_testfun(F) ->
 	{eunit_internal, Term} ->
 	    %% Internally generated: re-throw Term (lose the trace)
 	    throw(Term);
-	Class:Reason ->
-	    {error, {Class, Reason, get_stacktrace()}}
+	Class:Reason:Trace ->
+	    {error, {Class, Reason, Trace}}
     end.
 
 
@@ -267,7 +272,7 @@ mf_wrapper(M, F) ->
     fun () ->
  	    try M:F()
  	    catch
- 		error:undef ->
+ 		error:undef:Trace ->
  		    %% Check if it was M:F/0 that was undefined
  		    case erlang:module_loaded(M) of
  			false ->
@@ -277,14 +282,14 @@ mf_wrapper(M, F) ->
  				false ->
  				    fail({no_such_function, {M,F,0}});
  				true ->
- 				    rethrow(error, undef, [{M,F,0}])
+ 				    rethrow(error, undef, Trace, [{M,F,0}])
  			    end
  		    end
  	    end
     end.
 
-rethrow(Class, Reason, Trace) ->
-    erlang:raise(Class, Reason, get_stacktrace(Trace)).
+rethrow(Class, Reason, Trace, Ts) ->
+    erlang:raise(Class, Reason, get_stacktrace(Trace, Ts)).
 
 fail(Term) ->
     throw({eunit_internal, Term}).				   
@@ -327,12 +332,14 @@ enter_context(Setup, Cleanup, Instantiate, Callback) ->
 		T ->
                     case eunit_lib:is_not_test(T) of
                         true ->
-                            catch throw(error),  % generate a stack trace
+                            {_, Stacktrace} =
+                                erlang:process_info(self(),
+                                                    current_stacktrace),
                             {module,M} = erlang:fun_info(Instantiate, module),
                             {name,N} = erlang:fun_info(Instantiate, name),
                             {arity,A} = erlang:fun_info(Instantiate, arity),
                             context_error({bad_instantiator, {{M,N,A},T}},
-                                          error, badarg);
+                                          error, Stacktrace, badarg);
                         false ->
                             ok
                     end,
@@ -341,21 +348,22 @@ enter_context(Setup, Cleanup, Instantiate, Callback) ->
 			%% Always run cleanup; client may be an idiot
 			try Cleanup(R)
 			catch
-			    Class:Term ->
-				context_error(cleanup_failed, Class, Term)
+			    Class:Term:Trace ->
+				context_error(cleanup_failed,
+                                              Class, Trace, Term)
 			end
 		    end
 	    catch
-		Class:Term ->
-		    context_error(instantiation_failed, Class, Term)
+		Class:Term:Trace ->
+		    context_error(instantiation_failed, Class, Trace, Term)
 	    end
     catch
-	Class:Term ->
-	    context_error(setup_failed, Class, Term)
+	Class:Term:Trace ->
+	    context_error(setup_failed, Class, Trace, Term)
     end.
 
-context_error(Type, Class, Term) ->
-    throw({context_error, Type, {Class, Term, get_stacktrace()}}).
+context_error(Type, Class, Trace, Term) ->
+    throw({context_error, Type, {Class, Term, get_stacktrace(Trace)}}).
 
 %% This generates single setup/cleanup functions from a list of tuples
 %% on the form {Tag, Setup, Cleanup}, where the setup function always
@@ -373,8 +381,8 @@ multi_setup([{Tag, S, C} | Es], CleanupPrev) ->
 		      try C(R) of
 			  _ -> CleanupPrev(Rs)
 		      catch
-			  Class:Term ->
-			      throw({Tag, {Class, Term, get_stacktrace()}})
+			  Class:Term:Trace ->
+			      throw({Tag, {Class, Term, Trace}})
 		      end
 	      end,
     {SetupRest, CleanupAll} = multi_setup(Es, Cleanup),
@@ -383,9 +391,9 @@ multi_setup([{Tag, S, C} | Es], CleanupPrev) ->
 		 R ->
 		     SetupRest([R|Rs])
 	     catch
-		 Class:Term ->
+		 Class:Term:Trace ->
 		     CleanupPrev(Rs),
-		     throw({Tag, {Class, Term, get_stacktrace()}})
+		     throw({Tag, {Class, Term, Trace}})
 	     end
      end,
      CleanupAll};

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,847 @@
   </header>
   <p>This document describes the changes made to the Compiler
     application.</p>
+
+<section><title>Compiler 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare internal consistency failure caused by a
+	    bug in the <c>beam_jump</c> pass. (Thanks to Simon
+	    Cornish for reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-15400 Aux Id: ERL-759 </p>
+        </item>
+        <item>
+	    <p>The compiler could fail with an internal consistency
+	    check failure when compiling code that used the
+	    <c>is_function/2</c> BIF.</p>
+          <p>
+	    Own Id: OTP-15435 Aux Id: ERL-778 </p>
+        </item>
+        <item>
+	    <p>When an external fun was used, warnings for unused
+	    variables could be suppressed.</p>
+          <p>
+	    Own Id: OTP-15437 Aux Id: ERL-762 </p>
+        </item>
+        <item>
+	    <p>The compiler would crash when compiling an
+	    <c>after</c> block that called <c>erlang:raise/3</c> like
+	    this: <c>erlang:raise(Class, Stacktrace,
+	    Stacktrace)</c></p>
+          <p>
+	    Own Id: OTP-15481</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>When specified, the <c>+{source,Name}</c> option will
+	    now override the actual file name in stack traces,
+	    instead of only affecting the return value of
+	    <c>Mod:module_info()</c>.</p>
+	    <p>The <c>+deterministic</c> flag will also affect stack
+	    traces now, omitting all path information except the file
+	    name, fixing a long-standing issue where deterministic
+	    builds required deterministic paths.</p>
+          <p>
+	    Own Id: OTP-15245 Aux Id: ERL-706 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug where incorrect code was generated
+	    following a binary match guard.</p>
+          <p>
+	    Own Id: OTP-15353 Aux Id: ERL-753 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, the matched out tail of a
+	    binary could be the entire original binary. (There was
+	    partial correction to this problem in version 7.2.5 of
+	    the compiler application.)</p>
+          <p>
+	    Own Id: OTP-15335 Aux Id: ERL-689, OTP-15219 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that prevented certain variable-sized
+	    binary comprehensions from compiling.</p>
+          <p>
+	    Own Id: OTP-15186 Aux Id: ERL-665 </p>
+        </item>
+        <item>
+	    <p>When compiling from Core Erlang, funs created in
+	    certain expressions that were only used for their
+	    side-effects were subtly broken.</p>
+          <p>
+	    Own Id: OTP-15188 Aux Id: ERL-658 </p>
+        </item>
+        <item>
+	    <p>There could be an internal consistency failure when a
+	    <c>receive</c> was nested in a
+	    <c>try</c>/<c>catch</c>.</p>
+          <p>
+	    Own Id: OTP-15218 Aux Id: ERL-684 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the matched out tail of a
+	    binary could be the entire original binary.</p>
+          <p>
+	    Own Id: OTP-15219 Aux Id: ERL-689 </p>
+        </item>
+        <item>
+	    <p>When <c>is_map_key/2</c> was used in a guard together
+	    with the <c>not/1</c> or <c>or/2</c> operators, the error
+	    behavior could be wrong when <c>is_map_key/2</c> was
+	    passed a non-map as the second argument. </p>
+	    <p>In rare circumstances, compiling code that uses
+	    <c>is_map_key/2</c> could cause an internal consistency
+	    check failure.</p>
+          <p>
+	    Own Id: OTP-15227 Aux Id: ERL-699 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when compiling a function
+	    with multiple receives in multiple clauses.</p>
+          <p>
+	    Own Id: OTP-15235 Aux Id: ERL-703 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a regression in OTP-15204 that removed
+	    <c>.beam</c> file metadata that some external build tools
+	    relied on.</p>
+          <p>
+	    Own Id: OTP-15292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an issue where files compiled with the
+	    <c>+deterministic</c> option differed if they were
+	    compiled in a different directory but were otherwise
+	    identical.</p>
+          <p>
+	    Own Id: OTP-15204 Aux Id: ERL-679 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare cases involving matching of binary literal
+	    strings, the compiler could optimize away code that
+	    should be executed.</p>
+          <p>
+	    Own Id: OTP-15156 Aux Id: ERL-655 </p>
+        </item>
+        <item>
+	    <p>There could be an internal consistency check failure
+	    when compiling code that called <c>map_get(Key, Map)</c>
+	    and then updated the same map.</p>
+          <p>
+	    Own Id: OTP-15157</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler could crash in
+	    <c>beam_jump</c> when compiling a floating point
+	    operation.</p>
+          <p>
+	    Own Id: OTP-15166 Aux Id: ERL-660 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The could could crash when compiling a complicated
+	    function that used the binary syntax.</p>
+          <p>
+	    Own Id: OTP-15150 Aux Id: ERL-650 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an error in an optimization pass that caused
+	    impossible tuple matching.</p>
+          <p>
+	    Own Id: OTP-14855 Aux Id: ERL-549 </p>
+        </item>
+        <item>
+	    <p>The exception thrown when a list comprehension was
+	    given a non-list term was not always correct.</p>
+          <p>
+	    Own Id: OTP-14992 Aux Id: ERL-572 </p>
+        </item>
+        <item>
+	    <p>The compiler could produce incorrect code in rare
+	    circumstances when the <c>[{inline,F/A}]</c> option was
+	    used.</p>
+          <p>
+	    Own Id: OTP-15115 Aux Id: PR-1831 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+	    <p>Support for "tuple calls" have been removed from the
+	    run-time system. Tuple calls was an undocumented and
+	    unsupported feature which allowed the module argument for
+	    an apply operation to be a tuple: <c>Var = dict:new(),
+	    Var:size()</c>. This "feature" frequently caused
+	    confusion, especially when such call failed. The
+	    stacktrace would point out functions that don't exist in
+	    the source code.</p>
+	    <p>For legacy code that need to use parameterized modules
+	    or tuple calls for some other reason, there is a new
+	    compiler option called <c>tuple_calls</c>. When this
+	    option is given, the compiler will generate extra code
+	    that emulates the old behavior for calls where the module
+	    is a variable.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14497</p>
+        </item>
+        <item>
+	    <p>In code such as <c>example({ok, Val}) -&gt; {ok,
+	    Val}.</c> a tuple would be built. The compiler will now
+	    automatically rewrite the code to
+	    <c>example({ok,Val}=Tuple) -&gt; Tuple.</c> which will
+	    reduce code size, execution time, and remove GC
+	    pressure.</p>
+          <p>
+	    Own Id: OTP-14505</p>
+        </item>
+        <item>
+	    <p>The optimization of <c>case</c> expression where only
+	    one of the case arms can execute successfully has been
+	    improved.</p>
+          <p>
+	    Own Id: OTP-14525</p>
+        </item>
+        <item>
+	    <p>Some uses of binary matching has been slightly
+	    improved, eliminating unnecessary register shuffling.</p>
+          <p>
+	    Own Id: OTP-14594 Aux Id: ERL-444 </p>
+        </item>
+        <item>
+	    <p>There is a new <c>{compile_info,Info}</c> option for
+	    the compiler that allows BEAM-based languages such as
+	    Elixir and LFE to add their own compiler versions.</p>
+          <p>
+	    Own Id: OTP-14615 Aux Id: PR-1558 </p>
+        </item>
+        <item>
+	    <p>Loaded BEAM code in a 64-bit system requires less
+	    memory because of better packing of operands for
+	    instructions.</p>
+	    <p>These memory savings were achieved by major
+	    improvements to the <c>beam_makeops</c> scripts used when
+	    building the run time system and BEAM compiler. There is
+	    also new for documentation for <c>beam_makeops</c> that
+	    describes how new BEAM instructions and loader
+	    transformations can be implemented. The documentation is
+	    found in here in a source directory or git repository:
+	    erts/emulator/internal_doc/beam_makeops.md. An online
+	    version can be found here:
+	    https://github.com/erlang/otp/blob/master/erts/emulator/internal_doc/beam_makeops.md</p>
+          <p>
+	    Own Id: OTP-14626</p>
+        </item>
+        <item>
+	    <p>Size calculations for binary constructions has been
+	    somewhat optimized, producing smaller code.</p>
+          <p>
+	    Own Id: OTP-14654</p>
+        </item>
+        <item>
+	    <p>When the value returned from a '<c>catch</c>'
+	    expression is ignored, no stacktrace will be built if an
+	    exception is caught. That will save time and produce less
+	    garbage. There are also some minor optimizations of
+	    '<c>try</c>/<c>catch</c>' both in the compiler and
+	    run-time system.</p>
+          <p>
+	    Own Id: OTP-14683</p>
+        </item>
+        <item>
+	    <p>There is a new syntax in '<c>try/catch</c>' for
+	    retrieving the stacktrace without calling
+	    '<c>erlang:get_stacktrace/0</c>'. See the reference
+	    manual for a description of the new syntax. The
+	    '<c>erlang:get_stacktrace/0</c>' BIF is now
+	    deprecated.</p>
+          <p>
+	    Own Id: OTP-14692</p>
+        </item>
+        <item>
+	    <p>The following is an internal change in the compiler,
+	    that is not noticeable for normal use of the compiler:
+	    The module <c>v3_life</c> has been removed. Its
+	    functionality has been simplified and integrated into
+	    <c>v3_codegen</c>.</p>
+          <p>
+	    Own Id: OTP-14712</p>
+        </item>
+        <item>
+	    <p>The optimization of binary matching that delays
+	    creation of sub binaries (see the Efficiency Guide) could
+	    be thwarted by the argument order and could be necessary
+	    to change the argument order. The compiler has now become
+	    smarter and can handle any argument order.</p>
+          <p>
+	    Own Id: OTP-14774</p>
+        </item>
+        <item>
+	    <p>When the compiler was faced with complex case
+	    expressions it would unnecessarily allocate stack
+	    elements and shuffle data between x and y registers.
+	    Improved code generation to only allocate a stack frame
+	    when strictly necessary.</p>
+          <p>
+	    Own Id: OTP-14808 Aux Id: ERL-514 </p>
+        </item>
+        <item>
+	    <p>There is a new option '<c>makedep_side_effect</c>' for
+	    the compiler and <c>-MMD</c> for '<c>erlc</c>' that
+	    generates dependencies and continues to compile as
+	    normal.</p>
+          <p>
+	    Own Id: OTP-14830</p>
+        </item>
+        <item>
+	    <p>When compiling modules with huge functions, the
+	    compiler would generate a lot of atoms for its internal,
+	    sometimes so many that the atom table would overflow. The
+	    compiler has been rewritten to generate far less internal
+	    atoms to avoid filling the atom table.</p>
+          <p>
+	    Own Id: OTP-14968 Aux Id: ERL-563 </p>
+        </item>
+        <item>
+	    <p>External funs with literal values for module, name,
+	    and arity (e.g. <c>erlang:abs/1</c>) are now treated as
+	    literals. That means more efficient code that produces
+	    less garbage on the heap.</p>
+          <p>
+	    Own Id: OTP-15003</p>
+        </item>
+        <item>
+	    <p>Two new guards BIFs operating on maps have been added:
+	    <c>map_get/2</c> and <c>is_map_key/2</c>. They do the
+	    same as <c>maps:get/2</c> and <c>maps:is_key/2</c>,
+	    respectively, except that they are allowed to be used in
+	    guards.</p>
+          <p>
+	    Own Id: OTP-15037 Aux Id: PR-1784, PR-1802 </p>
+        </item>
+        <item>
+	    <p>A call or apply of a literal external fun will be
+	    replaced with a direct call.</p>
+          <p>
+	    Own Id: OTP-15044 Aux Id: ERL-614 </p>
+        </item>
+        <item>
+	    <p>Part of EEP-44 has been implemented.</p>
+	    <p>There is a new predefined macro called
+	    <c>OTP_RELEASE</c> which is an integer indicating the OTP
+	    release number (its value is <c>21</c> in this
+	    release).</p>
+	    <p>There are new preprocessor directives
+	    <c>-if(Condition).</c> and <c>-elif(Condition).</c>. The
+	    <c>if/elif</c> supports the builtin function
+	    <c>defined(Symbol)</c>.</p>
+          <p>
+	    Own Id: OTP-15087 Aux Id: PR-1810 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix a regression in OTP-15204 that removed
+	    <c>.beam</c> file metadata that some external build tools
+	    relied on.</p>
+          <p>
+	    Own Id: OTP-15292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an issue where files compiled with the
+	    <c>+deterministic</c> option differed if they were
+	    compiled in a different directory but were otherwise
+	    identical.</p>
+          <p>
+	    Own Id: OTP-15204 Aux Id: ERL-679 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The internal compiler pass (<c>beam_validator</c>)
+	    that validates the generated code has been
+	    strengthened.</p>
+	    <p>When compiling from BEAM assembly code, the
+	    <c>beam_type</c> optimizer pass could make the code
+	    unsafe. Corrected.</p>
+          <p>
+	    Own Id: OTP-14863</p>
+        </item>
+        <item>
+	    <p>Corrected optimizations of integers matched out from
+	    binaries and used in bit operations.</p>
+          <p>
+	    Own Id: OTP-14898</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The '<c>deterministic</c>' option was not recognized
+	    when given in a <c>-compile()</c> attribute in the source
+	    code.</p>
+          <p>
+	    Own Id: OTP-14773 Aux Id: ERL-498 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could issue an incorrect internal
+	    consistency failure diagnostic for some complicated bit
+	    syntax maches.</p>
+          <p>
+	    Own Id: OTP-14640 Aux Id: ERL-490 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fail labels on guard BIFs weren't taken into account
+	    during an optimization pass, and a bug in the validation
+	    pass sometimes prevented this from being noticed when a
+	    fault occurred.</p>
+          <p>
+	    Own Id: OTP-14522 Aux Id: ERIERL-48 </p>
+        </item>
+        <item>
+          <p>
+	    When compiling from Core Erlang, an 'apply' with a nested
+	    apply in the function position would be treated as an
+	    invalid call. Corrected. (Thanks to Mikael Pettersson for
+	    reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-14526</p>
+        </item>
+        <item>
+	    <p>Fixed checking of binary matching in the
+	    <c>beam_validator</c> module to ensure that potential
+	    compiler bugs are found at compile-time instead as
+	    emulator crash at run-time.</p>
+          <p>
+	    Own Id: OTP-14591</p>
+        </item>
+        <item>
+	    <p>There could be false warnings for
+	    <c>erlang:get_stacktrace/0</c> being used outside of a
+	    <c>try</c> block when using multiple <c>catch</c>
+	    clauses.</p>
+          <p>
+	    Own Id: OTP-14600 Aux Id: ERL-478 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The Erlang code linter no longer checks that the
+	    functions mentioned in <c>nowarn_deprecated_function</c>
+	    options are declared in the module. </p>
+          <p>
+	    Own Id: OTP-14378</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fail labels on guard BIFs weren't taken into account
+	    during an optimization pass, and a bug in the validation
+	    pass sometimes prevented this from being noticed when a
+	    fault occurred.</p>
+          <p>
+	    Own Id: OTP-14522 Aux Id: ERIERL-48 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>For many releases, it has been legal to override a BIF
+	    with a local function having the same name. However,
+	    calling a local function with the same name as guard BIF
+	    as filter in a list comprehension was not allowed.</p>
+          <p>
+	    Own Id: OTP-13690</p>
+        </item>
+        <item>
+	    <p>compile:forms/2 would not return the module name as
+	    documented when one of the options '<c>from_core</c>',
+	    '<c>from_asm</c>', or '<c>from_beam</c>' was given. Also,
+	    the compiler would crash if one of those options was
+	    combined with '<c>native</c>'.</p>
+          <p>
+	    Own Id: OTP-14408 Aux Id: ERL-417 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimized test for tuples with an atom as first element.</p>
+          <p>
+	    Own Id: OTP-12148</p>
+        </item>
+        <item>
+          <p>
+	    Compilation of modules with huge literal binary strings
+	    is now much faster.</p>
+          <p>
+	    Own Id: OTP-13794</p>
+        </item>
+        <item>
+	    <p>Replaced usage of deprecated symbolic <seealso
+	    marker="erts:erlang#type-time_unit"><c>time
+	    unit</c></seealso> representations.</p>
+          <p>
+	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
+        </item>
+        <item>
+	    <p>The undocumented and unsupported module
+	    <c>sys_pre_expand</c> has been removed. As a partial
+	    replacement for the functionality, there is a new
+	    function <c>erl_internal:add_predefined_functions/1</c>
+	    and <c>erl_expand_records</c> will now add a module
+	    prefix to calls to BIFs and imported functions.</p>
+          <p>
+	    Own Id: OTP-13856</p>
+        </item>
+        <item>
+	    <p>The internal compiler passes now start all generated
+	    variables with "@" to avoid any conflicts with variables
+	    in languages such as Elixir or LFE.</p>
+          <p>
+	    Own Id: OTP-13924</p>
+        </item>
+        <item>
+	    <p>The function <c>fmod/2</c> has been added to the
+	    <c>math</c> module.</p>
+          <p>
+	    Own Id: OTP-14000</p>
+        </item>
+        <item>
+	    <p>Code generation for complicated guards have been
+	    improved.</p>
+          <p>
+	    Own Id: OTP-14042</p>
+        </item>
+        <item>
+          <p>
+	    The compiler has new warnings for repeated identical map
+	    keys.</p>
+          <p>
+	    A map expression such as,</p>
+          <p>
+	    <c> #{'a' => 1, 'b' => 2, 'a' => 3}.</c></p>
+          <p>
+	    will produce a warning for the repeated key 'a'.</p>
+          <p>
+	    Own Id: OTP-14058</p>
+        </item>
+        <item>
+	    <p>By default, there will now be a warning when
+	    <c>export_all</c> is used. The warning can be disabled
+	    using <c>nowarn_export_all</c>.</p>
+          <p>
+	    Own Id: OTP-14071</p>
+        </item>
+        <item>
+          <p>
+	    Optimize maps pattern matching by only examining the
+	    common keys in each clause first instead of all keys.
+	    This will reduce the number of lookups of each key in
+	    maps pattern matching.</p>
+          <p>
+	    Own Id: OTP-14072</p>
+        </item>
+        <item>
+	    <p>There is a new '<c>deterministic</c>' option to omit
+	    '<c>source</c>' and '<c>options</c>' tuples in the BEAM
+	    file.</p>
+          <p>
+	    Own Id: OTP-14087</p>
+        </item>
+        <item>
+          <p>
+	    Analyzing modules with binary construction with huge
+	    strings is now much faster. The compiler also compiles
+	    such modules slightly faster.</p>
+          <p>
+	    Own Id: OTP-14125 Aux Id: ERL-308 </p>
+        </item>
+        <item>
+	    <p>Atoms may now contain arbitrary Unicode
+	    characters.</p>
+          <p>
+	    Own Id: OTP-14178</p>
+        </item>
+        <item>
+	    <p><c>compile:file/2</c> now accepts the option
+	    <c>extra_chunks</c> to include extra chunks in the BEAM
+	    file.</p>
+          <p>
+	    Own Id: OTP-14221</p>
+        </item>
+        <item>
+	    <p>The format of debug information that is stored in BEAM
+	    files (when <c>debug_info</c> is used) has been changed.
+	    The purpose of the change is to better support other
+	    BEAM-based languages such as Elixir or LFE.</p>
+	    <p>All tools included in OTP (dialyzer, debugger, cover,
+	    and so on) will handle both the new format and the
+	    previous format. Tools that retrieve the debug
+	    information using <c>beam_lib:chunk(Beam,
+	    [abstract_code])</c> will continue to work with both the
+	    new and old format. Tools that call
+	    <c>beam_lib:chunk(Beam, ["Abst"])</c> will not work with
+	    the new format.</p>
+	    <p>For more information, see the description of
+	    <c>debug_info</c> in the documentation for
+	    <c>beam_lib</c> and the description of the
+	    <c>{debug_info,{Backend,Data}}</c> option in the
+	    documentation for <c>compile</c>.</p>
+          <p>
+	    Own Id: OTP-14369 Aux Id: PR-1367 </p>
+        </item>
+        <item>
+	    <p>In a future release, <c>erlang:get_stacktrace/0</c>
+	    will probably only work when called from within a
+	    '<c>try</c>' expression (otherwise it will return
+	    <c>[]</c>.</p>
+	    <p>To help prepare for that change, the compiler will now
+	    by default warn if '<c>get_stacktrace/0</c>' is used in a
+	    way that will not work in the future. Note that the
+	    warning will not be issued if '<c>get_stacktrace/0</c>'
+	    is used in a function that uses neither '<c>catch</c>'
+	    nor '<c>try</c>' (because that could be a legal use if
+	    the function is called from within a '<c>try</c>'.</p>
+          <p>
+	    Own Id: OTP-14401</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.0.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fail labels on guard BIFs weren't taken into account
+	    during an optimization pass, and a bug in the validation
+	    pass sometimes prevented this from being noticed when a
+	    fault occurred.</p>
+          <p>
+	    Own Id: OTP-14522 Aux Id: ERIERL-48 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor internal changes. A typo in the documentation was
+	    also fixed.</p>
+          <p>
+	    Own Id: OTP-14240</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 7.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a compiler crash when maps were matched.</p>
+          <p>
+	    Own Id: OTP-13931 Aux Id: ERL-266 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a compiler crash having to with the delayed
+	    sub-creation optimization. (Thanks to Jose Valim for
+	    reporting this bug.)</p>
+          <p>
+	    Own Id: OTP-13947 Aux Id: ERL-268 </p>
+        </item>
+        <item>
+	    <p>The compiler option <c>inline_list_funcs</c>
+	    accidentally turned off some other optimizations.</p>
+          <p>
+	    Own Id: OTP-13985</p>
+        </item>
+        <item>
+	    <p>The compiler could sometimes generate spurious
+	    warnings when inlining was enabled.</p>
+          <p>
+	    Own Id: OTP-14040 Aux Id: ERL-301 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Compiler 7.0.2</title>
 
@@ -178,6 +1019,22 @@
       </list>
     </section>
 
+</section>
+
+
+<section><title>Compiler 6.0.3.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fail labels on guard BIFs weren't taken into account
+	    during an optimization pass, and a bug in the validation
+	    pass sometimes prevented this from being noticed when a
+	    fault occurred.</p>
+          <p>
+	    Own Id: OTP-14522 Aux Id: ERIERL-48 </p>
+        </item>
+      </list>
+    </section>
 </section>
 
 <section><title>Compiler 6.0.3</title>

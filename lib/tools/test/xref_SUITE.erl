@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,8 @@
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
--export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1]).
+-export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
+         otp_14464/1, otp_14344/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
 
@@ -81,19 +82,21 @@ groups() ->
        update, deprecated, trycatch, fun_mfa,
        fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
+
       [analyze, basic, md, q, variables, unused_locals]},
-     {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708]}].
+     {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
+                 otp_14464, otp_14344]}].
 
 
 init_per_suite(Conf) when is_list(Conf) ->
     DataDir = ?datadir,
     PrivDir = ?privdir,
     CopyDir = fname(PrivDir, "datacopy"),
+    ok = file:make_dir(CopyDir),
     TarFile = fname(PrivDir, "datacopy.tgz"),
-    {ok, Tar} = erl_tar:open(TarFile, [write, compressed]),
-    ok = erl_tar:add(Tar, DataDir, CopyDir, [compressed]),
-    ok = erl_tar:close(Tar),
-    ok = erl_tar:extract(TarFile, [compressed]),
+    ok = file:set_cwd(DataDir),
+    ok = erl_tar:create(TarFile, ["."], [compressed]),
+    ok = erl_tar:extract(TarFile, [compressed, {cwd,CopyDir}]),
     ok = file:delete(TarFile),
     [{copy_dir, CopyDir}|Conf].
 
@@ -1109,27 +1112,16 @@ read_expected(Version) ->
           {POS7+2,{FF,{erlang,spawn_opt,4}}},
           {POS8+1,{FF,{hej,san,1}}},
           {POS8+4,{FF,{a,b,1}}},
-          {POS8+4,{FF,{erlang,apply,2}}},
-          {POS8+5,{FF,{erlang,apply,2}}},
           {POS8+6,{FF,{m,f,1}}},
           {POS9+1,{FF,{read,bi,0}}},
           {POS9+2,{FF,{a,b,1}}},
-          {POS9+2,{FF,{erlang,apply,2}}},
-          {POS9+3,{FF,{erlang,apply,2}}},
-          {POS9+4,{FF,{erlang,apply,2}}},
           {POS9+4,{FF,{erlang,not_a_function,1}}},
           {POS9+5,{FF,{mod,func,2}}},
           {POS9+6,{FF,{erlang,apply,1}}},
-          {POS9+7,{FF,{erlang,apply,2}}},
           {POS9+7,{FF,{math,add3,1}}},
           {POS9+8,{FF,{q,f,1}}},
-          {POS10+4,{FF,{erlang,apply,2}}},
           {POS10+5,{FF,{mod1,fun1,1}}},
-          {POS11+6,{FF,{erlang,apply,2}}},
-          {POS12+1,{FF,{erlang,apply,2}}},
-          {POS12+4,{FF,{erlang,apply,2}}},
           {POS12+5,{FF,{m3,f3,2}}},
-          {POS12+7,{FF,{erlang,apply,2}}},
           {POS13+1,{FF,{dm,df,1}}},
           {POS13+6,{{read,bi,0},{foo,module_info,0}}},
           {POS13+7,{{read,bi,0},{read,module_info,0}}},
@@ -1159,15 +1151,26 @@ read_expected(Version) ->
             {POS3+3,  {FF,{erlang,spawn_link,3}}},
             {POS3+4, {FF,{erlang,spawn_link,3}}},
             {POS6+4, {FF,{erlang,spawn,3}}},
+            {POS8+4,{FF,{erlang,apply,2}}},
+            {POS8+5,{FF,{erlang,apply,2}}},
             {POS8+6,{FF,{erlang,apply,3}}},
             {POS8+7,{FF,{erlang,apply,3}}},
             {POS9+1,{FF,{erlang,apply,3}}},
+            {POS9+2,{FF,{erlang,apply,2}}},
+            {POS9+3,{FF,{erlang,apply,2}}},
+            {POS9+4,{FF,{erlang,apply,2}}},
             {POS9+5,{FF,{erlang,apply,3}}},
+            {POS9+7,{FF,{erlang,apply,2}}},
+            {POS10+4,{FF,{erlang,apply,2}}},
             {POS11+1,{FF,{erlang,apply,3}}},
             {POS11+2,{FF,{erlang,apply,3}}},
             {POS11+3,{FF,{erlang,apply,3}}},
             {POS11+4,{FF,{erlang,apply,3}}},
+            {POS11+6,{FF,{erlang,apply,2}}},
+            {POS12+1,{FF,{erlang,apply,2}}},
+            {POS12+4,{FF,{erlang,apply,2}}},
             {POS12+5,{FF,{erlang,apply,3}}},
+            {POS12+7,{FF,{erlang,apply,2}}},
             {POS12+8,{FF,{erlang,apply,3}}},
             {POS13+5, {{read,bi,0},{erlang,length,1}}},
             {POS14+3, {{read,bi,0},{erlang,length,1}}}],
@@ -1222,6 +1225,9 @@ read2(Conf) when is_list(Conf) ->
               f() ->
                   %% Duplicated unresolved calls are ignored:
                   (f())(foo,bar),(f())(foo,bar). % POS1
+
+              %% Warning forms must be ignored.
+              -warning(must_not_crash).
              ">>,
     ok = file:write_file(File, Test),
     {ok, read2} = compile:file(File, [debug_info,{outdir,Dir}]),
@@ -2227,18 +2233,18 @@ variables(Conf) when is_list(Conf) ->
     {{error, _, _}, _} = xref_base:variables(S108, [{verbose,false}]),
     {ok, S109} = xref_base:set_library_path(S108, [], [{verbose,false}]),
 
-    Tabs = length(ets:all()),
+    NoOfTables = erlang:system_info(ets_count),
 
     {ok, S110} = eval("Eplus := closure E, TT := Eplus",
                       'closure()', S109),
     {{ok, [{user, ['Eplus','TT']}]}, S111} = xref_base:variables(S110),
     {ok, S112} = xref_base:forget(S111, ['TT','Eplus']),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     {ok, NS0} = eval("Eplus := closure E", 'closure()', S112),
     {{ok, [{user, ['Eplus']}]}, NS} = xref_base:variables(NS0),
     ok = xref_base:delete(NS),
-    true = Tabs =:= length(ets:all()),
+    true = NoOfTables =:= erlang:system_info(ets_count),
 
     ok = file:delete(Beam),
     ok.
@@ -2393,7 +2399,6 @@ otp_10192(Conf) when is_list(Conf) ->
     xref:stop(s),
     ok.
 
-%% OTP-10192. Allow filenames with character codes greater than 126.
 otp_13708(Conf) when is_list(Conf) ->
     {ok, _} = start(s),
     ok = xref:set_default(s, [{verbose, true}]),
@@ -2405,6 +2410,60 @@ otp_13708(Conf) when is_list(Conf) ->
     {ok, _} = start(s),
     ok = xref:set_library_path(s, [Dir], [{verbose, true}]),
     xref:stop(s).
+
+%% OTP-14464. Unicode atoms.
+otp_14464(Conf) when is_list(Conf) ->
+    Dir = ?copydir,
+
+    File1 = fname(Dir, "a.erl"),
+    MFile1 = fname(Dir, "a"),
+    Beam1 = fname(Dir, "a.beam"),
+    Test1 = "-module(a).
+             -export([ärlig/0, 'кlирилли́ческий атомB'/0]).
+
+              ärlig() ->
+                  'кlирилли́ческий атомB'.
+
+              'кlирилли́ческий атомB'() ->
+                  foo.
+             ",
+    ok = file:write_file(File1, unicode:characters_to_binary(Test1)),
+    {ok, a} = compile:file(File1, [debug_info,{outdir,Dir}]),
+
+    {ok, _} = xref:start(s),
+    {ok, a} = xref:add_module(s, MFile1),
+
+    {ok, [{a,ärlig,0}]} = xref:q(s, 'a:"ärlig"/0'),
+    {ok, [{a,'кlирилли́ческий атомB',0}]} =
+        xref:q(s, 'a:"кlирилли́ческий атомB"/0'),
+
+    xref:stop(s),
+    ok = file:delete(File1),
+    ok = file:delete(Beam1).
+
+%% OTP-14344. -on_load() attribute.
+otp_14344(Conf) when is_list(Conf) ->
+    Dir = ?copydir,
+
+    File1 = fname(Dir, "a.erl"),
+    MFile1 = fname(Dir, "a"),
+    Beam1 = fname(Dir, "a.beam"),
+    Test1 = <<"-module(a).
+               -on_load(doit/0).
+               doit() -> ok.
+              ">>,
+    ok = file:write_file(File1, Test1),
+    {ok, a} = compile:file(File1, [debug_info,{outdir,Dir}]),
+
+    {ok, _} = xref:start(s),
+    {ok, a} = xref:add_module(s, MFile1),
+
+    {ok, [{a,doit,0}]} = xref:q(s, "OL"),
+    {ok, []} = xref:analyze(s, locals_not_used),
+
+    xref:stop(s),
+    ok = file:delete(File1),
+    ok = file:delete(Beam1).
 
 %%%
 %%% Utilities
@@ -2480,7 +2539,8 @@ add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr},
+    OL = [],
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),
@@ -2560,6 +2620,9 @@ functions_mode_check(S, Info) ->
 
     %% UU subset F
     {ok, []} = xref:q(S, "UU - F"),
+
+    %% OL subset F
+    {ok, []} = xref:q(S, "OL - F"),
 
     %% ME = (Mod) E
     {ok, ME} = xref:q(S, "ME"),

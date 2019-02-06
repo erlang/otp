@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,9 +32,13 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 mixed/1,
+         literals/1,
+         destructive/1,
 	 simple/1, complicated/1, heavy/1, simple_all_keys/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
+
+-export([put_do/2, get_do/1, erase_do/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,6 +52,8 @@ suite() ->
 
 all() -> 
     [simple, complicated, heavy, simple_all_keys, info,
+     literals,
+     destructive,
      mixed].
 
 groups() -> 
@@ -363,6 +369,36 @@ match_keys(All) ->
     ok.
 
 
+%% Test destructive put optimization of immed values
+%% does not affect get/0 or process_info.
+destructive(_Config) ->
+    Keys = lists:seq(1,100),
+    [put(Key, 17) || Key <- Keys],
+    Get1 = get(),
+    {dictionary,PI1} = process_info(self(), dictionary),
+
+    [begin
+         {Key, 17} = lists:keyfind(Key, 1, Get1),
+         {Key, 17} = lists:keyfind(Key, 1, PI1)
+     end
+     || Key <- Keys],
+
+    [17 = put(Key, 42) || Key <- Keys],   % Mutate
+
+    Get2 = get(),
+    {dictionary,PI2} = process_info(self(), dictionary),
+
+    [begin
+         {Key, 17} = lists:keyfind(Key, 1, Get1),
+         {Key, 17} = lists:keyfind(Key, 1, PI1),
+         {Key, 42} = lists:keyfind(Key, 1, Get2),
+         {Key, 42} = lists:keyfind(Key, 1, PI2)
+
+     end
+     || Key <- Keys],
+
+    ok.
+
 %% Do random mixed put/erase to test grow/shrink
 %% Written for a temporary bug in gc during shrink
 mixed(_Config) ->
@@ -418,3 +454,59 @@ do_mixed([GoalN | _]=Goals, CurrN, Array0, C, Rand0) ->
 	    Array2 = array:resize(CurrN-1, Array1),
 	    do_mixed(Goals, CurrN-1, Array2, C+1, Rand2)
     end.
+
+%% Test hash precalculation of literal keys
+literals(_Config) ->
+    %% Put literal -> get variable
+    put(1742, "1742"),
+    "1742" = ?MODULE:get_do(1742),
+    "1742" = ?MODULE:erase_do(1742),
+
+    put(-1742, "-1742"),
+    "-1742" = ?MODULE:get_do(-1742),
+    "-1742" = ?MODULE:erase_do(-1742),
+
+    put([], "NIL"),
+    "NIL" = ?MODULE:get_do([]),
+    "NIL" = ?MODULE:erase_do([]),
+
+    put(<<"binary">>, "binary"),
+    "binary" = ?MODULE:get_do(<<"binary">>),
+    "binary" = ?MODULE:erase_do(<<"binary">>),
+
+    BigBin = <<"A large binary with a lot of bytes to make it go off heap as shared and reference counted">>,
+    put(BigBin, "bigbin"),
+    "bigbin" = ?MODULE:get_do(BigBin),
+    "bigbin" = ?MODULE:erase_do(BigBin),
+
+    %% Put variable -> get literal
+    ?MODULE:put_do(4217, "4217"),
+    "4217" = get(4217),
+    "4217" = erase(4217),
+
+    ?MODULE:put_do(-4217, "-4217"),
+    "-4217" = get(-4217),
+    "-4217" = erase(-4217),
+
+    ?MODULE:put_do([], "NIL"),
+    "NIL" = get([]),
+    "NIL" = erase([]),
+
+    ?MODULE:put_do(<<"bytes">>, "bytes"),
+    "bytes" = get(<<"bytes">>),
+    "bytes" = erase(<<"bytes">>),
+
+    ?MODULE:put_do(BigBin, "BigBin"),
+    "BigBin" = get(BigBin),
+    "BigBin" = erase(BigBin),
+
+    ok.
+
+put_do(K, V) ->
+    put(K, V).
+
+get_do(K) ->
+    get(K).
+
+erase_do(K) ->
+    erase(K).

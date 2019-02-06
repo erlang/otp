@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ add_host_key(_, _, _) ->
 is_host_key(_, _, _, _) ->
     true.
 
-user_key('ssh-dss', Opts) ->
+user_key('ssh-rsa', Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts),
     KeyBin = proplists:get_value(priv_key, KeyCbOpts),
     [Entry] = public_key:pem_decode(KeyBin),

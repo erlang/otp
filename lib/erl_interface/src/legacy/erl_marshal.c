@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ static int init_cmp_num_class_p=1; /* initialize array, the first time */
 void erl_init_marshal(void)
 {
   if (init_cmp_array_p) {
-    memset(cmp_array, 0, CMP_ARRAY_SIZE);
+    memset(cmp_array, 0, sizeof cmp_array);
     cmp_array[ERL_SMALL_INTEGER_EXT] = ERL_NUM_CMP;
     cmp_array[ERL_INTEGER_EXT]       = ERL_NUM_CMP;
     cmp_array[ERL_FLOAT_EXT]         = ERL_NUM_CMP;
@@ -175,10 +175,9 @@ static void encode_atom(Erl_Atom_data* a, unsigned char **ext)
     int ix = 0;
     if (a->latin1) {
 	ei_encode_atom_len_as((char*)*ext, &ix, a->latin1, a->lenL,
-			      ERLANG_LATIN1, ERLANG_LATIN1);
+			      ERLANG_LATIN1, ERLANG_UTF8);
     }
-    else if (ei_encode_atom_len_as((char*)*ext, &ix, a->utf8, a->lenU,
-				   ERLANG_UTF8, ERLANG_LATIN1) < 0) {
+    else {
 	ei_encode_atom_len_as((char*)*ext, &ix, a->utf8, a->lenU,
 			      ERLANG_UTF8, ERLANG_UTF8);
     }
@@ -542,12 +541,8 @@ int erl_term_len(ETERM *ep)
 
 static int atom_len_helper(Erl_Atom_data* a)
 {
-    if (erl_atom_ptr_latin1(a)) {
-	return 1 + 2 + a->lenL; /* ERL_ATOM_EXT */
-    }
-    else {
-	return 1 + 1 + (a->lenU > 255) + a->lenU;
-    }
+    (void) erl_atom_ptr_utf8(a);
+    return 1 + 1 + (a->lenU > 255) + a->lenU;
 }
 
 static int erl_term_len_helper(ETERM *ep, int dist)
@@ -1626,7 +1621,7 @@ static int cmp_refs(unsigned char **e1, unsigned char **e2)
     if (cre1 != cre2)
 	return cre1 < cre2 ? -1 : 1;
 
-    /* ... and then finaly ids. */
+    /* ... and then finally ids. */
     if (n1 != n2) {
 	unsigned char zero[] = {0, 0, 0, 0};
 	if (n1 > n2)
@@ -1791,7 +1786,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
         if      (port1.creation < port2.creation) return -1;
         else if (port1.creation > port2.creation) return 1;
 
-      /* ... and then finaly ids. */
+      /* ... and then finally ids. */
         if      (port1.id < port2.id) return -1;
         else if (port1.id > port2.id) return 1;
 
@@ -1808,7 +1803,7 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       k = 0;
       while (1) {
 	  if (k++ == min){
-	      if (i == j) return 0;
+	      if (i == j) return compare_top_ext(e1 , e2);
 	      if (i < j) return -1;
 	      return 1;
 	  }

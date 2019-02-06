@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,7 +40,7 @@
 
     <p>This module provides the same interface as the
       <seealso marker="ordsets"><c>ordsets(3)</c></seealso> module
-      but with a defined representation. One difference is
+      but with an undefined representation. One difference is
       that while this module considers two elements as different if they
       do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
       different if and only if they do not compare equal (<c>==</c>).</p>
@@ -136,6 +136,15 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
           <c><anno>Set</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Test for empty set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Set</anno></c> is an empty set,
+          otherwise <c>false</c>.</p>
       </desc>
     </func>
 

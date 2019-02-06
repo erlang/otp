@@ -4,7 +4,7 @@
 <chapter>
     <header>
 	<copyright>
-	    <year>2009</year><year>2016</year>
+	    <year>2009</year><year>2017</year>
 	    <holder>Ericsson AB. All Rights Reserved.</holder>
 	</copyright>
 	<legalnotice>
@@ -29,7 +29,7 @@
 	<approved>nobody</approved>
 	<checked>no</checked>
 	<date>2009-11-26</date>
-	<rev>PA1</rev>
+	<rev>PA2</rev>
 	<file>lcnt_chapter.xml</file>
     </header>
     <p>
@@ -42,42 +42,32 @@
 	completed its access to the resource and unlocked it. The <c>lcnt</c> tool measures these lock conflicts.
     </p>
     <p>
-	Locks has an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
+	Locks have an inherent cost in execution time and memory space. It takes time initialize, destroy, aquiring or releasing locks. To decrease lock contention it
 	some times necessary to use finer grained locking strategies. This will usually also increase the locking overhead and hence there is a tradeoff
 	between lock contention and overhead. In general, lock contention increases with the number of threads running concurrently. The <c>lcnt</c> tool does not measure locking overhead.
     </p>
     <section>
 	<title> Enabling lock-counting </title>
-	<p>For investigation of locks in the emulator we use an internal tool called <c>lcnt</c> (short for lock-count). The VM needs to be compiled with this option enabled. To enable this, use:</p>
+	<p>For investigation of locks in the emulator we use an internal tool called <c>lcnt</c> (short for lock-count). The VM needs to be compiled with this option enabled.
+	To compile a lock-counting VM along with a normal VM, use:</p>
 
 	<pre>
 cd $ERL_TOP
-./configure --enable-lock-counter
-	</pre>
-
-	<p>
-	    Another way to enable this alongside a normal VM is to compile it at emulator directory level, much like a debug build. To compile it this way do the following,
-	</p>
+./configure --enable-lock-counter</pre>
+	<p>Start the lock-counting VM like this:</p>
 	<pre>
-cd $ERL_TOP/erts/emulator
-make lcnt FLAVOR=smp
-	</pre>
-	<p> and then starting Erlang with,</p>
+$ERL_TOP/bin/erl -emu_type lcnt</pre>
+	<p>To verify that lock counting is enabled check that <c>[lock-counting]</c> appears in the status text when the VM is started.</p>
 	<pre>
-$ERL_TOP/bin/cerl -lcnt
-	</pre>
-	<p>To verify that you lock-counting enabled check that <c>[lock-counting]</c> appears in the status text when the VM is started.</p>
-	<pre>
-Erlang R13B03 (erts-5.7.4) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe]
- [kernel-poll:false] [lock-counting]
-	</pre>
+Erlang/OTP 20 [erts-9.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe]
+ [kernel-poll:false] [lock-counting]</pre>
     </section>
     <section>
 	<title>Getting started</title>
 	<p>Once you have a lock counting enabled VM the module <c>lcnt</c> can be used. The module is intended to be used from the current running nodes shell. To access remote nodes use <c>lcnt:clear(Node)</c> and <c>lcnt:collect(Node)</c>. </p>
 
 	<p>All locks are continuously monitored and its statistics updated. Use <c>lcnt:clear/0</c> to initially clear all counters before running any specific tests. This command will also reset the duration timer internally.</p>
-	<p>To retrieve lock statistics information use, <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
+	<p>To retrieve lock statistics information, use <c>lcnt:collect/0,1</c>. The collect operation will start a <c>lcnt</c> server if it not already started. All collected data will be built into an Erlang term and uploaded to the server and a duration time will also be uploaded. This duration is the time between <c>lcnt:clear/0,1</c> and <c>lcnt:collect/0,1</c>.</p>
 
 	<p>Once the data is collected to the server it can be filtered, sorted and printed in many different ways.</p>
 	<p>See the <seealso marker="lcnt">reference manual</seealso> for a description of each function.</p>
@@ -107,8 +97,11 @@ ok
 ok
 </pre>
 <p>
-    Another way to to profile a specific function is to use <c>lcnt:apply/3</c> or <c>lcnt:apply/1</c> which does <c>lcnt:clear/0</c> before the function and <c>lcnt:collect/0</c> after its invocation.
-    It also sets <c>copy_save</c> to <c>true</c> for the duration of the function call
+    Another way to to profile a specific function is to use <c>lcnt:apply/3</c> or <c>lcnt:apply/1</c>
+    which does <c>lcnt:clear/0</c> before the function and <c>lcnt:collect/0</c> after its invocation.
+    This method should only be used in micro-benchmarks since it sets <c>copy_save</c> to <c>true</c>
+    for the duration of the function call, which may cause the emulator to run out of memory if
+    attempted under load.
 </p>
 <pre>
 Erlang R13B03 (erts-5.7.4) [source] [smp:8:8] [rq:8] [async-threads:0] [hipe]

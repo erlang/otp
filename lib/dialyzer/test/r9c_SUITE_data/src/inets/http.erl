@@ -24,7 +24,7 @@
 %%%      - RFC 3310 Authentication and Key Agreement (AKA) (not yet!)
 %%%      - HTTP/1.1 Specification Errata found at
 %%%        http://world.std.com/~lawrence/http_errata.html
-%%%    Additionaly follows the following recommendations:
+%%%    Additionally follows the following recommendations:
 %%%      - RFC 3143 Known HTTP Proxy/Caching Problems (not yet!)
 %%%      - draft-nottingham-hdrreg-http-00.txt (not yet!)
 %%%

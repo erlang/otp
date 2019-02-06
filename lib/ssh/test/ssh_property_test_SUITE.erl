@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() -> [{group, messages},
+	  client_sends_info_timing,
 	  {group, client_server}
 	 ].
 
@@ -45,8 +46,9 @@ groups() ->
     [{messages, [], [decode,
 		     decode_encode]},
      {client_server, [], [client_server_sequential,
-			  client_server_parallel,
-			  client_server_parallel_multi]}
+                          client_server_parallel
+			  %% client_server_parallel_multi
+                         ]}
     ].
 
 
@@ -54,11 +56,14 @@ groups() ->
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
 
+end_per_suite(Config) ->
+    Config.
+
 %%% One group in this suite happens to support only QuickCheck, so skip it
 %%% if we run proper.
 init_per_group(client_server, Config) ->
     case proplists:get_value(property_test_tool,Config) of
-	eqc -> Config;
+	proper -> Config;
 	X -> {skip, lists:concat([X," is not supported"])}
     end;
 init_per_group(_, Config) ->
@@ -67,9 +72,6 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 
-%%% Always skip the testcase that is not quite in phase with the
-%%% ssh_message.erl code
-init_per_testcase(decode_encode, _) -> {skip, "Fails - testcase is not ok"};
 init_per_testcase(_TestCase, Config) -> Config.
     
 end_per_testcase(_TestCase, Config) -> Config.
@@ -104,5 +106,11 @@ client_server_parallel(Config) ->
 client_server_parallel_multi(Config) ->
     ct_property_test:quickcheck(
       ssh_eqc_client_server:prop_parallel_multi(Config),
+      Config
+     ).
+
+client_sends_info_timing(Config) ->
+    ct_property_test:quickcheck(
+      ssh_eqc_client_info_timing:prop_seq(Config),
       Config
      ).

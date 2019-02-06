@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -328,10 +328,16 @@
            purposes. This option is only
            allowed with the <c>start</c> option.</item>
           <tag><c>cpu_time</c>| <c>{cpu_time, bool()}</c></tag>
-          <item>The options <c>cpu_time</c> or <c>{cpu_time, true></c>
+          <item>The options <c>cpu_time</c> or <c>{cpu_time, true}</c>
            makes the timestamps in the trace be in CPU time instead
            of wallclock time which is the default. This option is
-           only allowed with the <c>start</c> option.</item>
+           only allowed with the <c>start</c> option.
+           <warning><p>Getting correct values out of cpu_time can be difficult.
+           The best way to get correct values is to run using a single
+           scheduler and bind that scheduler to a specific CPU,
+           i.e. <c>erl +S 1 +sbt db</c>.</p>
+           </warning>
+          </item>
           <tag><c>{procs, PidSpec}</c>| <c>{procs, [PidSpec]}</c></tag>
           <item>Specifies which processes that shall be traced. If
            this option is not given, the calling process is

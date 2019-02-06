@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
 	 convert_month/1, 
 	 is_hostname/1,
 	 timestamp/0, timeout/2,
-	 html_encode/1
+	 html_encode/1,
+	 maybe_add_brackets/2
 	]).
 
 
@@ -35,10 +36,10 @@
 %%%  Internal application API
 %%%=========================================================================
 to_upper(Str) ->
-    string:to_upper(Str).
+    string:uppercase(Str).
 
 to_lower(Str) ->
-    string:to_lower(Str).
+    string:lowercase(Str).
 
 %% Example: Mon, 09-Dec-2002 13:46:00 GMT
 convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
@@ -194,6 +195,24 @@ html_encode(Chars) ->
     lists:append([char_to_html_entity(Char, Reserved) || Char <- Chars]).
 
 
+maybe_add_brackets(Addr, false) ->
+    Addr;
+maybe_add_brackets(Addr, true) when is_list(Addr) ->
+    case is_ipv6_address(Addr) of
+        true ->
+            [$[|Addr] ++ "]";
+        false ->
+            Addr
+    end;
+maybe_add_brackets(Addr, true) when is_binary(Addr) ->
+    case is_ipv6_address(Addr) of
+        true ->
+            <<$[,Addr/binary,$]>>;
+        false ->
+            Addr
+    end.
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
@@ -204,4 +223,15 @@ char_to_html_entity(Char, Reserved) ->
 	    "&#" ++ integer_to_list(Char) ++ ";";
 	false ->
 	    [Char]
+    end.
+
+is_ipv6_address(Addr) when is_binary(Addr) ->
+    B = binary_to_list(Addr),
+    is_ipv6_address(B);
+is_ipv6_address(Addr) when is_list(Addr) ->
+    case inet:parse_ipv6strict_address(Addr) of
+        {ok, _ } ->
+            true;
+        {error, _} ->
+            false
     end.

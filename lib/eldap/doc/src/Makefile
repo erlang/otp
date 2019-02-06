@@ -37,7 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = eldap.xml
 
-XML_PART_FILES = release_notes.xml usersguide.xml
+XML_PART_FILES = usersguide.xml
 XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml
@@ -89,6 +89,7 @@ debug opt valgrind:
 
 clean clean_docs clean_tex:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)

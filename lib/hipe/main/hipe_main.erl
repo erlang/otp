@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
 %%
 %% @doc	This is the HiPE compiler's main "loop".
 %%
@@ -416,6 +410,11 @@ icode_to_rtl(MFA, Icode, Options, Servers) ->
         hipe_llvm_liveness:analyze(RtlCfg4)
     end,
   pp(RtlCfg5, MFA, rtl, pp_rtl, Options, Servers),
+  case proplists:get_bool(no_verify_gcsafe, Options) of
+    true -> ok;
+    false ->
+      ok = hipe_rtl_verify_gcsafe:check(RtlCfg5)
+  end,
   LinearRTL1 = hipe_rtl_cfg:linearize(RtlCfg5),
   LinearRTL2 = hipe_rtl_cleanup_const:cleanup(LinearRTL1),
   %% hipe_rtl:pp(standard_io, LinearRTL2),

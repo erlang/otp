@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -42,6 +41,7 @@ groups() ->
        coverage]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Pa = "-pa " ++ filename:dirname(code:which(?MODULE)),
     {ok,Node} = start_node(compiler, Pa),
     [{testing_node,Node}|Config].

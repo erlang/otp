@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,30 +23,41 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
--compile(export_all).
+-export([all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2]).
 
-all() -> [{group,async_threads},
-	  {group,no_async_threads}].
+-export([sendfile_server/2, sendfile_do_recv/2, init/1, handle_event/2]).
 
-groups() ->
-    [{async_threads,[],tcs()},
-     {no_async_threads,[],tcs()}].
+-export(
+    [t_sendfile_small/1,
+     t_sendfile_big_all/1,
+     t_sendfile_big_size/1,
+     t_sendfile_many_small/1,
+     t_sendfile_partial/1,
+     t_sendfile_offset/1,
+     t_sendfile_sendafter/1,
+     t_sendfile_recvafter/1,
+     t_sendfile_recvafter_remoteclose/1,
+     t_sendfile_sendduring/1,
+     t_sendfile_recvduring/1,
+     t_sendfile_closeduring/1,
+     t_sendfile_crashduring/1,
+     t_sendfile_arguments/1]).
 
-tcs() ->
-    [t_sendfile_small
-     ,t_sendfile_big_all
-     ,t_sendfile_big_size
-     ,t_sendfile_many_small
-     ,t_sendfile_partial
-     ,t_sendfile_offset
-     ,t_sendfile_sendafter
-     ,t_sendfile_recvafter
-     ,t_sendfile_recvafter_remoteclose
-     ,t_sendfile_sendduring
-     ,t_sendfile_recvduring
-     ,t_sendfile_closeduring
-     ,t_sendfile_crashduring
-    ].
+all() ->
+    [t_sendfile_small,
+     t_sendfile_big_all,
+     t_sendfile_big_size,
+     t_sendfile_many_small,
+     t_sendfile_partial,
+     t_sendfile_offset,
+     t_sendfile_sendafter,
+     t_sendfile_recvafter,
+     t_sendfile_recvafter_remoteclose,
+     t_sendfile_sendduring,
+     t_sendfile_recvduring,
+     t_sendfile_closeduring,
+     t_sendfile_crashduring,
+     t_sendfile_arguments].
 
 init_per_suite(Config) ->
     case {os:type(),os:version()} of
@@ -72,42 +83,31 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     file:delete(proplists:get_value(big_file, Config)).
 
-init_per_group(async_threads,Config) ->
-    case erlang:system_info(thread_pool_size) of
-	0 ->
-	    {skip,"No async threads"};
-	_ ->
-	    [{sendfile_opts,[{use_threads,true}]}|Config]
-    end;
-init_per_group(no_async_threads,Config) ->
-    [{sendfile_opts,[{use_threads,false}]}|Config].
-
-end_per_group(_,_Config) ->
-    ok.
-
 init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
 				  TC == t_sendfile_sendduring ->
     Filename = proplists:get_value(small_file, Config),
 
     Send = fun(Sock) ->
 		   {_Size, Data} = sendfile_file_info(Filename),
-		   {ok,D} = file:open(Filename, [raw,binary,read]),
-		   prim_file:sendfile(D, Sock, 0, 0, 0,
-				      [],[],[]),
+		   {ok,Fd} = file:open(Filename, [raw,binary,read]),
+                   %% Determine whether the driver has native support by
+                   %% hitting the raw module directly; file:sendfile/5 will
+                   %% land in the fallback if it doesn't.
+                   RawModule = Fd#file_descriptor.module,
+                   {ok, _Ignored} = RawModule:sendfile(Fd,Sock,0,0,0,[],[],[]),
 		   Data
 	   end,
 
     %% Check if sendfile is supported on this platform
     case catch sendfile_send(Send) of
 	ok ->
-	    Config;
+	    init_per_testcase(t_sendfile, Config);
 	Error ->
 	    ct:log("Error: ~p",[Error]),
 	    {skip,"Not supported"}
     end;
-init_per_testcase(_Tc,Config) ->
+init_per_testcase(_TC,Config) ->
     Config.
-
 
 t_sendfile_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -124,7 +124,7 @@ t_sendfile_small(Config) when is_list(Config) ->
 t_sendfile_many_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
     FileOpts = proplists:get_value(file_opts, Config, []),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     error_logger:add_report_handler(?MODULE,[self()]),
 
@@ -151,7 +151,7 @@ t_sendfile_many_small(Config) when is_list(Config) ->
 
 t_sendfile_big_all(Config) when is_list(Config) ->
     Filename = proplists:get_value(big_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {ok, #file_info{size = Size}} =
@@ -165,7 +165,7 @@ t_sendfile_big_all(Config) when is_list(Config) ->
 t_sendfile_big_size(Config) ->
     Filename = proplists:get_value(big_file, Config),
     FileOpts = proplists:get_value(file_opts, Config, []),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     SendAll = fun(Sock) ->
 		      {ok, #file_info{size = Size}} =
@@ -180,7 +180,7 @@ t_sendfile_big_size(Config) ->
 t_sendfile_partial(Config) ->
     Filename = proplists:get_value(small_file, Config),
     FileOpts = proplists:get_value(file_opts, Config, []),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     SendSingle = fun(Sock) ->
 			 {_Size, <<Data:5/binary,_/binary>>} =
@@ -217,7 +217,7 @@ t_sendfile_partial(Config) ->
 t_sendfile_offset(Config) ->
     Filename = proplists:get_value(small_file, Config),
     FileOpts = proplists:get_value(file_opts, Config, []),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {_Size, <<_:5/binary,Data:3/binary,_/binary>> = AllData} =
@@ -233,7 +233,7 @@ t_sendfile_offset(Config) ->
 
 t_sendfile_sendafter(Config) ->
     Filename = proplists:get_value(small_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {Size, Data} = sendfile_file_info(Filename),
@@ -246,7 +246,7 @@ t_sendfile_sendafter(Config) ->
 
 t_sendfile_recvafter(Config) ->
     Filename = proplists:get_value(small_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {Size, Data} = sendfile_file_info(Filename),
@@ -279,7 +279,7 @@ t_sendfile_recvafter_remoteclose(Config) ->
 
 t_sendfile_sendduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {ok, #file_info{size = Size}} =
@@ -296,7 +296,7 @@ t_sendfile_sendduring(Config) ->
 
 t_sendfile_recvduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock) ->
 		   {ok, #file_info{size = Size}} =
@@ -315,7 +315,7 @@ t_sendfile_recvduring(Config) ->
 
 t_sendfile_closeduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     Send = fun(Sock,SFServPid) ->
 		   spawn_link(fun() ->
@@ -341,11 +341,25 @@ t_sendfile_closeduring(Config) ->
 		   -1
 	   end,
 
-    ok = sendfile_send({127,0,0,1}, Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0, [{active,false}]),
+    [] = flush(),
+    ok = sendfile_send({127,0,0,1}, Send, 0, [{active,true}]),
+    [] = flush(),
+    ok.
+
+flush() ->
+    lists:reverse(flush([])).
+
+flush(Acc) ->
+    receive M ->
+            flush([M | Acc])
+    after 0 ->
+            Acc
+    end.
 
 t_sendfile_crashduring(Config) ->
     Filename = proplists:get_value(big_file, Config),
-    SendfileOpts = proplists:get_value(sendfile_opts, Config),
+    SendfileOpts = proplists:get_value(sendfile_opts, Config, []),
 
     error_logger:add_report_handler(?MODULE,[self()]),
 
@@ -373,18 +387,52 @@ t_sendfile_crashduring(Config) ->
 		end
 	end.
 
+t_sendfile_arguments(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+
+    {ok, Listener} = gen_tcp:listen(0,
+        [{packet, 0}, {active, false}, {reuseaddr, true}]),
+    {ok, Port} = inet:port(Listener),
+
+    ErrorCheck =
+        fun(Reason, Offset, Length, Opts) ->
+            {ok, Sender} = gen_tcp:connect({127, 0, 0, 1}, Port,
+                [{packet, 0}, {active, false}]),
+            {ok, Receiver} = gen_tcp:accept(Listener),
+            {ok, Fd} = file:open(Filename, [read, raw]),
+            {error, Reason} = file:sendfile(Fd, Sender, Offset, Length, Opts),
+            gen_tcp:close(Receiver),
+            gen_tcp:close(Sender),
+            file:close(Fd)
+        end,
+
+    ErrorCheck(einval, -1, 0, []),
+    ErrorCheck(einval, 0, -1, []),
+    ErrorCheck(badarg, gurka, 0, []),
+    ErrorCheck(badarg, 0, gurka, []),
+    ErrorCheck(badarg, 0, 0, gurka),
+    ErrorCheck(badarg, 0, 0, [{chunk_size, gurka}]),
+
+    gen_tcp:close(Listener),
+
+    ok.
+
 %% Generic sendfile server code
 sendfile_send(Send) ->
     sendfile_send({127,0,0,1},Send).
 sendfile_send(Host, Send) ->
     sendfile_send(Host, Send, []).
 sendfile_send(Host, Send, Orig) ->
+    sendfile_send(Host, Send, Orig, [{active,false}]).
+
+sendfile_send(Host, Send, Orig, SockOpts) ->
+
     SFServer = spawn_link(?MODULE, sendfile_server, [self(), Orig]),
     receive
 	{server, Port} ->
-	    {ok, Sock} = gen_tcp:connect(Host, Port,
-					       [binary,{packet,0},
-						{active,false}]),
+            Opts = [binary,{packet,0}|SockOpts],
+            io:format("connect with opts = ~p\n", [Opts]),
+	    {ok, Sock} = gen_tcp:connect(Host, Port, Opts),
 	    Data = case proplists:get_value(arity,erlang:fun_info(Send)) of
 		       1 ->
 			   Send(Sock);

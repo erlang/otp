@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,11 +23,15 @@
 %% Tests the statistics/1 bif.
 
 -export([all/0, suite/0, groups/0,
+         wall_clock_sanity/1,
 	 wall_clock_zero_diff/1, wall_clock_update/1,
-	 runtime_zero_diff/1,
+         runtime_sanity/1,
+         runtime_zero_diff/1,
 	 runtime_update/1, runtime_diff/1,
 	 run_queue_one/1,
 	 scheduler_wall_time/1,
+         scheduler_wall_time_all/1,
+         msb_scheduler_wall_time/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
 	 badarg/1, run_queues_lengths_active_tasks/1, msacc/1]).
 
@@ -43,17 +47,31 @@ suite() ->
 
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
-     reductions_big, {group, run_queue}, scheduler_wall_time,
+     reductions_big, {group, run_queue},
+     scheduler_wall_time, scheduler_wall_time_all,
+     msb_scheduler_wall_time,
      garbage_collection, io, badarg,
      run_queues_lengths_active_tasks,
      msacc].
 
 groups() -> 
     [{wall_clock, [],
-      [wall_clock_zero_diff, wall_clock_update]},
+      [wall_clock_sanity, wall_clock_zero_diff, wall_clock_update]},
      {runtime, [],
-      [runtime_zero_diff, runtime_update, runtime_diff]},
+      [runtime_sanity, runtime_zero_diff, runtime_update, runtime_diff]},
      {run_queue, [], [run_queue_one]}].
+
+wall_clock_sanity(Config) when is_list(Config) ->
+    erlang:yield(),
+    {WallClock, _} = statistics(wall_clock),
+    MT = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(MT - erlang:system_info(start_time),
+                                    native, millisecond),
+    io:format("Time=~p WallClock=~p~n",
+              [Time, WallClock]),
+    true = WallClock =< Time,
+    true = Time - 100 =< WallClock,
+    ok.
 
 %%% Testing statistics(wall_clock).
 
@@ -98,6 +116,20 @@ wall_clock_update1(0) ->
 
 %%% Test statistics(runtime).
 
+runtime_sanity(Config) when is_list(Config) ->
+    case erlang:system_info(logical_processors_available) of
+        unknown ->
+            {skipped, "Don't know available logical processors"};
+        LP when is_integer(LP) ->
+            erlang:yield(),
+            {RunTime, _} = statistics(runtime),
+            MT = erlang:monotonic_time(),
+            Time = erlang:convert_time_unit(MT - erlang:system_info(start_time),
+                                            native, millisecond),
+            io:format("Time=~p RunTime=~p~n",
+                      [Time, RunTime]),
+            true = RunTime =< Time*LP
+    end.
 
 %% Tests that the difference between the times returned from two consectuitive
 %% calls to statistics(runtime) is zero.
@@ -271,35 +303,71 @@ hog_iter(0, Mon) ->
 
 %% Tests that statistics(scheduler_wall_time) works as intended
 scheduler_wall_time(Config) when is_list(Config) ->
+    scheduler_wall_time_test(scheduler_wall_time).
+
+%% Tests that statistics(scheduler_wall_time_all) works as intended
+scheduler_wall_time_all(Config) when is_list(Config) ->
+    scheduler_wall_time_test(scheduler_wall_time_all).
+
+scheduler_wall_time_test(Type) ->
+    case string:find(erlang:system_info(system_version),
+                     "dirty-schedulers-TEST") == nomatch of
+        true -> run_scheduler_wall_time_test(Type);
+        false -> {skip, "Cannot be run with dirty-schedulers-TEST build"}
+    end.
+
+run_scheduler_wall_time_test(Type) ->
     %% Should return undefined if system_flag is not turned on yet
-    undefined = statistics(scheduler_wall_time),
+    undefined = statistics(Type),
     %% Turn on statistics
     false = erlang:system_flag(scheduler_wall_time, true),
     try
         Schedulers = erlang:system_info(schedulers_online),
+        DirtyCPUSchedulers = erlang:system_info(dirty_cpu_schedulers_online),
+        DirtyIOSchedulers = erlang:system_info(dirty_io_schedulers),
+        TotLoadSchedulers = case Type of
+                                scheduler_wall_time_all ->
+                                    Schedulers + DirtyCPUSchedulers + DirtyIOSchedulers;
+                                scheduler_wall_time ->
+                                    Schedulers + DirtyCPUSchedulers
+                        end,
+                            
         %% Let testserver and everyone else finish their work
         timer:sleep(1500),
         %% Empty load
-        EmptyLoad = get_load(),
+        EmptyLoad = get_load(Type),
         {false, _} = {lists:any(fun(Load) -> Load > 50 end, EmptyLoad),EmptyLoad},
         MeMySelfAndI = self(),
         StartHog = fun() ->
-                           Pid = spawn(?MODULE, hog, [self()]),
+                           Pid = spawn_link(?MODULE, hog, [self()]),
                            receive hog_started -> MeMySelfAndI ! go end,
                            Pid
                    end,
+        StartDirtyHog = fun(Func) ->
+                                F = fun () ->
+                                            erts_debug:Func(alive_waitexiting,
+                                                            MeMySelfAndI)
+                                    end,
+                                Pid = spawn_link(F),
+                                receive {alive, Pid} -> ok end,
+                                Pid
+                        end,
         P1 = StartHog(),
         %% Max on one, the other schedulers empty (hopefully)
         %% Be generous the process can jump between schedulers
         %% which is ok and we don't want the test to fail for wrong reasons
-        _L1 = [S1Load|EmptyScheds1] = get_load(),
+        _L1 = [S1Load|EmptyScheds1] = get_load(Type),
         {true,_}  = {S1Load > 50,S1Load},
         {false,_} = {lists:any(fun(Load) -> Load > 50 end, EmptyScheds1),EmptyScheds1},
         {true,_}  = {lists:sum(EmptyScheds1) < 60,EmptyScheds1},
 
         %% 50% load
         HalfHogs = [StartHog() || _ <- lists:seq(1, (Schedulers-1) div 2)],
-        HalfLoad = lists:sum(get_load()) div Schedulers,
+        HalfDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
+                            || _ <- lists:seq(1, lists:max([1,DirtyCPUSchedulers div 2]))],
+        HalfDirtyIOHogs = [StartDirtyHog(dirty_io)
+                           || _ <- lists:seq(1, lists:max([1,DirtyIOSchedulers div 2]))],
+        HalfLoad = lists:sum(get_load(Type)) div TotLoadSchedulers,
         if Schedulers < 2, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
            %% We want roughly 50% load
            HalfLoad > 40, HalfLoad < 60 -> ok;
@@ -308,23 +376,30 @@ scheduler_wall_time(Config) when is_list(Config) ->
 
         %% 100% load
         LastHogs = [StartHog() || _ <- lists:seq(1, Schedulers div 2)],
-        FullScheds = get_load(),
+        LastDirtyCPUHogs = [StartDirtyHog(dirty_cpu)
+                            || _ <- lists:seq(1, DirtyCPUSchedulers div 2)],
+        LastDirtyIOHogs = [StartDirtyHog(dirty_io)
+                           || _ <- lists:seq(1, DirtyIOSchedulers div 2)],
+        FullScheds = get_load(Type),
         {false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
-        FullLoad = lists:sum(FullScheds) div Schedulers,
+        FullLoad = lists:sum(FullScheds) div TotLoadSchedulers,
         if FullLoad > 90 -> ok;
            true -> exit({fullload, FullLoad})
         end,
 
 	KillHog = fun (HP) ->
 			  HPM = erlang:monitor(process, HP),
+                          unlink(HP),
 			  exit(HP, kill),
 			  receive
 			      {'DOWN', HPM, process, HP, killed} ->
 				  ok
 			  end
 		  end,
-        [KillHog(Pid) || Pid <- [P1|HalfHogs++LastHogs]],
-        AfterLoad = get_load(),
+        [KillHog(Pid) || Pid <- [P1|HalfHogs++HalfDirtyCPUHogs++HalfDirtyIOHogs
+                                 ++LastHogs++LastDirtyCPUHogs++LastDirtyIOHogs]],
+        receive after 2000 -> ok end, %% Give dirty schedulers time to complete...
+        AfterLoad = get_load(Type),
 	io:format("AfterLoad=~p~n", [AfterLoad]),
         {false,_} = {lists:any(fun(Load) -> Load > 25 end, AfterLoad),AfterLoad},
         true = erlang:system_flag(scheduler_wall_time, false)
@@ -332,16 +407,81 @@ scheduler_wall_time(Config) when is_list(Config) ->
         erlang:system_flag(scheduler_wall_time, false)
     end.
 
-get_load() ->
-    Start = erlang:statistics(scheduler_wall_time),
+get_load(Type) ->
+    Start = erlang:statistics(Type),
     timer:sleep(1500),
-    End = erlang:statistics(scheduler_wall_time),
+    End = erlang:statistics(Type),
     lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
 
 load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
     [100*(WN-WP) div (TN-TP)|load_percentage(Ss, Ps)];
 load_percentage([], []) -> [].
 
+count(0) ->
+    ok;
+count(N) ->
+    count(N-1).
+
+msb_swt_hog(true) ->
+    count(1000000),
+    erts_debug:dirty_cpu(wait, 10),
+    erts_debug:dirty_io(wait, 10),
+    msb_swt_hog(true);
+msb_swt_hog(false) ->
+    count(1000000),
+    msb_swt_hog(false).
+
+msb_scheduler_wall_time(_Config) ->
+    erlang:system_flag(scheduler_wall_time, true),
+    Dirty = erlang:system_info(dirty_cpu_schedulers) /= 0,
+    Hogs = lists:map(fun (_) ->
+                             spawn_opt(fun () ->
+                                               msb_swt_hog(Dirty)
+                                       end, [{priority,low}, link, monitor])
+                     end, lists:seq(1,10)),
+    erlang:system_flag(multi_scheduling, block),
+    try
+        SWT1 = lists:sort(statistics(scheduler_wall_time_all)),
+        %% io:format("SWT1 = ~p~n", [SWT1]),
+        receive after 4000 -> ok end,
+        SWT2 = lists:sort(statistics(scheduler_wall_time_all)),
+        %% io:format("SWT2 = ~p~n", [SWT2]),
+        SWT = lists:zip(SWT1, SWT2),
+        io:format("SU = ~p~n", [lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
+                                                  {I, (A1 - A0)/(T1 - T0)} end,
+                                         SWT)]),
+        {A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
+                                     {Ai + (A1 - A0), Ti + (T1 - T0)}
+                             end,
+                             {0, 0},
+                             SWT),
+        TSU = A/T,
+        WSU = ((TSU * (erlang:system_info(schedulers)
+                       + erlang:system_info(dirty_cpu_schedulers)
+                       + erlang:system_info(dirty_io_schedulers)))
+               / 1),
+        %% Weighted scheduler utilization should be
+        %% very close to 1.0, i.e., we execute the
+        %% same time as one thread executing all
+        %% the time...
+        io:format("WSU = ~p~n", [WSU]),
+        true = 0.9 < WSU andalso WSU < 1.1,
+        ok
+    after
+        erlang:system_flag(multi_scheduling, unblock),
+        erlang:system_flag(scheduler_wall_time, false),
+        lists:foreach(fun ({HP, _HM}) ->
+                              unlink(HP),
+                              exit(HP, kill)
+                      end, Hogs),
+        lists:foreach(fun ({HP, HM}) ->
+                              receive
+                                  {'DOWN', HM, process, HP, _} ->
+                                      ok
+                              end
+                      end, Hogs),
+        ok
+    end.
 
 %% Tests that statistics(garbage_collection) is callable.
 %% It is not clear how to test anything more.
@@ -388,7 +528,7 @@ badarg(Config) when is_list(Config) ->
 tok_loop() ->
     tok_loop().
 
-run_queues_lengths_active_tasks(Config) ->
+run_queues_lengths_active_tasks(_Config) ->
     TokLoops = lists:map(fun (_) ->
                                  spawn_opt(fun () ->
                                                    tok_loop()
@@ -397,20 +537,37 @@ run_queues_lengths_active_tasks(Config) ->
                          end,
                          lists:seq(1,10)),
 
+                   
+
     TRQLs0 = statistics(total_run_queue_lengths),
+    TRQLAs0 = statistics(total_run_queue_lengths_all),
     TATs0 = statistics(total_active_tasks),
+    TATAs0 = statistics(total_active_tasks_all),
     true = is_integer(TRQLs0),
     true = is_integer(TATs0),
     true = TRQLs0 >= 0,
+    true = TRQLAs0 >= 0,
     true = TATs0 >= 11,
+    true = TATAs0 >= 11,
 
     NoScheds = erlang:system_info(schedulers),
+    {DefRqs,
+     AllRqs} = case erlang:system_info(dirty_cpu_schedulers) of
+                   0 -> {NoScheds, NoScheds};
+                   _ -> {NoScheds+1, NoScheds+2}
+               end,
     RQLs0 = statistics(run_queue_lengths),
+    RQLAs0 = statistics(run_queue_lengths_all),
     ATs0 = statistics(active_tasks),
-    NoScheds = length(RQLs0),
-    NoScheds = length(ATs0),
+    ATAs0 = statistics(active_tasks_all),
+    DefRqs = length(RQLs0),
+    AllRqs = length(RQLAs0),
+    DefRqs = length(ATs0),
+    AllRqs = length(ATAs0),
     true = lists:sum(RQLs0) >= 0,
+    true = lists:sum(RQLAs0) >= 0,
     true = lists:sum(ATs0) >= 11,
+    true = lists:sum(ATAs0) >= 11,
 
     SO = erlang:system_flag(schedulers_online, 1),
 
@@ -426,8 +583,8 @@ run_queues_lengths_active_tasks(Config) ->
 
     RQLs1 = statistics(run_queue_lengths),
     ATs1 = statistics(active_tasks),
-    NoScheds = length(RQLs1),
-    NoScheds = length(ATs1),
+    DefRqs = length(RQLs1),
+    DefRqs = length(ATs1),
     TRQLs2 = lists:sum(RQLs1),
     TATs2 = lists:sum(ATs1),
     true = TRQLs2 >= 10,
@@ -488,9 +645,7 @@ msacc(Config) ->
                         (aux, 0) ->
                              %% aux will be zero if we do not have smp support
                              %% or no async threads
-                             case erlang:system_info(smp_support) orelse
-                                  erlang:system_info(thread_pool_size) > 0
-                             of
+                             case erlang:system_info(thread_pool_size) > 0 of
                                  false ->
                                      ok;
                                  true ->
@@ -525,6 +680,16 @@ msacc_test(TmpFile) ->
     Tid = ets:new(table, []),
     ets:insert(Tid, {1, hello}),
     ets:delete(Tid),
+
+    %% Check some IO
+    {ok, L} = gen_tcp:listen(0, [{active, true},{reuseaddr,true}]),
+    {ok, Port} = inet:port(L),
+    Pid = spawn(fun() ->
+                        {ok, S} = gen_tcp:accept(L),
+                        (fun F() -> receive M -> F() end end)()
+                end),
+    {ok, C} = gen_tcp:connect("localhost", Port, []),
+    [begin gen_tcp:send(C,"hello"),timer:sleep(1) end || _ <- lists:seq(1,100)],
 
     %% Collect some garbage
     [erlang:garbage_collect() || _ <- lists:seq(1,100)],

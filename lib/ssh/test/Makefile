@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,11 +34,15 @@ VSN=$(GS_VSN)
 MODULES= \
 	ssh_algorithms_SUITE \
 	ssh_options_SUITE \
-	ssh_renegotiate_SUITE \
 	ssh_basic_SUITE \
-	ssh_benchmark_SUITE \
+	ssh_bench_SUITE \
+	ssh_chan_behaviours_SUITE \
+	ssh_compat_SUITE \
 	ssh_connection_SUITE \
+	ssh_dbg_SUITE \
+	ssh_engine_SUITE \
 	ssh_protocol_SUITE \
+	ssh_property_test_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \
@@ -48,11 +52,16 @@ MODULES= \
 	ssh_test_lib \
 	ssh_key_cb \
 	ssh_key_cb_options \
+	ssh_key_cb_engine_keys \
 	ssh_trpt_test_lib \
+	ssh_chan_behaviours_client \
+	ssh_chan_behaviours_server \
 	ssh_echo_server \
+	ssh_bench_dev_null \
 	ssh_peername_sockname_server \
 	ssh_test_cli \
-	ssh_relay
+	ssh_relay \
+	ssh_eqc_event_handler
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \
@@ -130,6 +139,6 @@ release_tests_spec: opt
 	$(INSTALL_DATA) ssh.spec ssh_bench.spec ssh.cover "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

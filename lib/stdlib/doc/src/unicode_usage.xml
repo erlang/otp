@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1999</year>
-      <year>2016</year>
+      <year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -62,6 +62,13 @@
 
 	<item><p>In Erlang/OTP 17.0, the encoding default for Erlang
 	source files was switched to UTF-8.</p></item>
+
+	<item><p>In Erlang/OTP 20.0, atoms and function can contain
+	Unicode characters. Module names, application names, and node
+	names are still restricted to the ISO Latin-1 range.</p>
+	<p>Support was added for normalizations forms in
+	<c>unicode</c> and the <c>string</c> module now handles
+	utf8-encoded binaries.</p></item>
       </list>
 
     <p>This section outlines the current Unicode support and gives some
@@ -106,23 +113,27 @@
       </item>
     </list>
 
-    <p>So, a conversion function must know not only one character at a time,
-      but possibly the whole sentence, the natural language to translate to,
-      the differences in input and output string length, and so on.
-      Erlang/OTP has currently no Unicode <c>to_upper</c>/<c>to_lower</c>
-      functionality, but publicly available libraries address these issues.</p>
+    <p>So, a conversion function must know not only one character at a
+    time, but possibly the whole sentence, the natural language to
+    translate to, the differences in input and output string length,
+    and so on.  Erlang/OTP has currently no Unicode
+    <c>uppercase</c>/<c>lowercase</c> functionality with language
+    specific handling, but publicly available libraries address these
+    issues.</p>
 
-    <p>Another example is the accented characters, where the same glyph has two
-      different representations. The Swedish letter "ö" is one example.
-      The Unicode standard has a code point for it, but you can also write it
-      as "o" followed by "U+0308" (Combining Diaeresis, with the simplified
-      meaning that the last letter is to have "¨" above). They have the same
-      glyph. They are for most purposes the same, but have different
-      representations. For example, MacOS X converts all filenames to use
-      Combining Diaeresis, while most other programs (including Erlang) try to
-      hide that by doing the opposite when, for example, listing directories.
-      However it is done, it is usually important to normalize such
-      characters to avoid confusion.</p>
+    <p>Another example is the accented characters, where the same
+    glyph has two different representations. The Swedish letter "ö" is
+    one example.  The Unicode standard has a code point for it, but
+    you can also write it as "o" followed by "U+0308" (Combining
+    Diaeresis, with the simplified meaning that the last letter is to
+    have "¨" above). They have the same glyph, user perceived
+    character. They are for most purposes the same, but have different
+    representations. For example, MacOS X converts all filenames to
+    use Combining Diaeresis, while most other programs (including
+    Erlang) try to hide that by doing the opposite when, for example,
+    listing directories.  However it is done, it is usually important
+    to normalize such characters to avoid confusion.
+    </p>
 
     <p>The list of examples can be made long. One need a kind of knowledge that
       was not needed when programs only considered one or two languages. The
@@ -269,7 +280,7 @@
         them. In some cases functionality has been added to already
         existing interfaces (as the <seealso
         marker="stdlib:string"><c>string</c></seealso> module now can
-        handle lists with any code points). In some cases new
+        handle strings with any code points). In some cases new
         functionality or options have been added (as in the <seealso
         marker="stdlib:io"><c>io</c></seealso> module, the file
         handling, the <seealso
@@ -339,11 +350,13 @@
       <tag>The language</tag>
       <item>
         <p>Having the source code in UTF-8 also allows you to write string
-          literals containing Unicode characters with code points &gt; 255,
-          although atoms, module names, and function names are restricted to
-          the ISO Latin-1 range. Binary literals, where you use type
+          literals, function names, and atoms containing Unicode
+	  characters with code points &gt; 255.
+          Module names, application names, and node names are still restricted
+	  to the ISO Latin-1 range. Binary literals, where you use type
           <c>/utf8</c>, can also be expressed using Unicode characters &gt; 255.
-          Having module names using characters other than 7-bit ASCII can cause
+          Having module names or application names using characters other than
+	  7-bit ASCII can cause
           trouble on operating systems with inconsistent file naming schemes,
           and can hurt portability, so it is not recommended.</p>
         <p>EEP 40 suggests that the language is also to allow for Unicode
@@ -432,15 +445,17 @@ external_charlist() = maybe_improper_list(char() | external_unicode_binary() |
 
   <section>
     <title>Basic Language Support</title>
-    <p><marker id="unicode_in_erlang"/>As from Erlang/OTP R16, Erlang source
-      files can be written in UTF-8 or bytewise (<c>latin1</c>) encoding. For
-      information about how to state the encoding of an Erlang source file, see
-      the <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso> module.
-      Strings and comments can be written using Unicode, but functions must
-      still be named using characters from the ISO Latin-1 character set, and
-      atoms are restricted to the same ISO Latin-1 range. These restrictions in
-      the language are of course independent of the encoding of the source
-      file.</p>
+    <p><marker id="unicode_in_erlang"/>As from Erlang/OTP R16, Erlang
+    source files can be written in UTF-8 or bytewise (<c>latin1</c>)
+    encoding. For information about how to state the encoding of an
+    Erlang source file, see the <seealso
+    marker="stdlib:epp#encoding"><c>epp(3)</c></seealso> module.  As
+    from Erlang/OTP R16, strings and comments can be written using
+    Unicode.  As from Erlang/OTP 20, also atoms and functions can be
+    written using Unicode. Modules, applications, and nodes must still be
+    named using characters from the ISO Latin-1 character set.  (These
+    restrictions in the language are independent of the encoding of
+    the source file.)</p>
 
     <section>
       <title>Bit Syntax</title>
@@ -704,8 +719,8 @@ Eshell V5.10.1  (abort with ^G)
   </section> 
 
   <section>
-    <title>Unicode Filenames</title>
     <marker id="unicode_file_names"/>
+    <title>Unicode Filenames</title>
     <p>Most modern operating systems support Unicode filenames in some way.
       There are many different ways to do this and Erlang by default treats the
       different approaches differently:</p>
@@ -766,7 +781,7 @@ Eshell V5.10.1  (abort with ^G)
     filenames or directory names. If the file system content is
     listed, you also get Unicode lists as return value. The support
     lies in the Kernel and STDLIB modules, which is why
-    most applications (that does not explicitly require the filenames
+    most applications (that do not explicitly require the filenames
     to be in the ISO Latin-1 range) benefit from the Unicode support
     without change.</p>
 
@@ -840,8 +855,12 @@ Eshell V5.10.1  (abort with ^G)
     </note>
 
     <section>
-      <title>Notes About Raw Filenames</title>
       <marker id="notes-about-raw-filenames"/>
+      <title>Notes About Raw Filenames</title>
+      <note><p>
+	Note that raw filenames <em>not</em> necessarily are encoded the
+	same way as on the OS level.
+      </p></note>
       <p>Raw filenames were introduced together with Unicode filename support
         in ERTS 5.8.2 (Erlang/OTP R14B01). The reason &quot;raw
         filenames&quot; were introduced in the system was
@@ -970,7 +989,7 @@ Eshell V5.10.1  (abort with ^G)
 
     <p>Fortunately, most textual data has been stored in lists and range
       checking has been sparse, so modules like <c>string</c> work well for
-      Unicode lists with little need for conversion or extension.</p>
+      Unicode strings with little need for conversion or extension.</p>
 
     <p>Some modules are, however, changed to be explicitly Unicode-aware. These
       modules include:</p>
@@ -1021,18 +1040,17 @@ Eshell V5.10.1  (abort with ^G)
           has extensive support for Unicode text.</p></item>
     </taglist>
 
-    <p>The <seealso marker="stdlib:string"><c>string</c></seealso> module works
-      perfectly for Unicode strings and ISO Latin-1 strings, except the
-      language-dependent functions
-      <seealso marker="stdlib:string#to_upper/1"><c>string:to_upper/1</c></seealso>
-      and
-      <seealso marker="stdlib:string#to_lower/1"><c>string:to_lower/1</c></seealso>,
-      which are only correct for the ISO Latin-1 character set. These two
-      functions can never function correctly for Unicode characters in their
-      current form, as there are language and locale issues as well as
-      multi-character mappings to consider when converting text between cases.
-      Converting case in an international environment is a large subject not
-      yet addressed in OTP.</p>
+    <p>The <seealso marker="stdlib:string"><c>string</c></seealso>
+    module works perfectly for Unicode strings and ISO Latin-1
+    strings, except the language-dependent functions <seealso
+    marker="stdlib:string#uppercase/1"><c>string:uppercase/1</c></seealso>
+    and <seealso
+    marker="stdlib:string#lowercase/1"><c>string:lowercase/1</c></seealso>.
+    These two functions can never function correctly for Unicode
+    characters in their current form, as there are language and locale
+    issues to consider when converting text between cases.  Converting
+    case in an international environment is a large subject not yet
+    addressed in OTP.</p>
   </section>
 
   <section>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,12 +25,15 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
-	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1]).
+	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
+         find_source/1, find_source_subdir/1]).
 
 -import(lists, [foreach/2]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+
+-define(PRIM_FILE, prim_file).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -45,7 +48,8 @@ suite() ->
 all() -> 
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
-     wildcard_symlink, is_file_symlink, file_props_symlink].
+     wildcard_symlink, is_file_symlink, file_props_symlink,
+     find_source, find_source_subdir].
 
 groups() -> 
     [].
@@ -118,7 +122,7 @@ wcc(Wc, Error) ->
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),
     Wcf = fun(Wc0) ->
-		  Wc = filename:join(Dir, Wc0),
+		  Wc = Dir ++ "/" ++ Wc0,
 		  L = Wcf0(Wc),
 		  [subtract_dir(N, Dir) || N <- L]
 	  end,
@@ -266,8 +270,37 @@ do_wildcard_9(Dir, Wcf) ->
     %% Cleanup.
     del(Files),
     [ok = file:del_dir(D) || D <- lists:reverse(Dirs)],
-    ok.
+    do_wildcard_10(Dir, Wcf).
 
+%% ERL-451/OTP-14577: Escape characters using \\.
+do_wildcard_10(Dir, Wcf) ->
+    All0 = ["{abc}","abc","def","---","z--","@a,b","@c"],
+    All = case os:type() of
+              {unix,_} ->
+                  %% '?' is allowed in file names on Unix, but
+                  %% not on Windows.
+                  ["?q"|All0];
+              _ ->
+                  All0
+          end,
+    Files = mkfiles(lists:reverse(All), Dir),
+
+    ["{abc}"] = Wcf("\\{a*"),
+    ["{abc}"] = Wcf("\\{abc}"),
+    ["abc","def","z--"] = Wcf("[a-z]*"),
+    ["---","abc","z--"] = Wcf("[a\\-z]*"),
+    ["@a,b","@c"] = Wcf("@{a\\,b,c}"),
+    ["@c"] = Wcf("@{a,b,c}"),
+
+    case os:type() of
+        {unix,_} ->
+            ["?q"] = Wcf("\\?q");
+        _ ->
+            [] = Wcf("\\?q")
+    end,
+
+    del(Files),
+    ok.
 
 fold_files(Config) when is_list(Config) ->
     Dir = filename:join(proplists:get_value(priv_dir, Config), "fold_files"),
@@ -415,10 +448,10 @@ wildcard_symlink(Config) when is_list(Config) ->
 						erl_prim_loader)),
 	    ["sub","symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ["symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ok = file:delete(AFile),
 	    %% The symlink should still be visible even when its target
 	    %% has been deleted.
@@ -434,10 +467,10 @@ wildcard_symlink(Config) when is_list(Config) ->
 						erl_prim_loader)),
 	    ["sub","symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ["symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ok
     end.
 
@@ -466,17 +499,17 @@ is_file_symlink(Config) ->
 	ok ->
 	    true = filelib:is_dir(DirAlias),
 	    true = filelib:is_dir(DirAlias, erl_prim_loader),
-	    true = filelib:is_dir(DirAlias, prim_file),
+	    true = filelib:is_dir(DirAlias, ?PRIM_FILE),
 	    true = filelib:is_file(DirAlias),
 	    true = filelib:is_file(DirAlias, erl_prim_loader),
-	    true = filelib:is_file(DirAlias, prim_file),
+	    true = filelib:is_file(DirAlias, ?PRIM_FILE),
 	    ok = file:make_symlink(AFile,FileAlias),
 	    true = filelib:is_file(FileAlias),
 	    true = filelib:is_file(FileAlias, erl_prim_loader),
-	    true = filelib:is_file(FileAlias, prim_file),
+	    true = filelib:is_file(FileAlias, ?PRIM_FILE),
 	    true = filelib:is_regular(FileAlias),
 	    true = filelib:is_regular(FileAlias, erl_prim_loader),
-	    true = filelib:is_regular(FileAlias, prim_file),
+	    true = filelib:is_regular(FileAlias, ?PRIM_FILE),
 	    ok
     end.
 
@@ -497,9 +530,86 @@ file_props_symlink(Config) ->
 	    {_,_} = LastMod = filelib:last_modified(AFile),
 	    LastMod = filelib:last_modified(Alias),
 	    LastMod = filelib:last_modified(Alias, erl_prim_loader),
-	    LastMod = filelib:last_modified(Alias, prim_file),
+	    LastMod = filelib:last_modified(Alias, ?PRIM_FILE),
 	    FileSize = filelib:file_size(AFile),
 	    FileSize = filelib:file_size(Alias),
 	    FileSize = filelib:file_size(Alias, erl_prim_loader),
-	    FileSize = filelib:file_size(Alias, prim_file)
+	    FileSize = filelib:file_size(Alias, ?PRIM_FILE)
     end.
+
+find_source(Config) when is_list(Config) ->
+    %% filename:find_{file,source}() does not work if the files are
+    %% cover-compiled. To make sure that the test does not fail
+    %% when the STDLIB is cover-compiled, search for modules in
+    %% the compiler application.
+
+    BeamFile = code:which(compile),
+    BeamName = filename:basename(BeamFile),
+    BeamDir = filename:dirname(BeamFile),
+    SrcName = filename:basename(BeamFile, ".beam") ++ ".erl",
+
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir),
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir, []),
+    {ok, BeamFile} = filelib:find_file(BeamName, BeamDir, [{"",""},{"ebin","src"}]),
+    {error, not_found} = filelib:find_file(BeamName, BeamDir, [{"ebin","src"}]),
+
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir, []),
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir, [{"foo","bar"},{"ebin","src"}]),
+    {error, not_found} = filelib:find_file(SrcName, BeamDir, [{"",""}]),
+
+    {ok, SrcFile} = filelib:find_source(BeamFile),
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir),
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir,
+                                         [{".erl",".yrl",[{"",""}]},
+                                          {".beam",".erl",[{"ebin","src"}]}]),
+    {error, not_found} = filelib:find_source(BeamName, BeamDir,
+                                              [{".erl",".yrl",[{"",""}]}]),
+
+    {ok, ParserErl} = filelib:find_source(code:which(core_parse)),
+    ParserErlName = filename:basename(ParserErl),
+    ParserErlDir = filename:dirname(ParserErl),
+    {ok, ParserYrl} = filelib:find_source(ParserErl),
+    "lry." ++ _ = lists:reverse(ParserYrl),
+    {ok, ParserYrl} = filelib:find_source(ParserErlName, ParserErlDir,
+                                           [{".beam",".erl",[{"ebin","src"}]},
+                                            {".erl",".yrl",[{"",""}]}]),
+
+    %% find_source automatically checks the local directory regardless of rules
+    {ok, ParserYrl} = filelib:find_source(ParserErl),
+    {ok, ParserYrl} = filelib:find_source(ParserErlName, ParserErlDir,
+                                          [{".erl",".yrl",[{"ebin","src"}]}]),
+
+    %% find_file does not check the local directory unless in the rules
+    ParserYrlName = filename:basename(ParserYrl),
+    ParserYrlDir = filename:dirname(ParserYrl),
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir,
+                                        [{"",""}]),
+    {error, not_found} = filelib:find_file(ParserYrlName, ParserYrlDir,
+                                           [{"ebin","src"}]),
+
+    %% local directory is in the default list for find_file
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir),
+    {ok, ParserYrl} = filelib:find_file(ParserYrlName, ParserYrlDir, []),
+    ok.
+
+find_source_subdir(Config) when is_list(Config) ->
+    BeamFile = code:which(inets), % Located in lib/inets/src/inets_app/
+    BeamName = filename:basename(BeamFile),
+    BeamDir = filename:dirname(BeamFile),
+    SrcName = filename:basename(BeamFile, ".beam") ++ ".erl",
+
+    {ok, SrcFile} = filelib:find_source(BeamName, BeamDir),
+    SrcName = filename:basename(SrcFile),
+
+    {error, not_found} =
+        filelib:find_source(BeamName, BeamDir,
+                            [{".beam",".erl",[{"ebin","src"}]}]),
+    {ok, SrcFile} =
+        filelib:find_source(BeamName, BeamDir,
+                            [{".beam",".erl",
+                              [{"ebin",filename:join("src", "*")}]}]),
+
+    {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
+
+    ok.

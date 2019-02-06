@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,7 +38,7 @@
     <p>This module provides a <c>Key</c>-<c>Value</c> dictionary.
       An <c>orddict</c> is a representation of a dictionary, where a
       list of pairs is used to store the keys and values. The list is
-      ordered after the keys.</p>
+      ordered after the keys in the <em>Erlang term order</em>.</p>
 
     <p>This module provides the same interface as the
       <seealso marker="dict"><c>dict(3)</c></seealso> module
@@ -109,6 +109,15 @@
       <fsummary>Return all keys in a dictionary.</fsummary>
       <desc>
         <p>Returns a list of all keys in a dictionary.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2"/>
+      <fsummary>Return value and new dictionary without element with this value.</fsummary>
+      <desc>
+        <p>This function returns value from dictionary and new dictionary without this value.
+            Returns <c>error</c> if the key is not present in the dictionary.</p>
       </desc>
     </func>
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ typedef struct index_table
 #define INDEX_PAGE_MASK ((1 << INDEX_PAGE_SHIFT)-1)
 
 IndexTable *erts_index_init(ErtsAlcType_t,IndexTable*,char*,int,int,HashFunctions);
-void index_info(int, void *, IndexTable*);
+void index_info(fmtfn_t, void *, IndexTable*);
 int index_table_sz(IndexTable *);
 
 int index_get(IndexTable*, void*);
@@ -65,6 +65,7 @@ void index_erase_latest_from(IndexTable*, Uint ix);
 
 ERTS_GLB_INLINE int index_put(IndexTable*, void*);
 ERTS_GLB_INLINE IndexSlot* erts_index_lookup(IndexTable*, Uint);
+ERTS_GLB_INLINE int erts_index_num_entries(IndexTable* t);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -78,6 +79,19 @@ erts_index_lookup(IndexTable* t, Uint ix)
 {
     return t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK];
 }
+
+ERTS_GLB_INLINE int erts_index_num_entries(IndexTable* t)
+{
+    int ret = t->entries;
+    /*
+     * Do a read barrier here to allow lock free iteration
+     * on tables where entries are never erased.
+     * index_put_entry() does matching write barrier.
+     */
+    ERTS_THR_READ_MEMORY_BARRIER;
+    return ret;
+}
+
 #endif
 
 #endif

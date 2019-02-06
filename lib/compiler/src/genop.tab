@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2016. All Rights Reserved.
+# Copyright Ericsson AB 1998-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -537,3 +537,40 @@ BEAM_FORMAT_NUMBER=0
 156: is_map/2
 157: has_map_fields/3
 158: get_map_elements/3
+
+# OTP 20
+
+## @spec is_tagged_tuple Lbl Reg N Atom
+## @doc Test the type of Reg and jumps to Lbl if it is not a tuple.
+##      Test the arity of Reg and jumps to Lbl if it is not N.
+##      Test the first element of the tuple and jumps to Lbl if it is not Atom.
+159: is_tagged_tuple/4
+
+# OTP 21
+
+## @spec build_stacktrace
+## @doc  Given the raw stacktrace in x(0), build a cooked stacktrace suitable
+##       for human consumption. Store it in x(0). Destroys all other registers.
+##       Do a garbage collection if necessary to allocate space on the heap
+##       for the result.
+160: build_stacktrace/0
+
+## @spec raw_raise
+## @doc  This instruction works like the erlang:raise/3 BIF, except that the
+##       stacktrace in x(2) must be a raw stacktrace.
+##       x(0) is the class of the exception (error, exit, or throw),
+##       x(1) is the exception term, and x(2) is the raw stackframe.
+##       If x(0) is not a valid class, the instruction will not throw an
+##       exception, but store the atom 'badarg' in x(0) and execute the
+##       next instruction.
+161: raw_raise/0
+
+## @spec get_hd  Source Head
+## @doc  Get the head (or car) part of a list (a cons cell) from Source and
+##       put it into the register Head.
+162: get_hd/2
+
+## @spec get_tl  Source Tail
+## @doc  Get the tail (or cdr) part of a list (a cons cell) from Source and
+##       put it into the register Tail.
+163: get_tl/2

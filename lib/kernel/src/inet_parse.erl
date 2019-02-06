@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ hosts(Fname,File) ->
 		 %% interface with a %if suffix. These kind of
 		 %% addresses maybe need to be gracefully handled
 		 %% throughout inet* and inet_drv.
-		 case string:tokens(Address, "%") of
+		 case string:lexemes(Address, "%") of
 		     [Addr,_] ->
 			 {ok,_} = address(Addr),
 			 skip;
@@ -407,7 +407,7 @@ is_dom1([C | Cs]) when C >= $a, C =< $z -> is_dom_ldh(Cs);
 is_dom1([C | Cs]) when C >= $A, C =< $Z -> is_dom_ldh(Cs);
 is_dom1([C | Cs]) when C >= $0, C =< $9 -> 
     case is_dom_ldh(Cs) of
-	true  -> is_dom2(string:tokens([C | Cs],"."));
+	true  -> is_dom2(string:lexemes([C | Cs],"."));
 	false -> false
     end;
 is_dom1(_) -> false.
@@ -644,8 +644,12 @@ ipv6_addr(Cs) ->
     ipv6_addr(hex(Cs), [], 0).
 
 %% Before "::"
+ipv6_addr({Cs0,"%"++Cs1}, A, N) when N == 7 ->
+    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
 ipv6_addr({Cs0,[]}, A, N) when N == 7 ->
     ipv6_addr_done([hex_to_int(Cs0)|A]);
+ipv6_addr({Cs0,"::%"++Cs1}, A, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, [hex_to_int(Cs0)|A], [], N+1, []);
 ipv6_addr({Cs0,"::"}, A, N) when N =< 6 ->
     ipv6_addr_done([hex_to_int(Cs0)|A], [], N+1);
 ipv6_addr({Cs0,"::"++Cs1}, A, N) when N =< 5 ->
@@ -658,6 +662,8 @@ ipv6_addr(_, _, _) ->
     erlang:error(badarg).
 
 %% After "::"
+ipv6_addr({Cs0,"%"++Cs1}, A, B, N) when N =< 6 ->
+    ipv6_addr_scope(Cs1, A, [hex_to_int(Cs0)|B], N+1, []);
 ipv6_addr({Cs0,[]}, A, B, N) when N =< 6 ->
     ipv6_addr_done(A, [hex_to_int(Cs0)|B], N+1);
 ipv6_addr({Cs0,":"++Cs1}, A, B, N) when N =< 5 ->
@@ -666,6 +672,43 @@ ipv6_addr({Cs0,"."++_=Cs1}, A, B, N) when N =< 5 ->
     ipv6_addr_done(A, B, N, ipv4strict_addr(Cs0++Cs1));
 ipv6_addr(_, _, _, _) ->
     erlang:error(badarg).
+
+%% After "%"
+ipv6_addr_scope([], Ar, Br, N, Sr) ->
+    ScopeId =
+        case lists:reverse(Sr) of
+            %% Empty scope id
+            "" -> 0;
+            %% Scope id starts with 0
+            "0"++S -> dec16(S);
+            _ -> 0
+        end,
+    %% Suggested formats for scope id parsing:
+    %%   "" -> "0"
+    %%   "0" -> Scope id 0
+    %%   "1" - "9", "10" - "99" -> "0"++S
+    %%   "0"++DecimalScopeId -> decimal scope id
+    %%   "25"++PercentEncoded -> Percent encoded interface name
+    %%   S -> Interface name (Unicode?)
+    %% Missing: translation from interface name into integer scope id.
+    %% XXX: scope id is actually 32 bit, but we only have room for
+    %% 16 bit in the second address word - ignore or fix (how)?
+    ipv6_addr_scope(ScopeId, Ar, Br, N);
+ipv6_addr_scope([C|Cs], Ar, Br, N, Sr) ->
+    ipv6_addr_scope(Cs, Ar, Br, N, [C|Sr]).
+%%
+ipv6_addr_scope(ScopeId, [P], Br, N)
+  when N =< 7, P =:= 16#fe80;
+       N =< 7, P =:= 16#ff02 ->
+    %% Optimized special case
+    ipv6_addr_done([ScopeId,P], Br, N+1);
+ipv6_addr_scope(ScopeId, Ar, Br, N) ->
+    case lists:reverse(Br++dup(8-N, 0, Ar)) of
+        [P,0|Xs] when P =:= 16#fe80; P =:= 16#ff02 ->
+            list_to_tuple([P,ScopeId|Xs]);
+        _ ->
+            erlang:error(badarg)
+    end.
 
 ipv6_addr_done(Ar, Br, N, {D1,D2,D3,D4}) ->
     ipv6_addr_done(Ar, [((D3 bsl 8) bor D4),((D1 bsl 8) bor D2)|Br], N+2).
@@ -690,6 +733,19 @@ hex(Cs, [_|_]=R, _) when is_list(Cs) ->
 hex(_, _, _) ->
     erlang:error(badarg).
 
+%% Parse a reverse decimal integer string, empty is 0
+dec16(Cs) -> dec16(Cs, 0).
+%%
+dec16([], I) -> I;
+dec16([C|Cs], I) when C >= $0, C =< $9 ->
+    case 10*I + (C - $0) of
+        J when 16#ffff < J ->
+            erlang:error(badarg);
+        J ->
+            dec16(Cs, J)
+    end;
+dec16(_, _) -> erlang:error(badarg).
+
 %% Hex string to integer
 hex_to_int(Cs) -> erlang:list_to_integer(Cs, 16).
 
@@ -701,9 +757,9 @@ dup(N, E, L) when is_integer(N), N >= 1 ->
 
 
 
-%% Convert IPv4 adress to ascii
-%% Convert IPv6 / IPV4 adress to ascii (plain format)
-ntoa({A,B,C,D}) ->
+%% Convert IPv4 address to ascii
+%% Convert IPv6 / IPV4 address to ascii (plain format)
+ntoa({A,B,C,D}) when (A band B band C band D band (bnot 16#ff)) =:= 0 ->
     integer_to_list(A) ++ "." ++ integer_to_list(B) ++ "." ++ 
 	integer_to_list(C) ++ "." ++ integer_to_list(D);
 %% ANY
@@ -711,13 +767,25 @@ ntoa({0,0,0,0,0,0,0,0}) -> "::";
 %% LOOPBACK
 ntoa({0,0,0,0,0,0,0,1}) -> "::1";
 %% IPV4 ipv6 host address
-ntoa({0,0,0,0,0,0,A,B}) -> "::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+ntoa({0,0,0,0,0,0,A,B}) when (A band B band (bnot 16#ffff)) =:= 0 ->
+    "::" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
 %% IPV4 non ipv6 host address
-ntoa({0,0,0,0,0,16#ffff,A,B}) -> 
-    "::FFFF:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
-ntoa({_,_,_,_,_,_,_,_}=T) ->
-    %% Find longest sequence of zeros, at least 2, to replace with "::"
-    ntoa(tuple_to_list(T), []);
+ntoa({0,0,0,0,0,16#ffff,A,B}) when (A band B band (bnot 16#ffff)) =:= 0 ->
+    "::ffff:" ++ dig_to_dec(A) ++ "." ++ dig_to_dec(B);
+ntoa({A,B,C,D,E,F,G,H})
+  when (A band B band C band D band E band F band G band H band
+            (bnot 16#ffff)) =:= 0 ->
+    if
+        A =:= 16#fe80, B =/= 0;
+        A =:= 16#ff02, B =/= 0 ->
+            %% Find longest sequence of zeros, at least 2,
+            %% to replace with "::"
+            ntoa([A,0,C,D,E,F,G,H], []) ++ "%0" ++ integer_to_list(B);
+        true ->
+            %% Find longest sequence of zeros, at least 2,
+            %% to replace with "::"
+            ntoa([A,B,C,D,E,F,G,H], [])
+    end;
 ntoa(_) ->
     {error, einval}.
 
@@ -780,9 +848,19 @@ dig_to_dec(X) ->
     integer_to_list((X bsr 8) band 16#ff) ++ "." ++
 	integer_to_list(X band 16#ff).
 
-%% Convert a integer to hex string
-dig_to_hex(X) ->
-    erlang:integer_to_list(X, 16).
+%% Convert a integer to hex string (lowercase)
+dig_to_hex(0) -> "0";
+dig_to_hex(X) when is_integer(X), 0 < X ->
+    dig_to_hex(X, "").
+%%
+dig_to_hex(0, Acc) -> Acc;
+dig_to_hex(X, Acc) ->
+    dig_to_hex(
+      X bsr 4,
+      [case X band 15 of
+           D when D < 10 -> D + $0;
+           D -> D - 10 + $a
+       end|Acc]).
 
 %%
 %% Count number of '.' in a name

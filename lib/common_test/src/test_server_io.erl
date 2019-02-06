@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -184,8 +184,9 @@ reset_state() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 	    io_buffering=gb_sets:empty(),
 	    buffered=Empty,
@@ -200,7 +201,7 @@ req(Req) ->
     gen_server:call(?MODULE, Req, infinity).
 
 handle_call({get_gl,false}, _From, #st{gls=Gls,gl_props=Props}=St) ->
-    {ok,Pid} = test_server_gl:start_link(),
+    {ok,Pid} = test_server_gl:start_link(self()),
     test_server_gl:set_props(Pid, Props),
     {reply,Pid,St#st{gls=gb_sets:insert(Pid, Gls)}};
 handle_call({get_gl,true}, _From, #st{shared_gl=Shared}=St) ->
@@ -262,7 +263,7 @@ handle_call(reset_state, From, #st{phase=stopping,pending_ops=Ops}=St) ->
 		 {Result,NewSt1}
 	 end,
     {noreply,St#st{pending_ops=[{From,Op}|Ops]}};
-handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
+handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,shared_gl=Shared0,gls=Gls,
 				    offline_buffer=OfflineBuff}) ->
     %% close open log files
     lists:foreach(fun(Tag) ->
@@ -273,6 +274,7 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 				  file:close(Fd)
 			  end
 		  end, Tags),
+    test_server_gl:stop(Shared0),
     GlList = gb_sets:to_list(Gls),
     _ = [test_server_gl:stop(GL) || GL <- GlList],
     timer:sleep(100),
@@ -285,7 +287,7 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 	    ok
     end,
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {reply,ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 		  io_buffering=gb_sets:empty(),
 		  buffered=Empty,
@@ -320,7 +322,7 @@ handle_call(finish, From, St) ->
 
 handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
     Gls = gb_sets:delete_any(Pid, Gls0),
-    case gb_sets:is_empty(Gls) andalso stopping =/= undefined of
+    case gb_sets:is_empty(Gls) andalso From =/= undefined of
 	true ->
 	    %% No more group leaders left.
 	    gen_server:reply(From, ok),
@@ -329,6 +331,9 @@ handle_info({'EXIT',Pid,normal}, #st{gls=Gls0,stopping=From}=St) ->
 	    %% Wait for more group leaders to finish.
 	    {noreply,St#st{gls=Gls,phase=stopping}}
     end;
+handle_info({'EXIT',Pid,killed}, #st{gls=Gls0}=St) ->
+    %% forced termination of group leader
+    {noreply,St#st{gls=gb_sets:delete_any(Pid, Gls0)}};
 handle_info({'EXIT',_Pid,Reason}, _St) ->
     exit(Reason);
 handle_info(stop_group_leaders, #st{gls=Gls}=St) ->
@@ -359,7 +364,7 @@ handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
 		      end, St#st{phase=idle,pending_ops=[]}, Ops),
     {noreply,St1};
 handle_info(Other, St) ->
-    io:format("Ignoring: ~p\n", [Other]),
+    io:format("Ignoring: ~tp\n", [Other]),
     {noreply,St}.
 
 terminate(_, _) ->
@@ -395,7 +400,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 	none when Phase /= started ->
 	    buffer;
 	none ->
-	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~p' log file\n",
+	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~tp' log file\n",
 			      [?MODULE,?LINE,Tag]),
 	    do_output(stdout, [S,Str], Phase, St);
 	{value,Fd} ->
@@ -407,7 +412,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 		end
 	    catch _:Error ->
 		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
-				      "log file '~p': ~p\n",
+				      "log file '~tp': ~tp\n",
 				      [?MODULE,?LINE,Tag,Error]),
 		    do_output(stdout, [S,Str], Phase, St)
 	    end

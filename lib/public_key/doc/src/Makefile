@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = public_key.xml
 XML_REF6_FILES = public_key_app.xml
 
-XML_PART_FILES = part.xml part_notes.xml
+XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = \
 	introduction.xml \
         public_key_records.xml \
@@ -50,9 +50,9 @@ XML_CHAPTER_FILES = \
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-             $(XML_REF6_FILES) $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+             $(XML_REF6_FILES) $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-GIF_FILES = note.gif
+GIF_FILES =
 
 # ----------------------------------------------------
 
@@ -77,11 +77,17 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 XML_FLAGS +=
 DVIPS_FLAGS +=
+
+SPECS_FLAGS = -I../../include -I../../src -I../../..
 
 # ----------------------------------------------------
 # Targets
@@ -99,9 +105,11 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECS_FILES)
 	rm -f errs core *~
 
 man: $(MAN3_FILES) $(MAN6_FILES)

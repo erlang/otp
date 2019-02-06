@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,10 @@
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
-	 bad_literals/1,good_literals/1,constant_propagation/1]).
+	 bad_literals/1,good_literals/1,constant_propagation/1,
+	 parse_xml/1,get_payload/1,escape/1,num_slots_different/1,
+         beam_bsm/1,guard/1,is_ascii/1,non_opt_eq/1,erl_689/1,
+         bs_start_match2_defs/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -51,7 +54,6 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -69,10 +71,14 @@ groups() ->
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
-       bad_literals,good_literals,constant_propagation]}].
+       bad_literals,good_literals,constant_propagation,parse_xml,
+       get_payload,escape,num_slots_different,
+       beam_bsm,guard,is_ascii,non_opt_eq,erl_689,
+       bs_start_match2_defs]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -326,6 +332,11 @@ save_restore(Config) when is_list(Config) ->
     {"-",<<"x">>} = nnn(C),
     {"-",<<"x">>} = ooo(C),
 
+    a = multiple_matches(<<777:16>>, <<777:16>>),
+    b = multiple_matches(<<777:16>>, <<999:16>>),
+    c = multiple_matches(<<777:16>>, <<57:8>>),
+    d = multiple_matches(<<17:8>>, <<1111:16>>),
+
     Bin = <<-1:64>>,
     case bad_float_unpack_match(Bin) of
 	-1 -> ok;
@@ -352,6 +363,11 @@ nnn(<<Char,         Tail/binary>>) -> {[Char],Tail}. %% Buggy Tail!
 
 ooo(<<" - ",        Tail/binary>>) -> Tail;
 ooo(<<Char,         Tail/binary>>) -> {[Char],Tail}.
+
+multiple_matches(<<Y:16>>, <<Y:16>>) -> a;
+multiple_matches(<<_:16>>, <<_:16>>) -> b;
+multiple_matches(<<_:16>>, <<_:8>>) -> c;
+multiple_matches(<<_:8>>, <<_:16>>) -> d.
 
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
@@ -674,6 +690,10 @@ coverage(Config) when is_list(Config) ->
     <<>> = coverage_per_key(<<4:32>>),
     <<$a,$b,$c>> = coverage_per_key(<<7:32,"abc">>),
 
+    binary = coverage_bitstring(<<>>),
+    binary = coverage_bitstring(<<7>>),
+    bitstring = coverage_bitstring(<<7:4>>),
+    other = coverage_bitstring([a]),
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -764,10 +784,19 @@ coverage_per_key(<<BinSize:32,Bin/binary>> = B) ->
     true = (byte_size(B) =:= BinSize),
     Bin.
 
+coverage_bitstring(Bin) when is_binary(Bin) -> binary;
+coverage_bitstring(<<_/bitstring>>) -> bitstring;
+coverage_bitstring(_) -> other.
+
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
     true = multiple_uses_2(<<0,0,197,18>>),
     <<42,43>> = multiple_uses_3(<<0,0,42,43>>, fun id/1),
+
+    ok = first_after(<<>>, 42),
+    <<1>> = first_after(<<1,2,3>>, 0),
+    <<2>> = first_after(<<1,2,3>>, 1),
+
     ok.
 
 multiple_uses_1(<<X:16,Tail/binary>>) ->
@@ -788,6 +817,24 @@ multiple_uses_match(<<Y:16,Z:16>>) ->
 
 multiple_uses_cmp(<<Y:16>>, <<Y:16>>) -> true;
 multiple_uses_cmp(<<_:16>>, <<_:16>>) -> false.
+
+first_after(Data, Offset) ->
+    case byte_size(Data) > Offset of
+	false ->
+	    {_First, _Rest} = {ok, ok},
+	    ok;
+	true ->
+	    <<_:Offset/binary, Rest/binary>> = Data,
+	    %% 'Rest' saved in y(0) before the call.
+            {First, _} = match_first(Data, Rest),
+            %% When beam_bsm sees the code, the following line
+            %% which uses y(0) has been optimized away.
+	    {First, Rest} = {First, Rest},
+	    First
+    end.
+
+match_first(_, <<First:1/binary, Rest/binary>>) ->
+    {First, Rest}.
 
 zero_label(Config) when is_list(Config) ->
     <<"nosemouth">> = read_pols(<<"FACE","nose","mouth">>),
@@ -863,27 +910,40 @@ matching_and_andalso(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, blurf)),
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, 19)),
 
-    {"abc",<<"xyz">>} = matching_and_andalso_2("abc", <<"-xyz">>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($a-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($z+1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($A-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($Z+1)>>),
-    error = matching_and_andalso_2([], <<>>),
-    error = matching_and_andalso_2([], <<$A>>),
-    error = matching_and_andalso_2([], <<$Z>>),
-    error = matching_and_andalso_2([], <<$a>>),
-    error = matching_and_andalso_2([], <<$z>>),
+    {"abc",<<"xyz">>} = matching_and_andalso_23("abc", <<"-xyz">>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($a-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($z+1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($A-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($Z+1)>>),
+    error = matching_and_andalso_23([], <<>>),
+    error = matching_and_andalso_23([], <<$A>>),
+    error = matching_and_andalso_23([], <<$Z>>),
+    error = matching_and_andalso_23([], <<$a>>),
+    error = matching_and_andalso_23([], <<$z>>),
     ok.
 
 matching_and_andalso_1(<<Bitmap/binary>>, K)
   when is_integer(K) andalso size(Bitmap) >= K andalso 0 < K ->
     ok.
 
+matching_and_andalso_23(Datetime, Bin) ->
+    Res = matching_and_andalso_2(Datetime, Bin),
+    Res = matching_and_andalso_3(Datetime, Bin),
+    Res.
+
 matching_and_andalso_2(Datetime, <<H,T/binary>>)
   when not ((H >= $a) andalso (H =< $z)) andalso
        not ((H >= $A) andalso (H =< $Z)) ->
     {Datetime,T};
 matching_and_andalso_2(_, _) -> error.
+
+%% Contrived example to ensure we cover the handling of 'call' instructions
+%% in v3_codegen:bsm_rename_ctx/4.
+matching_and_andalso_3(Datetime, <<H,T/binary>>)
+  when not ((abs(H) >= $a) andalso (abs(H) =< $z)) andalso
+       not ((abs(H) >= $A) andalso (abs(H) =< $Z)) ->
+    {Datetime,T};
+matching_and_andalso_3(_, _) -> error.
 
 %% Thanks to Tomas Stejskal.
 otp_7188(Config) when is_list(Config) ->
@@ -1451,6 +1511,258 @@ constant_propagation_c() ->
 	    X
     end.
 
+parse_xml(_Config) ->
+    <<"<?xmlX">> = do_parse_xml(<<"<?xmlX">>),
+    <<" ">> = do_parse_xml(<<"<?xml ">>),
+    ok.
+
+do_parse_xml(<<"<?xml"/utf8,Rest/binary>> = Bytes) ->
+    %% Delayed sub-binary creation is not safe. A buggy (development)
+    %% version of check_liveness_everywhere() in beam_utils would turn
+    %% on the optimization.
+    Rest1 = case is_next_char_whitespace(Rest) of
+		false ->
+		    Bytes;
+		true ->
+		    id(Rest)
+	    end,
+    id(Rest1).
+
+is_next_char_whitespace(<<C/utf8,_/binary>>) ->
+    C =:= $\s.
+
+-record(ext_header,
+        {this_hdr = 17,
+         ext_hdr_opts}).
+
+get_payload(_Config) ->
+    <<3445:48>> = do_get_payload(#ext_header{ext_hdr_opts = <<3445:48>>}),
+    {'EXIT',_} = (catch do_get_payload(#ext_header{})),
+    ok.
+
+do_get_payload(ExtHdr) ->
+    _ = ExtHdr#ext_header.this_hdr,
+    ExtHdrOptions = ExtHdr#ext_header.ext_hdr_opts,
+    <<_:13,_:35>> = ExtHdr#ext_header.ext_hdr_opts,
+    ExtHdrOptions.
+
+escape(_Config) ->
+    0 = escape(<<>>, 0),
+    1 = escape(<<128>>, 0),
+    2 = escape(<<128,255>>, 0),
+    42 = escape(<<42>>, 0),
+    50 = escape(<<42,8>>, 0),
+    ok.
+
+escape(<<Byte, Rest/bits>>, Pos) when Byte >= 127 ->
+    escape(Rest, Pos + 1);
+escape(<<Byte, Rest/bits>>, Pos) ->
+    escape(Rest, Pos + Byte);
+escape(<<_Rest/bits>>, Pos) ->
+    Pos.
+
+%% ERL-490
+num_slots_different(_Config) ->
+    Ts = [{<<"de">>, <<"default">>, <<"Remove">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Remove from list">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Remove from the list">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Results">>, <<"Ergebnisse">>},
+          {<<"de">>, <<"default">>, <<"Reservatio">>, <<"a">>},
+          {<<"de">>, <<"navigation">>, <<"Results">>, <<"Ergebnisse">>},
+          {<<"de">>, <<"navigation">>, <<"Resources">>, <<"Ressourcen">>}],
+    _ = [{ok,Res} = lgettext(A, B, C) || {A,B,C,Res} <- Ts],
+
+    {'EXIT',_} = (catch lgettext(<<"d">>, <<"default">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext("", <<"default">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext(<<"de">>, <<"def">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext(<<"de">>, <<"default">>, <<"Res">>)),
+    ok.
+
+
+lgettext(<<"de">>, <<"default">>, <<"Remove">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Remove from list">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Remove from the list">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Results">>) ->
+    {ok, <<"Ergebnisse">>};
+lgettext(<<"de">>, <<"default">>, <<"Reservatio">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"navigation">>, <<"Results">>) ->
+    {ok, <<"Ergebnisse">>};
+lgettext(<<"de">>, <<"navigation">>, <<"Resources">>) ->
+    {ok, <<"Ressourcen">>}.
+
+%% Test more code in beam_bsm.
+beam_bsm(_Config) ->
+    true = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [1,0,1,1]),
+    false = check_bitstring_list(<<1:1,0:1,1:1,1:1>>, [0]),
+
+    true = bsm_validate_scheme(<<>>),
+    true = bsm_validate_scheme(<<5,10>>),
+    false = bsm_validate_scheme(<<5,10,11,12>>),
+    true = bsm_validate_scheme([]),
+    true = bsm_validate_scheme([5,10]),
+    false = bsm_validate_scheme([5,6,7]),
+
+    <<1,2,3>> = bsm_must_save_and_not_save(<<1,2,3>>, []),
+    D = fun(N) -> 2*N end,
+    [2,4|<<3>>] = bsm_must_save_and_not_save(<<1,2,3>>, [D,D]),
+
+    ok.
+
+check_bitstring_list(<<H:1,T1/bitstring>>, [H|T2]) ->
+    check_bitstring_list(T1, T2);
+check_bitstring_list(<<>>, []) ->
+    true;
+check_bitstring_list(_, _) ->
+    false.
+
+bsm_validate_scheme([]) -> true;
+bsm_validate_scheme([H|T]) ->
+    case bsm_is_scheme(H) of
+        true -> bsm_validate_scheme(T);
+        false -> false
+    end;
+bsm_validate_scheme(<<>>) -> true;
+bsm_validate_scheme(<<H, Rest/binary>>) ->
+    case bsm_is_scheme(H) of
+        true -> bsm_validate_scheme(Rest);
+        false -> false
+    end.
+
+bsm_is_scheme(Int) ->
+    Int rem 5 =:= 0.
+
+%% NOT OPTIMIZED: different control paths use different positions in the binary
+bsm_must_save_and_not_save(Bin, []) ->
+    Bin;
+bsm_must_save_and_not_save(<<H,T/binary>>, [F|Fs]) ->
+    [F(H)|bsm_must_save_and_not_save(T, Fs)];
+bsm_must_save_and_not_save(<<>>, []) ->
+    [].
+
+guard(_Config) ->
+    _Tuple = id({a,b}),
+    ok = guard_1(<<1,2,3>>, {1,2,3}),
+    ok = guard_2(<<42>>, #{}),
+    ok.
+
+%% Cover handling of #k_put{} in v3_codegen:bsm_rename_ctx/4.
+guard_1(<<A,B,C>>, Tuple) when Tuple =:= {A,B,C} ->
+    ok.
+
+%% Cover handling of #k_call{} in v3_codegen:bsm_rename_ctx/4.
+guard_2(<<_>>, Healing) when Healing#{[] => Healing} =:= #{[] => #{}} ->
+    ok.
+
+is_ascii(_Config) ->
+    true = do_is_ascii(<<>>),
+    true = do_is_ascii(<<"string">>),
+    false = do_is_ascii(<<1024/utf8>>),
+    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<$A,0:3>>)),
+    {'EXIT',{function_clause,_}} = (catch do_is_ascii(<<16#80,0:3>>)),
+    ok.
+
+do_is_ascii(<<>>) ->
+    true;
+do_is_ascii(<<C,_/binary>>) when C >= 16#80 ->
+    %% This clause must fail to match if the size of the argument in
+    %% bits is not divisible by 8. Beware of unsafe optimizations.
+    false;
+do_is_ascii(<<_, T/binary>>) ->
+    do_is_ascii(T).
+
+non_opt_eq(_Config) ->
+    true = non_opt_eq([], <<>>),
+    true = non_opt_eq([$a], <<$a>>),
+    false = non_opt_eq([$a], <<$b>>),
+    ok.
+
+%% An example from the Efficiency Guide. It used to be not optimized,
+%% but now it can be optimized.
+
+non_opt_eq([H|T1], <<H,T2/binary>>) ->
+    non_opt_eq(T1, T2);
+non_opt_eq([_|_], <<_,_/binary>>) ->
+    false;
+non_opt_eq([], <<>>) ->
+    true.
+
+%% ERL-689
+
+erl_689(_Config) ->
+    {{0, 0, 0}, <<>>} = do_erl_689_1(<<0>>, ?MODULE),
+    {{2018, 8, 7}, <<>>} = do_erl_689_1(<<4,2018:16/little,8,7>>, ?MODULE),
+    {{0, 0, 0}, <<>>} = do_erl_689_2(?MODULE, <<0>>),
+    {{2018, 8, 7}, <<>>} = do_erl_689_2(?MODULE, <<4,2018:16/little,8,7>>),
+    ok.
+
+do_erl_689_1(Arg1, Arg2) ->
+    Res = do_erl_689_1a(Arg1, Arg2),
+    Res = do_erl_689_1b(Arg1, Arg2).
+
+do_erl_689_2(Arg1, Arg2) ->
+    Res = do_erl_689_2a(Arg1, Arg2),
+    Res = do_erl_689_2b(Arg1, Arg2).
+
+do_erl_689_1a(<<Length, Data/binary>>, _) ->
+    case {Data, Length} of
+        {_, 0} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            {{0, 0, 0}, Data};
+        {<<Y:16/little, M, D, Rest/binary>>, 4} ->
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_1b(<<Length, Data/binary>>, _) ->
+    case {Data, Length} of
+        {_, 0} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            id(0),
+            {{0, 0, 0}, Data};
+        {<<Y:16/little, M, D, Rest/binary>>, 4} ->
+            id(1),
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_2a(_, <<Length, Data/binary>>) ->
+    case {Length, Data} of
+        {0, _} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            {{0, 0, 0}, Data};
+        {4, <<Y:16/little, M, D, Rest/binary>>} ->
+            {{Y, M, D}, Rest}
+    end.
+
+do_erl_689_2b(_, <<Length, Data/binary>>) ->
+    case {Length, Data} of
+        {0, _} ->
+            %% bs_context_to_binary would incorrectly set Data to the original
+            %% binary (before matching in the function head).
+            id(0),
+            {{0, 0, 0}, Data};
+        {4, <<Y:16/little, M, D, Rest/binary>>} ->
+            id(1),
+            {{Y, M, D}, Rest}
+    end.
+
+%% ERL-753
+
+bs_start_match2_defs(_Config) ->
+    {<<"http://127.0.0.1:1234/vsaas/hello">>} = api_url(<<"hello">>, dummy),
+    {"https://127.0.0.1:4321/vsaas/hello"} = api_url({https, "hello"}, dummy).
+
+api_url(URL, Auth) ->
+    Header = [],
+    case URL of
+        <<_/binary>> -> {<<"http://127.0.0.1:1234/vsaas/",URL/binary>>};
+        {https, [_|_] = URL1} -> {"https://127.0.0.1:4321/vsaas/"++URL1}
+    end.
 
 check(F, R) ->
     R = F().

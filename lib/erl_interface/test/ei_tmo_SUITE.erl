@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,14 +39,16 @@ all() ->
     [framework_check, ei_accept_tmo, ei_connect_tmo,
      ei_send_tmo, ei_recv_tmo].
 
-init_per_testcase(_Case, Config) ->
+init_per_testcase(Case, Config) ->
+    Config1 = runner:init_per_testcase(?MODULE, Case, Config),
+
     % test if platform is vxworks_simso
     {_,Host} = split(node()),
     Bool = case atom_to_list(Host) of
                [$v,$x,$s,$i,$m | _] -> true;
                _ -> false
            end,
-    [{vxsim,Bool}|Config].
+    [{vxsim,Bool} | Config1].
 
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -55,7 +57,7 @@ end_per_testcase(_Case, _Config) ->
 framework_check(Config) when is_list(Config) ->
     %%dbg:tracer(),
     %%dbg:p(self()),
-    P = runner:start(?framework_check),
+    P = runner:start(Config, ?framework_check),
     runner:send_term(P,{hello,world}),
     {term, {hello,world}} = runner:get_term(P),
     runner:recv_eot(P),
@@ -71,7 +73,7 @@ ei_recv_tmo(Config) when is_list(Config) ->
 
 do_one_recv(Config,CNode) ->
     {_,Host} = split(node()),
-    P1 = runner:start(?recv_tmo),
+    P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
                          node()}),
@@ -84,7 +86,7 @@ do_one_recv(Config,CNode) ->
     runner:recv_eot(P1).
 
 do_one_recv_failure(Config,CNode) ->
-    P1 = runner:start(?recv_tmo),
+    P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
                          node()}),
@@ -110,7 +112,7 @@ ei_send_tmo(Config) when is_list(Config) ->
 
 do_one_send(Config,From,CNode) ->
     {_,Host} = split(node()),
-    P1 = runner:start(?send_tmo),
+    P1 = runner:start(Config, ?send_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
                          node()}),
@@ -139,7 +141,7 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
                       exit(Else)
               end,
     EpmdSocket = register(OurName, LSocket, 1, 5),
-    P3 = runner:start(?send_tmo),
+    P3 = runner:start(Config, ?send_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{CName,
                          Cookie,
@@ -202,7 +204,7 @@ ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:p(self()),
     VxSim = proplists:get_value(vxsim, Config),
     DummyNode = make_and_check_dummy(),
-    P = runner:start(?connect_tmo),
+    P = runner:start(Config, ?connect_tmo),
     runner:send_term(P,{c_nod_connect_tmo_1,
                         kaksmula_som_ingen_bryr_sig_om,
                         DummyNode}),
@@ -219,7 +221,7 @@ ei_connect_tmo(Config) when is_list(Config) ->
            end
     end,
     runner:recv_eot(P),
-    P2 = runner:start(?connect_tmo),
+    P2 = runner:start(Config, ?connect_tmo),
     runner:send_term(P2,{c_nod_connect_tmo_2,
                          erlang:get_cookie(),
                          node()}),
@@ -237,7 +239,7 @@ ei_connect_tmo(Config) when is_list(Config) ->
                       exit(Else)
               end,
     EpmdSocket = register(OurName, LSocket, 1, 5),
-    P3 = runner:start(?connect_tmo),
+    P3 = runner:start(Config, ?connect_tmo),
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{c_nod_connect_tmo_3,
                          Cookie,
@@ -266,12 +268,12 @@ ei_connect_tmo(Config) when is_list(Config) ->
 ei_accept_tmo(Config) when is_list(Config) ->
     %%dbg:tracer(),
     %%dbg:p(self()),
-    P = runner:start(?accept_tmo),
+    P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_ingen_kontaktar_1,
                         kaksmula_som_ingen_bryr_sig_om}),
     {term,{-1,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
-    P2 = runner:start(?accept_tmo),
+    P2 = runner:start(Config, ?accept_tmo),
     runner:send_term(P2,{c_nod_som_vi_kontaktar_1,
                          erlang:get_cookie()}),
     receive after 1000 -> ok end,
@@ -280,7 +282,7 @@ ei_accept_tmo(Config) when is_list(Config) ->
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
-    P3 = runner:start(?accept_tmo),
+    P3 = runner:start(Config, ?accept_tmo),
     runner:send_term(P3,{c_nod_som_vi_kontaktar_2,
                          erlang:get_cookie()}),
     receive after 1000 -> ok end,

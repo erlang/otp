@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 	 progex_bit_syntax/1, progex_records/1, 
 	 progex_lc/1, progex_funs/1,
 	 otp_5990/1, otp_6166/1, otp_6554/1,
-	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1]).
+	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1, otp_13719/1,
+         otp_14285/1, otp_14296/1, typed_records/1]).
 
 -export([ start_restricted_from_shell/1, 
 	  start_restricted_on_command_line/1,restricted_local/1]).
@@ -73,10 +74,10 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    [forget, records, known_bugs, otp_5226, otp_5327,
+    [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
-     {group, restricted}].
+     {group, restricted}, {group, records}].
 
 groups() -> 
     [{restricted, [],
@@ -85,13 +86,15 @@ groups() ->
      {bits, [],
       [bs_match_misc_SUITE, bs_match_tail_SUITE,
        bs_match_bin_SUITE, bs_construct_SUITE]},
+     {records, [],
+      [records, typed_records]},
      {refman, [], [refman_bit_syntax]},
      {progex, [],
       [progex_bit_syntax, progex_records, progex_lc,
        progex_funs]},
      {tickets, [],
       [otp_5990, otp_6166, otp_6554, otp_7184,
-       otp_7232, otp_8393, otp_10302, otp_13719]}].
+       otp_7232, otp_8393, otp_10302, otp_13719, otp_14285, otp_14296]}].
 
 init_per_suite(Config) ->
     Config.
@@ -282,7 +285,7 @@ restricted_local(Config) when is_list(Config) ->
 	comm_err(<<"begin F=fun() -> hello end, foo(F) end.">>),
     "exception error: undefined shell command banan/1" =
 	comm_err(<<"begin F=fun() -> hello end, banan(F) end.">>),
-    "{error,"++_ = t(<<"begin F=fun() -> hello end, c(F) end.">>),
+    "Recompiling "++_ = t(<<"c(shell_SUITE).">>),
     "exception exit: restricted shell does not allow l(" ++ _ =
 	comm_err(<<"begin F=fun() -> hello end, l(F) end.">>),
     "exception error: variable 'F' is unbound" =
@@ -375,6 +378,9 @@ records(Config) when is_list(Config) ->
     [[state]] = scan(RR4),
 
     Test = filename:join(proplists:get_value(priv_dir, Config), "test.erl"),
+    BeamDir = filename:join(proplists:get_value(priv_dir, Config), "beam"),
+    BeamFile = filename:join(BeamDir, "test"),
+    ok = file:make_dir(BeamDir),
     Contents = <<"-module(test).
                   -record(state, {bin :: binary(),
                                   reply = no,
@@ -386,8 +392,10 @@ records(Config) when is_list(Config) ->
 
                   -ifdef(test2).
                   -record(test2, {g}).
-                  -endif.">>,
+                  -endif.
+                 ">>,
     ok = file:write_file(Test, Contents),
+    {ok, test} = compile:file(Test, [{outdir, BeamDir}]),
 
     RR5 = "rr(\"" ++ Test ++ "\", '_', {d,test1}), rl([test1,test2]).",
     A1 = erl_anno:new(1),
@@ -403,7 +411,11 @@ records(Config) when is_list(Config) ->
     Dir = filename:join(proplists:get_value(priv_dir, Config), "*.erl"),
     RR8 = "rp(rr(\"" ++ Dir ++ "\")).",
     [_,ok] = scan(RR8),
+
+    {module, test} = code:load_abs(BeamFile),
+    [[state]] = scan(<<"rr(test).">>),
     file:delete(Test),
+    file:delete(BeamFile++".beam"),
 
     RR1000 = "begin rr(" ++ MS ++ ") end.",
     [_] = scan(RR1000),
@@ -476,6 +488,48 @@ records(Config) when is_list(Config) ->
 
     ok.
 
+%% Test of typed record support.
+typed_records(Config) when is_list(Config) ->
+    Test = filename:join(proplists:get_value(priv_dir, Config), "test.hrl"),
+    Contents = <<"-module(test).
+                  -record(r0,{f :: any()}).
+                  -record(r1,{f1 :: #r1{} | undefined, f2 :: #r0{} | atom()}).
+                  -record(r2,{f :: #r2{} | undefined}).
+                 ">>,
+    ok = file:write_file(Test, Contents),
+
+    RR1 = "rr(\"" ++ Test ++ "\"),
+          #r1{} = (#r1{f1=#r1{f1=undefined, f2=x}, f2 = #r0{}})#r1.f1,
+          ok.",
+    RR2 = "rr(\"" ++ Test ++ "\"),
+          #r0{} = (#r1{f1=#r1{f1=undefined, f2=x}, f2 = #r0{}})#r1.f2,
+          ok. ",
+    RR3 = "rr(\"" ++ Test ++ "\"),
+          #r1{f2=#r0{}} = (#r1{f1=#r1{f1=undefined, f2=#r0{}}, f2 = x})#r1.f1,
+          ok.",
+    RR4 = "rr(\"" ++ Test ++ "\"),
+          (#r1{f2 = #r0{}})#r1{f2 = x},
+          ok. ",
+    RR5 = "rr(\"" ++ Test ++ "\"),
+          (#r1{f2 = #r0{}})#r1{f1 = #r1{}},
+          ok. ",
+    RR6 = "rr(\"" ++ Test ++ "\"),
+           (#r2{f=#r2{f=undefined}})#r2.f,
+          ok.",
+    RR7 = "rr(\"" ++ Test ++ "\"),
+           #r2{} = (#r2{f=#r2{f=undefined}})#r2.f,
+          ok.",
+    [ok] = scan(RR1),
+    [ok] = scan(RR2),
+    [ok] = scan(RR3),
+    [ok] = scan(RR4),
+    [ok] = scan(RR5),
+    [ok] = scan(RR6),
+    [ok] = scan(RR7),
+
+    file:delete(Test),
+    ok.
+
 %% Known bugs.
 known_bugs(Config) when is_list(Config) ->
     %% erl_eval:merge_bindings/2 cannot handle _removal_ of bindings.
@@ -507,9 +561,10 @@ otp_5226(Config) when is_list(Config) ->
 otp_5327(Config) when is_list(Config) ->
     "exception error: bad argument" =
         comm_err(<<"<<\"hej\":default>>.">>),
+    L1 = erl_anno:new(1),
     <<"abc">> =
-        erl_parse:normalise({bin,1,[{bin_element,1,{string,1,"abc"},
-				     default,default}]}),
+        erl_parse:normalise({bin,L1,[{bin_element,L1,{string,L1,"abc"},
+                                      default,default}]}),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>):3/binary>>.">>),
     [<<"abc">>] = scan(<<"<<(<<\"abc\">>)/binary>>.">>),
     "exception error: bad argument" =
@@ -522,9 +577,9 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<10:default>>.">>),
     [<<98,1:1>>] = scan(<<"<<3:3,5:6>>.">>),
     {'EXIT',{badarg,_}} =
-        (catch erl_parse:normalise({bin,1,[{bin_element,1,{integer,1,17},
-                                            {atom,1,all},
-                                            default}]})),
+        (catch erl_parse:normalise({bin,L1,[{bin_element,L1,{integer,L1,17},
+                                             {atom,L1,all},
+                                             default}]})),
     [<<-20/signed>>] = scan(<<"<<-20/signed>> = <<-20>>.">>),
     [<<-300:16/signed>>] =
 	scan(<<"<<-300:16/signed>> = <<-300:16>>.">>),
@@ -573,7 +628,7 @@ otp_5327(Config) when is_list(Config) ->
         (catch evaluate(<<"<<32/unit:8>>.">>, [])),
     ok.
 
-%% OTP-5435. sys_pre_expand not in the path.
+%% OTP-5435. compiler application not in the path.
 otp_5435(Config) when is_list(Config) ->
     true = <<103133:64/float>> =:=
         evaluate(<<"<<103133:64/float>> = <<103133:64/float>>.">>, []),
@@ -591,8 +646,9 @@ start_node(Name) ->
 
 otp_5435_2() ->
     true = code:del_path(compiler),
-    %% sys_pre_expand can no longer be found
-    %% OTP-5876. But erl_expand_records can!
+    %% Make sure record evaluation is not dependent on the compiler
+    %% application being in the path.
+    %% OTP-5876.
     [{attribute,_,record,{bar,_}},ok] =
         scan(<<"rd(foo,{bar}), 
                 rd(bar,{foo = (#foo{})#foo.bar}),
@@ -1793,7 +1849,7 @@ Test1_shell =
 Test2 =
 <<"-module(recs).
           -record(person, {name, age, phone = [], dict = []}).
--compile(export_all).
+-export([t/0]).
 
 t() -> ok.
 
@@ -1960,7 +2016,7 @@ ok.
 progex_funs(Config) when is_list(Config) ->
     Test1 = 
 	<<"-module(funs).
-          -compile(export_all).
+          -export([t/0]).
 
 double([H|T]) -> [2*H|double(T)];
 double([])    -> [].
@@ -2325,7 +2381,7 @@ otp_6554(Config) when is_list(Config) ->
 			  "[unproper | list]).">>),
 	    %% Cheating:
 	    "exception error: no function clause matching "
-		"erl_eval:do_apply(4)" ++ _ =
+		"shell:apply_fun(4)" ++ _ =
 		comm_err(<<"erlang:error(function_clause, [4]).">>),
 		"exception error: no function clause matching "
 		"lists:reverse(" ++ _ =
@@ -2669,7 +2725,7 @@ prompt_err(B) ->
     S = string:strip(S2, both, $"),
     string:strip(S, right, $.).
 
-%% OTP-10302. Unicode.
+%% OTP-10302. Unicode. Also OTP-14285, Unicode atoms.
 otp_10302(Config) when is_list(Config) ->
     {ok,Node} = start_node(shell_suite_helper_2,
 			   "-pa "++proplists:get_value(priv_dir,Config)++
@@ -2724,12 +2780,12 @@ otp_10302(Config) when is_list(Config) ->
     rpc:call(Node,shell, prompt_func, [default]),
     _ = shell:prompt_func(default),
 
-    %% Test lib:format_exception() (cf. OTP-6554)
+    %% Test erl_error:format_exception() (cf. OTP-6554)
     Test6 =
         <<"begin
                A = <<\"\\xaa\">>,
                S = lists:flatten(io_lib:format(\"~p/~p.\", [A, A])),
-               {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+               {ok, Ts, _} = erl_scan:string(S, 1),
                {ok, Es} = erl_parse:parse_exprs(Ts),
                B = erl_eval:new_bindings(),
                erl_eval:exprs(Es, B)
@@ -2742,7 +2798,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"io:setopts([{encoding,utf8}]).
            A = <<\"\\xaa\">>,
            S = lists:flatten(io_lib:format(\"~p/~p.\", [A, A])),
-           {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+           {ok, Ts, _} = erl_scan:string(S, 1),
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
@@ -2754,7 +2810,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"begin
                A = [1089],
                S = lists:flatten(io_lib:format(\"~tp/~tp.\", [A, A])),
-               {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+               {ok, Ts, _} = erl_scan:string(S, 1),
                {ok, Es} = erl_parse:parse_exprs(Ts),
                B = erl_eval:new_bindings(),
                erl_eval:exprs(Es, B)
@@ -2766,7 +2822,7 @@ otp_10302(Config) when is_list(Config) ->
         <<"io:setopts([{encoding,utf8}]).
            A = [1089],
            S = lists:flatten(io_lib:format(\"~tp/~tp.\", [A, A])),
-           {ok, Ts, _} = erl_scan:string(S, 1, [unicode]),
+           {ok, Ts, _} = erl_scan:string(S, 1),
            {ok, Es} = erl_parse:parse_exprs(Ts),
            B = erl_eval:new_bindings(),
            erl_eval:exprs(Es, B).">>,
@@ -2807,6 +2863,22 @@ otp_10302(Config) when is_list(Config) ->
     "                    erl_eval:'-inside-an-interpreted-fun-'(65,\"\x{441}\")"
     " .\n" = t({Node,Test13}),
 
+    %% Unicode atoms.
+    Test14 = <<"'\\x{447}\\x{435}'().">>,
+    "** exception error: undefined shell command '\\x{447}\\x{435}'/0.\n" =
+        t(Test14),
+    Test15 = <<"io:setopts([{encoding,utf8}]).
+                '\\x{447}\\x{435}'().">>,
+    "ok.\n** exception error: undefined shell command '\x{447}\x{435}'/0.\n" =
+        t({Node,Test15}),
+    Test16 = <<"shell_SUITE:'\\x{447}\\x{435}'().">>,
+    "** exception error: undefined function "
+   "shell_SUITE:'\\x{447}\\x{435}'/0.\n" = t(Test16),
+    Test17 = <<"io:setopts([{encoding,utf8}]).
+                shell_SUITE:'\\x{447}\\x{435}'().">>,
+    "ok.\n** exception error: undefined function "
+    "shell_SUITE:'\x{447}\x{435}'/0.\n" =
+        t({Node,Test17}),
     test_server:stop_node(Node),
     ok.
 
@@ -2823,6 +2895,111 @@ otp_13719(Config) when is_list(Config) ->
     file:delete(File),
     ok.
 
+otp_14285(Config) ->
+    {ok,Node} = start_node(shell_suite_helper_4,
+			   "-pa "++proplists:get_value(priv_dir,Config)++
+			   " +pc unicode"),
+    Test1 =
+        <<"begin
+               io:setopts([{encoding,utf8}]),
+               [1024] = atom_to_list('\\x{400}'),
+               rd('\\x{400}', {'\\x{400}' = '\\x{400}'}),
+               ok = rl('\\x{400}')
+           end.">>,
+    "-record('\x{400}',{'\x{400}' = '\x{400}'}).\nok.\n" =
+        t({Node,Test1}),
+    test_server:stop_node(Node),
+    ok.
+
+otp_14296(Config) when is_list(Config) ->
+    fun() ->
+            F = fun() -> a end,
+            LocalFun = term_to_string(F),
+            S = LocalFun ++ ".",
+            "1: syntax error before: Fun" = comm_err(S)
+    end(),
+
+    fun() ->
+            F = fun mod:func/1,
+            ExternalFun = term_to_string(F),
+            S = ExternalFun ++ ".",
+            R = ExternalFun ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            UnknownPid = "<100000.0.0>",
+            S = UnknownPid ++ ".",
+            "1: syntax error before: '<'" = comm_err(S)
+    end(),
+
+    fun() ->
+            KnownPid = term_to_string(self()),
+            S = KnownPid ++ ".",
+            R = KnownPid ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            Port = open_port({spawn, "ls"}, [{line,1}]),
+            KnownPort = erlang:port_to_list(Port),
+            S = KnownPort ++ ".",
+            R = KnownPort ++ ".\n",
+            R = t(S)
+    end(),
+
+    fun() ->
+            UnknownPort = "#Port<100000.0>",
+            S = UnknownPort ++ ".",
+            "1: syntax error before: Port" = comm_err(S)
+    end(),
+
+    fun() ->
+            UnknownRef = "#Ref<100000.0.0.0>",
+            S = UnknownRef ++ ".",
+            "1: syntax error before: Ref" = comm_err(S)
+    end(),
+
+    fun() ->
+            KnownRef = term_to_string(make_ref()),
+            S = KnownRef ++ ".",
+            R = KnownRef ++ ".\n",
+            R = t(S)
+    end(),
+
+    %% Test erl_eval:extended_parse_term/1
+    TF = fun(S) ->
+                 {ok, Ts, _} = erl_scan:string(S++".", 1, [text]),
+                 case erl_eval:extended_parse_term(Ts) of
+                     {ok, Term} -> Term;
+                     {error, _}=Error -> Error
+                 end
+         end,
+    Fun = fun m:f/1,
+    Fun = TF(term_to_string(Fun)),
+    Fun = TF("fun m:f/1"),
+    Pid = self(),
+    Pid = TF(term_to_string(Pid)),
+    Ref = make_ref(),
+    Ref = TF(term_to_string(Ref)),
+    Term = {[10, a], {"foo", []}, #{x => <<"bar">>}},
+    Term = TF(lists:flatten(io_lib:format("~p", [Term]))),
+    {$a, F1, "foo"} = TF("{$a, 1.0, \"foo\"}"),
+    true = is_float(F1),
+    3 = TF("+3"),
+    $a = TF("+$a"),
+    true = is_float(TF("+1.0")),
+    true  = -3 =:= TF("-3"),
+    true = -$a =:= TF("-$a"),
+    true = is_float(TF("-1.0")),
+    {error, {_, _, ["syntax error"++_|_]}} = TF("{1"),
+    {error, {_,_,"bad term"}} = TF("fun() -> foo end"),
+    {error, {_,_,"bad term"}} = TF("1, 2"),
+    ok.
+
+term_to_string(T) ->
+    lists:flatten(io_lib:format("~w", [T])).
+
 scan(B) ->
     F = fun(Ts) -> 
                 case erl_parse:parse_term(Ts) of
@@ -2836,7 +3013,7 @@ scan(B) ->
     scan(t(B), F).
 
 scan(S0, F) ->
-    case erl_scan:tokens([], S0, 1, [unicode]) of
+    case erl_scan:tokens([], S0, 1) of
         {done,{ok,Ts,_},S} ->
             [F(Ts) | scan(S, F)];
         _Else ->
@@ -3030,7 +3207,7 @@ run_file(Config, Module, Test) ->
     ok.
 
 compile_file(Config, File, Test, Opts0) ->
-    Opts = [export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,{outdir,proplists:get_value(priv_dir, Config)}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
               {ok, _M, _Ws} -> ok;

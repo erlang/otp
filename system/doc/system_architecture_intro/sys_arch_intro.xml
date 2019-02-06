@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -95,20 +95,6 @@
             <item><em>QLC</em> Query language support for Mnesia DBMS.</item>
             <item><em>Mnesia</em> A heavy duty real-time distributed database.</item>
             <item><em>ODBC</em> ODBC database interface.</item>
-          </list>
-        </item>
-        <item>
-          <p>CORBA services and IDL compiler.</p>
-          <list type="bulleted">
-            <item><em>cosEvent</em> Orber OMG Event Service.</item>
-            <item><em>cosNotification</em> Orber OMG Notification 
-             Service.</item>
-            <item><em>cosTime</em> Orber OMG Timer and TimerEvent 
-             Services.</item>
-            <item><em>cosTransactions</em> Orber OMG Transaction 
-             Service.</item>
-            <item><em>IC</em> IDL compiler</item>
-            <item><em>Orber</em> A CORBA object request broker.</item>
           </list>
         </item>
         <item>

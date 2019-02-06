@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,240 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 5.0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in ASN.1 BER decoding has been fixed. When
+	    decoding a recursively enclosed term the length was not
+	    propagated to that term decoding, so if the length of the
+	    enclosed term was longer than the enclosing that error
+	    was not detected.</p> <p>A hard coded C stack limitation
+	    for decoding recursive ASN.1 terms has been introduced.
+	    This is currently set to 8 kWords giving a nesting depth
+	    of about 1000 levels. Deeper terms can not be decoded,
+	    which should not be much of a real world limitation.</p>
+          <p>
+	    Own Id: OTP-14440 Aux Id: ERIERL-220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update to use the new string api instead of the old.</p>
+          <p>
+	    Own Id: OTP-15036</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle erroneous length during decode (BER only) without
+	    crashing.</p>
+          <p>
+	    Own Id: OTP-15470 Aux Id: ERIERL-278 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.5.1</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+	    <p>A bug in ASN.1 BER decoding has been fixed. When
+	    decoding a recursively enclosed term the length was not
+	    propagated to that term decoding, so if the length of the
+	    enclosed term was longer than the enclosing that error
+	    was not dectected</p> <p>A hard coded C stack limitation
+	    for decoding recursive ASN.1 terms has been introduced.
+	    This is currently set to 8 kWords giving a nesting depth
+	    of about 1000 levels. Deeper terms can not be decoded,
+	    which should not be much of a real world limitation.</p>
+          <p>
+	    Own Id: OTP-14440 Aux Id: ERIERL-220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Dialyzer suppression has been added for the generated
+	    ASN.1 helper function to_bitstring/1 that previously
+	    created irrelevant warnings.</p>
+          <p>
+	    Own Id: OTP-13882 Aux Id: ERIERL-144 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    There was a issue with BER encoding and the
+	    <c>undec_rest</c> option in generated decoders. An
+	    exception could be thrown instead of returning an error
+	    tuple.</p>
+          <p>
+	    Own Id: OTP-14786 Aux Id: ERL-518 </p>
+        </item>
+        <item>
+          <p>
+	    The asn1ct:test functions crashed on decoders generated
+	    with options <c>no_ok_wrapper</c>, <c>undec_rest</c>.</p>
+          <p>
+	    Own Id: OTP-14787 Aux Id: ERL-518 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiling an ASN.1 module using the option {n2n,
+	    EnumTypeName} when EnumTypeName contains a hypen like for
+	    example Cause-Misc caused syntax errors when compiling
+	    the generated Erlang code. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14495 Aux Id: ERL-437 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Default values now work in extension for PER, so if you
+	    give the atom <c>asn1_DEFAULT</c> instead of a value it
+	    will become the default value.</p>
+          <p>
+	    Own Id: OTP-13011 Aux Id: ERIERL-60 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compilation error of generated code caused by a
+	    missing quotation of function names as part of an
+	    external call for encoding.</p>
+          <p>
+	    Own Id: OTP-14519 Aux Id: ERIERL-49 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 5.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add compile option <c>-compile(no_native)</c> in modules
+	    with <c>on_load</c> directive which is not yet supported
+	    by HiPE.</p>
+          <p>
+	    Own Id: OTP-14316 Aux Id: PR-1390 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>error</c> tuple returned from the <c>encode</c>
+	    and <c>decode</c> functions will now include the stack
+	    backtrace to make it easier to understand what went
+	    wrong.</p>
+          <p>
+	    Own Id: OTP-13961</p>
+        </item>
+        <item>
+	    <p>The deprecated module <c>asn1rt</c> has been removed.
+	    The deprecated functions <c>asn1ct:encode/3</c> and
+	    <c>asn1ct:decode/3</c> have been removed. The
+	    undocumented function <c>asn1ct:encode/2</c> has been
+	    removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14146</p>
+        </item>
+        <item>
+	    <p>The new '<c>maps</c>' option changes the
+	    representation of the types <c>SEQUENCE</c> and
+	    <c>SET</c> to be maps (instead of records).</p>
+          <p>
+	    Own Id: OTP-14219</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 4.0.4</title>
 
@@ -1778,4 +2012,3 @@
     <!-- p>There are also release notes for <url href="notes_history.html">older versions</url>.</p -->
   </section>
 </chapter>
-

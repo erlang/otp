@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("ei_decode_encode_SUITE_data/ei_decode_encode_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          test_ei_decode_encode/1]).
 
 suite() ->
@@ -32,6 +33,9 @@ suite() ->
 
 all() -> 
     [test_ei_decode_encode].
+
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 %% ---------------------------------------------------------------------------
 
@@ -42,7 +46,7 @@ all() ->
 %% ######################################################################## %%
 
 test_ei_decode_encode(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_encode),
+    P = runner:start(Config, ?test_ei_decode_encode),
 
     Fun   = fun (X) -> {X,true} end,
     Pid   = self(),
@@ -125,7 +129,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    P ! {self(), {command, term_to_binary(Term)}},
+    P ! {self(), {command, term_to_binary(Term, [{minor_version, 2}])}},
     {_B,Term} = get_buf_and_term(P).
 
 
@@ -170,7 +174,6 @@ get_binary(P) ->
 
 -define(VERSION_MAGIC,       131).
 
--define(ATOM_EXT,            100).
 -define(REFERENCE_EXT,       101).
 -define(PORT_EXT,            102).
 -define(PID_EXT,             103).

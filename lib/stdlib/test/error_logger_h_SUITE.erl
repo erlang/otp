@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ logfile(Config) ->
     error_logger:logfile({open,Log}),
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     AtNode = iolist_to_binary(["** at node ",atom_to_list(Node)," **"]),
+    timer:sleep(1000), % some time get all log events in the log
     error_logger:logfile(close),
     analyse_events(Log, Ev, [AtNode], unlimited),
 
@@ -124,6 +125,7 @@ tty(Config) ->
     ok = rpc:call(Node, erlang, apply, [fun gen_events/1,[Ev]]),
     tty_log_close(),
     AtNode = iolist_to_binary(["** at node ",atom_to_list(Node)," **"]),
+    timer:sleep(1000), % some time get all log events in the log
     analyse_events(Log, Ev, [AtNode], unlimited),
 
     test_server:stop_node(Node),
@@ -162,7 +164,7 @@ tty_log_open(Log) ->
 		{ok,D} -> D;
 		_ -> unlimited
 	    end,
-    error_logger:add_report_handler(?MODULE, {Fd,Depth}),
+    error_logger:add_report_handler(?MODULE, {Fd,Depth,latin1}),
     Fd.
 
 tty_log_close() ->
@@ -207,7 +209,7 @@ event_templates() ->
 gen_events(Ev) ->
     io:format("node = ~p\n", [node()]),
     io:format("group leader = ~p\n", [group_leader()]),
-    io:format("~p\n", [gen_event:which_handlers(error_logger)]),
+    io:format("~p\n", [error_logger:which_report_handlers()]),
     call_error_logger(Ev),
 
     {Pid,Ref} = spawn_monitor(fun() -> error(ouch) end),
@@ -240,6 +242,7 @@ analyse_events(Log, Ev, AtNode, Depth) ->
 
 call_error_logger([{F,Args}|T]) ->
     apply(error_logger, F, Args),
+    timer:sleep(10),
     call_error_logger(T);
 call_error_logger([]) -> ok.
 
@@ -257,8 +260,7 @@ match_output([Item|T], Lines0, AtNode, Depth) ->
 	Lines ->
 	    match_output(T, Lines, AtNode, Depth)
     catch
-	C:E ->
-	    Stk = erlang:get_stacktrace(),
+	C:E:Stk ->
 	    io:format("ITEM: ~p", [Item]),
 	    io:format("LINES: ~p", [Lines0]),
 	    erlang:raise(C, E, Stk)
@@ -297,13 +299,13 @@ match_format(Tag, [Format,Args], [Head|Lines], AtNode, Depth) ->
 	    iolist_to_binary(S)
     end,
     Expected0 = binary:split(Bin, <<"\n">>, [global,trim]),
-    Expected = Expected0 ++ AtNode,
+    Expected = AtNode ++ Expected0,
     match_term_lines(Expected, Lines).
 
 match_term(Tag, [Arg], [Head|Lines], AtNode, Depth) ->
     match_head(Tag, Head),
     Expected0 = match_term_get_expected(Arg, Depth),
-    Expected = Expected0 ++ AtNode,
+    Expected = AtNode ++ Expected0,
     match_term_lines(Expected, Lines).
 
 match_term_get_expected(List, Depth) when is_list(List) ->
@@ -393,11 +395,11 @@ dl_format_1([], [], _, Facc, Aacc) ->
 %%% calling error_logger_tty_h:write_event/2.
 %%%
 
-init({_,_}=St) ->
+init({_,_,_}=St) ->
     {ok,St}.
 
-handle_event(Event, {Fd,Depth}=St) ->
-    case error_logger_tty_h:write_event(tag_event(Event), io_lib, Depth) of
+handle_event(Event, {Fd,Depth,Enc}=St) ->
+    case error_logger_tty_h:write_event(tag_event(Event), io_lib, {Depth,Enc}) of
 	ok ->
 	    ok;
 	Str when is_list(Str) ->
@@ -405,7 +407,7 @@ handle_event(Event, {Fd,Depth}=St) ->
     end,
     {ok,St}.
 
-terminate(_Reason, {Fd,_}) ->
+terminate(_Reason, {Fd,_,_}) ->
     ok = file:close(Fd),
     [].
 

@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>os</title>
@@ -36,19 +36,116 @@
       only run on a specific platform. On the other hand, with careful
       use, these functions can be of help in enabling a program to run on
       most platforms.</p>
+
+    <note>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+      <p>
+	Also environment variable operations used to accept
+	names and values of environment variables containing
+	null characters (integer value zero). This caused
+	operations to silently produce erroneous results.
+	Environment variable names and values containing
+	null characters inside the name or value are now
+	<em>rejected</em> and will cause environment variable
+	operations to fail.
+      </p>
+    </note>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="env_var_name"/>
+      <desc>
+        <p>A string containing valid characters on the specific
+	OS for environment variable names using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) and <c>$=</c> characters are not allowed.
+	However, note that not all invalid characters necessarily
+	will cause the primitiv operations to fail, but may instead
+	produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="env_var_value"/>
+      <desc>
+        <p>A string containing valid characters on the specific
+	OS for environment variable values using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters necessarily will cause the primitiv
+	operations to fail, but may instead produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="env_var_name_value"/>
+      <desc>
+        <p>
+	  Assuming that environment variables has been correctly
+	  set, a strings containing valid characters on the specific
+	  OS for environment variable names and values using
+	  <seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	  encoding. The first <c>$=</c> characters appearing in
+	  the string separates environment variable name (on the
+	  left) from environment variable value (on the right).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="os_command"/>
+      <desc>
+        <p>All characters needs to be valid characters on the
+	specific OS using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters not necessarily will cause
+	<seealso marker="#cmd/1"><c>os:cmd/1</c></seealso>
+	to fail, but may instead produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="os_command_opts"/>
+      <desc>
+        <p>Options for <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso></p>
+        <taglist>
+          <tag><c>max_size</c></tag>
+          <item>
+            <p>The maximum size of the data returned by the <c>os:cmd</c> call.
+            See the <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso>
+            documentation for more details.</p>
+          </item>
+        </taglist>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
+      <name name="cmd" arity="2"/>
       <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
         <p>Executes <c><anno>Command</anno></c> in a command shell of the
-          target OS,
-          captures the standard output of the command, and returns this
-          result as a string. This function is a replacement of
-          the previous function <c>unix:cmd/1</c>; they are equivalent on a
-          Unix platform.</p>
+	  target OS, captures the standard output of the command,
+          and returns this result as a string.</p>
+	  <warning><p>Previous implementation used to allow all characters
+	  as long as they were integer values greater than or equal to zero.
+	  This sometimes lead to unwanted results since null characters
+	  (integer value zero) often are interpreted as string termination. The
+	  current implementation rejects these.</p></warning>
         <p><em>Examples:</em></p>
         <code type="none">
 LsOut = os:cmd("ls"), % on unix platform
@@ -57,6 +154,21 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           called from another program (for example, <c>os:cmd/1</c>)
           can differ, compared with the standard output of the command
           when called directly from an OS command shell.</p>
+        <p><c>os:cmd/2</c> was added in kernel-5.5 (OTP-20.2.1). It makes it
+          possible to pass an options map as the second argument in order to
+          control the behaviour of <c>os:cmd</c>. The possible options are:
+        </p>
+        <taglist>
+          <tag><c>max_size</c></tag>
+          <item>
+            <p>The maximum size of the data returned by the <c>os:cmd</c> call.
+              This option is a safety feature that should be used when the command
+              executed can return a very large, possibly infinite, result.</p>
+            <code type="none">
+> os:cmd("cat /dev/zero", #{ max_size => 20 }).
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]</code>
+          </item>
+        </taglist>
       </desc>
     </func>
 
@@ -152,6 +264,42 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
 	<p>On Unix platforms, the environment is set using UTF-8 encoding
 	  if Unicode filename translation is in effect. On Windows, the
 	  environment is set using wide character interfaces.</p>
+	  <note>
+	    <p>
+	      <c><anno>VarName</anno></c> is not allowed to contain
+	      an <c>$=</c> character. Previous implementations used
+	      to just let the <c>$=</c> character through which
+	      silently caused erroneous results. Current implementation
+	      will instead throw a <c>badarg</c> exception.
+	    </p>
+	  </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_signal" arity="2"/>
+      <fsummary>Enables or disables handling of OS signals.</fsummary>
+      <desc>
+          <p>Enables or disables OS signals.</p>
+          <p>Each signal my be set to one of the following options:</p>
+          <taglist>
+              <tag><c>ignore</c></tag>
+              <item>
+                  This signal will be ignored.
+              </item>
+
+              <tag><c>default</c></tag>
+              <item>
+                  This signal will use the default signal handler for the operating system.
+              </item>
+
+              <tag><c>handle</c></tag>
+              <item>
+                  This signal will notify
+                  <seealso marker="kernel_app#erl_signal_server"><c>erl_signal_server</c></seealso>
+                  when it is received by the Erlang runtime system.
+              </item>
+          </taglist>
       </desc>
     </func>
 
@@ -296,4 +444,3 @@ calendar:now_to_universal_time(TS),
     </func>
   </funcs>
 </erlref>
-

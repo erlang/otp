@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc.h"
-#include "erl_monitors.h"
+#include "erl_monitor_link.h"
 
 #define ERTS_TRACER(P)          ((P)->common.tracer)
 #define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
@@ -44,6 +44,7 @@
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
+#define ERTS_P_LT_MONITORS(P)	((P)->common.u.alive.lt_monitors)
 
 #define IS_TRACED(p) \
     (ERTS_TRACER(p) != NIL)
@@ -60,7 +61,7 @@ typedef struct {
     } refc;
     ErtsTracer tracer;
     Uint trace_flags;
-    erts_smp_atomic_t timer;
+    erts_atomic_t timer;
     union {
 	/* --- While being alive --- */
 	struct {
@@ -68,6 +69,7 @@ typedef struct {
 	    struct reg_proc *reg;
 	    ErtsLink *links;
 	    ErtsMonitor *monitors;
+            ErtsMonitor *lt_monitors;
 	} alive;
 
 	/* --- While being released --- */
@@ -78,7 +80,7 @@ typedef struct {
 typedef struct ErtsPTabDeletedElement_ ErtsPTabDeletedElement;
 
 typedef struct {
-    erts_smp_rwmtx_t rwmtx;
+    erts_rwmtx_t rwmtx;
     erts_interval_t interval;
     struct {
 	ErtsPTabDeletedElement *start;
@@ -88,15 +90,15 @@ typedef struct {
 } ErtsPTabListData;
 
 typedef struct {
-    erts_smp_atomic64_t last_data;
-    erts_smp_atomic32_t count;
-    erts_smp_atomic32_t aid_ix;
-    erts_smp_atomic32_t fid_ix;
+    erts_atomic64_t last_data;
+    erts_atomic32_t count;
+    erts_atomic32_t aid_ix;
+    erts_atomic32_t fid_ix;
 } ErtsPTabVolatileData;
 
 typedef struct {
-    erts_smp_atomic_t *tab;
-    erts_smp_atomic32_t *free_id_data;
+    erts_atomic_t *tab;
+    erts_atomic32_t *free_id_data;
     Uint32 max;
     Uint32 pix_mask;
     Uint32 pix_cl_mask;
@@ -223,8 +225,8 @@ ERTS_GLB_INLINE void erts_ptab_runlock(ErtsPTab *ptab);
 ERTS_GLB_INLINE void erts_ptab_rwlock(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_tryrwlock(ErtsPTab *ptab);
 ERTS_GLB_INLINE void erts_ptab_rwunlock(ErtsPTab *ptab);
-ERTS_GLB_INLINE int erts_smp_lc_ptab_is_rlocked(ErtsPTab *ptab);
-ERTS_GLB_INLINE int erts_smp_lc_ptab_is_rwlocked(ErtsPTab *ptab);
+ERTS_GLB_INLINE int erts_lc_ptab_is_rlocked(ErtsPTab *ptab);
+ERTS_GLB_INLINE int erts_lc_ptab_is_rwlocked(ErtsPTab *ptab);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -245,7 +247,7 @@ ERTS_GLB_INLINE int
 erts_ptab_count(ErtsPTab *ptab)
 {
     int max = ptab->r.o.max;
-    erts_aint32_t res = erts_smp_atomic32_read_nob(&ptab->vola.tile.count);
+    erts_aint32_t res = erts_atomic32_read_nob(&ptab->vola.tile.count);
     if (max == ERTS_PTAB_MAX_SIZE) {
 	max--;
 	res--;
@@ -352,25 +354,25 @@ erts_ptab_id2data(ErtsPTab *ptab, Eterm id)
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_nob(ErtsPTab *ptab, int ix)
 {
     ASSERT(0 <= ix && ix < ptab->r.o.max);
-    return erts_smp_atomic_read_nob(&ptab->r.o.tab[ix]);
+    return erts_atomic_read_nob(&ptab->r.o.tab[ix]);
 }
 
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_ddrb(ErtsPTab *ptab, int ix)
 {
     ASSERT(0 <= ix && ix < ptab->r.o.max);
-    return erts_smp_atomic_read_ddrb(&ptab->r.o.tab[ix]);
+    return erts_atomic_read_ddrb(&ptab->r.o.tab[ix]);
 }
 
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_rb(ErtsPTab *ptab, int ix)
 {
     ASSERT(0 <= ix && ix < ptab->r.o.max);
-    return erts_smp_atomic_read_rb(&ptab->r.o.tab[ix]);
+    return erts_atomic_read_rb(&ptab->r.o.tab[ix]);
 }
 
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_acqb(ErtsPTab *ptab, int ix)
 {
     ASSERT(0 <= ix && ix < ptab->r.o.max);
-    return erts_smp_atomic_read_acqb(&ptab->r.o.tab[ix]);
+    return erts_atomic_read_acqb(&ptab->r.o.tab[ix]);
 }
 
 ERTS_GLB_INLINE void erts_ptab_atmc_inc_refc(ErtsPTabElementCommon *ptab_el)
@@ -386,11 +388,9 @@ ERTS_GLB_INLINE void erts_ptab_atmc_inc_refc(ErtsPTabElementCommon *ptab_el)
 ERTS_GLB_INLINE Sint erts_ptab_atmc_dec_test_refc(ErtsPTabElementCommon *ptab_el)
 {
     erts_aint_t refc = erts_atomic_dec_read_relb(&ptab_el->refc.atmc);
-    ERTS_SMP_LC_ASSERT(refc >= 0);
-#ifdef ERTS_SMP
+    ERTS_LC_ASSERT(refc >= 0);
     if (refc == 0)
 	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
-#endif
     return (Sint) refc;
 }
 
@@ -399,7 +399,7 @@ ERTS_GLB_INLINE Sint erts_ptab_atmc_add_test_refc(ErtsPTabElementCommon *ptab_el
 {
     erts_aint_t refc = erts_atomic_add_read_mb(&ptab_el->refc.atmc,
 					       (erts_aint_t) add_refc);
-    ERTS_SMP_LC_ASSERT(refc >= 0);
+    ERTS_LC_ASSERT(refc >= 0);
     return (Sint) refc;
 }
 
@@ -417,7 +417,7 @@ ERTS_GLB_INLINE void erts_ptab_inc_refc(ErtsPTabElementCommon *ptab_el)
 ERTS_GLB_INLINE Sint erts_ptab_dec_test_refc(ErtsPTabElementCommon *ptab_el)
 {
     Sint refc = --ptab_el->refc.sint;
-    ERTS_SMP_LC_ASSERT(refc >= 0);
+    ERTS_LC_ASSERT(refc >= 0);
     return refc;
 }
 
@@ -425,7 +425,7 @@ ERTS_GLB_INLINE Sint erts_ptab_add_test_refc(ErtsPTabElementCommon *ptab_el,
 					     Sint add_refc)
 {
     ptab_el->refc.sint += add_refc;
-    ERTS_SMP_LC_ASSERT(ptab_el->refc.sint >= 0);
+    ERTS_LC_ASSERT(ptab_el->refc.sint >= 0);
     return (Sint) ptab_el->refc.sint;
 }
 
@@ -436,42 +436,42 @@ ERTS_GLB_INLINE Sint erts_ptab_read_refc(ErtsPTabElementCommon *ptab_el)
 
 ERTS_GLB_INLINE void erts_ptab_rlock(ErtsPTab *ptab)
 {
-    erts_smp_rwmtx_rlock(&ptab->list.data.rwmtx);
+    erts_rwmtx_rlock(&ptab->list.data.rwmtx);
 }
 
 ERTS_GLB_INLINE int erts_ptab_tryrlock(ErtsPTab *ptab)
 {
-    return erts_smp_rwmtx_tryrlock(&ptab->list.data.rwmtx);
+    return erts_rwmtx_tryrlock(&ptab->list.data.rwmtx);
 }
 
 ERTS_GLB_INLINE void erts_ptab_runlock(ErtsPTab *ptab)
 {
-    erts_smp_rwmtx_runlock(&ptab->list.data.rwmtx);
+    erts_rwmtx_runlock(&ptab->list.data.rwmtx);
 }
 
 ERTS_GLB_INLINE void erts_ptab_rwlock(ErtsPTab *ptab)
 {
-    erts_smp_rwmtx_rwlock(&ptab->list.data.rwmtx);
+    erts_rwmtx_rwlock(&ptab->list.data.rwmtx);
 }
 
 ERTS_GLB_INLINE int erts_ptab_tryrwlock(ErtsPTab *ptab)
 {
-    return erts_smp_rwmtx_tryrwlock(&ptab->list.data.rwmtx);
+    return erts_rwmtx_tryrwlock(&ptab->list.data.rwmtx);
 }
 
 ERTS_GLB_INLINE void erts_ptab_rwunlock(ErtsPTab *ptab)
 {
-    erts_smp_rwmtx_rwunlock(&ptab->list.data.rwmtx);
+    erts_rwmtx_rwunlock(&ptab->list.data.rwmtx);
 }
 
-ERTS_GLB_INLINE int erts_smp_lc_ptab_is_rlocked(ErtsPTab *ptab)
+ERTS_GLB_INLINE int erts_lc_ptab_is_rlocked(ErtsPTab *ptab)
 {
-    return erts_smp_lc_rwmtx_is_rlocked(&ptab->list.data.rwmtx);
+    return erts_lc_rwmtx_is_rlocked(&ptab->list.data.rwmtx);
 }
 
-ERTS_GLB_INLINE int erts_smp_lc_ptab_is_rwlocked(ErtsPTab *ptab)
+ERTS_GLB_INLINE int erts_lc_ptab_is_rwlocked(ErtsPTab *ptab)
 {
-    return erts_smp_lc_rwmtx_is_rwlocked(&ptab->list.data.rwmtx);
+    return erts_lc_rwmtx_is_rwlocked(&ptab->list.data.rwmtx);
 }
 
 #endif

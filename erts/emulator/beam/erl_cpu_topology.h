@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,11 +60,9 @@ int erts_init_scheduler_bind_type_string(char *how);
 int erts_init_cpu_topology_string(char *topology_str);
 
 void erts_sched_check_cpu_bind(ErtsSchedulerData *esdp);
-#ifdef ERTS_SMP
 void erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp);
 void erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp);
 void erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp);
-#endif
 
 int erts_update_cpu_info(void);
 
@@ -85,22 +83,14 @@ void erts_sched_bind_atthrcreate_parent(int unbind);
 
 int erts_sched_bind_atfork_prepare(void);
 int erts_sched_bind_atfork_child(int unbind);
-char *erts_sched_bind_atvfork_child(int unbind);
 void erts_sched_bind_atfork_parent(int unbind);
 
 Eterm erts_fake_scheduler_bindings(Process *p, Eterm how);
 Eterm erts_debug_cpu_groups_map(Process *c_p, int groups);
 
-
 typedef void (*erts_cpu_groups_callback_t)(int,
 					   ErtsSchedulerData *,
 					   int,
 					   void *);
-
-void erts_add_cpu_groups(int groups,
-			 erts_cpu_groups_callback_t callback,
-			 void *arg);
-void erts_remove_cpu_groups(erts_cpu_groups_callback_t callback,
-			    void *arg);
 
 #endif

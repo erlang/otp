@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,6 @@ void erts_set_system_monitor(Eterm monitor);
 Eterm erts_get_system_monitor(void);
 int erts_is_tracer_valid(Process* p);
 
-#ifdef ERTS_SMP
 void erts_check_my_tracer_proc(Process *);
 void erts_block_sys_msg_dispatcher(void);
 void erts_release_sys_msg_dispatcher(void);
@@ -97,15 +96,14 @@ void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 					    ErlHeapFragment *));
 void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
-#endif
 
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm, Eterm, ErtsTracingEvent*);
-Uint32 erts_call_trace(Process *p, BeamInstr mfa[], struct binary *match_spec,
+Uint32 erts_call_trace(Process *p, ErtsCodeInfo *info, struct binary *match_spec,
                        Eterm* args, int local, ErtsTracer *tracer);
-void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval,
+void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer *tracer);
-void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
+void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class, Eterm value,
                           ErtsTracer *tracer);
 void erts_trace_return_to(Process *p, BeamInstr *pc);
 void trace_sched(Process*, ErtsProcLocks, Eterm);
@@ -134,7 +132,8 @@ void erts_system_profile_setup_active_schedulers(void);
 
 /* system_monitor */
 void monitor_long_gc(Process *p, Uint time);
-void monitor_long_schedule_proc(Process *p, BeamInstr *in_i, BeamInstr *out_i, Uint time);
+void monitor_long_schedule_proc(Process *p, ErtsCodeMFA *in_i,
+                                ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
 void monitor_large_heap(Process *p);
 void monitor_generic(Process *p, Eterm type, Eterm spec);
@@ -142,17 +141,18 @@ Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, ErtsTracer *pTracer, int *pCpuTimestamp);
 Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer);
 
-#ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
-#define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)				\
+#define ERTS_CHK_PEND_TRACE_MSGS(ESDP)				\
 do {									\
     if ((ESDP)->pending_trace_msgs)					\
 	erts_send_pending_trace_msgs((ESDP));				\
 } while (0)
-#else
-#define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)
-#endif
 
 #define seq_trace_output(token, msg, type, receiver, process) \
 seq_trace_output_generic((token), (msg), (type), (receiver), (process), NIL)
@@ -176,7 +176,7 @@ struct trace_pattern_flags {
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
 extern int erts_call_time_breakpoint_tracing;
-int erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
+int erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 			   struct binary* match_prog_set,
 			   struct binary *meta_match_prog_set,
 			   int on, struct trace_pattern_flags,
@@ -198,6 +198,8 @@ int erts_is_tracer_proc_enabled_send(Process* c_p, ErtsProcLocks c_p_locks,
                                      ErtsPTabElementCommon *t_p);
 int erts_is_tracer_enabled(const ErtsTracer tracer, ErtsPTabElementCommon *t_p);
 Eterm erts_tracer_to_term(Process *p, ErtsTracer tracer);
+Eterm erts_build_tracer_to_term(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, ErtsTracer tracer);
+
 ErtsTracer erts_term_to_tracer(Eterm prefix, Eterm term);
 void erts_tracer_replace(ErtsPTabElementCommon *t_p,
                          const ErtsTracer new_tracer);

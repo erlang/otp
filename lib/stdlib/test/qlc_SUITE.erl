@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@
 -export([ 
 	  badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
 	  filter_var/1, single/1, exported_var/1, generator_vars/1,
-	  nomatch/1, errors/1, pattern/1, 
+	  nomatch/1, errors/1, pattern/1, overridden_bif/1,
 
 	  eval/1, cursor/1, fold/1, eval_unique/1, eval_cache/1, append/1, 
 	  evaluator/1, string_to_handle/1, table/1, process_dies/1, 
@@ -126,7 +126,7 @@ groups() ->
     [{parse_transform, [],
       [badarg, nested_qlc, unused_var, lc, fun_clauses,
        filter_var, single, exported_var, generator_vars,
-       nomatch, errors, pattern]},
+       nomatch, errors, pattern, overridden_bif]},
      {evaluation, [],
       [eval, cursor, fold, eval_unique, eval_cache, append,
        evaluator, string_to_handle, table, process_dies, sort,
@@ -466,6 +466,23 @@ pattern(Config) when is_list(Config) ->
        ],
     run(Config, <<"-record(a, {k,v}).
                          -record(k, {t,v}).\n">>, Ts),
+    ok.
+
+%% Override a guard BIF with an imported or local function.
+overridden_bif(Config) ->
+    Ts = [
+	  <<"[2] = qlc:e(qlc:q([P || P <- [1,2,3], port(P)])),
+             [10] = qlc:e(qlc:q([P || P <- [0,9,10,11,12],
+                                      (is_reference(P) andalso P > 5)])),
+             Empty = gb_sets:empty(), Single = gb_sets:singleton(42),
+             GbSets = [Empty,Single],
+             [Single] = qlc:e(qlc:q([S || S <- GbSets, size(S) =/= 0]))
+            ">>
+	 ],
+    run(Config, "-import(gb_sets, [size/1]).
+                 -compile({no_auto_import, [size/1, is_reference/1]}).
+                 port(N) -> N rem 2 =:= 0.
+                 is_reference(N) -> N rem 10 =:= 0.\n", Ts),
     ok.
 
 
@@ -869,11 +886,12 @@ eval_unique(Config) when is_list(Config) ->
              [a] = qlc:e(Q2, {unique_all, true})
             ">>,
 
-          <<"Q = qlc:q([SQV || SQV <- qlc:q([X || X <- [1,2,1]],unique)],
+          <<"Q = qlc:q([SQV || SQV <- qlc:q([X || X <- [1,2,1,#{a => 1}]],
+                                             unique)],
                        unique),
              {call,_,_,[{lc,_,{var,_,'X'},[{generate,_,{var,_,'X'},_}]},_]} =
                  qlc:info(Q, [{format,abstract_code},unique_all]),
-             [1,2] = qlc:e(Q)">>,
+             [1,2,#{a := 1}] = qlc:e(Q)">>,
 
           <<"Q = qlc:q([X || X <- [1,2,1]]),
              {call,_,_,[{lc,_,{var,_,'X'},[{generate,_,{var,_,'X'},_}]},_]} =
@@ -1222,6 +1240,17 @@ string_to_handle(Config) when is_list(Config) ->
     {'EXIT', {no_lookup_to_carry_out, _}} =
         (catch qlc:e(qlc:string_to_handle(Q, {lookup,true}, Bs2))),
     ets:delete(Ets),
+
+    %% References can be scanned and parsed.
+    E2 = ets:new(test, [bag]),
+    Ref = make_ref(),
+    true = ets:insert(E2, [{Ref,Ref}]),
+    S2 = "[{Val1} || {Ref1, Val1} <- ets:table("++io_lib:write(E2)++"),"
+         "Ref1 =:= Ref].",
+    Bs = erl_eval:add_binding('Ref', Ref, erl_eval:new_bindings()),
+    [{Ref}] = qlc:e(qlc:string_to_handle(S2, [], Bs)),
+    ets:delete(E2),
+
     ok.
 
 %% table
@@ -1666,28 +1695,7 @@ sort(Config) when is_list(Config) ->
           [true || I <- lists:seq(1, 50000), not ets:insert(E, {I, I})],
           H = qlc:q([{X,Y} || X <- [a,b], Y <- qlc:sort(ets:table(E))]),
           100000 = length(qlc:e(H)),
-          ets:delete(E)">>,
-
-       begin
-       TmpDir = ?privdir,
-       [<<"TE = process_flag(trap_exit, true),
-           E = ets:new(foo, []),
-           [true || I <- lists:seq(1, 50000), not ets:insert(E, {I, I})],
-           Ports = erlang:ports(),
-           H = qlc:q([{X,Y} || X <- [a,b], 
-                               begin
-                                   [P] = erlang:ports() -- Ports,
-                                   exit(P, port_exit),
-                                   true
-                               end,
-                               Y <- qlc:sort(ets:table(E),
-                                             [{tmpdir,\"">>, 
-                                               TmpDir, <<"\"}])]),
-           {error, qlc, {file_error, _, _}} = (catch qlc:e(H)),
-           receive {'EXIT', _, port_exit} -> ok end,
-           ets:delete(E),
-           process_flag(trap_exit, TE)">>]
-       end
+          ets:delete(E)">>
 
         ],
     run(Config, Ts),
@@ -2620,7 +2628,16 @@ info(Config) when is_list(Config) ->
                                       {cons, _, _, _}]},
                               {nil,_}}]}]} = i(QH, {format, abstract_code}),
           [{5},{6}] = qlc:e(QH),
-          [{4},{5},{6}] = qlc:e(F(3))">>
+          [{4},{5},{6}] = qlc:e(F(3))">>,
+
+          <<"Fun = fun ?MODULE:i/2,
+             L = [{#{k => #{v => Fun}}, Fun}],
+             H = qlc:q([Q || Q <- L, Q =:= {#{k => #{v => Fun}}, Fun}]),
+             L = qlc:e(H),
+             {call,_,_,[{lc,_,{var,_,'Q'},
+                         [{generate,_,_,_},
+                          {op,_,_,_,_}]}]} =
+                qlc:info(H, [{format,abstract_code}])">>
 
        ],
     run(Config, Ts),
@@ -4294,7 +4311,18 @@ ets(Config) when is_list(Config) ->
            R = qlc:e(Q),
            ets:delete(E),
            [] = R">>]
-       end
+       end,
+
+       <<"E2 = ets:new(test, [bag]),
+          Ref = make_ref(),
+          true = ets:insert(E2, [{Ref,Ref}]),
+          Q2 = qlc:q([{Val1} ||
+                         {Ref1, Val1} <- ets:table(E2),
+                         Ref1 =:= Ref]),
+          S = qlc:info(Q2),
+          true = is_list(S),
+          [{Ref}] = qlc:e(Q2),
+          ets:delete(E2)">>
 
        ],
     
@@ -7044,7 +7072,7 @@ otp_12946(Config) when is_list(Config) ->
 
 %% Examples from qlc(3).
 manpage(Config) when is_list(Config) ->
-
+    dets:start(),
     ok = compile_gb_table(Config),
 
     Ts = [
@@ -7111,11 +7139,14 @@ manpage(Config) when is_list(Config) ->
               \"               [{X,Z}|{W,Y}] <- V2\n\"
               \"          ])\n\"
               \"end\",
-          Info =
+          Info1 =
              re:replace(qlc:info(Q), 
-                        \"table\\\\(-*[0-9]*\",
+                        \"table\\\\(#Ref<[\\.0-9]*>\",
                         \"table(_\", [{return,list},global]),
-          L = Info,
+          F = fun(C) -> C =/= $\n andalso C =/= $\s end,
+          Info = lists:filter(F, Info1),
+          L1 = lists:filter(F, L),
+          L1 = Info,
           ets:delete(E1),
           ets:delete(E2)">>,
 
@@ -7418,10 +7449,10 @@ etsc(F, Opts, Objs) ->
     V.
 
 join_info(H) ->
-    {qlc, S, Options} = strip_qlc_call(H),
+    {{qlc, S, Options}, Bs} = strip_qlc_call2(H),
     %% "Hide" the call to qlc_pt from the test in run_test().
     LoadedPT = code:is_loaded(qlc_pt),
-    QH = qlc:string_to_handle(S, Options),
+    QH = qlc:string_to_handle(S, Options, Bs),
     _ = [unload_pt() || false <- [LoadedPT]], % doesn't take long...
     case {join_info_count(H), join_info_count(QH)} of
         {N, N} -> 
@@ -7431,30 +7462,34 @@ join_info(H) ->
     end.
 
 strip_qlc_call(H) ->
+    {Expr, _Bs} = strip_qlc_call2(H),
+    Expr.
+
+strip_qlc_call2(H) ->
     S = qlc:info(H, {flat, false}),
-    {ok, Tokens, _EndLine} = erl_scan:string(S++"."),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-    case Expr of
-        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
-            {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
-        {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
-            {qlc, lists:flatten([erl_pp:expr(LC), "."]), 
-             erl_parse:normalise(Opts)};
-        {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
-            {match_spec, Expr};
-        {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
-            {table, M, Expr};
-        _ -> 
-            []
-    end.
+    {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
+    {ok, [Expr], Bs} = erl_eval:extended_parse_exprs(Tokens),
+    {case Expr of
+         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC]} ->
+             {qlc, lists:flatten([erl_pp:expr(LC), "."]), []};
+         {call,_,{remote,_,{atom,_,qlc},{atom,_,q}},[LC, Opts]} ->
+             {qlc, lists:flatten([erl_pp:expr(LC), "."]),
+              erl_parse:normalise(Opts)};
+         {call,_,{remote,_,{atom,_,ets},{atom,_,match_spec_run}},_} ->
+             {match_spec, Expr};
+         {call,_,{remote,_,{atom,_,M},{atom,_,table}},_} ->
+             {table, M, Expr};
+         _ ->
+             []
+     end, Bs}.
 
 -record(ji, {nmerge = 0, nlookup = 0, nnested_loop = 0, nkeysort = 0}).
 
 %% Counts join options and (all) calls to qlc:keysort().
 join_info_count(H) ->
     S = qlc:info(H, {flat, false}),    
-    {ok, Tokens, _EndLine} = erl_scan:string(S++"."),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
+    {ok, Tokens, _EndLine} = erl_scan:string(S++".", 1, [text]),
+    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
     #ji{nmerge = Nmerge, nlookup = Nlookup, 
         nkeysort = NKeysort, nnested_loop = Nnested_loop} = 
         ji(Expr, #ji{}),
@@ -7497,8 +7532,8 @@ lookup_keys({list,Q,_}, L) ->
 lookup_keys({generate,_,Q}, L) ->
     lookup_keys(Q, L);
 lookup_keys({table,Chars}, L) when is_list(Chars) ->
-    {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++".")),
-    {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
+    {ok, Tokens, _} = erl_scan:string(lists:flatten(Chars++"."), 1, [text]),
+    {ok, [Expr], _Bs} = erl_eval:extended_parse_exprs(Tokens),
     case Expr of
         {call,_,_,[_fun,AKs]} ->
             case erl_parse:normalise(AKs) of
@@ -7815,7 +7850,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
     {module, _} = code:load_abs(AbsFile, Mod),
 
     Ms0 = erlang:process_info(self(),messages),
-    Before = {{get(), ets:all(), Ms0}, pps()},
+    Before = {{lget(), lists:sort(ets:all()), Ms0}, pps()},
 
     %% Prepare the check that the qlc module does not call qlc_pt.
     _ = [unload_pt() || {file, Name} <- [code:is_loaded(qlc_pt)], 
@@ -7847,7 +7882,7 @@ run_test(Config, Extra, Body) ->
 
 wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
     Ms = erlang:process_info(self(),messages),
-    After = {_,PPS1} = {{get(), ets:all(), Ms}, pps()},
+    After = {_,PPS1} = {{lget(), lists:sort(ets:all()), Ms}, pps()},
     case {R, After} of
         {ok, Before} ->
             ok;
@@ -7874,6 +7909,18 @@ wait_for_expected(R, {Strict0,PPS0}=Before, SourceFile, Wait) ->
         _ ->
             expected({ok,Before}, {R,After}, SourceFile)
     end.
+
+%% The qlc modules uses the process dictionary for storing names of files.
+lget() ->
+    lists:sort([T || {K, _} = T <- get(), is_qlc_key(K)]).
+
+%% Copied from the qlc module.
+-define(LCACHE_FILE(Ref), {Ref, '$_qlc_cache_tmpfiles_'}).
+-define(MERGE_JOIN_FILE, '$_qlc_merge_join_tmpfiles_').
+
+is_qlc_key(?LCACHE_FILE(_)) -> true;
+is_qlc_key(?MERGE_JOIN_FILE) -> true;
+is_qlc_key(_) -> false.
 
 unload_pt() ->
     erlang:garbage_collect(), % get rid of references to qlc_pt...
@@ -7919,7 +7966,6 @@ compile(Config, Tests, Fun) ->
 compile_file(Config, Test0, Opts0) ->
     {File, Mod} = compile_file_mod(Config),
     Test = list_to_binary(["-module(", atom_to_list(Mod), "). "
-                           "-compile(export_all). "
                            "-import(qlc_SUITE, [i/1,i/2,format_info/2]). "
                            "-import(qlc_SUITE, [etsc/2, etsc/3]). "
                            "-import(qlc_SUITE, [create_ets/2]). "
@@ -7929,7 +7975,7 @@ compile_file(Config, Test0, Opts0) ->
                            "-import(qlc_SUITE, [lookup_keys/1]). "
                            "-include_lib(\"stdlib/include/qlc.hrl\"). ",
                            Test0]),
-    Opts = [export_all,return,nowarn_unused_record,{outdir,?privdir}|Opts0],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,?privdir}|Opts0],
     ok = file:write_file(File, Test),
     case compile:file(File, Opts) of
         {ok, _M, Ws} -> warnings(File, Ws);

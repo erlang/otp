@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,6 +88,11 @@ TESTCASE(compare_list) {
     // erlang:term_to_binary([0, 1000])
     unsigned char term4[] = {131,108,0,0,0,2,97,0,98,0,0,3,232,106};
 
+    // erlang:term_to_binary([a|b])
+    unsigned char term5a[] = {131,108,0,0,0,1,100,0,1,97,100,0,1,98};
+    // erlang:term_to_binary([a|c])
+    unsigned char term5b[] = {131,108,0,0,0,1,100,0,1,97,100,0,1,99};
+
     erl_init(NULL, 0);
     start_a = term1;
     start_b = term2;
@@ -102,6 +107,13 @@ TESTCASE(compare_list) {
     end_b   = term4 + sizeof(term4);
 
     test_compare_ext("lists1", start_a, end_a, start_b, end_b, -1);
+
+    start_a = term5a;
+    start_b = term5b;
+    end_a   = term5a + sizeof(term5a);
+    end_b   = term5b + sizeof(term5b);
+
+    test_compare_ext("lists5", start_a, end_a, start_b, end_b, -1);
 
     report(1);
 }
@@ -407,7 +419,7 @@ test_compare_ext(char *test_desc,
 }
 
 
-#define ATOM_EXT          (100)
+#define SMALL_ATOM_UTF8_EXT (119)
 #define REFERENCE_EXT     (101)
 #define PORT_EXT          (102)
 #define PID_EXT           (103)
@@ -429,13 +441,13 @@ write_atom(unsigned char *buf, char *atom)
 
     len = 0;
     while(atom[len]) {
-	buf[len + 3] = atom[len];
+	buf[len + 2] = atom[len];
 	len++;
     }
-    buf[0] = ATOM_EXT;
-    PUT_UINT16(&buf[1], len);
+    buf[0] = SMALL_ATOM_UTF8_EXT;
+    buf[1] = len;
 
-    return buf + 3 + len;
+    return buf + 2 + len;
 }
 
 static unsigned char *

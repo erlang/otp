@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -645,8 +645,11 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #else
 #if (defined(__GLIBC__) || defined(__linux__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__) || defined(__ANDROID__))
   struct hostent *result;
+  int err;
 
-  gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);
+  err = gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);
+  if (err == ERANGE)
+      *h_errnop = err;
 
   return result;
 #else

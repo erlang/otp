@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,12 +32,29 @@
 	 is_issuer/2, issuer_id/2, distribution_points/1, 
 	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
 	 select_extension/2, match_name/3,
-	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1]).
+	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1,
+         gen_test_certs/1, root_cert/2]).
 
 -define(NULL, 0).
- 
+
+-export_type([cert_opt/0, chain_opts/0, conf_opt/0,
+              test_config/0, test_root_cert/0]).
+
+-type cert_opt()  :: {digest, public_key:digest_type()} | 
+                     {key, public_key:key_params() | public_key:private_key()} | 
+                     {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} |
+                     {extensions, [#'Extension'{}]}.
+-type chain_end()   :: root | peer.
+-type chain_opts()  :: #{chain_end() := [cert_opt()],  intermediates =>  [[cert_opt()]]}.
+-type conf_opt()    :: {cert, public_key:der_encoded()} | 
+                       {key,  public_key:private_key()} |
+                       {cacerts, [public_key:der_encoded()]}.
+-type test_config() ::
+        #{server_config := [conf_opt()],  client_config :=  [conf_opt()]}.
+-type test_root_cert() ::
+        #{cert := binary(), key := public_key:private_key()}.
 %%====================================================================
-%% Internal application API
+%% Internal application APIu
 %%====================================================================
 
 %%--------------------------------------------------------------------
@@ -354,23 +371,23 @@ match_name(directoryName, DirName,  [PermittedName | Rest]) ->
     match_name(fun is_rdnSeq/2, DirName, PermittedName, Rest);
 
 match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
-    case split_uri(URI) of
-	incomplete ->
-	    false;
-	{_, _, Host, _, _} ->
-	    PN = case split_uri(PermittedName) of
-		     {_, _, PNhost, _, _} -> PNhost;
+    case uri_string:normalize(URI, [return_map]) of
+	#{host := Host} ->
+	    PN = case uri_string:normalize(PermittedName, [return_map]) of
+		     #{host := PNhost} -> PNhost;
 		     _X -> PermittedName
 		 end,
-	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest)
+	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest);
+        _ ->
+            false
     end;
 
 match_name(emailAddress, Name, [PermittedName | Rest]) ->
     Fun = fun(Email, PermittedEmail) ->
-		  is_valid_email_address(Email, PermittedEmail,
-				   string:tokens(PermittedEmail,"@"))
-	  end,
-     match_name(Fun, Name, PermittedName, Rest);
+                  is_valid_email_address(Email, PermittedEmail,
+                                         string:tokens(PermittedEmail,"@"))
+          end,
+    match_name(Fun, Name, PermittedName, Rest);
 
 match_name(dNSName, Name, [PermittedName | Rest]) ->
     Fun = fun(Domain, [$.|Domain]) -> true;
@@ -417,6 +434,94 @@ match_name(Fun, Name, PermittedName, [Head | Tail]) ->
 	false ->
 	    match_name(Fun, Name, Head, Tail)
     end.
+
+%%%
+-spec gen_test_certs(#{server_chain:= chain_opts(),
+                       client_chain:= chain_opts()} |
+                     chain_opts()) ->
+                            test_config() |
+                            [conf_opt()].
+%%
+%% Generates server and and client configuration for testing
+%% purposes. All certificate options have default values
+gen_test_certs(
+  #{client_chain :=
+        #{root := ClientRoot,
+          intermediates := ClientCAs,
+          peer := ClientPeer},
+    server_chain :=
+        #{root := ServerRoot,
+          intermediates := ServerCAs,
+          peer := ServerPeer}}) ->
+    #{cert := ServerRootCert, key := ServerRootKey} =
+        case ServerRoot of
+            #{} ->
+                ServerRoot;
+            ServerRootConf when is_list(ServerRootConf) ->
+                root_cert("SERVER ROOT CA", ServerRootConf)
+        end,
+    #{cert := ClientRootCert, key := ClientRootKey} =
+        case ClientRoot of
+            #{} ->
+                ClientRoot;
+            ClientRootConf when is_list(ClientRootConf) ->
+                root_cert("CLIENT ROOT CA", ClientRootConf)
+        end,
+    [{ServerDERCert, ServerDERKey} | ServerCAsKeys] =
+        config(
+          server, ServerRootCert, ServerRootKey,
+          lists:reverse([ServerPeer | lists:reverse(ServerCAs)])),
+    [{ClientDERCert, ClientDERKey} | ClientCAsKeys] =
+        config(
+          client, ClientRootCert, ClientRootKey,
+          lists:reverse([ClientPeer | lists:reverse(ClientCAs)])),
+    ServerDERCA = ca_config(ClientRootCert, ServerCAsKeys),
+    ClientDERCA = ca_config(ServerRootCert, ClientCAsKeys),
+    #{server_config =>
+          [{cert, ServerDERCert}, {key, ServerDERKey},
+           {cacerts, ServerDERCA}],
+      client_config =>
+          [{cert, ClientDERCert}, {key, ClientDERKey},
+           {cacerts, ClientDERCA}]};
+%%
+%% Generates a node configuration for testing purposes,
+%% when using the node server cert also for the client.
+%% All certificate options have default values
+gen_test_certs(
+  #{root := Root, intermediates := CAs, peer := Peer}) ->
+    #{cert := RootCert, key := RootKey} =
+        case Root of
+            #{} ->
+                Root;
+            RootConf when is_list(RootConf) ->
+                root_cert("SERVER ROOT CA", RootConf)
+        end,
+    [{DERCert, DERKey} | CAsKeys] =
+        config(
+          server, RootCert, RootKey,
+          lists:reverse([Peer | lists:reverse(CAs)])),
+    DERCAs = ca_config(RootCert, CAsKeys),
+    [{cert, DERCert}, {key, DERKey}, {cacerts, DERCAs}].
+
+%%%
+-spec root_cert(string(), [cert_opt()]) -> test_root_cert().
+%%
+%% Generate a self-signed root cert
+root_cert(Name, Opts) ->
+    PrivKey = gen_key(proplists:get_value(key, Opts, default_key_gen())),
+    TBS = cert_template(),
+    Issuer = subject("root", Name),
+    OTPTBS =
+        TBS#'OTPTBSCertificate'{
+          signature = sign_algorithm(PrivKey, Opts),
+          issuer = Issuer,
+          validity = validity(Opts),
+          subject = Issuer,
+          subjectPublicKeyInfo = public_key(PrivKey),
+          extensions = extensions(undefined, ca, Opts)
+         },
+    #{cert => public_key:pkix_sign(OTPTBS, PrivKey),
+      key => PrivKey}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -763,75 +868,12 @@ is_valid_subject_alt_name({otherName, #'AnotherName'{}}) ->
 is_valid_subject_alt_name({_, _}) ->
     false.
 
-is_ip_address(Address) ->
-    case inet_parse:address(Address) of
-	{ok, _} ->
-	    true;
-	_ ->
-	    false
-    end.
-
-is_fully_qualified_name(_Name) ->
-    true.
-
 is_valid_uri(AbsURI) -> 
-    case split_uri(AbsURI) of
-	incomplete ->
-	    false;
-	{StrScheme, _, Host, _, _} ->
-	    case string:to_lower(StrScheme) of
-		Scheme when Scheme =:= "http"; Scheme =:= "ftp" ->
-		    is_valid_host(Host);
-		_ ->
-		    false
-	    end
-    end.
-
-is_valid_host(Host) ->
-    case is_ip_address(Host) of
-	true ->
-	    true;   
-	false -> 
-	    is_fully_qualified_name(Host)
-    end.
-
-%% Could have a more general split URI in stdlib? Maybe when
-%% regexs are improved. Needed also in inets!
-split_uri(Uri) ->
-    case split_uri(Uri, ":", {error, no_scheme}, 1, 1) of
-	{error, no_scheme} ->
-	    incomplete;
-	{StrScheme, "//" ++ URIPart} ->
-	    {Authority, PathQuery} = 
-		split_auth_path(URIPart),
-	    {UserInfo, HostPort} = 
-		split_uri(Authority, "@", {"", Authority}, 1, 1),
-	    {Host, Port} = 
-		split_uri(HostPort, ":", {HostPort, dummy_port}, 1, 1),
-	    {StrScheme, UserInfo, Host, Port, PathQuery}
-    end.
-
-split_auth_path(URIPart) ->
-    case split_uri(URIPart, "/", URIPart, 1, 0) of
-	Split = {_, _} ->
-	    Split;
-	URIPart ->
-	    case split_uri(URIPart, "\\?", URIPart, 1, 0) of
-		Split = {_, _} ->
-		    Split;
-		URIPart ->
-		    {URIPart,""}
-	    end
-    end.
-
-split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
-    case re:run(UriPart, SplitChar) of
-	{match,[{Start, _}]} ->
-	    StrPos = Start + 1,
-	    {string:substr(UriPart, 1, StrPos - SkipLeft),
-	     string:substr(UriPart, StrPos + SkipRight, length(UriPart))}; 
-	nomatch ->
-	    NoMatchResult
+    case uri_string:normalize(AbsURI, [return_map]) of
+        #{scheme := _} ->
+            true;
+        _ ->
+            false
     end.
 
 is_rdnSeq({rdnSequence,[]}, {rdnSequence,[none]}) -> 
@@ -1064,3 +1106,206 @@ missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserS
 						       Len - 1},
 	     UserState}
     end.
+
+gen_key(KeyGen) ->
+     case is_key(KeyGen) of
+         true ->
+             KeyGen;
+         false ->
+             public_key:generate_key(KeyGen)
+     end.
+
+is_key(#'DSAPrivateKey'{}) ->
+    true;
+is_key(#'RSAPrivateKey'{}) ->
+    true;
+is_key(#'ECPrivateKey'{}) ->
+    true;
+is_key(_) ->
+    false.
+
+
+cert_template() ->
+    #'OTPTBSCertificate'{
+       version = v3,              
+       serialNumber = erlang:unique_integer([positive, monotonic]),
+       issuerUniqueID = asn1_NOVALUE,       
+       subjectUniqueID = asn1_NOVALUE
+      }.
+
+subject(Contact, Name) ->
+    Opts = [{email, Contact ++ "@example.org"},
+	    {name,  Name},
+	    {city, "Stockholm"},
+	    {country, "SE"},
+	    {org, "erlang"},
+	    {org_unit, "automated testing"}],
+    subject(Opts).
+
+subject(SubjectOpts) when is_list(SubjectOpts) ->
+    Encode = fun(Opt) ->
+		     {Type,Value} = subject_enc(Opt),
+		     [#'AttributeTypeAndValue'{type=Type, value=Value}]
+	     end,
+    {rdnSequence, [Encode(Opt) || Opt <- SubjectOpts]}.
+
+subject_enc({name,  Name}) ->       
+    {?'id-at-commonName', {printableString, Name}};
+subject_enc({email, Email}) ->      
+    {?'id-emailAddress', Email};
+subject_enc({city,  City}) ->       
+    {?'id-at-localityName', {printableString, City}};
+subject_enc({org, Org}) ->          
+    {?'id-at-organizationName', {printableString, Org}};
+subject_enc({org_unit, OrgUnit}) -> 
+    {?'id-at-organizationalUnitName', {printableString, OrgUnit}};
+subject_enc({country, Country}) ->  
+    {?'id-at-countryName', Country}.
+
+validity(Opts) ->
+    DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
+    DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
+    {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
+    Format =
+        fun({Y,M,D}) ->
+                lists:flatten(
+                  io_lib:format("~4..0w~2..0w~2..0w000000Z",[Y,M,D]))
+        end,
+    #'Validity'{notBefore={generalTime, Format(DefFrom)},
+		notAfter ={generalTime, Format(DefTo)}}.
+
+sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
+    Type = rsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = 'NULL'};
+sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
+    #'SignatureAlgorithm'{algorithm  = ?'id-dsa-with-sha1',
+                          parameters = {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
+sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
+    Type = ecdsa_digest_oid(proplists:get_value(digest, Opts, sha1)),
+    #'SignatureAlgorithm'{algorithm  = Type,
+                          parameters = Parms}.
+rsa_digest_oid(sha1) ->
+    ?'sha1WithRSAEncryption';
+rsa_digest_oid(sha512) ->
+    ?'sha512WithRSAEncryption';
+rsa_digest_oid(sha384) ->
+    ?'sha384WithRSAEncryption';
+rsa_digest_oid(sha256) ->
+    ?'sha256WithRSAEncryption';
+rsa_digest_oid(md5) ->
+   ?'md5WithRSAEncryption'.
+
+ecdsa_digest_oid(sha1) ->
+    ?'ecdsa-with-SHA1';
+ecdsa_digest_oid(sha512) ->
+    ?'ecdsa-with-SHA512';
+ecdsa_digest_oid(sha384) ->
+    ?'ecdsa-with-SHA384';
+ecdsa_digest_oid(sha256) ->
+    ?'ecdsa-with-SHA256'.
+
+config(Role, Root, Key, Opts) ->
+   cert_chain(Role, Root, Key, Opts).
+
+cert_chain(Role, Root, RootKey, Opts) ->
+    cert_chain(Role, Root, RootKey, Opts, 0, []).
+
+cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
+    Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), 
+                IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
+    [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
+cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
+    Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
+    Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
+                " Intermidiate CA " ++ integer_to_list(N), CAOpts, ca),
+    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
+
+cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
+     PrivKey, Key, Contact, Name, Opts, Type) ->
+    TBS = cert_template(),
+    OTPTBS = TBS#'OTPTBSCertificate'{
+               signature = sign_algorithm(PrivKey, Opts),
+               issuer =  Issuer,
+               validity = validity(Opts),  
+               subject = subject(Contact, atom_to_list(Role) ++ Name),
+               subjectPublicKeyInfo = public_key(Key),
+               extensions = extensions(Role, Type, Opts)
+              },
+    public_key:pkix_sign(OTPTBS, PrivKey).
+
+ca_config(Root, CAsKeys) ->
+    [Root | [CA || {CA, _}  <- CAsKeys]].
+
+default_key_gen() ->
+    case crypto:ec_curves() of
+        [] ->
+            {rsa, 2048, 17};
+        [Curve |_] ->
+            Oid = pubkey_cert_records:namedCurves(Curve),
+            {namedCurve, Oid}
+    end.
+
+public_key(#'RSAPrivateKey'{modulus=N, publicExponent=E}) ->
+    Public = #'RSAPublicKey'{modulus=N, publicExponent=E},
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?rsaEncryption, parameters='NULL'},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = Public};
+public_key(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
+				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y};
+public_key(#'ECPrivateKey'{version = _Version,
+			  privateKey = _PrivKey,
+			  parameters = Params,
+			  publicKey = PubKey}) ->
+    Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
+    #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
+			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
+
+extensions(Role, Type, Opts) ->
+    Exts  = proplists:get_value(extensions, Opts, []),
+    add_default_extensions(Role, Type, Exts).
+
+add_default_extensions(_, ca, Exts) ->
+    Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                            extnValue = [keyCertSign, cRLSign],
+                            critical = false},
+               #'Extension'{extnID = ?'id-ce-basicConstraints',
+                            extnValue = #'BasicConstraints'{cA = true},
+                            critical = true}],
+    add_default_extensions(Default, Exts);
+
+add_default_extensions(server, peer, Exts) ->
+    Hostname = net_adm:localhost(),
+    Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                            extnValue = [digitalSignature, keyAgreement],
+                            critical = false},
+               #'Extension'{extnID = ?'id-ce-subjectAltName',
+                            extnValue = [{dNSName, Hostname}],
+                            critical = false}
+              ],
+    add_default_extensions(Default, Exts);
+    
+add_default_extensions(client, peer, Exts) ->
+    Exts.
+
+add_default_extensions(Defaults0, Exts) ->
+    Defaults = lists:filtermap(fun(#'Extension'{extnID = ID} = Ext) ->
+                                       case lists:keymember(ID, 2, Exts) of 
+                                           true -> 
+                                               false; 
+                                           false -> 
+                                               {true, Ext} 
+                                       end 
+                               end, Defaults0),
+    Exts ++ Defaults.
+
+encode_key(#'RSAPrivateKey'{} = Key) ->
+    {'RSAPrivateKey', public_key:der_encode('RSAPrivateKey', Key)};
+encode_key(#'ECPrivateKey'{} = Key) ->
+    {'ECPrivateKey', public_key:der_encode('ECPrivateKey', Key)};
+encode_key(#'DSAPrivateKey'{} = Key) ->
+    {'DSAPrivateKey', public_key:der_encode('DSAPrivateKey', Key)}.
+

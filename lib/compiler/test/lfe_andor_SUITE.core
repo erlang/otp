@@ -1,0 +1,2014 @@
+module 'lfe_andor_SUITE' ['$handle_undefined_function'/2,
+			  'LFE-EXPAND-EXPORTED-MACRO'/3,
+			  'all'/0,
+			  'before_and_inside_if'/1,
+			  'combined'/1,
+			  'end_per_group'/2,
+			  'end_per_suite'/1,
+			  'groups'/0,
+			  'in_case'/1,
+			  'init_per_group'/2,
+			  'init_per_suite'/1,
+			  'inside'/1,
+			  'module_info'/0,
+			  'module_info'/1,
+			  'overlap'/1,
+			  'suite'/0,
+			  't_and_or'/1,
+			  't_andalso'/1,
+			  't_case'/1,
+			  't_orelse'/1]
+    attributes []
+'all'/0 =
+    %% Line 38
+    fun () ->
+	['t_case'|['t_and_or'|['t_andalso'|['t_orelse'|['inside'|['overlap'|['combined'|['in_case'|['before_and_inside_if']]]]]]]]]
+'suite'/0 =
+    %% Line 44
+    fun () ->
+	[]
+'groups'/0 =
+    %% Line 46
+    fun () ->
+	[]
+'init_per_suite'/1 =
+    %% Line 48
+    fun (_config) ->
+	_config
+'end_per_suite'/1 =
+    %% Line 50
+    fun (_config) ->
+	'ok'
+'init_per_group'/2 =
+    %% Line 52
+    fun (_name,_config) ->
+	_config
+'end_per_group'/2 =
+    %% Line 54
+    fun (_name,_config) ->
+	_config
+'t_case'/1 =
+    %% Line 56
+    fun (_0) ->
+	case <_0> of
+	  <'suite'> when 'true' ->
+	      []
+	  <'doc'> when 'true' ->
+	      [84|[101|[115|[116|[32|[105|[110|[32|[99|[97|[115|[101|[46]]]]]]]]]]]]]
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['less']]|[['t-case-a'|[1|[2]]]]]]})
+		  let <_val> =
+		      <apply 't-case-a'/2
+			   (1, 2)>
+		  in  case <_val> of
+			<'less'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_25> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_25})
+		  -| [{'function_name',{'t_case',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'t-case-a'/2 =
+    %% Line 94
+    fun (_a,_b) ->
+	case call 'erlang':'<'
+		 (_a, _b) of
+	  <[_0|_1]> when 'true' ->
+	      'ok'
+	  <'true'> when 'true' ->
+	      'less'
+	  <'false'> when 'true' ->
+	      'not_less'
+	  <{'a','b','c'}> when 'true' ->
+	      'ok'
+	  <_2> when 'true' ->
+	      'ok'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-b'/2 =
+    %% Line 102
+    fun (_a,_b) ->
+	case call 'erlang':'=:='
+		 (_a, _b) of
+	  <'blurf'> when 'true' ->
+	      'ok'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-c'/2 =
+    %% Line 106
+    fun (_a,_b) ->
+	case let <_0> =
+		 call 'erlang':'=:='
+		     (_a, _b)
+	     in  call 'erlang':'not'
+		     (_0) of
+	  <'true'> when 'true' ->
+	      'ne'
+	  <'false'> when 'true' ->
+	      'eq'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-d'/3 =
+    %% Line 111
+    fun (_a,_b,_x) ->
+	case let <_0> =
+		 call 'erlang':'=:='
+		     (_a, _b)
+	     in  call 'erlang':'and'
+		     (_0, _x) of
+	  <'true'> when 'true' ->
+	      't'
+	  <'false'> when 'true' ->
+	      'f'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-e'/2 =
+    %% Line 116
+    fun (_a,_b) ->
+	case call 'erlang':'=:='
+		 (_a, _b) of
+	  <_bool>
+	      when try
+		    let <_0> =
+			call 'erlang':'is_tuple'
+			    (_a)
+		    in  _0
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      apply 'id'/1
+		  (_bool)
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-xy'/3 =
+    %% Line 120
+    fun (_x,_y,_z) ->
+	let <_r0> =
+	    <apply 't-case-x'/3
+		 (_x, _y, _z)>
+	in  case <apply 't-case-y'/3
+		      (_x, _y, _z)> of
+	      <_res>
+		  when try
+			let <_0> =
+			    call 'erlang':'=:='
+				(_res, _r0)
+			in  _0
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  _res
+	      ( <_1> when 'true' ->
+		    primop 'match_fail'
+			({'badmatch',{_1}})
+		-| ['compiler_generated'] )
+	    end
+'t-case-x'/3 =
+    %% Line 125
+    fun (_x,_y,_z) ->
+	case let <_0> =
+		 call 'erlang':'abs'
+		     (_x)
+	     in  call 'erlang':'=:='
+		     (_0, 42) of
+	  <'true'> when 'true' ->
+	      call 'erlang':'=:='
+		  (_y, 100)
+	  <'false'> when 'true' ->
+	      call 'erlang':'=:='
+		  (_z, 700)
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t-case-y'/3 =
+    %% Line 130
+    fun (_x,_y,_z) ->
+	case let <_0> =
+		 call 'erlang':'abs'
+		     (_x)
+	     in  call 'erlang':'=:='
+		     (_0, 42) of
+	  <'false'> when 'true' ->
+	      call 'erlang':'=:='
+		  (_z, 700)
+	  <'true'> when 'true' ->
+	      call 'erlang':'=:='
+		  (_y, 100)
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'t_and_or'/1 =
+    %% Line 135
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['true']]|[['and'|[['quote'|['true']]|[['quote'|['true']]]]]]]]})
+		  let <_val> =
+		      <call 'erlang':'and'
+			   ('true', 'true')>
+		  in  case <_val> of
+			<'true'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_42> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_42})
+		  -| [{'function_name',{'t_and_or',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'t_andalso'/1 =
+    %% Line 172
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  let <_bs> =
+		      <['true'|['false']]>
+		  in  let <_ps> =
+			  <letrec
+			       'lc$^0'/1 =
+				   fun (_2) ->
+				       case <_2> of
+					 <[_x|_lfe0]> when 'true' ->
+					     letrec
+						 'lc$^1'/1 =
+						     fun (_3) ->
+							 case <_3> of
+							   <[_y|_lfe1]> when 'true' ->
+							       let <_4> =
+								   apply 'lc$^1'/1
+								       (_lfe1)
+							       in  [{_x,_y}|_4]
+							   <[]> when 'true' ->
+							       apply 'lc$^0'/1
+								   (_lfe0)
+							   ( <_5> when 'true' ->
+								 ( primop 'match_fail'
+								       ({'function_clause',_5})
+								   -| [{'function_name',{'t_andalso',1}}] )
+							     -| ['compiler_generated'] )
+							 end
+					     in  apply 'lc$^1'/1
+						     (_bs)
+					 <[]> when 'true' ->
+					     []
+					 ( <_6> when 'true' ->
+					       ( primop 'match_fail'
+						     ({'function_clause',_6})
+						 -| [{'function_name',{'t_andalso',1}}] )
+					   -| ['compiler_generated'] )
+				       end
+			   in  apply 'lc$^0'/1
+				   (_bs)>
+		      in  let <_7> =
+			      fun (_p) ->
+				  apply 't-andalso-1'/1
+				      (_p)
+			  in  call 'lists':'foreach'
+				  (_7, _ps)
+		  do  call 'erlang':'put'
+			  ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['true']]|[['andalso'|[['quote'|['true']]|[['quote'|['true']]]]]]]]})
+		      let <_val> =
+			  <case 'true' of
+			     <'true'> when 'true' ->
+				 'true'
+			     <'false'> when 'true' ->
+				 'false'
+			     ( <_omega> when 'true' ->
+				   primop 'match_fail'
+				       ('if_clause')
+			       -| ['compiler_generated'] )
+			   end>
+		      in  case <_val> of
+			    <'true'> when 'true' ->
+				_val
+			    ( <_8> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',{_8}})
+			      -| ['compiler_generated'] )
+			  end
+	  ( <_57> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_57})
+		  -| [{'function_name',{'t_andalso',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'t-andalso-1'/1 =
+    %% Line 207
+    fun (_0) ->
+	case <_0> of
+	  <{_x,_y}> when 'true' ->
+	      do  call 'io':'format'
+		      ([40|[97|[110|[100|[97|[108|[115|[111|[32|[126|[119|[32|[126|[119|[41|[58|[32]]]]]]]]]]]]]]]]], [_x,_y])
+		  let <_v0> =
+		      <case apply 'echo'/1
+				(_x) of
+			 <'true'> when 'true' ->
+			     apply 'echo'/1
+				 (_y)
+			 <'false'> when 'true' ->
+			     'false'
+			 ( <_omega> when 'true' ->
+			       primop 'match_fail'
+				   ('if_clause')
+			   -| ['compiler_generated'] )
+		       end>
+		  in  case <case 1 of
+			      <_1>
+				  when try
+					let <_3> =
+					    let <_2> =
+						case _x of
+						  <'true'> when 'true' ->
+						      _y
+						  <'false'> when 'true' ->
+						      'false'
+						  ( <_omega> when 'true' ->
+							_omega
+						    -| ['compiler_generated'] )
+						end
+					    in  ( call 'erlang':'=:='
+						      (_2, 'true')
+						  -| ['compiler_generated'] )
+					in  _3
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  'true'
+			      <_4>
+				  when try
+					'true'
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  'false'
+			      ( <_omega> when 'true' ->
+				    primop 'match_fail'
+					({'case_clause',_omega})
+				-| ['compiler_generated'] )
+			    end> of
+			<_v1>
+			    when try
+				  let <_5> =
+				      call 'erlang':'=:='
+					  (_v0, _v1)
+				  in  _5
+			      of <Try> ->
+				  Try
+			      catch <T,R> ->
+				  'false' ->
+			    let <_6> =
+				call 'erlang':'and'
+				    (_x, _y)
+			    in  apply 'check'/2
+				    (_v1, _6)
+			( <_7> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_7}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_8> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_8})
+		  -| [{'function_name',{'t-andalso-1',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'t_orelse'/1 =
+    %% Line 215
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  let <_bs> =
+		      <['true'|['false']]>
+		  in  let <_ps> =
+			  <letrec
+			       'lc$^2'/1 =
+				   fun (_2) ->
+				       case <_2> of
+					 <[_x|_lfe2]> when 'true' ->
+					     letrec
+						 'lc$^3'/1 =
+						     fun (_3) ->
+							 case <_3> of
+							   <[_y|_lfe3]> when 'true' ->
+							       let <_4> =
+								   apply 'lc$^3'/1
+								       (_lfe3)
+							       in  [{_x,_y}|_4]
+							   <[]> when 'true' ->
+							       apply 'lc$^2'/1
+								   (_lfe2)
+							   ( <_5> when 'true' ->
+								 ( primop 'match_fail'
+								       ({'function_clause',_5})
+								   -| [{'function_name',{'t_orelse',1}}] )
+							     -| ['compiler_generated'] )
+							 end
+					     in  apply 'lc$^3'/1
+						     (_bs)
+					 <[]> when 'true' ->
+					     []
+					 ( <_6> when 'true' ->
+					       ( primop 'match_fail'
+						     ({'function_clause',_6})
+						 -| [{'function_name',{'t_orelse',1}}] )
+					   -| ['compiler_generated'] )
+				       end
+			   in  apply 'lc$^2'/1
+				   (_bs)>
+		      in  let <_7> =
+			      fun (_p) ->
+				  apply 't-orelse-1'/1
+				      (_p)
+			  in  call 'lists':'foreach'
+				  (_7, _ps)
+		  do  call 'erlang':'put'
+			  ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['true']]|[['orelse'|[['quote'|['true']]|[['quote'|['true']]]]]]]]})
+		      let <_val> =
+			  <case 'true' of
+			     <'true'> when 'true' ->
+				 'true'
+			     <'false'> when 'true' ->
+				 'true'
+			     ( <_omega> when 'true' ->
+				   primop 'match_fail'
+				       ('if_clause')
+			       -| ['compiler_generated'] )
+			   end>
+		      in  case <_val> of
+			    <'true'> when 'true' ->
+				_val
+			    ( <_8> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',{_8}})
+			      -| ['compiler_generated'] )
+			  end
+	  ( <_57> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_57})
+		  -| [{'function_name',{'t_orelse',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'t-orelse-1'/1 =
+    %% Line 249
+    fun (_0) ->
+	case <_0> of
+	  <{_x,_y}> when 'true' ->
+	      do  call 'io':'format'
+		      ([40|[111|[114|[101|[108|[115|[101|[32|[126|[119|[32|[126|[119|[41|[58|[32]]]]]]]]]]]]]]]], [_x,_y])
+		  let <_v0> =
+		      <case apply 'echo'/1
+				(_x) of
+			 <'true'> when 'true' ->
+			     'true'
+			 <'false'> when 'true' ->
+			     apply 'echo'/1
+				 (_y)
+			 ( <_omega> when 'true' ->
+			       primop 'match_fail'
+				   ('if_clause')
+			   -| ['compiler_generated'] )
+		       end>
+		  in  case <case 1 of
+			      <_1>
+				  when try
+					let <_3> =
+					    let <_2> =
+						case _x of
+						  <'true'> when 'true' ->
+						      'true'
+						  <'false'> when 'true' ->
+						      _y
+						  ( <_omega> when 'true' ->
+							_omega
+						    -| ['compiler_generated'] )
+						end
+					    in  ( call 'erlang':'=:='
+						      (_2, 'true')
+						  -| ['compiler_generated'] )
+					in  _3
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  'true'
+			      <_4>
+				  when try
+					'true'
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  'false'
+			      ( <_omega> when 'true' ->
+				    primop 'match_fail'
+					({'case_clause',_omega})
+				-| ['compiler_generated'] )
+			    end> of
+			<_v1>
+			    when try
+				  let <_5> =
+				      call 'erlang':'=:='
+					  (_v0, _v1)
+				  in  _5
+			      of <Try> ->
+				  Try
+			      catch <T,R> ->
+				  'false' ->
+			    let <_6> =
+				call 'erlang':'or'
+				    (_x, _y)
+			    in  apply 'check'/2
+				    (_v1, _6)
+			( <_7> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_7}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_8> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_8})
+		  -| [{'function_name',{'t-orelse-1',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'inside'/1 =
+    %% Line 257
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['true']]|[['inside'|[-8|[1]]]]]]})
+		  let <_val> =
+		      <apply 'inside'/2
+			   (-8, 1)>
+		  in  case <_val> of
+			<'true'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_12> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_12})
+		  -| [{'function_name',{'inside',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'inside'/2 =
+    %% Line 272
+    fun (_xm,_ym) ->
+	let <_x> =
+	    <-1.00000000000000000000e+01>
+	in  let <_y> =
+		<-2.00000000000000000000e+00>
+	    in  let <_w> =
+		    <2.00000000000000000000e+01>
+		in  let <_h> =
+			<4.00000000000000000000e+00>
+		    in  let <_r0> =
+			    <apply 'inside'/6
+				 (_xm, _ym, _x, _y, _w, _h)>
+			in  case <case 1 of
+				    <_0>
+					when try
+					      let <_4> =
+						  let <_3> =
+						      case call 'erlang':'=<'
+							       (_x, _xm) of
+							<'true'> when 'true' ->
+							    case let <_1> =
+								     call 'erlang':'+'
+									 (_x, _w)
+								 in  call 'erlang':'<'
+									 (_xm, _1) of
+							      <'true'> when 'true' ->
+								  case call 'erlang':'=<'
+									   (_y, _ym) of
+								    <'true'> when 'true' ->
+									let <_2> =
+									    call 'erlang':'+'
+										(_y, _h)
+									in  call 'erlang':'<'
+										(_ym, _2)
+								    <'false'> when 'true' ->
+									'false'
+								    ( <_omega> when 'true' ->
+									  _omega
+								      -| ['compiler_generated'] )
+								  end
+							      <'false'> when 'true' ->
+								  'false'
+							      ( <_omega> when 'true' ->
+								    _omega
+								-| ['compiler_generated'] )
+							    end
+							<'false'> when 'true' ->
+							    'false'
+							( <_omega> when 'true' ->
+							      _omega
+							  -| ['compiler_generated'] )
+						      end
+						  in  ( call 'erlang':'=:='
+							    (_3, 'true')
+							-| ['compiler_generated'] )
+					      in  _4
+					  of <Try> ->
+					      Try
+					  catch <T,R> ->
+					      'false' ->
+					'true'
+				    <_5>
+					when try
+					      'true'
+					  of <Try> ->
+					      Try
+					  catch <T,R> ->
+					      'false' ->
+					'false'
+				    ( <_omega> when 'true' ->
+					  primop 'match_fail'
+					      ({'case_clause',_omega})
+				      -| ['compiler_generated'] )
+				  end> of
+			      <_r1>
+				  when try
+					let <_6> =
+					    call 'erlang':'=:='
+						(_r0, _r1)
+					in  _6
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  do  case let <_7> =
+					       apply 'id'/1
+						   (_r1)
+					   in  call 'erlang':'not'
+						   (_7) of
+					<_o0> when 'true' ->
+					    case <case 1 of
+						    <_8>
+							when try
+							      let <_12> =
+								  let <_11> =
+								      case call 'erlang':'=<'
+									       (_x, _xm) of
+									<'true'> when 'true' ->
+									    case let <_9> =
+										     call 'erlang':'+'
+											 (_x, _w)
+										 in  call 'erlang':'<'
+											 (_xm, _9) of
+									      <'true'> when 'true' ->
+										  case call 'erlang':'=<'
+											   (_y, _ym) of
+										    <'true'> when 'true' ->
+											let <_10> =
+											    call 'erlang':'+'
+												(_y, _h)
+											in  call 'erlang':'<'
+												(_ym, _10)
+										    <'false'> when 'true' ->
+											'false'
+										    ( <_omega> when 'true' ->
+											  _omega
+										      -| ['compiler_generated'] )
+										  end
+									      <'false'> when 'true' ->
+										  'false'
+									      ( <_omega> when 'true' ->
+										    _omega
+										-| ['compiler_generated'] )
+									    end
+									<'false'> when 'true' ->
+									    'false'
+									( <_omega> when 'true' ->
+									      _omega
+									  -| ['compiler_generated'] )
+								      end
+								  in  call 'erlang':'not'
+									  (_11)
+							      in  _12
+							  of <Try> ->
+							      Try
+							  catch <T,R> ->
+							      'false' ->
+							'true'
+						    <_13>
+							when try
+							      'true'
+							  of <Try> ->
+							      Try
+							  catch <T,R> ->
+							      'false' ->
+							'false'
+						    ( <_omega> when 'true' ->
+							  primop 'match_fail'
+							      ({'case_clause',_omega})
+						      -| ['compiler_generated'] )
+						  end> of
+					      <_o1>
+						  when try
+							let <_14> =
+							    call 'erlang':'=:='
+								(_o0, _o1)
+							in  _14
+						    of <Try> ->
+							Try
+						    catch <T,R> ->
+							'false' ->
+						  _o1
+					      ( <_15> when 'true' ->
+						    primop 'match_fail'
+							({'badmatch',{_15}})
+						-| ['compiler_generated'] )
+					    end
+					( <_omega> when 'true' ->
+					      primop 'match_fail'
+						  ({'case_clause',_omega})
+					  -| ['compiler_generated'] )
+				      end
+				      do  case <apply 'inside-guard'/6
+						    (_xm, _ym, _x, _y, _w, _h)> of
+					    <{_r2,_xm2,_ym2,_x2,_y2,_w2,_h2}>
+						when try
+						      let <_16> =
+							  call 'erlang':'=:='
+							      (_r1, _r2)
+						      in  let <_17> =
+							      call 'erlang':'=:='
+								  (_xm, _xm2)
+							  in  let <_18> =
+								  call 'erlang':'=:='
+								      (_ym, _ym2)
+							      in  let <_19> =
+								      call 'erlang':'=:='
+									  (_x, _x2)
+								  in  let <_20> =
+									  call 'erlang':'=:='
+									      (_y, _y2)
+								      in  let <_21> =
+									      call 'erlang':'=:='
+										  (_w, _w2)
+									  in  let <_22> =
+										  call 'erlang':'=:='
+										      (_h, _h2)
+									      in  let <_23> =
+										      call 'erlang':'and'
+											  (_16, _17)
+										  in  let <_24> =
+											  call 'erlang':'and'
+											      (_23, _18)
+										      in  let <_25> =
+											      call 'erlang':'and'
+												  (_24, _19)
+											  in  let <_26> =
+												  call 'erlang':'and'
+												      (_25, _20)
+											      in  let <_27> =
+												      call 'erlang':'and'
+													  (_26, _21)
+												  in  call 'erlang':'and'
+													  (_27, _22)
+						  of <Try> ->
+						      Try
+						  catch <T,R> ->
+						      'false' ->
+						let <_30> =
+						    let <_28> =
+							call 'erlang':'+'
+							    (_x, _w)
+						    in  let <_29> =
+							    call 'erlang':'+'
+								(_y, _h)
+							in  [_x,_xm,_xm,_28,_y,_ym,_ym,_29,_r1]
+						in  call 'io':'fwrite'
+							([40|[97|[110|[100|[97|[108|[115|[111|[32|[40|[61|[60|[32|[126|[112|[32|[126|[112|[41|[32|[40|[60|[32|[126|[112|[32|[126|[112|[41|[32|[40|[61|[60|[32|[126|[112|[32|[126|[112|[41|[32|[40|[60|[32|[126|[112|[32|[126|[112|[41|[41|[32|[61|[61|[62|[32|[126|[112|[10]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], _30)
+					    ( <_31> when 'true' ->
+						  primop 'match_fail'
+						      ({'badmatch',{_31}})
+					      -| ['compiler_generated'] )
+					  end
+					  _r1
+			      ( <_32> when 'true' ->
+				    primop 'match_fail'
+					({'badmatch',{_32}})
+				-| ['compiler_generated'] )
+			    end
+'inside'/6 =
+    %% Line 297
+    fun (_xm,_ym,_x,_y,_w,_h) ->
+	case call 'erlang':'=<'
+		 (_x, _xm) of
+	  <'true'> when 'true' ->
+	      case let <_0> =
+		       call 'erlang':'+'
+			   (_x, _w)
+		   in  call 'erlang':'<'
+			   (_xm, _0) of
+		<'true'> when 'true' ->
+		    case call 'erlang':'=<'
+			     (_y, _ym) of
+		      <'true'> when 'true' ->
+			  let <_1> =
+			      call 'erlang':'+'
+				  (_y, _h)
+			  in  call 'erlang':'<'
+				  (_ym, _1)
+		      <'false'> when 'true' ->
+			  'false'
+		      ( <_omega> when 'true' ->
+			    primop 'match_fail'
+				('if_clause')
+			-| ['compiler_generated'] )
+		    end
+		<'false'> when 'true' ->
+		    'false'
+		( <_omega> when 'true' ->
+		      primop 'match_fail'
+			  ('if_clause')
+		  -| ['compiler_generated'] )
+	      end
+	  <'false'> when 'true' ->
+	      'false'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ('if_clause')
+	    -| ['compiler_generated'] )
+	end
+'inside-guard'/6 =
+    %% Line 300
+    fun (_5,_4,_3,_2,_1,_0) ->
+	case <_5,_4,_3,_2,_1,_0> of
+	  <_xm,_ym,_x,_y,_w,_h>
+	      when try
+		    let <_9> =
+			let <_8> =
+			    case call 'erlang':'=<'
+				     (_x, _xm) of
+			      <'true'> when 'true' ->
+				  case let <_6> =
+					   call 'erlang':'+'
+					       (_x, _w)
+				       in  call 'erlang':'<'
+					       (_xm, _6) of
+				    <'true'> when 'true' ->
+					case call 'erlang':'=<'
+						 (_y, _ym) of
+					  <'true'> when 'true' ->
+					      let <_7> =
+						  call 'erlang':'+'
+						      (_y, _h)
+					      in  call 'erlang':'<'
+						      (_ym, _7)
+					  <'false'> when 'true' ->
+					      'false'
+					  ( <_omega> when 'true' ->
+						_omega
+					    -| ['compiler_generated'] )
+					end
+				    <'false'> when 'true' ->
+					'false'
+				    ( <_omega> when 'true' ->
+					  _omega
+				      -| ['compiler_generated'] )
+				  end
+			      <'false'> when 'true' ->
+				  'false'
+			      ( <_omega> when 'true' ->
+				    _omega
+				-| ['compiler_generated'] )
+			    end
+			in  ( call 'erlang':'=:='
+				  (_8, 'true')
+			      -| ['compiler_generated'] )
+		    in  _9
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      {'true',_xm,_ym,_x,_y,_w,_h}
+	  <_xm,_ym,_x,_y,_w,_h> when 'true' ->
+	      {'false',_xm,_ym,_x,_y,_w,_h}
+	  ( <_15,_14,_13,_12,_11,_10> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_15,_14,_13,_12,_11,_10})
+		  -| [{'function_name',{'inside-guard',6}}] )
+	    -| ['compiler_generated'] )
+	end
+'overlap'/1 =
+    %% Line 307
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['true']]|[['overlap'|[7.00000000000000000000e+00|[2.00000000000000000000e+00|[8.00000000000000000000e+00|[5.00000000000000000000e-01]]]]]]]]})
+		  let <_val> =
+		      <apply 'overlap'/4
+			   (7.00000000000000000000e+00, 2.00000000000000000000e+00, 8.00000000000000000000e+00, 5.00000000000000000000e-01)>
+		  in  case <_val> of
+			<'true'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_10> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_10})
+		  -| [{'function_name',{'overlap',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'overlap'/4 =
+    %% Line 321
+    fun (_pos1,_len1,_pos2,_len2) ->
+	let <_r0> =
+	    <case _pos1 of
+	       <_pos1>
+		   when try
+			 let <_3> =
+			     let <_2> =
+				 case case call 'erlang':'=<'
+					       (_pos2, _pos1) of
+					<'true'> when 'true' ->
+					    let <_0> =
+						call 'erlang':'+'
+						    (_pos2, _len2)
+					    in  call 'erlang':'<'
+						    (_pos1, _0)
+					<'false'> when 'true' ->
+					    'false'
+					( <_omega> when 'true' ->
+					      _omega
+					  -| ['compiler_generated'] )
+				      end of
+				   <'true'> when 'true' ->
+				       'true'
+				   <'false'> when 'true' ->
+				       case call 'erlang':'=<'
+						(_pos1, _pos2) of
+					 <'true'> when 'true' ->
+					     let <_1> =
+						 call 'erlang':'+'
+						     (_pos1, _len1)
+					     in  call 'erlang':'<'
+						     (_pos2, _1)
+					 <'false'> when 'true' ->
+					     'false'
+					 ( <_omega> when 'true' ->
+					       _omega
+					   -| ['compiler_generated'] )
+				       end
+				   ( <_omega> when 'true' ->
+					 _omega
+				     -| ['compiler_generated'] )
+				 end
+			     in  ( call 'erlang':'=:='
+				       (_2, 'true')
+				   -| ['compiler_generated'] )
+			 in  _3
+		     of <Try> ->
+			 Try
+		     catch <T,R> ->
+			 'false' ->
+		   'true'
+	       <_pos1> when 'true' ->
+		   'false'
+	       ( <_omega> when 'true' ->
+		     primop 'match_fail'
+			 ({'case_clause',_omega})
+		 -| ['compiler_generated'] )
+	     end>
+	in  case <case case call 'erlang':'=<'
+				(_pos2, _pos1) of
+			 <'true'> when 'true' ->
+			     let <_4> =
+				 call 'erlang':'+'
+				     (_pos2, _len2)
+			     in  call 'erlang':'<'
+				     (_pos1, _4)
+			 <'false'> when 'true' ->
+			     'false'
+			 ( <_omega> when 'true' ->
+			       primop 'match_fail'
+				   ('if_clause')
+			   -| ['compiler_generated'] )
+		       end of
+		    <'true'> when 'true' ->
+			'true'
+		    <'false'> when 'true' ->
+			case call 'erlang':'=<'
+				 (_pos1, _pos2) of
+			  <'true'> when 'true' ->
+			      let <_5> =
+				  call 'erlang':'+'
+				      (_pos1, _len1)
+			      in  call 'erlang':'<'
+				      (_pos2, _5)
+			  <'false'> when 'true' ->
+			      'false'
+			  ( <_omega> when 'true' ->
+				primop 'match_fail'
+				    ('if_clause')
+			    -| ['compiler_generated'] )
+			end
+		    ( <_omega> when 'true' ->
+			  primop 'match_fail'
+			      ('if_clause')
+		      -| ['compiler_generated'] )
+		  end> of
+	      <_r1>
+		  when try
+			let <_6> =
+			    call 'erlang':'=:='
+				(_r0, _r1)
+			in  _6
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  case <case _pos1 of
+			  <_pos1>
+			      when try
+				    let <_10> =
+					let <_9> =
+					    case case call 'erlang':'=<'
+							  (_pos2, _pos1) of
+						   <'true'> when 'true' ->
+						       let <_7> =
+							   call 'erlang':'+'
+							       (_pos2, _len2)
+						       in  call 'erlang':'<'
+							       (_pos1, _7)
+						   <'false'> when 'true' ->
+						       'false'
+						   ( <_omega> when 'true' ->
+							 _omega
+						     -| ['compiler_generated'] )
+						 end of
+					      <'true'> when 'true' ->
+						  'true'
+					      <'false'> when 'true' ->
+						  case call 'erlang':'=<'
+							   (_pos1, _pos2) of
+						    <'true'> when 'true' ->
+							let <_8> =
+							    call 'erlang':'+'
+								(_pos1, _len1)
+							in  call 'erlang':'<'
+								(_pos2, _8)
+						    <'false'> when 'true' ->
+							'false'
+						    ( <_omega> when 'true' ->
+							  _omega
+						      -| ['compiler_generated'] )
+						  end
+					      ( <_omega> when 'true' ->
+						    _omega
+						-| ['compiler_generated'] )
+					    end
+					in  ( call 'erlang':'=:='
+						  (_9, 'true')
+					      -| ['compiler_generated'] )
+				    in  _10
+				of <Try> ->
+				    Try
+				catch <T,R> ->
+				    'false' ->
+			      'true'
+			  <_pos1> when 'true' ->
+			      'false'
+			  ( <_omega> when 'true' ->
+				primop 'match_fail'
+				    ({'case_clause',_omega})
+			    -| ['compiler_generated'] )
+			end> of
+		    <_r2>
+			when try
+			      let <_11> =
+				  call 'erlang':'=:='
+				      (_r2, _r1)
+			      in  _11
+			  of <Try> ->
+			      Try
+			  catch <T,R> ->
+			      'false' ->
+			apply 'id'/1
+			    (_r2)
+		    ( <_12> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',{_12}})
+		      -| ['compiler_generated'] )
+		  end
+	      ( <_13> when 'true' ->
+		    primop 'match_fail'
+			({'badmatch',{_13}})
+		-| ['compiler_generated'] )
+	    end
+'combined'/1 =
+    %% Line 348
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['false']]|[['comb'|[['quote'|['false']]|[['quote'|['false']]|[['quote'|['false']]]]]]]]]})
+		  let <_val> =
+		      <apply 'comb'/3
+			   ('false', 'false', 'false')>
+		  in  case <_val> of
+			<'false'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_26> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_26})
+		  -| [{'function_name',{'combined',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'comb'/3 =
+    %% Line 383
+    fun (_a,_b,_c) ->
+	let <_r0> =
+	    <case case _a of
+		    <'true'> when 'true' ->
+			_b
+		    <'false'> when 'true' ->
+			'false'
+		    ( <_omega> when 'true' ->
+			  primop 'match_fail'
+			      ('if_clause')
+		      -| ['compiler_generated'] )
+		  end of
+	       <'true'> when 'true' ->
+		   'true'
+	       <'false'> when 'true' ->
+		   _c
+	       ( <_omega> when 'true' ->
+		     primop 'match_fail'
+			 ('if_clause')
+		 -| ['compiler_generated'] )
+	     end>
+	in  case <case 1 of
+		    <_0>
+			when try
+			      let <_2> =
+				  let <_1> =
+				      case case _a of
+					     <'true'> when 'true' ->
+						 _b
+					     <'false'> when 'true' ->
+						 'false'
+					     ( <_omega> when 'true' ->
+						   _omega
+					       -| ['compiler_generated'] )
+					   end of
+					<'true'> when 'true' ->
+					    'true'
+					<'false'> when 'true' ->
+					    _c
+					( <_omega> when 'true' ->
+					      _omega
+					  -| ['compiler_generated'] )
+				      end
+				  in  ( call 'erlang':'=:='
+					    (_1, 'true')
+					-| ['compiler_generated'] )
+			      in  _2
+			  of <Try> ->
+			      Try
+			  catch <T,R> ->
+			      'false' ->
+			'true'
+		    <_3>
+			when try
+			      'true'
+			  of <Try> ->
+			      Try
+			  catch <T,R> ->
+			      'false' ->
+			'false'
+		    ( <_omega> when 'true' ->
+			  primop 'match_fail'
+			      ({'case_clause',_omega})
+		      -| ['compiler_generated'] )
+		  end> of
+	      <_r1>
+		  when try
+			let <_4> =
+			    call 'erlang':'=:='
+				(_r0, _r1)
+			in  _4
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  let <_n0> =
+		      <case 1 of
+			 <_5>
+			     when try
+				   let <_7> =
+				       let <_6> =
+					   case case _a of
+						  <'true'> when 'true' ->
+						      _b
+						  <'false'> when 'true' ->
+						      'false'
+						  ( <_omega> when 'true' ->
+							_omega
+						    -| ['compiler_generated'] )
+						end of
+					     <'true'> when 'true' ->
+						 'true'
+					     <'false'> when 'true' ->
+						 _c
+					     ( <_omega> when 'true' ->
+						   _omega
+					       -| ['compiler_generated'] )
+					   end
+				       in  call 'erlang':'not'
+					       (_6)
+				   in  _7
+			       of <Try> ->
+				   Try
+			       catch <T,R> ->
+				   'false' ->
+			     'true'
+			 <_8>
+			     when try
+				   'true'
+			       of <Try> ->
+				   Try
+			       catch <T,R> ->
+				   'false' ->
+			     'false'
+			 ( <_omega> when 'true' ->
+			       primop 'match_fail'
+				   ({'case_clause',_omega})
+			   -| ['compiler_generated'] )
+		       end>
+		  in  case <let <_9> =
+				call 'erlang':'not'
+				    (_r1)
+			    in  apply 'id'/1
+				    (_9)> of
+			<_n1>
+			    when try
+				  let <_10> =
+				      call 'erlang':'=:='
+					  (_n0, _n1)
+				  in  _10
+			      of <Try> ->
+				  Try
+			      catch <T,R> ->
+				  'false' ->
+			    case <case case _a of
+					 <'true'> when 'true' ->
+					     _b
+					 <'false'> when 'true' ->
+					     'false'
+					 ( <_omega> when 'true' ->
+					       primop 'match_fail'
+						   ('if_clause')
+					   -| ['compiler_generated'] )
+				       end of
+				    <'true'> when 'true' ->
+					'true'
+				    <'false'> when 'true' ->
+					_c
+				    ( <_omega> when 'true' ->
+					  primop 'match_fail'
+					      ('if_clause')
+				      -| ['compiler_generated'] )
+				  end> of
+			      <_r2>
+				  when try
+					let <_11> =
+					    call 'erlang':'=:='
+						(_r1, _r2)
+					in  _11
+				    of <Try> ->
+					Try
+				    catch <T,R> ->
+					'false' ->
+				  case <case 1 of
+					  <_12>
+					      when try
+						    let <_14> =
+							let <_13> =
+							    case case _a of
+								   <'true'> when 'true' ->
+								       _b
+								   <'false'> when 'true' ->
+								       'false'
+								   ( <_omega> when 'true' ->
+									 _omega
+								     -| ['compiler_generated'] )
+								 end of
+							      <'true'> when 'true' ->
+								  'true'
+							      <'false'> when 'true' ->
+								  _c
+							      ( <_omega> when 'true' ->
+								    _omega
+								-| ['compiler_generated'] )
+							    end
+							in  ( call 'erlang':'=:='
+								  (_13, 'true')
+							      -| ['compiler_generated'] )
+						    in  _14
+						of <Try> ->
+						    Try
+						catch <T,R> ->
+						    'false' ->
+					      'true'
+					  <_15>
+					      when try
+						    'true'
+						of <Try> ->
+						    Try
+						catch <T,R> ->
+						    'false' ->
+					      'false'
+					  ( <_omega> when 'true' ->
+						primop 'match_fail'
+						    ({'case_clause',_omega})
+					    -| ['compiler_generated'] )
+					end> of
+				    <_r3>
+					when try
+					      let <_16> =
+						  call 'erlang':'=:='
+						      (_r2, _r3)
+					      in  _16
+					  of <Try> ->
+					      Try
+					  catch <T,R> ->
+					      'false' ->
+					case <let <_17> =
+						  call 'erlang':'not'
+						      (_r3)
+					      in  apply 'id'/1
+						      (_17)> of
+					  <_n2>
+					      when try
+						    let <_18> =
+							call 'erlang':'=:='
+							    (_n1, _n2)
+						    in  _18
+						of <Try> ->
+						    Try
+						catch <T,R> ->
+						    'false' ->
+					      case <case 1 of
+						      <_19>
+							  when try
+								let <_21> =
+								    let <_20> =
+									case case _a of
+									       <'true'> when 'true' ->
+										   _b
+									       <'false'> when 'true' ->
+										   'false'
+									       ( <_omega> when 'true' ->
+										     _omega
+										 -| ['compiler_generated'] )
+									     end of
+									  <'true'> when 'true' ->
+									      'true'
+									  <'false'> when 'true' ->
+									      _c
+									  ( <_omega> when 'true' ->
+										_omega
+									    -| ['compiler_generated'] )
+									end
+								    in  ( call 'erlang':'=:='
+									      (_20, 'true')
+									  -| ['compiler_generated'] )
+								in  _21
+							    of <Try> ->
+								Try
+							    catch <T,R> ->
+								'false' ->
+							  'true'
+						      <_22>
+							  when try
+								'true'
+							    of <Try> ->
+								Try
+							    catch <T,R> ->
+								'false' ->
+							  'false'
+						      ( <_omega> when 'true' ->
+							    primop 'match_fail'
+								({'case_clause',_omega})
+							-| ['compiler_generated'] )
+						    end> of
+						<_r4>
+						    when try
+							  let <_23> =
+							      call 'erlang':'=:='
+								  (_r3, _r4)
+							  in  _23
+						      of <Try> ->
+							  Try
+						      catch <T,R> ->
+							  'false' ->
+						    apply 'id'/1
+							(_r4)
+						( <_24> when 'true' ->
+						      primop 'match_fail'
+							  ({'badmatch',{_24}})
+						  -| ['compiler_generated'] )
+					      end
+					  ( <_25> when 'true' ->
+						primop 'match_fail'
+						    ({'badmatch',{_25}})
+					    -| ['compiler_generated'] )
+					end
+				    ( <_26> when 'true' ->
+					  primop 'match_fail'
+					      ({'badmatch',{_26}})
+				      -| ['compiler_generated'] )
+				  end
+			      ( <_27> when 'true' ->
+				    primop 'match_fail'
+					({'badmatch',{_27}})
+				-| ['compiler_generated'] )
+			    end
+			( <_28> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_28}})
+			  -| ['compiler_generated'] )
+		      end
+	      ( <_29> when 'true' ->
+		    primop 'match_fail'
+			({'badmatch',{_29}})
+		-| ['compiler_generated'] )
+	    end
+'in_case'/1 =
+    %% Line 402
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['edge_rings']]|[['in-case-1'|[1|[1|[1|[1|[1]]]]]]]]]})
+		  let <_val> =
+		      <apply 'in-case-1'/5
+			   (1, 1, 1, 1, 1)>
+		  in  case <_val> of
+			<'edge_rings'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_13> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_13})
+		  -| [{'function_name',{'in_case',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'in-case-1'/5 =
+    %% Line 419
+    fun (_lenup,_lendw,_lenn,_rot,_count) ->
+	let <_r0> =
+	    <apply 'in-case-1-body'/5
+		 (_lenup, _lendw, _lenn, _rot, _count)>
+	in  case <apply 'in-case-1-guard'/5
+		      (_lenup, _lendw, _lenn, _rot, _count)> of
+	      <_res>
+		  when try
+			let <_0> =
+			    call 'erlang':'=:='
+				(_r0, _res)
+			in  _0
+		    of <Try> ->
+			Try
+		    catch <T,R> ->
+			'false' ->
+		  _res
+	      ( <_1> when 'true' ->
+		    primop 'match_fail'
+			({'badmatch',{_1}})
+		-| ['compiler_generated'] )
+	    end
+'in-case-1-body'/5 =
+    %% Line 425
+    fun (_lenup,_lendw,_lenn,_rot,_count) ->
+	case let <_5> =
+		 let <_2> =
+		     let <_0> =
+			 call 'erlang':'/'
+			     (_lenup, _count)
+		     in  call 'erlang':'>'
+			     (_0, 7.06999999999999961808e-01)
+		 in  let <_3> =
+			 let <_1> =
+			     call 'erlang':'/'
+				 (_lenn, _count)
+			 in  call 'erlang':'>'
+				 (_1, 7.06999999999999961808e-01)
+		     in  call 'erlang':'and'
+			     (_2, _3)
+	     in  let <_6> =
+		     let <_4> =
+			 call 'erlang':'abs'
+			     (_rot)
+		     in  call 'erlang':'>'
+			     (_4, 7.06999999999999961808e-01)
+		 in  call 'erlang':'and'
+			 (_5, _6) of
+	  <'true'> when 'true' ->
+	      'edge_rings'
+	  <'false'> when 'true' ->
+	      case let <_11> =
+		       let <_9> =
+			   let <_7> =
+			       call 'erlang':'>='
+				   (_lenup, 1)
+			   in  let <_8> =
+				   call 'erlang':'>='
+				       (_lendw, 1)
+			       in  call 'erlang':'or'
+				       (_7, _8)
+		       in  let <_10> =
+			       call 'erlang':'=<'
+				   (_lenn, 1)
+			   in  call 'erlang':'or'
+				   (_9, _10)
+		   in  let <_12> =
+			   call 'erlang':'>'
+			       (_count, 4)
+		       in  call 'erlang':'or'
+			       (_11, _12) of
+		<'true'> when 'true' ->
+		    'not_loop'
+		<'false'> when 'true' ->
+		    'loop'
+		( <_omega> when 'true' ->
+		      primop 'match_fail'
+			  ({'case_clause',_omega})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'in-case-1-guard'/5 =
+    %% Line 435
+    fun (_lenup,_lendw,_lenn,_rot,_count) ->
+	case case let <_0> =
+		      call 'erlang':'/'
+			  (_lenup, _count)
+		  in  call 'erlang':'>'
+			  (_0, 7.06999999999999961808e-01) of
+	       <'true'> when 'true' ->
+		   case let <_1> =
+			    call 'erlang':'/'
+				(_lenn, _count)
+			in  call 'erlang':'>'
+				(_1, 7.06999999999999961808e-01) of
+		     <'true'> when 'true' ->
+			 let <_2> =
+			     call 'erlang':'abs'
+				 (_rot)
+			 in  call 'erlang':'>'
+				 (_2, 7.06999999999999961808e-01)
+		     <'false'> when 'true' ->
+			 'false'
+		     ( <_omega> when 'true' ->
+			   primop 'match_fail'
+			       ('if_clause')
+		       -| ['compiler_generated'] )
+		   end
+	       <'false'> when 'true' ->
+		   'false'
+	       ( <_omega> when 'true' ->
+		     primop 'match_fail'
+			 ('if_clause')
+		 -| ['compiler_generated'] )
+	     end of
+	  <'true'> when 'true' ->
+	      'edge_rings'
+	  <'false'>
+	      when try
+		    let <_4> =
+			let <_3> =
+			    case call 'erlang':'>='
+				     (_lenup, 1) of
+			      <'true'> when 'true' ->
+				  'true'
+			      <'false'> when 'true' ->
+				  case call 'erlang':'>='
+					   (_lendw, 1) of
+				    <'true'> when 'true' ->
+					'true'
+				    <'false'> when 'true' ->
+					case call 'erlang':'=<'
+						 (_lenn, 1) of
+					  <'true'> when 'true' ->
+					      'true'
+					  <'false'> when 'true' ->
+					      call 'erlang':'<'
+						  (_count, 4)
+					  ( <_omega> when 'true' ->
+						_omega
+					    -| ['compiler_generated'] )
+					end
+				    ( <_omega> when 'true' ->
+					  _omega
+				      -| ['compiler_generated'] )
+				  end
+			      ( <_omega> when 'true' ->
+				    _omega
+				-| ['compiler_generated'] )
+			    end
+			in  ( call 'erlang':'=:='
+				  (_3, 'true')
+			      -| ['compiler_generated'] )
+		    in  _4
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      'not_loop'
+	  <'false'> when 'true' ->
+	      'loop'
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'before_and_inside_if'/1 =
+    %% Line 443
+    fun (_0) ->
+	case <_0> of
+	  <_config>
+	      when try
+		    let <_1> =
+			call 'erlang':'is_list'
+			    (_config)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'erlang':'put'
+		      ('test_server_loc', {'lfe_andor_SUITE',['test-pat'|[['quote'|['no']]|[['before-and-inside-if'|[['quote'|[['a']]]|[['quote'|[['b']]]|[['quote'|['delete']]]]]]]]]})
+		  let <_val> =
+		      <apply 'before-and-inside-if'/3
+			   (['a'], ['b'], 'delete')>
+		  in  case <_val> of
+			<'no'> when 'true' ->
+			    _val
+			( <_2> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',{_2}})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <_18> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_18})
+		  -| [{'function_name',{'before_and_inside_if',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'before-and-inside-if'/3 =
+    %% Line 468
+    fun (XDo1,XDo2,Do3) ->
+	let <Do1> =
+	    <call 'erlang':'=/='
+		 (XDo1, [])>
+	in  let <Do2> =
+		<call 'erlang':'=/='
+		     (XDo2, [])>
+	    in  case 1 of
+		  <_0>
+		      when try
+			    let <_7> =
+				let <_5> =
+				    call 'erlang':'=:='
+					(Do1, 'true')
+				in  let <_6> =
+					let <_3> =
+					    let <_1> =
+						call 'erlang':'=:='
+						    (Do1, 'false')
+					    in  let <_2> =
+						    call 'erlang':'=:='
+							(Do2, 'false')
+						in  call 'erlang':'and'
+							(_1, _2)
+					in  let <_4> =
+						call 'erlang':'=:='
+						    (Do3, 'delete')
+					    in  call 'erlang':'and'
+						    (_3, _4)
+				    in  call 'erlang':'or'
+					    (_5, _6)
+			    in  _7
+			of <Try> ->
+			    Try
+			catch <T,R> ->
+			    'false' ->
+		      'no'
+		  <_8>
+		      when try
+			    'true'
+			of <Try> ->
+			    Try
+			catch <T,R> ->
+			    'false' ->
+		      'yes'
+		  ( <_omega> when 'true' ->
+			primop 'match_fail'
+			    ({'case_clause',_omega})
+		    -| ['compiler_generated'] )
+		end
+'before-and-inside-if-2'/3 =
+    %% Line 484
+    fun (XDo1,XDo2,Do3) ->
+	let <Do1> =
+	    <call 'erlang':'=/='
+		 (XDo1, [])>
+	in  let <Do2> =
+		<call 'erlang':'=/='
+		     (XDo2, [])>
+	    in  let <CH1> =
+		    <case 1 of
+		       <_0>
+			   when try
+				 let <_7> =
+				     let <_5> =
+					 call 'erlang':'=='
+					     (Do1, 'true')
+				     in  let <_6> =
+					     let <_3> =
+						 let <_1> =
+						     call 'erlang':'=='
+							 (Do1, 'false')
+						 in  let <_2> =
+							 call 'erlang':'=='
+							     (Do2, 'false')
+						     in  call 'erlang':'and'
+							     (_1, _2)
+					     in  let <_4> =
+						     call 'erlang':'=='
+							 (Do3, 'blah')
+						 in  call 'erlang':'and'
+							 (_3, _4)
+					 in  call 'erlang':'or'
+						 (_5, _6)
+				 in  _7
+			     of <Try> ->
+				 Try
+			     catch <T,R> ->
+				 'false' ->
+			   'ch1'
+		       <_8>
+			   when try
+				 'true'
+			     of <Try> ->
+				 Try
+			     catch <T,R> ->
+				 'false' ->
+			   'no'
+		       ( <_omega> when 'true' ->
+			     primop 'match_fail'
+				 ({'case_clause',_omega})
+			 -| ['compiler_generated'] )
+		     end>
+		in  let <CH2> =
+			<case 1 of
+			   <_9>
+			       when try
+				     let <_16> =
+					 let <_14> =
+					     call 'erlang':'=='
+						 (Do1, 'true')
+					 in  let <_15> =
+						 let <_12> =
+						     let <_10> =
+							 call 'erlang':'=='
+							     (Do1, 'false')
+						     in  let <_11> =
+							     call 'erlang':'=='
+								 (Do2, 'false')
+							 in  call 'erlang':'and'
+								 (_10, _11)
+						 in  let <_13> =
+							 call 'erlang':'=='
+							     (Do3, 'xx')
+						     in  call 'erlang':'and'
+							     (_12, _13)
+					     in  call 'erlang':'or'
+						     (_14, _15)
+				     in  _16
+				 of <Try> ->
+				     Try
+				 catch <T,R> ->
+				     'false' ->
+			       'ch2'
+			   <_17>
+			       when try
+				     'true'
+				 of <Try> ->
+				     Try
+				 catch <T,R> ->
+				     'false' ->
+			       'no'
+			   ( <_omega> when 'true' ->
+				 primop 'match_fail'
+				     ({'case_clause',_omega})
+			     -| ['compiler_generated'] )
+			 end>
+		    in  {CH1,CH2}
+'check'/2 =
+    %% Line 501
+    fun (_v1,_v0) ->
+	case 1 of
+	  <_0>
+	      when try
+		    let <_1> =
+			call 'erlang':'/='
+			    (_v1, _v0)
+		    in  _1
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      do  call 'io':'fwrite'
+		      ([101|[114|[114|[111|[114|[58|[32|[126|[119|[46|[10]]]]]]]]]]], [_v1])
+		  call 'erlang':'exit'
+		      ('suite_failed')
+	  <_2>
+	      when try
+		    'true'
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      call 'io':'fwrite'
+		  ([111|[107|[58|[32|[126|[119|[46|[10]]]]]]]], [_v1])
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'echo'/1 =
+    %% Line 506
+    fun (_x) ->
+	do  call 'io':'fwrite'
+		([40|[101|[118|[97|[108|[32|[126|[119|[41|[59|[32]]]]]]]]]]], [_x])
+	    _x
+'id'/1 =
+    %% Line 511
+    fun (_i) ->
+	_i
+'$handle_undefined_function'/2 =
+    %% Line 29
+    fun (_f,_as) ->
+	case let <_0> =
+		 call 'lfe_env':'new'
+		     ()
+	     in  apply 'LFE-EXPAND-EXPORTED-MACRO'/3
+		     (_f, _as, _0) of
+	  <{'yes',_exp}> when 'true' ->
+	      call 'lfe_eval':'expr'
+		  (_exp)
+	  <'no'> when 'true' ->
+	      let <_a,_b> =
+		  <_f,_as>
+	      in  call 'error_handler':'raise_undef_exception'
+		      ('lfe_andor_SUITE', _a, _b)
+	  ( <_omega> when 'true' ->
+		primop 'match_fail'
+		    ({'case_clause',_omega})
+	    -| ['compiler_generated'] )
+	end
+'LFE-EXPAND-EXPORTED-MACRO'/3 =
+    %% Line 29
+    fun (_2,_1,_0) ->
+	'no'
+'module_info'/0 =
+    fun () ->
+	call 'erlang':'get_module_info'
+	    ('lfe_andor_SUITE')
+'module_info'/1 =
+    fun (_x) ->
+	call 'erlang':'get_module_info'
+	    ('lfe_andor_SUITE', _x)
+end

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -60,6 +60,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 
 -                     -----> Module:handle_info/2
 
+-                     -----> Module:handle_continue/2
+
 -                     -----> Module:terminate/2
 
 -                     -----> Module:code_change/3</pre>
@@ -88,6 +90,13 @@ gen_server:abcast     -----> Module:handle_cast/2
       implies at least two garbage collections (when hibernating and
       shortly after waking up) and is not something you want to do
       between each call to a busy server.</p>
+
+    <p>If the <c>gen_server</c> process needs to perform an action
+      immediately after initialization or to break the execution of a
+      callback into multiple steps, it can return <c>{continue,Continue}</c>
+      in place of the time-out or hibernation value, which will immediately
+      invoke the <c>handle_continue/2</c> callback.</p>
+
   </description>
 
   <funcs>
@@ -162,11 +171,6 @@ gen_server:abcast     -----> Module:handle_cast/2
           of <c>Module:handle_call/3</c>.</p>
         <p>The call can fail for many reasons, including time-out and the
           called <c>gen_server</c> process dying before or during the call.</p>
-	<note>
-        <p>The ancient behavior of sometimes consuming the server
-          exit message if the server died during the call while
-          linked to the client was removed in Erlang 5.6/OTP R12B.</p>
-	</note>
       </desc>
     </func>
 
@@ -204,7 +208,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <type>
         <v>Module = atom()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {hibernate_after,HibernateAfterTimeout}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics</v>
         <v>&nbsp;&nbsp;&nbsp;&nbsp;| {log_to_file,FileName} | {install,{Func,FuncState}}</v>
@@ -339,7 +343,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Module = atom()</v>
         <v>Args = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -369,7 +373,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Module = atom()</v>
         <v>Args = term()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
         <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
         <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
         <v>&nbsp;&nbsp;SOpts = [term()]</v>
@@ -420,6 +424,12 @@ gen_server:abcast     -----> Module:handle_cast/2
               process is allowed to spend <c>Time</c> milliseconds
               initializing or it is terminated and the start function
               returns <c>{error,timeout}</c>.</p>
+          </item>
+          <item>
+            <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_server</c>
+              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation automatically
+              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
           </item>
           <item>
             <p>If option <c>{debug,Dbgs}</c> is present,
@@ -476,8 +486,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
-          <seealso marker="kernel:error_logger#format/2">
-          <c>error_logger:format/2</c></seealso>.
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the server to
@@ -509,6 +518,13 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Reason = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the process will crash with an <c>undef</c> exit
+            reason.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           to update its internal state during a release upgrade/downgrade,
           that is, when the instruction <c>{update,Module,Change,...}</c>,
@@ -602,12 +618,15 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {reply,Reply,NewState} | {reply,Reply,NewState,Timeout}</v> 
         <v>&nbsp;&nbsp;| {reply,Reply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {reply,Reply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState} | {noreply,NewState,Timeout}</v> 
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,Reply,NewState} | {stop,Reason,NewState}</v>
         <v>&nbsp;Reply = term()</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
@@ -665,9 +684,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
@@ -682,6 +703,41 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
+      <name>Module:handle_continue(Continue, State) -> Result</name>
+      <fsummary>Handle a continue instruction.</fsummary>
+      <type>
+        <v>Continue = term()</v>
+        <v>State = term()</v>
+        <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
+        <v>&nbsp;NewState = term()</v>
+        <v>&nbsp;Timeout = int()>=0 | infinity</v>
+        <v>&nbsp;Continue = term()</v>
+        <v>&nbsp;Reason = normal | term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so callback modules need to
+            export it only if they return <c>{continue,Continue}</c>
+            from another callback. If continue is used and the callback
+            is not implemented, the process will exit with <c>undef</c>
+            error.</p>
+        </note>
+        <p>This function is called by a <c>gen_server</c> process whenever
+          a previous callback returns <c>{continue, Continue}</c>.
+          <c>handle_continue/2</c> is invoked immediately after the previous
+          callback, which makes it useful for performing work after
+          initialization or for splitting the work in a callback in
+          multiple steps, updating the process state along the way.</p>
+        <p>For a description of the other arguments and possible return values,
+          see <seealso marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>Module:handle_info(Info, State) -> Result</name>
       <fsummary>Handle an incoming message.</fsummary>
       <type>
@@ -689,12 +745,19 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
         <v>Result = {noreply,NewState} | {noreply,NewState,Timeout}</v>
         <v>&nbsp;&nbsp;| {noreply,NewState,hibernate}</v>
+        <v>&nbsp;&nbsp;| {noreply,NewState,{continue,Continue}}</v>
         <v>&nbsp;&nbsp;| {stop,Reason,NewState}</v>
         <v>&nbsp;NewState = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{noreply, State}</c>.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when a
           time-out occurs or when it receives any other message than a
           synchronous or asynchronous request (or a system message).</p>
@@ -712,7 +775,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <type>
         <v>Args = term()</v>
         <v>Result =  {ok,State} | {ok,State,Timeout} | {ok,State,hibernate}</v>
-        <v>&nbsp;| {stop,Reason} | ignore</v>
+        <v>&nbsp;| {ok,State,{continue,Continue}} | {stop,Reason} | ignore</v>
         <v>&nbsp;State = term()</v>
         <v>&nbsp;Timeout = int()>=0 | infinity</v>
         <v>&nbsp;Reason = term()</v>
@@ -755,6 +818,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_server</c> module provides a default
+            implementation without cleanup.</p>
+        </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           about to terminate. It is to be the opposite of
           <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
@@ -792,8 +860,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
           process is assumed to terminate because of an error and
           an error report is issued using
-          <seealso marker="kernel:error_logger#format/2">
-          <c>error_logger:format/2</c></seealso>.</p>
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.</p>
       </desc>
     </func>
   </funcs>
@@ -801,7 +868,6 @@ gen_server:abcast     -----> Module:handle_cast/2
   <section>
     <title>See Also</title>
     <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
-      <seealso marker="gen_fsm"><c>gen_fsm(3)</c></seealso>,
       <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
       <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>,
       <seealso marker="supervisor"><c>supervisor(3)</c></seealso>,

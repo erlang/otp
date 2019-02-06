@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,9 +47,6 @@ obsolete(Module, Name, Arity) ->
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
-obsolete_1(erlang, hash, 2) ->
-    {deprecated, {erlang, phash2, 2}};
-
 obsolete_1(erlang, now, 0) ->
     {deprecated,
      "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
@@ -58,186 +55,240 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
+%% *** STDLIB added in OTP 20 ***
+
+obsolete_1(gen_fsm, start, 3) ->
+    {deprecated, {gen_statem, start, 3}};
+obsolete_1(gen_fsm, start, 4) ->
+    {deprecated, {gen_statem, start, 4}};
+
+obsolete_1(gen_fsm, start_link, 3) ->
+    {deprecated, {gen_statem, start_link, 3}};
+obsolete_1(gen_fsm, start_link, 4) ->
+    {deprecated, {gen_statem, start_link, 4}};
+
+obsolete_1(gen_fsm, stop, 1) ->
+    {deprecated, {gen_statem, stop, 1}};
+obsolete_1(gen_fsm, stop, 3) ->
+    {deprecated, {gen_statem, stop, 3}};
+
+obsolete_1(gen_fsm, enter_loop, 4) ->
+    {deprecated, {gen_statem, enter_loop, 4}};
+obsolete_1(gen_fsm, enter_loop, 5) ->
+    {deprecated, {gen_statem, enter_loop, 5}};
+obsolete_1(gen_fsm, enter_loop, 6) ->
+    {deprecated, {gen_statem, enter_loop, 6}};
+
+obsolete_1(gen_fsm, reply, 2) ->
+    {deprecated, {gen_statem, reply, 2}};
+
+obsolete_1(gen_fsm, send_event, 2) ->
+    {deprecated, {gen_statem, cast, 2}};
+obsolete_1(gen_fsm, send_all_state_event, 2) ->
+    {deprecated, {gen_statem, cast, 2}};
+
+obsolete_1(gen_fsm, sync_send_event, 2) ->
+    {deprecated, {gen_statem, call, 2}};
+obsolete_1(gen_fsm, sync_send_event, 3) ->
+    {deprecated, {gen_statem, call, 3}};
+
+obsolete_1(gen_fsm, sync_send_all_state_event, 2) ->
+    {deprecated, {gen_statem, call, 2}};
+obsolete_1(gen_fsm, sync_send_all_state_event, 3) ->
+    {deprecated, {gen_statem, call, 3}};
+
+obsolete_1(gen_fsm, start_timer, 2) ->
+    {deprecated, {erlang, start_timer, 3}};
+obsolete_1(gen_fsm, cancel_timer, 1) ->
+    {deprecated, {erlang, cancel_timer, 1}};
+obsolete_1(gen_fsm, send_event_after, 2) ->
+    {deprecated, {erlang, send_after, 3}};
+
+%% *** CRYPTO added in OTP 20 ***
+
+obsolete_1(crypto, rand_uniform, 2) ->
+    {deprecated, {rand, uniform, 1}};
+
 %% *** CRYPTO added in OTP 19 ***
 
 obsolete_1(crypto, rand_bytes, 1) ->
-    {deprecated, {crypto, strong_rand_bytes, 1}};
+    {removed, {crypto, strong_rand_bytes, 1}, "20.0"};
 
 %% *** CRYPTO added in R16B01 ***
 
 obsolete_1(crypto, md4, 1) ->
-    {deprecated, {crypto, hash, 2}};
+    {removed, {crypto, hash, 2}, "20.0"};
 obsolete_1(crypto, md5, 1) ->
-    {deprecated, {crypto, hash, 2}};
+    {removed, {crypto, hash, 2}, "20.0"};
 obsolete_1(crypto, sha, 1) ->
-    {deprecated, {crypto, hash, 2}};
+    {removed, {crypto, hash, 2}, "20.0"};
 
 obsolete_1(crypto, md4_init, 0) ->
-    {deprecated, {crypto, hash_init, 1}};
+    {removed, {crypto, hash_init, 1}, "20.0"};
 obsolete_1(crypto, md5_init, 0) ->
-    {deprecated, {crypto, hash_init, 1}};
+    {removed, {crypto, hash_init, 1}, "20.0"};
 obsolete_1(crypto, sha_init, 0) ->
-    {deprecated, {crypto, hash_init, 1}};
+    {removed, {crypto, hash_init, 1}, "20.0"};
 
 obsolete_1(crypto, md4_update, 2) ->
-    {deprecated, {crypto, hash_update, 2}};
+    {removed, {crypto, hash_update, 2}, "20.0"};
 obsolete_1(crypto, md5_update, 2) ->
-    {deprecated, {crypto, hash_update, 2}};
+    {removed, {crypto, hash_update, 2}, "20.0"};
 obsolete_1(crypto, sha_update, 2) ->
-    {deprecated, {crypto, hash_update, 2}};
+    {removed, {crypto, hash_update, 2}, "20.0"};
 
 obsolete_1(crypto, md4_final, 1) ->
-    {deprecated, {crypto, hash_final, 1}};
+    {removed, {crypto, hash_final, 1}, "20.0"};
 obsolete_1(crypto, md5_final, 1) ->
-    {deprecated, {crypto, hash_final, 1}};
+    {removed, {crypto, hash_final, 1}, "20.0"};
 obsolete_1(crypto, sha_final, 1) ->
-    {deprecated, {crypto, hash_final, 1}};
+    {removed, {crypto, hash_final, 1}, "20.0"};
 
 obsolete_1(crypto, md5_mac, 2) ->
-    {deprecated, {crypto, hmac, 3}};
+    {removed, {crypto, hmac, 3}, "20.0"};
 obsolete_1(crypto, sha_mac, 2) ->
-    {deprecated, {crypto, hmac, 3}};
+    {removed, {crypto, hmac, 3}, "20.0"};
 obsolete_1(crypto, sha_mac, 3) ->
-    {deprecated, {crypto, hmac, 4}};
+    {removed, {crypto, hmac, 4}, "20.0"};
 
 obsolete_1(crypto, sha_mac_96, 2) ->
-    {deprecated, {crypto, hmac, 4}};
+    {removed, {crypto, hmac, 4}, "20.0"};
 obsolete_1(crypto, md5_mac_96, 2) ->
-    {deprecated, {crypto, hmac, 4}};
+    {removed, {crypto, hmac, 4}, "20.0"};
 
 obsolete_1(crypto, rsa_sign, 2) ->
-    {deprecated, {crypto, sign, 4}};
+    {removed, {crypto, sign, 4}, "20.0"};
 obsolete_1(crypto, rsa_sign, 3) ->
-    {deprecated, {crypto, sign, 4}};
+    {removed, {crypto, sign, 4}, "20.0"};
 obsolete_1(crypto, rsa_verify, 3) ->
-    {deprecated, {crypto, verify, 5}};
+    {removed, {crypto, verify, 5}, "20.0"};
 obsolete_1(crypto, rsa_verify, 4) ->
-    {deprecated, {crypto, verify, 5}};
+    {removed, {crypto, verify, 5}, "20.0"};
 
 obsolete_1(crypto, dss_sign, 2) ->
-    {deprecated, {crypto, sign, 4}};
+    {removed, {crypto, sign, 4}, "20.0"};
 obsolete_1(crypto, dss_sign, 3) ->
-    {deprecated, {crypto, sign, 4}};
+    {removed, {crypto, sign, 4}, "20.0"};
 
 obsolete_1(crypto, dss_verify, 3) ->
-    {deprecated, {crypto, verify, 5}};
+    {removed, {crypto, verify, 5}, "20.0"};
 obsolete_1(crypto, dss_verify, 4) ->
-    {deprecated, {crypto, verify, 5}};
+    {removed, {crypto, verify, 5}, "20.0"};
 
 obsolete_1(crypto, mod_exp, 3) ->
-    {deprecated, {crypto, mod_pow, 3}};
+    {removed, {crypto, mod_pow, 3}, "20.0"};
 
 obsolete_1(crypto, dh_compute_key, 3) ->
-    {deprecated, {crypto, compute_key, 4}};
+    {removed, {crypto, compute_key, 4}, "20.0"};
 obsolete_1(crypto, dh_generate_key, 1) ->
-    {deprecated, {crypto, generate_key, 2}};
+    {removed, {crypto, generate_key, 2}, "20.0"};
 obsolete_1(crypto, dh_generate_key, 2) ->
-    {deprecated, {crypto, generate_key, 3}};
+    {removed, {crypto, generate_key, 3}, "20.0"};
 
 obsolete_1(crypto, des_cbc_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, des3_cbc_encrypt, 5) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, des_ecb_encrypt, 2) ->
-    {deprecated, {crypto, block_encrypt, 3}};
+    {removed, {crypto, block_encrypt, 3}, "20.0"};
 obsolete_1(crypto, des_ede3_cbc_encrypt, 5) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, des_cfb_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, des3_cfb_encrypt, 5) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_ecb_encrypt, 2) ->
-    {deprecated, {crypto, block_encrypt, 3}};
+    {removed, {crypto, block_encrypt, 3}, "20.0"};
 obsolete_1(crypto, blowfish_cbc_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_cfb64_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_ofb64_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cfb_128_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cbc_128_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cbc_256_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto,rc2_cbc_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 obsolete_1(crypto,rc2_40_cbc_encrypt, 3) ->
-    {deprecated, {crypto, block_encrypt, 4}};
+    {removed, {crypto, block_encrypt, 4}, "20.0"};
 
 obsolete_1(crypto, des_cbc_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, des3_cbc_decrypt, 5) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, des_ecb_decrypt, 2) ->
-    {deprecated, {crypto, block_decrypt, 3}};
+    {removed, {crypto, block_decrypt, 3}, "20.0"};
 obsolete_1(crypto, des_ede3_cbc_decrypt, 5) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, des_cfb_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, des3_cfb_decrypt, 5) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_ecb_decrypt, 2) ->
-    {deprecated, {crypto, block_decrypt, 3}};
+    {removed, {crypto, block_decrypt, 3}, "20.0"};
 obsolete_1(crypto, blowfish_cbc_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_cfb64_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, blowfish_ofb64_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cfb_128_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cbc_128_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto, aes_cbc_256_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto,rc2_cbc_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 obsolete_1(crypto,rc2_40_cbc_decrypt, 3) ->
-    {deprecated, {crypto, block_decrypt, 4}};
+    {removed, {crypto, block_decrypt, 4}, "20.0"};
 
 obsolete_1(crypto, aes_ctr_stream_decrypt, 2) ->
-    {deprecated, {crypto, stream_decrypt, 2}};
+    {removed, {crypto, stream_decrypt, 2}, "20.0"};
 obsolete_1(crypto, aes_ctr_stream_encrypt, 2) ->
-    {deprecated, {crypto, stream_encrypt, 2}};
+    {removed, {crypto, stream_encrypt, 2}, "20.0"};
 obsolete_1(crypto, aes_ctr_decrypt, 3) ->
-    {deprecated, {crypto, stream_decrypt, 2}};
+    {removed, {crypto, stream_decrypt, 2}, "20.0"};
 obsolete_1(crypto, aes_ctr_encrypt, 3) ->
-    {deprecated, {crypto, stream_encrypt, 2}};
+    {removed, {crypto, stream_encrypt, 2}, "20.0"};
 obsolete_1(crypto, rc4_encrypt, 2) ->
-    {deprecated, {crypto, stream_encrypt, 2}};
+    {removed, {crypto, stream_encrypt, 2}, "20.0"};
 obsolete_1(crypto, rc4_encrypt_with_state, 2) ->
-    {deprecated, {crypto, stream_encrypt, 2}};
+    {removed, {crypto, stream_encrypt, 2}, "20.0"};
 obsolete_1(crypto, aes_ctr_stream_init, 2) ->
-    {deprecated, {crypto, stream_init, 3}};
+    {removed, {crypto, stream_init, 3}, "20.0"};
 obsolete_1(crypto, rc4_set_key, 1) ->
-    {deprecated, {crypto, stream_init, 2}};
+    {removed, {crypto, stream_init, 2}, "20.0"};
 
 obsolete_1(crypto, rsa_private_decrypt, 3) ->
-    {deprecated, {crypto, private_decrypt, 4}};
+    {removed, {crypto, private_decrypt, 4}, "20.0"};
 obsolete_1(crypto, rsa_public_decrypt, 3) ->
-    {deprecated, {crypto, public_decrypt, 4}};
+    {removed, {crypto, public_decrypt, 4}, "20.0"};
 obsolete_1(crypto, rsa_private_encrypt, 3) ->
-    {deprecated, {crypto, private_encrypt, 4}};
+    {removed, {crypto, private_encrypt, 4}, "20.0"};
 obsolete_1(crypto, rsa_public_encrypt, 3) ->
-    {deprecated, {crypto, public_encrypt, 4}};
+    {removed, {crypto, public_encrypt, 4}, "20.0"};
 
 obsolete_1(crypto, des_cfb_ivec, 2) ->
-    {deprecated, {crypto, next_iv, 3}};
+    {removed, {crypto, next_iv, 3}, "20.0"};
 obsolete_1(crypto,des_cbc_ivec, 1) ->
-    {deprecated, {crypto, next_iv, 2}};
+    {removed, {crypto, next_iv, 2}, "20.0"};
 obsolete_1(crypto, aes_cbc_ivec, 1) ->
-    {deprecated, {crypto, next_iv, 2}};
+    {removed, {crypto, next_iv, 2}, "20.0"};
 
 obsolete_1(crypto,info, 0) ->
-    {deprecated, {crypto, module_info, 0}};
+    {removed, {crypto, module_info, 0}, "20.0"};
 
 obsolete_1(crypto, strong_rand_mpint, 3) ->
-    {deprecated, "needed only by deprecated functions"};
+    {removed, "removed in 20.0; only needed by removed functions"};
 obsolete_1(crypto, erlint, 1) ->
-    {deprecated, "needed only by deprecated functions"};
+    {removed, "removed in 20.0; only needed by removed functions"};
 obsolete_1(crypto, mpint, 1) ->
-    {deprecated, "needed only by deprecated functions"};
+    {removed, "removed in 20.0; only needed by removed functions"};
 
 
 %% *** SNMP ***
@@ -390,13 +441,13 @@ obsolete_1(erlang, concat_binary, 1) ->
 
 %% Added in R14A.
 obsolete_1(ssl, peercert, 2) ->
-    {deprecated,"deprecated (will be removed in R15A); use ssl:peercert/1 and public_key:pkix_decode_cert/2 instead"};
+    {removed ,"removed in R15A; use ssl:peercert/1 and public_key:pkix_decode_cert/2 instead"};
 
 %% Added in R14B.
 obsolete_1(public_key, pem_to_der, 1) ->
-    {deprecated,"deprecated (will be removed in R15A); use file:read_file/1 and public_key:pem_decode/1"};
+    {removed,"removed in R15A; use file:read_file/1 and public_key:pem_decode/1"};
 obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
-    {deprecated,{public_key,pem_entry_decode,1},"R15A"};
+    {removed, "removed in R15A; use public_key:pem_entry_decode/1"};
 
 %% Added in R14B03.
 obsolete_1(docb_gen, _, _) ->
@@ -408,20 +459,18 @@ obsolete_1(docb_xml_check, _, _) ->
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {deprecated,"deprecated (will be removed in OTP 18); has no effect as drivers are no longer used"};
+    {removed,"removed (will be removed in OTP 18); has no effect as drivers are no longer used"};
 obsolete_1(ssl, pid, 1) ->
     {removed,"was removed in R16; is no longer needed"};
 obsolete_1(inviso, _, _) ->
     {removed,"the inviso application was removed in R16"};
 
 %% Added in R15B01.
-obsolete_1(gs, _, _) ->
-    {deprecated,"the gs application has been deprecated and will be removed in OTP 18; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
-    {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
+    {removed,"removed in R16A; use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};
 obsolete_1(ssh, verify_data, 3) ->
-    {deprecated,"deprecated (will be removed in R16A); use public_key:ssh_decode/1, and public_key:verify/4 instead"};
+    {removed,"removed in R16A; use public_key:ssh_decode/1, and public_key:verify/4 instead"};
 
 %% Added in R16
 obsolete_1(wxCalendarCtrl, enableYearChange, _) -> %% wx bug documented?
@@ -433,10 +482,6 @@ obsolete_1(wxClientDC, new, 0) ->
 obsolete_1(wxPaintDC, new, 0) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxWindowDC, new, 0) ->
-    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
-obsolete_1(wxGraphicsContext, createLinearGradientBrush, 7) ->
-    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
-obsolete_1(wxGraphicsContext, createRadialGradientBrush, 8) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxGraphicsRenderer, createLinearGradientBrush, 7) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
@@ -463,21 +508,23 @@ obsolete_1(wxCursor, new, 4) ->
 
 %% Added in OTP 17.
 obsolete_1(asn1ct, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
+obsolete_1(asn1ct, encode, 2) ->
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1ct, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, decode,3) ->
-    {deprecated,"deprecated; use Mod:decode/2 instead"};
+    {removed,"removed; use Mod:decode/2 instead"};
 obsolete_1(asn1rt, encode, 2) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, encode, 3) ->
-    {deprecated,"deprecated; use Mod:encode/2 instead"};
+    {removed,"removed; use Mod:encode/2 instead"};
 obsolete_1(asn1rt, info, 1) ->
-    {deprecated,"deprecated; use Mod:info/0 instead"};
+    {removed,"removed; use Mod:info/0 instead"};
 obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
-    {deprecated,{unicode,characters_to_list,1}};
+    {removed,{unicode,characters_to_list,1},"OTP 20"};
 obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
-    {deprecated,{unicode,characters_to_binary,1}};
+    {removed,{unicode,characters_to_binary,1},"OTP 20"};
 
 %% Added in OTP 18.
 obsolete_1(core_lib, get_anno, 1) ->
@@ -516,10 +563,9 @@ obsolete_1(erl_parse, get_attribute, 2) ->
 obsolete_1(erl_lint, modify_line, 2) ->
     {removed,{erl_parse,map_anno,2},"19.0"};
 obsolete_1(ssl, negotiated_next_protocol, 1) ->
-    {deprecated,{ssl,negotiated_protocol,1}};
-
+    {removed,"removed in 20.0; use ssl:negotiated_protocol/1 instead"};
 obsolete_1(ssl, connection_info, 1) ->
-    {deprecated, "deprecated; use connection_information/[1,2] instead"};
+    {removed, "removed in 20.0; use ssl:connection_information/[1,2] instead"};
 
 obsolete_1(httpd_conf, check_enum, 2) ->
     {deprecated, "deprecated; use lists:member/2 instead"};
@@ -549,7 +595,35 @@ obsolete_1(queue, lait, 1) ->
 obsolete_1(overload, _, _) ->
     {removed, "removed in OTP 19"};
 obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
-    {removed, {rpc, multi_server_call, A}};
+    {removed, {rpc, multi_server_call, A}, "removed in OTP 19"};
+
+%% Added in OTP 20.
+
+obsolete_1(filename, find_src, 1) ->
+    {deprecated, "deprecated; use filelib:find_source/1 instead"};
+obsolete_1(filename, find_src, 2) ->
+    {deprecated, "deprecated; use filelib:find_source/3 instead"};
+
+obsolete_1(erlang, get_stacktrace, 0) ->
+    {deprecated, "deprecated; use the new try/catch syntax for retrieving the stack backtrace"};
+
+%% Removed in OTP 20.
+
+obsolete_1(erlang, hash, 2) ->
+    {removed, {erlang, phash2, 2}, "20.0"};
+
+%% Add in OTP 21.
+
+obsolete_1(ssl, ssl_accept, 1) ->
+    {deprecated, "deprecated; use ssl:handshake/1 instead"};
+obsolete_1(ssl, ssl_accept, 2) ->
+    {deprecated, "deprecated; use ssl:handshake/2 instead"};
+obsolete_1(ssl, ssl_accept, 3) ->
+    {deprecated, "deprecated; use ssl:handshake/3 instead"};
+obsolete_1(otp_mib, F, _) when F =:= load; F =:= unload ->
+    {deprecated, "deprecated; functionality will be removed in a future release"};
+
+%% not obsolete
 
 obsolete_1(_, _, _) ->
     no.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 -export([expand/1, format_matches/1]).
 
--import(lists, [reverse/1, nthtail/2, prefix/2]).
+-import(lists, [reverse/1, prefix/2]).
 
 %% expand(CurrentBefore) ->
 %%	{yes, Expansion, Matches} | {no, Matches}
@@ -75,15 +75,15 @@ to_atom(Str) ->
     end.
 
 match(Prefix, Alts, Extra0) ->
-    Len = length(Prefix),
+    Len = string:length(Prefix),
     Matches = lists:sort(
 		[{S, A} || {H, A} <- Alts,
-			   prefix(Prefix, S=hd(io_lib:fwrite("~w",[H])))]),
+			   prefix(Prefix, S=flat_write(H))]),
     case longest_common_head([N || {N, _} <- Matches]) of
  	{partial, []} ->
  	    {no, [], Matches}; % format_matches(Matches)};
  	{partial, Str} ->
- 	    case nthtail(Len, Str) of
+            case string:slice(Str, Len) of
  		[] ->
 		    {yes, [], Matches}; % format_matches(Matches)};
  		Remain ->
@@ -94,52 +94,89 @@ match(Prefix, Alts, Extra0) ->
 			{"(",[{Str,0}]} -> "()";
 			{_,_} -> Extra0
 		    end,
-	    {yes, nthtail(Len, Str) ++ Extra, []};
+	    {yes, string:slice(Str, Len) ++ Extra, []};
  	no ->
  	    {no, [], []}
     end.
 
+flat_write(T) ->
+    lists:flatten(io_lib:fwrite("~tw",[T])).
+
 %% Return the list of names L in multiple columns.
 format_matches(L) ->
-    S = format_col(lists:sort(L), []),
+    {S1, Dots} = format_col(lists:sort(L), []),
+    S = case Dots of
+            true ->
+                {_, Prefix} = longest_common_head(vals(L)),
+                PrefixLen = string:length(Prefix),
+                case PrefixLen =< 3 of
+                    true -> S1; % Do not replace the prefix with "...".
+                    false ->
+                        LeadingDotsL = leading_dots(L, PrefixLen),
+                        {S2, _} = format_col(lists:sort(LeadingDotsL), []),
+                        S2
+                end;
+            false -> S1
+        end,
     ["\n" | S].
 
 format_col([], _) -> [];
-format_col(L, Acc) -> format_col(L, field_width(L), 0, Acc).
+format_col(L, Acc) ->
+    LL = 79,
+    format_col(L, field_width(L, LL), 0, Acc, LL, false).
 
-format_col(X, Width, Len, Acc) when Width + Len > 79 ->
-    format_col(X, Width, 0, ["\n" | Acc]);
-format_col([A|T], Width, Len, Acc0) ->
-    H = case A of
- 	    %% If it's a tuple {string(), integer()}, we assume it's an
- 	    %% arity, and meant to be printed.
-	    {H0, I} when is_integer(I) ->
-		H0 ++ "/" ++ integer_to_list(I);
-	    {H1, _} -> H1;
- 	    H2 -> H2
- 	end,
-    Acc = [io_lib:format("~-*s", [Width,H]) | Acc0],
-    format_col(T, Width, Len+Width, Acc);
-format_col([], _, _, Acc) ->
-    lists:reverse(Acc, "\n").
+format_col(X, Width, Len, Acc, LL, Dots) when Width + Len > LL ->
+    format_col(X, Width, 0, ["\n" | Acc], LL, Dots);
+format_col([A|T], Width, Len, Acc0, LL, Dots) ->
+    {H0, R} = format_val(A),
+    Hmax = LL - length(R),
+    {H, NewDots} =
+        case string:length(H0) > Hmax of
+            true -> {io_lib:format("~-*ts", [Hmax - 3, H0]) ++ "...", true};
+            false -> {H0, Dots}
+        end,
+    Acc = [io_lib:format("~-*ts", [Width, H ++ R]) | Acc0],
+    format_col(T, Width, Len+Width, Acc, LL, NewDots);
+format_col([], _, _, Acc, _LL, Dots) ->
+    {lists:reverse(Acc, "\n"), Dots}.
 
-field_width(L) -> field_width(L, 0).
+format_val({H, I}) when is_integer(I) ->
+    %% If it's a tuple {string(), integer()}, we assume it's an
+    %% arity, and meant to be printed.
+    {H, "/" ++ integer_to_list(I)};
+format_val({H, _}) ->
+    {H, ""};
+format_val(H) ->
+    {H, ""}.
 
-field_width([{H,_}|T], W) ->
-    case length(H) of
- 	L when L > W -> field_width(T, L);
- 	_ -> field_width(T, W)
+field_width(L, LL) -> field_width(L, 0, LL).
+
+field_width([{H,_}|T], W, LL) ->
+    case string:length(H) of
+        L when L > W -> field_width(T, L, LL);
+        _ -> field_width(T, W, LL)
     end;
-field_width([H|T], W) ->
-    case length(H) of
- 	L when L > W -> field_width(T, L);
- 	_ -> field_width(T, W)
+field_width([H|T], W, LL) ->
+    case string:length(H) of
+        L when L > W -> field_width(T, L, LL);
+        _ -> field_width(T, W, LL)
     end;
-field_width([], W) when W < 40 ->
+field_width([], W, LL) when W < LL - 3 ->
     W + 4;
-field_width([], _) ->
-    40.
+field_width([], _, LL) ->
+    LL.
 
+vals([]) -> [];
+vals([{S, _}|L]) -> [S|vals(L)];
+vals([S|L]) -> [S|vals(L)].
+
+leading_dots([], _Len) -> [];
+leading_dots([{H, I}|L], Len) ->
+    [{"..." ++ string:slice(H, Len), I}|leading_dots(L, Len)];
+leading_dots([H|L], Len) ->
+    ["..." ++ string:slice(H, Len)|leading_dots(L, Len)].
+
+%% Strings are handled naively, but it should be OK here.
 longest_common_head([]) ->
     no;
 longest_common_head(LL) ->

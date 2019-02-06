@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2015. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -416,7 +416,7 @@ int main(int argc, char **argv)
 
 	if (len) {
 #ifdef DEBUG
-	    if(write(1, buf, len));
+	    (void)write(1, buf, len);
 #endif
 	    if (write_all(wfd, buf, len) != len) {
 		fprintf(stderr, "Error in writing to FIFO.\n");

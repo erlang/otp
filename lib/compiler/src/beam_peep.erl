@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@
 
 -import(lists, [reverse/1,member/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,_}, _Opts) ->
     %% First coalesce adjacent labels.
     {Fs1,Lc} = beam_clean:clean_labels(Fs0),
@@ -38,8 +41,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	Is = beam_jump:remove_unused_labels(Is1),
 	{function,Name,Arity,CLabel,Is}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
@@ -75,6 +77,12 @@ peep([{bif,tuple_size,_,[_]=Ops,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests1),
     peep(Is, SeenTests, [I|Acc]);
+peep([{bif,map_get,_,[Key,Map],Dst}=I|Is], SeenTests0, Acc) ->
+    %% Pretend that we have seen {test,has_map_fields,_,[Map,Key]}
+    SeenTests1 = gb_sets:add({has_map_fields,[Map,Key]}, SeenTests0),
+    %% Kill all remembered tests that depend on the destination register.
+    SeenTests = kill_seen(Dst, SeenTests1),
+    peep(Is, SeenTests, [I|Acc]);
 peep([{bif,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests0),
@@ -86,15 +94,37 @@ peep([{gc_bif,_,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
 peep([{jump,{f,L}},{label,L}=I|Is], _, Acc) ->
     %% Sometimes beam_jump has missed this optimization.
     peep(Is, gb_sets:empty(), [I|Acc]);
-peep([{select,Op,R,F,Vls0}|Is], _, Acc) ->
+peep([{select,Op,R,F,Vls0}|Is], SeenTests0, Acc0) ->
     case prune_redundant_values(Vls0, F) of
 	[] ->
 	    %% No values left. Must convert to plain jump.
 	    I = {jump,F},
-	    peep(Is, gb_sets:empty(), [I|Acc]);
+	    peep([I|Is], gb_sets:empty(), Acc0);
+        [{atom,_}=Value,Lbl] when Op =:= select_val ->
+            %% Single value left. Convert to regular test and pop redundant tests.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            case Acc0 of
+                [{test,is_atom,F,[R]}|Acc] ->
+                    peep(Is1, SeenTests0, Acc);
+                _ ->
+                    peep(Is1, SeenTests0, Acc0)
+            end;
+        [{integer,_}=Value,Lbl] when Op =:= select_val ->
+            %% Single value left. Convert to regular test and pop redundant tests.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            case Acc0 of
+                [{test,is_integer,F,[R]}|Acc] ->
+                    peep(Is1, SeenTests0, Acc);
+                _ ->
+                    peep(Is1, SeenTests0, Acc0)
+            end;
+        [Arity,Lbl] when Op =:= select_tuple_arity ->
+            %% Single value left. Convert to regular test
+            Is1 = [{test,test_arity,F,[R,Arity]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
 	[_|_]=Vls ->
 	    I = {select,Op,R,F,Vls},
-	    peep(Is, gb_sets:empty(), [I|Acc])
+	    peep(Is, gb_sets:empty(), [I|Acc0])
     end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of

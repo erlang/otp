@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -701,10 +701,11 @@ get_os_wordsize_with_uname() ->
 	"sparc64" -> 64;
 	"amd64"   -> 64;
 	"ppc64"   -> 64;
+	"s390x"   -> 64;
 	_         -> 32
     end.
 
-clean_string(String) -> lists:flatten(string:tokens(String,"\r\n\t ")).
+clean_string(String) -> lists:flatten(string:lexemes(String,[[$\r,$\n]|"\n\t "])).
     
 
 %%--Replying to pending clients-----------------------------------------

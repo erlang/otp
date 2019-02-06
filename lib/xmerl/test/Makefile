@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,8 @@ SUITE_FILES= \
 	xmerl_xsd_SUITE.erl \
 	xmerl_xsd_MS2002-01-16_SUITE.erl \
 	xmerl_xsd_NIST2002-01-16_SUITE.erl \
-	xmerl_xsd_Sun2002-01-16_SUITE.erl
+	xmerl_xsd_Sun2002-01-16_SUITE.erl \
+        xmerl_sax_stream_SUITE.erl
 
 XML_FILES= \
 	testcases.dtd \
@@ -125,4 +126,6 @@ release_tests_spec: opt
 	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	@tar cfh - xmerl_xsd_Sun2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_sax_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_sax_stream_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	chmod -R u+w "$(RELSYSDIR)"

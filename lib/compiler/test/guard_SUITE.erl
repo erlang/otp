@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,12 +35,12 @@
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
-	 guard_in_catch/1]).
+         guard_in_catch/1,beam_bool_SUITE/1,
+         cover_beam_dead/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -54,9 +54,11 @@ groups() ->
        rel_ops,rel_op_combinations,
        literal_type_tests,basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
-       bad_constants,bad_guards,guard_in_catch]}].
+       bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
+       cover_beam_dead]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -87,8 +89,32 @@ misc(Config) when is_list(Config) ->
     {ok,buf,<<>>} = get_data({o,true,0}, 42, buf),
     {ok,buf,<<>>} = get_data({o,false,0}, 0, buf),
     error = get_data({o,false,0}, 42, buf),
+
+    relief = misc_2(0),
+    error = misc_2(1),
+    error = misc_2(true),
+
+    if
+	is_integer(Config) =/= true ->
+	    ok
+    end,
+
+    true = misc_3(1, 0),
+    true = misc_3(0, 0),
+    false = misc_3(0, 2),
+
+    %% Abuse of boolean values.
+
+    Zero = id(0),
+    One = id(1),
+    ok = if (Zero == 0) > false -> ok end,
+    ok = if (Zero == 0) =:= (One == 1) -> ok end,
+    ok = if (Zero == 0) =:= (One == 1) -> ok end,
+    ok = if is_atom(Zero > One) -> ok end,
+    error = if abs(Zero > One) -> ok; true -> error end,
+    ok = if is_integer(Zero) >= is_integer(One) -> ok end,
+
     ok.
-    
 
 misc_1([{W},{X},{Y},{Z}]) ->
 	      if
@@ -96,6 +122,17 @@ misc_1([{W},{X},{Y},{Z}]) ->
 	    id(W);
 	true ->
 	    none
+    end.
+
+misc_2(0) -> relief;
+misc_2(Adapter = 1) when Adapter -> franklin;
+misc_2(_) -> error.
+
+misc_3(LenUp, LenDw) ->
+    if
+	%% Cover handling of #k_alt{}.
+	LenUp >= 1 orelse ((LenDw >= 2) xor true) -> true;
+	true -> false
     end.
 
 get_data({o,Active,Raw}, BytesToRead, Buffer) 
@@ -163,6 +200,12 @@ basic_not(Config) when is_list(Config) ->
     check(fun() -> if not glurf -> ok; true -> error end end, error),
     check(fun() -> if not Glurf -> ok; true -> error end end, error),
 
+    check(fun() -> if not (not true) -> broken end end, broken),
+
+    check(fun() -> if not (True xor True) -> ok end end, ok),
+    check(fun() -> if not (True xor False) -> ok;
+		      true -> error end end, error),
+
     ok.
 
 complex_not(Config) when is_list(Config) ->
@@ -187,7 +230,59 @@ complex_not(Config) when is_list(Config) ->
     check(fun() -> if not(element(1, ATuple) orelse element(3, ATuple)) -> ok;
 		      true -> error end end, error),
 
+    %% complex_not_1/4
+    ok = complex_not_1(1, 1, 1, a),
+    error = complex_not_1(1, 1, 1, []),
+    error = complex_not_1(1, 1, 3, a),
+    error = complex_not_1(1, 1, 3, []),
+    error = complex_not_1(1, 2, 1, a),
+    error = complex_not_1(1, 2, 1, []),
+    error = complex_not_1(1, 2, 3, a),
+    error = complex_not_1(1, 2, 3, []),
+
+    %% complex_not_2/4
+    ok = complex_not_2(1, 2, 0, x),
+    error = complex_not_2(1, 2, 0, []),
+    error = complex_not_2(1, 2, 3, x),
+    error = complex_not_2(1, 2, 3, []),
+    error = complex_not_2(1, 1, 0, x),
+    error = complex_not_2(1, 1, 0, []),
+    error = complex_not_2(1, 1, 3, x),
+    error = complex_not_2(1, 1, 3, []),
+
     ok.
+
+complex_not_1(A, B, C, D) ->
+    Res = complex_not_1a(A, B, C, D),
+    Res = complex_not_1b(A, B, C, D).
+
+complex_not_1a(A, B, C, D)
+  when (not (A < B)) andalso (not (B < C)) andalso (not is_list(D)) ->
+    ok;
+complex_not_1a(_, _, _, _) ->
+    error.
+
+complex_not_1b(A, B, C, D)
+  when (not (A < B)) and (not (B < C)) and (not is_list(D)) ->
+    ok;
+complex_not_1b(_, _, _, _) ->
+    error.
+
+complex_not_2(A, B, C, D) ->
+    Res = complex_not_2a(A, B, C, D),
+    Res = complex_not_2b(A, B, C, D).
+
+complex_not_2a(A, B, C, D)
+  when A < B andalso not (B < C) andalso not is_list(D) ->
+    ok;
+complex_not_2a(_, _, _, _) ->
+    error.
+
+complex_not_2b(A, B, C, D)
+  when A < B, not (B < C), not is_list(D) ->
+    ok;
+complex_not_2b(_, _, _, _) ->
+    error.
 
 nested_nots(Config) when is_list(Config) ->
     true = nested_not_1(0, 0),
@@ -209,19 +304,36 @@ nested_nots(Config) when is_list(Config) ->
     false = nested_not_2(true, true, atom),
     ok.
 
-nested_not_1(X, Y) when not (((X>Y) or not(is_atom(X))) and
+nested_not_1(X, Y) ->
+    Res = nested_not_1a(X, Y),
+    Res = nested_not_1b(X, Y).
+
+nested_not_1a(X, Y) when not (((X>Y) or not(is_atom(X))) and
 			     (is_atom(Y) or (X==3.4))) ->
     true;
-nested_not_1(_, _) ->
+nested_not_1a(_, _) ->
+    false.
+
+nested_not_1b(X, Y) when not (((X>Y) orelse not(is_atom(X))) andalso
+			     (is_atom(Y) orelse (X==3.4))) ->
+    true;
+nested_not_1b(_, _) ->
     false.
 
 nested_not_2(X, Y, Z) ->
-    nested_not_2(X, Y, Z, true).
+    Res = nested_not_2a(X, Y, Z, true),
+    Res = nested_not_2b(X, Y, Z, true).
 
-nested_not_2(X, Y, Z, True)
+nested_not_2a(X, Y, Z, True)
   when not(True and not((not(X) and not(Y)) or not(is_atom(Z)))) ->
     true;
-nested_not_2(_, _, _, _) ->
+nested_not_2a(_, _, _, _) ->
+    false.
+
+nested_not_2b(X, Y, Z, True)
+  when not(True andalso not((not(X) andalso not(Y)) orelse not(is_atom(Z)))) ->
+    true;
+nested_not_2b(_, _, _, _) ->
     false.
 
 semicolon(Config) when is_list(Config) ->
@@ -343,6 +455,11 @@ complex_semicolon(Config) when is_list(Config) ->
     ok = csemi7(#{a=>1}, 3, 3),
     ok = csemi7(#{a=>1, b=>3}, 0, 0),
 
+    %% 8: Make sure that funs cannot be copied into guards.
+    ok = csemi8(true),
+    error = csemi8(false),
+    error = csemi8(42),
+
     ok.
 
 csemi1(Type, Val) when is_list(Val), Type == float;
@@ -456,6 +573,13 @@ csemi6(_, _) -> error.
     
 csemi7(A, B, C) when A#{a:=B} > #{a=>1}; abs(C) > 2 -> ok;
 csemi7(_, _, _) -> error.
+
+csemi8(Together) ->
+  case fun csemi8/1 of
+      Typically when Together; Typically, Together -> ok;
+      _ -> error
+  end.
+
 
 comma(Config) when is_list(Config) ->
 
@@ -1081,6 +1205,13 @@ tricky(Config) when is_list(Config) ->
     false = rb(100000, [1], 42),
     true = rb(100000, [], 42),
     true = rb(555, [a,b,c], 19),
+
+    error = tricky_3(42),
+    error = tricky_3(42.0),
+    error = tricky_3(<<>>),
+    error = tricky_3(#{}),
+    error = tricky_3({a,b}),
+
     ok.
 
 tricky_1(X, Y) when abs((X == 1) or (Y == 2)) -> ok;
@@ -1088,6 +1219,15 @@ tricky_1(_, _) -> not_ok.
 
 tricky_2(X) when float(X) or float(X) -> ok;
 tricky_2(_) -> error.
+
+tricky_3(X)
+  when abs(X) or bit_size(X) or byte_size(X) or ceil(X) or
+       float(X) or floor(X) or length(X) or
+       map_size(X) or node() or node(X) or round(X) or
+       self() or size(X) or tl(X) or trunc(X) or tuple_size(X) ->
+    ok;
+tricky_3(_) ->
+    error.
 
 %% From dets_v9:read_buckets/11, simplified.
 
@@ -1152,6 +1292,10 @@ rel_ops(Config) when is_list(Config) ->
     %% Coverage of beam_block:is_exact_eq_ok/1 and collect/1.
     true = any_atom /= id(42),
     true = [] /= id(42),
+
+    %% Coverage of beam_utils:bif_to_test/3
+    Empty = id([]),
+    ?T(==, [], Empty),
 
     ok.
 
@@ -1400,7 +1544,7 @@ literal_type_tests_1(Config) ->
     Func = {function, Anno, test, 0, [{clause,Anno,[],[],Tests}]},
     Form = [{attribute,Anno,module,Mod},
             {attribute,Anno,compile,export_all},
-            Func, {eof,Anno}],
+            Func, {eof,999}],
 
     %% Print generated code for inspection.
     lists:foreach(fun (F) -> io:put_chars([erl_pp:form(F),"\n"]) end, Form),
@@ -1477,7 +1621,9 @@ type_tests() ->
      is_reference,
      is_port,
      is_binary,
-     is_function].
+     is_bitstring,
+     is_function,
+     is_map].
 
 basic_andalso_orelse(Config) when is_list(Config) ->
     T = id({type,integers,23,42}),
@@ -1912,6 +2058,179 @@ do_guard_in_catch_bin(From) ->
 		saint
 	end.
 
+%%%
+%%% The beam_bool pass has been eliminated. Here are the tests from
+%%% beam_bool_SUITE.
+%%%
+
+beam_bool_SUITE(_Config) ->
+    before_and_inside_if(),
+    scotland(),
+    y_registers(),
+    protected(),
+    maps(),
+    ok.
+
+before_and_inside_if() ->
+    no = before_and_inside_if([a], [b], delete),
+    no = before_and_inside_if([a], [b], x),
+    no = before_and_inside_if([a], [], delete),
+    no = before_and_inside_if([a], [], x),
+    no = before_and_inside_if([], [], delete),
+    yes = before_and_inside_if([], [], x),
+    yes = before_and_inside_if([], [b], delete),
+    yes = before_and_inside_if([], [b], x),
+
+    {ch1,ch2} = before_and_inside_if_2([a], [b], blah),
+    {ch1,ch2} = before_and_inside_if_2([a], [b], xx),
+    {ch1,ch2} = before_and_inside_if_2([a], [], blah),
+    {ch1,ch2} = before_and_inside_if_2([a], [], xx),
+    {no,no} = before_and_inside_if_2([], [b], blah),
+    {no,no} = before_and_inside_if_2([], [b], xx),
+    {ch1,no} = before_and_inside_if_2([], [], blah),
+    {no,ch2} = before_and_inside_if_2([], [], xx),
+    ok.
+
+%% Thanks to Simon Cornish and Kostis Sagonas.
+%% Used to crash beam_bool.
+before_and_inside_if(XDo1, XDo2, Do3) ->
+    Do1 = (XDo1 =/= []),
+    Do2 = (XDo2 =/= []),
+    if
+	%% This expression occurs in a try/catch (protected)
+	%% block, which cannot refer to variables outside of
+	%% the block that are boolean expressions.
+	Do1 =:= true;
+	Do1 =:= false, Do2 =:= false, Do3 =:= delete ->
+	    no;
+       true ->
+	    yes
+    end.
+
+%% Thanks to Simon Cornish.
+%% Used to generate code that would not set {y,0} on
+%% all paths before its use (and therefore fail
+%% validation by the beam_validator).
+before_and_inside_if_2(XDo1, XDo2, Do3) ->
+    Do1    = (XDo1 =/= []),
+    Do2    = (XDo2 =/= []),
+    CH1 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == blah ->
+		  ch1;
+	     true ->
+		  no
+	  end,
+    CH2 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == xx ->
+		  ch2;
+	     true ->
+		  no
+	  end,
+    {CH1,CH2}.
+
+
+%% beam_bool would remove the initialization of {y,0}.
+%% (Thanks to Thomas Arts and QuickCheck.)
+
+scotland() ->
+    million = do_scotland(placed),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(false)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(true)),
+    {'EXIT',{{badmatch,placed},_}} = (catch do_scotland(echo)),
+    ok.
+
+do_scotland(Echo) ->
+  found(case Echo of
+	    Echo when true; Echo, Echo, Echo ->
+		Echo;
+	    echo ->
+		[]
+	end,
+	Echo = placed).
+
+found(_, _) -> million.
+
+
+%% ERL-143: beam_bool could not handle Y registers as a destination.
+y_registers() ->
+    {'EXIT',{badarith,[_|_]}} = (catch baker(valentine)),
+    {'EXIT',{badarith,[_|_]}} = (catch baker(clementine)),
+
+    {not_ok,true} = potter([]),
+    {ok,false} = potter([{encoding,any}]),
+
+    ok.
+
+%% Thanks to Quickcheck.
+baker(Baker) ->
+    (valentine == Baker) +
+	case Baker of
+	    Baker when Baker; Baker ->
+		Baker;
+	    Baker ->
+		[]
+	end.
+
+%% Thanks to Jose Valim.
+potter(Modes) ->
+    Raw = lists:keyfind(encoding, 1, Modes) == false,
+    Final = case Raw of
+		X when X == false; X == nil -> ok;
+		_ -> not_ok
+	    end,
+    {Final,Raw}.
+
+protected() ->
+    {'EXIT',{if_clause,_}} = (catch photographs({1, surprise, true}, opinions)),
+
+    {{true}} = welcome({perfect, true}),
+    {'EXIT',{if_clause,_}} = (catch welcome({perfect, false})),
+    ok.
+
+photographs({_Violation, surprise, Deep}, opinions) ->
+    {if
+	 0; "here", Deep ->
+	     Deep = Deep
+     end}.
+
+welcome({perfect, Profit}) ->
+    if
+	Profit, Profit, Profit; 0 ->
+	    {id({Profit})}
+    end.
+
+maps() ->
+    ok = evidence(#{0 => 42}).
+
+%% Cover handling of put_map in in split_block_label_used/2.
+evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
+    ok.
+
+cover_beam_dead(_Config) ->
+    Mod = ?FUNCTION_NAME,
+    Attr = [],
+    Fs = [{function,test,1,2,
+           [{label,1},
+            {line,[]},
+            {func_info,{atom,Mod},{atom,test},1},
+            {label,2},
+            %% Cover beam_dead:turn_op/1 using swapped operand order.
+            {test,is_ne_exact,{f,3},[{integer,1},{x,0}]},
+            {test,is_eq_exact,{f,1},[{atom,a},{x,0}]},
+            {label,3},
+            {move,{atom,ok},{x,0}},
+            return]}],
+    Exp = [{test,1}],
+    Asm = {Mod,Exp,Attr,Fs,3},
+    {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
+    {module,Mod} = code:load_binary(Mod, Mod, Beam),
+    ok = Mod:test(1),
+    ok = Mod:test(a),
+    {'EXIT',_} = (catch Mod:test(other)),
+    true = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    ok.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.

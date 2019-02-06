@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,11 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module exports functions for installing and running tests
-%%% withing the Common Test Framework.</p>
 
 -module(ct_run).
 
@@ -76,25 +71,14 @@
 	       abort_if_missing_suites,
 	       silent_connections = [],
 	       stylesheet,
-	       multiply_timetraps = 1,
-	       scale_timetraps = false,
+	       multiply_timetraps,
+	       scale_timetraps,
 	       create_priv_dir,
 	       testspec_files = [],
 	       current_testspec,
 	       tests,
 	       starter}).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_start() -> term()
-%%%
-%%% @doc Start tests via the ct_run program or script.
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -dir
-%%% $TEST_DIR</code></p>
-%%%
-%%% <p>Example:<br/><code>./ct_run -config config.ctc -suite
-%%% $SUITE_PATH/$SUITE_NAME [-case $CASE_NAME]</code></p>
-%%%
 script_start() ->
     process_flag(trap_exit, true),
     Init = init:get_arguments(),
@@ -121,13 +105,13 @@ script_start() ->
 		%% used for purpose of testing the run_test interface
 		io:format(user, "~n-------------------- START ARGS "
 			  "--------------------~n", []),
-		io:format(user, "--- Init args:~n~p~n", [FlagFilter(Init)]),
-		io:format(user, "--- CT args:~n~p~n", [FlagFilter(CtArgs)]),
+		io:format(user, "--- Init args:~n~tp~n", [FlagFilter(Init)]),
+		io:format(user, "--- CT args:~n~tp~n", [FlagFilter(CtArgs)]),
 		EnvArgs = opts2args(EnvStartOpts),
-		io:format(user, "--- Env opts -> args:~n~p~n   =>~n~p~n",
+		io:format(user, "--- Env opts -> args:~n~tp~n   =>~n~tp~n",
 			  [EnvStartOpts,EnvArgs]),
 		Merged = merge_arguments(CtArgs ++ EnvArgs),
-		io:format(user, "--- Merged args:~n~p~n", [FlagFilter(Merged)]),
+		io:format(user, "--- Merged args:~n~tp~n", [FlagFilter(Merged)]),
 		io:format(user, "-----------------------------------"
 			  "-----------------~n~n", []),
 		Merged;
@@ -147,7 +131,7 @@ script_start(Args) ->
 	    CTVsn =
 		case filename:basename(code:lib_dir(common_test)) of
 		    CTBase when is_list(CTBase) ->
-			case string:tokens(CTBase, "-") of
+			case string:lexemes(CTBase, "-") of
 			    ["common_test",Vsn] -> " v"++Vsn;
 			    _ -> ""
 			end
@@ -160,18 +144,18 @@ script_start(Args) ->
 		{'EXIT',Pid,Reason} ->
 		    case Reason of
 			{user_error,What} ->
-			    io:format("\nTest run failed!\nReason: ~p\n\n\n",
+			    io:format("\nTest run failed!\nReason: ~tp\n\n\n",
                                       [What]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
 			_ ->
 			    io:format("Test run crashed! "
                                       "This could be an internal error "
 				      "- please report!\n\n"
-				      "~p\n\n\n", [Reason]),
+				      "~tp\n\n\n", [Reason]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args)
 		    end;
 		{Pid,{error,Reason}} ->
-		    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Reason]),
+		    io:format("\nTest run failed! Reason:\n~tp\n\n\n",[Reason]),
 		    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
 		{Pid,Result} ->
 		    io:nl(),
@@ -219,7 +203,7 @@ analyze_test_result([], _) ->
 analyze_test_result(interactive_mode, _) ->
     interactive_mode;
 analyze_test_result(Unknown, _) ->
-    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Unknown]),
+    io:format("\nTest run failed! Reason:\n~tp\n\n\n",[Unknown]),
     ?EXIT_STATUS_TEST_RUN_FAILED.
 
 finish(Tracing, ExitStatus, Args) ->
@@ -250,6 +234,8 @@ finish(Tracing, ExitStatus, Args) ->
     end.
 
 script_start1(Parent, Args) ->
+    %% tag this process
+    ct_util:mark_process(),
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
@@ -264,11 +250,11 @@ script_start1(Parent, Args) ->
 			    [], Args),
     Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
-			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
+			   fun([MT]) -> list_to_integer(MT) end, Args),
     ScaleTT = get_start_opt(scale_timetraps,
 			    fun([CT]) -> list_to_atom(CT);
 			       ([]) -> true
-			    end, false, Args),
+			    end, Args),
     CreatePrivDir = get_start_opt(create_priv_dir,
 				  fun([PD]) -> list_to_atom(PD);
 				     ([]) -> auto_per_tc
@@ -315,7 +301,7 @@ script_start1(Parent, Args) ->
 			{undefined,InclDirs};
 		    CtInclPath ->
 			AllInclDirs =
-			    string:tokens(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
+			    string:lexemes(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
 		end;
@@ -363,6 +349,12 @@ script_start1(Parent, Args) ->
 	_ ->
 	    application:set_env(common_test, disable_log_cache, true)
     end,
+    %% log_cleanup - used by ct_logs
+    KeepLogs = get_start_opt(keep_logs,
+                             fun ct_logs:parse_keep_logs/1,
+                             all,
+                             Args),
+    application:set_env(common_test, keep_logs, KeepLogs),
 
     Opts = #opts{label = Label, profile = Profile,
 		 vts = Vts, shell = Shell,
@@ -430,13 +422,15 @@ script_start2(Opts = #opts{vts = undefined,
 	    Specs1 = get_start_opt(join_specs, [Specs], Specs, Args),
 	    %% using testspec as input for test
 	    Relaxed = get_start_opt(allow_user_terms, true, false, Args),
-	    case catch ct_testspec:collect_tests_from_file(Specs1, Relaxed) of
-		{E,Reason} when E == error ; E == 'EXIT' ->
-		    StackTrace = erlang:get_stacktrace(),
-		    {error,{invalid_testspec,{Reason,StackTrace}}};
-		TestSpecData ->
+	    try ct_testspec:collect_tests_from_file(Specs1, Relaxed) of
+                TestSpecData ->
 		    execute_all_specs(TestSpecData, Opts, Args, [])
-	    end;
+            catch
+                throw:{error,Reason}:StackTrace ->
+		    {error,{invalid_testspec,{Reason,StackTrace}}};
+                _:Reason:StackTrace ->
+		    {error,{invalid_testspec,{Reason,StackTrace}}}
+            end;
 	[] ->
 	    {error,no_testspec_specified};
 	_ ->	    % no testspec used
@@ -750,7 +744,7 @@ script_start4(#opts{label = Label, profile = Profile,
     if Config == [] ->
 	    ok;
        true ->
-	    io:format("\nInstalling: ~p\n\n", [Config])
+	    io:format("\nInstalling: ~tp\n\n", [Config])
     end,
     case install([{config,Config},{event_handler,EvHandlers},
 		  {ct_hooks, CTHooks},
@@ -789,9 +783,6 @@ script_start4(#opts{shell = true, cover = Cover}, _) ->
 script_start4(Opts = #opts{tests = Tests}, Args) ->
     do_run(Tests, [], Opts, Args).
 
-%%%-----------------------------------------------------------------
-%%% @spec script_usage() -> ok
-%%% @doc Print usage information for <code>ct_run</code>.
 script_usage() ->
     io:format("\nUsage:\n\n"),
     io:format("Run tests from command line:\n\n"
@@ -875,9 +866,6 @@ script_usage() ->
 	      "\n\t [-basic_html]"
 	      "\n\t [-no_esc_chars]\n\n").
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:install/1
 install(Opts) ->
     install(Opts, ".").
 
@@ -899,9 +887,9 @@ install(Opts, LogDir) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    VarFile = variables_file_name(LogDir),
-	    case file:open(VarFile, [write]) of
+	    case file:open(VarFile, [write, {encoding,utf8}]) of
 		{ok,Fd} ->
-		    _ = [io:format(Fd, "~p.\n", [Opt]) || Opt <- ConfOpts],
+		    _ = [io:format(Fd, "~tp.\n", [Opt]) || Opt <- ConfOpts],
 		    ok = file:close(Fd);
 		{error,Reason} ->
 		    io:format("CT failed to install configuration data. Please "
@@ -921,15 +909,6 @@ install(Opts, LogDir) ->
 variables_file_name(Dir) ->
     filename:join(Dir, "variables-"++atom_to_list(node())).
 
-%%%-----------------------------------------------------------------
-%%% @spec run_test(Opts) -> Result
-%%%   Opts = [tuple()]
-%%%   Result = [TestResult] | {error,Reason}
-%%%
-%%% @doc Start tests from the erlang shell or from an erlang program.
-%%% @equiv ct:run_test/1
-%%%-----------------------------------------------------------------
-
 run_test(StartOpt) when is_tuple(StartOpt) ->
     run_test([StartOpt]);
 
@@ -946,7 +925,10 @@ run_test(StartOpts) when is_list(StartOpts) ->
 -spec run_test1_fun(_) -> fun(() -> no_return()).
 
 run_test1_fun(StartOpts) ->
-    fun() -> run_test1(StartOpts) end.
+    fun() -> 
+            ct_util:mark_process(),
+            run_test1(StartOpts)
+    end.
 
 run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
@@ -970,6 +952,12 @@ run_test1(StartOpts) when is_list(StartOpts) ->
 	    stop_trace(Tracing),
 	    exit(Res);
 	RefreshDir ->
+            %% log_cleanup - used by ct_logs
+            KeepLogs = get_start_opt(keep_logs,
+                                     fun ct_logs:parse_keep_logs/1,
+                                     all,
+                                     StartOpts),
+            application:set_env(common_test, keep_logs, KeepLogs),
 	    ok = refresh_logs(?abs(RefreshDir)),
 	    exit(done)
     end.
@@ -1055,8 +1043,8 @@ run_test2(StartOpts) ->
     CoverStop = get_start_opt(cover_stop, value, StartOpts),
 
     %% timetrap manipulation
-    MultiplyTT = get_start_opt(multiply_timetraps, value, 1, StartOpts),
-    ScaleTT = get_start_opt(scale_timetraps, value, false, StartOpts),
+    MultiplyTT = get_start_opt(multiply_timetraps, value, StartOpts),
+    ScaleTT = get_start_opt(scale_timetraps, value, StartOpts),
 
     %% create unique priv dir names
     CreatePrivDir = get_start_opt(create_priv_dir, value, StartOpts),
@@ -1080,7 +1068,7 @@ run_test2(StartOpts) ->
 			application:set_env(common_test, include, InclDirs),
 			{undefined,InclDirs};
 		    CtInclPath ->
-			InclDirs1 = string:tokens(CtInclPath, [$:,$ ,$,]),
+			InclDirs1 = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			AllInclDirs = InclDirs1++InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
@@ -1131,6 +1119,12 @@ run_test2(StartOpts) ->
 	DisableCacheBool ->
 	    application:set_env(common_test, disable_log_cache, DisableCacheBool)
     end,
+    %% log_cleanup - used by ct_logs
+    KeepLogs = get_start_opt(keep_logs,
+                             fun ct_logs:parse_keep_logs/1,
+                             all,
+                             StartOpts),
+    application:set_env(common_test, keep_logs, KeepLogs),
 
     %% stepped execution
     Step = get_start_opt(step, value, StartOpts),
@@ -1180,12 +1174,14 @@ run_spec_file(Relaxed,
 	     end,
     AbsSpecs = lists:map(fun(SF) -> ?abs(SF) end, Specs1),
     AbsSpecs1 = get_start_opt(join_specs, [AbsSpecs], AbsSpecs, StartOpts),
-    case catch ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
-	{Error,CTReason} when Error == error ; Error == 'EXIT' ->
-	    StackTrace = erlang:get_stacktrace(),
-	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
+    try ct_testspec:collect_tests_from_file(AbsSpecs1, Relaxed) of
 	TestSpecData ->
 	    run_all_specs(TestSpecData, Opts, StartOpts, [])
+    catch
+	throw:{error,CTReason}:StackTrace ->
+	    exit({error,{invalid_testspec,{CTReason,StackTrace}}});
+	_:CTReason:StackTrace ->
+	    exit({error,{invalid_testspec,{CTReason,StackTrace}}})
     end.
 
 run_all_specs([], _, _, TotResult) ->
@@ -1400,14 +1396,6 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    exit({error,{incorrect_start_options,{Dir,Suite,GsAndCs}}})
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec run_testspec(TestSpec) -> Result
-%%%   TestSpec = [term()]
-%%%
-%%% @doc Run test specified by <code>TestSpec</code>. The terms are
-%%% the same as those used in test specification files.
-%%% @equiv ct:run_testspec/1
-%%%-----------------------------------------------------------------
 run_testspec(TestSpec) ->
     CTPid = spawn(run_testspec1_fun(TestSpec)),
     Ref = monitor(process, CTPid),
@@ -1421,7 +1409,10 @@ run_testspec(TestSpec) ->
 -spec run_testspec1_fun(_) -> fun(() -> no_return()).
 
 run_testspec1_fun(TestSpec) ->
-    fun() -> run_testspec1(TestSpec) end.
+    fun() -> 
+            ct_util:mark_process(),
+            run_testspec1(TestSpec)
+    end.
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
@@ -1456,7 +1447,7 @@ run_testspec2(TestSpec) ->
 		    false ->
 			Opts#opts.include;
 		    CtInclPath ->
-			EnvInclude = string:tokens(CtInclPath, [$:,$ ,$,]),
+			EnvInclude = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),
@@ -1604,9 +1595,6 @@ delistify([E]) -> E;
 delistify(E)   -> E.
 
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
     case install([]) of
 	ok ->
@@ -1615,9 +1603,6 @@ run(TestDir, Suite, Cases) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
     case install([]) of
 	ok ->
@@ -1626,9 +1611,6 @@ run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
 	    Error
     end.
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:run/1
 run(TestDirs) ->
     case install([]) of
 	ok ->
@@ -1802,10 +1784,10 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 	    case lists:member(all, Conns) of
 		true ->
 		    Conns1 = ct_util:override_silence_all_connections(),
-		    ct_logs:log("Silent connections", "~p", [Conns1]);
+		    ct_logs:log("Silent connections", "~tp", [Conns1]);
 		false ->
 		    ct_util:override_silence_connections(Conns),
-		    ct_logs:log("Silent connections", "~p", [Conns])
+		    ct_logs:log("Silent connections", "~tp", [Conns])
 	    end
     end,
     log_ts_names(Opts#opts.testspec_files),
@@ -1880,10 +1862,12 @@ possibly_spawn(true, Tests, Skip, Opts) ->
     CTUtilSrv = whereis(ct_util_server),
     Supervisor = 
 	fun() ->
+                ct_util:mark_process(),
 		process_flag(trap_exit, true),
 		link(CTUtilSrv),
 		TestRun =
 		    fun() ->
+                            ct_util:mark_process(),
 			    TestResult = (catch do_run_test(Tests, Skip, Opts)),
 			    case TestResult of
 				{EType,_} = Error when EType == user_error;
@@ -1898,7 +1882,7 @@ possibly_spawn(true, Tests, Skip, Opts) ->
 		TestRunPid = spawn_link(TestRun),
 		receive
 		    {'EXIT',TestRunPid,{ok,TestResult}} ->
-			io:format(user, "~nCommon Test returned ~p~n~n",
+			io:format(user, "~nCommon Test returned ~tp~n~n",
 				  [TestResult]);
 		    {'EXIT',TestRunPid,Error} ->
 			exit(Error)				
@@ -1917,7 +1901,7 @@ auto_compile(TestSuites) ->
 	case application:get_env(common_test, include) of
 	    {ok,UserInclDirs} when length(UserInclDirs) > 0 ->
 		io:format("Including the following directories:~n"),
-		[begin io:format("~p~n",[UserInclDir]), {i,UserInclDir} end ||
+		[begin io:format("~tp~n",[UserInclDir]), {i,UserInclDir} end ||
 		 UserInclDir <- UserInclDirs];
 	    _ ->
 		[]
@@ -1925,7 +1909,8 @@ auto_compile(TestSuites) ->
     SuiteMakeErrors =
 	lists:flatmap(fun({TestDir,Suite} = TS) ->
 			      case run_make(suites, TestDir, 
-					    Suite, UserInclude) of
+					    Suite, UserInclude,
+                                            [nowarn_export_all]) of
 				  {error,{make_failed,Bad}} ->
 				      [{TS,Bad}];
 				  {error,_} ->
@@ -1943,7 +1928,7 @@ auto_compile(TestSuites) ->
 		  case lists:member(Dir, Done) of
 		      false ->
 			  Failed1 =
-			      case run_make(helpmods, Dir, Suite, UserInclude) of
+			      case run_make(helpmods, Dir, Suite, UserInclude, []) of
 				  {error,{make_failed,BadMods}} ->
 				      [{{Dir,all},BadMods}|Failed];
 				  {error,_} ->
@@ -2036,16 +2021,9 @@ get_bad_suites([], BadSuites) ->
     BadSuites.
 
 
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/3
 step(TestDir, Suite, Case) ->
     step(TestDir, Suite, Case, []).
 
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:step/4
 step(TestDir, Suite, Case, Opts) when is_list(TestDir),
 				      is_atom(Suite), is_atom(Case),
 				      Suite =/= all, Case =/= all ->
@@ -2155,8 +2133,8 @@ continue(_MakeErrors, true) ->
     false;
 continue(_MakeErrors, _AbortIfMissingSuites) ->
     io:nl(),
-    OldGl = group_leader(),
-    case set_group_leader_same_as_shell() of
+    OldGL = group_leader(),
+    case set_group_leader_same_as_shell(OldGL) of
 	true ->
 	    S = self(),
 	    io:format("Failed to compile or locate one "
@@ -2172,7 +2150,7 @@ continue(_MakeErrors, _AbortIfMissingSuites) ->
 					S ! false
 				end
 			end),
-	    group_leader(OldGl, self()),
+	    group_leader(OldGL, self()),
 	    receive R when R==true; R==false ->
 		    R
 	    after 15000 ->
@@ -2184,7 +2162,9 @@ continue(_MakeErrors, _AbortIfMissingSuites) ->
 	    true
     end.
 
-set_group_leader_same_as_shell() ->
+set_group_leader_same_as_shell(OldGL) ->
+    %% find the group leader process on the node in a dirty fashion
+    %% (check initial function call and look in the process dictionary)
     GS2or3 = fun(P) ->
     		     case process_info(P,initial_call) of
     			 {initial_call,{group,server,X}} when X == 2 ; X == 3 ->
@@ -2197,7 +2177,10 @@ set_group_leader_same_as_shell() ->
     	       true == lists:keymember(shell,1,
     				       element(2,process_info(P,dictionary)))] of
     	[GL|_] ->
-    	    group_leader(GL, self());
+            %% check if started from remote node (skip interaction)
+            if node(OldGL) /= node(GL) -> false;
+               true -> group_leader(GL, self())
+            end;
     	[] ->
     	    false
     end.
@@ -2253,7 +2236,7 @@ do_run_test(Tests, Skip, Opts0) ->
 	    NoOfSuites = length(Suites1),
 	    ct_util:warn_duplicates(Suites1),
 	    {ok,Cwd} = file:get_cwd(),
-	    io:format("~nCWD set to: ~p~n", [Cwd]),
+	    io:format("~nCWD set to: ~tp~n", [Cwd]),
 	    if NoOfCases == unknown ->
 		    io:format("~nTEST INFO: ~w test(s), ~w suite(s)~n~n",
 			      [NoOfTests,NoOfSuites]),
@@ -2275,8 +2258,19 @@ do_run_test(Tests, Skip, Opts0) ->
 		_Lower ->
 		    ok
 	    end,
-	    test_server_ctrl:multiply_timetraps(Opts0#opts.multiply_timetraps),
-	    test_server_ctrl:scale_timetraps(Opts0#opts.scale_timetraps),
+
+            case Opts0#opts.multiply_timetraps of
+                undefined -> MultTT = 1;
+                MultTT    -> MultTT
+            end,
+            case Opts0#opts.scale_timetraps of
+                undefined -> ScaleTT = false;
+                ScaleTT   -> ScaleTT
+            end,
+            ct_logs:log("TEST INFO","Timetrap time multiplier = ~w~n"
+                        "Timetrap scaling enabled = ~w", [MultTT,ScaleTT]),
+            test_server_ctrl:multiply_timetraps(MultTT),
+	    test_server_ctrl:scale_timetraps(ScaleTT),
 
 	    test_server_ctrl:create_priv_dir(choose_val(
 					       Opts0#opts.create_priv_dir,
@@ -2312,7 +2306,7 @@ do_run_test(Tests, Skip, Opts0) ->
 	    case ct_util:get_testdata(severe_error) of
 		undefined -> ok;
 		SevereError ->
-		    ct_logs:log("SEVERE ERROR", "~p\n", [SevereError]),
+		    ct_logs:log("SEVERE ERROR", "~tp\n", [SevereError]),
 		    exit(SevereError)
 	    end,
 
@@ -2383,7 +2377,7 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
     if (CovNodes /= []) and (CovNodes /= undefined) ->
 	    ct_logs:log("COVER INFO",
 			"Nodes included in cover "
-			"session: ~w",
+			"session: ~tw",
 			[CovNodes]),
 	    cover:start(CovNodes);
        true ->
@@ -2397,7 +2391,7 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
 		  {error,Reason} ->
 		      ct_logs:log("COVER INFO",
 				  "Importing cover data from: ~ts fails! "
-				  "Reason: ~p", [Imp,Reason])
+				  "Reason: ~tp", [Imp,Reason])
 	      end
       end, CovImport),
     {TsCoverInfo,Opts}.
@@ -2676,12 +2670,12 @@ get_name(Dir) ->
 
 
 run_make(TestDir, Mod, UserInclude) ->
-    run_make(suites, TestDir, Mod, UserInclude).
+    run_make(suites, TestDir, Mod, UserInclude, [nowarn_export_all]).
 
-run_make(Targets, TestDir0, Mod, UserInclude) when is_list(Mod) ->
-    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude);
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) when is_list(Mod) ->
+    run_make(Targets, TestDir0, list_to_atom(Mod), UserInclude, COpts);
 
-run_make(Targets, TestDir0, Mod, UserInclude) ->
+run_make(Targets, TestDir0, Mod, UserInclude, COpts) ->
     case locate_test_dir(TestDir0, Mod) of
 	{ok,TestDir} ->
 	    %% send a start_make notification which may suspend
@@ -2696,7 +2690,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 	    XmerlInclude = get_dir(xmerl, "include"),
 	    ErlFlags = UserInclude ++ [{i,CtInclude},
 				       {i,XmerlInclude},
-				       debug_info],
+				       debug_info] ++ COpts,
 	    Result =
 		if Mod == all ; Targets == helpmods ->
 			case (catch ct_make:all([noexec|ErlFlags])) of
@@ -2731,7 +2725,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 		{up_to_date,_} ->
 		    ok;
 		{'EXIT',Reason} ->
-		    io:format("{error,{make_crashed,~p}\n", [Reason]),
+		    io:format("{error,{make_crashed,~tp}\n", [Reason]),
 		    {error,{make_crashed,TestDir,Reason}};
 		{error,ModInfo} ->
 		    io:format("{error,make_failed}\n", []),
@@ -2740,7 +2734,7 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 		    {error,{make_failed,Bad}}
 	    end;
 	{error,_} ->
-	    io:format("{error,{invalid_directory,~p}}\n", [TestDir0]),
+	    io:format("{error,{invalid_directory,~tp}}\n", [TestDir0]),
 	    {error,{invalid_directory,TestDir0}}
     end.
 
@@ -2790,7 +2784,7 @@ maybe_interpret2(Suite, Cases, StepOpts) ->
 	       _ -> ok
 	   catch
 	       _:_Error ->
-		   io:format(user, "Invalid breakpoint: ~w:~w/1~n",
+		   io:format(user, "Invalid breakpoint: ~w:~tw/1~n",
 			     [Suite,Case])
 	   end
  	 end || Case <- Cases, is_atom(Case)],
@@ -2921,7 +2915,7 @@ ct_hooks_args2opts([],Acc) ->
 
 parse_cth_args(String) ->
     try
-	true = io_lib:printable_list(String),
+	true = io_lib:printable_unicode_list(String),
 	{ok,Toks,_} = erl_scan:string(String++"."),
 	{ok, Args} = erl_parse:parse_term(Toks),
 	Args
@@ -3000,7 +2994,7 @@ rel_to_abs(CtArgs) ->
 	 _ = if Dir /= Abs ->
 		 _ = code:del_path(Dir),
 		 _ = code:del_path(Abs),		 
-		 io:format(user, "Converting ~p to ~p and re-inserting "
+		 io:format(user, "Converting ~tp to ~tp and re-inserting "
 			   "with add_pathz/1~n",
 			   [Dir, Abs]);
 	    true ->
@@ -3014,7 +3008,7 @@ rel_to_abs(CtArgs) ->
 	 _ = if Dir /= Abs ->
 		 _ = code:del_path(Dir),
 		 _ = code:del_path(Abs),		 
-		 io:format(user, "Converting ~p to ~p and re-inserting "
+		 io:format(user, "Converting ~tp to ~tp and re-inserting "
 			   "with add_patha/1~n",
 			   [Dir, Abs]);
 	    true ->
@@ -3084,7 +3078,7 @@ opts2args(EnvStartOpts) ->
 		     ({group,G}) when is_atom(G) ->
 			  [{group,[atom_to_list(G)]}];
 		     ({group,Gs}) when is_list(Gs) ->
-			  LOfGStrs = [lists:flatten(io_lib:format("~w",[G])) ||
+			  LOfGStrs = [lists:flatten(io_lib:format("~tw",[G])) ||
 					 G <- Gs],
 			  [{group,LOfGStrs}];
 		     ({testcase,Case}) when is_atom(Case) ->
@@ -3136,10 +3130,10 @@ opts2args(EnvStartOpts) ->
 		     ({event_handler,EHs}) when is_list(EHs) ->
 			  [{event_handler,[atom_to_list(EH) || EH <- EHs]}];
 		     ({event_handler,{EH,Arg}}) when is_atom(EH) ->
-			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  ArgStr = lists:flatten(io_lib:format("~tp", [Arg])),
 			  [{event_handler_init,[atom_to_list(EH),ArgStr]}];
 		     ({event_handler,{EHs,Arg}}) when is_list(EHs) ->
-			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  ArgStr = lists:flatten(io_lib:format("~tp", [Arg])),
 			  Strs = lists:flatmap(fun(EH) ->
 						       [atom_to_list(EH),
 							ArgStr,"and"]
@@ -3170,25 +3164,25 @@ opts2args(EnvStartOpts) ->
 		     ({ct_hooks,[]}) ->
 			  [];
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
-			  io:format(user,"ct_hooks: ~p",[CTHs]),
+			  io:format(user,"ct_hooks: ~tp",[CTHs]),
 			  Strs = lists:flatmap(
 				   fun({CTH,Arg,Prio}) ->
 					   [atom_to_list(CTH),
 					    lists:flatten(
-					      io_lib:format("~p",[Arg])),
+					      io_lib:format("~tp",[Arg])),
 					    lists:flatten(
-					      io_lib:format("~p",[Prio])),
+					      io_lib:format("~tp",[Prio])),
 					    "and"];
 				       ({CTH,Arg}) ->
 					   [atom_to_list(CTH),
 					    lists:flatten(
-					      io_lib:format("~p",[Arg])),
+					      io_lib:format("~tp",[Arg])),
 					    "and"];
 				      (CTH) when is_atom(CTH) ->
 					   [atom_to_list(CTH),"and"]
 				   end,CTHs),
 			  [_LastAnd|StrsR] = lists:reverse(Strs),
-			  io:format(user,"return: ~p",[lists:reverse(StrsR)]),
+			  io:format(user,"return: ~tp",[lists:reverse(StrsR)]),
 			  [{ct_hooks,lists:reverse(StrsR)}];
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
@@ -3270,7 +3264,7 @@ start_trace(Args) ->
 			ok ->
 			    true;
 			{_,Error} ->
-			    io:format("Warning! Tracing not started. Reason: ~p~n~n",
+			    io:format("Warning! Tracing not started. Reason: ~tp~n~n",
 				      [Error]),
 			    false
 		    end;

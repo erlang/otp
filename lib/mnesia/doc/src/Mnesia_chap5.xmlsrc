@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -226,8 +226,10 @@
         not known beforehand, all fragments are searched for
         matching records.</p>
       <p>Notice that in <c>ordered_set</c> tables, the records
-        are ordered per fragment, and the the order is undefined in
-        results returned by <c>select</c> and <c>match_object</c>.</p>
+        are ordered per fragment, and the order is undefined in
+        results returned by <c>select</c> and <c>match_object</c>,
+        as well as <c>first</c>, <c>next</c>, <c>prev</c> and
+        <c>last</c>.</p>
       <p>The following code illustrates how a <c>Mnesia</c> table is
         converted to be a fragmented table and how more fragments
         are added later:</p>
@@ -362,11 +364,6 @@ ok
             <seealso marker="mnesia_frag_hash">mnesia_frag_hash</seealso>
             callback behavior. This property can explicitly be set at
             table creation. Default is <c>mnesia_frag_hash</c>.</p>
-          <p>Older tables, that were created before the concept of
-            user-defined hash modules was introduced, use module
-            <c>mnesia_frag_old_hash</c> to be backwards compatible.
-            <c>mnesia_frag_old_hash</c> still uses the poor
-            deprecated function <c>erlang:hash/1</c>.</p>
         </item>
         <tag><c>{hash_state, Term}</c></tag>
         <item>

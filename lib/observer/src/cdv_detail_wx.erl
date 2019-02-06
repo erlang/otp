@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 -behaviour(wx_object).
 
--export([start_link/4]).
+-export([start_link/5]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2]).
@@ -39,27 +39,51 @@
 -define(ID_NOTEBOOK, 604).
 
 %% Detail view
-start_link(Id, Data, ParentFrame, Callback) ->
-    wx_object:start_link(?MODULE, [Id, Data, ParentFrame, Callback, self()], []).
+start_link(Id, Data, ParentFrame, Callback, App) ->
+    wx_object:start_link(?MODULE,[Id,Data,ParentFrame,Callback,App,self()],[]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Id, Data, ParentFrame, Callback, Parent]) ->
+init([Id, Data, ParentFrame, Callback, App, Parent]) ->
+    display_progress(ParentFrame,App),
     case Callback:get_details(Id, Data) of
 	{ok,Details} ->
-	    init(Id,ParentFrame,Callback,Parent,Details);
+            display_progress_pulse(Callback,Id),
+	    init(Id,ParentFrame,Callback,App,Parent,Details);
 	{yes_no, Info, Fun} ->
+            destroy_progress(App),
 	    case observer_lib:display_yes_no_dialog(Info) of
 		?wxID_YES -> Fun();
 		?wxID_NO -> ok
 	    end,
 	    {stop,normal};
 	{info,Info} ->
-	    observer_lib:display_info_dialog(Info),
+            destroy_progress(App),
+	    observer_lib:display_info_dialog(ParentFrame,Info),
 	    {stop,normal}
     end.
 
-init(Id,ParentFrame,Callback,Parent,{Title,Info,TW}) ->
+%% Display progress bar only if the calling app is crashdump_viewer
+display_progress(ParentFrame,cdv) ->
+    observer_lib:display_progress_dialog(ParentFrame,
+                                         "Crashdump Viewer",
+                                         "Reading data");
+display_progress(_,_) ->
+    ok.
+
+%% Display pulse while creating process detail page with much data
+display_progress_pulse(cdv_proc_cb,Pid) ->
+    observer_lib:report_progress({ok,"Displaying data for "++Pid}),
+    observer_lib:report_progress({ok,start_pulse});
+display_progress_pulse(_,_) ->
+    ok.
+
+destroy_progress(cdv) ->
+    observer_lib:sync_destroy_progress_dialog();
+destroy_progress(_) ->
+    ok.
+
+init(Id,ParentFrame,Callback,App,Parent,{Title,Info,TW}) ->
     Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [Title],
 		      [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
     MenuBar = wxMenuBar:new(),
@@ -88,6 +112,7 @@ init(Id,ParentFrame,Callback,Parent,{Title,Info,TW}) ->
     wxFrame:connect(Frame, close_window),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
+    destroy_progress(App),
     {Frame, #state{parent=Parent,
 		   id=Id,
 		   frame=Frame,
@@ -133,7 +158,7 @@ handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
 handle_info(_Info, State) ->
-    %% io:format("~p: ~p, Handle info: ~p~n", [?MODULE, ?LINE, _Info]),
+    %% io:format("~p: ~p, Handle info: ~tp~n", [?MODULE, ?LINE, _Info]),
     {noreply, State}.
 
 handle_call(Call, From, _State) ->

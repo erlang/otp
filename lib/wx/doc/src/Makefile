@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,16 +39,20 @@ ModsNoExt	= $(ErlMods:%.erl=%) $(GenMods:%.erl=%)
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = $(ErlMods:%.erl=%.xml) $(GenMods:%.erl=%.xml)
 
-XML_PART_FILES = part.xml part_notes.xml
+XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = chapter.xml
 XML_NOTES_FILES = notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = \
-	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) \
-	$(XML_NOTES_FILES) $(XML_APPLICATION_FILES)
+	$(BOOK_FILES) \
+	$(XML_PART_FILES) $(XML_NOTES_FILES)
+
+XML_GEN_FILES = \
+	$(XML_CHAPTER_FILES:%=$(XMLDIR)/%) \
+	$(XML_REF3_FILES:%=$(XMLDIR)/%) \
+	$(XML_APPLICATION_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 INFO_FILE = ../../info
@@ -93,32 +97,37 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 xml: $(XML_REF3_FILES) $(XML_CHAPTER_FILES)
 
 ref_man.xml: ref_man.xml.src
-	@echo Preparing ref_man.xml
-	@cat ref_man.xml.src > ref_man.xml
+	@echo Preparing $@
+	@cat ref_man.xml.src > $@
 	@for d in $(ModsNoExt); do         \
-		echo "  <xi:include href=\"$$d.xml\"/>" >> ref_man.xml ; \
+		echo "  <xi:include href=\"$$d.xml\"/>" >> $@ ; \
 	done
-	@echo "</application>" >> ref_man.xml
-	@echo
+	@echo "</application>" >> $@
 
-$(ErlMods:%.erl=%.xml): ../../src/$(@:%.xml=%.erl)
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -preprocess true -sort_functions false ../../src/$(@:%.xml=%.erl)
+$(ErlMods:%.erl=$(XMLDIR)/%.xml):
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
+	-def vsn $(VSN) -preprocess true -sort_functions false -dir $(XMLDIR) \
+	../../src/$(@:$(XMLDIR)/%.xml=%.erl)
 
-$(GenMods:%.erl=%.xml): ../../src/gen/$(@:%.xml=%.erl)
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -i ../../src -preprocess true -sort_functions false ../../src/gen/$(@:%.xml=%.erl)
+$(GenMods:%.erl=$(XMLDIR)/%.xml):
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
+	-def vsn $(VSN) -i ../../src -preprocess true -sort_functions false -dir $(XMLDIR) \
+	../../src/gen/$(@:$(XMLDIR)/%.xml=%.erl)
 
-$(XML_CHAPTER_FILES): ../overview.edoc
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -chapter ../overview.edoc
+$(XML_CHAPTER_FILES:%=$(XMLDIR)/%): ../overview.edoc
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
+	-def vsn $(VSN) -chapter -dir $(XMLDIR) $<
 
 debug opt:
 
 clean clean_docs:
-	rm -rf  $(HTMLDIR)/*
+	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
 	rm -f errs core *~ ../html/edoc-info
-	rm -f $(XML_REF3_FILES) $(XML_CHAPTER_FILES) *.html
+	rm -f $(XML_GEN_FILES) *.html
 
 # ----------------------------------------------------
 # Release Target

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,12 @@
 %%
 -module(mnesia_registry_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([good_dump/1, bad_dump/1, dump_registry/2, restore_registry/2]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->

@@ -25,7 +25,9 @@
 
 -export([sin/1, cos/1, tan/1, asin/1, acos/1, atan/1, atan2/2, sinh/1,
          cosh/1, tanh/1, asinh/1, acosh/1, atanh/1, exp/1, log/1,
-         log2/1, log10/1, pow/2, sqrt/1, erf/1, erfc/1]).
+         log2/1, log10/1, pow/2, sqrt/1, erf/1, erfc/1,
+         ceil/1, floor/1,
+         fmod/2]).
 
 -spec acos(X) -> float() when
       X :: number().
@@ -63,6 +65,11 @@ atan2(_, _) ->
 atanh(_) ->
     erlang:nif_error(undef).
 
+-spec ceil(X) -> float() when
+      X :: number().
+ceil(_) ->
+    erlang:nif_error(undef).
+
 -spec cos(X) -> float() when
       X :: number().
 cos(_) ->
@@ -86,6 +93,16 @@ erfc(_) ->
 -spec exp(X) -> float() when
       X :: number().
 exp(_) ->
+    erlang:nif_error(undef).
+
+-spec floor(X) -> float() when
+      X :: number().
+floor(_) ->
+    erlang:nif_error(undef).
+
+-spec fmod(X, Y) -> float() when
+      X :: number(), Y :: number().
+fmod(_, _) ->
     erlang:nif_error(undef).
 
 -spec log(X) -> float() when

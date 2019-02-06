@@ -63,7 +63,7 @@ class wxeFifo {
     wxeFifo(unsigned int size);
     virtual ~wxeFifo();
 
-    void Add(int fc, char * cbuf,int buflen, wxe_data *);
+    int Add(int fc, char * cbuf,int buflen, wxe_data *);
     void Append(wxeCommand *Other);
 
     wxeCommand * Get();

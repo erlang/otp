@@ -6,17 +6,11 @@ test(A) ->
     if A > 0 ->
 	    true = has_a_field(#{a=>true}),
 	    true = has_a_field(#{b=>1, a=>"2"}),
-	    true = has_a_field(#{a=>5, c=>4}),
-	    true = has_tuple_field(#{{ab, 1}=><<"qq">>, 1      =>0}),
-	    true = has_tuple_field(#{up     =>down,     {ab, 1}=>[]}),
-	    true = has_tuple_field(#{{ab, 1}=>42});
+	    true = has_a_field(#{a=>5, c=>4});
        A =< 0 ->
 	    true = has_a_field(#{a=>q,     'A'  =>nej}),
 	    true = has_a_field(#{a=>"hej", false=>true}),
-	    true = has_a_field(#{a=>3}),
-	    true = has_tuple_field(#{{ab, 1}=>q,     'A'  =>nej}),
-	    true = has_tuple_field(#{{ab, 1}=>"hej", false=>true}),
-	    true = has_tuple_field(#{{ab, 1}=>3})
+	    true = has_a_field(#{a=>3})
     end,
     true = has_nil_field(#{[]         =>3,  b =>"seven"}),
     true = has_nil_field(#{"seventeen"=>17, []=>nil}),

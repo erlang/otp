@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2016</year>
+      <year>2011</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -38,7 +38,7 @@
       extensions of the default behavior of <c>Common Test</c> using hooks 
       before and after all test suite calls. CTHs allow advanced <c>Common Test</c>
       users to abstract out behavior that is common to multiple test suites
-      without littering all test suites with library calls. this can be used 
+      without littering all test suites with library calls. This can be used
       for logging, starting, and monitoring external systems, 
       building C files needed by the tests, and so on.</p>
 
@@ -175,10 +175,10 @@
       <row>
 	<cell><seealso marker="common_test#Module:init_per_group-2">
 	  init_per_group/2</seealso></cell>
-	<cell><seealso marker="ct_hooks#Module:post_init_per_group-4">
-	    post_init_per_group/4</seealso> is called</cell>
-	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
-	  post_end_per_group/4</seealso> has been called for that group</cell>
+	<cell><seealso marker="ct_hooks#Module:post_init_per_group-5">
+	    post_init_per_group/5</seealso> is called</cell>
+	<cell><seealso marker="ct_hooks#Module:post_end_per_group-5">
+	  post_end_per_group/5</seealso> has been called for that group</cell>
       </row>
     <tcaption>Scope of a CTH</tcaption>
     </table>
@@ -245,16 +245,18 @@
      </list>
 
         <p>
-	This is done in the CTH functions called pre_&lt;name of function&gt;.
-	These functions take the same three arguments, <c>Name</c>, 
+	This is done in the CTH functions called <c>pre_&lt;name of function&gt;</c>.
+	These functions take the arguments <c>SuiteName</c>, <c>Name</c> (group or test case name, if applicable), 
 	<c>Config</c>, and <c>CTHState</c>. The return value of the CTH function
 	is always a combination of a result for the suite/group/test and an 
 	updated <c>CTHState</c>.</p>
 
 	<p>To let the test suite continue on executing, return the configuration 
-	list that you want the test to use as the result. To skip or 
-	fail the test, return a tuple with <c>skip</c> or <c>fail</c>, and a reason 
-	as the result.</p>
+	list that you want the test to use as the result.</p>
+
+        <p>All pre hooks, except <c>pre_end_per_testcase/4</c>, can
+        skip or fail the test by returning a tuple with <c>skip</c> or
+        <c>fail</c>, and a reason as the result.</p>
 
 	<p><em>Example:</em></p>
 	<code>
@@ -290,7 +292,7 @@
 
      <p>
       This is done in the CTH functions called <c>post_&lt;name of function&gt;</c>. 
-      These functions take the same four arguments, <c>Name</c>, 
+      These functions take the arguments <c>SuiteName</c>, <c>Name</c> (group or test case name, if applicable),
       <c>Config</c>, <c>Return</c>, and <c>CTHState</c>. <c>Config</c> in this
       case is the same <c>Config</c> as the testcase is called with. 
       <c>Return</c> is the value returned by the testcase. If the testcase 
@@ -308,7 +310,7 @@
 	
 	<p><em>Example:</em></p>
 	<code>
- post_end_per_testcase(_TC, Config, {'EXIT',{_,_}}, CTHState) -&gt;
+ post_end_per_testcase(_Suite, _TC, Config, {'EXIT',{_,_}}, CTHState) -&gt;
    case db:check_consistency() of
      true ->
        %% DB is good, pass the test.
@@ -317,7 +319,7 @@
        %% DB is not good, mark as skipped instead of failing
        {{skip, "DB is inconsisten!"}, CTHState}
    end;
- post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
+ post_end_per_testcase(_Suite, _TC, Config, Return, CTHState) -&gt;
    %% Do nothing if tc does not crash.
    {Return, CTHState}.</code>
 
@@ -331,8 +333,8 @@
       <title>Skip and Fail Hooks</title>
       <p>
 	After any post hook has been executed for all installed CTHs, 
-	<seealso marker="ct_hooks#Module:on_tc_fail-3">on_tc_fail</seealso>
-	or <seealso marker="ct_hooks#Module:on_tc_skip-3">on_tc_skip</seealso> 
+	<seealso marker="ct_hooks#Module:on_tc_fail-4">on_tc_fail</seealso>
+	or <seealso marker="ct_hooks#Module:on_tc_skip-4">on_tc_skip</seealso>
 	is called if the testcase failed or was skipped, respectively. 
 	You cannot affect the outcome of the tests any further at this point. 
       </p>
@@ -377,7 +379,7 @@
        (in Kernel):
      </p>
      <code>
- %%% @doc Common Test Example Common Test Hook module.
+ %%% Common Test Example Common Test Hook module.
  -module(example_cth).
 
  %% Callbacks
@@ -389,95 +391,95 @@
  -export([pre_end_per_suite/3]).
  -export([post_end_per_suite/4]).
 
- -export([pre_init_per_group/3]).
- -export([post_init_per_group/4]).
- -export([pre_end_per_group/3]).
- -export([post_end_per_group/4]).
+ -export([pre_init_per_group/4]).
+ -export([post_init_per_group/5]).
+ -export([pre_end_per_group/4]).
+ -export([post_end_per_group/5]).
 
- -export([pre_init_per_testcase/3]).
- -export([post_init_per_testcase/4]).
- -export([pre_end_per_testcase/3]).
- -export([post_end_per_testcase/4]).
+ -export([pre_init_per_testcase/4]).
+ -export([post_init_per_testcase/5]).
+ -export([pre_end_per_testcase/4]).
+ -export([post_end_per_testcase/5]).
 
- -export([on_tc_fail/3]).
- -export([on_tc_skip/3]).
+ -export([on_tc_fail/4]).
+ -export([on_tc_skip/4]).
 
  -export([terminate/1]).
 
  -record(state, { file_handle, total, suite_total, ts, tcs, data }).
 
- %% @doc Return a unique id for this CTH.
+ %% Return a unique id for this CTH.
  id(Opts) ->
    proplists:get_value(filename, Opts, "/tmp/file.log").
 
- %% @doc Always called before any other callback function. Use this to initiate
+ %% Always called before any other callback function. Use this to initiate
  %% any common state. 
  init(Id, Opts) ->
      {ok,D} = file:open(Id,[write]),
      {ok, #state{ file_handle = D, total = 0, data = [] }}.
 
- %% @doc Called before init_per_suite is called. 
+ %% Called before init_per_suite is called.
  pre_init_per_suite(Suite,Config,State) ->
      {Config, State#state{ suite_total = 0, tcs = [] }}.
 
- %% @doc Called after init_per_suite.
+ %% Called after init_per_suite.
  post_init_per_suite(Suite,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before end_per_suite. 
+ %% Called before end_per_suite.
  pre_end_per_suite(Suite,Config,State) ->
      {Config, State}.
 
- %% @doc Called after end_per_suite. 
+ %% Called after end_per_suite.
  post_end_per_suite(Suite,Config,Return,State) ->
      Data = {suites, Suite, State#state.suite_total, lists:reverse(State#state.tcs)},
      {Return, State#state{ data = [Data | State#state.data] ,
                            total = State#state.total + State#state.suite_total } }.
 
- %% @doc Called before each init_per_group.
- pre_init_per_group(Group,Config,State) ->
+ %% Called before each init_per_group.
+ pre_init_per_group(Suite,Group,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each init_per_group.
- post_init_per_group(Group,Config,Return,State) ->
+ %% Called after each init_per_group.
+ post_init_per_group(Suite,Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before each end_per_group. 
- pre_end_per_group(Group,Config,State) ->
+ %% Called before each end_per_group.
+ pre_end_per_group(Suite,Group,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each end_per_group. 
- post_end_per_group(Group,Config,Return,State) ->
+ %% Called after each end_per_group.
+ post_end_per_group(Suite,Group,Config,Return,State) ->
      {Return, State}.
 
- %% @doc Called before each init_per_testcase.
- pre_init_per_testcase(TC,Config,State) ->
+ %% Called before each init_per_testcase.
+ pre_init_per_testcase(Suite,TC,Config,State) ->
      {Config, State#state{ ts = now(), total = State#state.suite_total + 1 } }.
 
  %% Called after each init_per_testcase (immediately before the test case).
- post_init_per_testcase(TC,Config,Return,State) ->
+ post_init_per_testcase(Suite,TC,Config,Return,State) ->
      {Return, State}
 
-%% @doc Called before each end_per_testcase (immediately after the test case).
- pre_end_per_testcase(TC,Config,State) ->
+%% Called before each end_per_testcase (immediately after the test case).
+ pre_end_per_testcase(Suite,TC,Config,State) ->
      {Config, State}.
 
- %% @doc Called after each end_per_testcase.
- post_end_per_testcase(TC,Config,Return,State) ->
-     TCInfo = {testcase, TC, Return, timer:now_diff(now(), State#state.ts)},
+ %% Called after each end_per_testcase.
+ post_end_per_testcase(Suite,TC,Config,Return,State) ->
+     TCInfo = {testcase, Suite, TC, Return, timer:now_diff(now(), State#state.ts)},
      {Return, State#state{ ts = undefined, tcs = [TCInfo | State#state.tcs] } }.
 
- %% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
+ %% Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
  %% post_end_per_group and post_end_per_testcase if the suite, group or test case failed.
- on_tc_fail(TC, Reason, State) ->
+ on_tc_fail(Suite, TC, Reason, State) ->
      State.
 
- %% @doc Called when a test case is skipped by either user action
+ %% Called when a test case is skipped by either user action
  %% or due to an init function failing.  
- on_tc_skip(TC, Reason, State) ->
+ on_tc_skip(Suite, TC, Reason, State) ->
      State.
 
- %% @doc Called when the scope of the CTH is done
+ %% Called when the scope of the CTH is done
  terminate(State) ->
      io:format(State#state.file_handle, "~p.~n",
                 [{test_run, State#state.total, State#state.data}]),
@@ -499,12 +501,13 @@
        <tag><c>cth_log_redirect</c></tag>
        <item>
        <p>Built-in</p>
-       <p>Captures all <c>error_logger</c> and SASL logging
-	events and prints them to the current test case log. If an event cannot be 
-	associated with a test case, it is printed in the <c>Common Test</c> framework log. 
+       <p>Captures all log events that would normally be printed by the default
+        logger handler, and prints them to the current test case log.
+	If an event cannot be associated with a test case, it is printed in
+	the <c>Common Test</c> framework log.
 	This happens for test cases running in parallel and events occuring
 	in-between test cases. You can configure the level of
-	<seealso marker="sasl:sasl_app">SASL</seealso> events report
+	<seealso marker="sasl:sasl_app">SASL</seealso> reports
 	using the normal SASL mechanisms.</p>
        </item>
        <tag><c>cth_surefire</c></tag>

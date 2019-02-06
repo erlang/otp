@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +10,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-
+%% @copyright 1999-2002 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Utility functions for Core Erlang case/receive clauses.
 %%
 %% <p>Syntax trees are defined in the module <a
@@ -358,6 +353,8 @@ match(P, E, Bs) ->
 	map ->
 	    %% The most we can do is to say "definitely no match" if a
 	    %% map pattern is matched against non-map data.
+            %% (Note: See the document internal_doc/cerl-notes.md for
+            %% information why we don't try to do more here.)
 	    case E of
 		any ->
 		    {false, Bs};

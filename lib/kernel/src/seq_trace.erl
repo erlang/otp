@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 
 -type flag()       :: 'send' | 'receive' | 'print' | 'timestamp' | 'monotonic_timestamp' | 'strict_monotonic_timestamp'.
 -type component()  :: 'label' | 'serial' | flag().
--type value()      :: (Integer :: non_neg_integer())
+-type value()      :: (Label :: term())
                     | {Previous :: non_neg_integer(),
                        Current :: non_neg_integer()}
                     | (Bool :: boolean()).
@@ -58,10 +58,6 @@ set_token([]) ->
 set_token({Flags,Label,Serial,_From,Lastcnt}) ->
     F = decode_flags(Flags),
     set_token2([{label,Label},{serial,{Lastcnt, Serial}} | F]).
-
-%% We limit the label type to always be a small integer because erl_interface
-%% expects that, the BIF can however "unofficially" handle atoms as well, and
-%% atoms can be used if only Erlang nodes are involved
 
 -spec set_token(Component, Val) -> {Component, OldVal} when
       Component :: component(),

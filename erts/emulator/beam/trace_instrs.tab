@@ -1,0 +1,168 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+return_trace() {
+    ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[0]);
+
+    SWAPOUT;		/* Needed for shared heap */
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+    SWAPIN;
+    c_p->cp = NULL;
+    SET_I((BeamInstr *) cp_val(E[2]));
+    E += 3;
+    Goto(*I);
+    //| -no_next
+}
+
+i_generic_breakpoint() {
+    BeamInstr real_I;
+    HEAVY_SWAPOUT;
+    real_I = erts_generic_breakpoint(c_p, erts_code_to_codeinfo(I), reg);
+    HEAVY_SWAPIN;
+    ASSERT(VALID_INSTR(real_I));
+    Goto(real_I);
+    //| -no_next
+}
+
+i_return_time_trace() {
+    BeamInstr *pc = (BeamInstr *) (UWord) E[0];
+    SWAPOUT;
+    erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
+    SWAPIN;
+    c_p->cp = NULL;
+    SET_I((BeamInstr *) cp_val(E[1]));
+    E += 2;
+    Goto(*I);
+    //| -no_next
+}
+
+i_return_to_trace() {
+    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+        Uint *cpp = (Uint*) E;
+        for(;;) {
+            ASSERT(is_CP(*cpp));
+            if (IsOpCode(*cp_val(*cpp), return_trace)) {
+                do
+                    ++cpp;
+                while (is_not_CP(*cpp));
+                cpp += 2;
+            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace)) {
+                do
+                    ++cpp;
+                while (is_not_CP(*cpp));
+            } else {
+                break;
+            }
+        }
+        SWAPOUT;		/* Needed for shared heap */
+        ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+        erts_trace_return_to(c_p, cp_val(*cpp));
+        ERTS_REQ_PROC_MAIN_LOCK(c_p);
+        SWAPIN;
+    }
+    c_p->cp = NULL;
+    SET_I((BeamInstr *) cp_val(E[0]));
+    E += 1;
+    Goto(*I);
+    //| -no_next
+}
+
+i_yield() {
+    /* This is safe as long as REDS_IN(c_p) is never stored
+     * in c_p->arg_reg[0]. It is currently stored in c_p->def_arg_reg[5].
+     */
+    c_p->arg_reg[0] = am_true;
+    c_p->arity = 1; /* One living register (the 'true' return value) */
+    SWAPOUT;
+    $SET_CP_I_ABS($NEXT_INSTRUCTION);
+    c_p->current = NULL;
+    goto do_schedule;
+    //| -no_next
+}
+
+i_hibernate() {
+    HEAVY_SWAPOUT;
+    if (erts_hibernate(c_p, reg)) {
+        FCALLS = c_p->fcalls;
+        c_p->flags &= ~F_HIBERNATE_SCHED;
+        goto do_schedule;
+    } else {
+        HEAVY_SWAPIN;
+        I = handle_error(c_p, I, reg, &bif_export[BIF_hibernate_3]->info.mfa);
+        goto post_error_handling;
+    }
+    //| -no_next
+}
+
+// This is optimised as an instruction because
+// it has to be very very fast.
+
+i_perf_counter() {
+    ErtsSysPerfCounter ts;
+
+    ts = erts_sys_perf_counter();
+    if (IS_SSMALL(ts)) {
+        r(0) = make_small((Sint)ts);
+    } else {
+        $GC_TEST(0, ERTS_SINT64_HEAP_SIZE(ts), 0);
+        r(0) = make_big(HTOP);
+#if defined(ARCH_32)
+        if (ts >= (((Uint64) 1) << 32)) {
+            *HTOP = make_pos_bignum_header(2);
+            BIG_DIGIT(HTOP, 0) = (Uint) (ts & ((Uint) 0xffffffff));
+            BIG_DIGIT(HTOP, 1) = (Uint) ((ts >> 32) & ((Uint) 0xffffffff));
+            HTOP += 3;
+        }
+        else
+#endif
+            {
+                *HTOP = make_pos_bignum_header(1);
+                BIG_DIGIT(HTOP, 0) = (Uint) ts;
+                HTOP += 2;
+            }
+    }
+}
+
+i_debug_breakpoint() {
+    HEAVY_SWAPOUT;
+    I = call_error_handler(c_p, erts_code_to_codemfa(I), reg, am_breakpoint);
+    HEAVY_SWAPIN;
+    if (I) {
+        Goto(*I);
+    }
+    goto handle_error;
+    //| -no_next
+}
+
+
+
+//
+// Special jump instruction used for tracing. Takes an absolute
+// failure address.
+//
+
+trace_jump(Fail) {
+    //| -no_next
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}

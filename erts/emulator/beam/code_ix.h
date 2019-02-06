@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,12 +56,55 @@
 #  endif
 #  include "sys.h"
 #endif
+
+#include "beam_opcodes.h"
+
 struct process;
 
 
 #define ERTS_NUM_CODE_IX 3
 typedef unsigned ErtsCodeIndex;
 
+typedef struct ErtsCodeMFA_ {
+    Eterm module;
+    Eterm function;
+    Uint  arity;
+} ErtsCodeMFA;
+
+/*
+ * The ErtsCodeInfo structure is used both in the Export entry
+ * and in the code as the function header.
+ */
+
+/* If you change the size of this, you also have to update the code
+   in ops.tab to reflect the new func_info size */
+typedef struct ErtsCodeInfo_ {
+    BeamInstr op;           /* OpCode(i_func_info) */
+    union {
+        struct generic_bp* gen_bp;     /* Trace breakpoint */
+#ifdef HIPE
+        void (*ncallee)(void);
+        struct hipe_call_count* hcc;
+#endif
+    }u;
+    ErtsCodeMFA mfa;
+} ErtsCodeInfo;
+
+/* Get the code associated with a ErtsCodeInfo ptr. */
+ERTS_GLB_INLINE
+BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci);
+
+/* Get the ErtsCodeInfo for from a code ptr. */
+ERTS_GLB_INLINE
+ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I);
+
+/* Get the code associated with a ErtsCodeMFA ptr. */
+ERTS_GLB_INLINE
+BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa);
+
+/* Get the ErtsCodeMFA from a code ptr. */
+ERTS_GLB_INLINE
+ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I);
 
 /* Called once at emulator initialization.
  */
@@ -121,20 +164,57 @@ void erts_abort_staging_code_ix(void);
 int erts_has_code_write_permission(void);
 #endif
 
-
+/* module/function/arity can be NIL/NIL/-1 when the MFA is pointing to some
+   invalid code, for instance unloaded_fun. */
+#define ASSERT_MFA(MFA)                                                 \
+    ASSERT((is_atom((MFA)->module) || is_nil((MFA)->module)) &&         \
+           (is_atom((MFA)->function) || is_nil((MFA)->function)) &&     \
+           (((MFA)->arity >= 0 && (MFA)->arity < 1024) || (MFA)->arity == -1))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-extern erts_smp_atomic32_t the_active_code_index;
-extern erts_smp_atomic32_t the_staging_code_index;
+ERTS_GLB_INLINE
+BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
+{
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT_MFA(&ci->mfa);
+    return (BeamInstr*)(ci + 1);
+}
+
+ERTS_GLB_INLINE
+ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
+{
+    ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
+    ASSERT_MFA(&ci->mfa);
+    return ci;
+}
+
+ERTS_GLB_INLINE
+BeamInstr *erts_codemfa_to_code(ErtsCodeMFA *mfa)
+{
+    ASSERT_MFA(mfa);
+    return (BeamInstr*)(mfa + 1);
+}
+
+ERTS_GLB_INLINE
+ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
+{
+    ErtsCodeMFA *mfa = ((ErtsCodeMFA *)(((char *)(I)) - sizeof(ErtsCodeMFA)));
+    ASSERT_MFA(mfa);
+    return mfa;
+}
+
+extern erts_atomic32_t the_active_code_index;
+extern erts_atomic32_t the_staging_code_index;
 
 ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_active_code_index);
+    return erts_atomic32_read_nob(&the_active_code_index);
 }
 ERTS_GLB_INLINE ErtsCodeIndex erts_staging_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_staging_code_index);
+    return erts_atomic32_read_nob(&the_staging_code_index);
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

@@ -90,7 +90,7 @@ start() ->
 EOF
 
 erlc cross_check_erl.erl 2>/dev/null \
-  && used_otp=`erl -noshell -noinput -pa . -run cross_check_erl 2>/dev/null`
+  && used_otp=`erl -noshell -noinput -boot start_clean -pa . -run cross_check_erl 2>/dev/null`
 
 res=$?
 

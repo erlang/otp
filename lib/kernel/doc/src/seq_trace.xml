@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2016</year>
+      <year>1998</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,13 +80,18 @@ seq_trace:set_token(OldToken), % activate the trace token again
         <p>Sets the individual <c><anno>Component</anno></c> of the trace token to
           <c><anno>Val</anno></c>. Returns the previous value of the component.</p>
         <taglist>
-          <tag><c>set_token(label, <anno>Integer</anno>)</c></tag>
+          <tag><c>set_token(label, <anno>Label</anno>)</c></tag>
           <item>
-            <p>The <c>label</c> component is an integer which
+            <p>The <c>label</c> component is a term which
               identifies all events belonging to the same sequential
               trace. If several sequential traces can be active
               simultaneously, <c>label</c> is used to identify
               the separate traces. Default is 0.</p>
+            <warning>
+              <p>Labels were restricted to small signed integers (28 bits)
+                prior to OTP 21. The trace token will be silenty dropped if it
+                crosses over to a node that does not support the label.</p>
+            </warning>
           </item>
           <tag><c>set_token(serial, SerialValue)</c></tag>
           <item>
@@ -129,7 +134,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
 	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso> and a monotonically increasing
 	    integer. The time-stamp has the same format and value
-	    as produced by <c>{erlang:monotonic_time(nano_seconds),
+	    as produced by <c>{erlang:monotonic_time(nanosecond),
 	    erlang:unique_integer([monotonic])}</c>.</p>
           </item>
           <tag><c>set_token(monotonic_timestamp, <anno>Bool</anno>)</c></tag>
@@ -141,7 +146,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
 	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
 	    monotonic time</seealso>. The time-stamp has the same
 	    format and value as produced by
-	    <c>erlang:monotonic_time(nano_seconds)</c>.</p>
+	    <c>erlang:monotonic_time(nanosecond)</c>.</p>
           </item>
         </taglist>
 	  <p>If multiple timestamp flags are passed, <c>timestamp</c> has
@@ -427,12 +432,6 @@ prev_cnt := tcurr</code>
       built with <c>Erl_Interface</c> only maintains one trace token, which
       means that the C-node appears as one process from
       the sequential tracing point of view.</p>
-    <p>To be able to perform sequential tracing between
-      distributed Erlang nodes, the distribution protocol has been
-      extended (in a backward compatible way). An Erlang node
-      supporting sequential tracing can communicate with an older
-      (Erlang/OTP R3B) node but messages passed within that node can
-      not be traced.</p>
   </section>
 
   <section>

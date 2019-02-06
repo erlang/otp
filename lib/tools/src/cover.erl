@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -144,6 +144,8 @@
         end).
 
 -define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
+-define(STYLESHEET, "styles.css").
+-define(TOOLS_APP, tools).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -2053,7 +2055,7 @@ munge_expr({bin_element,Line,Value,Size,TypeSpecifierList}, Vars) ->
     {MungedValue,Vars2} = munge_expr(Value, Vars),
     {MungedSize,Vars3} = munge_expr(Size, Vars2),
     {{bin_element,Line,MungedValue,MungedSize,TypeSpecifierList},Vars3};
-munge_expr(Form, Vars) -> % var|char|integer|float|string|atom|nil|eof|default
+munge_expr(Form, Vars) ->
     {Form, Vars}.
 
 munge_exprs([Expr|Exprs], Vars, MungedExprs) when Vars#vars.is_guard=:=true,
@@ -2414,22 +2416,11 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	{ok, InFd} ->
 	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
-		    if HTML -> 
-                           Encoding = encoding(ErlFile),
-                           Header =
-                               ["<!DOCTYPE HTML PUBLIC "
-                                "\"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-                                "<html>\n"
-                                "<head>\n"
-                                "<meta http-equiv=\"Content-Type\""
-                                " content=\"text/html; charset=",
-                                Encoding,"\"/>\n"
-                                "<title>",OutFile,"</title>\n"
-                                "</head>"
-                                "<body style='background-color: white;"
-                                " color: black'>\n"
-                                "<pre>\n"],
-                           ok = file:write(OutFd,Header);
+                    Enc = encoding(ErlFile),
+		    if HTML ->
+                            Header = create_header(OutFile, Enc),
+                            H1Bin = unicode:characters_to_binary(Header,Enc,Enc),
+                            ok = file:write(OutFd,H1Bin);
 		       true -> ok
 		    end,
 		    
@@ -2438,25 +2429,35 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
                    Timestamp =
                        io_lib:format("~p-~s-~s at ~s:~s:~s",
                                      [Y,
-                                      string:right(integer_to_list(Mo), 2, $0),
-                                      string:right(integer_to_list(D),  2, $0),
-                                      string:right(integer_to_list(H),  2, $0),
-                                      string:right(integer_to_list(Mi), 2, $0),
-                                      string:right(integer_to_list(S),  2, $0)]),
-                    ok = file:write(OutFd,
-                               ["File generated from ",ErlFile," by COVER ",
-                                Timestamp,"\n\n"
-                                "**************************************"
-                                "**************************************"
-                                "\n\n"]),
+                                      string:pad(integer_to_list(Mo), 2, leading, $0),
+                                      string:pad(integer_to_list(D),  2, leading, $0),
+                                      string:pad(integer_to_list(H),  2, leading, $0),
+                                      string:pad(integer_to_list(Mi), 2, leading, $0),
+                                      string:pad(integer_to_list(S),  2, leading, $0)]),
+
+                   OutFileInfo =
+                       if HTML ->
+                            create_footer(ErlFile, Timestamp);
+                          true ->
+                            ["File generated from ",ErlFile," by COVER ",
+                             Timestamp, "\n\n",
+                             "**************************************"
+                             "**************************************"
+                             "\n\n"]
+                          end,
+
+                   H2Bin = unicode:characters_to_binary(OutFileInfo,Enc,Enc),
+                   ok = file:write(OutFd, H2Bin),
 
 		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
 		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
-		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
+                    CovLines0 =
+                        lists:keysort(1, ets:select(?COLLECTION_TABLE, MS)),
+                    CovLines = merge_dup_lines(CovLines0),
 		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
 		    if HTML ->
-                           ok = file:write(OutFd, "</pre>\n</body>\n</html>\n");
+                           ok = file:write(OutFd, close_html());
 		       true -> ok
 		    end,
 
@@ -2473,28 +2474,31 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
+merge_dup_lines(CovLines) ->
+    merge_dup_lines(CovLines, []).
+merge_dup_lines([{L, N}|T], [{L, NAcc}|TAcc]) ->
+    merge_dup_lines(T, [{L, NAcc + N}|TAcc]);
+merge_dup_lines([{L, N}|T], Acc) ->
+    merge_dup_lines(T, [{L, N}|Acc]);
+merge_dup_lines([], Acc) ->
+    lists:reverse(Acc).
 
 print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
     case file:read_line(InFd) of
 	eof ->
 	    ignore;
-	{ok,"%"++_=Line} ->		 %Comment line - not executed.
-	    ok = file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
-	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
 	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
 	    case CovLines of
 	       [{L,N}|CovLines1] ->
-		    %% N = lists:foldl(fun([Ni], Nacc) -> Nacc+Ni end, 0, Ns),
                     if N=:=0, HTML=:=true ->
-                           LineNoNL = Line -- "\n",
-                           Str = "     0",
-                           %%Str = string:right("0", 6, 32),
-                           RedLine = ["<font color=red>",Str,fill1(),
-                                      LineNoNL,"</font>\n"],
-                           ok = file:write(OutFd, RedLine);
+                           MissedLine = table_row("miss", Line, L, N),
+                           ok = file:write(OutFd, MissedLine);
+                       HTML=:=true ->
+                           HitLine = table_row("hit", Line, L, N),
+                           ok = file:write(OutFd, HitLine);
                        N < 1000000 ->
-                           Str = string:right(integer_to_list(N), 6, 32),
+                           Str = string:pad(integer_to_list(N), 6, leading, $\s),
                            ok = file:write(OutFd, [Str,fill1(),Line]);
                        N < 10000000 ->
                            Str = integer_to_list(N),
@@ -2504,8 +2508,12 @@ print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
                            ok = file:write(OutFd, [Str,fill3(),Line])
                     end,
 		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
-		_ ->
-		    ok = file:write(OutFd, [tab(),Line]),
+		_ ->                            %Including comment lines
+        NonCoveredContent =
+                    if HTML -> table_row(Line, L);
+                    true -> [tab(),Line]
+                    end,
+		    ok = file:write(OutFd, NonCoveredContent),
 		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
 	    end
     end.
@@ -2514,6 +2522,59 @@ tab() ->  "        |  ".
 fill1() ->      "..|  ".
 fill2() ->       ".|  ".
 fill3() ->        "|  ".
+
+%% HTML sections
+create_header(OutFile, Enc) ->
+    ["<!doctype html>\n"
+    "<html>\n"
+    "<head>\n"
+    "<meta charset=\"",html_encoding(Enc),"\">\n"
+    "<title>",OutFile,"</title>\n"
+    "<style>"] ++
+    read_stylesheet() ++
+    ["</style>\n",
+    "</head>\n"
+    "<body>\n"
+    "<h1><code>",OutFile,"</code></h1>\n"].
+
+create_footer(ErlFile, Timestamp) ->
+    ["<footer><p>File generated from <code>",ErlFile,
+    "</code> by <a href=\"http://erlang.org/doc/man/cover.html\">cover</a> at ",
+    Timestamp,"</p></footer>\n<table>\n<tbody>\n"].
+
+close_html() ->
+    ["</tbody>\n",
+     "<thead>\n",
+     "<tr>\n",
+     "<th>Line</th>\n",
+     "<th>Hits</th>\n",
+     "<th>Source</th>\n",
+     "</tr>\n",
+     "</thead>\n",
+     "</table>\n",
+     "</body>\n"
+     "</html>\n"].
+
+table_row(CssClass, Line, L, N) ->
+    ["<tr class=\"",CssClass,"\">\n", table_data(Line, L, N)].
+table_row(Line, L) ->
+    ["<tr>\n", table_data(Line, L, "")].
+
+table_data(Line, L, N) ->
+   LineNoNL = Line -- "\n",
+   ["<td class=\"line\" id=\"L",integer_to_list(L),"\">",
+    integer_to_list(L),
+    "</td>\n",
+   "<td class=\"hits\">",maybe_integer_to_list(N),"</td>\n",
+   "<td class=\"source\"><code>",LineNoNL,"</code></td>\n</tr>\n"].
+
+maybe_integer_to_list(N) when is_integer(N) -> integer_to_list(N);
+maybe_integer_to_list(_) -> "".
+
+read_stylesheet() ->
+    PrivDir = code:priv_dir(?TOOLS_APP),
+    {ok, Css} = file:read_file(filename:join(PrivDir, ?STYLESHEET)),
+    [Css].
 
 %%%--Export--------------------------------------------------------------
 do_export(Module, OutFile, From, State) ->
@@ -2752,16 +2813,22 @@ pmap_collect(Mons,Acc) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% Read encoding from source file
+%%% Decide which encoding to use when analyzing to file.
+%%% The target file contains the file path, so if either the file name
+%%% encoding or the encoding of the source file is utf8, then we need
+%%% to use utf8.
 encoding(File) ->
-    Encoding =
-       case epp:read_encoding(File) of
-           none ->
-               epp:default_encoding();
-           E ->
-               E
-       end,
-    html_encoding(Encoding).
+    case file:native_name_encoding() of
+        latin1 ->
+            case epp:read_encoding(File) of
+                none ->
+                    epp:default_encoding();
+                E ->
+                    E
+            end;
+        utf8 ->
+            utf8
+    end.
 
 html_encoding(latin1) ->
     "iso-8859-1";

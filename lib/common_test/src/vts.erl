@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -157,6 +157,7 @@ test_info(_VtsPid,Type,Data) ->
 init(Parent) ->
     register(?MODULE,self()),
     process_flag(trap_exit,true),
+    ct_util:mark_process(),
     Parent ! {self(),started},
     {ok,Cwd} = file:get_cwd(),
     InitState = #state{start_dir=Cwd},
@@ -250,7 +251,7 @@ loop(State) ->
 	{'EXIT',Pid,Reason} ->
 	    case State#state.test_runner of
 		Pid ->
-		    io:format("Test run error: ~p\n",[Reason]),
+		    io:format("Test run error: ~tp\n",[Reason]),
 		    loop(State);
 		_ ->
 		    loop(State)
@@ -284,6 +285,7 @@ run_test1(State=#state{tests=Tests,current_log_dir=LogDir,
 		       logopts=LogOpts}) ->
     Self=self(),
     RunTest = fun() ->
+                      ct_util:mark_process(),
 		      case ct_run:do_run(Tests,[],LogDir,LogOpts) of
 			  {error,_Reason} ->
 			      aborted();
@@ -551,7 +553,7 @@ case_select(Dir,Suite,Case,N) ->
 	    true = code:add_pathz(Dir),
 	    case catch apply(Suite,all,[]) of
 		{'EXIT',Reason} ->
-		    io:format("\n~p\n",[Reason]),
+		    io:format("\n~tp\n",[Reason]),
 		    red(["COULD NOT READ TESTCASES!!",br(),
 			 "See erlang shell for info"]);
 		{skip,_Reason} ->
@@ -917,7 +919,7 @@ get_input_data(Input,Key)->
     end.
 
 parse(Input) ->
-    httpd:parse_query(Input).
+    uri_string:dissect_query(Input).
 
 vts_integer_to_list(X) when is_atom(X) ->
     atom_to_list(X);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,18 +32,20 @@ init(SslOpts, Role) ->
     
     init_manager_name(SslOpts#ssl_options.erl_dist),
 
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbHandle, OwnCert} 
+    {ok, #{pem_cache := PemCache} = Config} 
 	= init_certificates(SslOpts, Role),
     PrivateKey =
-	init_private_key(PemCacheHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
+	init_private_key(PemCache, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
 			 SslOpts#ssl_options.password, Role),
-    DHParams = init_diffie_hellman(PemCacheHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, CRLDbHandle, OwnCert, PrivateKey, DHParams}.
+    DHParams = init_diffie_hellman(PemCache, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
+    {ok, Config#{private_key => PrivateKey, dh_params => DHParams}}.
 
 init_manager_name(false) ->
-    put(ssl_manager, ssl_manager:manager_name(normal));
+    put(ssl_manager, ssl_manager:name(normal)),
+    put(ssl_pem_cache, ssl_pem_cache:name(normal));
 init_manager_name(true) ->
-    put(ssl_manager, ssl_manager:manager_name(dist)).
+    put(ssl_manager, ssl_manager:name(dist)),
+    put(ssl_pem_cache, ssl_pem_cache:name(dist)).
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
@@ -51,7 +53,7 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			       cert = Cert,
 			       crl_cache = CRLCache
 			      }, Role) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo} =
+    {ok, Config} =
 	try 
 	    Certs = case CaCerts of
 			undefined ->
@@ -59,41 +61,45 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			_ ->
 			    {der, CaCerts}
 		    end,
-	    {ok, _, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role, CRLCache)
+	    {ok,_} = ssl_manager:connection_init(Certs, Role, CRLCache)
 	catch
 	    _:Reason ->
 		file_error(CACertFile, {cacertfile, Reason})
 	end,
-    init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, 
-		      CacheHandle, CRLDbInfo, CertFile, Role).
+    init_certificates(Cert, Config, CertFile, Role).
 
-init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, 
-		  CRLDbInfo, <<>>, _) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, undefined};
+init_certificates(undefined, Config, <<>>, _) ->
+    {ok, Config#{own_certificate => undefined}};
 
-init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, 
-		  CacheHandle, CRLDbInfo, CertFile, client) ->
+init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, client) ->
     try 
 	%% Ignoring potential proxy-certificates see: 
 	%% http://dev.globus.org/wiki/Security/ProxyFileFormat
-	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
-	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, OwnCert}
+	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCache),
+	{ok, Config#{own_certificate => OwnCert}}
     catch _Error:_Reason  ->
-	    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CRLDbInfo, undefined}
-    end;
+	    {ok, Config#{own_certificate => undefined}}
+    end; 
 
-init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, 
-		  PemCacheHandle, CacheRef, CRLDbInfo, CertFile, server) ->
+init_certificates(undefined, #{pem_cache := PemCache} = Config, CertFile, server) ->
     try
-	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
-	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, OwnCert}
+	[OwnCert|_] = ssl_certificate:file_to_certificats(CertFile, PemCache),
+	{ok, Config#{own_certificate => OwnCert}}
     catch
 	_:Reason ->
 	    file_error(CertFile, {certfile, Reason})	    
     end;
-init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, _, _) ->
-    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CRLDbInfo, Cert}.
-
+init_certificates(Cert, Config, _, _) ->
+    {ok, Config#{own_certificate => Cert}}.
+init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg == ecdsa;
+                                                                           Alg == rsa;
+                                                                           Alg == dss ->
+    case maps:is_key(engine, Key) andalso maps:is_key(key_id, Key) of
+        true ->
+            Key;
+        false ->
+            throw({key, {invalid_key_id, Key}})
+    end;
 init_private_key(_, undefined, <<>>, _Password, _Client) ->
     undefined;
 init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
@@ -126,7 +132,13 @@ private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
 			     privateKey = Key}) ->
     public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
-
+private_key(#'PrivateKeyInfo'{privateKeyAlgorithm = 
+                                  #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                                                        parameters =  {asn1_OPENTYPE, Parameters}},
+                              privateKey = Key}) ->
+    ECKey = public_key:der_decode('ECPrivateKey',  iolist_to_binary(Key)),
+    ECParameters = public_key:der_decode('EcpkParameters', Parameters),
+    ECKey#'ECPrivateKey'{parameters = ECParameters};
 private_key(Key) ->
     Key.
 
@@ -134,6 +146,8 @@ private_key(Key) ->
 file_error(File, Throw) ->
     case Throw of
 	{Opt,{badmatch, {error, {badmatch, Error}}}} ->
+	    throw({options, {Opt, binary_to_list(File), Error}});
+	{Opt, {badmatch, Error}} ->
 	    throw({options, {Opt, binary_to_list(File), Error}});
 	_ ->
 	    throw(Throw)

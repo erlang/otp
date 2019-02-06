@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,10 @@
     <p>The SNMP application should be used to start an SNMP agent. Then
       the API functions below can be used to load/unload the OTP-MIB
       into/from the agent. The instrumentation of the OTP-MIB uses
-      Mnesia, hence Mnesia must be started prior to loading the OTP-MIB.</p>
+    Mnesia, hence Mnesia must be started prior to loading the OTP-MIB.</p>
+    <warning>
+      <p>This application has been deprecated and will be removed in a furture release.</p>
+    </warning>
   </description>
   <funcs>
     <func>

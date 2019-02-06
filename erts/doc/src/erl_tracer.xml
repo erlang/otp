@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2016</year>
+      <year>2016</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -103,7 +103,7 @@
           <item>If set the tracer has been requested to include a
             time stamp.</item>
           <tag><c>extra</c></tag>
-          <item>If set the tracepoint has included additonal data about
+          <item>If set the tracepoint has included additional data about
             the trace event. What the additional data is depends on which
             <c>TraceTag</c> has been triggered. The <c>extra</c> trace data
             corresponds to the fifth element in the trace tuples described in
@@ -653,7 +653,7 @@ ok
 &lt;0.37.0&gt;
 3&gt; erlang:trace(new, true, [send,{tracer, erl_msg_tracer, Tracer}]).
 0
-{&lt;0.39.0&gt;,&lt;0.27.0&gt;}
+{trace,&lt;0.39.0&gt;,&lt;0.27.0&gt;}
 4&gt; {ok, D} = file:open("/tmp/tmp.data",[write]).
 {trace,#Port&lt;0.486&gt;,&lt;0.40.0&gt;}
 {trace,&lt;0.40.0&gt;,&lt;0.21.0&gt;}
@@ -684,7 +684,7 @@ trace(_, _, _, _, _) ->
     <p><c>erl_msg_tracer.c</c>:</p>
 
     <pre>
-#include "erl_nif.h"
+#include &lt;erl_nif.h&gt;
 
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
@@ -758,18 +758,21 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 /*
  * argv[0]: TraceTag, should only be 'send'
- * argv[1]: TracerState, process to send {argv[2], argv[4]} to
+ * argv[1]: TracerState, process to send {Tracee, Recipient} to
  * argv[2]: Tracee
- * argv[3]: Recipient
- * argv[4]: Options, ignored
+ * argv[3]: Message
+ * argv[4]: Options, map containing Recipient
  */
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ErlNifPid to_pid;
+    ERL_NIF_TERM recipient, msg;
 
     if (enif_get_local_pid(env, argv[1], &amp;to_pid)) {
-        ERL_NIF_TERM msg = enif_make_tuple3(env, enif_make_atom(env, "trace"), argv[2], argv[4]);
+      if (enif_get_map_value(env, argv[4], enif_make_atom(env, "extra"), &amp;recipient)) {
+        msg = enif_make_tuple3(env, enif_make_atom(env, "trace"), argv[2], recipient);
         enif_send(env, &amp;to_pid, NULL, msg);
+      }
     }
 
     return enif_make_atom(env, "ok");

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 -export([t_basedir_api/1, t_basedir_xdg/1, t_basedir_windows/1]).
+-export([safe_relative_path/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +42,8 @@ all() ->
      find_src,
      absname_bin, absname_bin_2,
      {group,p},
-     t_basedir_xdg, t_basedir_windows].
+     t_basedir_xdg, t_basedir_windows,
+     safe_relative_path].
 
 groups() -> 
     [{p, [parallel],
@@ -105,6 +107,17 @@ absname(Config) when is_list(Config) ->
             [Drive|":/erlang/src"] = filename:absname([Drive|":erlang/src"]),
             "a:/erlang" = filename:absname("a:erlang"),
 
+            "//foo" = filename:absname("//foo"),
+            "//foo/bar" = filename:absname("//foo/bar"),
+            "//foo/\bar" = filename:absname("//foo/\bar"),
+            "//foo/bar/baz" = filename:absname("//foo/bar\\baz"),
+            "//foo/bar/baz" = filename:absname("//foo\\bar/baz"),
+            "//foo" = filename:absname("\\\\foo"),
+            "//foo/bar" = filename:absname("\\\\foo/bar"),
+            "//foo/\bar" = filename:absname("\\\\foo/\bar"),
+            "//foo/bar/baz" = filename:absname("\\\\foo/bar\\baz"),
+            "//foo/bar/baz" = filename:absname("\\\\foo\\bar/baz"),
+
             file:set_cwd(Cwd),
             ok;
         {unix, _} ->
@@ -164,6 +177,23 @@ absname_2(Config) when is_list(Config) ->
             [Drive|":/erlang/src"] = filename:absname([Drive|":erlang/src"],
                                                       [Drive|":/"]),
             "a:/erlang" = filename:absname("a:erlang", [Drive|":/"]),
+
+            "//foo" = filename:absname("foo","//"),
+            "//foo/bar" = filename:absname("foo/bar", "//"),
+            "//foo/bar" = filename:absname("bar", "//foo"),
+            "//bar" = filename:absname("/bar", "//foo"),
+            "//foo/bar/baz" = filename:absname("bar/baz", "//foo"),
+            "//bar/baz" = filename:absname("//bar/baz", "//foo"),
+            "//\bar" = filename:absname("/\bar", "//foo"),
+            "//foo" = filename:absname("foo","\\\\"),
+            "//foo/bar" = filename:absname("foo/bar", "\\\\"),
+            "//foo/bar" = filename:absname("bar", "\\\\foo"),
+            "//bar" = filename:absname("/bar", "\\\\foo"),
+            "//foo/bar/baz" = filename:absname("bar/baz", "\\\\foo"),
+            "//bar/baz" = filename:absname("\\\\bar/baz", "\\\\foo"),
+            "//\bar" = filename:absname("/\bar", "\\\\foo"),
+            "//bar/baz" = filename:absname("\\\\bar/baz", "//foo"),
+            "//bar/baz" = filename:absname("//bar/baz", "\\\\foo"),
 
             ok;
         _ ->
@@ -242,6 +272,18 @@ dirname(Config) when is_list(Config) ->
             "A:usr" = filename:dirname("A:usr/foo.erl"),
             "/usr" = filename:dirname("\\usr\\foo.erl"),
             "/" = filename:dirname("\\usr"),
+            "//foo/bar" = filename:dirname("//foo/bar/baz.erl"),
+            "//foo/\bar" = filename:dirname("//foo/\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("//foo\\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("\\\\foo/bar/baz.erl"),
+            "//foo/\bar" = filename:dirname("\\\\foo/\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("\\\\foo\\bar/baz.erl"),
+            "//foo" = filename:dirname("//foo/baz.erl"),
+            "//foo" = filename:dirname("//foo/\baz.erl"),
+            "//foo" = filename:dirname("//foo\\baz.erl"),
+            "//foo" = filename:dirname("\\\\foo/baz.erl"),
+            "//foo" = filename:dirname("\\\\foo/\baz.erl"),
+            "//foo" = filename:dirname("\\\\foo\\baz.erl"),
             "A:" = filename:dirname("A:");
         _ -> true
     end,
@@ -287,7 +329,6 @@ join(Config) when is_list(Config) ->
     %% join/1 and join/2 (OTP-12158) by using help function
     %% filename_join/2.
     "/" = filename:join(["/"]),
-    "/" = filename:join(["//"]),
     "usr/foo.erl" = filename_join("usr","foo.erl"),
     "/src/foo.erl" = filename_join(usr, "/src/foo.erl"),
     "/src/foo.erl" = filename_join("/src/",'foo.erl'),
@@ -299,7 +340,6 @@ join(Config) when is_list(Config) ->
     "a/b/c/d/e/f/g" = filename_join("a//b/c/", "d//e/f/g"),
     "a/b/c/d/e/f/g" = filename_join("a//b/c", "d//e/f/g"),
     "/d/e/f/g" = filename_join("a//b/c", "/d//e/f/g"),
-    "/d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
 
     "foo/bar" = filename_join([$f,$o,$o,$/,[]], "bar"),
 
@@ -330,6 +370,7 @@ join(Config) when is_list(Config) ->
 
     case os:type() of
         {win32, _} ->
+            "//" = filename:join(["//"]),
             "d:/" = filename:join(["D:/"]),
             "d:/" = filename:join(["D:\\"]),
             "d:/abc" = filename_join("D:/", "abc"),
@@ -343,8 +384,35 @@ join(Config) when is_list(Config) ->
             "c:/usr/foo.erl" = filename:join(["A:","C:/usr","foo.erl"]),
             "c:usr/foo.erl" = filename:join(["A:","C:usr","foo.erl"]),
             "d:/foo" = filename:join([$D, $:, $/, []], "foo"),
+            "//" = filename:join("\\\\", ""),
+            "//foo" = filename:join("\\\\", "foo"),
+            "//foo/bar" = filename:join("\\\\", "foo\\\\bar"),
+            "//foo/bar/baz" = filename:join("\\\\foo", "bar\\\\baz"),
+            "//foo/bar/baz" = filename:join("\\\\foo", "bar\\baz"),
+            "//foo/bar/baz" = filename:join("\\\\foo\\bar", baz),
+            "//foo/\bar/baz" = filename:join("\\\\foo/\bar", baz),
+            "//foo/bar/baz" = filename:join("\\\\foo/bar", baz),
+            "//bar/baz" = filename:join("\\\\foo", "\\\\bar\\baz"),
+            "//bar/baz" = filename:join("\\\\foo", "//bar\\baz"),
+            "//bar/baz" = filename:join("\\\\foo", "//bar/baz"),
+            "//bar/baz" = filename:join("\\\\foo", "\\\\bar/baz"),
+            "//d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
+            "//" = filename:join("//", ""),
+            "//foo" = filename:join("//", "foo"),
+            "//foo/bar" = filename:join("//", "foo\\\\bar"),
+            "//foo/bar/baz" = filename:join("//foo", "bar\\\\baz"),
+            "//foo/bar/baz" = filename:join("//foo", "bar\\baz"),
+            "//foo/bar/baz" = filename:join("//foo\\bar", baz),
+            "//foo/\bar/baz" = filename:join("//foo/\bar", baz),
+            "//foo/bar/baz" = filename:join("//foo/bar", baz),
+            "//bar/baz" = filename:join("//foo", "\\\\bar\\baz"),
+            "//bar/baz" = filename:join("//foo", "//bar\\baz"),
+            "//bar/baz" = filename:join("//foo", "//bar/baz"),
+            "//bar/baz" = filename:join("//foo", "\\\\bar/baz"),
             ok;
         _ ->
+            "/" = filename:join(["//"]),
+            "/d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
             ok
     end.
 
@@ -400,6 +468,16 @@ split(Config) when is_list(Config) ->
                 filename:split("a:\\msdev\\include"),
             ["a:","msdev","include"] =
                 filename:split("a:msdev\\include"),
+            ["//","foo"] =
+                filename:split("\\\\foo"),
+            ["//","foo"] =
+                filename:split("//foo"),
+            ["//","foo","bar"] =
+                filename:split("\\\\foo\\\\bar"),
+            ["//","foo","baz"] =
+                filename:split("\\\\foo\\baz"),
+            ["//","foo","baz"] =
+                filename:split("//foo\\baz"),
             ok;
         _ ->
 	    ok
@@ -421,8 +499,10 @@ t_nativename(Config) when is_list(Config) ->
 find_src(Config) when is_list(Config) ->
     {Source,_} = filename:find_src(file),
     ["file"|_] = lists:reverse(filename:split(Source)),
-    {_,_} = filename:find_src(init, [{".","."}, {"ebin","src"}]),
-    
+    {Source,_} = filename:find_src(file, [{"",""}, {"ebin","src"}]),
+    {Source,_} = filename:find_src(Source),
+    {Source,_} = filename:find_src(Source ++ ".erl"),
+
     %% Try to find the source for a preloaded module.
     {error,{preloaded,init}} = filename:find_src(init),
 
@@ -626,7 +706,6 @@ extension_bin(Config) when is_list(Config) ->
     
 join_bin(Config) when is_list(Config) ->
     <<"/">> = filename:join([<<"/">>]),
-    <<"/">> = filename:join([<<"//">>]),
     <<"usr/foo.erl">> = filename:join(<<"usr">>,<<"foo.erl">>),
     <<"/src/foo.erl">> = filename:join(usr, <<"/src/foo.erl">>),
     <<"/src/foo.erl">> = filename:join([<<"/src/">>,'foo.erl']),
@@ -638,7 +717,6 @@ join_bin(Config) when is_list(Config) ->
     <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c/">>, <<"d//e/f/g">>]),
     <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"d//e/f/g">>]),
     <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"/d//e/f/g">>]),
-    <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
 
     <<"foo/bar">> = filename:join([$f,$o,$o,$/,[]], <<"bar">>),
 
@@ -691,6 +769,7 @@ join_bin(Config) when is_list(Config) ->
 
     case os:type() of
         {win32, _} ->
+            <<"//">> = filename:join([<<"//">>]),
             <<"d:/">> = filename:join([<<"D:/">>]),
             <<"d:/">> = filename:join([<<"D:\\">>]),
             <<"d:/abc">> = filename:join([<<"D:/">>, <<"abc">>]),
@@ -704,8 +783,35 @@ join_bin(Config) when is_list(Config) ->
             <<"c:/usr/foo.erl">> = filename:join([<<"A:">>,<<"C:/usr">>,<<"foo.erl">>]),
             <<"c:usr/foo.erl">> = filename:join([<<"A:">>,<<"C:usr">>,<<"foo.erl">>]),
             <<"d:/foo">> = filename:join([$D, $:, $/, []], <<"foo">>),
+            <<"//">> = filename:join(<<"\\\\">>, <<"">>),
+            <<"//foo">> = filename:join(<<"\\\\">>, <<"foo">>),
+            <<"//foo/bar">> = filename:join(<<"\\\\">>, <<"foo\\\\bar">>),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo">>, <<"bar\\\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar\\baz">>),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo\\bar">>, baz),
+            <<"//foo/\bar/baz">> = filename:join(<<"\\\\foo/\bar">>, baz),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo/bar">>, baz),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"//bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"//bar/baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar/baz">>),
+            <<"//d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
+            <<"//">> = filename:join(<<"//">>, <<"">>),
+            <<"//foo">> = filename:join(<<"//">>, <<"foo">>),
+            <<"//foo/bar">> = filename:join(<<"//">>, <<"foo\\\\bar">>),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo">>, <<"bar\\\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar\\baz">>),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo\\bar">>, baz),
+            <<"//foo/\bar/baz">> = filename:join(<<"//foo/\bar">>, baz),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo/bar">>, baz),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"//bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"//bar/baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar/baz">>),
             ok;
         _ ->
+            <<"/">> = filename:join([<<"//">>]),
+            <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
             ok
     end.
 
@@ -752,6 +858,16 @@ split_bin(Config) when is_list(Config) ->
                 filename:split(<<"a:\\msdev\\include">>),
             [<<"a:">>,<<"msdev">>,<<"include">>] =
                 filename:split(<<"a:msdev\\include">>),
+            [<<"//">>,<<"foo">>] =
+                filename:split(<<"\\\\foo">>),
+            [<<"//">>,<<"foo">>] =
+                filename:split(<<"//foo">>),
+            [<<"//">>,<<"foo">>,<<"bar">>] =
+                filename:split(<<"\\\\foo\\\\bar">>),
+            [<<"//">>,<<"foo">>,<<"baz">>] =
+                filename:split(<<"\\\\foo\\baz">>),
+            [<<"//">>,<<"foo">>,<<"baz">>] =
+                filename:split(<<"//foo\\baz">>),
             ok;
         _ ->
             ok
@@ -766,6 +882,71 @@ t_nativename_bin(Config) when is_list(Config) ->
         _ ->
             <<"/usr/tmp/arne">> =
                 filename:nativename(<<"/usr/tmp//arne/">>)
+    end.
+
+safe_relative_path(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Root = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Root),
+    ok = file:set_cwd(Root),
+
+    ok = file:make_dir("a"),
+    ok = file:set_cwd("a"),
+    ok = file:make_dir("b"),
+    ok = file:set_cwd("b"),
+    ok = file:make_dir("c"),
+
+    ok = file:set_cwd(Root),
+
+    "a" = test_srp("a"),
+    "a/b" = test_srp("a/b"),
+    "a/b" = test_srp("a/./b"),
+    "a/b" = test_srp("a/./b/."),
+
+    "" = test_srp("a/.."),
+    "" = test_srp("a/./.."),
+    "" = test_srp("a/../."),
+    "a" = test_srp("a/b/.."),
+    "a" = test_srp("a/../a"),
+    "a" = test_srp("a/../a/../a"),
+    "a/b/c" = test_srp("a/../a/b/c"),
+
+    unsafe = test_srp("a/../.."),
+    unsafe = test_srp("a/../../.."),
+    unsafe = test_srp("a/./../.."),
+    unsafe = test_srp("a/././../../.."),
+    unsafe = test_srp("a/b/././../../.."),
+
+    unsafe = test_srp(PrivDir),                 %Absolute path.
+
+    ok.
+
+test_srp(RelPath) ->
+    Res = do_test_srp(RelPath),
+    Res = case do_test_srp(list_to_binary(RelPath)) of
+              Bin when is_binary(Bin) ->
+                  binary_to_list(Bin);
+              Other ->
+                  Other
+          end.
+
+do_test_srp(RelPath) ->
+    {ok,Root} = file:get_cwd(),
+    ok = file:set_cwd(RelPath),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Root),
+    case filename:safe_relative_path(RelPath) of
+        unsafe ->
+            true = length(Cwd) < length(Root),
+            unsafe;
+        "" ->
+            "";
+        SafeRelPath ->
+            ok = file:set_cwd(SafeRelPath),
+            {ok,Cwd} = file:get_cwd(),
+            true = length(Cwd) >= length(Root),
+            ok = file:set_cwd(Root),
+            SafeRelPath
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

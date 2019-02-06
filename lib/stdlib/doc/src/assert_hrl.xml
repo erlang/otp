@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>2012</year><year>2015</year>
+      <year>2012</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,7 +28,7 @@
     <date></date>
     <rev></rev>
   </header>
-  <file>assert.hrl.xml</file>
+  <file>assert.hrl</file>
   <filesummary>Assert macros.</filesummary>
   <description>
     <p>The include file <c>assert.hrl</c> provides macros for inserting
@@ -46,28 +46,36 @@
       is the macro name, for example, <c>assertEqual</c>. <c>Info</c> is a list
       of tagged values, such as <c>[{module, M}, {line, L}, ...]</c>, which
       gives more information about the location and cause of the exception. All
-      entries in the <c>Info</c> list are optional; do not rely programatically
+      entries in the <c>Info</c> list are optional; do not rely programmatically
       on any of them being present.</p>
+
+    <p>Each assert macro has a corresponding version with an extra argument,
+      for adding comments to assertions. These can for example be printed as
+      part of error reports, to clarify the meaning of the check that
+      failed. For example, <c>?assertEqual(0, fib(0), "Fibonacci is defined
+      for zero")</c>. The comment text can be any character data (string,
+      UTF8-binary, or deep list of such data), and will be included in the
+      error term as <c>{comment, Text}</c>.</p>
 
     <p>If the macro <c>NOASSERT</c> is defined when <c>assert.hrl</c> is read
       by the compiler, the macros are defined as equivalent to the atom
-      <c>ok</c>. The test is not performed and there is no cost at runtime.</p>
+      <c>ok</c>. The test will not be performed and there is no cost at runtime.</p>
 
     <p>For example, using <c>erlc</c> to compile your modules, the following
-      disable all assertions:</p>
+      disables all assertions:</p>
 
     <code type="none">
 erlc -DNOASSERT=true *.erl</code>
 
-    <p>The value of <c>NOASSERT</c> does not matter, only the fact that it is
-      defined.</p>
+    <p>(The value of <c>NOASSERT</c> does not matter, only the fact that it is
+      defined.)</p>
 
     <p>A few other macros also have effect on the enabling or disabling of
       assertions:</p>
 
     <list type="bulleted">
-      <item><p>If <c>NODEBUG</c> is defined, it implies <c>NOASSERT</c>, unless
-        <c>DEBUG</c> is also defined, which is assumed to take precedence.</p>
+      <item><p>If <c>NODEBUG</c> is defined, it implies <c>NOASSERT</c> (unless
+        <c>DEBUG</c> is also defined, which overrides <c>NODEBUG</c>).</p>
       </item>
       <item><p>If <c>ASSERT</c> is defined, it overrides <c>NOASSERT</c>, that
         is, the assertions remain enabled.</p></item>
@@ -84,16 +92,22 @@ erlc -DNOASSERT=true *.erl</code>
     <title>Macros</title>
     <taglist>
       <tag><c>assert(BoolExpr)</c></tag>
+      <item></item>
+      <tag><c>assert(BoolExpr, Comment)</c></tag>
       <item>
         <p>Tests that <c>BoolExpr</c> completes normally returning
           <c>true</c>.</p>
       </item>
       <tag><c>assertNot(BoolExpr)</c></tag>
+      <item></item>
+      <tag><c>assertNot(BoolExpr, Comment)</c></tag>
       <item>
         <p>Tests that <c>BoolExpr</c> completes normally returning
           <c>false</c>.</p>
       </item>
       <tag><c>assertMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertMatch(GuardedPattern, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that
           matches <c>GuardedPattern</c>, for example:</p>
@@ -104,6 +118,8 @@ erlc -DNOASSERT=true *.erl</code>
 ?assertMatch({bork, X} when X > 0, f())</code>
       </item>
       <tag><c>assertNotMatch(GuardedPattern, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotMatch(GuardedPattern, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that does
           not match <c>GuardedPattern</c>.</p>
@@ -111,16 +127,22 @@ erlc -DNOASSERT=true *.erl</code>
           <c>when</c> part.</p>
       </item>
       <tag><c>assertEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertEqual(ExpectedValue, Expr, Comment)</c></tag>
       <item>
          <p>Tests that <c>Expr</c> completes normally yielding a value that is
            exactly equal to <c>ExpectedValue</c>.</p>
       </item>
       <tag><c>assertNotEqual(ExpectedValue, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotEqual(ExpectedValue, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes normally yielding a value that is
           not exactly equal to <c>ExpectedValue</c>.</p>
       </item>
       <tag><c>assertException(Class, Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertException(Class, Term, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> completes abnormally with an exception of type
           <c>Class</c> and with the associated <c>Term</c>. The assertion fails
@@ -130,6 +152,8 @@ erlc -DNOASSERT=true *.erl</code>
           patterns, as in <c>assertMatch</c>.</p>
       </item>
       <tag><c>assertNotException(Class, Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertNotException(Class, Term, Expr, Comment)</c></tag>
       <item>
         <p>Tests that <c>Expr</c> does not evaluate abnormally with an
           exception of type <c>Class</c> and with the associated <c>Term</c>.
@@ -139,14 +163,20 @@ erlc -DNOASSERT=true *.erl</code>
           be guarded patterns.</p>
       </item>
       <tag><c>assertError(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertError(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(error, Term, Expr)</c></p>
       </item>
       <tag><c>assertExit(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertExit(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(exit, Term, Expr)</c></p>
       </item>
       <tag><c>assertThrow(Term, Expr)</c></tag>
+      <item></item>
+      <tag><c>assertThrow(Term, Expr, Comment)</c></tag>
       <item>
         <p>Equivalent to <c>assertException(throw, Term, Expr)</c></p>
       </item>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2016</year>
+      <year>1998</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -135,7 +135,8 @@
       <type>
         <v>What = atom()</v>
         <v>Port = integer()</v>
-        <v>Address = {A,B,C,D} | string() &lt;v>Dir   = string()</v>
+        <v>Address = {A,B,C,D} | string()</v>
+        <v>Dir   = string()</v>
         <v>Data = [Info]</v>
         <v>Info = {Name, Value}</v>
       </type>

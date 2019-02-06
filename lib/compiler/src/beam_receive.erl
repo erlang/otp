@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,9 @@
 %%% as the SomeUniqInteger.
 %%%
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [function(F) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,Lc},
@@ -79,8 +82,7 @@ function({function,Name,Arity,Entry,Is}) ->
 	D = beam_utils:index_labels(Is),
 	{function,Name,Arity,Entry,opt(Is, D, [])}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
@@ -204,6 +206,8 @@ opt_update_regs({label,Lbl}, R, L) ->
 	    %% A catch label for a previously seen catch instruction is OK.
 	    {R,L}
     end;
+opt_update_regs({'try',_,{f,Lbl}}, R, L) ->
+    {R,gb_sets:add(Lbl, L)};
 opt_update_regs({try_end,_}, R, L) ->
     {R,L};
 opt_update_regs({line,_}, R, L) ->

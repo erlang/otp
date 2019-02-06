@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ mandatory_modules() ->
 kernel_processes(KernelApp) ->
     [
      {kernelProcess, heart, {heart, start, []}},
-     {kernelProcess, error_logger , {error_logger, start_link, []}},
+     {kernelProcess, logger , {logger_server, start_link, []}},
      {kernelProcess,
       application_controller,
       {application_controller, start, [KernelApp]}}
@@ -424,7 +424,7 @@ gen_script(Rel, Sys, PathFlag, Variables) ->
             {error, Text}
     end.
 
-do_gen_script(#rel{name = RelName, vsn = RelVsn},
+do_gen_script(#rel{name = RelName, vsn = RelVsn, load_dot_erlang=LoadErlangRc},
               #sys{apps = Apps},
 	      MergedApps,
               PathFlag,
@@ -474,9 +474,11 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
              Type =/= none,
              Type =/= load,
              not lists:member(Name, InclApps)],
-
          %% Apply user specific customizations
-         {apply, {c, erlangrc, []}},
+         case LoadErlangRc of
+             true -> {apply, {c, erlangrc, []}};
+             false -> []
+         end,
          {progress, started}
         ],
     {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.
@@ -787,15 +789,19 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
     {ok, BootBin} = gen_boot(Script),
     Date = date(),
     Time = time(),
-    RelIoList = io_lib:format("%% rel generated at ~w ~w\n~p.\n\n",
+    RelIoList = io_lib:format("%% rel generated at ~w ~w\n~tp.\n\n",
                               [Date, Time, GenRel]),
-    ScriptIoList = io_lib:format("%% script generated at ~w ~w\n~p.\n\n",
+    ScriptIoList = io_lib:format("%% script generated at ~w ~w\n~tp.\n\n",
                                  [Date, Time, Script]),
     [
-     {write_file, RelFile, RelIoList},
-     {write_file, ScriptFile, ScriptIoList},
+     {write_file, RelFile, to_utf8_bin_with_enc_comment(RelIoList)},
+     {write_file, ScriptFile, to_utf8_bin_with_enc_comment(ScriptIoList)},
      {write_file, BootFile, BootBin}
     ].
+
+to_utf8_bin_with_enc_comment(IoList) when is_list(IoList) ->
+    unicode:characters_to_binary("%% " ++ epp:encoding_to_string(utf8) ++ "\n"
+                                 ++ IoList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate a complete target system
@@ -1001,7 +1007,8 @@ spec_start_file(#sys{boot_rel = BootRelName,
     {value, Erts} = lists:keysearch(erts, #app.name, Apps),
     {value, BootRel} = lists:keysearch(BootRelName, #rel.name, Rels),
     Data = Erts#app.vsn ++ " " ++ BootRel#rel.vsn ++ "\n",
-    {BootRel#rel.vsn, {write_file, "start_erl.data", Data}}.
+    {BootRel#rel.vsn, {write_file, "start_erl.data",
+                       unicode:characters_to_binary(Data)}}.
 
 lookup_spec(Prefix, Specs) ->
     lists:filter(fun(S) -> lists:prefix(Prefix, element(2, S)) end, Specs).
@@ -1183,18 +1190,18 @@ spec_app_file(#app{name = Name,
                                                    Info#app_info.modules)],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~p.\n\n",
+            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
                                       [date(), time(), Contents]),
-            [{write_file, AppFilename, AppIoList}];
+            [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}];
         all ->
             %% Include all included modules
             %% Generate new file
             ModNames = [M#mod.name || M <- Mods, M#mod.is_included],
             App2 = App#app{info = Info#app_info{modules = ModNames}},
             Contents = gen_app(App2),
-            AppIoList = io_lib:format("%% app generated at ~w ~w\n~p.\n\n",
+            AppIoList = io_lib:format("%% app generated at ~w ~w\n~tp.\n\n",
                                       [date(), time(), Contents]),
-            [{write_file, AppFilename, AppIoList}]
+            [{write_file, AppFilename, to_utf8_bin_with_enc_comment(AppIoList)}]
 
     end.
 
@@ -1285,7 +1292,7 @@ do_eval_spec({archive, Archive, Options, Files},
         {ok, _} ->
             ok;
         {error, Reason} ->
-            reltool_utils:throw_error("create archive ~ts failed: ~p",
+            reltool_utils:throw_error("create archive ~ts failed: ~tp",
 				      [ArchiveFile, Reason])
     end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
@@ -1299,12 +1306,12 @@ do_eval_spec({copy_file, File, OldFile},
     SourceFile = filename:join([OrigSourceDir, OldFile]),
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:copy_file(SourceFile, TargetFile);
-do_eval_spec({write_file, File, IoList},
+do_eval_spec({write_file, File, Bin},
 	     _OrigSourceDir,
 	     _SourceDir,
 	     TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
-    reltool_utils:write_file(TargetFile, IoList);
+    reltool_utils:write_file(TargetFile, Bin);
 do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
@@ -1336,7 +1343,7 @@ cleanup_spec({copy_file, File}, TargetDir) ->
 cleanup_spec({copy_file, NewFile, _OldFile}, TargetDir) ->
     TargetFile = filename:join([TargetDir, NewFile]),
     file:delete(TargetFile);
-cleanup_spec({write_file, File, _IoList}, TargetDir) ->
+cleanup_spec({write_file, File, _}, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
     file:delete(TargetFile);
 cleanup_spec({strip_beam, File}, TargetDir) ->
@@ -1406,7 +1413,7 @@ do_filter_spec(Path,
 	       ExclRegexps) ->
     Path2 = opt_join(Path, NewFile),
     match(Path2, InclRegexps, ExclRegexps);
-do_filter_spec(Path, {write_file, File, _IoList}, InclRegexps, ExclRegexps) ->
+do_filter_spec(Path, {write_file, File, _}, InclRegexps, ExclRegexps) ->
     Path2 = opt_join(Path, File),
     match(Path2, InclRegexps, ExclRegexps);
 do_filter_spec(Path, {strip_beam, File}, InclRegexps, ExclRegexps) ->
@@ -1448,7 +1455,7 @@ do_install(RelName, TargetDir) ->
     RelDir = filename:join([TargetDir2, "releases"]),
     DataFile = filename:join([RelDir, "start_erl.data"]),
     Bin = reltool_utils:read_file(DataFile),
-    case string:tokens(binary_to_list(Bin), " \n") of
+    case string:lexemes(unicode:characters_to_list(Bin), " \n") of
         [ErlVsn, RelVsn | _] ->
             ErtsBinDir = filename:join([TargetDir2, "erts-" ++ ErlVsn, "bin"]),
             BinDir = filename:join([TargetDir2, "bin"]),
@@ -1501,8 +1508,8 @@ subst_src_script(Script, SrcDir, DestDir, Vars, Opts) ->
 
 subst_file(Src, Dest, Vars, Opts) ->
     Bin = reltool_utils:read_file(Src),
-    Chars = subst(binary_to_list(Bin), Vars),
-    reltool_utils:write_file(Dest, Chars),
+    Chars = subst(unicode:characters_to_list(Bin), Vars),
+    reltool_utils:write_file(Dest, unicode:characters_to_binary(Chars)),
     case lists:member(preserve, Opts) of
         true ->
             FileInfo = reltool_utils:read_file_info(Src),

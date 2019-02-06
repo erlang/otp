@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -942,41 +942,41 @@ format_error(too_many_point_of_no_return) ->
     io_lib:format("Too many point_of_no_return~n", []);
 
 format_error({bad_instruction, X}) ->
-    io_lib:format("Bad instruction: ~p~n", [X]);
+    io_lib:format("Bad instruction: ~tp~n", [X]);
 format_error({bad_module, X}) ->
-    io_lib:format("Bad module: ~p(should be atom())~n", [X]);
+    io_lib:format("Bad module: ~tp(should be atom())~n", [X]);
 format_error({bad_code_change, X}) ->
-    io_lib:format("Bad code_change: ~p(should be {Mod, Extra})~n", [X]);
+    io_lib:format("Bad code_change: ~tp(should be {Mod, Extra})~n", [X]);
 format_error({bad_change, X}) ->
-    io_lib:format("Bad change spec: ~p(should be soft | {advanced, E})~n", [X]);
+    io_lib:format("Bad change spec: ~tp(should be soft | {advanced, E})~n", [X]);
 format_error({bad_mod_type, X}) ->
-    io_lib:format("Bad module type: ~p(should be static | dynamic)~n", [X]);
+    io_lib:format("Bad module type: ~tp(should be static | dynamic)~n", [X]);
 format_error({bad_purge_method, X}) ->
-    io_lib:format("Bad purge method: ~p(should be soft_purge | brutal_purge)~n",
+    io_lib:format("Bad purge method: ~tp(should be soft_purge | brutal_purge)~n",
 		  [X]);
 format_error({bad_list, X}) ->
-    io_lib:format("Bad list: ~p~n", [X]);
+    io_lib:format("Bad list: ~tp~n", [X]);
 format_error({bad_args_list, X}) ->
-    io_lib:format("Bad argument list: ~p~n", [X]);
+    io_lib:format("Bad argument list: ~tp~n", [X]);
 format_error({bad_node, X}) ->
-    io_lib:format("Bad node: ~p(should be atom())~n", [X]);
+    io_lib:format("Bad node: ~tp(should be atom())~n", [X]);
 format_error({bad_application, X}) ->
-    io_lib:format("Bad application: ~p(should be atom())~n", [X]);
+    io_lib:format("Bad application: ~tp(should be atom())~n", [X]);
 format_error({bad_func, X}) ->
-    io_lib:format("Bad function: ~p(should be atom())~n", [X]);
+    io_lib:format("Bad function: ~tp(should be atom())~n", [X]);
 format_error({bad_lib, X}) ->
-    io_lib:format("Bad library: ~p(should be atom())~n", [X]);
+    io_lib:format("Bad library: ~tp(should be atom())~n", [X]);
 format_error({bad_lib_vsn, X}) ->
-    io_lib:format("Bad library version: ~p(should be string())~n", [X]);
+    io_lib:format("Bad library version: ~tp(should be string())~n", [X]);
 format_error({bad_timeout, X}) ->
-    io_lib:format("Bad timeout: ~p(should be infinity | int() > 0)~n", [X]);
+    io_lib:format("Bad timeout: ~tp(should be infinity | int() > 0)~n", [X]);
 
 format_error({undef_module, Mod}) ->
     io_lib:format("Undefined module: ~p~n", [Mod]);
 format_error({muldef_module, Mod}) ->
     io_lib:format("Multiply defined module: ~p~n", [Mod]);
 format_error(E) ->
-    io_lib:format("~p~n",[E]).
+    io_lib:format("~tp~n",[E]).
 
 
 %%-----------------------------------------------------------------

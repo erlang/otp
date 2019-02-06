@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +10,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-
-%% =====================================================================
+%% @copyright 1999-2002 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Core Erlang abstract syntax trees.
 %%
 %% <p> This module defines an abstract data type for representing Core
@@ -439,6 +433,8 @@ is_literal_term(T) when is_tuple(T) ->
 is_literal_term(B) when is_bitstring(B) -> true;
 is_literal_term(M) when is_map(M) ->
     is_literal_term_list(maps:to_list(M));
+is_literal_term(F) when is_function(F) ->
+    erlang:fun_info(F, type) =:= {type,external};
 is_literal_term(_) ->
     false.
 
@@ -1590,6 +1586,8 @@ ann_make_list(_, [], Node) ->
 %% @doc Returns <code>true</code> if <code>Node</code> is an abstract
 %% map constructor, otherwise <code>false</code>.
 
+-type map_op() :: #c_literal{val::'assoc'} | #c_literal{val::'exact'}.
+
 -spec is_c_map(cerl()) -> boolean().
 
 is_c_map(#c_map{}) ->
@@ -1685,8 +1683,16 @@ update_c_map(#c_map{is_pat=true}=Old, M, Es) ->
 update_c_map(#c_map{is_pat=false}=Old, M, Es) ->
     ann_c_map(get_ann(Old), M, Es).
 
+-spec map_pair_key(c_map_pair()) -> cerl().
+
 map_pair_key(#c_map_pair{key=K}) -> K.
+
+-spec map_pair_val(c_map_pair()) -> cerl().
+
 map_pair_val(#c_map_pair{val=V}) -> V.
+
+-spec map_pair_op(c_map_pair()) -> map_op().
+
 map_pair_op(#c_map_pair{op=Op}) -> Op.
 
 -spec c_map_pair(cerl(), cerl()) -> c_map_pair().
@@ -1704,6 +1710,8 @@ c_map_pair_exact(Key,Val) ->
 
 ann_c_map_pair(As,Op,K,V) ->
     #c_map_pair{op=Op, key = K, val=V, anno = As}.
+
+-spec update_c_map_pair(c_map_pair(), map_op(), cerl(), cerl()) -> c_map_pair().
 
 update_c_map_pair(Old,Op,K,V) ->
     #c_map_pair{op=Op, key=K, val=V, anno = get_ann(Old)}.

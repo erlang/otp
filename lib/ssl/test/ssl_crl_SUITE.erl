@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,32 +99,37 @@ init_per_group(check_peer, Config) ->
 init_per_group(check_best_effort, Config) ->
     [{crl_check, best_effort} | Config];
 init_per_group(Group, Config0) ->
-    case is_idp(Group) of
-	true ->
-	    [{idp_crl, true} | Config0];
-	false ->
-	    DataDir = proplists:get_value(data_dir, Config0), 
-	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
-	    {CertOpts, Config} = init_certs(CertDir, Group, Config0),
-	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-	    case Group of
-		crl_hash_dir ->
-		    CrlDir = filename:join(CertDir, "crls"),
-		    %% Copy CRLs to their hashed filenames.
-		    %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
-		    populate_crl_hash_dir(CertDir, CrlDir,
-					  [{"erlangCA", "d6134ed3"},
-					   {"otpCA", "d4c8d7e5"}],
-					  replace),
-		    CrlCacheOpts = [{crl_cache,
-				     {ssl_crl_hash_dir,
-				      {internal, [{dir, CrlDir}]}}}];
-		_ ->
-		    CrlCacheOpts = []
-	    end,
-	    [{crl_cache_opts, CrlCacheOpts},
-	     {cert_dir, CertDir},
-	     {idp_crl, false} | Config]
+    try 
+	case is_idp(Group) of
+	    true ->
+		[{idp_crl, true} | Config0];
+	    false ->
+		DataDir = proplists:get_value(data_dir, Config0), 
+		CertDir = filename:join(proplists:get_value(priv_dir, Config0), Group),
+		{CertOpts, Config} = init_certs(CertDir, Group, Config0),
+		{ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
+		CrlCacheOpts = case Group of
+				   crl_hash_dir ->
+				       CrlDir = filename:join(CertDir, "crls"),
+				       %% Copy CRLs to their hashed filenames.
+				       %% Find the hashes with 'openssl crl -noout -hash -in crl.pem'.
+				       populate_crl_hash_dir(CertDir, CrlDir,
+							     [{"erlangCA", "d6134ed3"},
+							      {"otpCA", "d4c8d7e5"}],
+							     replace),
+				       [{crl_cache,
+					 {ssl_crl_hash_dir,
+					  {internal, [{dir, CrlDir}]}}}];
+				   _ ->
+				       []
+			       end,
+		[{crl_cache_opts, CrlCacheOpts},
+		 {cert_dir, CertDir},
+		 {idp_crl, false} | Config]
+	end
+    catch
+	_:_ ->
+	    {skip, "Unable to create crls"}
     end.
 
 end_per_group(_GroupName, Config) ->
@@ -150,9 +155,15 @@ init_per_testcase(Case, Config0) ->
 	    DataDir = proplists:get_value(data_dir, Config), 
 	    CertDir = filename:join(proplists:get_value(priv_dir, Config0), idp_crl),
 	    {CertOpts, Config} = init_certs(CertDir, idp_crl, Config),
-	    {ok, _} =  make_certs:all(DataDir, CertDir, CertOpts),
-	    ct:timetrap({seconds, 6}),
-	    [{cert_dir, CertDir} | Config];
+	    case make_certs:all(DataDir, CertDir, CertOpts) of
+                {ok, _} ->
+                    ct:timetrap({seconds, 6}),
+                    [{cert_dir, CertDir} | Config];
+                _ ->
+                    end_per_testcase(Case, Config0),
+                    ssl_test_lib:clean_start(),
+                    {skip, "Unable to create IDP crls"}
+            end;
 	false ->
 	    end_per_testcase(Case, Config0),
 	    ssl_test_lib:clean_start(),
@@ -187,7 +198,7 @@ crl_verify_valid(Config) when is_list(Config) ->
 			   {crl_cache, {ssl_crl_cache, {internal, [{http, 5000}]}}},
 			   {verify, verify_peer}];
 		      false ->
-			  ?config(crl_cache_opts, Config) ++
+			  proplists:get_value(crl_cache_opts, Config) ++
 			      [{cacertfile, filename:join([PrivDir, "server", "cacerts.pem"])},
 			       {crl_check, Check},
 			       {verify, verify_peer}]
@@ -220,7 +231,7 @@ crl_verify_revoked(Config)  when is_list(Config) ->
 			   {crl_check, Check},
 			   {verify, verify_peer}];
 		      false ->
-			  ?config(crl_cache_opts, Config) ++
+			  proplists:get_value(crl_cache_opts, Config) ++
 			      [{cacertfile, filename:join([PrivDir, "revoked", "cacerts.pem"])},
 			       {crl_check, Check},
 			       {verify, verify_peer}]
@@ -279,8 +290,8 @@ crl_verify_no_crl(Config) when is_list(Config) ->
 crl_hash_dir_collision() ->
     [{doc,"Verify ssl_crl_hash_dir behaviour with hash collisions"}].
 crl_hash_dir_collision(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
 
     %% Create two CAs whose names hash to the same value
     CA1 = "hash-collision-0000000000",
@@ -307,13 +318,17 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
 			   {CA2, "b68fc624"}],
 			 replace),
 
-    ClientOpts = ?config(crl_cache_opts, Config) ++
-	[{cacertfile, filename:join([PrivDir, "erlangCA", "cacerts.pem"])},
+    NewCA = new_ca(filename:join([PrivDir, "new_ca"]),
+		   filename:join([PrivDir, "erlangCA", "cacerts.pem"]),
+		   filename:join([PrivDir, "server", "cacerts.pem"])),
+    
+    ClientOpts = proplists:get_value(crl_cache_opts, Config) ++
+	[{cacertfile, NewCA},
 	 {crl_check, Check},
 	 {verify, verify_peer}],
-
+    
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    
     %% Neither certificate revoked; both succeed.
     crl_verify_valid(Hostname, ServerNode, ServerOpts1, ClientNode, ClientOpts),
     crl_verify_valid(Hostname, ServerNode, ServerOpts2, ClientNode, ClientOpts),
@@ -346,8 +361,8 @@ crl_hash_dir_collision(Config) when is_list(Config) ->
 crl_hash_dir_expired() ->
     [{doc,"Verify ssl_crl_hash_dir behaviour with expired CRLs"}].
 crl_hash_dir_expired(Config) when is_list(Config) ->
-    PrivDir = ?config(cert_dir, Config),
-    Check = ?config(crl_check, Config),
+    PrivDir = proplists:get_value(cert_dir, Config),
+    Check = proplists:get_value(crl_check, Config),
 
     CA = "CRL-maybe-expired-CA",
     %% Add "issuing distribution point", to ensure that verification
@@ -362,7 +377,7 @@ crl_hash_dir_expired(Config) when is_list(Config) ->
     ServerOpts =  [{keyfile, filename:join([PrivDir, EndUser, "key.pem"])},
 		   {certfile, filename:join([PrivDir, EndUser, "cert.pem"])},
 		   {cacertfile, filename:join([PrivDir, EndUser, "cacerts.pem"])}],
-    ClientOpts = ?config(crl_cache_opts, Config) ++
+    ClientOpts = proplists:get_value(crl_cache_opts, Config) ++
 	[{cacertfile, filename:join([PrivDir, CA, "cacerts.pem"])},
 	 {crl_check, Check},
 	 {verify, verify_peer}],
@@ -492,3 +507,12 @@ find_free_name(CrlDir, Hash, N) ->
 	false ->
 	    Name
     end.
+
+new_ca(FileName, CA1, CA2) ->
+    {ok, P1} = file:read_file(CA1),
+    E1 = public_key:pem_decode(P1),
+    {ok, P2} = file:read_file(CA2),
+    E2 = public_key:pem_decode(P2),
+    Pem = public_key:pem_encode(E1 ++E2),
+    file:write_file(FileName,  Pem),
+    FileName.

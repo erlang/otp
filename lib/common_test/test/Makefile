@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,7 +70,11 @@ MODULES= \
 	test_server_SUITE \
 	test_server_test_lib \
 	ct_release_test_SUITE \
-	ct_log_SUITE
+	ct_log_SUITE \
+        ct_SUITE \
+	ct_keep_logs_SUITE \
+	ct_unicode_SUITE \
+	ct_auto_clean_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= test_server_test_lib.hrl

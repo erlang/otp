@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -187,7 +187,7 @@
       <desc>
         <p>Calls <c><anno>Fun</anno>(<anno>Elem</anno>)</c> on successive
           elements <c>Elem</c> of <c><anno>List1</anno></c>.
-          <c><anno>Fun</anno>/2</c> must return either a Boolean or a tuple
+          <c><anno>Fun</anno>/1</c> must return either a Boolean or a tuple
           <c>{true, <anno>Value</anno>}</c>. The function returns the list of
           elements for which <c><anno>Fun</anno></c> returns a new value, where
           a value of <c>true</c> is synonymous with
@@ -771,6 +771,18 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr</code>
     </func>
 
     <func>
+      <name name="search" arity="2"/>
+      <fsummary>Find the first element that satisfies a predicate.</fsummary>
+      <desc>
+        <p>If there is a <c><anno>Value</anno></c> in <c><anno>List</anno></c>
+          such that <c><anno>Pred</anno>(<anno>Value</anno>)</c> returns
+          <c>true</c>, returns <c>{value, <anno>Value</anno>}</c>
+          for the first such <c><anno>Value</anno></c>,
+          otherwise returns <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="splitwith" arity="2"/>
       <fsummary>Split a list into two lists based on a predicate.</fsummary>
       <desc>
@@ -838,14 +850,6 @@ splitwith(Pred, List) ->
 > <input>lists:subtract("123212", "212").</input>
 "312".</pre>
         <p><c>lists:subtract(A, B)</c> is equivalent to <c>A -- B</c>.</p>
-        <warning>
-          <p>The complexity of <c>lists:subtract(A, B)</c> is proportional to
-            <c>length(A)*length(B)</c>, meaning that it is very slow if both
-            <c>A</c> and <c>B</c> are long lists. (If both lists are long, it
-            is a much better choice to use ordered lists and
-            <seealso marker="ordsets#subtract/2">
-            <c>ordsets:subtract/2</c></seealso>.</p>
-        </warning>
       </desc>
     </func>
 

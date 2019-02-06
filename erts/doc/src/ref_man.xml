@@ -34,6 +34,7 @@
   <xi:include href="erl_prim_loader.xml"/>
   <xi:include href="erlang.xml"/>
   <xi:include href="init.xml"/>
+  <xi:include href="persistent_term.xml"/>
   <xi:include href="zlib.xml"/>
   <xi:include href="epmd.xml"/>
   <xi:include href="erl.xml"/>
@@ -49,5 +50,7 @@
   <xi:include href="erts_alloc.xml"/>
   <xi:include href="erl_nif.xml"/>
   <xi:include href="erl_tracer.xml"/>
+  <xi:include href="atomics.xml"/>
+  <xi:include href="counters.xml"/>
 </application>
 

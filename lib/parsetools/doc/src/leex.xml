@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2016</year>
+      <year>2009</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -446,7 +446,8 @@ D = [0-9]
       </item>
     </taglist>
  
-    <p>The following examples define Erlang data types:</p>
+    <p>The following examples define simplified versions of a few
+      Erlang data types:</p>
     <code> 
 Atoms [a-z][0-9a-zA-Z_]*
 

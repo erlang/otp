@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,25 +11,20 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_frame).
 -export([frame/1]).
 -include("hipe_ppc.hrl").
 -include("../rtl/hipe_literals.hrl").
 
-frame(Defun) ->
-  Formals = fix_formals(hipe_ppc:defun_formals(Defun)),
-  Temps0 = all_temps(hipe_ppc:defun_code(Defun), Formals),
-  MinFrame = defun_minframe(Defun),
+frame(CFG) ->
+  Formals = fix_formals(hipe_ppc_cfg:params(CFG)),
+  Temps0 = all_temps(CFG, Formals),
+  MinFrame = defun_minframe(CFG),
   Temps = ensure_minframe(MinFrame, Temps0),
-  ClobbersLR = clobbers_lr(hipe_ppc:defun_code(Defun)),
-  CFG0 = hipe_ppc_cfg:init(Defun),
-  Liveness = hipe_ppc_liveness_all:analyse(CFG0),
-  CFG1 = do_body(CFG0, Liveness, Formals, Temps, ClobbersLR),
-  hipe_ppc_cfg:linearise(CFG1).
+  ClobbersLR = clobbers_lr(CFG),
+  Liveness = hipe_ppc_liveness_all:analyse(CFG),
+  do_body(CFG, Liveness, Formals, Temps, ClobbersLR).
 
 fix_formals(Formals) ->
   fix_formals(hipe_ppc_registers:nr_args(), Formals).
@@ -44,27 +35,16 @@ fix_formals(_, []) -> [].
 
 do_body(CFG0, Liveness, Formals, Temps, ClobbersLR) ->
   Context = mk_context(Liveness, Formals, Temps, ClobbersLR),
-  CFG1 = do_blocks(CFG0, Context),
+  CFG1 = hipe_ppc_cfg:map_bbs(
+	   fun(Lbl, BB) -> do_block(Lbl, BB, Context) end, CFG0),
   do_prologue(CFG1, Context).
 
-do_blocks(CFG, Context) ->
-  Labels = hipe_ppc_cfg:labels(CFG),
-  do_blocks(Labels, CFG, Context).
-
-do_blocks([Label|Labels], CFG, Context) ->
+do_block(Label, Block, Context) ->
   Liveness = context_liveness(Context),
   LiveOut = hipe_ppc_liveness_all:liveout(Liveness, Label),
-  Block = hipe_ppc_cfg:bb(CFG, Label),
   Code = hipe_bb:code(Block),
-  NewCode = do_block(Code, LiveOut, Context),
-  NewBlock = hipe_bb:code_update(Block, NewCode),
-  NewCFG = hipe_ppc_cfg:bb_add(CFG, Label, NewBlock),
-  do_blocks(Labels, NewCFG, Context);
-do_blocks([], CFG, _) ->
-  CFG.
-
-do_block(Insns, LiveOut, Context) ->
-  do_block(Insns, LiveOut, Context, context_framesize(Context), []).
+  NewCode = do_block(Code, LiveOut, Context, context_framesize(Context), []),
+  hipe_bb:code_update(Block, NewCode).
 
 do_block([I|Insns], LiveOut, Context, FPoff0, RevCode) ->
   {NewIs, FPoff1} = do_insn(I, LiveOut, Context, FPoff0),
@@ -86,10 +66,14 @@ do_insn(I, LiveOut, Context, FPoff) ->
       do_pseudo_call_prepare(I, FPoff);
     #pseudo_move{} ->
       {do_pseudo_move(I, Context, FPoff), FPoff};
+    #pseudo_spill_move{} ->
+      {do_pseudo_spill_move(I, Context, FPoff), FPoff};
     #pseudo_tailcall{} ->
       {do_pseudo_tailcall(I, Context), context_framesize(Context)};
     #pseudo_fmove{} ->
       {do_pseudo_fmove(I, Context, FPoff), FPoff};
+    #pseudo_spill_fmove{} ->
+      {do_pseudo_spill_fmove(I, Context, FPoff), FPoff};
     _ ->
       {[I], FPoff}
   end.
@@ -111,7 +95,26 @@ do_pseudo_move(I, Context, FPoff) ->
 	  Offset = pseudo_offset(Src, FPoff, Context),
 	  mk_load(hipe_ppc:ldop_word(), Dst, Offset, mk_sp(), []);
 	_ ->
-	  [hipe_ppc:mk_alu('or', Dst, Src, Src)]
+	  case hipe_ppc:temp_reg(Dst) =:= hipe_ppc:temp_reg(Src) of
+	    true -> [];
+	    false -> [hipe_ppc:mk_alu('or', Dst, Src, Src)]
+	  end
+      end
+  end.
+
+do_pseudo_spill_move(I, Context, FPoff) ->
+  #pseudo_spill_move{dst=Dst,temp=Temp,src=Src} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to move
+      do_pseudo_move(hipe_ppc:mk_pseudo_move(Dst, Src), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  mk_load(hipe_ppc:ldop_word(), Temp, SrcOffset, mk_sp(),
+		  mk_store(hipe_ppc:stop_word(), Temp, DstOffset, mk_sp(), []))
       end
   end.
 
@@ -129,6 +132,22 @@ do_pseudo_fmove(I, Context, FPoff) ->
 	  hipe_ppc:mk_fload(Dst, Offset, mk_sp(), 0);
 	_ ->
 	  [hipe_ppc:mk_fp_unary('fmr', Dst, Src)]
+      end
+  end.
+
+do_pseudo_spill_fmove(I, Context, FPoff) ->
+  #pseudo_spill_fmove{dst=Dst,temp=Temp,src=Src} = I,
+  case temp_is_pseudo(Src) andalso temp_is_pseudo(Dst) of
+    false -> % Register allocator changed its mind, turn back to move
+      do_pseudo_fmove(hipe_ppc:mk_pseudo_fmove(Dst, Src), Context, FPoff);
+    true ->
+      SrcOffset = pseudo_offset(Src, FPoff, Context),
+      DstOffset = pseudo_offset(Dst, FPoff, Context),
+      case SrcOffset =:= DstOffset of
+	true -> []; % omit move-to-self
+	false ->
+	  hipe_ppc:mk_fload(Temp, SrcOffset, mk_sp(), 0)
+	    ++ hipe_ppc:mk_fstore(Temp, DstOffset, mk_sp(), 0)
       end
   end.
 
@@ -573,29 +592,41 @@ temp_is_pseudo(Temp) ->
 %%% Detect if a Defun's body clobbers LR.
 %%%
 
-clobbers_lr([I|Insns]) ->
-  case I of
-    #pseudo_call{} -> true;
-    %% mtspr to lr cannot occur yet
-    _ -> clobbers_lr(Insns)
-  end;
-clobbers_lr([]) -> false.
+clobbers_lr(CFG) ->
+  any_insn(fun(#pseudo_call{}) -> true;
+	      (_) -> false
+	   end, CFG).
+
+any_insn(Pred, CFG) ->
+  %% Abuse fold to do an efficient "any"-operation using nonlocal control flow
+  FoundSatisfying = make_ref(),
+  try fold_insns(fun (I, _) ->
+		     case Pred(I) of
+		       true -> throw(FoundSatisfying);
+		       false -> false
+		     end
+		 end, false, CFG)
+  of _ -> false
+  catch FoundSatisfying -> true
+  end.
 
 %%%
 %%% Build the set of all temps used in a Defun's body.
 %%%
 
-all_temps(Code, Formals) ->
-  S0 = find_temps(Code, tset_empty()),
+all_temps(CFG, Formals) ->
+  S0 = fold_insns(fun find_temps/2, tset_empty(), CFG),
   S1 = tset_del_list(S0, Formals),
   tset_filter(S1, fun(T) -> temp_is_pseudo(T) end).
 
-find_temps([I|Insns], S0) ->
+find_temps(I, S0) ->
   S1 = tset_add_list(S0, hipe_ppc_defuse:insn_def_all(I)),
-  S2 = tset_add_list(S1, hipe_ppc_defuse:insn_use_all(I)),
-  find_temps(Insns, S2);
-find_temps([], S) ->
-  S.
+  tset_add_list(S1, hipe_ppc_defuse:insn_use_all(I)).
+
+fold_insns(Fun, InitAcc, CFG) ->
+  hipe_ppc_cfg:fold_bbs(
+    fun(_, BB, Acc0) -> lists:foldl(Fun, Acc0, hipe_bb:code(BB)) end,
+    InitAcc, CFG).
 
 tset_empty() ->
   gb_sets:new().
@@ -624,15 +655,10 @@ tset_to_list(S) ->
 %%% in the middle of a tailcall.
 %%%
 
-defun_minframe(Defun) ->
-  MaxTailArity = body_mta(hipe_ppc:defun_code(Defun), 0),
-  MyArity = length(fix_formals(hipe_ppc:defun_formals(Defun))),
+defun_minframe(CFG) ->
+  MaxTailArity = fold_insns(fun insn_mta/2, 0, CFG),
+  MyArity = length(fix_formals(hipe_ppc_cfg:params(CFG))),
   erlang:max(MaxTailArity - MyArity, 0).
-
-body_mta([I|Code], MTA) ->
-  body_mta(Code, insn_mta(I, MTA));
-body_mta([], MTA) ->
-  MTA.
 
 insn_mta(I, MTA) ->
   case I of

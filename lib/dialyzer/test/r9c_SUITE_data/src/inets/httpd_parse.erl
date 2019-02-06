@@ -109,7 +109,7 @@ get_persistens(HTTPVersion,ParsedHeader,ConfigDB)->
 		%%If it is version prio to 1.1 kill the conneciton
 		[$H, $T, $T, $P, $\/, $1, $.,N] ->
 		    case httpd_util:key1search(ParsedHeader,"connection","keep-alive")of
-			%%if the connection isnt ordered to go down let it live
+			%%if the connection isn't ordered to go down let it live
 			%%The keep-alive value is the older http/1.1 might be older
 			%%Clients that use it.
 			"keep-alive" when N >= 49 ->

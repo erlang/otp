@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -165,12 +165,12 @@
       <item>
         <p>Evaluates <c>shell_default:help()</c>.</p>
       </item>
-      <tag><c>c(File)</c></tag>
+      <tag><c>c(Mod)</c></tag>
       <item>
-        <p>Evaluates <c>shell_default:c(File)</c>. This compiles
-          and loads code in <c>File</c> and purges old versions of
-          code, if necessary. Assumes that the file and module names
-          are the same.</p>
+        <p>Evaluates <c>shell_default:c(Mod)</c>. This compiles and
+          loads the module <c>Mod</c> and purges old versions of the
+          code, if necessary. <c>Mod</c> can be either a module name or a
+          a source file path, with or without <c>.erl</c> extension.</p>
       </item>
       <tag><c>catch_exception(Bool)</c></tag>
       <item>
@@ -569,7 +569,7 @@ Hello Number: 3378
 
     <pre>
 42> <input>E = ets:new(t, []).</input>
-17</pre>
+#Ref&lt;0.1662103692.2407923716.214192></pre>
 
     <p>Command 42 creates an ETS table.</p>
 
@@ -602,7 +602,7 @@ false</pre>
 
     <pre>
 47> <input>E = ets:new(t, []).</input>
-18
+#Ref&lt;0.1662103692.2407923716.214197>
 48> <input>ets:insert({d,1,2}).</input>
 * exception error: undefined function ets:insert/1</pre>
 
@@ -617,10 +617,23 @@ true</pre>
     <p>Command 49 successfully inserts the tuple into the ETS table.</p>
 
     <pre>
-50> <input>halt().</input>
+50> <input>ets:insert(#Ref&lt;0.1662103692.2407923716.214197>, {e,3,4}).</input>
+true</pre>
+
+    <p>Command 50 inserts another tuple into the ETS table. This time
+      the first argument is the table identifier itself. The shell can
+      parse commands with pids (<c>&lt;0.60.0></c>), ports
+      (<c>#Port&lt;0.536></c>), references
+      (<c>#Ref&lt;0.1662103692.2407792644.214210></c>), and external
+      functions (<c>#Fun&lt;a.b.1></c>), but the command fails unless
+      the corresponding pid, port, reference, or function can be created
+      in the running system.</p>
+
+    <pre>
+51> <input>halt().</input>
 strider 2></pre>
 
-    <p>Command 50 exits the Erlang runtime system.</p>
+    <p>Command 51 exits the Erlang runtime system.</p>
   </section>
 
   <section>
@@ -854,7 +867,7 @@ q                 - quit erlang
       <c>{history, N}</c>, where <c>N</c> is the current command number. The
       function is to return a list of characters or an atom. This
       constraint is because of the Erlang I/O protocol. Unicode characters
-      beyond code point 255 are allowed in the list. Notice
+      beyond code point 255 are allowed in the list and the atom. Notice
       that in restricted mode the call <c>Mod:Func(L)</c> must be
       allowed or the default shell prompt function is called.</p>
   </section>

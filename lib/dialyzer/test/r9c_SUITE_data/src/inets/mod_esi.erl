@@ -285,7 +285,7 @@ eval(Info,"GET",CGIBody,Modules) ->
 	    "~n   Modules: ~p",[Modules]),
     case auth(CGIBody,Modules) of
 	true ->
-	    case lib:eval_str(string:concat(CGIBody,". ")) of
+	    case erl_eval:eval_str(string:concat(CGIBody,". ")) of
 		{error,Reason} ->
 		    ?vlog("eval -> error:"
 			  "~n   Reason: ~p",[Reason]),
@@ -440,7 +440,7 @@ try_new_erl_scheme_method(Info,Env,Input,Mod,Func)->
 
 
 %%----------------------------------------------------------------------
-%%The function recieves the data from the process that generates the page
+%%The function receives the data from the process that generates the page
 %%and send the data to the client through the mod_cgi:send function
 %%----------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,8 @@
 /*
  * Purpose: escript front-end.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
 
-#include "sys.h"
-#ifdef __WIN32__
-#include <winbase.h>
-#endif
-
-#include <ctype.h>
+#include "etc_common.h"
 
 static int debug = 0;		/* Bit flags for debug printouts. */
 
@@ -74,7 +66,6 @@ static void error(char* format, ...);
 static void* emalloc(size_t size);
 static void efree(void *p);
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
 #ifdef __WIN32__
@@ -148,13 +139,27 @@ get_env(char *key)
 }
 
 static void
-free_env_val(char *value)
+set_env(char *key, char *value)
 {
 #ifdef __WIN32__
-    if (value)
-	efree(value);
+    WCHAR wkey[MAXPATHLEN];
+    WCHAR wvalue[MAXPATHLEN];
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wkey, MAXPATHLEN);
+    MultiByteToWideChar(CP_UTF8, 0, value, -1, wvalue, MAXPATHLEN);
+    if (!SetEnvironmentVariableW(wkey, wvalue))
+        error("SetEnvironmentVariable(\"%s\", \"%s\") failed!", key, value);
+#else
+    size_t size = strlen(key) + 1 + strlen(value) + 1;
+    char *str = emalloc(size);
+    sprintf(str, "%s=%s", key, value);
+    if (putenv(str) != 0)
+        error("putenv(\"%s\") failed!", str);
+#ifdef HAVE_COPYING_PUTENV
+    efree(str);
+#endif
 #endif
 }
+
 /*
  * Find absolute path to this program
  */
@@ -408,9 +413,8 @@ main(int argc, char** argv)
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
-    char* env;
     char* basename;
-    char* absname;
+    char* def_emu_lookup_path;
     char scriptname[PMAX];
     char** last_opt;
     char** first_opt;
@@ -428,14 +432,6 @@ main(int argc, char** argv)
     argv[argc] = NULL;
 #endif
 
-    emulator = env = get_env("ESCRIPT_EMULATOR");
-    if (emulator == NULL) {
-	emulator = get_default_emulator(argv[0]);
-    }
-
-    if (strlen(emulator) >= PMAX)
-        error("Value of environment variable ESCRIPT_EMULATOR is too large");
-
     /*
      * Allocate the argv vector to be used for arguments to Erlang.
      * Arrange for starting to pushing information in the middle of
@@ -446,20 +442,9 @@ main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
-
-    free_env_val(env);
-
-    /*
-     * Push initial arguments.
-     */
-
-    PUSH("+B");
-    PUSH2("-boot", "start_clean");
-    PUSH("-noshell");
 
     /* Determine basename of the executable */
     for (basename = argv[0]+strlen(argv[0]);
@@ -476,6 +461,7 @@ main(int argc, char** argv)
 #else
     if (strcmp(basename, "escript") == 0) {
 #endif
+        def_emu_lookup_path = argv[0];
 	/*
 	 * Locate all options before the script name.
 	 */
@@ -494,21 +480,38 @@ main(int argc, char** argv)
 	argc--;
 	argv++;
     } else {
+        char *absname = find_prog(argv[0]);
 #ifdef __WIN32__
-	int len;
-#endif
-	absname = find_prog(argv[0]);
-#ifdef __WIN32__
-	len = strlen(absname);
+	int len = strlen(absname);
 	if (len >= 4 && _stricmp(absname+len-4, ".exe") == 0) {
 	    absname[len-4] = '\0';
 	}
 #endif
-
 	erts_snprintf(scriptname, sizeof(scriptname), "%s.escript",
 		      absname);
-	efree(absname);
+        efree(absname);
+        def_emu_lookup_path = scriptname;
     }
+
+    /* Determine path to emulator */
+    emulator = get_env("ESCRIPT_EMULATOR");
+
+    if (emulator == NULL) {
+	emulator = get_default_emulator(def_emu_lookup_path);
+    }
+
+    if (strlen(emulator) >= PMAX)
+        error("Value of environment variable ESCRIPT_EMULATOR is too large");
+
+    /*
+     * Push initial arguments.
+     */
+
+    PUSH(emulator);
+
+    PUSH("+B");
+    PUSH2("-boot", "no_dot_erlang");
+    PUSH("-noshell");
 
     /*
      * Read options from the %%! row in the script and add them as args
@@ -546,7 +549,12 @@ main(int argc, char** argv)
     while (--eargc_base >= 0) {
 	UNSHIFT(eargv_base[eargc_base]);
     }
-    
+
+    /*
+     * Add scriptname to env
+     */
+    set_env("ESCRIPT_NAME", scriptname);
+
     /*
      * Invoke Erlang with the collected options.
      */
@@ -555,26 +563,6 @@ main(int argc, char** argv)
     return run_erlang(eargv[0], eargv);
 }
 
-static void
-push_words(char* src)
-{
-    char sbuf[PMAX];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
-}
 #ifdef __WIN32__
 wchar_t *make_commandline(char **argv)
 {

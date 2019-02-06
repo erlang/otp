@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 %%
 
 -module(trace_local_SUITE).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 -export([basic_test/0, bit_syntax_test/0, return_test/0,
 	 on_and_off_test/0, stack_grow_test/0,
@@ -65,7 +64,7 @@
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     shutdown(),
 
     %% Reloading the module will clear all trace patterns, and
@@ -78,7 +77,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 2}}].
 
-all() -> 
+all() ->
     case test_server:is_native(trace_local_SUITE) of
         true -> [not_run];
         false ->
@@ -98,7 +97,7 @@ all() ->
     end.
 
 
-not_run(Config) when is_list(Config) -> 
+not_run(Config) when is_list(Config) ->
     {skipped,"Native code"}.
 
 %% Tests basic local call-trace
@@ -299,8 +298,9 @@ basic_test() ->
     setup([call]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
     NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
+    false = code:is_module_native(?MODULE), % got fooled by local trace
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported,[1]),
     ?CT(?MODULE,local,[1]),
@@ -308,17 +308,17 @@ basic_test() ->
     ?CT(?MODULE,local_tail,[1]),
     erlang:trace_pattern({?MODULE,'_','_'},[],[]),
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
-    [1,1,1,1] = lambda_slave(fun() ->
-                                     exported_wrap(1)
-                             end),
-    ?NM, 
+    [1,1,1,997] = lambda_slave(fun() ->
+                                       exported_wrap(1)
+                               end),
+    ?NM,
     erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = lambda_slave(fun() ->
-                                     exported_wrap(1)
-                             end),
+    [1,1,1,997] = lambda_slave(fun() ->
+                                       exported_wrap(1)
+                               end),
     ?CT(?MODULE,_,_), %% The fun
     ?CT(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported,[1]),
@@ -379,36 +379,36 @@ return_test() ->
     setup([call]),
     erlang:trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
                          [local]),
-    erlang:trace_pattern({erlang,hash,'_'},[{'_',[],[{return_trace}]}],
+    erlang:trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
                          [local]),
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?CT(?MODULE,exported_wrap,[1]), 
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CT(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported,[1]),
     ?CT(?MODULE,local,[1]),
     ?CT(?MODULE,local2,[1]),
     ?CT(?MODULE,local_tail,[1]),
-    ?CT(erlang,hash,[1,1]),
-    ?RF(erlang,hash,2,1),
-    ?RF(?MODULE,local_tail,1,[1,1]),
-    ?RF(?MODULE,local2,1,[1,1]),
-    ?RF(?MODULE,local,1,[1,1,1]),
-    ?RF(?MODULE,exported,1,[1,1,1,1]),
-    ?RF(?MODULE,exported_wrap,1,[1,1,1,1]),
+    ?CT(erlang,phash2,[1,1023]),
+    ?RF(erlang,phash2,2,997),
+    ?RF(?MODULE,local_tail,1,[1,997]),
+    ?RF(?MODULE,local2,1,[1,997]),
+    ?RF(?MODULE,local,1,[1,1,997]),
+    ?RF(?MODULE,exported,1,[1,1,1,997]),
+    ?RF(?MODULE,exported_wrap,1,[1,1,1,997]),
     shutdown(),
     setup([call,return_to]),
     erlang:trace_pattern({?MODULE,'_','_'},[],
                          [local]),
-    erlang:trace_pattern({erlang,hash,'_'},[],
+    erlang:trace_pattern({erlang,phash2,'_'},[],
                          [local]),
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?CT(?MODULE,exported_wrap,[1]), 
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CT(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported,[1]),
     ?CT(?MODULE,local,[1]),
     ?CT(?MODULE,local2,[1]),
     ?CT(?MODULE,local_tail,[1]),
-    ?CT(erlang,hash,[1,1]),
+    ?CT(erlang,phash2,[1,1023]),
     ?RT(?MODULE,local_tail,1),
     ?RT(?MODULE,local,1),
     ?RT(?MODULE,exported,1),
@@ -417,25 +417,25 @@ return_test() ->
     setup([call,return_to]),
     erlang:trace_pattern({?MODULE,'_','_'},[{'_',[],[{return_trace}]}],
                          [local]),
-    erlang:trace_pattern({erlang,hash,'_'},[{'_',[],[{return_trace}]}],
+    erlang:trace_pattern({erlang,phash2,'_'},[{'_',[],[{return_trace}]}],
                          [local]),
     erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
-    ?CT(?MODULE,exported_wrap,[1]), 
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
+    ?CT(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported,[1]),
     ?CT(?MODULE,local,[1]),
     ?CT(?MODULE,local2,[1]),
     ?CT(?MODULE,local_tail,[1]),
-    ?CT(erlang,hash,[1,1]),
-    ?RF(erlang,hash,2,1),
+    ?CT(erlang,phash2,[1,1023]),
+    ?RF(erlang,phash2,2,997),
     ?RT(?MODULE,local_tail,1),
-    ?RF(?MODULE,local_tail,1,[1,1]),
-    ?RF(?MODULE,local2,1,[1,1]),
+    ?RF(?MODULE,local_tail,1,[1,997]),
+    ?RF(?MODULE,local2,1,[1,997]),
     ?RT(?MODULE,local,1),
-    ?RF(?MODULE,local,1,[1,1,1]),
+    ?RF(?MODULE,local,1,[1,1,997]),
     ?RT(?MODULE,exported,1),
-    ?RF(?MODULE,exported,1,[1,1,1,1]),
-    ?RF(?MODULE,exported_wrap,1,[1,1,1,1]),
+    ?RF(?MODULE,exported,1,[1,1,1,997]),
+    ?RF(?MODULE,exported_wrap,1,[1,1,1,997]),
     ?RT(?MODULE,slave,2),
     shutdown(),
     ?NM,
@@ -446,7 +446,6 @@ return_test() ->
     erlang:trace_pattern({'_','_','_'},[],[local]),
     apply_slave(erlang,trace,[Pid, false, [all]]),
     shutdown(),
-
     ok.
 
 on_and_off_test() ->
@@ -456,72 +455,72 @@ on_and_off_test() ->
     LocalTail = fun() ->
                         local_tail(1)
                 end,
-    [1,1] = lambda_slave(LocalTail),
+    [1,997] = lambda_slave(LocalTail),
     ?CT(?MODULE,local_tail,[1]),
     erlang:trace(Pid,true,[return_to]),
-    [1,1] = lambda_slave(LocalTail),
+    [1,997] = lambda_slave(LocalTail),
     ?CT(?MODULE,local_tail,[1]),
     ?RT(?MODULE,_,_),
     0 = erlang:trace_pattern({?MODULE,local_tail,1},[],[global]),
-    [1,1] = lambda_slave(LocalTail),
+    [1,997] = lambda_slave(LocalTail),
     ?NM,
     1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[global]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
     1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
     ?RT(?MODULE,slave,2),
-    1 = erlang:trace_pattern({erlang,hash,2},[],[local]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    1 = erlang:trace_pattern({erlang,phash2,2},[],[local]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
-    ?CT(erlang,hash,[1,1]),
+    ?CT(erlang,phash2,[1,1023]),
     ?RT(?MODULE,local_tail,1),
     ?RT(?MODULE,slave,2),
     erlang:trace(Pid,true,[timestamp]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CTT(?MODULE,exported_wrap,[1]),
-    ?CTT(erlang,hash,[1,1]),
+    ?CTT(erlang,phash2,[1,1023]),
     ?RTT(?MODULE,local_tail,1),
     ?RTT(?MODULE,slave,2),
     erlang:trace(Pid,false,[return_to,timestamp]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
-    ?CT(erlang,hash,[1,1]),
+    ?CT(erlang,phash2,[1,1023]),
     erlang:trace(Pid,true,[return_to]),
-    1 = erlang:trace_pattern({erlang,hash,2},[],[]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    1 = erlang:trace_pattern({erlang,phash2,2},[],[]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
-    ?CT(erlang,hash,[1,1]),
+    ?CT(erlang,phash2,[1,1023]),
     ?RT(?MODULE,slave,2),
     1 = erlang:trace_pattern({?MODULE,exported_wrap,1},[],[]),
-    [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
+    [1,1,1,997] = apply_slave(?MODULE,exported_wrap,[1]),
     ?CT(?MODULE,exported_wrap,[1]),
-    ?CT(erlang,hash,[1,1]),
+    ?CT(erlang,phash2,[1,1023]),
     shutdown(),
     erlang:trace_pattern({'_','_','_'},false,[local]),
     N = erlang:trace_pattern({erlang,'_','_'},true,[local]),
     case erlang:trace_pattern({erlang,'_','_'},false,[local]) of
-        N -> 
+        N ->
             ok;
         Else ->
             exit({number_mismatch, {expected, N}, {got, Else}})
     end,
     case erlang:trace_pattern({erlang,'_','_'},false,[local]) of
-        N -> 
+        N ->
             ok;
         Else2 ->
             exit({number_mismatch, {expected, N}, {got, Else2}})
     end,
     M = erlang:trace_pattern({erlang,'_','_'},true,[]),
     case erlang:trace_pattern({erlang,'_','_'},false,[]) of
-        M -> 
+        M ->
             ok;
         Else3 ->
             exit({number_mismatch, {expected, N}, {got, Else3}})
     end,
     case erlang:trace_pattern({erlang,'_','_'},false,[]) of
-        M -> 
+        M ->
             ok;
         Else4 ->
             exit({number_mismatch, {expected, N}, {got, Else4}})
@@ -930,7 +929,7 @@ local2(Val) ->
     local_tail(Val). %% Tail recursive call
 
 local_tail(Val) ->
-    [Val , erlang:hash(1,1)].
+    [Val , erlang:phash2(1,1023)].
 
 
 

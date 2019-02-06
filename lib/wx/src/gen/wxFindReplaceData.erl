@@ -87,7 +87,7 @@ setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
 -spec setFindString(This, Str) -> 'ok' when
 	This::wxFindReplaceData(), Str::unicode:chardata().
 setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when is_list(Str) ->
+ when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxFindReplaceData_SetFindString,
@@ -97,7 +97,7 @@ setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
 -spec setReplaceString(This, Str) -> 'ok' when
 	This::wxFindReplaceData(), Str::unicode:chardata().
 setReplaceString(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when is_list(Str) ->
+ when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxFindReplaceData_SetReplaceString,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,27 +23,28 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
-	 coverage/1,grab_bag/1,literal_binary/1]).
+	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
+	 coverage/1,grab_bag/1,literal_binary/1,
+         unary_op/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
     [{p,[parallel],
       [pmatch,mixed,aliases,non_matching_aliases,
        match_in_call,untuplify,
-       shortcut_boolean,letify_guard,selectify,
+       shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag,literal_binary]}].
+       grab_bag,literal_binary,unary_op]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -466,6 +467,66 @@ sel_same_value2(V) when V =:= 42; V =:= 43 ->
 sel_same_value2(_) ->
     error.
 
+%% Test deconstruction of select_val instructions in beam_peep into
+%% regular tests with just one possible value left. Hitting proper cases
+%% in beam_peep relies on unification of labels by beam_jump.
+
+deselectify(Config) when is_list(Config) ->
+    one_or_other = desel_tuple_arity({1}),
+    two = desel_tuple_arity({1,1}),
+    one_or_other = desel_tuple_arity({1,1,1}),
+
+    one_or_other = dsel_integer(1),
+    two = dsel_integer(2),
+    one_or_other = dsel_integer(3),
+
+    one_or_other = dsel_integer_typecheck(1),
+    two = dsel_integer_typecheck(2),
+    one_or_other = dsel_integer_typecheck(3),
+
+    one_or_other = dsel_atom(one),
+    two = dsel_atom(two),
+    one_or_other = dsel_atom(three),
+
+    one_or_other = dsel_atom_typecheck(one),
+    two = dsel_atom_typecheck(two),
+    one_or_other = dsel_atom_typecheck(three).
+
+desel_tuple_arity(Tuple) when is_tuple(Tuple) ->
+    case Tuple of
+        {_} -> one_or_other;
+        {_,_} -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer_typecheck(Val) when is_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom_typecheck(Val) when is_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
+
 underscore(Config) when is_list(Config) ->
     case Config of
 	[] ->
@@ -557,6 +618,10 @@ grab_bag(_Config) ->
 	 {bad,16#555555555555555555555555555555555555555555555555555}],
     ok = grab_bag_remove_failure(L, unit, 0),
 
+    {42,<<43,44>>} = grab_bag_single_valued(<<42,43,44>>),
+    empty_list = grab_bag_single_valued([]),
+    empty_tuple = grab_bag_single_valued({}),
+
     ok.
 
 grab_bag_remove_failure([], _Unit, _MaxFailure) ->
@@ -574,15 +639,98 @@ grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
 	    ok
     end.
 
+%% Cover a line v3_kernel that places binary matching first.
+grab_bag_single_valued(<<H,T/bytes>>) -> {H,T};
+grab_bag_single_valued([]) -> empty_list;
+grab_bag_single_valued({}) -> empty_tuple.
+
+
 %% Regression in 19.0, reported by Alexei Sholik
 literal_binary(_Config) ->
-    3 = literal_binary_match(bar,<<"y">>),
+    3 = literal_binary_match(bar, <<"y">>),
+
+    %% While we are at it, also test the remaining code paths
+    %% in literal_binary_match/2.
+    1 = literal_binary_match(bar, <<"x">>),
+    2 = literal_binary_match(foo, <<"x">>),
+    3 = literal_binary_match(foo, <<"y">>),
+    fail = literal_binary_match(bar, <<"z">>),
+    fail = literal_binary_match(foo, <<"z">>),
     ok.
 
 literal_binary_match(bar, <<"x">>) -> 1;
 literal_binary_match(_, <<"x">>) -> 2;
 literal_binary_match(_, <<"y">>) -> 3;
 literal_binary_match(_, _) -> fail.
+
+unary_op(Config) ->
+    %% ERL-514. This test case only verifies that the code
+    %% calculates the correct result, not that the generated
+    %% code is optimial.
+
+    {non_associative,30} = unary_op_1('&'),
+    {non_associative,300} = unary_op_1('^'),
+    {non_associative,300} = unary_op_1('not'),
+    {non_associative,300} = unary_op_1('+'),
+    {non_associative,300} = unary_op_1('-'),
+    {non_associative,300} = unary_op_1('~~~'),
+    {non_associative,300} = unary_op_1('!'),
+    {non_associative,320} = unary_op_1('@'),
+
+    error = unary_op_1(Config),
+    error = unary_op_1(abc),
+    error = unary_op_1(42),
+
+    ok.
+
+unary_op_1(Vop@1) ->
+    %% If all optimizations are working as they should, there should
+    %% be no stack frame and all '=:=' tests should be coalesced into
+    %% a single select_val instruction.
+
+    case Vop@1 =:= '&' of
+        true ->
+            {non_associative,30};
+        false ->
+            case
+                case Vop@1 =:= '^' of
+                    true ->
+                        true;
+                    false ->
+                        case Vop@1 =:= 'not' of
+                            true ->
+                                true;
+                            false ->
+                                case Vop@1 =:= '+' of
+                                    true ->
+                                        true;
+                                    false ->
+                                        case Vop@1 =:= '-' of
+                                            true ->
+                                                true;
+                                            false ->
+                                                case Vop@1 =:= '~~~' of
+                                                    true ->
+                                                        true;
+                                                    false ->
+                                                        Vop@1 =:= '!'
+                                                end
+                                        end
+                                end
+                        end
+                end
+            of
+                true ->
+                    {non_associative,300};
+                false ->
+                    case Vop@1 =:= '@' of
+                        true ->
+                            {non_associative,320};
+                        false ->
+                            error
+                    end
+            end
+    end.
 
 
 id(I) -> I.

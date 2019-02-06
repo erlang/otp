@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2016. All Rights Reserved.
+# Copyright Ericsson AB 2000-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,25 +43,17 @@ XML_APP_FILES = ref_man.xml
 XML_REF3_FILES = jinterface.xml
 
 XML_PART_FILES = \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
-
+	part.xml
 XML_CHAPTER_FILES = \
 	notes.xml \
-	notes_history.xml \
 	jinterface_users_guide.xml
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+XML_FILES = $(BOOK_FILES) $(XML_APP_FILES) $(XML_REF3_FILES) \
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-GIF_FILES = \
-	notes.gif \
-	ref_man.gif \
-	user_guide.gif
-
+GIF_FILES =
 #------------------------------------------------------
 
 
@@ -92,7 +84,7 @@ JAVA_DOC_FILES = \
 	serialized-form.html \
 	package-list \
 	stylesheet.css \
-	help-doc.html 
+	help-doc.html
 
 INFO_FILE = ../../info
 JAVA_EXTRA_FILES = $(JAVA_DOC_FILES:%=$(HTMLDIR)/java/%)
@@ -110,17 +102,16 @@ JAVA_GEN_FILES = \
 HTML_FILES = \
 	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
-TOP_HTML_FILES = $(INDEX_TARGET) 
+TOP_HTML_FILES = $(INDEX_TARGET)
 
 INDEX_FILE = index.html
-INDEX_SRC = $(INDEX_FILE).src
 INDEX_TARGET = $(DOCDIR)/$(INDEX_FILE)
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -138,6 +129,7 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
@@ -146,18 +138,15 @@ jdoc:$(JAVA_SRC_FILES)
 	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
 
-man: 
+man:
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-#$(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk
-#	sed -e 's;%VSN%;$(VSN);' $< > $@
-
-debug opt: 
+debug opt:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,6 +182,8 @@ typedef LONGLONG ErtsMonotonicTime;
 typedef LONGLONG ErtsSysHrTime;
 #endif
 
+#define ErtsStrToSint64 _strtoi64
+
 typedef ErtsMonotonicTime ErtsSystemTime;
 typedef ErtsMonotonicTime ErtsSysPerfCounter;
 
@@ -309,10 +311,8 @@ typedef long ssize_t;
 #endif
 
 /* Threads */
-#ifdef USE_THREADS
 int init_async(int);
 int exit_async(void);
-#endif
 
 #define ERTS_HAVE_TRY_CATCH 1
 

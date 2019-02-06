@@ -520,7 +520,7 @@ save_automatic_tagged_types([_M|Ms]) ->
 %% remove_in_set_imports/3 :
 %% input: list with tuples of each module's imports and module name
 %% respectively.
-%% output: one list with same format but each occured import from a
+%% output: one list with same format but each occurred import from a
 %% module in the input set (IMNameL) is removed.
 remove_in_set_imports([{{imports,ImpL},_ModName}|Rest],InputMNameL,Acc) ->
     NewImpL = remove_in_set_imports1(ImpL,InputMNameL,[]),
@@ -1628,7 +1628,7 @@ tlv_tag1(<<1:1,PartialTag:7,Buffer/binary>>,Acc) ->
     tlv_tag1(Buffer,(Acc bsl 7) bor PartialTag).
 
 %% reads the content from the configuration file and returns the
-%% selected part choosen by InfoType. Assumes that the config file
+%% selected part chosen by InfoType. Assumes that the config file
 %% content is an Erlang term.
 read_config_file(ModuleName,InfoType) when atom(InfoType) ->
     CfgList = read_config_file(ModuleName),

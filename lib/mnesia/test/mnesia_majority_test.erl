@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,13 @@
 %%
 -module(mnesia_majority_test).
 -author('ulf.wiger@erlang-solutions.com').
--compile(export_all).
+-export([init_per_testcase/2, end_per_testcase/2,
+         all/0]).
+
+-export([write/1, wread/1, delete/1, clear_table/1, frag/1,
+         change_majority/1, frag_change_majority/1
+        ]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->

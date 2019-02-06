@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,6 +137,11 @@ static int send_name(int fd, char *nodename,
 static int recv_name(int fd, 
 		     unsigned *version,
 		     unsigned *flags, ErlConnect *namebuf, unsigned ms);
+
+static struct hostent*
+dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
+                    int buflen, int *h_errnop);
+
 
 
 /***************************************************************************
@@ -423,7 +428,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     }
 #endif /* _REENTRANT */
 
-    ec->creation = creation;
+    ec->creation = creation & 0x3; /* 2 bits */
     
     if (cookie) {
 	if (strlen(cookie) >= sizeof(ec->ei_connect_cookie)) { 
@@ -462,7 +467,7 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
     strcpy(ec->self.node,thisnodename);
     ec->self.num = 0;
     ec->self.serial = 0;
-    ec->self.creation = creation;
+    ec->self.creation = creation & 0x3; /* 2 bits */
 
     if ((dbglevel = getenv("EI_TRACELEVEL")) != NULL ||
 	(dbglevel = getenv("ERL_DEBUG_DIST")) != NULL)
@@ -480,10 +485,14 @@ int ei_connect_xinit(ei_cnode* ec, const char *thishostname,
 int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 		    const char *cookie, short creation)
 {
-    struct hostent *hp;
     char thishostname[EI_MAXHOSTNAMELEN+1];
     char thisnodename[MAXNODELEN+1];
     char thisalivename[EI_MAXALIVELEN+1];
+    struct hostent host, *hp;
+    char buffer[1024];
+    char *buf = buffer;
+    int ei_h_errno;
+    int res;
 
 #ifdef __WIN32__
     if (!initWinSock()) {
@@ -497,7 +506,8 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
     }
 #endif /* _REENTRANT */
     
-    if (gethostname(thishostname, EI_MAXHOSTNAMELEN) == -1) {
+    /* gethostname requires len to be max(hostname) + 1 */
+    if (gethostname(thishostname, EI_MAXHOSTNAMELEN+1) == -1) {
 #ifdef __WIN32__
 	EI_TRACE_ERR1("ei_connect_init","Failed to get host name: %d",
 		      WSAGetLastError());
@@ -516,10 +526,13 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	strcpy(thisalivename, this_node_name);
     }
     
-    if ((hp = ei_gethostbyname(thishostname)) == 0) {
+    hp = dyn_gethostbyname_r(thishostname,&host,&buf,sizeof(buffer),&ei_h_errno);
+    if (hp == NULL) {
 	/* Looking up IP given hostname fails. We must be on a standalone
 	   host so let's use loopback for communication instead. */
-	if ((hp = ei_gethostbyname("localhost")) == 0) {
+	hp = dyn_gethostbyname_r("localhost", &host, &buf, sizeof(buffer),
+                                 &ei_h_errno);
+        if (hp == NULL) {
 #ifdef __WIN32__
 	    char reason[1024];
 	
@@ -548,8 +561,11 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	    sprintf(thisnodename, "%s@%s", this_node_name, hp->h_name);
 	}
     }
-    return ei_connect_xinit(ec, thishostname, thisalivename, thisnodename,
-			    (struct in_addr *)*hp->h_addr_list, cookie, creation);
+    res = ei_connect_xinit(ec, thishostname, thisalivename, thisnodename,
+                           (struct in_addr *)*hp->h_addr_list, cookie, creation);
+    if (buf != buffer)
+        free(buf);
+    return res;
 }
 
 
@@ -582,6 +598,62 @@ static int cnct(uint16 port, struct in_addr *ip_addr, int addr_len, unsigned ms)
     return s;
 } /* cnct */
 
+
+/*
+ * Same as ei_gethostbyname_r, but also handles ERANGE error
+ * and may allocate larger buffer with malloc.
+ */
+static
+struct hostent *dyn_gethostbyname_r(const char *name,
+                                    struct hostent *hostp,
+                                    char **buffer_p,
+				    int buflen,
+				    int *h_errnop)
+{
+#ifdef __WIN32__
+    /*
+     * Apparently ei_gethostbyname_r not implemented for Windows (?)
+     * Fall back on ei_gethostbyname like before.
+     */
+    return ei_gethostbyname(name);
+#else
+    char* buf = *buffer_p;
+    struct hostent *hp;
+
+    while (1) {
+        hp = ei_gethostbyname_r(name, hostp, buf, buflen, h_errnop);
+        if (hp) {
+            *buffer_p = buf;
+            break;
+        }
+
+        if (*h_errnop != ERANGE) {
+            if (buf != *buffer_p)
+                free(buf);
+            break;
+        }
+
+        buflen *= 2;
+        if (buf == *buffer_p)
+            buf = malloc(buflen);
+        else {
+            char* buf2 = realloc(buf, buflen);
+            if (buf2)
+                buf = buf2;
+            else {
+                free(buf);
+                buf = NULL;
+            }
+        }
+        if (!buf) {
+            *h_errnop = ENOMEM;
+            break;
+        }
+    }
+    return hp;
+#endif
+}
+
   /* 
   * Set up a connection to a given Node, and 
   * interchange hand shake messages with it.
@@ -596,8 +668,10 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     /* these are needed for the call to gethostbyname_r */
     struct hostent host;
     char buffer[1024];
+    char *buf = buffer;
     int ei_h_errno;
 #endif /* !win32 */
+    int res;
     
     /* extract the host and alive parts from nodename */
     if (!(hostname = strchr(nodename,'@'))) {
@@ -610,10 +684,11 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
     }
     
 #ifndef __WIN32__
-    hp = ei_gethostbyname_r(hostname,&host,buffer,1024,&ei_h_errno);
+    hp = dyn_gethostbyname_r(hostname,&host,&buf,sizeof(buffer),&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-	if (gethostname(thishostname,EI_MAXHOSTNAMELEN) < 0) {
+        /* gethostname requies len to be max(hostname) + 1*/
+	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR0("ei_connect_tmo",
 			  "Failed to get name of this host");
 	    erl_errno = EHOSTUNREACH;
@@ -625,7 +700,7 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 	}
 	if (strcmp(hostname,thishostname) == 0)
 	    /* Both nodes on same standalone host, use loopback */
-	    hp = ei_gethostbyname_r("localhost",&host,buffer,1024,&ei_h_errno);
+	    hp = dyn_gethostbyname_r("localhost",&host,&buf,sizeof(buffer),&ei_h_errno);
 	if (hp == NULL) {
 	    EI_TRACE_ERR2("ei_connect",
 			  "Can't find host for %s: %d\n",nodename,ei_h_errno);
@@ -636,7 +711,8 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 #else /* __WIN32__ */
     if ((hp = ei_gethostbyname(hostname)) == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
-	if (gethostname(thishostname,EI_MAXHOSTNAMELEN) < 0) {
+        /* gethostname requires len to be max(hostname) + 1 */
+	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
 	    EI_TRACE_ERR1("ei_connect_tmo",
 			  "Failed to get name of this host: %d", 
 			  WSAGetLastError());
@@ -660,7 +736,14 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 	}
     }
 #endif /* win32 */
-    return ei_xconnect_tmo(ec, (Erl_IpAddr) *hp->h_addr_list, alivename, ms);
+
+    res = ei_xconnect_tmo(ec, (Erl_IpAddr) *hp->h_addr_list, alivename, ms);
+
+#ifndef __WIN32__
+    if (buf != buffer)
+        free(buf);
+#endif
+    return res;
 } /* ei_connect */
 
 int ei_connect(ei_cnode* ec, char *nodename)
@@ -939,7 +1022,7 @@ int ei_do_receive_msg(int fd, int staticbuffer_p,
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
     }
-    x->index = x->buffsz;
+    x->index = msglen;
     switch (msg->msgtype) {	/* FIXME does not handle trace tokens and monitors */
     case ERL_SEND:
     case ERL_REG_SEND:
@@ -1297,11 +1380,14 @@ static int recv_status(int fd, unsigned ms)
 		      "<- RECV_STATUS socket read failed (%d)", rlen);
 	goto error;
     }
-    if (rlen == 3 && buf[0] == 's' && buf[1] == 'o' && 
-	buf[2] == 'k') {
+
+    EI_TRACE_CONN2("recv_status",
+                   "<- RECV_STATUS (%.*s)", (rlen>20 ? 20 : rlen), buf);
+
+    if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
+        /* Expecting "sok" or "sok_simultaneous" */
 	if (!is_static)
 	    free(buf);
-	EI_TRACE_CONN0("recv_status","<- RECV_STATUS (ok)");
 	return 0;
     }
 error:

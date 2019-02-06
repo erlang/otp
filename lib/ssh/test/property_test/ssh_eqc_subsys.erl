@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 -module(ssh_eqc_subsys).
 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 
 -export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 

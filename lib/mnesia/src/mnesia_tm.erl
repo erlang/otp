@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ start() ->
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
+    process_flag(message_queue_data, off_heap),
 
     %% Initialize the schema
     IgnoreFallback = mnesia_monitor:get_env(ignore_fallback_at_startup),
@@ -120,10 +121,11 @@ init(Parent) ->
     proc_lib:init_ack(Parent, {ok, self()}),
     doit_loop(#state{supervisor = Parent}).
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
-	_VaLuE_ -> _VaLuE_
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
+	Value -> Value
     end.
 
 reply({From,Ref}, R) ->
@@ -313,7 +315,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    ?eval_debug_fun({?MODULE, do_abort, pre}, [{tid, Tid}]),
 	    case gb_trees:lookup(Tid, Participants) of
 		none ->
-		    verbose("Tried to abort a non participant transaction ~p: ~p~n",
+		    verbose("Tried to abort a non participant transaction ~p: ~tp~n",
 			    [Tid, Reason]),
 		    mnesia_locker:release_tid(Tid),
 		    doit_loop(State);
@@ -416,7 +418,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	{From, {unblock_me, Tab}} ->
 	    case lists:member(Tab, State#state.blocked_tabs) of
 		false ->
-		    verbose("Wrong dirty Op blocked on ~p ~p ~p",
+		    verbose("Wrong dirty Op blocked on ~p ~tp ~p",
 			    [node(), Tab, From]),
 		    reply(From, unblocked),
 		    doit_loop(State);
@@ -465,11 +467,11 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    end;
 
 	{system, From, Msg} ->
-	    dbg_out("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    dbg_out("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    sys:handle_system_msg(Msg, From, Sup, ?MODULE, [], State);
 
 	Msg ->
-	    verbose("** ERROR ** ~p got unexpected message: ~p~n", [?MODULE, Msg]),
+	    verbose("** ERROR ** ~p got unexpected message: ~tp~n", [?MODULE, Msg]),
 	    doit_loop(State)
     end.
 
@@ -555,7 +557,7 @@ handle_exit(Pid, Reason, State) ->
 		    %% We got exit from a local fool
 		    doit_loop(State);
 		{P = #participant{}, _RestP} ->
-		    fatal("Participant ~p in transaction ~p died ~p~n",
+		    fatal("Participant ~p in transaction ~p died ~tp~n",
 			  [P#participant.pid, P#participant.tid, Reason]),
 		    NewPs = gb_trees:delete(P#participant.tid,State#state.participants),
 		    doit_loop(State#state{participants = NewPs})
@@ -596,9 +598,9 @@ recover_coordinator(Tid, Etabs) ->
 		false ->  %% When killed before store havn't been copied to
 		    ok    %% to the new nested trans store.
 	    end
-    catch _:Reason ->
-	    dbg_out("Recovery of coordinator ~p failed:~n",
-		    [Tid, {Reason, erlang:get_stacktrace()}]),
+    catch _:Reason:Stacktrace ->
+	    dbg_out("Recovery of coordinator ~p failed: ~tp~n",
+		    [Tid, {Reason, Stacktrace}]),
 	    Protocol = asym_trans,
 	    tell_outcome(Tid, Protocol, node(), CheckNodes, TellNodes)
     end,
@@ -824,8 +826,7 @@ execute_transaction(Fun, Args, Factor, Retries, Type) ->
     catch throw:Value ->  %% User called throw
 	    Reason = {aborted, {throw, Value}},
 	    return_abort(Fun, Args, Reason);
-	  error:Reason ->
-	    ST = erlang:get_stacktrace(),
+	  error:Reason:ST ->
 	    check_exit(Fun, Args, Factor, Retries, {Reason,ST}, Type);
 	  _:Reason ->
 	    check_exit(Fun, Args, Factor, Retries, Reason, Type)
@@ -940,7 +941,7 @@ decr(_X) -> 0.
 
 return_abort(Fun, Args, Reason)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
-    dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n",
+    dbg_out("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n",
 	    [Tid, Fun, Args, Reason]),
     OldStore = Ts#tidstore.store,
     Nodes = get_elements(nodes, OldStore),
@@ -950,7 +951,7 @@ return_abort(Fun, Args, Reason)  ->
     if
 	Level == 1 ->
 	    mnesia_locker:async_release_tid(Nodes, Tid),
-	    ?MODULE ! {delete_transaction, Tid},
+	    ?SAFE(?MODULE ! {delete_transaction, Tid}),
 	    erase(mnesia_activity_state),
 	    flush_downs(),
 	    ?SAFE(unlink(whereis(?MODULE))),
@@ -1713,7 +1714,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    mnesia_schema:undo_prepare_commit(Tid, C0);
 
 			Msg ->
-			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
+			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
 				    [Tid, Msg])
 		    end;
 		{Tid, {do_abort, Reason}} ->
@@ -1729,7 +1730,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 
 		Msg ->
 		    reply(Coord, {do_abort, Tid, self(), {bad_commit,internal}}),
-		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
+		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
 			    [Tid, Msg])
 	    end
     catch _:Reason ->
@@ -1795,15 +1796,14 @@ do_update(Tid, Storage, [Op | Ops], OldRes) ->
     try do_update_op(Tid, Storage, Op) of
 	ok ->     do_update(Tid, Storage, Ops, OldRes);
 	NewRes -> do_update(Tid, Storage, Ops, NewRes)
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    %% This may only happen when we recently have
 	    %% deleted our local replica, changed storage_type
 	    %% or transformed table
 	    %% BUGBUG: Updates may be lost if storage_type is changed.
 	    %%         Determine actual storage type and try again.
 	    %% BUGBUG: Updates may be lost if table is transformed.
-	    ST = erlang:get_stacktrace(),
-	    verbose("do_update in ~w failed: ~p -> {'EXIT', ~p}~n",
+	    verbose("do_update in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Op, {Reason, ST}]),
 	    do_update(Tid, Storage, Ops, OldRes)
     end;
@@ -1913,12 +1913,11 @@ commit_clear([H|R], Tid, Storage, Tab, K, Obj)
 do_snmp(_, []) ->   ok;
 do_snmp(Tid, [Head|Tail]) ->
     try mnesia_snmp_hook:update(Head)
-    catch _:Reason ->
+    catch _:Reason:ST ->
 	    %% This should only happen when we recently have
 	    %% deleted our local replica or recently deattached
 	    %% the snmp table
-	    ST = erlang:get_stacktrace(),
-	    verbose("do_snmp in ~w failed: ~p -> {'EXIT', ~p}~n",
+	    verbose("do_snmp in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Head, {Reason, ST}])
     end,
     do_snmp(Tid, Tail).
@@ -2150,7 +2149,7 @@ pr_participant(Stream, P) ->
 	    true -> Commit0
 	end,
     pr_tid(Stream, P#participant.tid),
-    io:format(Stream, "with participant objects ~p~n", [Commit]).
+    io:format(Stream, "with participant objects ~tp~n", [Commit]).
 
 
 pr_tid(Stream, Tid) ->
@@ -2192,7 +2191,7 @@ search_pr_participant(S, [ P | Tail]) ->
 		    true -> Commit0
 		end,
 
-	    io:format("~p~n", [Commit]),
+	    io:format("~tp~n", [Commit]),
 	    search_pr_participant(S,Tail);  %% !!!!!
 	true ->
 	    search_pr_participant(S, Tail)
@@ -2211,14 +2210,14 @@ display_pid_info(Pid) ->
 			   Other
 		   end,
 	    Reds  = fetch(reductions, Info),
-	    LM = length(fetch(messages, Info)),
+	    LM = fetch(message_queue_len, Info),
 	    pformat(io_lib:format("~p", [Pid]),
-		    io_lib:format("~p", [Call]),
-		    io_lib:format("~p", [Curr]), Reds, LM)
+		    io_lib:format("~tp", [Call]),
+		    io_lib:format("~tp", [Curr]), Reds, LM)
     end.
 
 pformat(A1, A2, A3, A4, A5) ->
-    io:format( "~-12s ~-21s ~-21s ~9w ~4w~n", [A1,A2,A3,A4,A5]).
+    io:format( "~-12s ~-21ts ~-21ts ~9w ~4w~n", [A1,A2,A3,A4,A5]).
 
 fetch(Key, Info) ->
     case lists:keysearch(Key, 1, Info) of

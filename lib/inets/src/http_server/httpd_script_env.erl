@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,8 +74,12 @@ which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl
 which_peercert(_) -> %% Not an ssl connection
     undefined.
 
+
 which_resolve(#mod{init_data = #init_data{resolve = Resolve}}) ->
     Resolve.
+
+which_name(#mod{config_db = ConfigDB}) ->
+    httpd_util:lookup(ConfigDB, server_name).
 
 which_method(#mod{method = Method}) ->
     Method.
@@ -85,7 +89,8 @@ which_request_uri(#mod{request_uri = RUri}) ->
 
 create_basic_elements(esi, ModData) ->
     [{server_software,   which_server(ModData)},
-     {server_name,       which_resolve(ModData)},
+     {server_name,       which_name(ModData)},
+     {host_name,         which_resolve(ModData)},
      {gateway_interface, ?GATEWAY_INTERFACE},
      {server_protocol,   ?SERVER_PROTOCOL},
      {server_port,       which_port(ModData)},
@@ -96,7 +101,8 @@ create_basic_elements(esi, ModData) ->
 
 create_basic_elements(cgi, ModData) ->
     [{"SERVER_SOFTWARE",   which_server(ModData)},
-     {"SERVER_NAME",       which_resolve(ModData)},
+     {"SERVER_NAME",       which_name(ModData)},
+     {"HOST_NAME",         which_resolve(ModData)},
      {"GATEWAY_INTERFACE", ?GATEWAY_INTERFACE},
      {"SERVER_PROTOCOL",   ?SERVER_PROTOCOL},
      {"SERVER_PORT",       integer_to_list(which_port(ModData))},
@@ -160,9 +166,9 @@ create_script_elements(cgi, path_info, PathInfo, ModData) ->
     [{"PATH_INFO", PathInfo},
      {"PATH_TRANSLATED", PathTranslated}];
 create_script_elements(esi, entity_body, Body, _) ->
-    [{content_length, httpd_util:flatlength(Body)}]; 
+    [{content_length, integer_to_list(httpd_util:flatlength(Body))}]; 
 create_script_elements(cgi, entity_body, Body, _) ->
-    [{"CONTENT_LENGTH", httpd_util:flatlength(Body)}]; 
+    [{"CONTENT_LENGTH", integer_to_list(httpd_util:flatlength(Body))}]; 
 create_script_elements(_, _, _, _) ->
     [].
 

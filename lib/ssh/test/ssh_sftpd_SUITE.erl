@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@
 -define(PASSWD, "Sesame").
 -define(XFER_PACKET_SIZE, 32768).
 -define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
--define(TIMEOUT, 10000).
+-define(SSH_TIMEOUT, 10000).
 -define(REG_ATTERS, <<0,0,0,0,1>>).
 -define(UNIX_EPOCH,  62167219200).
 
@@ -65,7 +65,12 @@ all() ->
      ver3_open_flags,
      relpath, 
      sshd_read_file,
-     ver6_basic].
+     ver6_basic,
+     access_outside_root,
+     root_with_cwd,
+     relative_path,
+     open_file_dir_v5,
+     open_file_dir_v6].
 
 groups() -> 
     [].
@@ -117,24 +122,48 @@ init_per_testcase(TestCase, Config) ->
 		      ver6_basic ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([{sftpd_vsn, 6}])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+                      access_outside_root ->
+                          %% Build RootDir/access_outside_root/a/b and set Root and CWD
+                          BaseDir = filename:join(PrivDir, access_outside_root),
+                          RootDir = filename:join(BaseDir, a),
+                          CWD     = filename:join(RootDir, b),
+                          %% Make the directory chain:
+                          ok = filelib:ensure_dir(filename:join(CWD, tmp)),
+                          SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir},
+                                                                  {cwd, CWD}])],
+                          ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      root_with_cwd ->
+			  RootDir = filename:join(PrivDir, root_with_cwd),
+			  CWD     = filename:join(RootDir, home),
+			  SubSystems = [ssh_sftpd:subsystem_spec([{root, RootDir}, {cwd, CWD}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      relative_path ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      open_file_dir_v5 ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
+		      open_file_dir_v6 ->
+			  SubSystems = [ssh_sftpd:subsystem_spec([{cwd, PrivDir},
+								  {sftpd_vsn, 6}])],
+			  ssh:daemon(0, [{subsystems, SubSystems}|Options]);
 		      _ ->
 			  SubSystems = [ssh_sftpd:subsystem_spec([])],
 			  ssh:daemon(0, [{subsystems, SubSystems}|Options])
 		  end,
-    {ok,Dinf} = ssh:daemon_info(Sftpd),
-    Port = proplists:get_value(port, Dinf),
+
+    Port = ssh_test_lib:daemon_port(Sftpd),
     
     Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
 			       {user, ?USER}, {password, ?PASSWD},
 			       {user_interaction, false},
-			       {silently_accept_hosts, true},
-			       {pwdfun, fun(_,_) -> true end}]),
+			       {silently_accept_hosts, true}]),
     {ok, Channel} =
 	ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE,
-				       ?XFER_PACKET_SIZE, ?TIMEOUT),
+				       ?XFER_PACKET_SIZE, ?SSH_TIMEOUT),
     
-    success = ssh_connection:subsystem(Cm, Channel, "sftp", ?TIMEOUT),
+    success = ssh_connection:subsystem(Cm, Channel, "sftp", ?SSH_TIMEOUT),
 
     ProtocolVer = case atom_to_list(TestCase) of
 		      "ver3_" ++ _ ->
@@ -158,7 +187,7 @@ init_per_testcase(TestCase, Config) ->
     [{sftp, {Cm, Channel}}, {sftpd, Sftpd }| Config].
 
 end_per_testcase(_TestCase, Config) ->
-    ssh_sftpd:stop(proplists:get_value(sftpd, Config)),
+    catch ssh:stop_daemon(proplists:get_value(sftpd, Config)),
     {Cm, Channel} = proplists:get_value(sftp, Config),
     ssh_connection:close(Cm, Channel),
     ssh:close(Cm),
@@ -646,6 +675,133 @@ ver6_basic(Config) when is_list(Config) ->
 	open_file(PrivDir, Cm, Channel, ReqId,
 		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
 		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+access_outside_root() ->
+    [{doc, "Try access files outside the tree below RootDir"}].
+access_outside_root(Config) when is_list(Config) ->
+    PrivDir  =  proplists:get_value(priv_dir, Config),
+    BaseDir  = filename:join(PrivDir, access_outside_root),
+    %% A file outside the tree below RootDir which is BaseDir/a
+    %% Make the file  BaseDir/bad :
+    BadFilePath = filename:join([BaseDir, bad]),
+    ok = file:write_file(BadFilePath, <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    %% Try to access a file parallell to the RootDir:
+    try_access("/../bad",   Cm, Channel, 0),
+    %% Try to access the same file via the CWD which is /b relative to the RootDir:
+    try_access("../../bad", Cm, Channel, 1).
+
+
+try_access(Path, Cm, Channel, ReqId) ->
+    Return = 
+        open_file(Path, Cm, Channel, ReqId, 
+                  ?ACE4_READ_DATA bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING),
+    ct:log("Try open ~p -> ~p",[Path,Return]),
+    case Return of
+        {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle0/binary>>, _} ->
+            ct:fail("Could open a file outside the root tree!");
+        {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId), ?UINT32(Code), Rest/binary>>, <<>>} ->
+            case Code of
+                ?SSH_FX_FILE_IS_A_DIRECTORY ->
+                    ct:log("Got the expected SSH_FX_FILE_IS_A_DIRECTORY status",[]),
+                    ok;
+                ?SSH_FX_FAILURE ->
+                    ct:log("Got the expected SSH_FX_FAILURE status",[]),
+                    ok;
+                _ ->
+                    case Rest of
+                        <<?UINT32(Len), Txt:Len/binary, _/binary>> ->
+                            ct:fail("Got unexpected SSH_FX_code: ~p (~p)",[Code,Txt]);
+                        _ ->
+                            ct:fail("Got unexpected SSH_FX_code: ~p",[Code])
+                    end
+            end;
+        _ ->
+            ct:fail("Completly unexpected return: ~p", [Return])
+    end.
+
+%%--------------------------------------------------------------------
+root_with_cwd() ->
+    [{doc, "Check if files are found, if the CWD and Root are specified"}].
+root_with_cwd(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    RootDir = filename:join(PrivDir, root_with_cwd),
+    CWD     = filename:join(RootDir, home),
+    FileName = "root_with_cwd.txt",
+    FilePath = filename:join(CWD, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:write_file(FilePath ++ "0", <<>>),
+    ok = file:write_file(FilePath ++ "1", <<>>),
+    ok = file:write_file(FilePath ++ "2", <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId0 = 0,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId0), _Handle0/binary>>, _} =
+	open_file(FileName ++ "0", Cm, Channel, ReqId0,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId1 = 1,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId1), _Handle1/binary>>, _} =
+	open_file("./" ++ FileName ++ "1", Cm, Channel, ReqId1,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING),
+    ReqId2 = 2,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId2), _Handle2/binary>>, _} =
+	open_file("/home/" ++ FileName ++ "2", Cm, Channel, ReqId2,
+		  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+		  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+relative_path() ->
+    [{doc, "Test paths relative to CWD when opening a file handle."}].
+relative_path(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "test_relative_path.txt",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:write_file(FilePath, <<>>),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_HANDLE, ?UINT32(ReqId), _Handle/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+open_file_dir_v5() ->
+    [{doc, "Test if open_file fails when opening existing directory."}].
+open_file_dir_v5(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "open_file_dir_v5",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:make_dir(FilePath),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+	   ?UINT32(?SSH_FX_FAILURE), _/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
+%%--------------------------------------------------------------------
+open_file_dir_v6() ->
+    [{doc, "Test if open_file fails when opening existing directory."}].
+open_file_dir_v6(Config) when is_list(Config) ->
+    PrivDir =  proplists:get_value(priv_dir, Config),
+    FileName = "open_file_dir_v6",
+    FilePath = filename:join(PrivDir, FileName),
+    ok = filelib:ensure_dir(FilePath),
+    ok = file:make_dir(FilePath),
+    {Cm, Channel} = proplists:get_value(sftp, Config),
+    ReqId = 0,
+    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+	   ?UINT32(?SSH_FX_FILE_IS_A_DIRECTORY), _/binary>>, _} =
+        open_file(FileName, Cm, Channel, ReqId,
+                  ?ACE4_READ_DATA  bor ?ACE4_READ_ATTRIBUTES,
+                  ?SSH_FXF_OPEN_EXISTING).
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -688,9 +844,7 @@ reply(Cm, Channel, RBuf) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
-
 open_file(File, Cm, Channel, ReqId, Access, Flags) ->
-
     Data = list_to_binary([?uint32(ReqId),
 			   ?binary(list_to_binary(File)),
 			   ?uint32(Access),

@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,11 +60,15 @@ end_per_suite(_onfig) ->
 groups() -> 
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
+			{group,big_recvpkt_size},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
 		    sftp_nonexistent_subsystem]},
+
+     {big_recvpkt_size, [], [{group,erlang_server},
+			     {group,openssh_server}]},
 
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
@@ -88,7 +92,7 @@ groups() ->
      {write_read_tests, [], [open_close_file, open_close_dir, read_file, read_dir,
 			     write_file, write_file_iolist, write_big_file, sftp_read_big_file,
 			     rename_file, mk_rm_dir, remove_file, links,
-			     retrieve_attributes, set_attributes, async_read,
+			     retrieve_attributes, set_attributes, file_owner_access, async_read,
 			     async_write, position, pos_read, pos_write,
 			     start_channel_sock
 			    ]}
@@ -149,6 +153,9 @@ init_per_group(unicode, Config) ->
 	    {skip, "Not unicode file encoding"}
     end;
 
+init_per_group(big_recvpkt_size, Config) ->
+    [{pkt_sz,123456} | Config];
+
 init_per_group(erlang_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -174,8 +181,9 @@ init_per_group(openssh_server, Config) ->
 	    [{peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
 	{error,"Key exchange failed"} ->
 	    {skip, "openssh server doesn't support the tested kex algorithm"};
-	_ ->
-	    {skip, "No openssh server"} 
+	Other ->
+            ct:log("No openssh server. Cause:~n~p~n",[Other]),
+	    {skip, "No openssh daemon (see log in testcase)"} 
     end;
 
 init_per_group(remote_tar, Config) ->
@@ -257,7 +265,10 @@ init_per_testcase(Case, Config00) ->
     Dog = ct:timetrap(2 * ?default_timeout),
     User = proplists:get_value(user, Config0),
     Passwd = proplists:get_value(passwd, Config0),
-
+    PktSzOpt = case proplists:get_value(pkt_sz, Config0) of
+		   undefined -> [];
+		   Sz -> [{packet_size,Sz}]
+	       end,
     Config =
 	case proplists:get_value(group,Config2) of
 	    erlang_server ->
@@ -267,7 +278,9 @@ init_per_testcase(Case, Config00) ->
 					   [{user, User},
 					    {password, Passwd},
 					    {user_interaction, false},
-					    {silently_accept_hosts, true}]
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]
 					  ),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2];
@@ -278,7 +291,9 @@ init_per_testcase(Case, Config00) ->
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
 					   [{user_interaction, false},
-					    {silently_accept_hosts, true}]), 
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
@@ -507,7 +522,36 @@ set_attributes(Config) when is_list(Config) ->
     ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
+file_owner_access() ->
+    [{doc,"Test file user access validity"}].
+file_owner_access(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not a relevant test on Windows"};
+        _ ->
+            FileName = proplists:get_value(filename, Config),
+            {Sftp, _} = proplists:get_value(sftp, Config),
 
+            {ok, #file_info{mode = InitialMode}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#000}),
+            {ok, #file_info{access = none}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
+            {ok, #file_info{access = read}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#200}),
+            {ok, #file_info{access = write}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
+            {ok, #file_info{access = read_write}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=InitialMode}),
+
+            ok
+    end.
+
+%%--------------------------------------------------------------------
 async_read() ->
     [{doc,"Test API aread/3"}].
 async_read(Config) when is_list(Config) ->
@@ -646,7 +690,7 @@ start_channel_sock(Config) ->
     {Host,Port} = proplists:get_value(peer, Config),
 
     %% Get a tcp socket
-    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(Host, Port, [{active,false}]),
 
     %% and open one channel on one new Connection
     {ok, ChPid1, Conn} = ssh_sftp:start_channel(Sock, Opts),
@@ -1024,7 +1068,7 @@ oldprep(Config) ->
 
 prepare(Config0) ->
     PrivDir = proplists:get_value(priv_dir, Config0),
-    Dir = filename:join(PrivDir, random_chars(10)),
+    Dir = filename:join(PrivDir, ssh_test_lib:random_chars(10)),
     file:make_dir(Dir),
     Keys = [filename,
 	    testfile,
@@ -1043,8 +1087,6 @@ prepare(Config0) ->
     {ok,_} = file:copy(FilenameSrc, FilenameDst),
     [{sftp_priv_dir,Dir} | Config2].
 
-
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
 
 foldl_keydelete(Keys, L) ->
     lists:foldl(fun(K,E) -> lists:keydelete(K,1,E) end, 

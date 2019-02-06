@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -207,7 +207,7 @@
     <code>
 Header "%% Copyright (C)"
 "%% @private"
-"%% @Author John"</code>
+"%% @Author John".</code>
     <p>Next comes a declaration of the <c>nonterminal categories</c>
       to be used in the rules. For example:</p>
     <code type="none">

@@ -88,7 +88,7 @@
           follows:</p>
         <list type="bulleted">
           <item><c>-pa Dir1 Dir2 ... DirN</c> adds the directories
-          <c>Dir1, Dir2, ..., DirN</c> to the front of the initial
+          <c>DirN, DirN-1, ..., Dir2, Dir1</c> to the front of the initial
            load path.</item>
           <item><c>-pz Dir1 Dir2 ... DirN</c> adds the directories
           <c>Dir1, Dir2, ..., DirN</c> to the end of the initial

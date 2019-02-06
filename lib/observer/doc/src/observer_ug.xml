@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2016</year>
+      <year>2011</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -107,6 +107,11 @@
     see module
     <seealso marker="erts:erts_alloc"><c>erts_alloc</c></seealso>
     in application ERTS.</p>
+    <p>The <c>Max Carrier size</c> column shows the maximum value seen by observer
+    since the last node change or since the start of the application, i.e. switching
+    nodes will reset the max column. Values are sampled so higher values may have
+    existed than what is shown.
+    </p>
   </section>
 
   <section>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ edit_line(Cs, {line,P,L,M}) ->
 edit_line1(Cs, {line,P,L,{blink,N}}) ->
     edit(Cs, P, L, none, [{move_rel,N}]);
 edit_line1(Cs, {line,P,{[],[]},none}) ->
-    {more_chars, {line,P,{lists:reverse(Cs),[]},none},[{put_chars, unicode, Cs}]};
+    {more_chars, {line,P,{string:reverse(Cs),[]},none},[{put_chars, unicode, Cs}]};
 edit_line1(Cs, {line,P,L,M}) ->
     edit(Cs, P, L, M, []).
 
@@ -93,14 +93,14 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
     case key_map(C, Prefix) of
 	meta ->
 	    edit(Cs, P, {Bef,Aft}, meta, Rs0);
-    meta_o ->
-        edit(Cs, P, {Bef,Aft}, meta_o, Rs0);
-    meta_csi ->
-        edit(Cs, P, {Bef,Aft}, meta_csi, Rs0);
-    meta_meta ->
-        edit(Cs, P, {Bef,Aft}, meta_meta, Rs0);
-    {csi, _} = Csi ->
-        edit(Cs, P, {Bef,Aft}, Csi, Rs0);
+        meta_o ->
+            edit(Cs, P, {Bef,Aft}, meta_o, Rs0);
+        meta_csi ->
+            edit(Cs, P, {Bef,Aft}, meta_csi, Rs0);
+        meta_meta ->
+            edit(Cs, P, {Bef,Aft}, meta_meta, Rs0);
+        {csi, _} = Csi ->
+            edit(Cs, P, {Bef,Aft}, Csi, Rs0);
 	meta_left_sq_bracket ->
 	    edit(Cs, P, {Bef,Aft}, meta_left_sq_bracket, Rs0);
 	search_meta ->
@@ -110,8 +110,8 @@ edit([C|Cs], P, {Bef,Aft}, Prefix, Rs0) ->
 	ctlx ->
 	    edit(Cs, P, {Bef,Aft}, ctlx, Rs0);
 	new_line ->
-	    {done, reverse(Bef, Aft ++ "\n"), Cs,
-	     reverse(Rs0, [{move_rel,length(Aft)},{put_chars,unicode,"\n"}])};
+	    {done, get_line(Bef, Aft ++ "\n"), Cs,
+	     reverse(Rs0, [{move_rel,cp_len(Aft)},{put_chars,unicode,"\n"}])};
 	redraw_line ->
 	    Rs1 = erase(P, Bef, Aft, Rs0),
 	    Rs = redraw(P, Bef, Aft, Rs1),
@@ -157,7 +157,7 @@ edit([], P, L, {blink,N}, Rs) ->
 edit([], P, L, Prefix, Rs) ->
     {more_chars,{line,P,L,Prefix},reverse(Rs)};
 edit(eof, _, {Bef,Aft}, _, Rs) ->
-    {done,reverse(Bef, Aft),[],reverse(Rs, [{move_rel,length(Aft)}])}.
+    {done,get_line(Bef, Aft),[],reverse(Rs, [{move_rel,cp_len(Aft)}])}.
 
 %% %% Assumes that arg is a string
 %% %% Horizontal whitespace only.
@@ -279,11 +279,21 @@ key_map(C, search) -> {insert_search,C};
 key_map(C, _) -> {undefined,C}.
 
 %% do_op(Action, Before, After, Requests)
-
-do_op({insert,C}, Bef, [], Rs) ->
-    {{[C|Bef],[]},[{put_chars, unicode,[C]}|Rs]};
-do_op({insert,C}, Bef, Aft, Rs) ->
-    {{[C|Bef],Aft},[{insert_chars, unicode, [C]}|Rs]};
+%% Before and After are of lists of type string:grapheme_cluster()
+do_op({insert,C}, [], [], Rs) ->
+    {{[C],[]},[{put_chars, unicode,[C]}|Rs]};
+do_op({insert,C}, [Bef|Bef0], [], Rs) ->
+    case string:to_graphemes([Bef,C]) of
+        [GC] -> {{[GC|Bef0],[]},[{put_chars, unicode,[C]}|Rs]};
+        _ -> {{[C,Bef|Bef0],[]},[{put_chars, unicode,[C]}|Rs]}
+    end;
+do_op({insert,C}, [], Aft, Rs) ->
+    {{[C],Aft},[{insert_chars, unicode,[C]}|Rs]};
+do_op({insert,C}, [Bef|Bef0], Aft, Rs) ->
+    case string:to_graphemes([Bef,C]) of
+        [GC] -> {{[GC|Bef0],Aft},[{insert_chars, unicode,[C]}|Rs]};
+        _ -> {{[C,Bef|Bef0],Aft},[{insert_chars, unicode,[C]}|Rs]}
+    end;
 %% Search mode prompt always looks like (search)`$TERMS': $RESULT.
 %% the {insert_search, _} handlings allow to share this implementation
 %% correctly with group.erl. This module provides $TERMS, and group.erl
@@ -299,13 +309,13 @@ do_op({insert_search, C}, Bef, [], Rs) ->
      [{insert_chars, unicode, [C]++Aft}, {delete_chars,-3} | Rs],
      search};
 do_op({insert_search, C}, Bef, Aft, Rs) ->
-    Offset= length(Aft),
+    Offset= cp_len(Aft),
     NAft = "': ",
     {{[C|Bef],NAft},
      [{insert_chars, unicode, [C]++NAft}, {delete_chars,-Offset} | Rs],
      search};
 do_op({search, backward_delete_char}, [_|Bef], Aft, Rs) ->
-    Offset= length(Aft)+1,
+    Offset= cp_len(Aft)+1,
     NAft = "': ",
     {{Bef,NAft},
      [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
@@ -314,13 +324,13 @@ do_op({search, backward_delete_char}, [], _Aft, Rs) ->
     Aft="': ",
     {{[],Aft}, Rs, search};
 do_op({search, skip_up}, Bef, Aft, Rs) ->
-    Offset= length(Aft),
+    Offset= cp_len(Aft),
     NAft = "': ",
     {{[$\^R|Bef],NAft}, % we insert ^R as a flag to whoever called us
      [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
      search};
 do_op({search, skip_down}, Bef, Aft, Rs) ->
-    Offset= length(Aft),
+    Offset= cp_len(Aft),
     NAft = "': ",
     {{[$\^S|Bef],NAft}, % we insert ^S as a flag to whoever called us
      [{insert_chars, unicode, NAft}, {delete_chars,-Offset}|Rs],
@@ -328,12 +338,12 @@ do_op({search, skip_down}, Bef, Aft, Rs) ->
 do_op({search, search_found}, _Bef, Aft, Rs) ->
     "': "++NAft = Aft,
     {{[],NAft},
-     [{put_chars, unicode, "\n"}, {move_rel,-length(Aft)} | Rs],
+     [{put_chars, unicode, "\n"}, {move_rel,-cp_len(Aft)} | Rs],
      search_found};
 do_op({search, search_quit}, _Bef, Aft, Rs) ->
     "': "++NAft = Aft,
     {{[],NAft},
-     [{put_chars, unicode, "\n"}, {move_rel,-length(Aft)} | Rs],
+     [{put_chars, unicode, "\n"}, {move_rel,-cp_len(Aft)} | Rs],
      search_quit};
 %% do blink after $$
 do_op({blink,C,M}, Bef=[$$,$$|_], Aft, Rs) ->
@@ -361,14 +371,16 @@ do_op(auto_blink, Bef, Aft, Rs) ->
 	N -> {blink,N+1,{Bef,Aft},
 	      [{move_rel,-(N+1)}|Rs]}
     end;
-do_op(forward_delete_char, Bef, [_|Aft], Rs) ->
-    {{Bef,Aft},[{delete_chars,1}|Rs]};
-do_op(backward_delete_char, [_|Bef], Aft, Rs) ->
-    {{Bef,Aft},[{delete_chars,-1}|Rs]};
+do_op(forward_delete_char, Bef, [GC|Aft], Rs) ->
+    {{Bef,Aft},[{delete_chars,gc_len(GC)}|Rs]};
+do_op(backward_delete_char, [GC|Bef], Aft, Rs) ->
+    {{Bef,Aft},[{delete_chars,-gc_len(GC)}|Rs]};
 do_op(transpose_char, [C1,C2|Bef], [], Rs) ->
-    {{[C2,C1|Bef],[]},[{put_chars, unicode,[C1,C2]},{move_rel,-2}|Rs]};
+    Len = gc_len(C1)+gc_len(C2),
+    {{[C2,C1|Bef],[]},[{put_chars, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
 do_op(transpose_char, [C2|Bef], [C1|Aft], Rs) ->
-    {{[C2,C1|Bef],Aft},[{put_chars, unicode,[C1,C2]},{move_rel,-1}|Rs]};
+    Len = gc_len(C2),
+    {{[C2,C1|Bef],Aft},[{put_chars, unicode,[C1,C2]},{move_rel,-Len}|Rs]};
 do_op(kill_word, Bef, Aft0, Rs) ->
     {Aft1,Kill0,N0} = over_non_word(Aft0, [], 0),
     {Aft,Kill,N} = over_word(Aft1, Kill0, N0),
@@ -381,7 +393,7 @@ do_op(backward_kill_word, Bef0, Aft, Rs) ->
     {{Bef,Aft},[{delete_chars,-N}|Rs]};
 do_op(kill_line, Bef, Aft, Rs) ->
     put(kill_buffer, Aft),
-    {{Bef,[]},[{delete_chars,length(Aft)}|Rs]};
+    {{Bef,[]},[{delete_chars,cp_len(Aft)}|Rs]};
 do_op(yank, Bef, [], Rs) ->
     Kill = get(kill_buffer),
     {{reverse(Kill, Bef),[]},[{put_chars, unicode,Kill}|Rs]};
@@ -389,9 +401,9 @@ do_op(yank, Bef, Aft, Rs) ->
     Kill = get(kill_buffer),
     {{reverse(Kill, Bef),Aft},[{insert_chars, unicode,Kill}|Rs]};
 do_op(forward_char, Bef, [C|Aft], Rs) ->
-    {{[C|Bef],Aft},[{move_rel,1}|Rs]};
+    {{[C|Bef],Aft},[{move_rel,gc_len(C)}|Rs]};
 do_op(backward_char, [C|Bef], Aft, Rs) ->
-    {{Bef,[C|Aft]},[{move_rel,-1}|Rs]};
+    {{Bef,[C|Aft]},[{move_rel,-gc_len(C)}|Rs]};
 do_op(forward_word, Bef0, Aft0, Rs) ->
     {Aft1,Bef1,N0} = over_non_word(Aft0, Bef0, 0),
     {Aft,Bef,N} = over_word(Aft1, Bef1, N0),
@@ -400,17 +412,17 @@ do_op(backward_word, Bef0, Aft0, Rs) ->
     {Bef1,Aft1,N0} = over_non_word(Bef0, Aft0, 0),
     {Bef,Aft,N} = over_word(Bef1, Aft1, N0),
     {{Bef,Aft},[{move_rel,-N}|Rs]};
-do_op(beginning_of_line, [C|Bef], Aft, Rs) ->
-    {{[],reverse(Bef, [C|Aft])},[{move_rel,-(length(Bef)+1)}|Rs]};
+do_op(beginning_of_line, [_|_]=Bef, Aft, Rs) ->
+    {{[],reverse(Bef, Aft)},[{move_rel,-(cp_len(Bef))}|Rs]};
 do_op(beginning_of_line, [], Aft, Rs) ->
     {{[],Aft},Rs};
-do_op(end_of_line, Bef, [C|Aft], Rs) ->
-    {{reverse(Aft, [C|Bef]),[]},[{move_rel,length(Aft)+1}|Rs]};
+do_op(end_of_line, Bef, [_|_]=Aft, Rs) ->
+    {{reverse(Aft, Bef),[]},[{move_rel,cp_len(Aft)}|Rs]};
 do_op(end_of_line, Bef, [], Rs) ->
     {{Bef,[]},Rs};
 do_op(ctlu, Bef, Aft, Rs) ->
     put(kill_buffer, reverse(Bef)),
-    {{[], Aft}, [{delete_chars, -length(Bef)} | Rs]};
+    {{[], Aft}, [{delete_chars, -cp_len(Bef)} | Rs]};
 do_op(beep, Bef, Aft, Rs) ->
     {{Bef,Aft},[beep|Rs]};
 do_op(_, Bef, Aft, Rs) ->
@@ -436,7 +448,7 @@ over_word(Cs, Stack, N) ->
 until_quote([$\'|Cs], Stack, N) ->
     {Cs, [$\'|Stack], N+1};
 until_quote([C|Cs], Stack, N) ->
-    until_quote(Cs, [C|Stack], N+1).
+    until_quote(Cs, [C|Stack], N+gc_len(C)).
 
 over_word1([$\'=C|Cs], Stack, N) ->
     until_quote(Cs, [C|Stack], N+1);
@@ -445,7 +457,7 @@ over_word1(Cs, Stack, N) ->
 
 over_word2([C|Cs], Stack, N) ->
     case word_char(C) of
-	true -> over_word2(Cs, [C|Stack], N+1);
+	true -> over_word2(Cs, [C|Stack], N+gc_len(C));
 	false -> {[C|Cs],Stack,N}
     end;
 over_word2([], Stack, N) when is_integer(N) ->
@@ -454,7 +466,7 @@ over_word2([], Stack, N) when is_integer(N) ->
 over_non_word([C|Cs], Stack, N) ->
     case word_char(C) of
 	true -> {[C|Cs],Stack,N};
-	false -> over_non_word(Cs, [C|Stack], N+1)
+	false -> over_non_word(Cs, [C|Stack], N+gc_len(C))
     end;
 over_non_word([], Stack, N) ->
     {[],Stack,N}.
@@ -465,6 +477,7 @@ word_char(C) when C >= $a, C =< $z -> true;
 word_char(C) when C >= $ß, C =< $ÿ, C =/= $÷ -> true;
 word_char(C) when C >= $0, C =< $9 -> true;
 word_char(C) when C =:= $_ -> true;
+word_char([_|_]) -> true; %% Is grapheme
 word_char(_) -> false.
 
 %% over_white(Chars, InitialStack, InitialCount) ->
@@ -488,8 +501,8 @@ over_paren(Chars, Paren, Match) ->
 
 over_paren([C,$$,$$|Cs], Paren, Match, D, N, L)  ->
     over_paren([C|Cs], Paren, Match, D, N+2, L);
-over_paren([_,$$|Cs], Paren, Match, D, N, L)  ->
-    over_paren(Cs, Paren, Match, D, N+2, L);
+over_paren([GC,$$|Cs], Paren, Match, D, N, L)  ->
+    over_paren(Cs, Paren, Match, D, N+1+gc_len(GC), L);
 over_paren([Match|_], _Paren, Match, 1, N, _) ->
     N;
 over_paren([Match|Cs], Paren, Match, D, N, [Match|L]) ->
@@ -518,8 +531,8 @@ over_paren([$[|_], _, _, _, _, _)  ->
 over_paren([${|_], _, _, _, _, _)  ->
     beep;
 
-over_paren([_|Cs], Paren, Match, D, N, L)  ->
-    over_paren(Cs, Paren, Match, D, N+1, L);
+over_paren([GC|Cs], Paren, Match, D, N, L)  ->
+    over_paren(Cs, Paren, Match, D, N+gc_len(GC), L);
 over_paren([], _, _, _, _, _) ->
     0.
 
@@ -529,8 +542,8 @@ over_paren_auto(Chars) ->
 
 over_paren_auto([C,$$,$$|Cs], D, N, L)  ->
     over_paren_auto([C|Cs], D, N+2, L);
-over_paren_auto([_,$$|Cs], D, N, L)  ->
-    over_paren_auto(Cs, D, N+2, L);
+over_paren_auto([GC,$$|Cs], D, N, L)  ->
+    over_paren_auto(Cs, D, N+1+gc_len(GC), L);
 
 over_paren_auto([$(|_], _, N, [])  ->
     {N, $)};
@@ -553,8 +566,8 @@ over_paren_auto([$[|Cs], D, N, [$[|L])  ->
 over_paren_auto([${|Cs], D, N, [${|L])  ->
     over_paren_auto(Cs, D, N+1, L);
 
-over_paren_auto([_|Cs], D, N, L)  ->
-    over_paren_auto(Cs, D, N+1, L);
+over_paren_auto([GC|Cs], D, N, L)  ->
+    over_paren_auto(Cs, D, N+gc_len(GC), L);
 over_paren_auto([], _, _, _) ->
     0.
 
@@ -574,28 +587,43 @@ erase_inp({line,_,{Bef,Aft},_}) ->
     reverse(erase([], Bef, Aft, [])).
 
 erase(Pbs, Bef, Aft, Rs) ->
-    [{delete_chars,-length(Pbs)-length(Bef)},{delete_chars,length(Aft)}|Rs].
+    [{delete_chars,-cp_len(Pbs)-cp_len(Bef)},{delete_chars,cp_len(Aft)}|Rs].
 
 redraw_line({line,Pbs,{Bef,Aft},_}) ->
     reverse(redraw(Pbs, Bef, Aft, [])).
 
 redraw(Pbs, Bef, Aft, Rs) ->
-    [{move_rel,-length(Aft)},{put_chars, unicode,reverse(Bef, Aft)},{put_chars, unicode,Pbs}|Rs].
+    [{move_rel,-cp_len(Aft)},{put_chars, unicode,reverse(Bef, Aft)},{put_chars, unicode,Pbs}|Rs].
 
 length_before({line,Pbs,{Bef,_Aft},_}) ->
-    length(Pbs) + length(Bef).
+    cp_len(Pbs) + cp_len(Bef).
 
 length_after({line,_,{_Bef,Aft},_}) ->
-    length(Aft).
+    cp_len(Aft).
 
 prompt({line,Pbs,_,_}) ->
     Pbs.
 
 current_line({line,_,{Bef, Aft},_}) ->
-    reverse(Bef, Aft ++ "\n").
+    get_line(Bef, Aft ++ "\n").
 
 current_chars({line,_,{Bef,Aft},_}) ->
-    reverse(Bef, Aft).
+    get_line(Bef, Aft).
+
+get_line(Bef, Aft) ->
+    unicode:characters_to_list(reverse(Bef, Aft)).
+
+%% Grapheme length in codepoints
+gc_len(CP) when is_integer(CP) -> 1;
+gc_len(CPs) when is_list(CPs) -> length(CPs).
+
+%% String length in codepoints
+cp_len(Str) ->
+    cp_len(Str, 0).
+
+cp_len([GC|R], Len) ->
+    cp_len(R, Len + gc_len(GC));
+cp_len([], Len) -> Len.
 
 %% %% expand(CurrentBefore) ->
 %% %%	{yes,Expansion} | no

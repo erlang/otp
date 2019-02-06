@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,16 +12,12 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-%% =====================================================================
-%% Type information for Erlang Built-in functions (implemented in C)
-%%
-%% Copyright (C) 2002 Richard Carlsson
-%% Copyright (C) 2006 Richard Carlsson, Tobias Lindahl and Kostis Sagonas
-%%
-%% Author contact: richardc@it.uu.se, tobiasl@it.uu.se, kostis@it.uu.se
-%% =====================================================================
+%% @doc Type information for Erlang Built-in functions (implemented in C)
+%% @copyright 2002 Richard Carlsson, 2006 Richard Carlsson, Tobias Lindahl
+%% and Kostis Sagonas
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
+%% @author Tobias Lindahl <tobias.lindahl@gmail.com>
+%% @author Kostis Sagonas <kostis@it.uu.se>
 
 -module(erl_bif_types).
 
@@ -560,6 +552,9 @@ type(erlang, byte_size, 1, Xs, Opaques) ->
   strict(erlang, byte_size, 1, Xs,
 	 fun (_) -> t_non_neg_integer() end, Opaques);
 %% Guard bif, needs to be here.
+type(erlang, ceil, 1, Xs, Opaques) ->
+  strict(erlang, ceil, 1, Xs, fun (_) -> t_integer() end, Opaques);
+%% Guard bif, needs to be here.
 %% Also much more expressive than anything you could write in a spec...
 type(erlang, element, 2, Xs, Opaques) ->
   strict(erlang, element, 2, Xs,
@@ -587,6 +582,16 @@ type(erlang, element, 2, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, float, 1, Xs, Opaques) ->
   strict(erlang, float, 1, Xs, fun (_) -> t_float() end, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, floor, 1, Xs, Opaques) ->
+  strict(erlang, floor, 1, Xs, fun (_) -> t_integer() end, Opaques);
+%% Primop, needs to be somewhere.
+type(erlang, build_stacktrace, 0, _, _Opaques) ->
+  t_list(t_tuple([t_module(),
+                  t_atom(),
+                  t_sup([t_arity(),t_list()]),
+                  t_list(t_sup([t_tuple([t_atom('file'),t_string()]),
+                                t_tuple([t_atom('line'),t_pos_integer()])]))]));
 %% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs, Opaques) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
@@ -660,6 +665,8 @@ type(erlang, is_map, 1, Xs, Opaques) ->
 	    check_guard(X, fun (Y) -> t_is_map(Y, Opaques) end,
 	    t_map(), Opaques) end,
   strict(erlang, is_map, 1, Xs, Fun, Opaques);
+type(erlang, is_map_key, 2, Xs, Opaques) ->
+  type(maps, is_key, 2, Xs, Opaques);
 type(erlang, is_number, 1, Xs, Opaques) ->
   Fun = fun (X) ->
 	    check_guard(X, fun (Y) -> t_is_number(Y, Opaques) end,
@@ -765,6 +772,9 @@ type(erlang, length, 1, Xs, Opaques) ->
 %% Guard bif, needs to be here.
 type(erlang, map_size, 1, Xs, Opaques) ->
   type(maps, size, 1, Xs, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, map_get, 2, Xs, Opaques) ->
+  type(maps, get, 2, Xs, Opaques);
 type(erlang, make_fun, 3, Xs, Opaques) ->
   strict(erlang, make_fun, 3, Xs,
          fun ([_, _, Arity]) ->
@@ -997,9 +1007,9 @@ type(erlang, tuple_to_list, 1, Xs, Opaques) ->
 	 end, Opaques);
 %%-- hipe_bifs ----------------------------------------------------------------
 type(hipe_bifs, add_ref, 2, Xs, Opaques) ->
-  strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, alloc_data, 2, Xs, Opaques) ->
-  strict(hipe_bifs, alloc_data, 2, Xs,
+  strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_atom('ok') end, Opaques);
+type(hipe_bifs, alloc_data, 3, Xs, Opaques) ->
+  strict(hipe_bifs, alloc_data, 3, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, array, 2, Xs, Opaques) ->
   strict(hipe_bifs, array, 2, Xs, fun (_) -> t_immarray() end, Opaques);
@@ -1046,16 +1056,16 @@ type(hipe_bifs, call_count_on, 1, Xs, Opaques) ->
 	 fun (_) -> t_sup(t_atom('true'), t_nil()) end, Opaques);
 type(hipe_bifs, check_crc, 1, Xs, Opaques) ->
   strict(hipe_bifs, check_crc, 1, Xs, fun (_) -> t_boolean() end, Opaques);
-type(hipe_bifs, enter_code, 2, Xs, Opaques) ->
-  strict(hipe_bifs, enter_code, 2, Xs,
+type(hipe_bifs, enter_code, 3, Xs, Opaques) ->
+  strict(hipe_bifs, enter_code, 3, Xs,
 	 fun (_) -> t_tuple([t_integer(),
 			     %% XXX: The tuple below contains integers and
 			     %% is of size same as the length of the MFA list
 			     t_sup(t_nil(), t_binary())]) end, Opaques);
-type(hipe_bifs, enter_sdesc, 1, Xs, Opaques) ->
-  strict(hipe_bifs, enter_sdesc, 1, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, find_na_or_make_stub, 2, Xs, Opaques) ->
-  strict(hipe_bifs, find_na_or_make_stub, 2, Xs,
+type(hipe_bifs, enter_sdesc, 2, Xs, Opaques) ->
+  strict(hipe_bifs, enter_sdesc, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, find_na_or_make_stub, 1, Xs, Opaques) ->
+  strict(hipe_bifs, find_na_or_make_stub, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques); % address
 type(hipe_bifs, fun_to_address, 1, Xs, Opaques) ->
   strict(hipe_bifs, fun_to_address, 1, Xs,
@@ -1065,12 +1075,6 @@ type(hipe_bifs, get_fe, 2, Xs, Opaques) ->
 type(hipe_bifs, get_rts_param, 1, Xs, Opaques) ->
   strict(hipe_bifs, get_rts_param, 1, Xs,
 	 fun (_) -> t_sup(t_integer(), t_nil()) end, Opaques);
-type(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs, Opaques) ->
-  strict(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, mark_referred_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, mark_referred_from, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, merge_term, 1, Xs, Opaques) ->
   strict(hipe_bifs, merge_term, 1, Xs, fun ([X]) -> X end, Opaques);
 type(hipe_bifs, nstack_used_size, 0, _, _Opaques) ->
@@ -1082,21 +1086,18 @@ type(hipe_bifs, patch_insn, 3, Xs, Opaques) ->
 type(hipe_bifs, primop_address, 1, Xs, Opaques) ->
   strict(hipe_bifs, primop_address, 1, Xs,
 	 fun (_) -> t_sup(t_integer(), t_atom('false')) end, Opaques);
-type(hipe_bifs, redirect_referred_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, redirect_referred_from, 1, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, ref, 1, Xs, Opaques) ->
   strict(hipe_bifs, ref, 1, Xs, fun (_) -> t_immarray() end, Opaques);
 type(hipe_bifs, ref_get, 1, Xs, Opaques) ->
   strict(hipe_bifs, ref_get, 1, Xs, fun (_) -> t_immediate() end, Opaques);
 type(hipe_bifs, ref_set, 2, Xs, Opaques) ->
   strict(hipe_bifs, ref_set, 2, Xs, fun (_) -> t_nil() end, Opaques);
-type(hipe_bifs, remove_refs_from, 1, Xs, Opaques) ->
-  strict(hipe_bifs, remove_refs_from, 1, Xs,
-	 fun (_) -> t_atom('ok') end, Opaques);
 type(hipe_bifs, set_funinfo_native_address, 3, Xs, Opaques) ->
   strict(hipe_bifs, set_funinfo_native_address, 3, Xs,
 	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, commit_patch_load, 1, Xs, Opaques) ->
+  strict(hipe_bifs, commit_patch_load, 1, Xs,
+	 fun (_) -> t_atom() end, Opaques);
 type(hipe_bifs, set_native_address, 3, Xs, Opaques) ->
   strict(hipe_bifs, set_native_address, 3, Xs,
 	 fun (_) -> t_nil() end, Opaques);
@@ -1108,15 +1109,14 @@ type(hipe_bifs, system_crc, 0, _, _Opaques) ->
 type(hipe_bifs, term_to_word, 1, Xs, Opaques) ->
   strict(hipe_bifs, term_to_word, 1, Xs,
 	 fun (_) -> t_integer() end, Opaques);
-type(hipe_bifs, update_code_size, 3, Xs, Opaques) ->
-  strict(hipe_bifs, update_code_size, 3, Xs,
-	 fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u8, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u8, 2, Xs, fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u32, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u32, 2, Xs, fun (_) -> t_nil() end, Opaques);
 type(hipe_bifs, write_u64, 2, Xs, Opaques) ->
   strict(hipe_bifs, write_u64, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, alloc_loader_state, 1, Xs, Opaques) ->
+  strict(hipe_bifs, alloc_loader_state, 1, Xs, fun (_) -> t_binary() end, Opaques);
 %%-- lists --------------------------------------------------------------------
 type(lists, all, 2, Xs, Opaques) ->
   strict(lists, all, 2, Xs,
@@ -1713,24 +1713,6 @@ type(maps, size, 1, Xs, Opaques) ->
 		 t_from_range(LowerBound, UpperBound)
 	     end
 	 end, Opaques);
-type(maps, to_list, 1, Xs, Opaques) ->
-  strict(maps, to_list, 1, Xs,
-	 fun ([Map]) ->
-	     DefK = t_map_def_key(Map, Opaques),
-	     DefV = t_map_def_val(Map, Opaques),
-	     Pairs = t_map_entries(Map, Opaques),
-	     EType = lists:foldl(
-		       fun({K,_,V},EType0) ->
-			   case t_is_none(V) of
-			     true -> t_subtract(EType0, t_tuple([K,t_any()]));
-			     false -> t_sup(EType0, t_tuple([K,V]))
-			   end
-		       end, t_tuple([DefK, DefV]), Pairs),
-	     case t_is_none(EType) of
-	       true -> t_nil();
-	       false -> t_list(EType)
-	     end
-	 end, Opaques);
 type(maps, update, 3, Xs, Opaques) ->
   strict(maps, update, 3, Xs,
 	 fun ([Key, Value, Map]) ->
@@ -1915,7 +1897,8 @@ infinity_div(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
 
 infinity_bsl(pos_inf, _) -> pos_inf;
 infinity_bsl(neg_inf, _) -> neg_inf;
-infinity_bsl(Number, pos_inf) when is_integer(Number), Number >= 0 -> pos_inf;
+infinity_bsl(0, pos_inf) -> 0;
+infinity_bsl(Number, pos_inf) when is_integer(Number), Number > 0 -> pos_inf;
 infinity_bsl(Number, pos_inf) when is_integer(Number) -> neg_inf;
 infinity_bsl(Number, neg_inf) when is_integer(Number), Number >= 0 -> 0;
 infinity_bsl(Number, neg_inf) when is_integer(Number) -> -1;
@@ -2004,9 +1987,11 @@ arith_abs(X1, Opaques) ->
         case infinity_geq(Min1, 0) of
           true -> {Min1, Max1};
           false ->
+            NegMin1 = infinity_inv(Min1),
+            NegMax1 = infinity_inv(Max1),
             case infinity_geq(Max1, 0) of
-              true  -> {0, infinity_inv(Min1)};
-              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+              true  -> {0, max(NegMin1, Max1)};
+              false -> {NegMax1, NegMin1}
             end
         end,
       t_from_range(NewMin, NewMax)
@@ -2038,17 +2023,14 @@ arith_rem(Min1, Max1, Min2, Max2) ->
   Min1_geq_zero = infinity_geq(Min1, 0),
   Max1_leq_zero = infinity_geq(0, Max1),
   Max_range2 = infinity_max([infinity_abs(Min2), infinity_abs(Max2)]),
-  Max_range2_leq_zero = infinity_geq(0, Max_range2),
-  New_min = 
+  New_min =
     if Min1_geq_zero -> 0;
        Max_range2 =:= 0 -> 0;
-       Max_range2_leq_zero -> infinity_add(Max_range2, 1);
        true -> infinity_add(infinity_inv(Max_range2), 1)
     end,
   New_max = 
     if Max1_leq_zero -> 0;
        Max_range2 =:= 0 -> 0;
-       Max_range2_leq_zero -> infinity_add(infinity_inv(Max_range2), -1);
        true -> infinity_add(Max_range2, -1)
     end,
   {New_min, New_max}.
@@ -2341,6 +2323,9 @@ arg_types(erlang, bit_size, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
   [t_bitstr()];
+%% Guard bif, needs to be here.
+arg_types(erlang, ceil, 1) ->
+  [t_number()];
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
@@ -2360,6 +2345,12 @@ arg_types(erlang, element, 2) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, float, 1) ->
   [t_number()];
+%% Guard bif, needs to be here.
+arg_types(erlang, floor, 1) ->
+  [t_number()];
+%% Primop, needs to be somewhere.
+arg_types(erlang, build_stacktrace, 0) ->
+  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];
@@ -2385,6 +2376,8 @@ arg_types(erlang, is_list, 1) ->
   [t_any()];
 arg_types(erlang, is_map, 1) ->
   [t_any()];
+arg_types(erlang, is_map_key, 2) ->
+  [t_any(), t_map()];
 arg_types(erlang, is_number, 1) ->
   [t_any()];
 arg_types(erlang, is_pid, 1) ->
@@ -2405,6 +2398,9 @@ arg_types(erlang, length, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, map_size, 1) ->
   [t_map()];
+%% Guard bif, needs to be here.
+arg_types(erlang, map_get, 2) ->
+  [t_any(), t_map()];
 arg_types(erlang, make_fun, 3) ->
   [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->
@@ -2458,9 +2454,9 @@ arg_types(hipe_bifs, add_ref, 2) ->
 		     t_integer(),
 		     t_sup(t_atom('call'), t_atom('load_mfa')),
 		     t_trampoline(),
-		     t_sup(t_atom('remote'), t_atom('local'))])];
-arg_types(hipe_bifs, alloc_data, 2) ->
-  [t_integer(), t_integer()];
+		     t_binary()])];
+arg_types(hipe_bifs, alloc_data, 3) ->
+  [t_integer(), t_integer(), t_binary()];
 arg_types(hipe_bifs, array, 2) ->
   [t_non_neg_fixnum(), t_immediate()];
 arg_types(hipe_bifs, array_length, 1) ->
@@ -2495,22 +2491,19 @@ arg_types(hipe_bifs, call_count_on, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, check_crc, 1) ->
   [t_crc32()];
-arg_types(hipe_bifs, enter_code, 2) ->
-  [t_binary(), t_sup(t_nil(), t_tuple())];
-arg_types(hipe_bifs, enter_sdesc, 1) ->
-  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()])];
-arg_types(hipe_bifs, find_na_or_make_stub, 2) ->
-  [t_mfa(), t_boolean()];
+arg_types(hipe_bifs, enter_code, 3) ->
+  [t_binary(), t_sup(t_nil(), t_tuple()), t_binary()];
+arg_types(hipe_bifs, enter_sdesc, 2) ->
+  [t_tuple([t_integer(), t_integer(), t_integer(), t_integer(), t_integer(), t_mfa()]),
+   t_binary()];
+arg_types(hipe_bifs, find_na_or_make_stub, 1) ->
+  [t_mfa()];
 arg_types(hipe_bifs, fun_to_address, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, get_fe, 2) ->
   [t_atom(), t_tuple([t_integer(), t_integer(), t_integer()])];
 arg_types(hipe_bifs, get_rts_param, 1) ->
   [t_fixnum()];
-arg_types(hipe_bifs, invalidate_funinfo_native_addresses, 1) ->
-  [t_list(t_mfa())];
-arg_types(hipe_bifs, mark_referred_from, 1) ->
-  [t_mfa()];
 arg_types(hipe_bifs, merge_term, 1) ->
   [t_any()];
 arg_types(hipe_bifs, nstack_used_size, 0) ->
@@ -2521,18 +2514,16 @@ arg_types(hipe_bifs, patch_insn, 3) ->
   [t_integer(), t_integer(), t_insn_type()];
 arg_types(hipe_bifs, primop_address, 1) ->
   [t_atom()];
-arg_types(hipe_bifs, redirect_referred_from, 1) ->
-  [t_mfa()];
 arg_types(hipe_bifs, ref, 1) ->
   [t_immediate()];
 arg_types(hipe_bifs, ref_get, 1) ->
   [t_hiperef()];
 arg_types(hipe_bifs, ref_set, 2) ->
   [t_hiperef(), t_immediate()];
-arg_types(hipe_bifs, remove_refs_from, 1) ->
-  [t_sup([t_mfa(), t_atom('all')])];
 arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
   arg_types(hipe_bifs, set_native_address, 3);
+arg_types(hipe_bifs, commit_patch_load, 1) ->
+  [t_binary()];
 arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
 arg_types(hipe_bifs, set_native_address_in_fe, 2) ->
@@ -2541,14 +2532,15 @@ arg_types(hipe_bifs, system_crc, 0) ->
   [];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
-arg_types(hipe_bifs, update_code_size, 3) ->
-  [t_atom(), t_sup(t_nil(), t_binary()), t_integer()];
 arg_types(hipe_bifs, write_u8, 2) ->
   [t_integer(), t_byte()];
 arg_types(hipe_bifs, write_u32, 2) ->
   [t_integer(), t_integer()];
 arg_types(hipe_bifs, write_u64, 2) ->
   [t_integer(), t_integer()];
+arg_types(hipe_bifs, alloc_loader_state, 1) ->
+  [t_atom()];
+
 %%------- lists ---------------------------------------------------------------
 arg_types(lists, all, 2) ->
   [t_fun([t_any()], t_boolean()), t_list()];
@@ -2660,8 +2652,6 @@ arg_types(maps, merge, 2) ->
 arg_types(maps, put, 3) ->
   [t_any(), t_any(), t_map()];
 arg_types(maps, size, 1) ->
-  [t_map()];
-arg_types(maps, to_list, 1) ->
   [t_map()];
 arg_types(maps, update, 3) ->
   [t_any(), t_any(), t_map()];

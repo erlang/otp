@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -233,9 +233,22 @@ handle_event(#wx{id=?ID_REFRESH},State = #state{pid=Pid}) ->
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
-	     State = #state{pid=Pid}) ->
+	     State = #state{pid=Pid, grid=Grid, selected=OldSel}) ->
+    SelObj = case OldSel of
+                 undefined -> undefined;
+                 _ -> get_row(Pid, OldSel, term)
+             end,
     Pid ! {sort, Col+1},
-    {noreply, State};
+    case SelObj =/= undefined andalso search(Pid, SelObj, -1, true, term) of
+        false when is_integer(OldSel) ->
+            wxListCtrl:setItemState(Grid, OldSel, 0, ?wxLIST_STATE_SELECTED),
+            {noreply, State#state{selected=undefined}};
+        false ->
+            {noreply, State#state{selected=undefined}};
+        Row ->
+            wxListCtrl:setItemState(Grid, Row, 16#FFFF, ?wxLIST_STATE_SELECTED),
+            {noreply, State#state{selected=Row}}
+    end;
 
 handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
@@ -245,7 +258,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Index}
 	     State = #state{pid=Pid, grid=Grid, status=StatusBar}) ->
     N = wxListCtrl:getItemCount(Grid),
     Str = get_row(Pid, Index, all),
-    wxStatusBar:setStatusText(StatusBar, io_lib:format("Objects: ~w: ~s",[N, Str])),
+    wxStatusBar:setStatusText(StatusBar, io_lib:format("Objects: ~w: ~ts",[N, Str])),
     {noreply, State#state{selected=Index}};
 
 handle_event(#wx{event=#wxList{type=command_list_item_activated, itemIndex=Index}},
@@ -265,7 +278,7 @@ handle_event(#wx{id=?ID_DELETE},
 	     State = #state{grid=Grid, pid=Pid, status=StatusBar, selected=Index}) ->
     Str = get_row(Pid, Index, all),
     Pid ! {delete, Index},
-    wxStatusBar:setStatusText(StatusBar, io_lib:format("Deleted object: ~s",[Str])),
+    wxStatusBar:setStatusText(StatusBar, io_lib:format("Deleted object: ~ts",[Str])),
     wxListCtrl:setItemState(Grid, Index, 0, ?wxLIST_STATE_FOCUSED),
     {noreply, State#state{selected=undefined}};
 
@@ -325,7 +338,7 @@ handle_event(#wx{id=?SEARCH_ENTRY, event=#wxCommand{type=command_text_enter,cmdS
     Pid ! {mark_search_hit, false},
     case search(Pid, Str, Pos, Dir, Case) of
 	false ->
-	    wxStatusBar:setStatusText(SB, io_lib:format("Not found (regexp): ~s",[Str])),
+	    wxStatusBar:setStatusText(SB, io_lib:format("Not found (regexp): ~ts",[Str])),
 	    Pid ! {mark_search_hit, Find#find.start},
 	    wxListCtrl:refreshItem(Grid, Find#find.start),
 	    {noreply, State#state{search=Search#search{find=Find#find{found=false}}}};
@@ -359,7 +372,7 @@ handle_event(#wx{id=?SEARCH_ENTRY, event=#wxCommand{cmdString=Str}},
 	Pid ! {mark_search_hit, false},
 	case search(Pid, Str, Cont#find.start, Dir, Case) of
 	    false ->
-		wxStatusBar:setStatusText(SB, io_lib:format("Not found (regexp): ~s",[Str])),
+		wxStatusBar:setStatusText(SB, io_lib:format("Not found (regexp): ~ts",[Str])),
 		{noreply, State};
 	    Row ->
 		wxListCtrl:ensureVisible(Grid, Row),
@@ -382,19 +395,19 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     {noreply, State#state{timer=Timer}};
 
 handle_event(_Event, State) ->
-    %io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
+    %io:format("~p:~p, handle event ~tp\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 handle_sync_event(_Event, _Obj, _State) ->
-    %io:format("~p:~p, handle sync_event ~p\n", [?MODULE, ?LINE, Event]),
+    %io:format("~p:~p, handle sync_event ~tp\n", [?MODULE, ?LINE, Event]),
     ok.
 
 handle_call(_Event, _From, State) ->
-    %io:format("~p:~p, handle call (~p) ~p\n", [?MODULE, ?LINE, From, Event]),
+    %io:format("~p:~p, handle call (~p) ~tp\n", [?MODULE, ?LINE, From, Event]),
     {noreply, State}.
 
 handle_cast(_Event, State) ->
-    %io:format("~p:~p, handle cast ~p\n", [?MODULE, ?LINE, Event]),
+    %io:format("~p:~p, handle cast ~tp\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 handle_info({no_rows, N}, State = #state{grid=Grid, status=StatusBar}) ->
@@ -420,7 +433,7 @@ handle_info(refresh_interval, State = #state{pid=Pid}) ->
 handle_info({error, Error}, State = #state{frame=Frame}) ->
     ErrorStr =
 	try io_lib:format("~ts", [Error]), Error
-	catch _:_ -> io_lib:format("~p", [Error])
+	catch _:_ -> io_lib:format("~tp", [Error])
 	end,
     Dlg = wxMessageDialog:new(Frame, ErrorStr),
     wxMessageDialog:showModal(Dlg),
@@ -428,7 +441,7 @@ handle_info({error, Error}, State = #state{frame=Frame}) ->
     {noreply, State};
 
 handle_info(_Event, State) ->
-    %% io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, _Event]),
+    %% io:format("~p:~p, handle info ~tp\n", [?MODULE, ?LINE, _Event]),
     {noreply, State}.
 
 terminate(_Event, #state{pid=Pid, attrs=Attrs}) ->
@@ -541,7 +554,7 @@ table_holder(S0 = #holder{parent=Parent, pid=Pid, table=Table}) ->
 	    edit_row(Row, Term, S0),
 	    table_holder(S0);
 	What ->
-	    io:format("Table holder got ~p~n",[What]),
+	    io:format("Table holder got ~tp~n",[What]),
 	    Parent ! {refresh, 0, S0#holder.n-1},
 	    table_holder(S0)
     end.
@@ -607,6 +620,17 @@ keysort(Col, Table) ->
 	   end,
     lists:sort(Sort, Table).
 
+search([Term, -1, true, term], S=#holder{parent=Parent, table=Table}) ->
+    Search = fun(Idx, [Tuple|_]) ->
+                     Tuple =:= Term andalso throw(Idx),
+                     Tuple
+             end,
+    try array:map(Search, Table) of
+        _ -> Parent ! {self(), false}
+    catch Index ->
+            Parent ! {self(), Index}
+    end,
+    S;
 search([Str, Row, Dir0, CaseSens],
        S=#holder{parent=Parent, n=N, table=Table}) ->
     Opt = case CaseSens of
@@ -617,7 +641,7 @@ search([Str, Row, Dir0, CaseSens],
 	      true -> 1;
 	      false -> -1
 	  end,
-    Res = case re:compile(Str, Opt) of
+    Res = case re:compile(Str, [unicode|Opt]) of
 	      {ok, Re} -> re_search(Row, Dir, N, Re, Table);
 	      {error, _} -> false
 	  end,
@@ -641,7 +665,9 @@ get_row(From, Row, Col, Table) ->
 	[Object|_] when Col =:= all ->
 	    From ! {self(), format(Object)};
 	[Object|_] when Col =:= all_multiline ->
-	    From ! {self(), io_lib:format("~p", [Object])};
+	    From ! {self(), io_lib:format("~tp", [Object])};
+        [Object|_] when Col =:= term ->
+	    From ! {self(), Object};
 	[Object|_] when tuple_size(Object) >= Col ->
 	    From ! {self(), format(element(Col, Object))};
 	_ ->
@@ -775,7 +801,7 @@ format(Bin) when is_binary(Bin), byte_size(Bin) > 100 ->
     io_lib:format("<<#Bin:~w>>", [byte_size(Bin)]);
 format(Bin) when is_binary(Bin) ->
     try
-	true = printable_list(unicode:characters_to_list(Bin)),
+	true = io_lib:printable_list(unicode:characters_to_list(Bin)),
 	io_lib:format("<<\"~ts\">>", [Bin])
     catch _:_ ->
 	    io_lib:format("~w", [Bin])
@@ -783,7 +809,7 @@ format(Bin) when is_binary(Bin) ->
 format(Float) when is_float(Float) ->
     io_lib:format("~.3g", [Float]);
 format(Term) ->
-    io_lib:format("~w", [Term]).
+    io_lib:format("~tw", [Term]).
 
 format_tuple(Tuple, I, Max) when I < Max ->
     [format(element(I, Tuple)), $,|format_tuple(Tuple, I+1, Max)];
@@ -794,7 +820,7 @@ format_tuple(_Tuple, 1, 0) ->
 
 format_list([]) -> "[]";
 format_list(List) ->
-    case printable_list(List) of
+    case io_lib:printable_list(List) of
 	true ->  io_lib:format("\"~ts\"", [map_printable_list(List)]);
 	false -> [$[ | make_list(List)]
     end.
@@ -823,26 +849,3 @@ map_printable_list([$\e|Cs]) ->
 map_printable_list([]) -> [];
 map_printable_list([C|Cs]) ->
     [C|map_printable_list(Cs)].
-
-%% printable_list([Char]) -> bool()
-%%  Return true if CharList is a list of printable characters, else
-%%  false.
-
-printable_list([C|Cs]) when is_integer(C), C >= $ , C =< 255 ->
-    printable_list(Cs);
-printable_list([$\n|Cs]) ->
-    printable_list(Cs);
-printable_list([$\r|Cs]) ->
-    printable_list(Cs);
-printable_list([$\t|Cs]) ->
-    printable_list(Cs);
-printable_list([$\v|Cs]) ->
-    printable_list(Cs);
-printable_list([$\b|Cs]) ->
-    printable_list(Cs);
-printable_list([$\f|Cs]) ->
-    printable_list(Cs);
-printable_list([$\e|Cs]) ->
-    printable_list(Cs);
-printable_list([]) -> true;
-printable_list(_Other) -> false.	     %Everything else is false

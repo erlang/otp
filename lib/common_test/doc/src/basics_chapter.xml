@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,7 +75,7 @@
     
     <p><c>Common Test</c> is also a very useful tool for white-box testing Erlang
       code (for example, module testing), as the test programs can call exported Erlang
-      functions directly. there is very little overhead required for
+      functions directly. There is very little overhead required for
       implementing basic test suites and executing simple tests. For black-box
       testing Erlang software, Erlang RPC and standard O&amp;M interfaces
       can be used for example.

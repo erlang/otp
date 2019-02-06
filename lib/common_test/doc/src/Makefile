@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,14 +53,14 @@ XML_REF3_FILES = ct.xml \
 	ct_slave.xml \
 	ct_property_test.xml \
 	ct_netconfc.xml \
-	ct_hooks.xml
+	ct_hooks.xml \
+        ct_testspec.xml
 XML_REF6_FILES = common_test_app.xml
 
-XML_PART_FILES = part.xml 
-#	part_notes.xml \
-#	part_notes_history.xml
+XML_PART_FILES = part.xml
 
 XML_CHAPTER_FILES = \
+	introduction.xml \
 	basics_chapter.xml \
 	getting_started_chapter.xml \
 	install_chapter.xml \
@@ -75,8 +75,7 @@ XML_CHAPTER_FILES = \
 	event_handler_chapter.xml \
 	ct_hooks_chapter.xml \
 	dependencies_chapter.xml \
-	notes.xml \
-	notes_history.xml 
+	notes.xml
 
 BOOK_FILES = book.xml
 
@@ -105,11 +104,17 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
+SPECS_FLAGS = -I../../include -I../../../snmp/include \
+	-I../../../kernel/include
 
 # ----------------------------------------------------
 # Targets
@@ -118,32 +123,34 @@ DVIPS_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: gifs $(HTML_REF_MAN_FILE) 
+html: gifs $(HTML_REF_MAN_FILE)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 man: $(MAN6_FILES) $(MAN3_FILES) $(MAN1_FILES)
 
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f $(SPECDIR)/*
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 

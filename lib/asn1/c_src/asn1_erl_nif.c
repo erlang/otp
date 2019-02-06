@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 /* #define ASN1_DEBUG 1 */
 
@@ -901,31 +901,35 @@ static int ber_decode_tag(ErlNifEnv* env, ERL_NIF_TERM *tag, unsigned char *in_b
 
     /* then get the tag number */
     if ((tmp_tag = (int) INVMASK(in_buf[*ib_index],ASN1_CLASSFORM)) < 31) {
-	*tag = enif_make_uint(env, tag_no + tmp_tag);
+	*tag = enif_make_uint(env, tag_no | tmp_tag);
 	(*ib_index)++;
     } else {
-	int n = 0; /* n is used to check that the 64K limit is not
-	 exceeded*/
-
 	/* should check that at least three bytes are left in
 	 in-buffer,at least two tag byte and at least one length byte */
 	if ((*ib_index + 3) > in_buf_len)
 	    return ASN1_VALUE_ERROR;
 	(*ib_index)++;
-	/* The tag is in the following bytes in in_buf as
-	 1ttttttt 1ttttttt ... 0ttttttt, where the t-bits
-	 is the tag number*/
-	/* In practice is the tag size limited to 64K, i.e. 16 bits. If
-	 the tag is greater then 64K return an error */
-	while (((tmp_tag = (int) in_buf[*ib_index]) >= 128) && n < 2) {
-	    /* m.s.b. = 1 */
-	    tag_no = tag_no + (MASK(tmp_tag,ASN1_LONG_TAG) << 7);
+	/*
+         * The tag is in the following bytes in in_buf as:
+         *
+         *  1ttttttt 0ttttttt
+         *
+         * or
+         *
+         *  0ttttttt
+         *
+         * where the t-bits is the tag number. If the tag does not
+         * fit in two tag bytes (16K), return an error.
+         */
+	if ((tmp_tag = (int) in_buf[*ib_index]) >= 128) {
+	    tag_no = tag_no | (MASK(tmp_tag,ASN1_LONG_TAG) << 7);
 	    (*ib_index)++;
-	    n++;
-	};
-	if ((n == 2) && in_buf[*ib_index] > 3)
-	    return ASN1_TAG_ERROR; /* tag number > 64K */
-	tag_no = tag_no + in_buf[*ib_index];
+	}
+        tmp_tag = (int) in_buf[*ib_index];
+	if (tmp_tag >= 128) {
+	    return ASN1_TAG_ERROR; /* tag number > 16K */
+        }
+	tag_no = tag_no | tmp_tag;
 	(*ib_index)++;
 	*tag = enif_make_uint(env, tag_no);
     }
@@ -944,6 +948,12 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     unsigned int lenoflen = 0;
     unsigned char *tmp_out_buff;
     ERL_NIF_TERM term = 0, curr_head = 0;
+
+    /* Recursion depth limitation, borrow a signed int: maybe_ret */
+    maybe_ret = (int) (ErlNifSInt) ((char *)value - (char *)ib_index);
+    maybe_ret = maybe_ret < 0 ? -maybe_ret : maybe_ret;
+    if (maybe_ret >= sizeof(void *) * 8192) /* 8 k pointer words */
+        return ASN1_ERROR;
 
     if (((in_buf[*ib_index]) & 0x80) == ASN1_SHORT_DEFINITE_LENGTH) {
 	len = in_buf[*ib_index];
@@ -989,7 +999,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	while (*ib_index < end_index) {
 
 	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index,
-		    in_buf_len)) <= ASN1_ERROR
+                   end_index )) <= ASN1_ERROR
 	    )
 		return maybe_ret;
 	    curr_head = enif_make_list_cell(env, term, curr_head);

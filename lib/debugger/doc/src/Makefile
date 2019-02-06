@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = debugger.xml i.xml int.xml
 
 XML_PART_FILES = part.xml
-XML_CHAPTER_FILES = debugger_chapter.xml notes.xml
+XML_CHAPTER_FILES = introduction.xml debugger_chapter.xml notes.xml
 
 BOOK_FILES = book.xml
 
@@ -99,6 +99,7 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~

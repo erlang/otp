@@ -10264,7 +10264,7 @@ Note! This attribute cannot have a value larger than for 'egressAtmPcr'.</descri
         <attribute name="ingressAtmMcr">
             <description>Ingress minimum desired cell rate (cells/s).
 
-Only positive vaues allowed. This attribute is mandatory only when serviceCategory is UBR+.
+Only positive values allowed. This attribute is mandatory only when serviceCategory is UBR+.
 
 Note! When 'serviceCategory' is set to CBR or UBR this attribute has no relevance and the value submitted is ignored by the system.
 

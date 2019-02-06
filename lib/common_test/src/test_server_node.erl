@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r12).
+-compile(r16).
 
 %%%
 %%% The same compiled code for this module must be possible to load
-%%% in R12B and later.
+%%% in R16B and later.
 %%%
 
 %% Test Controller interface
@@ -237,23 +237,23 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},C,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
-	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n"
-	      "Caller    : ~w~n~n",
+	      "Call      : ~w:~tw/~w~n"
+	      "Arguments : ~tp~n"
+	      "Caller    : ~tw~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A,C]);
 print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
-	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n~n",
+	      "Call      : ~w:~tw/~w~n"
+	      "Arguments : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A]);
 print_trc(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process      : ~w~n"
-	      "Return from  : ~w:~w/~w~n"
-	      "Return value : ~p~n~n",
+	      "Return from  : ~w:~tw/~w~n"
+	      "Return value : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,A,R]);
 print_trc(Out,{drop,X},N) ->
     io:format(Out,
@@ -263,7 +263,7 @@ print_trc(Out,Trace,N) ->
     Ts = element(size(Trace),Trace),
     io:format(Out,
 	      "~w: ~s~n"
-	      "Trace        : ~p~n~n",
+	      "Trace        : ~tp~n~n",
 	      [N,ts(Ts),Trace]).
 ts({_, _, Micro} = Now) ->
     {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(Now),
@@ -315,9 +315,11 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = quote_progname(pick_erl_program(Prog0)),
     Args = 
-	case string:str(SuppliedArgs,"-setcookie") of
-	    0 -> "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
-	    _ -> SuppliedArgs
+	case string:find(SuppliedArgs,"-setcookie") of
+	    nomatch ->
+                "-setcookie " ++ TI#target_info.cookie ++ " " ++ SuppliedArgs;
+	    _ ->
+                SuppliedArgs
 	end,
     Cmd = lists:concat([Prog,
 			" -detached ",
@@ -580,7 +582,7 @@ kill_node(SI) ->
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
-cast_to_list(X) -> lists:flatten(io_lib:format("~w", [X])).
+cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 
 
 %%% L contains elements of the forms
@@ -589,7 +591,7 @@ cast_to_list(X) -> lists:flatten(io_lib:format("~w", [X])).
 %%%  this
 %%%
 pick_erl_program(default) ->
-    cast_to_list(lib:progname());
+    ct:get_progname();
 pick_erl_program(L) ->
     P = random_element(L),
     case P of
@@ -598,7 +600,7 @@ pick_erl_program(L) ->
 	{release, S} ->
 	    find_release(S);
 	this ->
-	    cast_to_list(lib:progname())
+	    ct:get_progname()
     end.
 
 %% This is an attempt to distinguish between spaces in the program
@@ -609,10 +611,10 @@ pick_erl_program(L) ->
 %% ({prog,String}) or if the -program switch to beam is used and
 %% includes arguments (typically done by cerl in OTP test environment
 %% in order to ensure that slave/peer nodes are started with the same
-%% emulator and flags as the test node. The return from lib:progname()
-%% could then typically be '/<full_path_to>/cerl -gcov').
+%% emulator and flags as the test node. The return from ct:get_progname()
+%% could then typically be "/<full_path_to>/cerl -gcov").
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(Progname," ")).
+    do_quote_progname(string:lexemes(Progname," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";
@@ -692,7 +694,7 @@ find_rel_suse_2(Rel, RootWc) ->
     case file:list_dir(RelDir) of
 	{ok,Dirs} ->
 	    case lists:filter(fun(Dir) ->
-				      case re:run(Dir, Pat) of
+				      case re:run(Dir, Pat, [unicode]) of
 					  nomatch -> false;
 					  _       -> true
 				      end
@@ -747,6 +749,7 @@ unpack(Bin) ->
 id(I) -> I.
    
 print_data(Port) ->
+    ct_util:mark_process(),
     receive
 	{Port, {data, Bytes}} ->
 	    io:put_chars(Bytes),

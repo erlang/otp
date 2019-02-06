@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%@doc
@@ -51,7 +45,7 @@
 %% 
 
 -module(hipe_graph_coloring_regalloc).
--export([regalloc/5]).
+-export([regalloc/7]).
 
 %%-ifndef(DO_ASSERT).
 %%-define(DO_ASSERT, true).
@@ -77,18 +71,21 @@
 %% that the coloring agrees with the interference graph (that is, that
 %% no neighbors have the same register or spill location).
 
-%% @spec regalloc(#cfg{}, non_neg_fixnum(), non_neg_fixnum(), atom(), list()) -> {, non_neg_fixnum()}
+%% @spec regalloc(#cfg{}, liveness(), non_neg_fixnum(), non_neg_fixnum(),
+%%                module(), tgt_ctx(), list()) -> {, non_neg_fixnum()}
 
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
-  PhysRegs = Target:allocatable(),
+regalloc(CFG, Live, SpillIndex, SpillLimit, TargetMod, TargetContext,
+	 _Options) ->
+  Target = {TargetMod, TargetContext},
+  PhysRegs = allocatable(Target),
   ?report2("building IG~n", []),
-  {IG, Spill} = build_ig(CFG, Target),
+  {IG, Spill} = build_ig(CFG, Live, Target),
 
   %% check_ig(IG),
   ?report3("graph: ~p~nphysical regs: ~p~n", [list_ig(IG), PhysRegs]),
 
   %% These nodes *can't* be allocated to registers. 
-  NotAllocatable = [Target:reg_nr(X) || X <- Target:non_alloc(CFG)],
+  NotAllocatable = non_alloc(CFG, Target),
   %% i.e. Arguments on x86
   ?report2("Nonalloc ~w~n", [NotAllocatable]),
 
@@ -97,7 +94,7 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 	  ordsets:from_list(PhysRegs), 
 	  SpillIndex,
 	  SpillLimit,
-	  Target:number_of_temporaries(CFG),
+	  number_of_temporaries(CFG, Target),
 	  Target, NotAllocatable),
   Coloring = [{X, {reg, X}} || X <- NotAllocatable] ++ Cols,
   ?ASSERT(check_coloring(Coloring, IG, Target)),
@@ -112,15 +109,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 %% Returns {Interference_graph, Spill_cost_dictionary}
 %%
 
-build_ig(CFG, Target) ->
-  try build_ig0(CFG, Target)
-  catch error:Rsn -> exit({?MODULE, build_ig, Rsn})
-  end.
-
-build_ig0(CFG, Target) ->
-  Live = Target:analyze(CFG),
-  NumN = Target:number_of_temporaries(CFG),  % poss. N-1?
-  {IG, Spill} = build_ig_bbs(Target:labels(CFG), 
+build_ig(CFG, Live, Target) ->
+  NumN = number_of_temporaries(CFG, Target),  % poss. N-1?
+  {IG, Spill} = build_ig_bbs(labels(CFG, Target),
 			     CFG, 
 			     Live,
 			     empty_ig(NumN), 
@@ -208,17 +199,8 @@ set_spill_cost(X, N, Spill) ->
 %%     * add low-degree neighbors of z to low
 %%     * restart the while-loop above
 
-color(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target, NotAllocatable) ->
-   try color_0(IG, Spill, PhysRegs, SpillIx, SpillLimit,
-	       NumNodes, Target, NotAllocatable)
-   catch
-     error:Rsn ->
-       ?error_msg("Coloring failed with ~p~n", [Rsn]),
-       ?EXIT(Rsn)
-   end.
-
-color_0(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
-	NotAllocatable) -> 
+color(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
+      NotAllocatable) ->
   ?report("simplification of IG~n", []),
   K = ordsets:size(PhysRegs),
   Nodes = list_ig(IG),
@@ -227,14 +209,14 @@ color_0(IG, Spill, PhysRegs, SpillIx, SpillLimit, NumNodes, Target,
 
   %% Any nodes above the spillimit must be colored first...
   MustNotSpill = 
-    if NumNodes > SpillLimit+1 ->
-	sort_on_degree(lists:seq(SpillLimit+1,NumNodes-1) -- Low,IG);
+    if NumNodes > SpillLimit ->
+	sort_on_degree(lists:seq(SpillLimit,NumNodes-1) -- Low,IG);
        true -> []
     end,
       
   ?report(" starting with low degree nodes ~p~n",[Low]),
   EmptyStk = [],
-  Precolored = Target:all_precoloured(),
+  Precolored = all_precoloured(Target),
   {Stk, NewSpillIx} = 
     simplify(Low, NumNodes, Precolored,
 	     IG, Spill, K, SpillIx, EmptyStk,
@@ -415,11 +397,11 @@ spill_costs([{N,Info}|Ns], IG, Vis, Spill, SpillLimit, Target) ->
 	true ->
 	  spill_costs(Ns,IG,Vis,Spill, SpillLimit, Target);
 	_ ->
-	  case Target:is_fixed(N) of
+	  case is_fixed(N, Target) of
 	    true ->
 	      spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target);
 	    false ->
-	      if N > SpillLimit ->
+	      if N >= SpillLimit ->
 		  spill_costs(Ns, IG, Vis, Spill, SpillLimit, Target);
 		 true ->
 		  [{spill_cost_of(N,Spill)/Deg,N} | 
@@ -772,18 +754,36 @@ valid_coloring(X, C, [_|Ys]) ->
 %% *** INTERFACES TO OTHER MODULES ***
 %%
 
-liveout(CFG, L, Target) ->
-  ordsets:from_list(reg_names(Target:liveout(CFG, L), Target)).
+all_precoloured({TgtMod,TgtCtx}) ->
+  TgtMod:all_precoloured(TgtCtx).
 
-bb(CFG, L, Target) ->
-  hipe_bb:code(Target:bb(CFG, L)).
+allocatable({TgtMod,TgtCtx}) ->
+  TgtMod:allocatable(TgtCtx).
 
-def_use(X, Target) ->
-  {ordsets:from_list(reg_names(Target:defines(X), Target)), 
-   ordsets:from_list(reg_names(Target:uses(X), Target))}.
+is_fixed(Reg, {TgtMod,TgtCtx}) ->
+  TgtMod:is_fixed(Reg, TgtCtx).
 
-reg_names(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+labels(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:labels(CFG, TgtCtx).
+
+liveout(CFG, L, Target={TgtMod,TgtCtx}) ->
+  ordsets:from_list(reg_names(TgtMod:liveout(CFG, L, TgtCtx), Target)).
+
+bb(CFG, L, {TgtMod,TgtCtx}) ->
+  hipe_bb:code(TgtMod:bb(CFG, L, TgtCtx)).
+
+def_use(X, Target={TgtMod,TgtCtx}) ->
+  {ordsets:from_list(reg_names(TgtMod:defines(X,TgtCtx), Target)),
+   ordsets:from_list(reg_names(TgtMod:uses(X,TgtCtx), Target))}.
+
+non_alloc(CFG, Target={TgtMod,TgtCtx}) ->
+  reg_names(TgtMod:non_alloc(CFG, TgtCtx), Target).
+
+number_of_temporaries(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:number_of_temporaries(CFG, TgtCtx).
+
+reg_names(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
 
 %%
 %% Precoloring: use this version when a proper implementation of
@@ -803,5 +803,5 @@ precolor0([R|Rs], Cols, Target) ->
   {[{R, {reg, physical_name(R, Target)}}|Cs], 
    set_color(R, physical_name(R, Target), Cols1)}.
 
-physical_name(X, Target) ->
-  Target:physical_name(X).
+physical_name(X, {TgtMod,TgtCtx}) ->
+  TgtMod:physical_name(X, TgtCtx).

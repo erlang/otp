@@ -64,7 +64,7 @@ new() ->
 	Name::unicode:chardata().
 
 new(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   new(Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagewximage">external documentation</a>.
@@ -85,7 +85,7 @@ new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
   new(Width,Height, []);
 new(Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
           ({index, Index}, Acc) -> [<<2:32/?UI,Index:32/?UI>>|Acc];
@@ -123,7 +123,7 @@ new(Width,Height, Options)
   wxe_util:construct(?wxImage_new_3_0,
   <<Width:32/?UI,Height:32/?UI, BinOpt/binary>>);
 new(Name,Mimetype, Options)
- when is_list(Name),is_list(Mimetype),is_list(Options) ->
+ when ?is_chardata(Name),?is_chardata(Mimetype),is_list(Options) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   Mimetype_UC = unicode:characters_to_binary([Mimetype,0]),
   MOpts = fun({index, Index}, Acc) -> [<<1:32/?UI,Index:32/?UI>>|Acc];
@@ -421,7 +421,7 @@ getGreen(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 	Name::unicode:chardata().
 
 getImageCount(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   getImageCount(Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximagegetimagecount">external documentation</a>.
@@ -430,7 +430,7 @@ getImageCount(Name)
 	Name::unicode:chardata(),
 	Option :: {'type', wx:wx_enum()}.
 getImageCount(Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -533,7 +533,7 @@ hasMask(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec getOption(This, Name) -> unicode:charlist() when
 	This::wxImage(), Name::unicode:chardata().
 getOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_GetOption,
@@ -543,7 +543,7 @@ getOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
 -spec getOptionInt(This, Name) -> integer() when
 	This::wxImage(), Name::unicode:chardata().
 getOptionInt(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_GetOptionInt,
@@ -553,7 +553,7 @@ getOptionInt(#wx_ref{type=ThisT,ref=ThisRef},Name)
 -spec hasOption(This, Name) -> boolean() when
 	This::wxImage(), Name::unicode:chardata().
 hasOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_HasOption,
@@ -599,7 +599,7 @@ isTransparent(#wx_ref{type=ThisT,ref=ThisRef},X,Y, Options)
 	This::wxImage(), Name::unicode:chardata().
 
 loadFile(This,Name)
- when is_record(This, wx_ref),is_list(Name) ->
+ when is_record(This, wx_ref),?is_chardata(Name) ->
   loadFile(This,Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximage.html#wximageloadfile">external documentation</a>.
@@ -608,7 +608,7 @@ loadFile(This,Name)
 	Option :: {'type', integer()}
 		 | {'index', integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
@@ -623,7 +623,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
 	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata(),
 	Option :: {'index', integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Mimetype, Options)
- when is_list(Name),is_list(Mimetype),is_list(Options) ->
+ when ?is_chardata(Name),?is_chardata(Mimetype),is_list(Options) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   Mimetype_UC = unicode:characters_to_binary([Mimetype,0]),
@@ -645,7 +645,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec removeHandler(Name) -> boolean() when
 	Name::unicode:chardata().
 removeHandler(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_RemoveHandler,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -784,7 +784,7 @@ rotate90(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 -spec saveFile(This, Name) -> boolean() when
 	This::wxImage(), Name::unicode:chardata().
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_SaveFile_1,
@@ -800,13 +800,13 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
       (This, Name, Mimetype) -> boolean() when
 	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata().
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type)
- when is_list(Name),is_integer(Type) ->
+ when ?is_chardata(Name),is_integer(Type) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxImage_SaveFile_2_0,
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,Type:32/?UI>>);
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Mimetype)
- when is_list(Name),is_list(Mimetype) ->
+ when ?is_chardata(Name),?is_chardata(Mimetype) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   Mimetype_UC = unicode:characters_to_binary([Mimetype,0]),
@@ -985,13 +985,13 @@ setMaskFromImage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}
       (This, Name, Value) -> 'ok' when
 	This::wxImage(), Name::unicode:chardata(), Value::unicode:chardata().
 setOption(#wx_ref{type=ThisT,ref=ThisRef},Name,Value)
- when is_list(Name),is_integer(Value) ->
+ when ?is_chardata(Name),is_integer(Value) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxImage_SetOption_2_0,
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,Value:32/?UI>>);
 setOption(#wx_ref{type=ThisT,ref=ThisRef},Name,Value)
- when is_list(Name),is_list(Value) ->
+ when ?is_chardata(Name),?is_chardata(Value) ->
   ?CLASS(ThisT,wxImage),
   Name_UC = unicode:characters_to_binary([Name,0]),
   Value_UC = unicode:characters_to_binary([Value,0]),

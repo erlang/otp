@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,16 +30,13 @@
 %%% Callback functions for the kernel application.
 %%%-----------------------------------------------------------------
 start(_, []) ->
+    %% Setup the logger and configure the kernel logger environment
+    ok = logger:internal_init_logger(),
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
-	    Type = get_error_logger_type(),
-            case error_logger:swap_handler(Type) of
-                ok -> {ok, Pid, []};
-                Error ->
-                    %% Not necessary since the node will crash anyway:
-                    exit(Pid, shutdown),
-                    Error
-            end;
+            ok = erl_signal_handler:start(),
+            ok = logger:add_handlers(kernel),
+            {ok, Pid, []};
 	Error -> Error
     end.
 
@@ -53,16 +50,6 @@ config_change(Changed, New, Removed) ->
     do_distribution_change(Changed, New, Removed),
     do_global_groups_change(Changed, New, Removed),
     ok.
-
-get_error_logger_type() ->
-    case application:get_env(kernel, error_logger) of
-	{ok, tty} -> tty;
-	{ok, {file, File}} when is_list(File) -> {logfile, File};
-	{ok, false} -> false;
-	{ok, silent} -> silent;
-	undefined -> tty; % default value
-	{ok, Bad} -> exit({bad_config, {kernel, {error_logger, Bad}}})
-    end.
 
 %%%-----------------------------------------------------------------
 %%% The process structure in kernel is as shown in the figure.
@@ -92,60 +79,128 @@ get_error_logger_type() ->
 %%%-----------------------------------------------------------------
 
 init([]) ->
-    SupFlags = {one_for_all, 0, 1},
+    SupFlags = #{strategy => one_for_all,
+                 intensity => 0,
+                 period => 1},
 
-    Config = {kernel_config,
-	      {kernel_config, start_link, []},
-	      permanent, 2000, worker, [kernel_config]},
-    Code = {code_server,
-	    {code, start_link, []},
-	    permanent, 2000, worker, [code]},
-    File = {file_server_2,
-	    {file_server, start_link, []},
-	    permanent, 2000, worker, 
-	    [file, file_server, file_io_server, prim_file]},
-    StdError = {standard_error,
-		{standard_error, start_link, []},
-		temporary, 2000, supervisor, [user_sup]},
-    User = {user,
-	    {user_sup, start, []},
-	    temporary, 2000, supervisor, [user_sup]},
-    
+    Config = #{id => kernel_config,
+               start => {kernel_config, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [kernel_config]},
+
+    RefC = #{id => kernel_refc,
+             start => {kernel_refc, start_link, []},
+             restart => permanent,
+             shutdown => 2000,
+             type => worker,
+             modules => [kernel_refc]},
+
+    Code = #{id => code_server,
+             start => {code, start_link, []},
+             restart => permanent,
+             shutdown => 2000,
+             type => worker,
+             modules => [code]},
+
+    File = #{id => file_server_2,
+             start => {file_server, start_link, []},
+             restart => permanent,
+             shutdown => 2000,
+             type => worker,
+             modules => [file, file_server, file_io_server, prim_file]},
+
+    StdError = #{id => standard_error,
+                 start => {standard_error, start_link, []},
+                 restart => temporary,
+                 shutdown => 2000,
+                 type => supervisor,
+                 modules => [user_sup]},
+
+    User = #{id => user,
+             start => {user_sup, start, []},
+             restart => temporary,
+             shutdown => 2000,
+             type => supervisor,
+             modules => [user_sup]},
+
+    SafeSup = #{id => kernel_safe_sup,
+                start =>{supervisor, start_link, [{local, kernel_safe_sup}, ?MODULE, safe]},
+                restart => permanent,
+                shutdown => infinity,
+                type => supervisor,
+                modules => [?MODULE]},
+
+
+    LoggerSup = #{id => logger_sup,
+                  start => {logger_sup, start_link, []},
+                  restart => permanent,
+                  shutdown => infinity,
+                  type => supervisor,
+                  modules => [logger_sup]},
+
     case init:get_argument(mode) of
-	{ok, [["minimal"]]} ->
-	    SafeSupervisor = {kernel_safe_sup,
-			      {supervisor, start_link,
-			       [{local, kernel_safe_sup}, ?MODULE, safe]},
-			      permanent, infinity, supervisor, [?MODULE]},
-	    {ok, {SupFlags,
-		  [Code, File, StdError, User,
-		   Config, SafeSupervisor]}};
-	_ ->
-	    Rpc = {rex, {rpc, start_link, []}, 
-		   permanent, 2000, worker, [rpc]},
-	    Global = {global_name_server, {global, start_link, []}, 
-		      permanent, 2000, worker, [global]},
-	    Glo_grp = {global_group, {global_group,start_link,[]},
-		       permanent, 2000, worker, [global_group]},
-	    InetDb = {inet_db, {inet_db, start_link, []},
-		      permanent, 2000, worker, [inet_db]},
-	    NetSup = {net_sup, {erl_distribution, start_link, []}, 
-		      permanent, infinity, supervisor,[erl_distribution]},
-	    DistAC = start_dist_ac(),
+        {ok, [["minimal"]]} ->
+            {ok, {SupFlags,
+                  [Code, File, StdError, User, LoggerSup, Config, RefC, SafeSup]}};
+        _ ->
+            Rpc = #{id => rex,
+                    start => {rpc, start_link, []},
+                    restart => permanent,
+                    shutdown => 2000,
+                    type => worker,
+                    modules => [rpc]},
 
-	    Timer = start_timer(),
+            Global = #{id => global_name_server,
+                       start => {global, start_link, []},
+                       restart => permanent,
+                       shutdown => 2000,
+                       type => worker,
+                       modules => [global]},
 
-	    SafeSupervisor = {kernel_safe_sup,
-			      {supervisor, start_link,
-			       [{local, kernel_safe_sup}, ?MODULE, safe]},
-			      permanent, infinity, supervisor, [?MODULE]},
-	    {ok, {SupFlags,
-		  [Code, Rpc, Global, InetDb | DistAC] ++
-		  [NetSup, Glo_grp, File,
-		   StdError, User, Config, SafeSupervisor] ++ Timer}}
+            GlGroup = #{id => global_group,
+                        start => {global_group,start_link,[]},
+                        restart => permanent,
+                        shutdown => 2000,
+                        type => worker,
+                        modules => [global_group]},
+
+            InetDb = #{id => inet_db,
+                       start => {inet_db, start_link, []},
+                       restart => permanent,
+                       shutdown => 2000,
+                       type => worker,
+                       modules => [inet_db]},
+
+            NetSup = #{id => net_sup,
+                       start => {erl_distribution, start_link, []},
+                       restart => permanent,
+                       shutdown => infinity,
+                       type => supervisor,
+                       modules => [erl_distribution]},
+
+            SigSrv = #{id => erl_signal_server,
+                       start => {gen_event, start_link, [{local, erl_signal_server}]},
+                       restart => permanent,
+                       shutdown => 2000,
+                       type => worker,
+                       modules => dynamic},
+
+            DistAC = start_dist_ac(),
+
+            Timer = start_timer(),
+
+            {ok, {SupFlags,
+                  [Code, Rpc, Global, InetDb | DistAC] ++
+                  [NetSup, GlGroup, File, SigSrv,
+                   StdError, User, Config, RefC, SafeSup, LoggerSup] ++ Timer}}
     end;
 init(safe) ->
-    SupFlags = {one_for_one, 4, 3600},
+    SupFlags = #{strategy => one_for_one,
+                 intensity => 4,
+                 period => 3600},
+
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
     Pg2 = start_pg2(),
@@ -159,60 +214,85 @@ init(safe) ->
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
 
 start_dist_ac() ->
-    Spec = [{dist_ac,{dist_ac,start_link,[]},permanent,2000,worker,[dist_ac]}],
+    Spec = [#{id => dist_ac,
+              start => {dist_ac,start_link,[]},
+              restart => permanent,
+              shutdown => 2000,
+              type => worker,
+              modules => [dist_ac]}],
     case application:get_env(kernel, start_dist_ac) of
-	{ok, true} -> Spec;
-	{ok, false} -> [];
-	undefined ->
-	    case application:get_env(kernel, distributed) of
-		{ok, _} -> Spec;
-		_ -> []
-	    end
+        {ok, true} -> Spec;
+        {ok, false} -> [];
+        undefined ->
+            case application:get_env(kernel, distributed) of
+                {ok, _} -> Spec;
+                _ -> []
+            end
     end.
 
 start_boot_server() ->
     case application:get_env(kernel, start_boot_server) of
-	{ok, true} ->
-	    Args = get_boot_args(),
-	    [{boot_server, {erl_boot_server, start_link, [Args]}, permanent,
-	      1000, worker, [erl_boot_server]}];
-	_ ->
-	    []
+        {ok, true} ->
+            Args = get_boot_args(),
+            [#{id => boot_server,
+               start => {erl_boot_server, start_link, [Args]},
+               restart => permanent,
+               shutdown => 1000,
+               type => worker,
+               modules => [erl_boot_server]}];
+        _ ->
+            []
     end.
 
 get_boot_args() ->
     case application:get_env(kernel, boot_server_slaves) of
-	{ok, Slaves} -> Slaves;
-	_            -> []
+        {ok, Slaves} -> Slaves;
+        _            -> []
     end.
 
 start_disk_log() ->
     case application:get_env(kernel, start_disk_log) of
-	{ok, true} ->
-	    [{disk_log_server,
-	      {disk_log_server, start_link, []},
-	      permanent, 2000, worker, [disk_log_server]},
-	     {disk_log_sup, {disk_log_sup, start_link, []}, permanent,
-	      1000, supervisor, [disk_log_sup]}];
-	_ ->
-	    []
+        {ok, true} ->
+            [#{id => disk_log_server,
+               start => {disk_log_server, start_link, []},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [disk_log_server]},
+             #{id => disk_log_sup,
+               start => {disk_log_sup, start_link, []},
+               restart => permanent,
+               shutdown => 1000,
+               type => supervisor,
+               modules => [disk_log_sup]}];
+        _ ->
+            []
     end.
 
 start_pg2() ->
     case application:get_env(kernel, start_pg2) of
-	{ok, true} ->
-	    [{pg2, {pg2, start_link, []}, permanent, 1000, worker, [pg2]}];
-	_ ->
-	    []
+        {ok, true} ->
+            [#{id => pg2,
+               start => {pg2, start_link, []},
+               restart => permanent,
+               shutdown => 1000,
+               type => worker,
+               modules => [pg2]}];
+        _ ->
+            []
     end.
 
 start_timer() ->
     case application:get_env(kernel, start_timer) of
-	{ok, true} -> 
-	    [{timer_server, {timer, start_link, []}, permanent, 1000, worker, 
-	      [timer]}];
-	_ ->
-	    []
+        {ok, true} ->
+            [#{id => timer_server,
+               start => {timer, start_link, []},
+               restart => permanent,
+               shutdown => 1000,
+               type => worker,
+               modules => [timer]}];
+        _ ->
+            []
     end.
 
 %%-----------------------------------------------------------------

@@ -36,6 +36,7 @@ MODULES= \
 	ets_tough_SUITE \
 	expand_test \
 	expand_test1 \
+	unicode_expand \
 	ExpandTestCaps \
 	ExpandTestCaps1 \
 	filelib_SUITE \
@@ -52,6 +53,7 @@ MODULES= \
 	io_proto_SUITE \
 	lists_SUITE \
 	log_mf_h_SUITE \
+	math_SUITE \
 	ms_transform_SUITE \
 	proc_lib_SUITE \
 	qlc_SUITE \
@@ -67,6 +69,7 @@ MODULES= \
 	sets_test_lib \
 	sofs_SUITE \
 	stdlib_SUITE \
+	stdlib_bench_SUITE \
 	string_SUITE \
 	supervisor_1 \
 	supervisor_2 \
@@ -83,6 +86,9 @@ MODULES= \
 	timer_SUITE \
 	timer_simple_SUITE \
 	unicode_SUITE \
+	unicode_util_SUITE \
+	uri_string_SUITE \
+	uri_string_property_test_SUITE \
 	win32reg_SUITE \
 	y2k_SUITE \
 	select_SUITE \
@@ -90,7 +96,8 @@ MODULES= \
 	random_unicode_list \
 	random_iolist \
 	error_logger_forwarder \
-	maps_SUITE
+	maps_SUITE \
+	zzz_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -143,9 +150,9 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) stdlib.spec $(EMAKEFILE) \
+	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec $(EMAKEFILE) \
 		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

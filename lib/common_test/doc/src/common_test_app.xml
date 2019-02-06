@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -224,7 +224,9 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL</p>
+	  <p>OPTIONAL; if this function is defined, then <seealso
+	  marker="#Module:end_per_suite-1"><c>end_per_suite/1</c></seealso>
+	  must also be defined.</p>
 
 	  <p>This configuration function is called as the first function in the
 	  suite. It typically contains initializations that are common for
@@ -256,7 +258,9 @@
       </type>
 
       <desc>	
-	<p>OPTIONAL</p>
+	<p>OPTIONAL; if this function is defined, then <seealso
+	  marker="#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
+	  must also be defined.</p>
 	
 	<p>This function is called as the last test case in the
 	  suite. It is meant to be used for cleaning up after
@@ -360,7 +364,9 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL</p>
+	  <p>OPTIONAL; if this function is defined, then <seealso
+	    marker="#Module:end_per_group-2"><c>end_per_group/2</c></seealso>
+	    must also be defined.</p>
 
 	  <p>This configuration function is called before execution of a
 	    test case group. It typically contains initializations that are 
@@ -396,7 +402,9 @@
 	</type>
 
 	<desc>	
-	  <p>OPTIONAL</p>
+	  <p>OPTIONAL; if this function is defined, then <seealso
+	    marker="#Module:init_per_group-2"><c>init_per_group/2</c></seealso>
+	    must also be defined.</p>
 
 	  <p>This function is called after the execution of a test case group
 	    is finished. It is meant to be used for cleaning up after
@@ -427,7 +435,10 @@
 	</type>
 	<desc>
 
-	  <p>OPTIONAL</p>
+	  <p>OPTIONAL; if this function is defined,
+	    then <seealso marker="#Module:end_per_testcase-2">
+	      <c>end_per_testcase/2</c></seealso> must also be
+	    defined.</p>
 
 	  <p>This function is called before each test case. Argument
 	  <c>TestCase</c> is the test case name, and
@@ -454,7 +465,10 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL</p>
+	  <p>OPTIONAL; if this function is defined,
+	    then <seealso marker="#Module:init_per_testcase-2">
+	      <c>init_per_testcase/2</c></seealso> must also be
+	    defined.</p>
 
 	  <p>This function is called after each test case, and can be used
 	    to clean up after

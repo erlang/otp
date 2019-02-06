@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 
 %% 1)
 %%
-%% Connections are now always set up symetrically with respect to
+%% Connections are now always set up symmetrically with respect to
 %% publication. If connecting node doesn't send DFLAG_PUBLISHED
 %% the other node wont send DFLAG_PUBLISHED. If the connecting
 %% node send DFLAG_PUBLISHED but the other node doesn't send
@@ -56,11 +56,18 @@
 -define(DFLAG_HIDDEN_ATOM_CACHE,16#40).
 -define(DFLAG_NEW_FUN_TAGS,16#80).
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
+-define(DFLAG_UTF8_ATOMS, 16#10000).
 
 %% From R9 and forward extended references is compulsory
 %% From R10 and forward extended pids and ports are compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS)).
+%% From R20 and forward UTF8 atoms are compulsory
+%% From R21 and forward NEW_FUN_TAGS is compulsory (no more tuple fallback {fun, ...})
+-define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor
+                            ?DFLAG_EXTENDED_PIDS_PORTS bor
+                            ?DFLAG_UTF8_ATOMS bor
+                            ?DFLAG_NEW_FUN_TAGS)).
 
+-define(PASS_THROUGH, $p).
 
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
@@ -670,15 +677,16 @@ build_rex_message(Cookie,OurName) ->
 %% Receive a distribution message    
 recv_message(Socket) ->
     case gen_tcp:recv(Socket, 0) of
+        {ok,[]} ->
+            recv_message(Socket);  %% a tick, ignore
 	{ok,Data} ->
 	    B0 = list_to_binary(Data),
-	    {_,B1} = erlang:split_binary(B0,1),
-	    Header = binary_to_term(B1),
-	    Siz = byte_size(term_to_binary(Header)),
-	    {_,B2} = erlang:split_binary(B1,Siz),
+	    <<?PASS_THROUGH, B1/binary>> = B0,
+	    {Header,Siz} = binary_to_term(B1,[used]),
+	    <<_:Siz/binary,B2/binary>> = B1,
 	    Message = case (catch binary_to_term(B2)) of
 			  {'EXIT', _} ->
-			      could_not_digest_message;
+			      {could_not_digest_message,B2};
 			  Other ->
 			      Other
 		      end,

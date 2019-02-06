@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,8 @@ expandable_term_body(Heading,[],_Tab) ->
 	 "Dictionary" -> "No dictionary was found";
 	 "ProcState"  -> "Information could not be retrieved,"
 			     " system messages may not be handled by this process.";
-         "SaslLog"    -> "No log entry was found"
+         "SaslLog"    -> "No log entry was found";
+         "Persistent Terms" -> "No persistent terms were found"
      end];
 expandable_term_body(Heading,Expanded,Tab) ->
     Attr = "BORDER=0 CELLPADDING=0 CELLSPACING=1 WIDTH=100%",
@@ -142,13 +143,13 @@ dict_table(Tab,{Key0,Value0}, Even) ->
     tr(color(Even), [td("VALIGN=center",pre(Key)), td(pre(Value))]).
 
 proc_state(Tab,{Key0,Value0}, Even) ->
-    Key = lists:flatten(io_lib:format("~s",[Key0])),
+    Key = lists:flatten(io_lib:format("~ts",[Key0])),
     Value = all_or_expand(Tab,Value0),
     tr(color(Even), [td("VALIGN=center",Key), td(pre(Value))]).
 
 all_or_expand(Tab,Term) ->
-    Preview = io_lib:format("~P",[Term,8]),
-    Check = io_lib:format("~P",[Term,100]),
+    Preview = io_lib:format("~tP",[Term,8]),
+    Check = io_lib:format("~tP",[Term,100]),
     Exp = Preview=/=Check,
     all_or_expand(Tab,Term,Preview,Exp).
 all_or_expand(_Tab,Term,Str,false)
@@ -166,13 +167,8 @@ all_or_expand(Tab,Term,Preview,true)
 	  "Click to expand above term")];
 all_or_expand(Tab,Bin,_PreviewStr,_Expand)
   when is_binary(Bin) ->
-    Size = byte_size(Bin),
-    PrevSize = min(Size, 10) * 8,
-    <<Preview:PrevSize, _/binary>> = Bin,
-    Hash = erlang:phash2(Bin),
-    Key = {Preview, Size, Hash},
-    ets:insert(Tab,{Key,Bin}),
-    Term = io_lib:format("~p", [['#OBSBin',Preview,Size,Hash]]),
+    OBSBin = observer_lib:make_obsbin(Bin,Tab),
+    Term = io_lib:format("~tp", [OBSBin]),
     href_proc_port(lists:flatten(Term), true).
 
 color(true) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_EVEN));
@@ -283,24 +279,24 @@ href_proc_port("['#CDVPort'"++T,Acc,LTB) ->
     %% Port written by crashdump_viewer:parse_term(...)
     {Port0,Rest} = split($],T),
     PortStr=
-	case string:tokens(Port0,",.|") of
+	case string:lexemes(Port0,",.|") of
 	    [X,Y] ->
 		Port = "#Port&lt;"++X++"."++Y++"&gt;",
 		href(Port,Port);
 	Ns ->
-		"#Port&lt;" ++ string:join(Ns,".") ++"...&gt;"
+		"#Port&lt;" ++ lists:join($.,Ns) ++"...&gt;"
     end,
     href_proc_port(Rest,[PortStr|Acc],LTB);
 href_proc_port("['#CDVPid'"++T,Acc,LTB) ->
     %% Pid written by crashdump_viewer:parse_term(...)
     {Pid0,Rest} = split($],T),
     PidStr =
-	case string:tokens(Pid0,",.|") of
+	case string:lexemes(Pid0,",.|") of
 	    [X,Y,Z] ->
 		Pid = "&lt;"++X++"."++Y++"."++Z++"&gt;",
 		href(Pid,Pid);
 	    Ns ->
-		"&lt;" ++ string:join(Ns,".") ++ "...&gt;"
+		"&lt;" ++ lists:join($.,Ns) ++ "...&gt;"
 	end,
     href_proc_port(Rest,[PidStr|Acc],LTB);
 href_proc_port("'#CDVIncompleteHeap'"++T,Acc,LTB)->
@@ -337,28 +333,37 @@ href_proc_port([],Acc,_) ->
 href_proc_bin(From, T, Acc, LTB) ->
     {OffsetSizePos,Rest} = split($],T),
     BinStr =
-	case string:tokens(OffsetSizePos,",.| \n") of
+	case string:lexemes(OffsetSizePos,",.| \n") of
 	    [Offset,SizeStr,Pos] when From =:= cdv ->
-		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
-		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
-		PreviewStr = preview_string(list_to_integer(SizeStr), PreviewBin),
-		if LTB ->
-			href("TARGET=\"expanded\"",
-			     ["#Binary?offset="++Offset++
-				  "&size="++SizeStr++
-				  "&pos="++Pos],
-			     PreviewStr);
-		   true ->
-			PreviewStr
-		end;
-	    [Preview,SizeStr,Md5] when From =:= obs ->
+                Size = list_to_integer(SizeStr),
+                PreviewSize = min(Size,10),
+		Id = {list_to_integer(Offset),PreviewSize,list_to_integer(Pos)},
+                case crashdump_viewer:expand_binary(Id) of
+                    {ok, '#CDVTruncatedBinary'} ->
+                          lists:flatten(
+                            "<FONT COLOR=\"#FF0000\">"
+                            "&lt;&lt;...(Truncated Binary)&gt;&gt;"
+                            "</FONT>");
+                    {ok, PreviewBin} ->
+                        PreviewStr = preview_string(Size, PreviewBin),
+                        if LTB ->
+                                href("TARGET=\"expanded\"",
+                                     ["#Binary?offset="++Offset++
+                                          "&size="++SizeStr++
+                                          "&pos="++Pos],
+                                     PreviewStr);
+                           true ->
+                                PreviewStr
+                        end
+                end;
+	    [PreviewIntStr,PreviewBitSizeStr,SizeStr,Md5] when From =:= obs ->
 		Size = list_to_integer(SizeStr),
-		PrevSize =  min(Size, 10) * 8,
-		PreviewStr = preview_string(Size,
-					    <<(list_to_integer(Preview)):PrevSize>>),
+                PreviewInt = list_to_integer(PreviewIntStr),
+                PreviewBitSize = list_to_integer(PreviewBitSizeStr),
+		PreviewStr = preview_string(Size,<<PreviewInt:PreviewBitSize>>),
 		if LTB ->
 			href("TARGET=\"expanded\"",
-			     ["#OBSBinary?key1="++Preview++
+			     ["#OBSBinary?key1="++PreviewIntStr++
 				  "&key2="++SizeStr++
 				  "&key3="++Md5],
 			     PreviewStr);
@@ -372,14 +377,14 @@ href_proc_bin(From, T, Acc, LTB) ->
 
 preview_string(Size, PreviewBin) when Size > 10 ->
     ["&lt;&lt;",
-     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     remove_lgt(io_lib:format("~tp",[PreviewBin])),
      "...(",
      observer_lib:to_str({bytes,Size}),
      ")",
      "&gt;&gt"];
 preview_string(_, PreviewBin) ->
     ["&lt;&lt;",
-     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     remove_lgt(io_lib:format("~tp",[PreviewBin])),
      "&gt;&gt"].
 
 remove_lgt(Deep) ->

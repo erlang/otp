@@ -153,7 +153,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec getLabelFromText(Text) -> unicode:charlist() when
 	Text::unicode:chardata().
 getLabelFromText(Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxMenuItem_GetLabelFromText,
   <<(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -235,7 +235,7 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
 -spec setHelp(This, Str) -> 'ok' when
 	This::wxMenuItem(), Str::unicode:chardata().
 setHelp(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when is_list(Str) ->
+ when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxMenuItem),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxMenuItem_SetHelp,
@@ -263,7 +263,7 @@ setSubMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
 -spec setText(This, Str) -> 'ok' when
 	This::wxMenuItem(), Str::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Str)
- when is_list(Str) ->
+ when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxMenuItem),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxMenuItem_SetText,

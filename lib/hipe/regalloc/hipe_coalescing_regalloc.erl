@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%-----------------------------------------------------------------------
 %% File    : hipe_coalescing_regalloc.erl
@@ -30,7 +24,7 @@
 %%-----------------------------------------------------------------------
 
 -module(hipe_coalescing_regalloc).
--export([regalloc/5]).
+-export([regalloc/7]).
 
 %%-ifndef(DEBUG).
 %%-define(DEBUG,true).
@@ -51,19 +45,21 @@
 %%
 %% Returns:
 %%   Coloring    -- A coloring for specified CFG
-%%   SpillIndex0 -- A new spill index
+%%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, TargetMod, TargetContext,
+	 _Options) ->
+  Target = {TargetMod, TargetContext},
   %% Build interference graph
   ?debug_msg("Build IG\n", []),
-  IG = hipe_ig:build(CFG, Target),
+  IG = hipe_ig:build(CFG, Liveness, TargetMod, TargetContext),
   %% io:format("IG: ~p\n", [IG]),
 
   ?debug_msg("Init\n", []),
-  Num_Temps = Target:number_of_temporaries(CFG),
+  Num_Temps = TargetMod:number_of_temporaries(CFG,TargetContext),
   ?debug_msg("Coalescing RA: num_temps = ~p~n", [Num_Temps]),
-  Allocatable = Target:allocatable(),
+  Allocatable = TargetMod:allocatable(TargetContext),
   K = length(Allocatable),
   All_colors = colset_from_list(Allocatable),
 
@@ -72,7 +68,8 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   Move_sets = hipe_moves:new(IG),
 
   ?debug_msg("Build Worklist\n", []),
-  Worklists = hipe_reg_worklists:new(IG, Target, CFG, Move_sets, K, Num_Temps),
+  Worklists = hipe_reg_worklists:new(IG, TargetMod, TargetContext, CFG,
+				     Move_sets, K, Num_Temps),
   Alias = initAlias(Num_Temps),
 
   ?debug_msg("Do coloring\n~p~n", [Worklists]),
@@ -81,10 +78,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   %% io:format("SelStk0 ~w\n",[SelStk0]),
   ?debug_msg("Init node sets\n", []),
   Node_sets = hipe_node_sets:new(),
-  %% io:format("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,Target:non_alloc(CFG)]),
+  %% io:format("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,non_alloc(CFG,Target)]),
   ?debug_msg("Default coloring\n", []),
   {Color0,Node_sets1} = 
-    defaultColoring(Target:all_precoloured(),
+    defaultColoring(TargetMod:all_precoloured(TargetContext),
 		    initColor(Num_Temps), Node_sets, Target),
 
   ?debug_msg("Assign colors\n", []),
@@ -94,9 +91,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   %% io:format("color0:~w\nColor1:~w\nNodes:~w\nNodes2:~w\nNum_Temps:~w\n",[Color0,Color1,Node_sets,Node_sets2,Num_Temps]),
 
   ?debug_msg("Build mapping ~p\n", [Node_sets2]),
-  Coloring = build_namelist(Node_sets2, SpillIndex, Alias0, Color1),
+  {Coloring, SpillIndex2} =
+    build_namelist(Node_sets2, SpillIndex, Alias0, Color1),
   ?debug_msg("Coloring ~p\n", [Coloring]),
-  Coloring.
+  {Coloring, SpillIndex2}.
 
 %%----------------------------------------------------------------------
 %% Function:    do_coloring
@@ -379,7 +377,7 @@ assignColors(Stack, NodeSets, Color, Alias, AllColors, Target) ->
 	false -> % Colour case
 	  Col = colset_smallest(OkColors),
 	  NodeSets1 = hipe_node_sets:add_colored(Node, NodeSets),
-	  Color1 = setColor(Node, Target:physical_name(Col), Color),
+	  Color1 = setColor(Node, physical_name(Col,Target), Color),
 	  assignColors(Stack1, NodeSets1, Color1, Alias, AllColors, Target)
       end
   end.
@@ -402,7 +400,7 @@ assignColors(Stack, NodeSets, Color, Alias, AllColors, Target) ->
 defaultColoring([], Color, NodeSets, _Target) ->
   {Color,NodeSets};
 defaultColoring([Reg|Regs], Color, NodeSets, Target) ->
-  Color1 = setColor(Reg,Target:physical_name(Reg), Color),
+  Color1 = setColor(Reg,physical_name(Reg,Target), Color),
   NodeSets1 = hipe_node_sets:add_colored(Reg, NodeSets),
   defaultColoring(Regs, Color1, NodeSets1, Target).
 
@@ -567,7 +565,7 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
       ?debug_msg("Testing nodes ~p and ~p for coalescing~n",[Dest,Source]),
       Alias_src = getAlias(Source, Alias),
       Alias_dst = getAlias(Dest, Alias),
-      {U,V} = case Target:is_precoloured(Alias_dst) of
+      {U,V} = case is_precoloured(Alias_dst,Target) of
 		true -> {Alias_dst, Alias_src};
 		false -> {Alias_src, Alias_dst}
 	      end,
@@ -577,7 +575,7 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
 	  Worklists1 = add_worklist(Worklists, U, K, Moves1, IG, Target),
 	  {Moves1, IG, Worklists1, Alias};
 	 true ->
-	  case (Target:is_precoloured(V) orelse
+	  case (is_precoloured(V,Target) orelse
 		hipe_ig:nodes_are_adjacent(U, V, IG)) of 
 	    true ->
 	      Moves1 = Moves0, % drop constrained move Move
@@ -585,7 +583,7 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
 	      Worklists2 = add_worklist(Worklists1, V, K, Moves1, IG, Target),
 	      {Moves1, IG, Worklists2, Alias};
 	    false ->
-	      case (case Target:is_precoloured(U) of
+	      case (case is_precoloured(U,Target) of
 		      true ->
 			AdjV = hipe_ig:node_adj_list(V, IG),
 			all_adjacent_ok(AdjV, U, Worklists, IG, K, Target);
@@ -627,7 +625,7 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
 %%----------------------------------------------------------------------
 
 add_worklist(Worklists, U, K, Moves, IG, Target) ->
-  case (not(Target:is_precoloured(U))
+  case (not(is_precoloured(U,Target))
 	andalso not(hipe_moves:move_related(U, Moves))
 	andalso (hipe_ig:is_trivially_colourable(U, K, IG))) of
     true ->
@@ -711,7 +709,7 @@ combine(U, V, IG, Worklists, Moves, Alias, K, Target) ->
 
 combine_edges([], _U, IG, Worklists, Moves, _K, _Target) ->
   {IG, Worklists, Moves};
-combine_edges([T|Ts], U, IG, Worklists, Moves, K, Target) ->
+combine_edges([T|Ts], U, IG, Worklists, Moves, K, Target={TgtMod,TgtCtx}) ->
   case hipe_reg_worklists:member_stack_or_coalesced(T, Worklists) of
     true -> combine_edges(Ts, U, IG, Worklists, Moves, K, Target);
     _ ->
@@ -728,7 +726,7 @@ combine_edges([T|Ts], U, IG, Worklists, Moves, K, Target) ->
       %% worklist, and that's where decrement_degree() expects to find it.
       %% This issue is not covered in the published algorithm.
       OldDegree = hipe_ig:get_node_degree(T, IG),
-      IG1 = hipe_ig:add_edge(T, U, IG, Target),
+      IG1 = hipe_ig:add_edge(T, U, IG, TgtMod, TgtCtx),
       NewDegree = hipe_ig:get_node_degree(T, IG1),
       Worklists0 =
 	if NewDegree =:= K, OldDegree =:= K-1 ->
@@ -767,7 +765,7 @@ combine_edges([T|Ts], U, IG, Worklists, Moves, K, Target) ->
 
 ok(T, R, IG, K, Target) ->
   ((hipe_ig:is_trivially_colourable(T, K, IG))
-   orelse Target:is_precoloured(T)
+   orelse is_precoloured(T,Target)
    orelse hipe_ig:nodes_are_adjacent(T, R, IG)).
 
 %%----------------------------------------------------------------------
@@ -916,7 +914,7 @@ findCheapest([Node|Nodes], IG, Cost, Cheapest, SpillLimit) ->
 %% limit are extremely expensive.
 
 getCost(Node, IG, SpillLimit) ->
-  case Node > SpillLimit of
+  case Node >= SpillLimit of
     true -> inf;
     false -> hipe_ig:node_spill_cost(Node, IG)
   end.
@@ -1028,3 +1026,15 @@ freezeEm3(_U, V, _M, K, WorkLists, Moves, IG, _Alias) ->
     false ->
       {WorkLists, Moves1}
   end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Interface to external functions.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_precoloured(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_precoloured(R,TgtCtx).
+
+physical_name(R, {TgtMod,TgtCtx}) ->
+  TgtMod:physical_name(R,TgtCtx).

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,8 +49,7 @@
       The Erlang programming language has built-in features for
       handling of run-time errors.</p>
     <p>A run-time error can also be emulated by calling
-      <c>erlang:error(Reason)</c> or <c>erlang:error(Reason, Args)</c>
-      (those appeared in Erlang 5.4/OTP-R10).</p>
+      <c>erlang:error(Reason)</c> or <c>erlang:error(Reason, Args)</c>.</p>
     <p>A run-time error is another name for an exception
       of class <c>error</c>.
       </p>
@@ -79,7 +78,6 @@
     <p>Exceptions are run-time errors or generated errors and 
       are of three different classes, with different origins. The
       <seealso marker="expressions#try">try</seealso> expression 
-      (new in Erlang 5.4/OTP R10B)
       can distinguish between the different classes, whereas the
       <seealso marker="expressions#catch">catch</seealso>
       expression cannot. They are described in
@@ -94,7 +92,7 @@
         <cell align="left" valign="middle"><c>error</c></cell>
         <cell align="left" valign="middle">Run-time error,
         for example, <c>1+a</c>, or the process called
-        <c>erlang:error/1,2</c> (new in Erlang 5.4/OTP R10B)</cell>
+        <c>erlang:error/1,2</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>exit</c></cell>
@@ -110,13 +108,54 @@
       (see <seealso marker="#exit_reasons">Exit Reason</seealso>),
       and a stack trace (which aids in finding the code location of
       the exception).</p>
-    <p>The stack trace can be retrieved using
-      <c>erlang:get_stacktrace/0</c> (new in Erlang 5.4/OTP R10B)
-      from within a <c>try</c> expression, and is returned for 
+    <p>The stack trace can be be bound to a variable from within
+      a <c>try</c> expression, and is returned for
       exceptions of class <c>error</c> from a <c>catch</c> expression.</p>
     <p>An exception of class <c>error</c> is also known as a run-time 
       error.</p>
+
+      <section>
+	<title>The call-stack back trace (stacktrace)</title>
+        <p>The stack back-trace (<em>stacktrace</em>) is a list of
+          <c>{Module,Function,Arity,Location}</c>
+          tuples. The field <c>Arity</c> in the first tuple can be the
+          argument list of that function call instead of an arity integer,
+          depending on the exception.</p>
+
+	<p><c>Location</c> is a (possibly empty) list of two-tuples
+	that can indicate the location in the source code of the
+	function.  The first element is an atom describing the type of
+	information in the second element. The following items can
+	occur:</p>
+	<taglist>
+          <tag><c>file</c></tag>
+          <item>The second element of the tuple is a string (list of
+          characters) representing the filename of the source file
+          of the function.
+          </item>
+          <tag><c>line</c></tag>
+          <item>The second element of the tuple is the line number
+          (an integer &gt; 0) in the source file
+          where the exception occurred or the function was called.
+          </item>
+	</taglist>
+	<warning><p>Developers should rely on stacktrace entries only for
+	debugging purposes.</p>
+	<p>The VM performs tail call optimization, which
+	does not add new entries to the stacktrace, and also limits stacktraces
+	to a certain depth. Furthermore, compiler options, optimizations and
+	future changes may add or remove stacktrace entries, causing any code
+	that expects the stacktrace to be in a certain order or contain specific
+	items to fail.</p>
+	<p>The only exception to this rule is the class <c>error</c> with the
+	reason <c>undef</c> which is guaranteed to include the <c>Module</c>,
+	<c>Function</c> and <c>Arity</c> of the attempted
+	function as the first stacktrace entry.</p>
+	</warning>
+      </section>
+
   </section>
+
 
   <section>
     <title>Handling of Run-time Errors in Erlang</title>

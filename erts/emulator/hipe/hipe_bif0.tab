@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,22 +44,20 @@ bif hipe_bifs:ref/1
 bif hipe_bifs:ref_get/1
 bif hipe_bifs:ref_set/2
 
-bif hipe_bifs:enter_code/2
-bif hipe_bifs:alloc_data/2
+bif hipe_bifs:enter_code/3
+bif hipe_bifs:alloc_data/3
 bif hipe_bifs:constants_size/0
 bif hipe_bifs:merge_term/1
 
 bif hipe_bifs:fun_to_address/1
+bif hipe_bifs:commit_patch_load/1
 bif hipe_bifs:set_native_address/3
 #bif hipe_bifs:address_to_fun/1
 
 bif hipe_bifs:set_funinfo_native_address/3
-bif hipe_bifs:invalidate_funinfo_native_addresses/1
+#bif hipe_bifs:invalidate_funinfo_native_addresses/1
 
-bif hipe_bifs:update_code_size/3
-bif hipe_bifs:code_size/1
-
-bif hipe_bifs:enter_sdesc/1
+bif hipe_bifs:enter_sdesc/2
 
 bif hipe_bifs:bif_address/3
 bif hipe_bifs:primop_address/1
@@ -72,7 +70,7 @@ bif hipe_bifs:term_to_word/1
 bif hipe_bifs:get_fe/2
 bif hipe_bifs:set_native_address_in_fe/2
 
-bif hipe_bifs:find_na_or_make_stub/2
+bif hipe_bifs:find_na_or_make_stub/1
 
 bif hipe_bifs:check_crc/1
 bif hipe_bifs:system_crc/0
@@ -84,9 +82,8 @@ bif hipe_bifs:patch_insn/3
 bif hipe_bifs:patch_call/3
 
 bif hipe_bifs:add_ref/2
-bif hipe_bifs:mark_referred_from/1
-bif hipe_bifs:remove_refs_from/1
-bif hipe_bifs:redirect_referred_from/1
+
+bif hipe_bifs:alloc_loader_state/1
 
 # atoms used by add_ref/2
 atom call
@@ -112,6 +109,7 @@ atom suspend_0
 atom gc_1
 atom hipe_apply
 atom rethrow
+atom raw_raise
 atom find_na_or_make_stub
 atom nonclosure_address
 atom atomic_inc
@@ -138,8 +136,8 @@ atom bs_utf16_size
 atom bs_put_utf16be
 atom bs_put_utf16le
 atom bs_get_utf16
-atom bs_validate_unicode
 atom bs_validate_unicode_retract
 atom emulate_fpe
 atom emasculate_binary
 atom is_divisible
+atom is_unicode

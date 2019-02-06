@@ -84,7 +84,7 @@ compile_with_llvm(FunName, Arity, LLVMCode, Options, UseBuffer) ->
   __ = file:close(File_llvm),
   %% Invoke LLVM compiler tools to produce an object file
   llvm_opt(Dir, Filename, Options),
-  llvm_llc(Dir, Filename, Options),
+  llvm_llc(Dir, Filename, Ver, Options),
   compile(Dir, Filename, "gcc"), %%FIXME: use llc -filetype=obj and skip this!
   {ok, Dir, Dir ++ Filename ++ ".o"}.
 
@@ -103,12 +103,16 @@ llvm_opt(Dir, Filename, Options) ->
 
 %% @doc Invoke llc tool to compile the bitcode to object file
 %%      (_name.bc -> _name.o).
-llvm_llc(Dir, Filename, Options) ->
+llvm_llc(Dir, Filename, Ver, Options) ->
   Source   = Dir ++ Filename ++ ".bc",
   OptLevel = trans_optlev_flag(llc, Options),
+  VerFlags = llc_ver_flags(Ver),
   Align    = find_stack_alignment(),
+  Target   = llc_target_opt(),
   LlcFlags = [OptLevel, "-code-model=medium", "-stack-alignment=" ++ Align
-             , "-tailcallopt", "-filetype=asm"], %%FIXME
+             , "-tailcallopt", "-filetype=asm" %FIXME
+             , Target
+             | VerFlags],
   Command  = "llc " ++ fix_opts(LlcFlags) ++ " " ++ Source,
   %% io:format("LLC: ~s~n", [Command]),
   case os:cmd(Command) of
@@ -121,7 +125,8 @@ llvm_llc(Dir, Filename, Options) ->
 compile(Dir, Fun_Name, Compiler) ->
   Source  = Dir ++ Fun_Name ++ ".s",
   Dest    = Dir ++ Fun_Name ++ ".o",
-  Command = Compiler ++ " -c " ++ Source ++ " -o " ++ Dest,
+  Target  = compiler_target_opt(),
+  Command = Compiler ++ " " ++ Target ++ " -c " ++ Source ++ " -o " ++ Dest,
   %% io:format("~s: ~s~n", [Compiler, Command]),
   case os:cmd(Command) of
     "" -> ok;
@@ -135,9 +140,21 @@ find_stack_alignment() ->
     _ -> exit({?MODULE, find_stack_alignment, "Unimplemented architecture"})
   end.
 
+llc_target_opt() ->
+  case get(hipe_target_arch) of
+    x86 -> "-march=x86";
+    amd64 -> "-march=x86-64"
+  end.
+
+compiler_target_opt() ->
+  case get(hipe_target_arch) of
+    x86 -> "-m32";
+    amd64 -> "-m64"
+  end.
+
 %% @doc Join options.
 fix_opts(Opts) ->
-  string:join(Opts, " ").
+  lists:flatten(lists:join(" ", Opts)).
 
 %% @doc Translate optimization-level flag (default is "O2").
 trans_optlev_flag(Tool, Options) ->
@@ -152,6 +169,12 @@ trans_optlev_flag(Tool, Options) ->
     o3 -> "-O3";
     undefined -> "-O2"
   end.
+
+llc_ver_flags(Ver = {_, _}) when Ver >= {3,9} ->
+  %% Works around a bug in the x86-call-frame-opt pass (as of LLVM 3.9) that
+  %% break the garbage collection stack descriptors.
+  ["-no-x86-call-frame-opt"];
+llc_ver_flags({_, _}) -> [].
 
 %%------------------------------------------------------------------------------
 %% Functions to manage Relocations
@@ -257,15 +280,11 @@ fix_relocations(Relocs, RelocsDict, MFA) ->
 
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
 		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
-	  RelocsDict, {ModName,_,_}) when Name =/= "" ->
+	  RelocsDict, {_,_,_}) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {call, {bif, BifName, _}} -> {?CALL_LOCAL, Offset, BifName};
-    %% MFA calls to functions in the same module are of type 3, while all
-    %% other MFA calls are of type 2.
-    %% XXX: Does this code break hot code loading (by transforming external
-    %% calls into local calls?)
-    {call, {ModName,_F,_A}=CallMFA} -> {?CALL_LOCAL,  Offset, CallMFA};
-    {call,                 CallMFA} -> {?CALL_REMOTE, Offset, CallMFA}
+    {call, _, {bif, BifName, _}} -> {?CALL_LOCAL, Offset, BifName};
+    {call, not_remote,  CallMFA} -> {?CALL_LOCAL,  Offset, CallMFA};
+    {call, remote, CallMFA} -> {?CALL_REMOTE, Offset, CallMFA}
   end;
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=undefined, type=notype},
 		   offset=Offset, type=?ABS_T, addend=?ABS_A},
@@ -280,7 +299,7 @@ fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?TEXT},
 		   offset=Offset, type=?PCREL_T, addend=?PCREL_A},
 	  RelocsDict, MFA) when Name =/= "" ->
   case dict:fetch(Name, RelocsDict) of
-    {call, MFA} -> {?CALL_LOCAL, Offset, MFA}
+    {call, not_remote, MFA} -> {?CALL_LOCAL, Offset, MFA}
   end;
 fix_reloc(#elf_rel{symbol=#elf_sym{name=Name, section=#elf_shdr{name=?RODATA},
 				   type=object},
@@ -408,7 +427,7 @@ calls_with_stack_args(Dict) ->
   calls_with_stack_args(dict:to_list(Dict), []).
 
 calls_with_stack_args([], Calls) -> Calls;
-calls_with_stack_args([ {_Name, {call, {M, F, A}}} | Rest], Calls)
+calls_with_stack_args([ {_Name, {call, _, {M, F, A}}} | Rest], Calls)
   when A > ?NR_ARG_REGS ->
   Call =
     case M of

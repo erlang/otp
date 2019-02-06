@@ -1,4 +1,4 @@
 
-maps_sum.erl:15: Invalid type specification for function maps_sum:wrong1/1. The success typing is (map()) -> any()
+maps_sum.erl:15: Invalid type specification for function maps_sum:wrong1/1. The success typing is (maps:iterator() | map()) -> any()
 maps_sum.erl:26: Function wrong2/1 has no local return
 maps_sum.erl:27: The call lists:foldl(fun((_,_,_) -> any()),0,Data::any()) will never return since it differs in the 1st argument from the success typing arguments: (fun((_,_) -> any()),any(),[any()])

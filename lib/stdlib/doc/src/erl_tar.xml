@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,12 +37,13 @@
   </modulesummary>
   <description>
     <p>This module archives and extract files to and from
-      a tar file. This module supports the <c>ustar</c> format
-      (IEEE Std 1003.1 and ISO/IEC&nbsp;9945-1). All modern <c>tar</c>
-      programs (including GNU tar) can read this format. To ensure that
-      that GNU tar produces a tar file that <c>erl_tar</c> can read,
-      specify option <c>--format=ustar</c> to GNU tar.</p>
-
+    a tar file. This module supports reading most common tar formats,
+    namely v7, STAR, USTAR, and PAX, as well as some of GNU tar's extensions
+    to the USTAR format (sparse files most notably). It produces tar archives
+    in USTAR format, unless the files being archived require PAX format due to
+    restrictions in USTAR (such as unicode metadata, filename length, and more).
+    As such, <c>erl_tar</c> supports tar archives produced by most all modern
+    tar utilities, and produces tarballs which should be similarly portable.</p>
     <p>By convention, the name of a tar file is to end in "<c>.tar</c>".
       To abide to the convention, add "<c>.tar</c>" to the name.</p>
 
@@ -83,12 +84,14 @@
     <p>If <seealso marker="kernel:file#native_name_encoding/0">
       <c>file:native_name_encoding/0</c></seealso>
       returns <c>latin1</c>, no translation of path names is done.</p>
+
+    <p>Unicode metadata stored in PAX headers is preserved</p>
   </section>
 
   <section>
     <title>Other Storage Media</title>
-    <p>The <seealso marker="inets:ftp"><c>ftp</c></seealso>
-      module (Inets) normally accesses the tar file on disk using
+    <p>The <seealso marker="ftp:ftp"><c>ftp</c></seealso>
+      module normally accesses the tar file on disk using
       the <seealso marker="kernel:file"><c>file</c></seealso> module.
       When other needs arise, you can define your own low-level Erlang
       functions to perform the writing and reading on the storage media;
@@ -104,21 +107,20 @@
     <title>Limitations</title>
     <list type="bulleted">
       <item>
-        <p>For maximum compatibility, it is safe to archive files with names
-          up to 100 characters in length. Such tar files can generally be
-          extracted by any <c>tar</c> program.</p>
+        <p>If you must remain compatible with the USTAR tar format, you must ensure file paths being
+        stored are less than 255 bytes in total, with a maximum filename component
+        length of 100 bytes. USTAR uses a header field (prefix) in addition to the name field, and
+        splits file paths longer than 100 bytes into two parts. This split is done on a directory boundary,
+        and is done in such a way to make the best use of the space available in those two fields, but in practice
+        this will often mean that you have less than 255 bytes for a path. <c>erl_tar</c> will
+        automatically upgrade the format to PAX to handle longer filenames, so this is only an issue if you
+        need to extract the archive with an older implementation of <c>erl_tar</c> or <c>tar</c> which does
+        not support PAX. In this case, the PAX headers will be extracted as regular files, and you will need to
+        apply them manually.</p>
       </item>
       <item>
-        <p>For filenames exceeding 100 characters in length, the resulting tar
-          file can only be correctly extracted by a POSIX-compatible <c>tar</c>
-          program (such as Solaris <c>tar</c> or a modern GNU <c>tar</c>).</p>
-      </item>
-      <item>
-        <p>Files with longer names than 256 bytes cannot be stored.</p>
-      </item>
-      <item>
-        <p>The file name a symbolic link points is always limited
-          to 100 characters.</p>
+        <p>Like the above, if you must remain USTAR compatible, you must also ensure than paths for
+        symbolic/hard links are no more than 100 bytes, otherwise PAX headers will be used.</p>
       </item>
     </list>
   </section>
@@ -129,9 +131,14 @@
       <fsummary>Add a file to an open tar file.</fsummary>
       <type>
         <v>TarDescriptor = term()</v>
-        <v>Filename = filename()</v>
+        <v>FilenameOrBin = filename()|binary()</v>
+        <v>NameInArchive = filename()</v>
+        <v>Filename = filename()|{NameInArchive,FilenameOrBin}</v>
         <v>Options = [Option]</v>
         <v>Option = dereference|verbose|{chunks,ChunkSize}</v>
+           <v>|{atime,non_neg_integer()}|{mtime,non_neg_integer()}</v>
+           <v>|{ctime,non_neg_integer()}|{uid,non_neg_integer()}</v>
+           <v>|{gid,non_neg_integer()}</v>
         <v>ChunkSize = positive_integer()</v>
         <v>RetValue = ok|{error,{Filename,Reason}}</v>
         <v>Reason = term()</v>
@@ -139,6 +146,9 @@
       <desc>
         <p>Adds a file to a tar file that has been opened for writing by
           <seealso marker="#open/2"><c>open/1</c></seealso>.</p>
+        <p><c>NameInArchive</c> is the name under which the file becomes
+          stored in the tar file. The file gets this name when it is
+          extracted from the tar file.</p>
         <p>Options:</p>
         <taglist>
           <tag><c>dereference</c></tag>
@@ -159,6 +169,42 @@
               on a remote machine over SFTP, see
               <seealso marker="ssh:ssh_sftp#open_tar/3">
               <c>ssh_sftp:open_tar/3</c></seealso>.</p>
+          </item>
+          <tag><c>{atime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was read. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{mtime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was written. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{ctime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was created. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{uid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the file owner.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{gid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the group that the file owner belongs to.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
           </item>
         </taglist>
       </desc>
@@ -183,9 +229,6 @@
           <seealso marker="#open/2"><c>open/2</c></seealso>. This function
           accepts the same options as
           <seealso marker="#add/3"><c>add/3</c></seealso>.</p>
-        <p><c>NameInArchive</c> is the name under which the file becomes
-          stored in the tar file. The file gets this name when it is
-          extracted from the tar file.</p>
       </desc>
     </func>
 
@@ -206,8 +249,8 @@
       <fsummary>Create a tar archive.</fsummary>
       <type>
         <v>Name = filename()</v>
-        <v>FileList = [Filename|{NameInArchive, binary()},{NameInArchive,
-          Filename}]</v>
+        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
+        <v>FilenameOrBin = filename()|binary()</v>
         <v>Filename = filename()</v>
         <v>NameInArchive = filename()</v>
         <v>RetValue = ok|{error,{Name,Reason}}</v>
@@ -225,8 +268,8 @@
       <fsummary>Create a tar archive with options.</fsummary>
       <type>
         <v>Name = filename()</v>
-        <v>FileList = [Filename|{NameInArchive, binary()},{NameInArchive,
-          Filename}]</v>
+        <v>FileList = [Filename|{NameInArchive, FilenameOrBin}]</v>
+        <v>FilenameOrBin = filename()|binary()</v>
         <v>Filename = filename()</v>
         <v>NameInArchive = filename()</v>
         <v>OptionList = [Option]</v>
@@ -275,7 +318,8 @@
       <name>extract(Name) -> RetValue</name>
       <fsummary>Extract all files from a tar file.</fsummary>
       <type>
-        <v>Name = filename()</v>
+        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
+        <v>Fd = file_descriptor()</v>
         <v>RetValue = ok|{error,{Name,Reason}}</v>
         <v>Reason = term()</v>
       </type>
@@ -287,6 +331,10 @@
           <c>Fd</c> is assumed to be a file descriptor returned from function
           <c>file:open/2</c>.</p>
         <p>Otherwise, <c>Name</c> is to be a filename.</p>
+	<note><p>Leading slashes in tar member names will be removed before
+	writing the file. That is, absolute paths will be turned into
+	relative paths. There will be an info message written to the error
+	logger when paths are changed in this way.</p></note>
       </desc>
     </func>
 
@@ -294,8 +342,7 @@
       <name>extract(Name, OptionList)</name>
       <fsummary>Extract files from a tar file.</fsummary>
       <type>
-        <v>Name = filename() | {binary,Binary} | {file,Fd}</v>
-        <v>Binary = binary()</v>
+        <v>Name = filename() | {binary,binary()} | {file,Fd}</v>
         <v>Fd = file_descriptor()</v>
         <v>OptionList = [Option]</v>
         <v>Option = {cwd,Cwd}|{files,FileList}|keep_old_files|verbose|memory</v>
@@ -370,7 +417,7 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Cconverts an error reason term to a human-readable error message
+        <p>Converts an error reason term to a human-readable error message
           string.</p>
       </desc>
     </func>
@@ -521,7 +568,7 @@ erl_tar:close(TarDesc)</code>
       <name>table(Name) -> RetValue</name>
       <fsummary>Retrieve the name of all files in a tar file.</fsummary>
       <type>
-        <v>Name = filename()</v>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
         <v>RetValue = {ok,[string()]}|{error,{Name,Reason}}</v>
         <v>Reason = term()</v>
       </type>
@@ -535,7 +582,7 @@ erl_tar:close(TarDesc)</code>
       <fsummary>Retrieve name and information of all files in a tar file.
       </fsummary>
       <type>
-        <v>Name = filename()</v>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
       </type>
       <desc>
         <p>Retrieves the names of all files in the tar file <c>Name</c>.</p>
@@ -546,7 +593,7 @@ erl_tar:close(TarDesc)</code>
       <name>t(Name)</name>
       <fsummary>Print the name of each file in a tar file.</fsummary>
       <type>
-        <v>Name = filename()</v>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
       </type>
       <desc>
         <p>Prints the names of all files in the tar file <c>Name</c> to the
@@ -559,7 +606,7 @@ erl_tar:close(TarDesc)</code>
       <fsummary>Print name and information for each file in a tar file.
       </fsummary>
       <type>
-        <v>Name = filename()</v>
+        <v>Name = filename()|{binary,binary()}|{file,file_descriptor()}</v>
       </type>
       <desc>
         <p>Prints names and information about all files in the tar file

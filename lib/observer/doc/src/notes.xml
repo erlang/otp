@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,415 @@
   </header>
   <p>This document describes the changes made to the Observer
     application.</p>
+
+<section><title>Observer 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Literals such as <c>#{"one"=>1}</c> dumped to a crash
+	    dump would cause <c>crashdump_viewer</c> to crash.</p>
+          <p>
+	    Own Id: OTP-15365 Aux Id: ERL-722 </p>
+        </item>
+        <item>
+          <p>
+	    <c>crashdump_viewer</c> would sometimes crash when
+	    processing a dump which was truncated in the
+	    <c>literals</c> area. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15377</p>
+        </item>
+        <item>
+          <p>
+	    Since OTP-20.2, <c>crashdump_viewer</c> was very slow
+	    when opening a crash dump with many processes. An
+	    ets:select per process could be removed, which improved
+	    the performance a lot.</p>
+          <p>
+	    A bug when parsing heap data in a crashdump caused
+	    <c>crashdump_viewer</c> to crash when multiple <c>Yc</c>
+	    lines referenced the same reference counted binary. This
+	    is now corrected.</p>
+          <p>
+	    Own Id: OTP-15391</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added possibility to garbage collect selected processes
+	    and fixed a crash when the saved config file contained
+	    bad data.</p>
+          <p>
+	    Own Id: OTP-14993 Aux Id: PR-1666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use uri_string module instead of http_uri.</p>
+          <p>
+	    Own Id: OTP-14902</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop.hrl used a relative path to include
+	    observer_backend.hrl, this is now changed to use
+	    include_lib instead. runtime_tools/include is added to
+	    the tertiary bootstrap.</p>
+          <p>
+	    Own Id: OTP-14842 Aux Id: ERL-534 </p>
+        </item>
+        <item>
+          <p>
+	    If a crashdump was truncated in the attributes section
+	    for a module, crashdump_viewer would crash when a module
+	    view was opened from the GUI. This bug was introduced in
+	    OTP-20.2 and is now corrected.</p>
+          <p>
+	    Own Id: OTP-14846 Aux Id: ERL-537 </p>
+        </item>
+        <item>
+          <p>
+	    Optimized ets and mnesia table view tab in observer gui,
+	    listing 10000 tables was previously very slow.</p>
+          <p>
+	    Own Id: OTP-14856 Aux Id: ERIERL-117 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a process has many links and/or monitors, it could
+	    earlier take very long time to display the process
+	    information window. This is now improved by only showing
+	    a few links and monitors, and then an link named
+	    "more..." to expand the rest.</p>
+          <p>
+	    Own Id: OTP-14725</p>
+        </item>
+        <item>
+          <p>
+	    More crash dump info such as: process binary virtual heap
+	    stats, full info for process causing out-of-mem during
+	    GC, more port related info, and dirty scheduler info.</p>
+          <p>
+	    Own Id: OTP-14820</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug introduced in OTP-20 would make Crashdump Viewer
+	    crash when trying to expand an empty binary. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14642</p>
+        </item>
+        <item>
+          <p>
+	    If a match spec in the config file contained more than
+	    one clause, observer would earlier crash when trying to
+	    display it in the GUI. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14643 Aux Id: ERL-489 </p>
+        </item>
+        <item>
+	    <p>Writing of crash dumps is significantly faster.</p>
+	    <p>Maps are now included in crash dumps.</p>
+	    <p>Constants terms would only be shown in one process,
+	    while other processes referencing the same constant term
+	    would show a marker for incomplete heap. </p>
+          <p>
+	    Own Id: OTP-14685 Aux Id: OTP-14611, OTP-14603, OTP-14595 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Binaries and some other data in crash dumps are now
+	    encoded in base64 (instead of in hex), which will reduce
+	    the size of crash dumps.</p>
+	    <p>A few bugs in the handling of sub binaries in
+	    <c>crashdump_viewer</c> have been fixed.</p>
+          <p>
+	    Own Id: OTP-14686</p>
+        </item>
+        <item>
+          <p>
+	    In order to allow future improvements, Crashdump Viewer
+	    now checks the version tag of the crashdump to see that
+	    it is a known format. If the crashdump version is newer
+	    than Crashdump Viewer is prepared to read, then an
+	    information dialog is displayed before Crashdump Viewer
+	    terminates.</p>
+          <p>
+	    If an incomplete process heap is discovered in a
+	    crashdump, Crashdump Viewer will now display a warning
+	    for this, similar to the warning displayed when a
+	    crashdump is truncated. Incomplete heaps can occur if for
+	    instance the literals are not included, which is the case
+	    for all dumps prior to OTP-20.2.</p>
+          <p>
+	    Own Id: OTP-14755</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following improvements are done to Crashdump
+	    Viewer:</p> <list> <item>Reading of crash dumps with many
+	    binaries is optimized.</item> <item>A progress bar is
+	    shown when the detail view for a process is
+	    opened.</item> <item>The <c>cdv</c> script now sets
+	    <c>ERL_CRASH_DUMP_SECONDS=0</c> to avoid generating a new
+	    crash dump from the node running the Crashdump
+	    Viewer.</item> <item>A warning dialog is shown if the
+	    node running the Crashdump Viewer could potentially
+	    overwrite the crash dump under inspection.</item>
+	    <item>Bugfix: In some situations, Crashdump Viewer could
+	    not find the end of the 'Last calls' section in a crash
+	    dump, and would erroneously mark the crash dump as
+	    truncated. This is now corrected.</item> <item>Bugfix: In
+	    some situations, process info for a specific process
+	    would be marked as truncated by Crashdump Viewer, even if
+	    the crash dump was truncated in the binary section - and
+	    not related to the process in question. This is now
+	    corrected.</item> </list>
+          <p>
+	    Own Id: OTP-14386</p>
+        </item>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+        <item>
+          <p>
+	    Add system statistics and limits to frontpage in
+	    observer.</p>
+          <p>
+	    Own Id: OTP-14536</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> had a hardcoded timeout value of 1 second
+	    when waiting for data from a remote node. When this
+	    expired, which could happen for instance if there were
+	    very many processes on the remote node, etop would exit
+	    with reason <c>connection_lost</c>. To overcome this
+	    problem, the timeout is now changed to be the same as the
+	    update interval, which is configurable.</p>
+          <p>
+	    Own Id: OTP-14393</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Show dirty-scheduler threads in performance monitor graph
+	    and add a column with maximum allocated memory in the
+	    Memory Allocators table.</p>
+          <p>
+	    Own Id: OTP-14137</p>
+        </item>
+        <item>
+          <p>
+	    Keep table and port selection after refresh of tables.
+	    Store settings before shutdown and restore when starting
+	    application.</p>
+          <p>
+	    Own Id: OTP-14270</p>
+        </item>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+          <p>
+	    When observing a node older than OTP-19.0, a pop-up will
+	    be displayed when trying to access port information.
+	    Earlier, observer would crash in this situation.</p>
+          <p>
+	    Own Id: OTP-14345 Aux Id: ERL-399 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop erroneously reported the average scheduler
+	    utilization since the tool was first started instead of
+	    the scheduler utilization since last update. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14090 Aux Id: seq13232 </p>
+        </item>
+        <item>
+          <p>
+	    crashdump_viewer crashed when the 'Slogan' had more than
+	    one line. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14093 Aux Id: ERL-318 </p>
+        </item>
+        <item>
+          <p>
+	    When clicking an HTML-link to a port before the port tab
+	    has been opened for the first time, observer would crash
+	    since port info is not initiated. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14151 Aux Id: PR-1296 </p>
+        </item>
+        <item>
+	    <p>The dialyzer and observer applications will now use a
+	    portable way to find the home directory. That means that
+	    there is no longer any need to manually set the HOME
+	    environment variable on Windows.</p>
+          <p>
+	    Own Id: OTP-14249 Aux Id: ERL-161 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The shell script (priv/bin/cdv) and bat file
+	    (priv/bin/cdv.bat) which can be used for starting
+	    crashdump_viewer both started a distributed erlang node.
+	    This would cause any attempt at starting a second
+	    instance of the crashdump_viewer to fail. To solve this
+	    problem, cdv and cdv.bat now use non-distributed nodes
+	    when starting the crashdump_viewer.</p>
+          <p>
+	    Own Id: OTP-14010</p>
+        </item>
+        <item>
+          <p>
+	    A bug caused the number of buckets to be shown in the
+	    'Objects' column, and the number of objects to be shown
+	    in the 'Memory' column for ets table in crashdump_viewer.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14064</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Observer 2.2.2</title>
 

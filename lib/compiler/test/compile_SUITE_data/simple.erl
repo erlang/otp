@@ -19,7 +19,7 @@
 %%
 -module(simple).
 
--export([test/0]).
+-export([test/0,unicode/0]).
 
 -ifdef(need_foo).
 -export([foo/0]).
@@ -27,6 +27,9 @@
 
 test() ->
     passed.
+
+unicode() ->
+    {"это",'спутник'}.
 
 %% Conditional inclusion.
 %% Compile with [{d, need_foo}, {d, foo_value, 42}].

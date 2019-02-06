@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,11 +169,7 @@ get_version() ->
     MI   = ?MODULE:module_info(),
     Attr = get_info(attributes, MI),
     Vsn  = get_info(app_vsn, Attr),
-    Comp = get_info(compile, MI),
-    Time = get_info(time, Comp),
-    {Year, Month, Day, Hour, Min, Sec} = Time,
-    io_lib:format("~s [~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w]", 
-		  [Vsn, Year, Month, Day, Hour, Min, Sec]).
+    Vsn.
 
 maybe_display_options(Opts) ->
     case lists:member(options, Opts) of
@@ -455,7 +451,9 @@ compile_parsed_data(#pdata{mib_name = MibName,
     Deprecated = get_deprecated(Opts),
     RelChk = get_relaxed_row_name_assign_check(Opts),
     Data = #dldata{deprecated                    = Deprecated,
-		   relaxed_row_name_assign_check = RelChk}, 
+		   relaxed_row_name_assign_check = RelChk},
+    mc_new_type_loop(Definitions),
+    put(augmentations, false),
     definitions_loop(Definitions, Data),
     MibName.
 
@@ -480,7 +478,40 @@ do_update_imports([{{Mib, ImportsFromMib0},_Line}|Imports], Acc) ->
 update_status(Name, Status) ->
     #cdata{status_ets = Ets} = get(cdata),
     ets:insert(Ets, {Name, Status}).
-    
+
+
+mc_new_type_loop(
+  [{#mc_new_type{
+       name         = NewTypeName,
+       macro        = Macro,
+       syntax       = OldType,
+       display_hint = DisplayHint},Line}|T]) ->
+    ?vlog2("typeloop -> new_type:"
+	   "~n   Macro:       ~p"
+	   "~n   NewTypeName: ~p"
+	   "~n   OldType:     ~p"
+	   "~n   DisplayHint: ~p",
+	   [Macro, NewTypeName, OldType, DisplayHint], Line),
+    ensure_macro_imported(Macro,Line),
+    Types = (get(cdata))#cdata.asn1_types,
+    case lists:keysearch(NewTypeName, #asn1_type.aliasname, Types) of
+	{value,_} ->
+	    snmpc_lib:print_error("Type ~w already defined.",
+				  [NewTypeName],Line);
+	false ->
+	    %% NameOfOldType = element(2,OldType),
+	    ASN1 = snmpc_lib:make_ASN1type(OldType),
+	    snmpc_lib:add_cdata(#cdata.asn1_types,
+				[ASN1#asn1_type{aliasname    = NewTypeName,
+						imported     = false,
+						display_hint = DisplayHint}])
+    end,
+    mc_new_type_loop(T);
+mc_new_type_loop([_|T]) ->
+    mc_new_type_loop(T);
+mc_new_type_loop([]) ->
+    ok.
+
 
 %% A deprecated object
 definitions_loop([{#mc_object_type{name = ObjName, status = deprecated}, 
@@ -744,32 +775,8 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 				ColMEs]),
     definitions_loop(RestObjs, Data);
 
-definitions_loop([{#mc_new_type{name         = NewTypeName,
-				macro        = Macro,
-				syntax       = OldType,
-				display_hint = DisplayHint},Line}|T],
-		 Data) ->
-    ?vlog2("defloop -> new_type:"
-	   "~n   Macro:       ~p"
-	   "~n   NewTypeName: ~p"
-	   "~n   OldType:     ~p"
-	   "~n   DisplayHint: ~p", 
-	   [Macro, NewTypeName, OldType, DisplayHint], Line),
-    ensure_macro_imported(Macro,Line),
-    Types = (get(cdata))#cdata.asn1_types,
-    case lists:keysearch(NewTypeName, #asn1_type.aliasname, Types) of
-	{value,_} ->
-	    snmpc_lib:print_error("Type ~w already defined.",
-				  [NewTypeName],Line);
-	false ->
-	    %% NameOfOldType = element(2,OldType), 
-	    ASN1 = snmpc_lib:make_ASN1type(OldType),
-	    snmpc_lib:add_cdata(#cdata.asn1_types,
-				[ASN1#asn1_type{aliasname    = NewTypeName,
-						imported     = false,
-						display_hint = DisplayHint}])
-    end,
-    definitions_loop(T,	Data);
+definitions_loop([{#mc_new_type{},_}|T], Data) ->
+    definitions_loop(T, Data);
 
 %% Plain variable
 definitions_loop([{#mc_object_type{name        = NewVarName,
@@ -1211,7 +1218,39 @@ definitions_loop([{Obj,Line}|T], Data) ->
 
 definitions_loop([], _Data) ->
     ?vlog("defloop -> done", []),
-    ok.
+    case get(augmentations) of
+        true ->
+            CData = get(cdata),
+            put(cdata, CData#cdata{mes = augmentations(CData#cdata.mes)}),
+            ok;
+        false ->
+            ok
+    end.
+
+augmentations(
+  [#me{
+      aliasname = AliasName,
+      assocList =
+          [{table_info,
+            #table_info{
+               index_types =
+                   {augments, SrcTableEntry, Line}} = TableInfo}|Ref]} = Me
+   |Mes]) ->
+    ?vlog("augmentations(~w) ->"
+          "~n   NameOfTable:  ~p"
+          "~n   IndexingInfo: ~p"
+          "~n   Sline:        ~p",
+          [?LINE, AliasName, {augments, SrcTableEntry}, Line]),
+    NewTableInfo = snmpc_lib:fix_table_info_augmentation(TableInfo),
+    [Me#me{assocList = [{table_info,NewTableInfo}|Ref]}
+     |augmentations(Mes)];
+augmentations([Me | Mes]) ->
+     [Me|augmentations(Mes)];
+augmentations([]) ->
+    ?vlog("augmentations -> done", []),
+    [].
+
+
 
 safe_elem(N,T) ->
     case catch(element(N,T)) of

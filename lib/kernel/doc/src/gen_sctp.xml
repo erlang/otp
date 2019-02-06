@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2016</year>
+      <year>2007</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -331,6 +331,37 @@ connect(Socket, Ip, Port>,
 	  with <anno>SockType</anno> <c>seqpacket</c>, and with reasonably large
           <seealso marker="inet#option-sndbuf">kernel</seealso> and driver
           <seealso marker="inet#option-buffer">buffers</seealso>.</p>
+	<p>
+	  If the socket is in
+          <seealso marker="#option-active">passive</seealso>
+	  mode data can be received through the
+          <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+	  calls.
+	</p>
+	<p>
+	  If the socket is in
+          <seealso marker="#option-active">active</seealso>
+	  mode data received data is delivered to the controlling process
+	  as messages:
+	</p>
+        <code type="none">
+{sctp, <anno>Socket</anno>, FromIP, FromPort, {AncData, Data}}
+	</code>
+	<p>
+	  See
+	  <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+	  for a description of the message fields.
+	</p>
+	<note>
+	  <p>
+	    This message format unfortunately differs slightly from the
+	    <seealso marker="gen_udp#open/1"><c>gen_udp</c></seealso>
+	    message format with ancillary data,
+	    and from the
+	    <seealso marker="#recv/1"><c>recv/1,2</c></seealso>
+	    return tuple format.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -380,6 +411,19 @@ connect(Socket, Ip, Port>,
           socket option
           <seealso marker="#option-sctp_get_peer_addr_info"><c>sctp_get_peer_addr_info</c></seealso>,
           but this does still not produce the stream number).</p>
+	<p>
+	  <c><anno>AncData</anno></c> may also contain
+	  <seealso marker="inet#type-ancillary_data">
+	    ancillary data
+	  </seealso>
+	  from the socket
+	  <seealso marker="#type-option">options</seealso>
+	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
+	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  or
+	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>,
+	  if that is supported by the platform for the socket.
+	</p>
         <p>The <c><anno>Data</anno></c> received can be a <c>binary()</c>
           or a <c>list()</c> of bytes (integers in the range 0 through 255)
           depending on the socket mode, or an SCTP event.</p>
@@ -544,12 +588,25 @@ connect(Socket, Ip, Port>,
               <seealso marker="#recv/1"><c>recv</c></seealso> call
               to retrieve the available data from the socket.</p>
           </item>
+	  <item>
+	    <p>
+	      If <c>true|once|N</c> (active modes)
+	      received data or events are sent to the owning process.
+	      See <seealso marker="#open/0"><c>open/0..2</c></seealso>
+	      for the message format.
+	    </p>
+	  </item>
           <item>
-            <p>If <c>true</c> (full active mode), the pending data or events are
-              sent to the owning process.</p>
-            <p>Notice that this can cause the message queue to overflow,
-              as there is no way to throttle the sender in this case
-              (no flow control).</p>
+            <p>
+	      If <c>true</c> (full active mode) there is no flow control.
+	    </p>
+	    <note>
+              <p>
+		Note that this can cause the message queue to overflow
+		causing for example the virtual machine
+		to run out of memory and crash.
+	      </p>
+	    </note>
           </item>
           <item>
             <p>If <c>once</c>, only one message is automatically placed

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -529,6 +529,111 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addTupleCount(2);
  rt.addAtom("wxCURSOR_MAX"); rt.addInt(wxCURSOR_MAX);
  rt.addTupleCount(2);
+#if wxCHECK_VERSION(3,0,3)
+ rt.addAtom("WX_GL_CORE_PROFILE"); rt.addInt(WX_GL_CORE_PROFILE);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_CORE_PROFILE"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_DEBUG"); rt.addInt(WX_GL_DEBUG);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_DEBUG"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_ES2"); rt.addInt(WX_GL_ES2);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_ES2"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_FORWARD_COMPAT"); rt.addInt(WX_GL_FORWARD_COMPAT);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_FORWARD_COMPAT"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_FRAMEBUFFER_SRGB"); rt.addInt(WX_GL_FRAMEBUFFER_SRGB);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_FRAMEBUFFER_SRGB"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_LOSE_ON_RESET"); rt.addInt(WX_GL_LOSE_ON_RESET);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_LOSE_ON_RESET"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,3)
+ rt.addAtom("WX_GL_MAJOR_VERSION"); rt.addInt(WX_GL_MAJOR_VERSION);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_MAJOR_VERSION"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,3)
+ rt.addAtom("WX_GL_MINOR_VERSION"); rt.addInt(WX_GL_MINOR_VERSION);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_MINOR_VERSION"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_NO_RESET_NOTIFY"); rt.addInt(WX_GL_NO_RESET_NOTIFY);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_NO_RESET_NOTIFY"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_RELEASE_FLUSH"); rt.addInt(WX_GL_RELEASE_FLUSH);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_RELEASE_FLUSH"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_RELEASE_NONE"); rt.addInt(WX_GL_RELEASE_NONE);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_RELEASE_NONE"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_RESET_ISOLATION"); rt.addInt(WX_GL_RESET_ISOLATION);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_RESET_ISOLATION"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("WX_GL_ROBUST_ACCESS"); rt.addInt(WX_GL_ROBUST_ACCESS);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_ROBUST_ACCESS"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("WX_GL_SAMPLES"); rt.addInt(WX_GL_SAMPLES);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_SAMPLES"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("WX_GL_SAMPLE_BUFFERS"); rt.addInt(WX_GL_SAMPLE_BUFFERS);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("WX_GL_SAMPLE_BUFFERS"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
    rt.addAtom("wxBLACK"); rt.add(*(wxBLACK));
    rt.addTupleCount(2);
    rt.addAtom("wxBLACK_BRUSH"); rt.addRef(getRef((void *)wxBLACK_BRUSH,memenv),"wxBrush");
@@ -611,7 +716,14 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxWHITE_PEN"); rt.addRef(getRef((void *)wxWHITE_PEN,memenv),"wxPen");
    rt.addTupleCount(2);
- rt.endList(293);
+#if wxCHECK_VERSION(3,1,0)
+ rt.addAtom("wx_GL_COMPAT_PROFILE"); rt.addInt(wx_GL_COMPAT_PROFILE);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wx_GL_COMPAT_PROFILE"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+ rt.endList(309);
  rt.addTupleCount(2);
   rt.send();
 }

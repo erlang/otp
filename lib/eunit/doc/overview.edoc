@@ -578,7 +578,7 @@ results for equality, if testing is enabled. If the values are not
 equal, an informative exception will be generated; see the `assert'
 macro for further details.
 
-`assertEqual' is more suitable than than `assertMatch' when the
+`assertEqual' is more suitable than `assertMatch' when the
 left-hand side is a computed value rather than a simple pattern, and
 gives more details than `?assert(Expect =:= Expr)'.
 
@@ -994,7 +994,7 @@ specified node. `local' means that the current process will handle both
 setup/teardown and running the tests - the drawback is that if a test
 times out so that the process is killed, the <em>cleanup will not be
 performed</em>; hence, avoid this for persistent fixtures such as file
-operations. In general, 'local' should only be used when:
+operations. In general, `local' should only be used when:
 <ul>
   <li>the setup/teardown needs to be executed by the process that will
   run the tests;</li>

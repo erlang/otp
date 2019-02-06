@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,13 +49,24 @@
       associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
       have many objects associated with each key.</p>
 
-    <p>The number of tables stored at one Erlang node is limited.
-      The current default limit is about 1400 tables. The upper
-      limit can be increased by setting environment variable
-      <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
-      system (that is, with option <c>-env</c> to
-      <c>erl</c>/<c>werl</c>). The actual limit can be slightly higher
-      than the one specified, but never lower.</p>
+   <marker id="max_ets_tables"></marker>
+   <note>
+     <p>
+       The number of tables stored at one Erlang node <em>used</em> to
+       be limited. This is no longer the case (except by memory usage).
+       The previous default limit was about 1400 tables and
+       could be increased by setting the environment variable
+       <c>ERL_MAX_ETS_TABLES</c> or the command line option
+       <seealso marker="erts:erl#+e"><c>+e</c></seealso> before starting the
+       Erlang runtime system. This hard limit has been removed, but it is currently
+       useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
+       set to an approximate of the maximum amount of tables used. This since
+       an internal table for named tables is sized using this value. If
+       large amounts of named tables are used and <c>ERL_MAX_ETS_TABLES</c>
+       hasn't been increased, the performance of named table lookup will
+       degrade.
+    </p>
+   </note>
 
     <p>Notice that there is no automatic garbage collection for tables.
       Even if there are no references to a table from any process, it
@@ -316,7 +327,7 @@
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
           <seealso marker="lists#foldl/3"><c>lists:foldl/3</c></seealso>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed first to last.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
           or another
@@ -332,7 +343,7 @@
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
           <seealso marker="lists#foldr/3"><c>lists:foldr/3</c></seealso>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed last to first.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
           or another
@@ -399,9 +410,9 @@
           calls cannot be in the guard or body of the fun. Calls to built-in
           match specification functions is of course allowed:</p>
         <pre>
-4> <input>ets:fun2ms(fun({M,N}) when N > X, is_atomm(M) -> M end).</input>
+4> <input>ets:fun2ms(fun({M,N}) when N > X, my_fun(M) -> M end).</input>
 Error: fun containing local Erlang function calls
-('is_atomm' called in guard) cannot be translated into match_spec
+('my_fun' called in guard) cannot be translated into match_spec
 {error,transform_error}
 5> <input>ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).</input>
 [{{'$1','$2'},[{'>','$2',{const,3}},{is_atom,'$1'}],['$1']}]</pre>
@@ -478,6 +489,11 @@ Error: fun containing local Erlang function calls
             <p>The pid of the heir of the table, or <c>none</c> if no heir
               is set.</p>
           </item>
+          <tag><c>{id,</c><seealso marker="#type-tid">
+              <c>tid()</c></seealso><c>}</c></tag>
+          <item>
+            <p>The table identifier.</p>
+          </item>
           <tag><c>{keypos, integer() >= 1}</c></tag>
           <item>
             <p>The key position.</p>
@@ -541,10 +557,6 @@ Error: fun containing local Erlang function calls
           <c><anno>Tab</anno></c> is
           not of the correct type, or if <c><anno>Item</anno></c> is not
           one of the allowed values, a <c>badarg</c> exception is raised.</p>
-        <warning>
-          <p>In Erlang/OTP R11B and earlier, this function would not fail but
-            return <c>undefined</c> for invalid values for <c>Item</c>.</p>
-        </warning>
           <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
             pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
             the following items are allowed:</p>
@@ -958,11 +970,11 @@ ets:is_compiled_ms(Broken).</code>
     <func>
       <name name="match_spec_run" arity="2"/>
       <fsummary>Perform matching, using a compiled match specification on a
-        list of tuples.</fsummary>
+        list of terms.</fsummary>
       <desc>
         <p>Executes the matching specified in a compiled
           <seealso marker="#match_spec">match specification</seealso> on a list
-          of tuples. Term <c><anno>CompiledMatchSpec</anno></c> is to be
+          of terms. Term <c><anno>CompiledMatchSpec</anno></c> is to be
           the result of a call to <seealso marker="#match_spec_compile/1">
           <c>match_spec_compile/1</c></seealso> and is hence the internal
           representation of the match specification one wants to use.</p>
@@ -980,7 +992,7 @@ Table = ets:new...
 MatchSpec = ...
 % The following call...
 ets:match_spec_run(ets:tab2list(Table),
-ets:match_spec_compile(MatchSpec)),
+                   ets:match_spec_compile(MatchSpec)),
 % ...gives the same result as the more common (and more efficient)
 ets:select(Table, MatchSpec),</code>
         <note>
@@ -1011,7 +1023,7 @@ ets:select(Table, MatchSpec),</code>
           be used in subsequent operations. The table identifier can be
           sent to other processes so that a table can be shared between
           different processes within a node.</p>
-        <p>Parameter <c><anno>Options</anno></c> is a list of atoms that
+        <p>Parameter <c><anno>Options</anno></c> is a list of options that
           specifies table type, access rights, key position, and whether the
           table is named. Default values are used for omitted options.
           This means that not specifying any options (<c>[]</c>) is the same
@@ -1069,10 +1081,13 @@ ets:select(Table, MatchSpec),</code>
           </item>
           <tag><c>named_table</c></tag>
           <item>
-            <p>If this option is present, name <c><anno>Name</anno></c> is
-              associated with the table identifier. The name can then
-              be used instead of the table identifier in subsequent
-              operations.</p>
+            <p>If this option is present, the table is registered under its
+              <c><anno>Name</anno></c> which can then be used instead of the
+              table identifier in subsequent operations.</p>
+            <p>The function will also return the <c><anno>Name</anno></c>
+              instead of the table identifier. To get the table identifier of a
+              named table, use
+              <seealso marker="#whereis/1"><c>whereis/1</c></seealso>.</p>
           </item>
           <tag><c>{keypos,<anno>Pos</anno>}</c></tag>
           <item>
@@ -1491,6 +1506,45 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
             object deleted. So one cannot use the same match specification for
             looking up elements as for deleting them.</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_replace" arity="2"/>
+      <fsummary>Match and replace objects atomically in an ETS table</fsummary>
+      <desc>
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. For each
+          matched object, the existing object is replaced with
+          the match specification result.</p>
+	<p>The match-and-replace operation for each individual object is guaranteed to be
+	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
+	  <c>select_replace</c> table iteration as a whole, like all other select functions,
+	  does not give such guarantees.</p>
+	<p>The match specifiction must be guaranteed to <em>retain the key</em>
+	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
+	  without updating any objects.</p>
+        <p>For the moment, due to performance and semantic constraints,
+          tables of type <c>bag</c> are not yet supported.</p>
+        <p>The function returns the total number of replaced objects.</p>
+        <p><em>Example</em></p>
+	<p>For all 2-tuples with a list in second position, add atom <c>'marker'</c> first in the list:</p>
+	<pre>
+1> <input>T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).</input>
+true
+2> <input>MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).</input>
+[{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
+3> <input>ets:select_replace(T, MS).</input>
+1
+4> <input>ets:tab2list(T).</input>
+[{key,[marker,1,2,3]}]
+	</pre>
+	<p>A generic single object compare-and-swap operation:</p>
+        <pre>
+[Old] = ets:lookup(T, Key),
+New = update_object(Old),
+Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
+	</pre>
       </desc>
     </func>
 
@@ -1917,7 +1971,7 @@ true</pre>
           The return value is a list of the new counter values from each 
           update operation in the same order as in the operation list. If an 
           empty list is specified, nothing is updated and an empty list is 
-          returned. If the function fails, no updates is done.</p>
+          returned. If the function fails, no updates are done.</p>
         <p>The specified <c><anno>Key</anno></c> is used to identify the object
           by either <em>matching</em> the key of an object in a <c>set</c>
           table, or <em>compare equal</em> to the key of an object in an
@@ -1991,6 +2045,21 @@ true</pre>
           <item><c><anno>Pos</anno></c> &gt; object arity.</item>
           <item>The element to update is also the key.</item>
         </list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="whereis" arity="1"/>
+      <fsummary>Retrieves the tid() of a named table.</fsummary>
+      <desc>
+        <p>This function returns the
+          <seealso marker="#type-tid"><c>tid()</c></seealso> of the named table
+          identified by <c><anno>TableName</anno></c>, or <c>undefined</c> if
+          no such table exists. The <c>tid()</c> can be used in place of the
+          table name in all operations, which is slightly faster since the name
+          does not have to be resolved on each call.</p>
+        <p>If the table is deleted, the <c>tid()</c> will be invalid even if
+          another named table is created with the same name.</p>
       </desc>
     </func>
   </funcs>

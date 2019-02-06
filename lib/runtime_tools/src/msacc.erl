@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@
                                                        system := float()}}.
 
 
--type msacc_type() :: scheduler | aux | async.
+-type msacc_type() :: aux | async | dirty_cpu_scheduler
+                    | dirty_io_scheduler | poll | scheduler.
 -type msacc_id() :: non_neg_integer().
 -type msacc_state() :: alloc | aux | bif | busy_wait | check_io |
                        emulator | ets | gc | gc_fullsweep | nif |

@@ -316,7 +316,7 @@ record_test_in_guard(Line, Term, Name, Vs, St) ->
     %%            code bloat.)
     %%        (4) Xref may be run on the abstract code, so the name in the
     %%            abstract code must be erlang:is_record/3.
-    %%        (5) To achive both (3) and (4) at the same time, set the name
+    %%        (5) To achieve both (3) and (4) at the same time, set the name
     %%            here to erlang:is_record/3, but mark it as compiler-generated.
     %%            The v3_core pass will change the name to erlang:internal_is_record/3.
     Fs = record_fields(Name, St),

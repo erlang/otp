@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_amd64_registers).
 
@@ -52,6 +45,7 @@
  	 tailcall_clobbered/0,
  	 temp0/0,
 	 temp1/0,
+	 sse2_temp0/0,
 	 %% fixed/0,
 	 wordsize/0
 	]).
@@ -106,6 +100,8 @@ heap_limit_offset() -> ?P_HP_LIMIT.
 
 -define(TEMP0, ?R14).
 -define(TEMP1, ?R13).
+
+-define(SSE2_TEMP0, 00).
 
 -define(PROC_POINTER, ?RBP).
 
@@ -204,24 +200,21 @@ allocatable() ->
 allocatable_sse2() ->
   [00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15]. %% xmm0 - xmm15
 
+sse2_temp0() -> ?SSE2_TEMP0.
+
 allocatable_x87() ->
   [0,1,2,3,4,5,6].
 
 nr_args() -> ?AMD64_NR_ARG_REGS.
 
-arg(N) ->
-  if N < ?AMD64_NR_ARG_REGS ->
-      case N of
-	0 -> ?ARG0;
-	1 -> ?ARG1;
-	2 -> ?ARG2;
-	3 -> ?ARG3;
-	4 -> ?ARG4;
-	5 -> ?ARG5;
-	_ -> exit({?MODULE, arg, N})
-      end;
-     true ->
-      exit({?MODULE, arg, N})
+arg(N) when N < ?AMD64_NR_ARG_REGS ->
+  case N of
+    0 -> ?ARG0;
+    1 -> ?ARG1;
+    2 -> ?ARG2;
+    3 -> ?ARG3;
+    4 -> ?ARG4;
+    5 -> ?ARG5
   end.
 
 is_arg(R) ->
@@ -242,12 +235,11 @@ args(Arity) when is_integer(Arity), Arity >= 0 ->
 args(I, Rest) when I < 0 -> Rest;
 args(I, Rest) -> args(I-1, [arg(I) | Rest]).
 
-ret(N) ->
-  case N of
-    0 -> ?RAX;
-    _ -> exit({?MODULE, ret, N})
-  end.
+ret(0) -> ?RAX.
 
+%% Note: the fact that (allocatable() UNION allocatable_x87() UNION
+%% allocatable_sse2()) is a subset of call_clobbered() is hard-coded in
+%% hipe_x86_defuse:insn_defs_all/1
 call_clobbered() ->
   [{?RAX,tagged},{?RAX,untagged},	% does the RA strip the type or not?
    {?RDX,tagged},{?RDX,untagged},

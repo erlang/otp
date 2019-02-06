@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2013</year><year>2013</year>
+      <year>2013</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -87,8 +87,10 @@
       connection, and all channels are flow-controlled.  Typically an
       SSH client will open a channel, send data/commands, receive
       data/"control information" and when it is done close the
-      channel. The <seealso
-      marker="ssh_channel">ssh_channel</seealso> behaviour makes it easy to
+      channel. The 
+      <seealso marker="ssh_client_channel">ssh_client_channel</seealso> / 
+      <seealso marker="ssh_server_channel">ssh_server_channel</seealso> (Replaces ssh_daemon_channel)
+      behaviours makes it easy to
       write your own SSH client/server processes that use flow
       control. It handles generic parts of SSH channel management and
       lets you focus on the application logic.
@@ -138,8 +140,6 @@
       Transport Layer Protocol.</item>
       <item><url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> -
       Connection Protocol.</item>
-      <item><url href="http://www.ietf.org/rfc/rfc4255.txt">RFC 4255</url> -
-      Key Fingerprints.</item>
       <item><url href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</url> -
       Transport Layer Encryption Modes.</item>
       <item><url href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</url> -

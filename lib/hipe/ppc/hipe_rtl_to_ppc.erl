@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%%
-%%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%%
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%%
-%%% %CopyrightEnd%
 %%%
 %%% The PowerPC instruction set is quite irregular.
 %%% The following quirks must be handled by the translation:
@@ -80,7 +74,6 @@ conv_insn(I, Map, Data) ->
   case I of
     #alu{} -> conv_alu(I, Map, Data);
     #alub{} -> conv_alub(I, Map, Data);
-    #branch{} -> conv_branch(I, Map, Data);
     #call{} -> conv_call(I, Map, Data);
     #comment{} -> conv_comment(I, Map, Data);
     #enter{} -> conv_enter(I, Map, Data);
@@ -441,36 +434,53 @@ mk_alu_rr(Dst, Src1, RtlAluOp, Src2) ->
 
 conv_alub(I, Map, Data) ->
   %% dst = src1 aluop src2; if COND goto label
-  {Dst, Map0} = conv_dst(hipe_rtl:alub_dst(I), Map),
-  {Src1, Map1} = conv_src(hipe_rtl:alub_src1(I), Map0),
-  {Src2, Map2} = conv_src(hipe_rtl:alub_src2(I), Map1),
-  {AluOp, BCond} =
-    case {hipe_rtl:alub_op(I), hipe_rtl:alub_cond(I)} of
-      {'add', 'ltu'} ->
-	{'addc', 'eq'};
-      {RtlAlubOp, RtlAlubCond} ->
-	{conv_alub_op(RtlAlubOp), conv_alub_cond(RtlAlubCond)}
-    end,
-  BC = mk_pseudo_bc(BCond,
-		    hipe_rtl:alub_true_label(I),
-		    hipe_rtl:alub_false_label(I),
-		    hipe_rtl:alub_pred(I)),
-  I2 =
-    case {AluOp, BCond} of
-      {'addc', 'eq'} ->	% copy XER[CA] to CR0[EQ] before the BC
-	TmpR = new_untagged_temp(),
-	[hipe_ppc:mk_mfspr(TmpR, 'xer'),
-	 hipe_ppc:mk_mtcr(TmpR) |
-	 BC];
-      _ -> BC
-    end,
-  {NewSrc1, NewSrc2} =
-    case AluOp of
-      'subf' -> {Src2, Src1};
-      _ -> {Src1, Src2}
-    end,
-  I1 = mk_alub(Dst, NewSrc1, AluOp, NewSrc2, BCond),
-  {I1 ++ I2, Map2, Data}.
+  HasDst = hipe_rtl:alub_has_dst(I),
+  {Src1, Map0} = conv_src(hipe_rtl:alub_src1(I), Map),
+  {Src2, Map1} = conv_src(hipe_rtl:alub_src2(I), Map0),
+  RtlAlubOp = hipe_rtl:alub_op(I),
+  RtlAlubCond = hipe_rtl:alub_cond(I),
+  case {HasDst, RtlAlubOp} of
+    {false, sub} ->
+      {BCond,Sign} = conv_branch_cond(RtlAlubCond),
+      I2 = mk_branch(Src1, BCond, Sign, Src2,
+		     hipe_rtl:alub_true_label(I),
+		     hipe_rtl:alub_false_label(I),
+		     hipe_rtl:alub_pred(I)),
+      {I2, Map1, Data};
+    _ ->
+      {Dst, Map2} =
+	case HasDst of
+	  false -> {new_untagged_temp(), Map1};
+	  true -> conv_dst(hipe_rtl:alub_dst(I), Map1)
+	end,
+      {AluOp, BCond} =
+	case {RtlAlubOp, RtlAlubCond} of
+	  {'add', 'ltu'} ->
+	    {'addc', 'eq'};
+	  {_, _} ->
+	    {conv_alub_op(RtlAlubOp), conv_alub_cond(RtlAlubCond)}
+	end,
+      BC = mk_pseudo_bc(BCond,
+			hipe_rtl:alub_true_label(I),
+			hipe_rtl:alub_false_label(I),
+			hipe_rtl:alub_pred(I)),
+      I2 =
+	case {AluOp, BCond} of
+	  {'addc', 'eq'} ->	% copy XER[CA] to CR0[EQ] before the BC
+	    TmpR = new_untagged_temp(),
+	    [hipe_ppc:mk_mfspr(TmpR, 'xer'),
+	     hipe_ppc:mk_mtcr(TmpR) |
+	     BC];
+	  _ -> BC
+	end,
+      {NewSrc1, NewSrc2} =
+	case AluOp of
+	  'subf' -> {Src2, Src1};
+	  _ -> {Src1, Src2}
+	end,
+      I1 = mk_alub(Dst, NewSrc1, AluOp, NewSrc2, BCond),
+      {I1 ++ I2, Map2, Data}
+  end.
 
 conv_alub_op(RtlAluOp) ->
   case {get(hipe_target_arch), RtlAluOp} of
@@ -688,17 +698,6 @@ mk_alub_rr_Rc(Dst, Src1, AluOp, Src2) ->
       'srad'  -> 'srad.'
     end,
   [hipe_ppc:mk_alu(AluOpDot, Dst, Src1, Src2)].
-
-conv_branch(I, Map, Data) ->
-  %% <unused> = src1 - src2; if COND goto label
-  {Src1, Map0} = conv_src(hipe_rtl:branch_src1(I), Map),
-  {Src2, Map1} = conv_src(hipe_rtl:branch_src2(I), Map0),
-  {BCond,Sign} = conv_branch_cond(hipe_rtl:branch_cond(I)),
-  I2 = mk_branch(Src1, BCond, Sign, Src2,
-		 hipe_rtl:branch_true_label(I),
-		 hipe_rtl:branch_false_label(I),
-		 hipe_rtl:branch_pred(I)),
-  {I2, Map1, Data}.
 
 conv_branch_cond(Cond) -> % may be unsigned
   case Cond of
@@ -1031,7 +1030,7 @@ conv_return(I, Map, Data) ->
   {I2, Map0, Data}.
 
 conv_store(I, Map, Data) ->
-  {Base1, Map0} = conv_dst(hipe_rtl:store_base(I), Map),
+  {Base1, Map0} = conv_src(hipe_rtl:store_base(I), Map),
   {Src, Map1} = conv_src(hipe_rtl:store_src(I), Map0),
   {Base2, Map2} = conv_src(hipe_rtl:store_offset(I), Map1),
   StoreSize = hipe_rtl:store_size(I),
@@ -1056,13 +1055,28 @@ mk_store(Src, Base1, Base2, StoreSize) ->
   end.
 
 mk_store2(Src, Base1, Base2, StOp) ->
-  case hipe_ppc:is_temp(Base2) of
+  case hipe_ppc:is_temp(Base1) of
     true ->
-      mk_store_rr(Src, Base1, Base2, StOp);
+      case hipe_ppc:is_temp(Base2) of
+	true ->
+	  mk_store_rr(Src, Base1, Base2, StOp);
+	_ ->
+	  mk_store_ri(Src, Base1, Base2, StOp)
+      end;
     _ ->
-      mk_store_ri(Src, Base1, Base2, StOp)
+      case hipe_ppc:is_temp(Base2) of
+	true ->
+	  mk_store_ri(Src, Base2, Base1, StOp);
+	_ ->
+	  mk_store_ii(Src, Base1, Base2, StOp)
+      end
   end.
-  
+
+mk_store_ii(Src, Base, Disp, StOp) ->
+  Tmp = new_untagged_temp(),
+  mk_li(Tmp, Base,
+	mk_store_ri(Src, Tmp, Disp, StOp)).
+
 mk_store_ri(Src, Base, Disp, StOp) ->
   hipe_ppc:mk_store(StOp, Src, Disp, Base, 'new', []).
 

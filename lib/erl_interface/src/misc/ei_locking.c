@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,8 +76,8 @@ ei_mutex_t *ei_mutex_create(void)
   return l;
 }
 
-/* 
- * Free a mutex and the structure asociated with it.
+/*
+ * Free a mutex and the structure associated with it.
  *
  * This function attempts to obtain the mutex before releasing it;
  * If nblock == 1 and the mutex was unavailable, the function will

@@ -61,7 +61,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     Repair = mnesia_monitor:get_env(auto_repair),
     Args = [{keypos, 2}, public, named_table, Type],
     case Reason of
-	{dumper, _} -> %% Resources allready allocated
+	{dumper, _} -> %% Resources already allocated
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
@@ -82,7 +82,7 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == ram_copies ->
     Args = [{keypos, 2}, public, named_table, Type],
     case Reason of
-	{dumper, _} -> %% Resources allready allocated
+	{dumper, _} -> %% Resources already allocated
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),

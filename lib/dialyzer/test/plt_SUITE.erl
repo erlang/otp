@@ -8,13 +8,15 @@
 
 -export([suite/0, all/0, build_plt/1, beam_tests/1, update_plt/1,
          local_fun_same_as_callback/1,
-         remove_plt/1, run_plt_check/1, run_succ_typings/1]).
+         remove_plt/1, run_plt_check/1, run_succ_typings/1,
+         bad_dialyzer_attr/1, merge_plts/1, bad_record_type/1]).
 
 suite() ->
   [{timetrap, ?plt_timeout}].
 
 all() -> [build_plt, beam_tests, update_plt, run_plt_check,
-          remove_plt, run_succ_typings, local_fun_same_as_callback].
+          remove_plt, run_succ_typings, local_fun_same_as_callback,
+          bad_dialyzer_attr, merge_plts, bad_record_type].
 
 build_plt(Config) ->
   OutDir = ?config(priv_dir, Config),
@@ -24,6 +26,8 @@ build_plt(Config) ->
   end.
 
 beam_tests(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "beam_tests.plt"),
     Prog = <<"
               -module(no_auto_import).
 
@@ -40,10 +44,12 @@ beam_tests(Config) when is_list(Config) ->
              ">>,
     Opts = [no_auto_import],
     {ok, BeamFile} = compile(Config, Prog, no_auto_import, Opts),
-    [] = run_dialyzer(plt_build, [BeamFile], []),
+    [] = run_dialyzer(plt_build, [BeamFile], [{output_plt, Plt}]),
     ok.
 
 run_plt_check(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "run_plt_check.plt"),
     Mod1 = <<"
 	      -module(run_plt_check1).
 	     ">>,
@@ -54,7 +60,7 @@ run_plt_check(Config) when is_list(Config) ->
 
     {ok, BeamFile1} = compile(Config, Mod1, run_plt_check1, []),
     {ok, BeamFile2} = compile(Config, Mod2A, run_plt_check2, []),
-    [] = run_dialyzer(plt_build, [BeamFile1, BeamFile2], []),
+    [] = run_dialyzer(plt_build, [BeamFile1, BeamFile2], [{output_plt, Plt}]),
 
     Mod2B = <<"
 	       -module(run_plt_check2).
@@ -68,11 +74,13 @@ run_plt_check(Config) when is_list(Config) ->
 
     % callgraph warning as run_plt_check2:call/1 makes a call to unexported
     % function run_plt_check1:call/1.
-    [_] = run_dialyzer(plt_check, [], []),
+    [_] = run_dialyzer(plt_check, [], [{init_plt, Plt}]),
 
     ok.
 
 run_succ_typings(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt = filename:join(PrivDir, "run_succ_typings.plt"),
     Mod1A = <<"
 	       -module(run_succ_typings1).
 
@@ -82,7 +90,7 @@ run_succ_typings(Config) when is_list(Config) ->
 	      ">>,
 
     {ok, BeamFile1} = compile(Config, Mod1A, run_succ_typings1, []),
-    [] = run_dialyzer(plt_build, [BeamFile1], []),
+    [] = run_dialyzer(plt_build, [BeamFile1], [{output_plt, Plt}]),
 
     Mod1B = <<"
 	       -module(run_succ_typings1).
@@ -105,9 +113,11 @@ run_succ_typings(Config) when is_list(Config) ->
     {ok, BeamFile2} = compile(Config, Mod2, run_succ_typings2, []),
     % contract types warning as run_succ_typings2:call/0 makes a call to
     % run_succ_typings1:call/0, which returns a (not b) in the PLT.
-    [_] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, false}]),
+    [_] = run_dialyzer(succ_typings, [BeamFile2],
+                       [{check_plt, false}, {init_plt, Plt}]),
     % warning not returned as run_succ_typings1 is updated in the PLT.
-    [] = run_dialyzer(succ_typings, [BeamFile2], [{check_plt, true}]),
+    [] = run_dialyzer(succ_typings, [BeamFile2],
+                      [{check_plt, true}, {init_plt, Plt}]),
 
     ok.
 
@@ -159,6 +169,7 @@ update_plt(Config) ->
                       {files, [TestBeam]},
                       {init_plt, Plt}] ++ Opts),
     ok.
+
 
 %%% If a behaviour module contains an non-exported function with the same name
 %%% as one of the behaviour's callbacks, the callback info was inadvertently
@@ -248,6 +259,151 @@ remove_plt(Config) ->
                         {files, [Beam1]},
                         {init_plt, Plt}] ++ Opts),
     ok.
+
+%% ERL-283, OTP-13979. As of OTP-14323 this test no longer does what
+%% it is designed to do--the linter stops every attempt to run the
+%% checks of Dialyzer's on bad dialyzer attributes. For the time
+%% being, the linter's error message are checked instead. The test
+%% needs to be updated when/if the Dialyzer can analyze Core Erlang
+%% without compiling abstract code.
+bad_dialyzer_attr(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Source = lists:concat([dial, ".erl"]),
+    Filename = filename:join(PrivDir, Source),
+    ok = dialyzer_common:check_plt(PrivDir),
+    PltFilename = dialyzer_common:plt_file(PrivDir),
+    Opts = [{files, [Filename]},
+            {check_plt, false},
+            {from, src_code},
+            {init_plt, PltFilename}],
+
+    Prog1 = <<"-module(dial).
+               -dialyzer({no_return, [undef/0]}).">>,
+    ok = file:write_file(Filename, Prog1),
+    {dialyzer_error,
+     "Analysis failed with error:\n" ++ Str1} =
+        (catch dialyzer:run(Opts)),
+    S1 = string:find(Str1, "dial.erl:2: function undef/0 undefined"),
+    true = is_list(S1),
+
+    Prog2 = <<"-module(dial).
+               -dialyzer({no_return, [{undef,1,2}]}).">>,
+    ok = file:write_file(Filename, Prog2),
+    {dialyzer_error,
+     "Analysis failed with error:\n" ++ Str2} =
+        (catch dialyzer:run(Opts)),
+    S2 = string:find(Str2, "dial.erl:2: badly formed dialyzer "
+                           "attribute: {no_return,{undef,1,2}}"),
+    true = is_list(S2),
+
+    ok.
+
+merge_plts(Config) ->
+    %% A few checks of merging PLTs.
+    fun() ->
+            {Mod1, Mod2} = types(),
+            {BeamFiles, Plt1, Plt2} = create_plts(Mod1, Mod2, Config),
+
+            {dialyzer_error,
+             "Could not merge PLTs since they are not disjoint"++_} =
+                (catch run_dialyzer(succ_typings, BeamFiles,
+                                    [{plts, [Plt1, Plt1]}])),
+            [{warn_contract_types,_,_}] =
+                run_dialyzer(succ_typings, BeamFiles,
+                             [{warnings, [unknown]},
+                              {plts, [Plt1, Plt2]}])
+    end(),
+
+    fun() ->
+            {Mod1, Mod2} = callbacks(),
+            {BeamFiles, Plt1, Plt2} = create_plts(Mod1, Mod2, Config),
+
+            {dialyzer_error,
+             "Could not merge PLTs since they are not disjoint"++_} =
+                (catch run_dialyzer(succ_typings, BeamFiles,
+                                    [{plts, [Plt1, Plt1]}])),
+            [] =
+                run_dialyzer(succ_typings, BeamFiles,
+                             [{warnings, [unknown]},
+                              {plts, [Plt1, Plt2]}])
+    end(),
+
+    ok.
+
+types() ->
+    Mod1 = <<"-module(merge_plts_1).
+              -export([f/0]).
+              -export_type([t/0]).
+              -type t() :: merge_plts_2:t().
+              -spec f() -> t().
+              f() -> 1. % Not an atom().
+	      ">>,
+    Mod2 = <<"-module(merge_plts_2).
+              -export_type([t/0]).
+              -type t() :: atom().
+	     ">>,
+    {Mod1, Mod2}.
+
+callbacks() -> % A very shallow test.
+    Mod1 = <<"-module(merge_plts_1).
+              -callback t() -> merge_plts_2:t().
+	      ">>,
+    Mod2 = <<"-module(merge_plts_2).
+              -export_type([t/0]).
+              -type t() :: atom().
+	     ">>,
+    {Mod1, Mod2}.
+
+create_plts(Mod1, Mod2, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Plt1 = filename:join(PrivDir, "merge_plts_1.plt"),
+    Plt2 = filename:join(PrivDir, "merge_plts_2.plt"),
+    ErlangBeam = erlang_beam(),
+
+    {ok, BeamFile1} = compile(Config, Mod1, merge_plts_1, []),
+    [] = run_dialyzer(plt_build, [ErlangBeam,BeamFile1], [{output_plt,Plt1}]),
+
+    {ok, BeamFile2} = compile(Config, Mod2, merge_plts_2, []),
+    [] = run_dialyzer(plt_build, [BeamFile2], [{output_plt, Plt2}]),
+    {[BeamFile1, BeamFile2], Plt1, Plt2}.
+
+%% End of merge_plts().
+
+bad_record_type(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Source = lists:concat([bad_record_type, ".erl"]),
+    Filename = filename:join(PrivDir, Source),
+    PltFilename = dialyzer_common:plt_file(PrivDir),
+
+    Opts = [{files, [Filename]},
+            {check_plt, false},
+            {from, src_code},
+            {init_plt, PltFilename}],
+
+    Prog = <<"-module(bad_record_type).
+              -export([r/0]).
+              -record(r, {f = 3 :: integer()}).
+              -spec r() -> #r{f :: atom()}.
+              r() ->
+                  #r{}.">>,
+    ok = file:write_file(Filename, Prog),
+    {dialyzer_error,
+     "Analysis failed with error:\n" ++ Str} =
+        (catch dialyzer:run(Opts)),
+    P = string:str(Str,
+                    "bad_record_type.erl:4: Illegal declaration of #r{f}"),
+    true = P > 0,
+    ok.
+
+erlang_beam() ->
+    case code:where_is_file("erlang.beam") of
+        non_existing ->
+            filename:join([code:root_dir(),
+                           "erts", "preloaded", "ebin",
+                           "erlang.beam"]);
+        EBeam ->
+            EBeam
+    end.
 
 compile(Config, Prog, Module, CompileOpts) ->
     Source = lists:concat([Module, ".erl"]),

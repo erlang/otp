@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@
 
 -import(lists, [reverse/1]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -42,16 +45,15 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	Is = function_1(Is0),
 	{function,Name,Arity,CLabel,Is}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
 
 -record(st,
-	{lbl,					%func_info label
-	 loc,					%location for func_info
-	 arity					%arity for function
+	{lbl :: beam_asm:label(),              %func_info label
+	 loc :: [_],                           %location for func_info
+	 arity :: arity()                       %arity for function
 	 }).
 
 function_1(Is0) ->

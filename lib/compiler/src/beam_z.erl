@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,19 +24,23 @@
 
 -export([module/2]).
 
--import(lists, [dropwhile/2]).
+-import(lists, [dropwhile/2,map/2]).
 
-module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
-    Fs = [function(F) || F <- Fs0],
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_asm:module_code()}.
+
+module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
+    NoGetHdTl = proplists:get_bool(no_get_hd_tl, Opts),
+    Fs = [function(F, NoGetHdTl) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}) ->
+function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
     try
-	Is = undo_renames(Is0),
+	Is1 = undo_renames(Is0),
+        Is = maybe_eliminate_get_hd_tl(Is1, NoGetHdTl),
 	{function,Name,Arity,CLabel,Is}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
@@ -63,6 +67,10 @@ undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
 		      (_) -> true
 		   end, Is0),
     [I|undo_renames(Is)];
+undo_renames([{get_hd,Src,Dst1},{get_tl,Src,Dst2}|Is]) ->
+    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
+undo_renames([{get_tl,Src,Dst2},{get_hd,Src,Dst1}|Is]) ->
+    [{get_list,Src,Dst1,Dst2}|undo_renames(Is)];
 undo_renames([I|Is]) ->
     [undo_rename(I)|undo_renames(Is)];
 undo_renames([]) -> [].
@@ -105,3 +113,17 @@ undo_rename({get_map_elements,Fail,Src,{list,List}}) ->
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.
+
+%%%
+%%% Eliminate get_hd/get_tl instructions if requested by
+%%% the no_get_hd_tl option.
+%%%
+
+maybe_eliminate_get_hd_tl(Is, true) ->
+    map(fun({get_hd,Cons,Hd}) ->
+                {get_list,Cons,Hd,{x,1022}};
+           ({get_tl,Cons,Tl}) ->
+                {get_list,Cons,{x,1022},Tl};
+           (I) -> I
+        end, Is);
+maybe_eliminate_get_hd_tl(Is, false) -> Is.

@@ -5,7 +5,7 @@
     <header>
 	<copyright>
 	    <year>2009</year>
-	    <year>2016</year>
+	    <year>2018</year>
 	    <holder>Ericsson AB, All Rights Reserved</holder>
 	</copyright>
 	<legalnotice>
@@ -38,7 +38,7 @@
     <modulesummary>A runtime system Lock Profiling tool.</modulesummary>
     <description>
 	<p>The <c>lcnt</c> module is used to profile the internal ethread locks in the
-	    Erlang Runtime System. With <c>lcnt</c> enabled, Internal counters in the
+	    Erlang Runtime System. With <c>lcnt</c> enabled, internal counters in the
 	    runtime system are updated each time a lock is taken. The counters stores
 	    information about the number of acquisition tries and the number of collisions
 	    that has occurred during the acquisition tries. The counters also record the
@@ -47,17 +47,17 @@
 	<p>
 	    The data produced by the lock counters will give an estimate on how well
 	    the runtime system will behave from a parallelizable view point for the
-	    scenarios tested. This tool was mainly developed to help erlang runtime
+	    scenarios tested. This tool was mainly developed to help Erlang runtime
 	    developers iron out potential and generic bottlenecks.
 	</p>
 	<p>Locks in the emulator are named after what type of resource they protect and where
 	    in the emulator they are initialized, those are lock 'classes'. Most of those
 	    locks are also instantiated several times, and given unique identifiers, to increase
 	    locking granularity. Typically an instantiated lock protects a disjunct set of
-	    the resource, i.e ets-tables, processes or ports. In other cases it protects a
-	    specific range of a resource, e.g. <c>pix_lock</c> which protects index to process
+	    the resource, for example ets tables, processes or ports. In other cases it protects a
+	    specific range of a resource, for example <c>pix_lock</c> which protects index to process
 	    mappings, and is given a unique number within the class. A unique lock in <c>lcnt</c>
-	    is referenced by a name (class) and an identifier, <c>{Name, Id}</c>.
+	    is referenced by a name (class) and an identifier: <c>{Name, Id}</c>.
 	</p>
 	<p>Some locks in the system are static and protects global resources, for example
 	    <c>bif_timers</c> and the <c>run_queue</c> locks. Other locks are dynamic and not
@@ -109,14 +109,6 @@
 		    statistics. If the server held any lock statistics data before the collect then
 		    that data is lost.
 		</p>
-		<note>
-		    <p>
-			When collection occurs the runtime system transitions to a single thread,
-			blocking all other threads. No other tasks will be scheduled during this
-			operation. Depending on the size of the data this might take a long time
-			(several seconds) and cause timeouts in the system.
-		    </p>
-		</note>
 	    </desc>
 	</func>
 
@@ -322,24 +314,22 @@
 	<func>
 	    <name>apply(Fun) -> term()</name>
 	    <fsummary>Same as <c>apply(Fun, [])</c>.</fsummary>
+	    <type>
+		<v>Fun = fun()</v>
+	    </type>
 	    <desc>
 		<p>Same as <c>apply(Fun, [])</c>.</p>
 	    </desc>
 	</func>
 	<func>
 	    <name>apply(Fun, Args) -> term()</name>
-	    <fsummary>Clears counters, applies function and collects the profiling results.</fsummary>
+	    <fsummary>Same as <c>apply(Module, Function, Args)</c>.</fsummary>
 	    <type>
 		<v>Fun = fun()</v>
 		<v>Args = [term()]</v>
 	    </type>
 	    <desc>
-		<p> Clears the lock counters and then setups the instrumentation to save all destroyed locks.
-		    After setup the fun is called, passing the elements in <c>Args</c> as arguments.
-		    When the fun returns the statistics are immediately collected to the server. After the
-		    collection the instrumentation is returned to its previous behavior.
-		    The result of the applied fun is returned.
-		</p>
+		<p>Same as <c>apply(Module, Function, Args)</c>.</p>
 	    </desc>
 	</func>
 	<func>
@@ -357,6 +347,13 @@
 		    collection the instrumentation is returned to its previous behavior.
 		    The result of the applied function is returned.
 		</p>
+                <warning>
+                    <p>
+                        This function should only be used for micro-benchmarks; it sets <c>copy_save</c>
+                        to <c>true</c> for the duration of the call, which can quickly lead to running
+                        out of memory.
+                    </p>
+                </warning>
 	    </desc>
 	</func>
 
@@ -374,7 +371,7 @@
 		<v>Serial = integer()</v>
 	    </type>
 	    <desc>
-		<p>Creates a process id with creation 0. Example:</p>
+		<p>Creates a process id with creation 0.</p>
 	    </desc>
 	</func>
 
@@ -429,6 +426,68 @@
 	    <desc> <p>Clear the internal counters. Same as <c>lcnt:clear(Node)</c>.</p></desc>
 	</func>
 
+        <func>
+            <name>rt_mask() -> [category_atom()]</name>
+            <fsummary>Same as <c>rt_mask(node())</c>.</fsummary>
+            <desc><p>Same as <c>rt_mask(node())</c>.</p></desc>
+        </func>
+
+        <func>
+            <name>rt_mask(Node) -> [category_atom()]</name>
+            <fsummary>Returns the current lock category mask.</fsummary>
+            <type>
+                <v>Node = node()</v>
+            </type>
+            <desc>
+                <p>
+                    Refer to <c>rt_mask/2</c> for a list of valid categories. All
+                    categories are enabled by default.
+                </p>
+            </desc>
+        </func>
+
+        <func>
+            <name>rt_mask(Categories) -> ok | {error, copy_save_enabled}</name>
+            <fsummary>Same as <c>rt_mask(node(), Categories)</c>.</fsummary>
+            <type>
+                <v>Categories = [atom()]</v>
+            </type>
+            <desc><p>Same as <c>rt_mask(node(), Categories)</c>.</p></desc>
+        </func>
+
+        <func>
+            <name>rt_mask(Node, Categories) -> ok | {error, copy_save_enabled}</name>
+            <fsummary>Changes the lock category mask.</fsummary>
+            <type>
+                <v>Node = node()</v>
+                <v>Categories = [atom()]</v>
+            </type>
+            <desc>
+                <p>
+                    Sets the lock category mask to the given categories.
+                </p>
+                <p>
+                    This will fail if the <c>copy_save</c> option is enabled; see
+                    <c>lcnt:rt_opt/2</c>.
+                </p>
+                <p>Valid categories are:</p>
+                <list>
+                    <item><c>allocator</c></item>
+                    <item><c>db</c> (ETS tables)</item>
+                    <item><c>debug</c></item>
+                    <item><c>distribution</c></item>
+                    <item><c>generic</c></item>
+                    <item><c>io</c></item>
+                    <item><c>process</c></item>
+                    <item><c>scheduler</c></item>
+                </list>
+                <p>
+                    This list is subject to change at any time, as is the category any given lock
+                    may belong to.
+                </p>
+            </desc>
+        </func>
+
 	<func>
 	    <name>rt_opt({Type, bool()}) -> bool()</name>
 	    <fsummary>Same as <c>rt_opt(node(), {Type, Opt})</c>.</fsummary>
@@ -442,16 +501,25 @@
 		<v>Type = copy_save | process_locks</v>
 	    </type>
 	    <desc>
-		<p>Changes the lock counter behavior and returns the previous behaviour.</p>
 		<p>Option description:</p>
 		<taglist>
 		    <tag><c>{copy_save, bool()}</c></tag>
-		    <item>Enable statistics saving from destroyed locks by copying. This might consume a lot of memory.
+		    <item>Retains the statistics of destroyed locks.
 			<br/>Default: <c>false</c>
+                        <warning>
+                            <p>
+                                This option will use a lot of memory when enabled, which must be
+                                reclaimed with <c>lcnt:rt_clear</c>. Note that it makes no distinction
+                                between locks that were destroyed and locks for which counting was
+                                disabled, so enabling this option will disable changes to the lock
+                                category mask.
+                            </p>
+                        </warning>
 		    </item>
 
 		    <tag><c>{process_locks, bool()}</c></tag>
-		    <item>Profile process locks.
+		    <item>Profile process locks, equal to adding <c>process</c> to the lock category mask;
+            see <c>lcnt:rt_mask/2</c>
 			<br/>Default: <c>true</c>
 		    </item>
 		</taglist>

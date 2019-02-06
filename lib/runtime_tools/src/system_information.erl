@@ -75,43 +75,37 @@ load_report(file, File)   -> load_report(data, from_file(File));
 load_report(data, Report) ->
     ok = start_internal(), gen_server:call(?SERVER, {load_report, Report}, infinity).
 
-report() -> [
-	{init_arguments,    init:get_arguments()},
-	{code_paths,        code:get_path()},
-	{code,              code()},
-	{system_info,       erlang_system_info()},
-	{erts_compile_info, erlang:system_info(compile_info)},
-	{beam_dynamic_libraries, get_dynamic_libraries()},
-	{environment_erts,  os_getenv_erts_specific()},
-	{environment,       [split_env(Env) || Env <- os:getenv()]},
-	{sanity_check,      sanity_check()}	     
-    ].
+report() ->
+    %% This is ugly but beats having to maintain two distinct implementations,
+    %% and we don't really care about memory use since it's internal and
+    %% undocumented.
+    {ok, Fd} = file:open([], [ram, read, write]),
+    to_fd(Fd),
+    {ok, _} = file:position(Fd, bof),
+    from_fd(Fd).
 
 -spec to_file(FileName) -> ok | {error, Reason} when
       FileName :: file:name_all(),
       Reason :: file:posix() | badarg | terminated | system_limit.
 
 to_file(File) ->
-    file:write_file(File, iolist_to_binary([
-		io_lib:format("{system_information_version, ~p}.~n", [
-			?REPORT_FILE_VSN
-		    ]),
-		io_lib:format("{system_information, ~p}.~n", [
-			report()
-		    ])
-	    ])).
+    case file:open(File, [raw, write, binary, delayed_write]) of
+        {ok, Fd} ->
+            try
+                to_fd(Fd)
+            after
+                file:close(Fd)
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 from_file(File) ->
-    case file:consult(File) of
-	{ok, Data} ->
-	    case get_value([system_information_version], Data) of
-		?REPORT_FILE_VSN ->
-		    get_value([system_information], Data);
-		Vsn ->
-		    erlang:error({unknown_version, Vsn})
-	    end;
-	_ ->
-	    erlang:error(bad_report_file)
+    {ok, Fd} = file:open(File, [raw, read]),
+    try
+        from_fd(Fd)
+    after
+        file:close(Fd)
     end.
 
 applications() -> applications([]).
@@ -457,60 +451,150 @@ split_env([$=|Vs], Key) -> {lists:reverse(Key), Vs};
 split_env([I|Vs], Key)  -> split_env(Vs, [I|Key]);
 split_env([], KV)       -> lists:reverse(KV). % should not happen.
 
-%% get applications
-
-code() ->
-    % order is important
-    get_code_from_paths(code:get_path()).
-
-get_code_from_paths([]) -> [];
-get_code_from_paths([Path|Paths]) ->
-    case is_application_path(Path) of
-	true -> 
-	    [{application, get_application_from_path(Path)}|get_code_from_paths(Paths)];
-	false ->
-	    [{code, [
-			{path,    Path},
-			{modules, get_modules_from_path(Path)}
-		    ]}|get_code_from_paths(Paths)]
+from_fd(Fd) ->
+    try
+        [{system_information_version, "1.0"},
+         {system_information, Data}] = consult_fd(Fd),
+        Data
+    catch
+        _:_ -> erlang:error(bad_report_file)
     end.
+
+consult_fd(Fd) ->
+    consult_fd_1(Fd, [], {ok, []}).
+consult_fd_1(Fd, Cont0, ReadResult) ->
+    Data =
+        case ReadResult of
+            {ok, Characters} -> Characters;
+            eof -> eof
+        end,
+    case erl_scan:tokens(Cont0, Data, 1) of
+        {done, {ok, Tokens, _}, Next} ->
+            {ok, Term} = erl_parse:parse_term(Tokens),
+            [Term | consult_fd_1(Fd, [], {ok, Next})];
+        {more, Cont} ->
+            consult_fd_1(Fd, Cont, file:read(Fd, 1 bsl 20));
+        {done, {eof, _}, eof} -> []
+    end.
+
+%%
+%% Dumps a system_information tuple to the given Fd, writing the term in chunks
+%% to avoid eating too much memory on large systems.
+%%
+
+to_fd(Fd) ->
+    EmitChunk =
+        fun(Format, Args) ->
+            ok = file:write(Fd, io_lib:format(Format, Args))
+        end,
+
+    EmitChunk("{system_information_version, ~w}.~n"
+              "{system_information,["
+                  "{init_arguments,~w},"
+                  "{code_paths,~w},",
+        [?REPORT_FILE_VSN,
+         init:get_arguments(),
+         code:get_path()]),
+
+    emit_code_info(EmitChunk),
+
+    EmitChunk(    ","  %% Note the leading comma!
+                  "{system_info,~w},"
+                  "{erts_compile_info,~w},"
+                  "{beam_dynamic_libraries,~w},"
+                  "{environment_erts,~w},"
+                  "{environment,~w},"
+                  "{sanity_check,~w}"
+              "]}.~n",
+        [erlang_system_info(),
+         erlang:system_info(compile_info),
+         get_dynamic_libraries(),
+         os_getenv_erts_specific(),
+         [split_env(Env) || Env <- os:getenv()],
+         sanity_check()]).
+
+%% Emits all modules/applications in the *code path order*
+emit_code_info(EmitChunk) ->
+    EmitChunk("{code, [", []),
+    comma_separated_foreach(EmitChunk,
+        fun(Path) ->
+            case is_application_path(Path) of
+                true -> emit_application_info(EmitChunk, Path);
+                false -> emit_code_path_info(EmitChunk, Path)
+            end
+        end, code:get_path()),
+    EmitChunk("]}", []).
+
+emit_application_info(EmitChunk, Path) ->
+    [Appfile|_] = filelib:wildcard(filename:join(Path, "*.app")),
+    case file:consult(Appfile) of
+        {ok, [{application, App, Info}]} ->
+            RtDeps = proplists:get_value(runtime_dependencies, Info, []),
+            Description = proplists:get_value(description, Info, []),
+            Version = proplists:get_value(vsn, Info, []),
+
+            EmitChunk("{application, {~w,["
+                          "{description,~w},"
+                          "{vsn,~w},"
+                          "{path,~w},"
+                          "{runtime_dependencies,~w},",
+                [App, Description, Version, Path, RtDeps]),
+            emit_module_info_from_path(EmitChunk, Path),
+            EmitChunk("]}}", [])
+    end.
+
+emit_code_path_info(EmitChunk, Path) ->
+    EmitChunk("{code, ["
+                  "{path, ~w},", [Path]),
+    emit_module_info_from_path(EmitChunk, Path),
+    EmitChunk("]}", []).
+
+emit_module_info_from_path(EmitChunk, Path) ->
+    BeamFiles = filelib:wildcard(filename:join(Path, "*.beam")),
+
+    EmitChunk("{modules, [", []),
+    comma_separated_foreach(EmitChunk,
+        fun(Beam) ->
+            emit_module_info(EmitChunk, Beam)
+        end, BeamFiles),
+    EmitChunk("]}", []).
+
+emit_module_info(EmitChunk, Beam) ->
+    %% FIXME: The next three calls load *all* significant chunks onto the heap,
+    %% which may cause us to run out of memory if there's a huge module in the
+    %% code path.
+    {ok,{Mod, Md5}} = beam_lib:md5(Beam),
+
+    CompilerVersion = get_compiler_version(Beam),
+    Native = beam_is_native_compiled(Beam),
+
+    Loaded = case code:is_loaded(Mod) of
+        false -> false;
+        _     -> true
+    end,
+
+    EmitChunk("{~w,["
+                  "{loaded,~w},"
+                  "{native,~w},"
+                  "{compiler,~w},"
+                  "{md5,~w}"
+              "]}",
+        [Mod, Loaded, Native, CompilerVersion, hexstring(Md5)]).
+
+comma_separated_foreach(_EmitChunk, _Fun, []) ->
+    ok;
+comma_separated_foreach(_EmitChunk, Fun, [H]) ->
+    Fun(H);
+comma_separated_foreach(EmitChunk, Fun, [H | T]) ->
+    Fun(H),
+    EmitChunk(",", []),
+    comma_separated_foreach(EmitChunk, Fun, T).
 
 is_application_path(Path) ->
     case filelib:wildcard(filename:join(Path, "*.app")) of
 	[] -> false;
 	_  -> true
     end.
-
-get_application_from_path(Path) ->
-    [Appfile|_] = filelib:wildcard(filename:join(Path, "*.app")),
-    case file:consult(Appfile) of
-	{ok, [{application, App, Info}]} ->
-	    {App, [
-		    {description, proplists:get_value(description, Info, [])},
-		    {vsn,         proplists:get_value(vsn, Info, [])},
-		    {path,        Path},
-		    {runtime_dependencies,
-		     proplists:get_value(runtime_dependencies, Info, [])},
-		    {modules,     get_modules_from_path(Path)}
-		]}
-    end.
-
-get_modules_from_path(Path) ->
-    [ 
-	begin
-		{ok,{Mod, Md5}} = beam_lib:md5(Beam),
-		Loaded = case code:is_loaded(Mod) of
-		    false -> false;
-		    _     -> true
-		end,
-		{Mod, [
-			{loaded,   Loaded},
-			{native,   beam_is_native_compiled(Beam)},
-			{compiler, get_compiler_version(Beam)},
-			{md5,      hexstring(Md5)}
-		    ]}
-	end || Beam <- filelib:wildcard(filename:join(Path, "*.beam"))
-    ].
 
 hexstring(Bin) when is_binary(Bin) ->
     lists:flatten([io_lib:format("~2.16.0b", [V]) || <<V>> <= Bin]).
@@ -590,12 +674,12 @@ vsnstr2vsn(VsnStr) ->
     list_to_tuple(lists:map(fun (Part) ->
 				    list_to_integer(Part)
 			    end,
-			    string:tokens(VsnStr, "."))).
+			    string:lexemes(VsnStr, "."))).
 
 rtdepstrs2rtdeps([]) ->
     [];
 rtdepstrs2rtdeps([RTDep | RTDeps]) ->
-    [AppStr, VsnStr] = string:tokens(RTDep, "-"),
+    [AppStr, VsnStr] = string:lexemes(RTDep, "-"),
     [{list_to_atom(AppStr), vsnstr2vsn(VsnStr)} | rtdepstrs2rtdeps(RTDeps)].
 
 build_app_table([], AppTab) ->

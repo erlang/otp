@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,21 +55,18 @@ prepare_request(#diameter_packet{msg = ['RAR' = T | Avps]}, _, {_, Caps}) ->
                    origin_realm = {OR, DR}}
         = Caps,
 
-    {send, [T, {'Origin-Host', OH},
-               {'Origin-Realm', OR},
-               {'Destination-Host', DH},
-               {'Destination-Realm', DR}
-             | Avps]};
-
-prepare_request(#diameter_packet{msg = Rec}, _, {_, Caps}) ->
-    #diameter_caps{origin_host = {OH, DH},
-                   origin_realm = {OR, DR}}
-        = Caps,
-
-    {send, Rec#diameter_base_RAR{'Origin-Host' = OH,
-                                 'Origin-Realm' = OR,
-                                 'Destination-Host' = DH,
-                                 'Destination-Realm' = DR}}.
+    {send, [T | if is_map(Avps) ->
+                        Avps#{'Origin-Host' => OH,
+                              'Origin-Realm' => OR,
+                              'Destination-Host' => DH,
+                              'Destination-Realm' => DR};
+                   is_list(Avps) ->
+                        [{'Origin-Host', OH},
+                         {'Origin-Realm', OR},
+                         {'Destination-Host', DH},
+                         {'Destination-Realm', DR}
+                         | Avps]
+                end]}.
 
 %% prepare_retransmit/3
 

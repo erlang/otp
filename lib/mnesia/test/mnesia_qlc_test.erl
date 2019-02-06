@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,18 @@
 %%
 -module(mnesia_qlc_test).
 
--compile(export_all).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([frag/1, info/1, mnesia_down/1,
+         dirty_nice_ram_copies/1, dirty_nice_disc_copies/1,
+         dirty_nice_disc_only_copies/1,
+         trans_nice_ram_copies/1, trans_nice_disc_copies/1,
+         trans_nice_disc_only_copies/1, atomic_eval/1,
+         nested_qlc/1
+        ]).
+
 
 -include("mnesia_test_lib.hrl").
 -include_lib("stdlib/include/qlc.hrl"). 

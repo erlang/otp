@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 -module(ssh_daemon_channel).
 
-%% API to special server side channel that can be pluged into the erlang ssh daemeon
+%% API to server side channel that can be pluged into the erlang ssh daemeon
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
@@ -36,34 +36,20 @@
     term().
 
 -callback handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
--callback handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
+    {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
+-callback handle_ssh_msg({ssh_cm, ConnectionRef::ssh:connection_ref(), SshMsg::term()},
 			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
+					   {stop, ChannelId::ssh:channel_id(),
 					    State::term()}.
 
-%%% API
--export([start/4, start/5, start_link/4, start_link/5, enter_loop/1]).
-
-%% gen_server callbacks
--export([init/1, terminate/2]).
-
-start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
-    ssh_channel:start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
-
-start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
-    ssh_channel:start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
-
-start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
-    ssh_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
+%%% Internal API
+-export([start_link/5,
+         get_print_info/1
+        ]).
 
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
-    ssh_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
+    ssh_server_channel:start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec).
 
-enter_loop(State) ->
-    ssh_channel:enter_loop(State).
 
-init(Args) ->
-    ssh_channel:init(Args).
-terminate(Reason, State) ->
-    ssh_channel:terminate(Reason, State).
+get_print_info(Pid) ->
+    ssh_server_channel:get_print_info(Pid).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,10 +97,11 @@ init(Parent) ->
     end,
     loop(#state{supervisor = Parent}).
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
-	_VaLuE_ -> _VaLuE_
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
+	Value -> Value
     end.
 
 reply(From, R) ->
@@ -245,7 +246,7 @@ loop(State) ->
 	    do_stop();
 
 	{system, From, Msg} ->
-	    verbose("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    verbose("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    Parent = State#state.supervisor,
 	    sys:handle_system_msg(Msg, From, Parent, ?MODULE, [], State);
 
@@ -254,7 +255,7 @@ loop(State) ->
 	    loop(State);
 
 	Msg ->
-	    error("~p got unexpected message: ~p~n", [?MODULE, Msg]),
+	    error("~p got unexpected message: ~tp~n", [?MODULE, Msg]),
 	    loop(State)
     end.
 

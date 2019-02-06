@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -557,12 +557,9 @@ subdir(Dir, SubDir, true) ->
 
 %% Avoid "App-01.01" - the zeroes will be lost.
 filename2appl(File) ->
-    Pos = string:rstr(File, "-"),
-    true = Pos > 1,
-    V = string:sub_string(File, Pos+1),
-    true = string:len(V) > 0,
-    VsnT = string:tokens(V, "."),
-    ApplName = string:sub_string(File, 1, Pos-1),
+    [ApplName, V] = string:split(File, "-", trailing),
+    true = string:length(V) > 0,
+    VsnT = string:lexemes(V, "."),
     Vsn = [list_to_integer(Vsn) || Vsn <- VsnT],
     {list_to_atom(ApplName),Vsn}.
 
@@ -638,14 +635,14 @@ neighbours([], G, Fun, VT, L, _V, Vs) ->
     neighbours(Vs, G, Fun, VT, L).
 
 match_list(L, RExpr) ->
-    {ok, Expr} = re:compile(RExpr),
+    {ok, Expr} = re:compile(RExpr, [unicode]),
     filter(fun(E) -> match(E, Expr) end, L).
 
 match_one(VarL, Con, Col) ->
     select_each(VarL, fun(E) -> Con =:= element(Col, E) end).
 
 match_many(VarL, RExpr, Col) ->
-    {ok, Expr} = re:compile(RExpr),    
+    {ok, Expr} = re:compile(RExpr, [unicode]),
     select_each(VarL, fun(E) -> match(element(Col, E), Expr) end).
 
 match(I, Expr) when is_integer(I) ->
@@ -653,7 +650,12 @@ match(I, Expr) when is_integer(I) ->
     {match, [{0,length(S)}]} =:= re:run(S, Expr, [{capture, first}]);
 match(A, Expr) when is_atom(A) ->
     S = atom_to_list(A),
-    {match, [{0,length(S)}]} =:= re:run(S, Expr, [{capture, first}]).
+    case re:run(S, Expr, [{capture, first}]) of
+        {match, [{0,Size}]} ->
+            Size =:= byte_size(unicode:characters_to_binary(S));
+        _ ->
+            false
+    end.
 
 select_each([{Mod,Funs} | L], Pred) ->
     case filter(Pred, Funs) of

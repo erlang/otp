@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -72,9 +72,9 @@
     <pre>
 #Name{Field1=Expr1,...,FieldK=ExprK, _=ExprL}</pre>
     <p>Omitted fields then get the value of evaluating <c>ExprL</c>
-      instead of their default values. This feature was added in
-      Erlang 5.1/OTP R8 and is primarily intended to be used to create
-      patterns for ETS and Mnesia match functions.</p>
+    instead of their default values. This feature is primarily
+    intended to be used to create patterns for ETS and Mnesia match
+    functions.</p>
     <p><em>Example:</em></p>
     <pre>
 -record(person, {name, phone, address}).

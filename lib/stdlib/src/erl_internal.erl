@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@
 
 -export([is_type/2]).
 
+-export([add_predefined_functions/1]).
+
 %%---------------------------------------------------------------------------
 
 %%  Erlang builtin functions allowed in guards.
@@ -61,42 +63,30 @@
       Name :: atom(),
       Arity :: arity().
 
+%% Please keep the alphabetical order.
 guard_bif(abs, 1) -> true;
-guard_bif(float, 1) -> true;
-guard_bif(trunc, 1) -> true;
-guard_bif(round, 1) -> true;
-guard_bif(length, 1) -> true;
-guard_bif(hd, 1) -> true;
-guard_bif(tl, 1) -> true;
-guard_bif(size, 1) -> true;
-guard_bif(bit_size, 1) -> true;
-guard_bif(byte_size, 1) -> true;
-guard_bif(element, 2) -> true;
-guard_bif(self, 0) -> true;
-guard_bif(map_size, 1) -> true;
-guard_bif(node, 0) -> true;
-guard_bif(node, 1) -> true;
-guard_bif(tuple_size, 1) -> true;
-guard_bif(is_atom, 1) -> true;
-guard_bif(is_binary, 1) -> true;
-guard_bif(is_bitstring, 1) -> true;
-guard_bif(is_boolean, 1) -> true;
-guard_bif(is_float, 1) -> true;
-guard_bif(is_function, 1) -> true;
-guard_bif(is_function, 2) -> true;
-guard_bif(is_integer, 1) -> true;
-guard_bif(is_list, 1) -> true;
-guard_bif(is_map, 1) -> true;
-guard_bif(is_number, 1) -> true;
-guard_bif(is_pid, 1) -> true;
-guard_bif(is_port, 1) -> true;
-guard_bif(is_reference, 1) -> true;
-guard_bif(is_tuple, 1) -> true;
-guard_bif(is_record, 2) -> true;
-guard_bif(is_record, 3) -> true;
 guard_bif(binary_part, 2) -> true;
 guard_bif(binary_part, 3) -> true;
-guard_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
+guard_bif(bit_size, 1) -> true;
+guard_bif(byte_size, 1) -> true;
+guard_bif(ceil, 1) -> true;
+guard_bif(element, 2) -> true;
+guard_bif(float, 1) -> true;
+guard_bif(floor, 1) -> true;
+guard_bif(hd, 1) -> true;
+guard_bif(is_map_key, 2) -> true;
+guard_bif(length, 1) -> true;
+guard_bif(map_size, 1) -> true;
+guard_bif(map_get, 2) -> true;
+guard_bif(node, 0) -> true;
+guard_bif(node, 1) -> true;
+guard_bif(round, 1) -> true;
+guard_bif(self, 0) -> true;
+guard_bif(size, 1) -> true;
+guard_bif(tl, 1) -> true;
+guard_bif(trunc, 1) -> true;
+guard_bif(tuple_size, 1) -> true;
+guard_bif(Name, A) -> new_type_test(Name, A).
 
 %%  Erlang type tests.
 -spec type_test(Name, Arity) -> boolean() when
@@ -109,10 +99,11 @@ type_test(Name, Arity) ->
 %%  Erlang new-style type tests.
 -spec new_type_test(Name::atom(), Arity::arity()) -> boolean().
 
+%% Please keep the alphabetical order.
 new_type_test(is_atom, 1) -> true;
-new_type_test(is_boolean, 1) -> true;
 new_type_test(is_binary, 1) -> true;
 new_type_test(is_bitstring, 1) -> true;
+new_type_test(is_boolean, 1) -> true;
 new_type_test(is_float, 1) -> true;
 new_type_test(is_function, 1) -> true;
 new_type_test(is_function, 2) -> true;
@@ -122,10 +113,10 @@ new_type_test(is_map, 1) -> true;
 new_type_test(is_number, 1) -> true;
 new_type_test(is_pid, 1) -> true;
 new_type_test(is_port, 1) -> true;
-new_type_test(is_reference, 1) -> true;
-new_type_test(is_tuple, 1) -> true;
 new_type_test(is_record, 2) -> true;
 new_type_test(is_record, 3) -> true;
+new_type_test(is_reference, 1) -> true;
+new_type_test(is_tuple, 1) -> true;
 new_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang old-style type tests.
@@ -271,6 +262,7 @@ bif(bitsize, 1) -> true;
 bif(bit_size, 1) -> true;
 bif(bitstring_to_list, 1) -> true;
 bif(byte_size, 1) -> true;
+bif(ceil, 1) -> true;
 bif(check_old_code, 1) -> true;
 bif(check_process_code, 2) -> true;
 bif(check_process_code, 3) -> true;
@@ -291,6 +283,7 @@ bif(float_to_list, 1) -> true;
 bif(float_to_list, 2) -> true;
 bif(float_to_binary, 1) -> true;
 bif(float_to_binary, 2) -> true;
+bif(floor, 1) -> true;
 bif(garbage_collect, 0) -> true;
 bif(garbage_collect, 1) -> true;
 bif(garbage_collect, 2) -> true;
@@ -323,6 +316,7 @@ bif(is_function, 2) -> true;
 bif(is_integer, 1) -> true;
 bif(is_list, 1) -> true;
 bif(is_map, 1) -> true;
+bif(is_map_key, 2) -> true;
 bif(is_number, 1) -> true;
 bif(is_pid, 1) -> true;
 bif(is_port, 1) -> true;
@@ -340,10 +334,13 @@ bif(list_to_float, 1) -> true;
 bif(list_to_integer, 1) -> true;
 bif(list_to_integer, 2) -> true;
 bif(list_to_pid, 1) -> true;
+bif(list_to_port, 1) -> true;
+bif(list_to_ref, 1) -> true;
 bif(list_to_tuple, 1) -> true;
 bif(load_module, 2) -> true;
 bif(make_ref, 0) -> true;
 bif(map_size,1) -> true;
+bif(map_get,2) -> true;
 bif(max,2) -> true;
 bif(min,2) -> true;
 bif(module_loaded, 1) -> true;
@@ -357,6 +354,7 @@ bif(nodes, 1) -> true;
 bif(now, 0) -> true;
 bif(open_port, 2) -> true;
 bif(pid_to_list, 1) -> true;
+bif(port_to_list, 1) -> true;
 bif(port_close, 1) -> true;
 bif(port_command, 2) -> true;
 bif(port_command, 3) -> true;
@@ -370,6 +368,7 @@ bif(process_info, 2) -> true;
 bif(processes, 0) -> true;
 bif(purge_module, 1) -> true;
 bif(put, 2) -> true;
+bif(ref_to_list, 1) -> true;
 bif(register, 2) -> true;
 bif(registered, 0) -> true;
 bif(round, 1) -> true;
@@ -584,3 +583,68 @@ is_type(term, 0) -> true;
 is_type(timeout, 0) -> true;
 is_type(tuple, 0) -> true;
 is_type(_, _) -> false.
+
+%%%
+%%% Add and export the pre-defined functions:
+%%%
+%%%   module_info/0
+%%%   module_info/1
+%%%   behaviour_info/1 (optional)
+%%%
+
+-spec add_predefined_functions(Forms) -> UpdatedForms when
+      Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      UpdatedForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
+
+add_predefined_functions(Forms) ->
+    Forms ++ predefined_functions(Forms).
+
+predefined_functions(Forms) ->
+    Attrs = [{Name,Val} || {attribute,_,Name,Val} <- Forms],
+    {module,Mod} = lists:keyfind(module, 1, Attrs),
+    Callbacks = [Callback || {callback,Callback} <- Attrs],
+    OptionalCallbacks = get_optional_callbacks(Attrs),
+    Mpf1 = module_predef_func_beh_info(Callbacks, OptionalCallbacks),
+    Mpf2 = module_predef_funcs_mod_info(Mod),
+    Mpf = [erl_parse:new_anno(F) || F <- Mpf1++Mpf2],
+    Exp = [{F,A} || {function,_,F,A,_} <- Mpf],
+    [{attribute,0,export,Exp}|Mpf].
+
+get_optional_callbacks(Attrs) ->
+    L = [O || {optional_callbacks,O} <- Attrs, is_fa_list(O)],
+    lists:append(L).
+
+is_fa_list([{FuncName, Arity}|L])
+  when is_atom(FuncName), is_integer(Arity), Arity >= 0 ->
+    is_fa_list(L);
+is_fa_list([]) -> true;
+is_fa_list(_) -> false.
+
+module_predef_func_beh_info([], _) ->
+    [];
+module_predef_func_beh_info(Callbacks0, OptionalCallbacks) ->
+    Callbacks = [FA || {{_,_}=FA,_} <- Callbacks0],
+    List = make_list(Callbacks),
+    OptionalList = make_list(OptionalCallbacks),
+    [{function,0,behaviour_info,1,
+      [{clause,0,[{atom,0,callbacks}],[],[List]},
+       {clause,0,[{atom,0,optional_callbacks}],[],[OptionalList]}]}].
+
+make_list([]) -> {nil,0};
+make_list([{Name,Arity}|Rest]) ->
+    {cons,0,
+     {tuple,0,
+      [{atom,0,Name},
+       {integer,0,Arity}]},
+     make_list(Rest)}.
+
+module_predef_funcs_mod_info(Mod) ->
+    ModAtom = {atom,0,Mod},
+    [{function,0,module_info,0,
+      [{clause,0,[],[],
+        [{call,0,{remote,0,{atom,0,erlang},{atom,0,get_module_info}},
+          [ModAtom]}]}]},
+     {function,0,module_info,1,
+      [{clause,0,[{var,0,'X'}],[],
+        [{call,0,{remote,0,{atom,0,erlang},{atom,0,get_module_info}},
+          [ModAtom,{var,0,'X'}]}]}]}].

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1770,7 +1770,7 @@ static int worker_loop(void)
 		}
 #elif defined(HAVE_GETIPNODEBYNAME) /*#ifdef HAVE_GETADDRINFO */
 		DEBUGF(5,("Starting getipnodebyname(%s)",data));
-		he = getipnodebyname(data, AF_INET6, AI_DEFAULT, &error_num);
+		he = getipnodebyname(data, AF_INET6, 0, &error_num);
 		if (he) {
 		    free_he = 1;
 		    error_num = 0;
@@ -2717,7 +2717,7 @@ BOOL close_mesq(MesQ *q)
 	LeaveCriticalSection(&(q->crit));
 	return FALSE;
     }
-    /* Noone else is supposed to use this object any more */
+    /* No one else is supposed to use this object any more */
     LeaveCriticalSection(&(q->crit));
     DeleteCriticalSection(&(q->crit));
     CloseHandle(q->data_present);

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -207,7 +207,7 @@ gen_event:stop             ----->  Module:terminate/2
           </item>
           <item>
             <p>If the event handler is deleted later, the event manager
-              sends a message<c>{gen_event_EXIT,Handler,Reason}</c> to
+              sends a message <c>{gen_event_EXIT,Handler,Reason}</c> to
               the calling process. <c>Reason</c> is one of the following:</p>
             <list type="bulleted">
               <item>
@@ -350,13 +350,18 @@ gen_event:stop             ----->  Module:terminate/2
 
     <func>
       <name>start() -> Result</name>
-      <name>start(EventMgrName) -> Result</name>
+      <name>start(EventMgrName | Options) -> Result</name>
+      <name>start(EventMgrName, Options) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,GlobalName}
-	| {via,Module,ViaName}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>
@@ -371,14 +376,19 @@ gen_event:stop             ----->  Module:terminate/2
 
     <func>
       <name>start_link() -> Result</name>
-      <name>start_link(EventMgrName) -> Result</name>
+      <name>start_link(EventMgrName | Options) -> Result</name>
+      <name>start_link(EventMgrName, Options) -> Result</name>
       <fsummary>Create a generic event manager process in a supervision tree.
       </fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,GlobalName}
-	| {via,Module,ViaName}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
         <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>
@@ -408,6 +418,12 @@ gen_event:stop             ----->  Module:terminate/2
               as the corresponding functions in
               <seealso marker="kernel:global"><c>global</c></seealso>.
               Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
+          </item>
+          <item>
+            <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_event</c>
+              process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
+              if no message is received, the process goes into hibernation automatically
+              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
           </item>
         </list>
         <p>If the event manager is successfully created, the function
@@ -442,8 +458,7 @@ gen_event:stop             ----->  Module:terminate/2
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
-          <seealso marker="kernel:error_logger#format/2">
-          <c>error_logger:format/2</c></seealso>.
+          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the event manager to
@@ -569,6 +584,13 @@ gen_event:stop             ----->  Module:terminate/2
         <v>Extra = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not export it.
+            If a release upgrade/downgrade with <c>Change={advanced,Extra}</c>
+            specified in the <c>.appup</c> file is made when <c>code_change/3</c>
+            isn't implemented the event handler will crash with an <c>undef</c> error
+            reason.</p>
+        </note>
         <p>This function is called for an installed event handler that
           is to update its internal state during a release
           upgrade/downgrade, that is, when the instruction
@@ -749,6 +771,12 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;&nbsp;Id = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_event</c> module provides a default
+            implementation of this function that logs about the unexpected
+            <c>Info</c> message, drops it and returns <c>{ok, State}</c>.</p>
+        </note>
         <p>This function is called for each installed event handler when
           an event manager receives any other message than an event or
           a synchronous request (or a system message).</p>
@@ -805,6 +833,11 @@ gen_event:stop             ----->  Module:terminate/2
         <v>&nbsp;Args = Reason = Term = term()</v>
       </type>
       <desc>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The <c>gen_event</c> module provides a default
+            implementation without cleanup.</p>
+        </note>
         <p>Whenever an event handler is deleted from an event manager,
           this function is called. It is to be the opposite of
           <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>

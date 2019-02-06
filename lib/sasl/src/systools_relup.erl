@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -155,36 +155,12 @@ mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs) ->
 mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Opts) ->
     case check_opts(Opts) of
 	[] ->
-	    R = (catch do_mk_relup(TopRelFile,BaseUpRelDcs,BaseDnRelDcs,
-				   add_code_path(Opts), Opts)),
-	    case {get_opt(silent, Opts), get_opt(noexec, Opts)} of
-		{false, false} ->
-		    case R of
-			{ok, _Res, _Mod, Ws} -> 
-			    print_warnings(Ws, Opts),
-			    case systools_lib:werror(Opts, Ws) of
-				true ->
-				    error;
-				false ->
-				    ok
-			    end;
-			Other -> 
-			    print_error(Other),
-			    error
-		    end;
-		_ ->
-		    case R of
-			{ok, _Res, _Mod, Ws} ->
-			    case systools_lib:werror(Opts, Ws) of
-				true ->
-				    error;
-				false ->
-				    R
-			    end;
-			R ->
-			    R
-		    end
-	    end;
+            R = try do_mk_relup(TopRelFile,BaseUpRelDcs,BaseDnRelDcs,
+                                          add_code_path(Opts), Opts)
+                catch throw:Error ->
+                        Error
+                end,
+            done_mk_relup(Opts, R);
 	BadArg ->
 	    erlang:error({badarg, BadArg})
     end.
@@ -224,16 +200,44 @@ do_mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Path, Opts) ->
 	    {Dn, Ws2} = foreach_baserel_dn(TopRel, TopApps, BaseDnRelDcs, 
 					  Path, Opts, Ws1),
 	    Relup = {TopRel#release.vsn, Up, Dn},
-	    case systools_lib:werror(Opts, Ws2) of
-		true ->
-		    ok;
-		false ->
-		    write_relup_file(Relup, Opts)
-	    end,
-	    {ok, Relup, ?MODULE, Ws2};
+
+            {ok, Relup, Ws2};
 	Other -> 
-	    throw(Other)
+	    Other
     end.
+
+done_mk_relup(Opts, {ok,Relup,Ws}) ->
+    WAE = get_opt(warnings_as_errors,Opts),
+    Silent = get_opt(silent,Opts),
+    Noexec = get_opt(noexec,Opts),
+
+    if WAE andalso Ws=/=[] ->
+            return_error(Silent,
+                         {error,?MODULE,{warnings_treated_as_errors, Ws}});
+       not Noexec ->
+            case write_relup_file(Relup,Opts) of
+                ok ->
+                    return_ok(Silent,Relup,Ws);
+                Error ->
+                    return_error(Silent,Error)
+            end;
+       true -> % noexec
+            return_ok(true,Relup,Ws)
+    end;
+done_mk_relup(Opts, Error) ->
+    return_error(get_opt(silent,Opts) orelse get_opt(noexec,Opts), Error).
+
+return_error(true, Error) ->
+    Error;
+return_error(false, Error) ->
+    print_error(Error),
+    error.
+
+return_ok(true,Relup,Ws) ->
+    {ok,Relup,?MODULE,Ws};
+return_ok(false,_Relup,Ws) ->
+    print_warnings(Ws),
+    ok.
 
 %%-----------------------------------------------------------------
 %% foreach_baserel_up(Rel, TopApps, BaseRelDcs, Path, Opts, Ws) -> Ret
@@ -529,33 +533,18 @@ to_list(X) when is_list(X) -> X.
 %% Writes a relup file.
 %%
 write_relup_file(Relup, Opts) ->
-    case get_opt(noexec, Opts) of
-	true -> 
-	    ok;
-	_ ->
-	    Filename = case get_opt(outdir, Opts) of
-			   OutDir when is_list(OutDir) ->
-			       filename:join(filename:absname(OutDir),
-					     "relup");
-			   false ->
-			       "relup";
-			   Badarg ->
-			       throw({error, ?MODULE, {badarg, {outdir,Badarg}}})
-		       end,
-			   
-	    case file:open(Filename, [write]) of
-		{ok, Fd} ->
-		    io:format(Fd, "~p.~n", [Relup]),
-		    case file:close(Fd) of
-			ok -> ok;
-			{error,Reason} ->
-			    throw({error, ?MODULE,
-				   {file_problem, {"relup", {close,Reason}}}})
-		    end;
-		{error, Reason} ->
-		    throw({error, ?MODULE,
-			   {file_problem, {"relup", {open, Reason}}}})
-	    end
+    Filename = filename:join(filename:absname(get_opt(outdir,Opts)),
+                             "relup"),
+    case file:open(Filename, [write,{encoding,utf8}]) of
+        {ok, Fd} ->
+            io:format(Fd, "%% ~s~n~tp.~n", [epp:encoding_to_string(utf8),Relup]),
+            case file:close(Fd) of
+                ok -> ok;
+                {error,Reason} ->
+                    {error, ?MODULE, {file_problem, {"relup", {close,Reason}}}}
+            end;
+        {error, Reason} ->
+            {error, ?MODULE, {file_problem, {"relup", {open, Reason}}}}
     end.
 
 add_code_path(Opts) ->
@@ -593,15 +582,14 @@ default(path)   -> false;
 default(noexec) -> false;
 default(silent) -> false;
 default(restart_emulator) -> false;
-default(outdir) -> false.
+default(outdir) -> ".";
+default(warnings_as_errors) -> false.
 
-print_error({'EXIT', Err}) -> 
-    print_error(Err);
 print_error({error, Mod, Error}) ->
     S = apply(Mod, format_error, [Error]),
     io:format(S, []);
 print_error(Other) ->
-    io:format("Error: ~p~n", [Other]).
+    io:format("Error: ~tp~n", [Other]).
 
 format_error({file_problem, {File, What}}) ->
     io_lib:format("Could not ~w file ~ts~n", [get_reason(What), File]);
@@ -614,33 +602,31 @@ format_error({missing_sasl,Release}) ->
     io_lib:format("No sasl application in release ~ts, ~ts. "
 		  "Can not be upgraded.",
 		  [Release#release.name, Release#release.vsn]);
+format_error({warnings_treated_as_errors, Warnings}) ->
+    io_lib:format("Warnings being treated as errors:~n~ts",
+                  [[format_warning("",W) || W <- Warnings]]);
 format_error(Error) ->
-    io:format("~p~n", [Error]).
+    io_lib:format("~tp~n", [Error]).
 
 
-print_warnings(Ws, Opts) when is_list(Ws) ->
-    lists:foreach(fun(W) -> print_warning(W, Opts) end, Ws);
-print_warnings(W, Opts) ->
-    print_warning(W, Opts).
+print_warnings(Ws) when is_list(Ws) ->
+    lists:foreach(fun(W) -> print_warning(W) end, Ws);
+print_warnings(W) ->
+    print_warning(W).
 
-print_warning(W, Opts) ->
-    Prefix = case lists:member(warnings_as_errors, Opts) of
-		 true ->
-		     "";
-		 false ->
-		     "*WARNING* "
-	     end,
-    S = format_warning(Prefix, W),
-    io:format("~ts", [S]).
+print_warning(W) ->
+    io:format("~ts", [format_warning(W)]).
 
 format_warning(W) ->
     format_warning("*WARNING* ", W).
 
 format_warning(Prefix, {erts_vsn_changed, {Rel1, Rel2}}) ->
-    io_lib:format("~tsThe ERTS version changed between ~p and ~p~n",
+    io_lib:format("~tsThe ERTS version changed between ~tp and ~tp~n",
 		  [Prefix, Rel1, Rel2]);
+format_warning(Prefix, pre_R15_emulator_upgrade) ->
+    io_lib:format("~tsUpgrade from an OTP version earlier than R15. New code should be compiled with the old emulator.~n",[Prefix]);
 format_warning(Prefix, What) ->
-    io_lib:format("~ts~p~n",[Prefix, What]).
+    io_lib:format("~ts~tp~n",[Prefix, What]).
 
 
 get_reason({error, {open, _, _}}) -> open;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@
 -define(N_BMPString, 30).
 
 
-% the complete tag-word of built-in types
+%% The complete tag-word of built-in types
 -define(T_BOOLEAN,          ?UNIVERSAL bor ?PRIMITIVE bor 1).
 -define(T_INTEGER,          ?UNIVERSAL bor ?PRIMITIVE bor 2).
 -define(T_BIT_STRING,       ?UNIVERSAL bor ?PRIMITIVE bor 3). % can be CONSTRUCTED
@@ -137,11 +137,11 @@ ber_decode_erlang(Tlv) ->
 decode_primitive(Bin) ->
     {Form,TagNo,V,Rest} = decode_tag_and_length(Bin),
     case Form of
-	1 -> % constructed
+	1 ->                                    % constructed
 	    {{TagNo,decode_constructed(V)},Rest};
-	0 -> % primitive
+	0 ->                                    % primitive
 	    {{TagNo,V},Rest};
-	2 -> % constructed indefinite
+	2 ->                                  % constructed indefinite
 	    {Vlist,Rest2} = decode_constructed_indefinite(V,[]),
 	    {{TagNo,Vlist},Rest2}
     end.
@@ -165,31 +165,30 @@ decode_primitive_incomplete([[default,TagNo]],Bin) -> %default
 	{Form,TagNo,V,Rest} ->
 	    decode_incomplete2(Form,TagNo,V,[],Rest);
 	_ ->
-	    %{asn1_DEFAULT,Bin}
 	    asn1_NOVALUE
     end;
-decode_primitive_incomplete([[default,TagNo,Directives]],Bin) -> %default, constructed type, Directives points into this type
+decode_primitive_incomplete([[default,TagNo,Directives]],Bin) ->
+    %% default, constructed type, Directives points into this type
     case decode_tag_and_length(Bin) of
 	{Form,TagNo,V,Rest} ->
 	    decode_incomplete2(Form,TagNo,V,Directives,Rest);
 	_ ->
-	    %{asn1_DEFAULT,Bin}
 	    asn1_NOVALUE
     end;
-decode_primitive_incomplete([[opt,TagNo]],Bin) -> %optional
+decode_primitive_incomplete([[opt,TagNo]],Bin) ->
+    %% optional
     case decode_tag_and_length(Bin) of
 	{Form,TagNo,V,Rest} ->
 	    decode_incomplete2(Form,TagNo,V,[],Rest);
 	_ ->
-	    %{{TagNo,asn1_NOVALUE},Bin}
 	    asn1_NOVALUE
     end;
-decode_primitive_incomplete([[opt,TagNo,Directives]],Bin) -> %optional
+decode_primitive_incomplete([[opt,TagNo,Directives]],Bin) ->
+    %% optional
     case decode_tag_and_length(Bin) of
 	{Form,TagNo,V,Rest} ->
 	    decode_incomplete2(Form,TagNo,V,Directives,Rest);
 	_ ->
-	    %{{TagNo,asn1_NOVALUE},Bin}
 	    asn1_NOVALUE
     end;
 %% An optional that shall be undecoded
@@ -236,7 +235,8 @@ decode_primitive_incomplete([[alt_parts,TagNo]|RestAlts],Bin) ->
 	_ ->
 	    decode_primitive_incomplete(RestAlts,Bin)
     end;
-decode_primitive_incomplete([[undec,_TagNo]|_RestTag],Bin) -> %incomlete decode
+decode_primitive_incomplete([[undec,_TagNo]|_RestTag],Bin) ->
+    %% incomlete decode
     decode_incomplete_bin(Bin);
 decode_primitive_incomplete([[parts,TagNo]|_RestTag],Bin) ->
     case decode_tag_and_length(Bin) of
@@ -301,7 +301,8 @@ decode_constructed_incomplete(Directives=[[Alt,_]|_],Bin)
 	    {TagNo,Tlv};
 	{alt_parts,_} ->
 	    [{TagNo,decode_parts_incomplete(V)}];
-	no_match -> %% if a choice alternative was encoded that
+	no_match ->
+            %% if a choice alternative was encoded that
 	    %% was not specified in the config file,
 	    %% thus decode component anonomous.
 	    {Tlv,_}=decode_primitive(Bin),
@@ -546,7 +547,7 @@ decode_tag_and_length(<<Class:2, Form:1, 31:5, Buffer/binary>>) ->
 decode_tag(<<0:1,PartialTag:7, Buffer/binary>>, TagAck) ->
     TagNo = (TagAck bsl 7) bor PartialTag,
     {TagNo, Buffer};
-% more tags
+%% more tags
 decode_tag(<<_:1,PartialTag:7, Buffer/binary>>, TagAck) ->
     TagAck1 = (TagAck bsl 7) bor PartialTag,
     decode_tag(Buffer, TagAck1).
@@ -941,12 +942,12 @@ encode_bit_string_bits(C, BitListVal, _NamedBitList, TagIn) when is_list(BitList
 	    case length(BitListVal) of
 		BitSize when BitSize == Size ->
 		    {Len, Unused, OctetList} = encode_bitstring(BitListVal),
-		    %%add unused byte to the Len
+		    %% add unused byte to the Len
 		    encode_tags(TagIn, [Unused | OctetList], Len+1);
 		BitSize when BitSize < Size ->
 		    PaddedList = pad_bit_list(Size-BitSize,BitListVal),
 		    {Len, Unused, OctetList} = encode_bitstring(PaddedList),
-		    %%add unused byte to the Len
+		    %% add unused byte to the Len
 		    encode_tags(TagIn, [Unused | OctetList], Len+1);
 		BitSize ->
 		    exit({error,{asn1,

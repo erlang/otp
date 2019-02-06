@@ -7,13 +7,14 @@
 	     ssh_app,
 	     ssh_acceptor,
 	     ssh_acceptor_sup,
+             ssh_options,
 	     ssh_auth,
 	     ssh_message,
 	     ssh_bits,
 	     ssh_cli,
+	     ssh_client_channel,
              ssh_client_key_api,
 	     ssh_channel,
-	     ssh_channel_sup,
 	     ssh_connection,
 	     ssh_connection_handler,
 	     ssh_connection_sup,
@@ -26,6 +27,8 @@
 	     ssh_io,
 	     ssh_info,
 	     ssh_no_io,
+	     ssh_server_channel,
+	     ssh_server_channel_sup,
              ssh_server_key_api,
 	     ssh_sftp,
 	     ssh_sftpd,
@@ -41,11 +44,10 @@
   {env, []},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-3.3",
+			  "crypto-4.2",
 			  "erts-6.0",
 			  "kernel-3.0",
-			  "public_key-1.1",
-			  "stdlib-3.1"
+			  "public_key-1.5.2",
+			  "stdlib-3.3"
 			 ]}]}.
-
 

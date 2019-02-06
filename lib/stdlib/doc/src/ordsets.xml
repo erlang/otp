@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,7 +39,8 @@
     <p>Sets are collections of elements with no duplicate elements.
       An <c>ordset</c> is a representation of a set, where an ordered
       list is used to store the elements of the set. An ordered list
-      is more efficient than an unordered list.</p>
+      is more efficient than an unordered list. Elements are ordered
+      according to the <em>Erlang term order</em>.</p>
 
     <p>This module provides the same interface as the
       <seealso marker="sets"><c>sets(3)</c></seealso> module
@@ -137,6 +138,15 @@
       <desc>
         <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
           <c><anno>Ordset</anno></c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="is_empty" arity="1"/>
+      <fsummary>Test for empty set.</fsummary>
+      <desc>
+        <p>Returns <c>true</c> if <c><anno>Ordset</anno></c> is an empty set,
+          otherwise <c>false</c>.</p>
       </desc>
     </func>
 

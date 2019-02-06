@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 -module(supervisor_bridge).
 
 -behaviour(gen_server).
+
+-include("logger.hrl").
 
 %% External exports
 -export([start_link/2, start_link/3]).
@@ -129,13 +131,22 @@ terminate_pid(Reason, #state{mod = Mod, child_state = ChildState}) ->
     Mod:terminate(Reason, ChildState).
 
 report_progress(Pid, Mod, StartArgs, SupName) ->
-    Progress = [{supervisor, SupName},
-		{started, [{pid, Pid}, {mfa, {Mod, init, [StartArgs]}}]}],
-    error_logger:info_report(progress, Progress).
+    ?LOG_INFO(#{label=>{supervisor,progress},
+                report=>[{supervisor, SupName},
+                         {started, [{pid, Pid},
+                                    {mfa, {Mod, init, [StartArgs]}}]}]},
+              #{domain=>[otp,sasl],
+                report_cb=>fun logger:format_otp_report/1,
+                logger_formatter=>#{title=>"PROGRESS REPORT"},
+                error_logger=>#{tag=>info_report,type=>progress}}).
 
 report_error(Error, Reason, #state{name = Name, pid = Pid, mod = Mod}) ->
-    ErrorMsg = [{supervisor, Name},
-		{errorContext, Error},
-		{reason, Reason},
-		{offender, [{pid, Pid}, {mod, Mod}]}],
-    error_logger:error_report(supervisor_report, ErrorMsg).
+    ?LOG_ERROR(#{label=>{supervisor,error},
+                 report=>[{supervisor, Name},
+                          {errorContext, Error},
+                          {reason, Reason},
+                          {offender, [{pid, Pid}, {mod, Mod}]}]},
+               #{domain=>[otp,sasl],
+                 report_cb=>fun logger:format_otp_report/1,
+                 logger_formatter=>#{title=>"SUPERVISOR REPORT"},
+                 error_logger=>#{tag=>error_report,type=>supervisor_report}}).

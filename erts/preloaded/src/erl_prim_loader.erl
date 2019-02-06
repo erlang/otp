@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@
 -export([purge_archive_cache/0]).
 
 %% Used by init and the code server.
--export([get_modules/2,get_modules/3]).
+-export([get_modules/2,get_modules/3, is_basename/1]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -151,9 +151,8 @@ start_inet(Parent) ->
     loop(State, Parent, []).
 
 start_efile(Parent) ->
-    {ok, Port} = prim_file:start(),
     %% Check that we started in a valid directory.
-    case prim_file:get_cwd(Port) of
+    case prim_file:get_cwd() of
 	{error, _} ->
 	    %% At this point in the startup, we have no error_logger at all.
 	    Report = "Invalid current directory or invalid filename "
@@ -165,7 +164,7 @@ start_efile(Parent) ->
     end,
     PS = prim_init(),
     State = #state {loader = efile,
-                    data = Port,
+                    data = noport,
                     timeout = ?EFILE_IDLE_TIMEOUT,
                     prim_state = PS},
     loop(State, Parent, []).
@@ -300,8 +299,12 @@ check_file_result(Func, Target, {error,Reason}) ->
                 end,
             %% this is equal to calling error_logger:error_report/1 which
             %% we don't want to do from code_server during system boot
-            error_logger ! {notify,{error_report,group_leader(),
-                                    {self(),std_error,Report}}},
+            logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
+                      #{pid=>self(),
+                        gl=>group_leader(),
+                        time=>erlang:monotonic_time(microsecond),
+                        error_logger=>#{tag=>error_report,
+                                        type=>std_error}}},
             error
     end;
 check_file_result(_, _, Other) ->
@@ -401,12 +404,12 @@ handle_get_cwd(State = #state{loader = inet}, Drive) ->
     ?SAFE2(inet_get_cwd(State, Drive), State).
     
 handle_stop(State = #state{loader = efile}) ->
-    efile_stop_port(State);
+    State;
 handle_stop(State = #state{loader = inet}) ->
     inet_stop_port(State).
 
-handle_exit(State = #state{loader = efile}, Who, Reason) ->
-    efile_exit_port(State, Who, Reason);
+handle_exit(State = #state{loader = efile}, _Who, _Reason) ->
+    State;
 handle_exit(State = #state{loader = inet}, Who, Reason) ->
     inet_exit_port(State, Who, Reason).
 
@@ -474,15 +477,6 @@ efile_read_file_info(#state{prim_state = PS} = State, File, FollowLinks) ->
 efile_get_cwd(#state{prim_state = PS} = State, Drive) ->
     {Res, PS2} = prim_get_cwd(PS, Drive),
     {Res, State#state{prim_state = PS2}}.
-
-efile_stop_port(#state{data=Port}=State) ->
-    prim_file:close(Port),
-    State#state{data=noport}.
-
-efile_exit_port(State, Port, Reason) when State#state.data =:= Port ->
-    exit({port_died,Reason});
-efile_exit_port(State, _Port, _Reason) ->
-    State.
 
 efile_timeout_handler(State, _Parent) ->
     prim_purge_cache(),
@@ -555,17 +549,18 @@ efile_gm_get(Paths, Mod, ParentRef, Process) ->
 
 efile_gm_get_1([P|Ps], File0, Mod, {Parent,Ref}=PR, Process) ->
     File = join(P, File0),
-    Res = try prim_file:read_file(File) of
-	      {ok,Bin} ->
-		  gm_process(Mod, File, Bin, Process);
-	      Error ->
-		  _ = check_file_result(get_modules, File, Error),
-		  efile_gm_get_1(Ps, File0, Mod, PR, Process)
-	  catch
-	      _:Reason ->
-		  {error,{crash,Reason}}
-	  end,
-    Parent ! {Ref,Mod,Res};
+    try prim_file:read_file(File) of
+	{ok,Bin} ->
+	    Res = gm_process(Mod, File, Bin, Process),
+	    Parent ! {Ref,Mod,Res};
+	Error ->
+	    _ = check_file_result(get_modules, File, Error),
+	    efile_gm_get_1(Ps, File0, Mod, PR, Process)
+    catch
+	_:Reason ->
+	    Res = {error,{crash,Reason}},
+	    Parent ! {Ref,Mod,Res}
+    end;
 efile_gm_get_1([], _, Mod, {Parent,Ref}, _Process) ->
     Parent ! {Ref,Mod,{error,enoent}}.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,9 +41,9 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 30).
--define(SOME_SCALE, 20).
--define(MANY_SCALE, 20).
+-define(BASE_TIMEOUT_SECONDS, 5).
+-define(SOME_SCALE, 2).
+-define(MANY_SCALE, 3).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -53,28 +53,36 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'}
+     {group, 'sslv3'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
-    [{'tlsv1.2', [], packet_tests()},
-     {'tlsv1.1', [], packet_tests()},
-     {'tlsv1', [], packet_tests()},
-     {'sslv3', [], packet_tests()}
+    [{'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'sslv3', [], socket_packet_tests() ++ protocol_packet_tests()},
+     %% We will not support any packet types if the transport is
+     %% not reliable. We might support it for DTLS over SCTP in the future 
+     {'dtlsv1.2', [], [reject_packet_opt]},
+     {'dtlsv1', [],  [reject_packet_opt]}
     ].
 
-packet_tests() ->
-    active_packet_tests() ++ active_once_packet_tests() ++ passive_packet_tests() ++
-	[packet_send_to_large,
-	 packet_cdr_decode, packet_cdr_decode_list,
+socket_packet_tests() ->
+    socket_active_packet_tests() ++ socket_active_once_packet_tests() ++ 
+        socket_passive_packet_tests() ++ [packet_send_to_large, packet_tpkt_decode, packet_tpkt_decode_list].
+
+protocol_packet_tests() ->
+    protocol_active_packet_tests() ++ protocol_active_once_packet_tests() ++ protocol_passive_packet_tests() ++
+	[packet_cdr_decode, packet_cdr_decode_list,
 	 packet_http_decode, packet_http_decode_list,
 	 packet_http_bin_decode_multi,
 	 packet_line_decode, packet_line_decode_list,
 	 packet_asn1_decode, packet_asn1_decode_list,
-	 packet_tpkt_decode, packet_tpkt_decode_list,
 	 packet_sunrm_decode, packet_sunrm_decode_list].
 
-passive_packet_tests() ->
+socket_passive_packet_tests() ->
     [packet_raw_passive_many_small,
      packet_0_passive_many_small,
      packet_1_passive_many_small,
@@ -85,12 +93,8 @@ passive_packet_tests() ->
      packet_1_passive_some_big,
      packet_2_passive_some_big,
      packet_4_passive_some_big,
-     packet_httph_passive,
-     packet_httph_bin_passive,
-     packet_http_error_passive,
      packet_wait_passive,
      packet_size_passive,
-     packet_baddata_passive,
      %% inet header option should be deprecated!
      header_decode_one_byte_passive,
      header_decode_two_bytes_passive,
@@ -98,7 +102,14 @@ passive_packet_tests() ->
      header_decode_two_bytes_one_sent_passive
     ].
 
-active_once_packet_tests() ->
+protocol_passive_packet_tests() ->
+    [packet_httph_passive,
+     packet_httph_bin_passive,
+     packet_http_error_passive,
+     packet_baddata_passive
+    ].
+
+socket_active_once_packet_tests() ->
     [packet_raw_active_once_many_small,
      packet_0_active_once_many_small,
      packet_1_active_once_many_small,
@@ -108,12 +119,16 @@ active_once_packet_tests() ->
      packet_0_active_once_some_big,
      packet_1_active_once_some_big,
      packet_2_active_once_some_big,
-     packet_4_active_once_some_big,
+     packet_4_active_once_some_big
+    ].
+
+protocol_active_once_packet_tests() ->
+    [
      packet_httph_active_once,
      packet_httph_bin_active_once
     ].
 
-active_packet_tests() ->
+socket_active_packet_tests() ->
     [packet_raw_active_many_small,
      packet_0_active_many_small,
      packet_1_active_many_small,
@@ -124,16 +139,21 @@ active_packet_tests() ->
      packet_1_active_some_big,
      packet_2_active_some_big,
      packet_4_active_some_big,
-     packet_httph_active,
-     packet_httph_bin_active,
      packet_wait_active,
-     packet_baddata_active,
      packet_size_active,
+     packet_switch,
      %% inet header option should be deprecated!
      header_decode_one_byte_active,
      header_decode_two_bytes_active,
      header_decode_two_bytes_two_sent_active,
      header_decode_two_bytes_one_sent_active
+    ].
+
+
+protocol_active_packet_tests() ->
+    [packet_httph_active,
+     packet_httph_bin_active,
+     packet_baddata_active
     ].
 
 init_per_suite(Config) ->
@@ -168,8 +188,13 @@ init_per_group(GroupName, Config) ->
     end.
 
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_tls_version(GroupName) of
+        true ->
+            ssl_test_lib:clean_tls_version(Config);
+        false ->
+            Config
+    end.
 
 init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS}),
@@ -677,6 +702,34 @@ packet_size_passive(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+packet_switch() ->
+    [{doc,"Test packet option {packet, 2} followd by {packet, 4}"}].
+
+packet_switch(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, send_switch_packet ,["Hello World", 4]}},
+					{options, [{nodelay, true},{packet, 2} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, recv_switch_packet, ["Hello World", 4]}},
+					{options, [{nodelay, true}, {packet, 2} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok, Server, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 %%--------------------------------------------------------------------
 packet_cdr_decode() ->
@@ -1902,6 +1955,25 @@ header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+reject_packet_opt() ->
+    [{doc,"Test packet option is rejected for DTLS over udp"}].
+
+reject_packet_opt(Config) when is_list(Config) ->
+
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+       
+    {error,{options,{not_supported,{packet,4}}}} = 
+        ssl:listen(9999, [{packet, 4} | ServerOpts]),
+    {error,{options,{not_supported,{packet_size,1}}}} =  
+        ssl:listen(9999, [{packet_size, 1} | ServerOpts]),
+    {error,{options,{not_supported,{header,1}}}} =
+        ssl:listen(9999, [{header, 1} | ServerOpts]),
+    
+    client_reject_packet_opt(Config, {packet,4}),
+    client_reject_packet_opt(Config, {packet_size, 1}),
+    client_reject_packet_opt(Config, {header, 1}).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -1973,14 +2045,14 @@ passive_recv_packet(Socket, _, 0) ->
 	    {error, timeout} = ssl:recv(Socket, 0, 500),
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
     case ssl:recv(Socket, 0) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket), N}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), N}
     end.
 
 send(Socket,_, 0) ->
@@ -2011,26 +2083,19 @@ active_once_raw(Socket, Data, N) ->
 
 active_once_raw(_, _, 0, _) ->
     ok;
-active_once_raw(Socket, Data, N, Acc) ->
-    receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
+active_once_raw(Socket, Data, N, Acc0) ->
+    case lists:prefix(Data, Acc0) of
+	true ->
+	    DLen = length(Data),   
+	    Start = DLen + 1,
+	    Len = length(Acc0) - DLen,    
+	    Acc = string:substr(Acc0, Start, Len),   
+	    active_once_raw(Socket, Data, N-1, Acc);
+	false ->	    
 	    receive 
-		{ssl, Socket, _} ->
+		{ssl, Socket, Info}  ->
 		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, [])
-	    end;
-	{ssl, Socket, Data} ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    active_once_raw(Socket, Data, N-1, []);
-	{ssl, Socket, Other} ->
-	    case Acc ++ Other of
-		Data ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, []);
-		NewAcc ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N, NewAcc)
+		    active_once_raw(Socket, Data, N, Acc0 ++ Info)
 	    end
     end.
 
@@ -2039,7 +2104,7 @@ active_once_packet(Socket,_, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	{ssl, Socket, Other} ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
@@ -2084,7 +2149,7 @@ active_packet(Socket, _, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_packet(Socket, Data, N) ->
     receive 
@@ -2096,7 +2161,7 @@ active_packet(Socket, Data, N) ->
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket),N}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]),N}
     end.
 
 assert_packet_opt(Socket, Type) ->
@@ -2230,3 +2295,46 @@ add_tpkt_header(IOList) when is_list(IOList) ->
     Binary = list_to_binary(IOList),
     L = size(Binary) + 4,
     [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff , Binary].
+
+
+client_reject_packet_opt(Config, PacketOpt) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result_msg ,[]}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ServerNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()},
+                                              {mfa, {ssl_test_lib, no_result_msg, []}},
+                                              {options, [PacketOpt |
+                                                         ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}).
+
+
+send_switch_packet(SslSocket, Data, NextPacket) ->
+    ssl:send(SslSocket, Data),
+    receive
+        {ssl, SslSocket, "Hello World"} ->
+            ssl:setopts(SslSocket, [{packet, NextPacket}]),
+            ssl:send(SslSocket, Data),
+            receive 
+                {ssl, SslSocket, "Hello World"} ->
+                    ok
+            end
+    end.
+recv_switch_packet(SslSocket, Data, NextPacket) ->
+    receive
+        {ssl, SslSocket, "Hello World"} ->
+            ssl:send(SslSocket, Data),
+            ssl:setopts(SslSocket, [{packet, NextPacket}]),
+            receive 
+                {ssl, SslSocket, "Hello World"} ->
+                    ssl:send(SslSocket, Data)
+            end
+    end.

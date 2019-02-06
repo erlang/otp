@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,11 @@
 %%
 
 -module(company_o).
--compile(export_all).
+
+-export([sinit/0, init/0,insert_emp/3,females/0,
+         female_bosses/0, raise_females/1, over_write/2, raise/2,
+         bad_raise/2, get_emps/2, get_emps2/2]).
+
 
 -import(mnesia, [transaction/1]).
 

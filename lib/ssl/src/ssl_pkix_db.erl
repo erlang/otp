@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([create/0, add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
+-export([create/1, create_pem_cache/1, 
+	 add_crls/3, remove_crls/2, remove/1, add_trusted_certs/3, 
 	 extract_trusted_certs/1,
 	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3, select_cert_by_issuer/2,
-	 lookup_cached_pem/2, cache_pem_file/2, cache_pem_file/3,
 	 decode_pem_file/1, lookup/2]).
 
 %%====================================================================
@@ -40,24 +40,30 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec create() -> [db_handle(),...].
+-spec create(atom()) -> [db_handle(),...].
 %% 
 %% Description: Creates a new certificate db.
 %% Note: lookup_trusted_cert/4 may be called from any process but only
 %% the process that called create may call the other functions.
 %%--------------------------------------------------------------------
-create() ->
+create(PEMCacheName) ->
     [%% Let connection process delete trusted certs
      %% that can only belong to one connection. (Supplied directly
      %% on DER format to ssl:connect/listen.)
      ets:new(ssl_otp_cacertificate_db, [set, public]),
      %% Let connection processes call ref_count/3 directly
-     ets:new(ssl_otp_ca_file_ref, [set, public]),
-     ets:new(ssl_otp_pem_cache, [set, protected]),
+     {ets:new(ssl_otp_ca_file_ref, [set, public]),
+      ets:new(ssl_otp_ca_ref_file_mapping, [set, protected])
+     },
+     %% Lookups in named table owned by ssl_pem_cache process
+     PEMCacheName,
      %% Default cache
      {ets:new(ssl_otp_crl_cache, [set, protected]),
       ets:new(ssl_otp_crl_issuer_mapping, [bag, protected])}
     ].
+
+create_pem_cache(Name) ->
+    ets:new(Name, [named_table, set, protected]).
 
 %%--------------------------------------------------------------------
 -spec remove([db_handle()]) -> ok. 
@@ -70,6 +76,17 @@ remove(Dbs) ->
 			  true = ets:delete(Db1);
 		     (undefined) -> 
 			  ok;
+                     (Name) when is_atom(Name) ->
+                          NormalName = ssl_pem_cache:name(normal),
+                          DistName = ssl_pem_cache:name(dist),
+                          case Name of
+                              NormalName ->
+                                  ok;
+                              DistName -> 
+                                  ok;
+                              _ ->
+                                  true = ets:delete(Name)
+                          end;
 		     (Db) ->
 			  true = ets:delete(Db)
 		  end, Dbs).
@@ -101,11 +118,6 @@ lookup_trusted_cert(_DbHandle, {extracted,Certs}, SerialNumber, Issuer) ->
 	    {ok, Cert}
     end.
 
-lookup_cached_pem([_, _, PemChache | _], File) ->
-    lookup_cached_pem(PemChache, File);
-lookup_cached_pem(PemChache, File) ->
-    lookup(File, PemChache).
-
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), {erlang:timestamp(), string()} |
 			{der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
@@ -122,16 +134,10 @@ add_trusted_certs(_Pid, {der, DerList}, [CertDb, _,_ | _]) ->
     add_certs_from_der(DerList, NewRef, CertDb),
     {ok, NewRef};
 
-add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache | _] = Db) ->
-    case lookup_cached_pem(Db, File) of
-	[{_Content, Ref}] ->
+add_trusted_certs(_Pid, File, [ _, {RefDb, FileMapDb} | _] = Db) ->
+    case lookup(File, FileMapDb) of
+	[Ref] ->
 	    ref_count(Ref, RefDb, 1),
-	    {ok, Ref};
-	[Content] ->
-	    Ref = make_ref(),
-	    update_counter(Ref, 1, RefDb),
-	    insert(File, {Content, Ref}, PemChache),
-	    add_certs_from_pem(Content, Ref, CertsDb),
 	    {ok, Ref};
 	undefined ->
 	    new_trusted_cert_entry(File, Db)
@@ -151,26 +157,7 @@ extract_trusted_certs(File) ->
             {error, {badmatch, Error}}
     end.
 
-%%--------------------------------------------------------------------
-%%
-%% Description: Cache file as binary in DB
-%%--------------------------------------------------------------------
--spec cache_pem_file(binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(File, [_CertsDb, _RefDb, PemChache | _]) ->
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
-    insert(File, Content, PemChache),
-    {ok, Content}.
-
-
--spec cache_pem_file(reference(), binary(), [db_handle()]) -> {ok, term()}.
-cache_pem_file(Ref, File, [_CertsDb, _RefDb, PemChache| _]) ->
-    {ok, PemBin} = file:read_file(File),
-    Content = public_key:pem_decode(PemBin),
-    insert(File, {Content, Ref}, PemChache),
-    {ok, Content}.
-
--spec decode_pem_file(binary()) -> {ok, term()}.
+-spec decode_pem_file(binary()) -> {ok, term()} | {error, term()}.
 decode_pem_file(File) ->
     case file:read_file(File) of
         {ok, PemBin} ->
@@ -246,6 +233,8 @@ select_cert_by_issuer(Cache, Issuer) ->
 %%--------------------------------------------------------------------
 ref_count({extracted, _}, _Db, _N) ->
     not_cached;
+ref_count(Key, {Db, _}, N) ->
+    ref_count(Key, Db, N);
 ref_count(Key, Db, N) ->
     ets:update_counter(Db,Key,N).
 
@@ -278,9 +267,9 @@ insert(Key, Data, Db) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-update_counter(Key, Count, Db) ->
-    true = ets:insert(Db, {Key, Count}),
-    ok.
+init_ref_db(Ref, File, {RefDb, FileMapDb}) ->
+    true = ets:insert(RefDb, {Ref, 1}),
+    true = ets:insert(FileMapDb, {File, Ref}).
 
 remove_certs(Ref, CertsDb) ->
     true = ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}),
@@ -326,12 +315,17 @@ decode_certs(Ref, Cert) ->
 	    undefined
     end.
 
-new_trusted_cert_entry(File, [CertsDb, RefDb, _ | _] = Db) ->
-    Ref = make_ref(),
-    update_counter(Ref, 1, RefDb),
-    {ok, Content} = cache_pem_file(Ref, File, Db),
-    add_certs_from_pem(Content, Ref, CertsDb),
-    {ok, Ref}.
+new_trusted_cert_entry(File, [CertsDb, RefsDb, _ | _]) ->
+    case decode_pem_file(File) of
+        {ok, Content} ->
+            Ref = make_ref(),
+            init_ref_db(Ref, File, RefsDb),
+            ok = ssl_pem_cache:insert(File, Content),
+            add_certs_from_pem(Content, Ref, CertsDb),
+            {ok, Ref};
+        Error ->
+            Error
+    end.
 
 add_crls([_,_,_, {_, Mapping} | _], ?NO_DIST_POINT, CRLs) ->
     [add_crls(CRL, Mapping) || CRL <- CRLs];

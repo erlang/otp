@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,6 +96,9 @@ ct_run_test(Dir, CommonTestArgs) ->
 	case ct:run_test(CommonTestArgs) of
 	    {_,_,_} ->
 		ok;
+            {error,{make_failed, _Modules} = Error} ->
+		io:format("ERROR: ~P\n", [Error,20]),
+                erlang:halt(123, [{flush,false}]);
 	    {error,Error} ->
 		io:format("ERROR: ~P\n", [Error,20]);
 	    Other ->
@@ -196,7 +199,7 @@ make_command(Vars, Spec, State) ->
     TestPath = filename:nativename(TestDir),
     Erl = case os:getenv("TS_RUN_VALGRIND") of
 	      false ->
-		  atom_to_list(lib:progname());
+		  ct:get_progname();
 	      _ ->
 		  case State#state.file of
 		      Dir when is_list(Dir) ->
@@ -204,11 +207,7 @@ make_command(Vars, Spec, State) ->
 		      _ ->
 			  ok
 		  end,
-		  "cerl -valgrind" ++
-		      case erlang:system_info(smp_support) of
-			  true -> " -smp";
-			  false -> ""
-		      end
+		  "cerl -valgrind"
 	  end,
     Naming =
 	case ts_lib:var(longnames, Vars) of
@@ -288,6 +287,10 @@ tricky_print_data(Port, Timeout) ->
             receive
                 {Port, {exit_status, 0}} ->
                     ok;
+                {Port, {exit_status, 123 = N}} ->
+                    io:format(user, "Test run exited with status ~p,"
+                              "aborting rest of test~n", [N]),
+                    erlang:halt(123, [{flush,false}]);
                 {Port, {exit_status, N}} ->
                     io:format(user, "Test run exited with status ~p~n", [N])
             after 1 ->
@@ -408,9 +411,9 @@ make_common_test_args(Args0, Options0, _Vars) ->
 		end,
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
-    io_lib:format("~100000p",[[{abort_if_missing_suites,true} | 
-			       Args0++Trace++Cover++Logdir++
-			       ConfigFiles++Options++TimeTrap]]).
+    io_lib:format("~0p",[[{abort_if_missing_suites,true} |
+                          Args0++Trace++Cover++Logdir++
+                              ConfigFiles++Options++TimeTrap]]).
 
 to_list(X) when is_atom(X) ->
     atom_to_list(X);
@@ -461,4 +464,4 @@ split_one(Path) ->
     filename:split(Path).
 
 split_path(Path) ->
-    string:tokens(Path,";").
+    string:lexemes(Path,";").

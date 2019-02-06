@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ stop_node(Case) ->
 
 
 init_per_suite(Config) ->
-    (catch code:load_file(crypto)),
+    code:ensure_loaded(crypto),
     case {ssh:start(),code:is_loaded(crypto)} of
 	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("SSH started locally",[]),

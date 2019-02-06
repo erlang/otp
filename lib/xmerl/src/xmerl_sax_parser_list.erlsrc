@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,19 @@
 
 %%  In the list case we can't use a '++' when matchin against an unbound variable 
 -define(STRING_UNBOUND_REST(MatchChar, Rest), [MatchChar | Rest]).
--define(BYTE_ORDER_MARK_1, undefined_bom1).
--define(BYTE_ORDER_MARK_2, undefined_bom2).
--define(BYTE_ORDER_MARK_REST(Rest), [undefined|Rest]).
+
+-define(PARSE_BYTE_ORDER_MARK(Bytes, State),
+        parse_byte_order_mark(Bytes, State) ->
+               parse_xml_decl(Bytes, State)).
+
+-define(PARSE_XML_DECL(Bytes, State), 
+        parse_xml_decl(Bytes, State) ->
+               parse_prolog(Bytes, State)).
+
+-define(WHITESPACE(Bytes, State, Acc),
+        whitespace(?STRING_UNBOUND_REST(_C, _) = Bytes, State, Acc) -> 
+               {lists:reverse(Acc), Bytes, State}).
+
+-define(PARSE_EXTERNAL_ENTITY_BYTE_ORDER_MARK(Bytes, State),
+        parse_external_entity_byte_order_mark(Bytes, State) ->
+               parse_external_entity_1(Bytes, State)).

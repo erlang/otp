@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,8 @@
 -export([config_change/1, persistent_env/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1]).
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
+         config_relative_paths/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -55,7 +56,7 @@ all() ->
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
-     shutdown_deadlock,
+     shutdown_deadlock, config_relative_paths,
      persistent_env].
 
 groups() -> 
@@ -1498,7 +1499,7 @@ otp_5363(Conf) when is_list(Conf) ->
 %% Ticket: OTP-5606
 %% Slogan: Problems with starting a distributed application
 %%-----------------------------------------------------------------
-%% Test of several processes simultanously starting the same
+%% Test of several processes simultaneously starting the same
 %% distributed application.
 otp_5606(Conf) when is_list(Conf) ->
 
@@ -1568,7 +1569,8 @@ loop5606(Pid) ->
 	    
 %% Tests get_env/* functions.
 get_env(Conf) when is_list(Conf) ->
-    {ok, _}   = application:get_env(kernel, error_logger),
+    ok = application:set_env(kernel, new_var, new_val),
+    {ok, new_val} = application:get_env(kernel, new_var),
     undefined = application:get_env(undefined_app, a),
     undefined = application:get_env(kernel, error_logger_xyz),
     default   = application:get_env(kernel, error_logger_xyz, default),
@@ -1602,8 +1604,7 @@ get_key(Conf) when is_list(Conf) ->
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
 	rpc:call(Cp1, application, get_key, [appinc, start_phases]),
     {ok, Env} = rpc:call(Cp1, application, get_key, [appinc ,env]),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     {ok, []} = rpc:call(Cp1, application, get_key, [appinc, modules]),
     {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
 	rpc:call(Cp1, application, get_key, [appinc, mod]),
@@ -1624,8 +1625,7 @@ get_key(Conf) when is_list(Conf) ->
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
 		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
 	rpc:call(Cp1, application, get_all_key, [appinc]),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
 
     {ok, "Test of new app file, including appnew"} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, description}),
@@ -1642,8 +1642,7 @@ get_key(Conf) when is_list(Conf) ->
     {ok, [{init, [kalle]}, {takeover, []}, {go, [sune]}]} =
 	gen_server:call({global, {ch,41}}, {get_pid_key, start_phases}),
     {ok, Env} = gen_server:call({global, {ch,41}}, {get_pid_key, env}),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     {ok, []} = 
 	gen_server:call({global, {ch,41}}, {get_pid_key, modules}),
     {ok, {application_starter, [ch_sup, {appinc, 41, 43}] }} = 
@@ -1670,8 +1669,7 @@ get_key(Conf) when is_list(Conf) ->
 		{mod, {application_starter, [ch_sup, {appinc, 41, 43}] }}, 
 		{start_phases, [{init, [kalle]}, {takeover, []}, {go, [sune]}]}]} = 
 	gen_server:call({global, {ch,41}}, get_pid_all_key),
-    [{included_applications,[appinc1,appinc2]},
-	   {own2,val2},{own_env1,value1}] = lists:sort(Env),
+    [{own2,val2},{own_env1,value1}] = lists:sort(Env),
     
     stop_node_nice(Cp1),
     ok.
@@ -2076,6 +2074,42 @@ shutdown_deadlock(Config) when is_list(Config) ->
     application:unload(deadlock), % clean up!
     ok.
 
+
+%%-----------------------------------------------------------------
+%% Relative paths in sys.config
+%%-----------------------------------------------------------------
+config_relative_paths(Config) ->
+    Dir = ?config(priv_dir,Config),
+    SubDir = filename:join(Dir,"subdir"),
+    Sys = filename:join(SubDir,"sys.config"),
+    ok = filelib:ensure_dir(Sys),
+    ok = file:write_file(Sys,"[\"../up.config\",\"current\"].\n"),
+
+    Up = filename:join(Dir,"up.config"),
+    ok = file:write_file(Up,"[{app1,[{key1,value}]}].\n"),
+
+    {ok,Cwd} = file:get_cwd(),
+    Current1 = filename:join(Cwd,"current.config"),
+    ok = file:write_file(Current1,"[{app1,[{key2,value1}]}].\n"),
+
+    N1 = list_to_atom(lists:concat([?FUNCTION_NAME,"_1"])),
+    {ok,Node1} = start_node(N1,filename:rootname(Sys)),
+    ok = rpc:call(Node1, application, load, [app1()]),
+    {ok, value} = rpc:call(Node1, application, get_env,[app1,key1]),
+    {ok, value1} = rpc:call(Node1, application, get_env,[app1,key2]),
+
+    Current2 = filename:join(SubDir,"current.config"),
+    ok = file:write_file(Current2,"[{app1,[{key2,value2}]}].\n"),
+
+    N2 = list_to_atom(lists:concat([?FUNCTION_NAME,"_2"])),
+    {ok, Node2} = start_node(N2,filename:rootname(Sys)),
+    ok = rpc:call(Node2, application, load, [app1()]),
+    {ok, value} = rpc:call(Node2, application, get_env,[app1,key1]),
+    {ok, value2} = rpc:call(Node2, application, get_env,[app1,key2]),
+
+    stop_node_nice([Node1,Node2]),
+
+    ok.
 
 %%-----------------------------------------------------------------
 %% Utility functions

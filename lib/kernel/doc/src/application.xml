@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -318,8 +318,13 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           <c>{error,{not_started,App}}</c> is returned, where <c>App</c>
           is the name of the missing application.</p>
         <p>The application controller then creates an <em>application master</em>
-	  for the application. The application master is
-          the group leader of all the processes in the application.
+          for the application. The application master becomes the
+          group leader of all the processes in the application. I/O is
+          forwarded to the previous group leader, though, this is just
+          a way to identify processes that belong to the application.
+          Used for example to find itself from any process, or,
+          reciprocally, to kill them all when it terminates.</p>
+        <p>
           The application master starts the application by calling
           the application callback function <c>Module:start/2</c> as
           defined by the application specification key <c>mod</c>.</p>
@@ -608,4 +613,3 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <seealso marker="app">app(4)</seealso></p>
   </section>
 </erlref>
-

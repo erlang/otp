@@ -64,7 +64,7 @@ TARGETS = $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I$(INCLUDE) +warn_obsolete_guard
+ERL_COMPILE_FLAGS += -I$(INCLUDE)
 
 # ----------------------------------------------------
 # Targets

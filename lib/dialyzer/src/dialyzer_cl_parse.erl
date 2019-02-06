@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 -module(dialyzer_cl_parse).
 
@@ -44,11 +37,12 @@ start() ->
   init(),
   Args = init:get_plain_arguments(),
   try
-    cl(Args)
+    Ret = cl(Args),
+    Ret
   catch
     throw:{dialyzer_cl_parse_error, Msg} -> {error, Msg};
-    _:R ->
-      Msg = io_lib:format("~p\n~p\n", [R, erlang:get_stacktrace()]),
+    _:R:S ->
+      Msg = io_lib:format("~tp\n~tp\n", [R, S]),
       {error, lists:flatten(Msg)}
   end.
 
@@ -88,7 +82,7 @@ cl(["--get_warnings"|T]) ->
 cl(["-D"|_]) ->
   cl_error("No defines specified after -D");
 cl(["-D"++Define|T]) ->
-  Def = re:split(Define, "=", [{return, list}]),
+  Def = re:split(Define, "=", [{return, list}, unicode]),
   append_defines(Def),
   cl(T);
 cl(["-h"|_]) ->
@@ -510,7 +504,7 @@ warning_options_msg() ->
   -Wno_match
      Suppress warnings for patterns that are unused or cannot match.
   -Wno_opaque
-     Suppress warnings for violations of opaqueness of data types.
+     Suppress warnings for violations of opacity of data types.
   -Wno_fail_call
      Suppress warnings for failing calls.
   -Wno_contracts

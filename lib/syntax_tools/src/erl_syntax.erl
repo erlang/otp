@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 1997-2006 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -134,6 +139,7 @@
 	 is_atom/2,
 	 atom_value/1,
 	 atom_literal/1,
+         atom_literal/2,
 	 atom_name/1,
 	 attribute/1,
 	 attribute/2,
@@ -336,8 +342,10 @@
 	 typed_record_field_body/1,
          typed_record_field_type/1,
 	 class_qualifier/2,
+	 class_qualifier/3,
 	 class_qualifier_argument/1,
 	 class_qualifier_body/1,
+	 class_qualifier_stacktrace/1,
 	 tuple/1,
 	 tuple_elements/1,
 	 tuple_size/1,
@@ -1836,7 +1844,7 @@ char_literal(Node) ->
 %% @doc Returns the literal string represented by a `char'
 %% node. This includes the leading "`$'" character.
 %% Depending on the encoding a character beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see char/1
 
@@ -1939,7 +1947,7 @@ string_literal(Node) ->
 %% @doc Returns the literal string represented by a `string'
 %% node. This includes surrounding double-quote characters.
 %% Depending on the encoding characters beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see string/1
 
@@ -1960,6 +1968,7 @@ string_literal(Node, latin1) ->
 %% @see atom_value/1
 %% @see atom_name/1
 %% @see atom_literal/1
+%% @see atom_literal/2
 %% @see is_atom/2
 
 %% type(Node) = atom
@@ -2032,6 +2041,7 @@ atom_name(Node) ->
 %% =====================================================================
 %% @doc Returns the literal string represented by an `atom'
 %% node. This includes surrounding single-quote characters if necessary.
+%% Characters beyond 255 will be escaped.
 %%
 %% Note that e.g. the result of `atom("x\ny")' represents
 %% any and all of `'x\ny'', `'x\12y'',
@@ -2043,8 +2053,24 @@ atom_name(Node) ->
 -spec atom_literal(syntaxTree()) -> string().
 
 atom_literal(Node) ->
-    io_lib:write_atom(atom_value(Node)).
+    atom_literal(Node, latin1).
 
+%% =====================================================================
+%% @doc Returns the literal string represented by an `atom'
+%% node. This includes surrounding single-quote characters if necessary.
+%% Depending on the encoding a character beyond 255 will be escaped
+%% (`latin1') or copied as is (`utf8').
+%%
+%% @see atom/1
+%% @see atom_literal/1
+%% @see string/1
+
+atom_literal(Node, utf8) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, unicode) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, latin1) ->
+    io_lib:write_atom_as_latin1(atom_value(Node)).
 
 %% =====================================================================
 %% @equiv map_expr(none, Fields)
@@ -3860,7 +3886,7 @@ fold_try_clause({clause, Pos, [P], Guard, Body}) ->
 	     class_qualifier ->
 		 {tuple, Pos, [class_qualifier_argument(P),
 			       class_qualifier_body(P),
-			       {var, Pos, '_'}]};
+			       class_qualifier_stacktrace(P)]};
 	     _ ->
 		 {tuple, Pos, [{atom, Pos, throw}, P, {var, Pos, '_'}]}
 	 end,
@@ -3869,12 +3895,14 @@ fold_try_clause({clause, Pos, [P], Guard, Body}) ->
 unfold_try_clauses(Cs) ->
     [unfold_try_clause(C) || C <- Cs].
 
-unfold_try_clause({clause, Pos, [{tuple, _, [{atom, _, throw}, V, _]}],
+unfold_try_clause({clause, Pos, [{tuple, _, [{atom, _, throw},
+                                             V,
+                                             {var, _, '_'}]}],
 		   Guard, Body}) ->
     {clause, Pos, [V], Guard, Body};
-unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
+unfold_try_clause({clause, Pos, [{tuple, _, [C, V, Stacktrace]}],
 		   Guard, Body}) ->
-    {clause, Pos, [class_qualifier(C, V)], Guard, Body}.
+    {clause, Pos, [class_qualifier(C, V, Stacktrace)], Guard, Body}.
 
 
 %% =====================================================================
@@ -5300,7 +5328,7 @@ revert_map_type_assoc(Node) ->
     Pos = get_pos(Node),
     Name = map_type_assoc_name(Node),
     Value = map_type_assoc_value(Node),
-    {type, Pos, map_type_assoc, [Name, Value]}.
+    {type, Pos, map_field_assoc, [Name, Value]}.
 
 
 %% =====================================================================
@@ -5358,7 +5386,7 @@ revert_map_type_exact(Node) ->
     Pos = get_pos(Node),
     Name = map_type_exact_name(Node),
     Value = map_type_exact_value(Node),
-    {type, Pos, map_type_exact, [Name, Value]}.
+    {type, Pos, map_field_exact, [Name, Value]}.
 
 
 %% =====================================================================
@@ -5427,8 +5455,12 @@ map_type(Fields) ->
 
 revert_map_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, map, map_type_fields(Node)}.
-
+    case map_type_fields(Node) of
+        any_size ->
+            {type, Pos, map, any};
+        Fields ->
+            {type, Pos, map, Fields}
+    end.
 
 %% =====================================================================
 %% @doc Returns the list of field subtrees of a `map_type' node.
@@ -5686,7 +5718,12 @@ tuple_type(Elements) ->
 
 revert_tuple_type(Node) ->
     Pos = get_pos(Node),
-    {type, Pos, tuple, tuple_type_elements(Node)}.
+    case tuple_type_elements(Node) of
+        any_size ->
+            {type, Pos, tuple, any};
+        TypeElements ->
+            {type, Pos, tuple, TypeElements}
+    end.
 
 
 %% =====================================================================
@@ -6701,9 +6738,12 @@ try_expr_after(Node) ->
 %%
 %% @see class_qualifier_argument/1
 %% @see class_qualifier_body/1
+%% @see class_qualifier_stacktrace/1
 %% @see try_expr/4
 
--record(class_qualifier, {class :: syntaxTree(), body :: syntaxTree()}).
+-record(class_qualifier, {class :: syntaxTree(),
+                          body :: syntaxTree(),
+                          stacktrace :: syntaxTree()}).
 
 %% type(Node) = class_qualifier
 %% data(Node) = #class_qualifier{class :: Class, body :: Body}
@@ -6713,8 +6753,27 @@ try_expr_after(Node) ->
 -spec class_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 class_qualifier(Class, Body) ->
+    Underscore = {var, get_pos(Body), '_'},
     tree(class_qualifier,
-	 #class_qualifier{class = Class, body = Body}).
+	 #class_qualifier{class = Class, body = Body,
+                          stacktrace = Underscore}).
+
+%% =====================================================================
+%% @doc Creates an abstract class qualifier. The result represents
+%% "<code><em>Class</em>:<em>Body</em>:<em>Stacktrace</em></code>".
+%%
+%% @see class_qualifier_argument/1
+%% @see class_qualifier_body/1
+%% @see try_expr/4
+
+-spec class_qualifier(syntaxTree(), syntaxTree(), syntaxTree()) ->
+                             syntaxTree().
+
+class_qualifier(Class, Body, Stacktrace) ->
+    tree(class_qualifier,
+	 #class_qualifier{class = Class,
+                          body = Body,
+                          stacktrace = Stacktrace}).
 
 
 %% =====================================================================
@@ -6738,6 +6797,16 @@ class_qualifier_argument(Node) ->
 
 class_qualifier_body(Node) ->
     (data(Node))#class_qualifier.body.
+
+%% =====================================================================
+%% @doc Returns the stacktrace subtree of a `class_qualifier' node.
+%%
+%% @see class_qualifier/2
+
+-spec class_qualifier_stacktrace(syntaxTree()) -> syntaxTree().
+
+class_qualifier_stacktrace(Node) ->
+    (data(Node))#class_qualifier.stacktrace.
 
 
 %% =====================================================================
@@ -7163,7 +7232,7 @@ macro_arguments(Node) ->
 %% @doc Returns the syntax tree corresponding to an Erlang term.
 %% `Term' must be a literal term, i.e., one that can be
 %% represented as a source code literal. Thus, it may not contain a
-%% process identifier, port, reference, binary or function value as a
+%% process identifier, port, reference or function value as a
 %% subterm. The function recognises printable strings, in order to get a
 %% compact and readable representation. Evaluation fails with reason
 %% `badarg' if `Term' is not a literal term.
@@ -7197,6 +7266,13 @@ abstract(T) when is_map(T) ->
 	      || {Key,Value} <- maps:to_list(T)]);
 abstract(T) when is_binary(T) ->
     binary([binary_field(integer(B)) || B <- binary_to_list(T)]);
+abstract(T) when is_bitstring(T) ->
+    S = bit_size(T),
+    ByteS = S div 8,
+    BitS = S rem 8,
+    <<Bin:ByteS/binary, I:BitS>> = T,
+    binary([binary_field(integer(B)) || B <- binary_to_list(Bin)]
+           ++ [binary_field(integer(I), integer(BitS), [])]);
 abstract(T) ->
     erlang:error({badarg, T}).
 
@@ -7272,15 +7348,20 @@ concrete(Node) ->
 		Node0 -> maps:merge(concrete(Node0),M0)
 	    end;
 	binary ->
-	    Fs = [revert_binary_field(
-		    binary_field(binary_field_body(F),
-				 case binary_field_size(F) of
-				     none -> none;
-				     S ->
-					 revert(S)
-				 end,
-				 binary_field_types(F)))
-		  || F <- binary_fields(Node)],
+            Fs = [begin
+                      B = binary_field_body(F),
+                      {Body, Size} =
+                          case type(B) of
+                              size_qualifier ->
+                                  {size_qualifier_body(B),
+                                   size_qualifier_argument(B)};
+                              _ ->
+                                  {B, none}
+                          end,
+                      revert_binary_field(
+                        binary_field(Body, Size, binary_field_types(F)))
+                  end
+                  || F <- binary_fields(Node)],
 	    {value, B, _} =
 		eval_bits:expr_grp(Fs, [],
 				   fun(F, _) ->
@@ -7353,7 +7434,14 @@ is_literal(T) ->
 
 is_literal_binary_field(F) ->
     case binary_field_types(F) of
-	[] -> is_literal(binary_field_body(F));
+	[] -> B = binary_field_body(F),
+              case type(B) of
+                  size_qualifier ->
+                      is_literal(size_qualifier_body(B)) andalso
+                          is_literal(size_qualifier_argument(B));
+                  _ ->
+                      is_literal(B)
+              end;
 	_  -> false
     end.
 
@@ -7703,8 +7791,9 @@ subtrees(T) ->
 		catch_expr ->
 		    [[catch_expr_body(T)]];
 		class_qualifier ->
-		    [[class_qualifier_argument(T)],
-		     [class_qualifier_body(T)]];
+                    [[class_qualifier_argument(T)],
+                     [class_qualifier_body(T)],
+                     [class_qualifier_stacktrace(T)]];
 		clause ->
 		    case clause_guard(T) of
 			none ->
@@ -7925,6 +8014,7 @@ make_tree(block_expr, [B]) -> block_expr(B);
 make_tree(case_expr, [[A], C]) -> case_expr(A, C);
 make_tree(catch_expr, [[B]]) -> catch_expr(B);
 make_tree(class_qualifier, [[A], [B]]) -> class_qualifier(A, B);
+make_tree(class_qualifier, [[A], [B], [C]]) -> class_qualifier(A, B, C);
 make_tree(clause, [P, B]) -> clause(P, none, B);
 make_tree(clause, [P, [G], B]) -> clause(P, G, B);
 make_tree(cond_expr, [C]) -> cond_expr(C);

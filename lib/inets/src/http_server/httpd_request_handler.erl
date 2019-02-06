@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,18 +37,20 @@
 -include("httpd_internal.hrl").
 
 -define(HANDSHAKE_TIMEOUT, 5000).
+
 -record(state, {mod,     %% #mod{}
 		manager, %% pid()
 		status,  %% accept | busy | blocked
 		mfa,     %% {Module, Function, Args} 
 		max_keep_alive_request = infinity, %% integer() | infinity
-		response_sent = false, %% true | false 
-		timeout,  %% infinity | integer() > 0
-		timer,     %% ref() - Request timer
-		headers,  %% #http_request_h{}
+		response_sent = false :: boolean(),
+		timeout,   %% infinity | integer() > 0
+		timer      :: 'undefined' | reference(), % Request timer
+		headers,   %% #http_request_h{}
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
-		byte_limit  %% Bit limit per second before kick out
+		byte_limit, %% Bit limit per second before kick out
+                chunk 
 	       }).
 
 %%====================================================================
@@ -123,7 +125,8 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     NrOfRequest   = max_keep_alive_request(ConfigDB), 
     MaxContentLen = max_content_length(ConfigDB),
     Customize = customize(ConfigDB),
-
+    MaxChunk = max_client_body_chunk(ConfigDB),
+    
     {_, Status} = httpd_manager:new_connection(Manager),
     
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
@@ -138,7 +141,8 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
 		   status                 = Status,
 		   timeout                = TimeOut, 
 		   max_keep_alive_request = NrOfRequest,
-		   mfa                    = MFA},
+		   mfa                    = MFA,
+                   chunk                   = chunk_start(MaxChunk)},
     
     http_transport:setopts(SocketType, Socket, 
 			   [binary, {packet, 0}, {active, once}]),
@@ -193,6 +197,7 @@ handle_cast(Msg, #state{mod = ModData} = State) ->
 %%--------------------------------------------------------------------
 handle_info({Proto, Socket, Data}, 
 	    #state{mfa = {Module, Function, Args},
+                   chunk = {ChunkState, _},
 		   mod = #mod{socket_type = SockType, 
 			      socket = Socket} = ModData} = State) 
   when (((Proto =:= tcp) orelse 
@@ -206,7 +211,8 @@ handle_info({Proto, Socket, Data},
 		      _ ->
 			  State#state.data + byte_size(Data)
 		  end,
-    case PROCESSED of
+
+    case PROCESSED of       
         {ok, Result} ->
 	    NewState = case NewDataSize of
 			   undefined ->
@@ -214,7 +220,7 @@ handle_info({Proto, Socket, Data},
 			   _ ->
 			       set_new_data_size(cancel_request_timeout(State), NewDataSize)
 		       end,
-            handle_http_msg(Result, NewState); 
+            handle_msg(Result, NewState);
 	{error, {size_error, MaxSize, ErrCode, ErrStr}, Version} ->
 	    NewModData =  ModData#mod{http_version = Version},
 	    httpd_response:send_status(NewModData, ErrCode, ErrStr),
@@ -223,7 +229,10 @@ handle_info({Proto, Socket, Data},
 	    error_log(Reason, NewModData),
 	    {stop, normal, State#state{response_sent = true, 
 				       mod = NewModData}};
-
+        
+        {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
+            NewState = handle_chunk(Module, Function, Args, State),
+            {noreply, NewState};
 	NewMFA ->
 	    http_transport:setopts(SockType, Socket, [{active, once}]),
 	    case NewDataSize of
@@ -240,9 +249,9 @@ handle_info({tcp_closed, _}, State) ->
 handle_info({ssl_closed, _}, State) ->
     {stop, normal, State};
 handle_info({tcp_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 handle_info({ssl_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 
 %% Timeouts
 handle_info(timeout, #state{mfa = {_, parse, _}} = State) ->
@@ -348,6 +357,34 @@ await_socket_ownership_transfer(AcceptTimeout) ->
 	    exit(accept_socket_timeout)
     end.
 
+
+%%% Internal chunking of client body 
+handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbState}} = State) ->
+    handle_internal_chunk(State#state{chunk = {continue, CbState},
+                                      body = Chunk}, Module, Function, Args);
+handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
+    http_transport:setopts(ModData#mod.socket_type, 
+                           ModData#mod.socket, 
+                           [{active, once}]),
+    {noreply, State#state{mfa = {Module, Function, Args}}};
+handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State) -> 
+    NewHeaders = Headers#http_request_h{'content-length' = integer_to_list(size(Body))},
+    handle_response(State#state{chunk = {last, CbState},
+                                headers = NewHeaders,
+                                body = Body});
+%%% Last data chunked by client
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {ChunkState, CbState}} = State) when ChunkState =/= undefined ->
+    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
+    handle_response(State#state{chunk = {last, CbState},
+                                headers = NewHeaders,
+                                body = Body});
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {undefined, _}} = State) ->
+    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
+    handle_response(State#state{headers = NewHeaders,
+                                body = Body});
+handle_msg(Result, State) ->
+    handle_http_msg(Result, State).
+
 handle_http_msg({_, _, Version, {_, _}, _}, 
 		#state{status = busy, mod = ModData} = State) -> 
     handle_manager_busy(State#state{mod = 
@@ -404,10 +441,6 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}}
     end;
-handle_http_msg({ChunkedHeaders, Body}, 
-		State = #state{headers = Headers}) ->
-    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
-    handle_response(State#state{headers = NewHeaders, body = Body});
 handle_http_msg(Body, State) ->
     handle_response(State#state{body = Body}).
 
@@ -442,22 +475,25 @@ handle_body(#state{mod = #mod{config_db = ConfigDB}} = State) ->
     
     end.
 	
-handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
+handle_body(#state{headers = Headers, body = Body, 
+                   chunk =  {ChunkState, CbState}, mod = #mod{config_db = ConfigDB} = ModData} = State,
 	    MaxHeaderSize, MaxBodySize) ->
+    MaxChunk = max_client_body_chunk(ConfigDB),
     case Headers#http_request_h.'transfer-encoding' of
 	"chunked" ->
 	    try http_chunk:decode(Body, MaxBodySize, MaxHeaderSize) of
-		{Module, Function, Args} ->
+                {Module, Function, Args} ->
 		    http_transport:setopts(ModData#mod.socket_type, 
 					   ModData#mod.socket, 
 					   [{active, once}]),
 		    {noreply, State#state{mfa = 
-					  {Module, Function, Args}}};
-		{ok, {ChunkedHeaders, NewBody}} ->
-		    NewHeaders = 
-			http_chunk:handle_headers(Headers, ChunkedHeaders),
-		    handle_response(State#state{headers = NewHeaders,
-						body = NewBody})
+                                              {Module, Function, Args},
+                                          chunk = chunk_start(MaxChunk)}};
+                {ok, {ChunkedHeaders, NewBody}} ->
+		    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),	
+                    handle_response(State#state{headers = NewHeaders,
+                                                body = NewBody,
+                                                chunk = chunk_finish(ChunkState, CbState, MaxChunk)})
 	    catch 
 		throw:Error ->
 		    httpd_response:send_status(ModData, 400, 
@@ -475,21 +511,36 @@ handle_body(#state{headers = Headers, body = Body, mod = ModData} = State,
 	    error_log(Reason, ModData),
 	    {stop, normal, State#state{response_sent = true}};
 	_ -> 
-	    Length = list_to_integer(Headers#http_request_h.'content-length'),	    
+	    Length = list_to_integer(Headers#http_request_h.'content-length'),
+	    MaxChunk = max_client_body_chunk(ConfigDB),
 	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
 		true ->
-		    case httpd_request:whole_body(Body, Length) of 
-			{Module, Function, Args} ->
-			    http_transport:setopts(ModData#mod.socket_type, 
+		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
+                        %% This is the case that the we need more data to complete
+                        %% the body but chunking to the mod_esi user is not enabled.
+                        {Module, add_chunk = Function,  Args} ->  
+                            http_transport:setopts(ModData#mod.socket_type, 
 						   ModData#mod.socket, 
 						   [{active, once}]),
 			    {noreply, State#state{mfa = 
 						      {Module, Function, Args}}};
-			
-			{ok, NewBody} ->
-			    handle_response(
-			      State#state{headers = Headers,
-					  body = NewBody})
+                        %% Chunking to mod_esi user is enabled
+                        {ok, {continue, Module, Function, Args}} ->
+                                http_transport:setopts(ModData#mod.socket_type, 
+						   ModData#mod.socket, 
+						   [{active, once}]),
+			    {noreply, State#state{mfa = 
+						      {Module, Function, Args}}};
+                        {ok, {{continue, Chunk}, Module, Function, Args}} ->
+                            handle_internal_chunk(State#state{chunk =  chunk_start(MaxChunk), 
+                                                              body = Chunk}, Module, Function, Args);                   
+                        %% Whole body delivered, if chunking mechanism is enabled the whole
+                        %% body fits in one chunk.
+                        {ok, NewBody} ->
+                            handle_response(State#state{chunk = chunk_finish(ChunkState, 
+                                                                             CbState, MaxChunk),
+                                                        headers = Headers,
+                                                        body = NewBody})
 		    end;
 		false ->
 		    httpd_response:send_status(ModData, 413, "Body too long"),
@@ -549,15 +600,61 @@ expect(Headers, _, ConfigDB) ->
 	    end
     end.
 
+handle_chunk(http_chunk = Module, decode_data = Function, 
+             [ChunkSize, TotalChunk, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
+             #state{chunk = {_, CbState},
+                    mod = #mod{socket_type = SockType,
+                               socket = Socket} = ModData} = State) ->
+    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = 
+                                                                                {continue, BodySoFar, CbState}}),
+    http_transport:setopts(SockType, Socket, [{active, once}]),
+    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [ChunkSize, TotalChunk, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
+
+handle_chunk(http_chunk = Module, decode_size = Function, 
+             [Data, HexList, _AccSize, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
+             #state{chunk = {_, CbState},
+                    mod = #mod{socket_type = SockType,
+                               socket = Socket} = ModData} = State) ->
+    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = {continue, BodySoFar, CbState}}),
+    http_transport:setopts(SockType, Socket, [{active, once}]),
+    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [Data, HexList, 0, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
+handle_chunk(Module, Function, Args, #state{mod = #mod{socket_type = SockType,
+                                                                      socket = Socket}} = State) ->
+    http_transport:setopts(SockType, Socket, [{active, once}]),
+    State#state{mfa = {Module, Function, Args}}.
+
+handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk, 
+                             mod = #mod{socket_type = SockType,
+                                        socket = Socket} = ModData} = State, Module, Function, Args)->
+    Bodychunk = body_chunk(ChunkState, CbState, Chunk),
+    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = Bodychunk}),
+    case Args of
+        [<<>> | _] ->
+            http_transport:setopts(SockType, Socket, [{active, once}]),
+            {noreply, State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, Args}}};
+        _ ->
+            handle_info({dummy, Socket, <<>>}, State#state{chunk = {continue, NewCbState}, 
+                                                           mfa = {Module, Function, Args}})
+    end.
+
+handle_response(#state{body    = Body, 
+                       headers = Headers,
+		       mod     = ModData, 
+                       chunk   = {last, CbState},
+		       max_keep_alive_request = Max} = State) when Max > 0 ->
+    {NewBody, Data} = httpd_request:body_data(Headers, Body),
+    ok = httpd_response:generate_and_send_response(
+           ModData#mod{entity_body = {last, NewBody, CbState}}),     
+    handle_next_request(State#state{response_sent = true}, Data);
 handle_response(#state{body    = Body, 
 		       mod     = ModData, 
 		       headers = Headers,
 		       max_keep_alive_request = Max} = State) when Max > 0 ->
     {NewBody, Data} = httpd_request:body_data(Headers, Body),
+    %% Backwards compatible, may cause memory explosion
     ok = httpd_response:generate_and_send_response(
-	   ModData#mod{entity_body = NewBody}),
+           ModData#mod{entity_body = binary_to_list(NewBody)}),
     handle_next_request(State#state{response_sent = true}, Data);
-
 handle_response(#state{body    = Body, 
 		       headers = Headers, 
 		       mod     = ModData} = State) ->
@@ -577,6 +674,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
     MaxURISize    = max_uri_size(ModData#mod.config_db), 
     MaxContentLen = max_content_length(ModData#mod.config_db),
     Customize = customize(ModData#mod.config_db),
+    MaxChunk = max_client_body_chunk(ModData#mod.config_db),
 
     MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
 				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
@@ -589,6 +687,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
 			   max_keep_alive_request = decrease(Max),
 			   headers                = undefined, 
 			   body                   = undefined,
+                           chunk                  = chunk_start(MaxChunk),
 			   response_sent          = false},
     
     NewState = activate_request_timeout(TmpState),
@@ -646,6 +745,9 @@ error_log(ReasonString,  #mod{config_db = ConfigDB}) ->
 max_header_size(ConfigDB) ->
     httpd_util:lookup(ConfigDB, max_header_size, ?HTTP_MAX_HEADER_SIZE).
 
+max_client_body_chunk(ConfigDB) ->
+    httpd_util:lookup(ConfigDB, max_client_body_chunk, nolimit).
+
 max_uri_size(ConfigDB) ->
     httpd_util:lookup(ConfigDB, max_uri_size, ?HTTP_MAX_URI_SIZE).
 
@@ -660,3 +762,17 @@ max_content_length(ConfigDB) ->
 
 customize(ConfigDB) ->    
     httpd_util:lookup(ConfigDB, customize, httpd_custom).
+
+chunk_start(nolimit) ->
+    {undefined, undefined};
+chunk_start(_) ->
+    {first, undefined}.
+chunk_finish(_, _, nolimit) ->
+    {undefined, undefined};
+chunk_finish(_, CbState, _) ->
+    {last, CbState}.
+
+body_chunk(first, _, Chunk) ->
+    {first, Chunk};
+body_chunk(ChunkState, CbState, Chunk) ->
+    {ChunkState, Chunk, CbState}.

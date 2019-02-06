@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,34 @@
 %%
 -module(mnesia_durability_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([durability_of_disc_copies/1,
+         durability_of_disc_only_copies/1,
+         load_latest_data/1, load_local_contents_directly/1,
+         load_directly_when_all_are_ram_copiesA/1,
+         load_directly_when_all_are_ram_copiesB/1,
+         load_when_last_replica_becomes_available/1,
+         load_when_down_from_all_other_replica_nodes/1,
+         late_load_transforms_into_disc_load/1,
+         late_load_leads_to_hanging/1,
+         force_load_when_nobody_intents_to_load/1,
+         force_load_when_someone_has_decided_to_load/1,
+         force_load_when_someone_else_has_loaded/1,
+         force_load_when_we_has_loaded/1,
+         force_load_on_a_non_local_table/1,
+         force_load_when_the_table_does_not_exist/1,
+         late_load_all_ram_cs_ram_nodes1/1,
+         late_load_all_ram_cs_ram_nodes2/1,
+         master_nodes/1, starting_master_nodes/1,
+         master_on_non_local_tables/1,
+         remote_force_load_with_local_master_node/1,
+         master_node_with_ram_copy_2/1, master_node_with_ram_copy_3/1,
+         dump_ram_copies/1, dump_disc_copies/1, dump_disc_only/1]).
+
 -include("mnesia_test_lib.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,7 +92,8 @@ groups() ->
      {load_tables_with_master_tables, [],
       [master_nodes, starting_master_nodes,
        master_on_non_local_tables,
-       remote_force_load_with_local_master_node]},
+       remote_force_load_with_local_master_node,
+       master_node_with_ram_copy_2, master_node_with_ram_copy_3]},
      {durability_of_dump_tables, [],
       [dump_ram_copies, dump_disc_copies, dump_disc_only]}].
 
@@ -1139,6 +1167,107 @@ remote_force_load_with_local_master_node(Config) when is_list(Config) ->
 
     ?verify_mnesia(Nodes, []).
 
+master_node_with_ram_copy_2(Config) when is_list(Config) ->
+    [A, B] = Nodes = ?acquire_nodes(2, Config),
+    Tab = ?FUNCTION_NAME,
+    ?match({atomic,ok}, mnesia:create_table(Tab, [{disc_copies, [A]}, {ram_copies, [B]}])),
+    ?match({atomic,ok}, mnesia:sync_transaction(?SDwrite({Tab, 1, init}))),
+
+    %% Test that we don't load from ram_copies
+    ?match(stopped, rpc:call(A, mnesia, stop, [])),
+    ?match(stopped, rpc:call(B, mnesia, stop, [])),
+    ?match(ok, rpc:call(B, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 1000])),
+    ?match(ok, rpc:call(A, mnesia, start, [])),
+    ?match(ok, rpc:call(B, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match([{Tab, 1, init}], rpc:call(A, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, init}], rpc:call(B, mnesia, dirty_read, [{Tab, 1}])),
+
+    %% Test that master_nodes set to ram_copy node require force_load
+    ?match(ok, rpc:call(A, mnesia, set_master_nodes, [[B]])),
+    ?match(stopped, rpc:call(A, mnesia, stop, [])),
+    ?match(stopped, rpc:call(B, mnesia, stop, [])),
+    ?match(ok, rpc:call(B, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 1000])),
+    ?match(ok, rpc:call(A, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 1000])),
+
+    ?match(yes, rpc:call(A, mnesia, force_load_table, [Tab])),
+    ?match(ok, rpc:call(A, mnesia, wait_for_tables, [[Tab], 1000])),
+    ?match(ok, rpc:call(B, mnesia, wait_for_tables, [[Tab], 1000])),
+    ?match([{Tab, 1, init}], rpc:call(A, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, init}], rpc:call(B, mnesia, dirty_read, [{Tab, 1}])),
+
+    ?verify_mnesia(Nodes, []).
+
+
+master_node_with_ram_copy_3(Config) when is_list(Config) ->
+    [A, B, C] = Nodes = ?acquire_nodes(3, Config),
+    Tab = ?FUNCTION_NAME,
+    ?match({atomic,ok}, mnesia:create_table(Tab, [{disc_copies, [A,C]}, {ram_copies, [B]}])),
+    ?match({atomic,ok}, mnesia:sync_transaction(?SDwrite({Tab, 1, init}))),
+
+    %% Test that we don't load from ram_copies
+    ?match(stopped, rpc:call(A, mnesia, stop, [])),
+    ?match(stopped, rpc:call(C, mnesia, stop, [])),
+    ?match(stopped, rpc:call(B, mnesia, stop, [])),
+    ?match(ok, rpc:call(B, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 1000])),
+    ?match(ok, rpc:call(A, mnesia, start, [])),
+    ?match(ok, rpc:call(C, mnesia, start, [])),
+    ?match(ok, rpc:call(B, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match(ok, rpc:call(A, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match([{Tab, 1, init}], rpc:call(A, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, init}], rpc:call(B, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, init}], rpc:call(C, mnesia, dirty_read, [{Tab, 1}])),
+
+    %% Test that master_nodes set to ram_copy node will wait until loaded
+    ?match(ok, rpc:call(A, mnesia, set_master_nodes, [[B]])),
+    ?match(stopped, rpc:call(A, mnesia, stop, [])),
+    ?match({atomic,ok}, rpc:call(B, mnesia, sync_transaction, [?SDwrite({Tab, 1, update})])),
+    ?match(stopped, rpc:call(C, mnesia, stop, [])),
+    ?match({atomic,ok}, rpc:call(B, mnesia, sync_transaction, [?SDwrite({Tab, 1, ram_copies})])),
+    ?match(stopped, rpc:call(B, mnesia, stop, [])),
+    ?match(ok, rpc:call(B, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match(ok, rpc:call(A, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(A, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match(ok, rpc:call(C, mnesia, start, [])),
+    ?match(ok, rpc:call(B, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match(ok, rpc:call(A, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match([{Tab, 1, update}], rpc:call(A, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, update}], rpc:call(B, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, update}], rpc:call(C, mnesia, dirty_read, [{Tab, 1}])),
+
+    %% Test that master_nodes set to ram_copy node requires force load
+    ?match({atomic,ok}, mnesia:sync_transaction(?SDwrite({Tab, 1, init}))),
+    ?match(ok, rpc:call(A, mnesia, set_master_nodes, [[B]])),
+    ?match(ok, rpc:call(C, mnesia, set_master_nodes, [[B]])),
+
+    ?match(stopped, rpc:call(A, mnesia, stop, [])),
+    ?match({atomic,ok}, rpc:call(B, mnesia, sync_transaction, [?SDwrite({Tab, 1, update})])),
+    ?match(stopped, rpc:call(C, mnesia, stop, [])),
+    ?match({atomic,ok}, rpc:call(B, mnesia, sync_transaction, [?SDwrite({Tab, 1, ram_copies})])),
+    ?match(stopped, rpc:call(B, mnesia, stop, [])),
+    ?match(ok, rpc:call(B, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match(ok, rpc:call(A, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(A, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match(ok, rpc:call(C, mnesia, start, [])),
+    ?match({timeout, [Tab]}, rpc:call(A, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match({timeout, [Tab]}, rpc:call(B, mnesia, wait_for_tables, [[Tab], 500])),
+    ?match(yes, rpc:call(C, mnesia, force_load_table, [Tab])),
+
+    ?match(ok, rpc:call(A, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match(ok, rpc:call(B, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match(ok, rpc:call(C, mnesia, wait_for_tables, [[Tab], 3000])),
+    ?match([{Tab, 1, update}], rpc:call(A, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, update}], rpc:call(B, mnesia, dirty_read, [{Tab, 1}])),
+    ?match([{Tab, 1, update}], rpc:call(C, mnesia, dirty_read, [{Tab, 1}])),
+
+    ?verify_mnesia(Nodes, []).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -1389,7 +1518,7 @@ do_disc_durability(Config,CopyType) ->
 		  [{Tab_bag, 22, a_2222}], [{Tab_bag, 33, a_3333}],
 		  [{Tab_set, counter, 10}]]),
 
-    timer:sleep(1000), %% Debugging strange msgs..
+    timer:sleep(500), %% Debugging strange msgs..
     ?log("Flushed ~p ~n", [mnesia_test_lib:flush()]),
     ?verify_mnesia(Nodes, []).
 

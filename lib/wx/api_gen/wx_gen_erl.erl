@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -649,7 +649,7 @@ guard_test(#param{def=Def}) when Def =/= none -> skip;
 guard_test(#param{where=c})  -> skip;
 guard_test(#param{in=In}) when In == false -> skip;
 guard_test(#param{name=N, type=#type{base=string}}) ->
-    "is_list(" ++ erl_arg_name(N) ++")";
+    "?is_chardata(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArtClient"}}) ->
     "is_list(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArrayString"}}) ->
@@ -801,8 +801,13 @@ doc_arg_type(_, _) -> skip.
 doc_arg_type2(T) ->
     doc_arg_type2(T, in).
 
-doc_arg_type2(T=#type{single=Single}, Out) when Single =:= array; Single =:= list ->
-    "[" ++ doc_arg_type3(T, Out) ++ "]";
+doc_arg_type2(T=#type{single=Single}, Out) ->
+    case Single of
+        array -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        list -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        {list, _} -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        true -> doc_arg_type3(T, Out)
+    end;
 doc_arg_type2(T, Out) ->
     doc_arg_type3(T, Out).
 
@@ -1101,7 +1106,7 @@ gen_enums_ints() ->
     w("-define(wxDefaultSize, {-1,-1}).~n", []),
     w("-define(wxDefaultPosition, {-1,-1}).~n", []),
     w("~n%% Global Variables~n", []),
-    [w("-define(~s,  wxe_util:get_const(~s)).~n", [Gvar, Gvar]) ||
+    [w("-define(~s,  wxe_util:get_const(~s)).~n", [qoute_atom(Gvar), qoute_atom(Gvar)]) ||
 	{Gvar,_,_Id} <- get(gvars)],
     w("~n%% Enum and defines~n", []),
     foldl(fun(Enum= #enum{vals=Vals}, Done) when Vals =/= [] ->
@@ -1109,6 +1114,11 @@ gen_enums_ints() ->
 	     (_,Done) -> Done
 	  end, gb_sets:empty(), lists:sort(Enums)),
     close().
+
+qoute_atom([Char|_]=Str) when Char < $a ->
+    "'" ++ Str ++ "'";
+qoute_atom(Str) ->
+    Str.
 
 build_enum_ints(#enum{from=From, vals=Vals},Done) ->
     case From of
@@ -1207,7 +1217,7 @@ gen_event_recs() ->
     w("-type wx() :: #wx{}. %% wx event record ~n",[]),
     w("%% Here comes the definitions of all event records.~n"
       "%% they contain the event type and possible some extra information.~n~n",[]),
-    Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- get(), Evs =/= false],
+    Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- lists:sort(get()), Evs =/= false],
     EventSubTypes = [Type || {_Rec, Type} <- Events],
     EventRecs = [Rec || {Rec, _Type} <- Events],
     w("-type event() :: ~s.~n",

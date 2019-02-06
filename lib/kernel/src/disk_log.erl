@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,15 +67,13 @@
 %%-define(PROFILE(C), C).
 -define(PROFILE(C), void).
 
--compile({inline,[{log_loop,5},{log_end_sync,2},{replies,2},{rflat,1}]}).
+-compile({inline,[{log_loop,6},{log_end_sync,2},{replies,2},{rflat,1}]}).
 
 %%%----------------------------------------------------------------------
 %%% Contract type specifications
 %%%----------------------------------------------------------------------
 
 -opaque continuation() :: #continuation{}.
-
--type bytes()          :: binary() | [byte()].
 
 -type file_error()     :: term().  % XXX: refine
 -type invalid_header() :: term().  % XXX: refine
@@ -127,28 +125,28 @@ open(A) ->
       Log :: log(),
       Term :: term().
 log(Log, Term) -> 
-    req(Log, {log, term_to_binary(Term)}).
+    req(Log, {log, internal, [term_to_binary(Term)]}).
 
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
-      Bytes :: bytes().
+      Bytes :: iodata().
 blog(Log, Bytes) ->
-    req(Log, {blog, check_bytes(Bytes)}).
+    req(Log, {log, external, [ensure_binary(Bytes)]}).
 
 -spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
       Log :: log(),
       TermList :: [term()].
 log_terms(Log, Terms) ->
     Bs = terms2bins(Terms),
-    req(Log, {log, Bs}).
+    req(Log, {log, internal, Bs}).
 
 -spec blog_terms(Log, BytesList) ->
                         ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
-      BytesList :: [bytes()].
+      BytesList :: [iodata()].
 blog_terms(Log, Bytess) ->
-    Bs = check_bytes_list(Bytess, Bytess),
-    req(Log, {blog, Bs}).
+    Bs = ensure_binary_list(Bytess),
+    req(Log, {log, external, Bs}).
 
 -type notify_ret() :: 'ok' | {'error', 'no_such_log'}.
 
@@ -156,27 +154,27 @@ blog_terms(Log, Bytess) ->
       Log :: log(),
       Term :: term().
 alog(Log, Term) -> 
-    notify(Log, {alog, term_to_binary(Term)}).
+    notify(Log, {alog, internal, [term_to_binary(Term)]}).
 
 -spec alog_terms(Log, TermList) -> notify_ret() when
       Log :: log(),
       TermList :: [term()].
 alog_terms(Log, Terms) ->
     Bs = terms2bins(Terms),
-    notify(Log, {alog, Bs}).
+    notify(Log, {alog, internal, Bs}).
 
 -spec balog(Log, Bytes) -> notify_ret() when
       Log :: log(),
-      Bytes :: bytes().
+      Bytes :: iodata().
 balog(Log, Bytes) ->
-    notify(Log, {balog, check_bytes(Bytes)}).
+    notify(Log, {alog, external, [ensure_binary(Bytes)]}).
 
 -spec balog_terms(Log, ByteList) -> notify_ret() when
       Log :: log(),
-      ByteList :: [bytes()].
+      ByteList :: [iodata()].
 balog_terms(Log, Bytess) ->
-    Bs = check_bytes_list(Bytess, Bytess),
-    notify(Log, {balog, Bs}).
+    Bs = ensure_binary_list(Bytess),
+    notify(Log, {alog, external, Bs}).
 
 -type close_error_rsn() ::'no_such_log' | 'nonode'
                          | {'file_error', file:filename(), file_error()}.
@@ -219,9 +217,9 @@ truncate(Log, Head) ->
 
 -spec btruncate(Log, BHead) -> 'ok' | {'error', trunc_error_rsn()} when
       Log :: log(),
-      BHead :: bytes().
+      BHead :: iodata().
 btruncate(Log, Head) ->
-    req(Log, {truncate, {ok, check_bytes(Head)}, btruncate, 2}).
+    req(Log, {truncate, {ok, ensure_binary(Head)}, btruncate, 2}).
 
 -type reopen_error_rsn() :: no_such_log
                           | nonode
@@ -248,9 +246,9 @@ reopen(Log, NewFile, NewHead) ->
 -spec breopen(Log, File, BHead) -> 'ok' | {'error', reopen_error_rsn()} when
       Log :: log(),
       File :: file:filename(),
-      BHead :: bytes().
+      BHead :: iodata().
 breopen(Log, NewFile, NewHead) ->
-    req(Log, {reopen, NewFile, {ok, check_bytes(NewHead)}, breopen, 3}).
+    req(Log, {reopen, NewFile, {ok, ensure_binary(NewHead)}, breopen, 3}).
 
 -type inc_wrap_error_rsn() :: 'no_such_log' | 'nonode'
                             | {'read_only_mode', log()}
@@ -268,7 +266,7 @@ inc_wrap_file(Log) ->
       Size :: dlog_size(),
       Reason :: no_such_log | nonode | {read_only_mode, Log}
               | {blocked_log, Log}
-              | {new_size_too_small, CurrentSize :: pos_integer()}
+              | {new_size_too_small, Log, CurrentSize :: pos_integer()}
               | {badarg, size}
               | {file_error, file:filename(), file_error()}.
 change_size(Log, NewSize) -> 
@@ -640,6 +638,8 @@ check_arg([{mode, read_only}|Tail], Res) ->
     check_arg(Tail, Res#arg{mode = read_only});
 check_arg([{mode, read_write}|Tail], Res) ->
     check_arg(Tail, Res#arg{mode = read_write});
+check_arg([{quiet, Boolean}|Tail], Res) when is_boolean(Boolean) ->
+    check_arg(Tail, Res#arg{quiet = Boolean});
 check_arg(Arg, _) ->
     {error, {badarg, Arg}}.
 
@@ -670,13 +670,12 @@ init(Parent, Server) ->
     process_flag(trap_exit, true),
     loop(#state{parent = Parent, server = Server}).
 
-loop(State) when State#state.messages =:= [] ->
+loop(#state{messages = []}=State) ->
     receive
 	Message ->
 	    handle(Message, State)
     end;
-loop(State) ->
-    [M | Ms] = State#state.messages,
+loop(#state{messages = [M | Ms]}=State) ->
     handle(M, State#state{messages = Ms}).
 
 handle({From, write_cache}, S) when From =:= self() ->
@@ -686,106 +685,79 @@ handle({From, write_cache}, S) when From =:= self() ->
         Error ->
 	    loop(S#state{cache_error = Error})
     end;
-handle({From, {log, B}}, S) ->
+handle({From, {log, Format, B}}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, From, [B], [], iolist_size(B));
-	L when L#log.status =:= ok, L#log.format =:= external ->
+	#log{status = ok, format=external}=L when Format =:= internal ->
 	    reply(From, {error, {format_external, L#log.name}}, S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = ok, format=LogFormat} ->
+	    log_loop(S, From, [B], [], iolist_size(B), LogFormat);
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	_ ->
-	    loop(S#state{queue = [{From, {log, B}} | S#state.queue]})
-    end;    
-handle({From, {blog, B}}, S) ->
-    case get(log) of
-	L when L#log.mode =:= read_only ->
-	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->
-	    log_loop(S, From, [B], [], iolist_size(B));
-	L when L#log.status =:= {blocked, false} ->
-	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {blog, B}} | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({alog, B}, S) ->
+handle({alog, Format, B}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only} ->
 	    notify_owners({read_only,B}),
 	    loop(S);
-	L when L#log.status =:= ok, L#log.format =:= internal ->
-	    log_loop(S, [], [B], [], iolist_size(B));
-	L when L#log.status =:= ok ->
+	#log{status = ok, format = external} when Format =:= internal ->
 	    notify_owners({format_external, B}),
 	    loop(S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = ok, format=LogFormat} ->
+	    log_loop(S, [], [B], [], iolist_size(B), LogFormat);
+	#log{status = {blocked, false}} ->
 	    notify_owners({blocked_log, B}),
 	    loop(S);
 	_ ->
-	    loop(S#state{queue = [{alog, B} | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({balog, B}, S) ->
+handle({From, {block, QueueLogRecs}}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
-	    notify_owners({read_only,B}),
-	    loop(S);
-	L when L#log.status =:= ok ->
-	    log_loop(S, [], [B], [], iolist_size(B));
-	L when L#log.status =:= {blocked, false} ->
-	    notify_owners({blocked_log, B}),
-	    loop(S);
-	_ ->
-	    loop(S#state{queue = [{balog, B} | S#state.queue]})
-    end;
-handle({From, {block, QueueLogRecs}}, S) ->
-    case get(log) of
-	L when L#log.status =:= ok ->
+	#log{status = ok}=L ->
 	    do_block(From, QueueLogRecs, L),
 	    reply(From, ok, S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {block, QueueLogRecs}} |
-				  S#state.queue]})
+	    enqueue(Message, S)
     end;
 handle({From, unblock}, S) ->
     case get(log) of
-	L when L#log.status =:= ok ->
+	#log{status = ok}=L ->
 	    reply(From, {error, {not_blocked, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    S2 = do_unblock(L, S),
 	    reply(From, ok, S2);
 	L ->
 	    reply(From, {error, {not_blocked_by_pid, L#log.name}}, S)
     end;
-handle({From, sync}, S) ->
+handle({From, sync}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->
-	    sync_loop([From], S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = ok, format=LogFormat} ->
+            log_loop(S, [], [], [From], 0, LogFormat);
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, sync} | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {truncate, Head, F, A}}, S) ->
+handle({From, {truncate, Head, F, A}}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
+	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->
+	#log{status = ok}=L ->
 	    H = merge_head(Head, L#log.head),
 	    case catch do_trunc(L, H) of
 		ok ->
@@ -796,48 +768,46 @@ handle({From, {truncate, Head, F, A}}, S) ->
 		Error ->
 		    do_exit(S, From, Error, ?failure(Error, F, A))
 	    end;
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {truncate, Head, F, A}} 
-				  | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {chunk, Pos, B, N}},  S) ->
+handle({From, {chunk, Pos, B, N}}=Message,  S) ->
     case get(log) of
-	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
+	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	#log{status = ok}=L ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
-	L when L#log.blocked_by =:= From ->	
+	#log{blocked_by = From}=L ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_L ->
-	    loop(S#state{queue = [{From, {chunk, Pos, B, N}} | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {chunk_step, Pos, N}},  S) ->
+handle({From, {chunk_step, Pos, N}}=Message,  S) ->
     case get(log) of
-	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
+	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	#log{status = ok}=L ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
-	L when L#log.blocked_by =:= From ->	
+	#log{blocked_by = From}=L ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {chunk_step, Pos, N}}
-				  | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {change_notify, Pid, NewNotify}}, S) ->
+handle({From, {change_notify, Pid, NewNotify}}=Message, S) ->
     case get(log) of
-	L when L#log.status =:= ok ->
+	#log{status = ok}=L ->
 	    case do_change_notify(L, Pid, NewNotify) of
 		{ok, L1} ->
 		    put(log, L1),
@@ -845,39 +815,37 @@ handle({From, {change_notify, Pid, NewNotify}}, S) ->
 		Error ->
 		    reply(From, Error, S)
 	    end;
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {change_notify, Pid, NewNotify}}
-				  | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {change_header, NewHead}}, S) ->
+handle({From, {change_header, NewHead}}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->
-	    case check_head(NewHead, L#log.format) of 
+	#log{status = ok, format = Format}=L ->
+	    case check_head(NewHead, Format) of
 		{ok, Head} ->
-		    put(log, L#log{head = mk_head(Head, L#log.format)}),
+		    put(log, L#log{head = mk_head(Head, Format)}),
 		    reply(From, ok, S);
 		Error ->
 		    reply(From, Error, S)
 	    end;
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {change_header, NewHead}}
-				  | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, {change_size, NewSize}}, S) ->
+handle({From, {change_size, NewSize}}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok ->	
+	#log{status = ok}=L ->
 	    case check_size(L#log.type, NewSize) of
 		ok ->
 		    case catch do_change_size(L, NewSize) of % does the put
@@ -894,23 +862,22 @@ handle({From, {change_size, NewSize}}, S) ->
 		not_ok ->
 		    reply(From, {error, {badarg, size}}, S)
 	    end;
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, {change_size, NewSize}} 
-				  | S#state.queue]})
+	    enqueue(Message, S)
     end;
-handle({From, inc_wrap_file}, S) ->
+handle({From, inc_wrap_file}=Message, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.type =:= halt ->
+	#log{type = halt}=L ->
 	    reply(From, {error, {halt_log, L#log.name}}, S);
-	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
+	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok ->	
+	#log{status = ok}=L ->
 	    case catch do_inc_wrap_file(L) of
 		{ok, L2, Lost} ->
 		    put(log, L2),
@@ -920,20 +887,22 @@ handle({From, inc_wrap_file}, S) ->
 		    put(log, L2),		    
 		    reply(From, Error, state_err(S, Error))
 	    end;
-	L when L#log.status =:= {blocked, false} ->
+	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	L when L#log.blocked_by =:= From ->
+	#log{blocked_by = From}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
-	    loop(S#state{queue = [{From, inc_wrap_file} | S#state.queue]})
+	    enqueue(Message, S)
     end;
 handle({From, {reopen, NewFile, Head, F, A}}, S) ->
     case get(log) of
-	L when L#log.mode =:= read_only ->
+	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
-	L when L#log.status =:= ok, S#state.cache_error =/= ok ->
+	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
-	L when L#log.status =:= ok, L#log.filename =/= NewFile  ->
+	#log{status = ok, filename = NewFile}=L ->
+	    reply(From, {error, {same_file_name, L#log.name}}, S);
+	#log{status = ok}=L ->
 	    case catch close_disk_log2(L) of
 		closed ->
 		    File = L#log.filename,
@@ -966,8 +935,6 @@ handle({From, {reopen, NewFile, Head, F, A}}, S) ->
 		Error ->
 		    do_exit(S, From, Error, ?failure(Error, F, A))
 	    end;
-	L when L#log.status =:= ok ->
-	    reply(From, {error, {same_file_name, L#log.name}}, S);
 	L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S)
     end;
@@ -1005,11 +972,11 @@ handle({From, close}, S) ->
     end;
 handle({From, info}, S) ->
     reply(From, do_info(get(log), S#state.cnt), S);
-handle({'EXIT', From, Reason}, S) when From =:= S#state.parent ->
+handle({'EXIT', From, Reason}, #state{parent=From}=S) ->
     %% Parent orders shutdown.
     _ = do_stop(S),
     exit(Reason);
-handle({'EXIT', From, Reason}, S) when From =:= S#state.server ->
+handle({'EXIT', From, Reason}, #state{server=From}=S) ->
     %% The server is gone.
     _ = do_stop(S),
     exit(Reason);
@@ -1034,57 +1001,59 @@ handle({system, From, Req}, S) ->
 handle(_, S) ->
     loop(S).
 
-sync_loop(From, S) ->
-    log_loop(S, [], [], From, 0).
+enqueue(Message, #state{queue = Queue}=S) ->
+    loop(S#state{queue = [Message | Queue]}).
+
+%% Collect further log and sync requests already in the mailbox or queued
 
 -define(MAX_LOOK_AHEAD, 64*1024).
 
 %% Inlined.
-log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz) when CE =/= ok ->
+log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz, _F) when CE =/= ok ->
     loop(cache_error(S, Pids));
-log_loop(#state{}=S, Pids, Bins, Sync, Sz) when Sz > ?MAX_LOOK_AHEAD ->
-    loop(log_end(S, Pids, Bins, Sync));
-log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
-    receive 
+log_loop(#state{}=S, Pids, Bins, Sync, Sz, _F) when Sz > ?MAX_LOOK_AHEAD ->
+    loop(log_end(S, Pids, Bins, Sync, Sz));
+log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz, F) ->
+    receive
 	Message ->
-            log_loop(Message, Pids, Bins, Sync, Sz, S, get(log))
+            log_loop(Message, Pids, Bins, Sync, Sz, F, S)
     after 0 ->
-	    loop(log_end(S, Pids, Bins, Sync))
+	    loop(log_end(S, Pids, Bins, Sync, Sz))
     end;
-log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz) ->
+log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz, F) ->
     S1 = S#state{messages = Ms},
-    log_loop(M, Pids, Bins, Sync, Sz, S1, get(log)).
+    log_loop(M, Pids, Bins, Sync, Sz, F, S1).
 
 %% Items logged after the last sync request found are sync:ed as well.
-log_loop({alog,B}, Pids, Bins, Sync, Sz, S, #log{format = internal}) ->
-    %% {alog, _} allowed for the internal format only.
-    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({balog, B}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, {log, B}}, Pids, Bins, Sync, Sz, S, #log{format = internal}) ->
-    %% {log, _} allowed for the internal format only.
-    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, {blog, B}}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B));
-log_loop({From, sync}, Pids, Bins, Sync, Sz, S, _L) ->
-    log_loop(S, Pids, Bins, [From | Sync], Sz);
-log_loop(Message, Pids, Bins, Sync, _Sz, S, _L) ->
-    NS = log_end(S, Pids, Bins, Sync),
+log_loop({alog, internal, B}, Pids, Bins, Sync, Sz, internal=F, S) ->
+    %% alog of terms allowed for the internal format only
+    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({alog, binary, B}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, Pids, [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, {log, internal, B}}, Pids, Bins, Sync, Sz, internal=F, S) ->
+    %% log of terms allowed for the internal format only
+    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, {log, binary, B}}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, [From | Pids], [B | Bins], Sync, Sz+iolist_size(B), F);
+log_loop({From, sync}, Pids, Bins, Sync, Sz, F, S) ->
+    log_loop(S, Pids, Bins, [From | Sync], Sz, F);
+log_loop(Message, Pids, Bins, Sync, Sz, _F, S) ->
+    NS = log_end(S, Pids, Bins, Sync, Sz),
     handle(Message, NS).
 
-log_end(S, [], [], Sync) ->
+log_end(S, [], [], Sync, _Sz) ->
     log_end_sync(S, Sync);
-log_end(S, Pids, Bins, Sync) ->
-    case do_log(get(log), rflat(Bins)) of
+log_end(#state{cnt = Cnt}=S, Pids, Bins, Sync, Sz) ->
+    case do_log(get(log), rflat(Bins), Sz) of
 	N when is_integer(N) ->
 	    ok = replies(Pids, ok),
-	    S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
+	    S1 = (state_ok(S))#state{cnt = Cnt + N},
 	    log_end_sync(S1, Sync);
         {error, {error, {full, _Name}}, N} when Pids =:= [] ->
-            log_end_sync(state_ok(S#state{cnt = S#state.cnt + N}), Sync);
+            log_end_sync(state_ok(S#state{cnt = Cnt + N}), Sync);
 	{error, Error, N} ->
 	    ok = replies(Pids, Error),
-	    state_err(S#state{cnt = S#state.cnt + N}, Error)
+	    state_err(S#state{cnt = Cnt + N}, Error)
     end.
 
 %% Inlined.
@@ -1096,12 +1065,9 @@ log_end_sync(S, Sync) ->
     state_err(S, Res).
 
 %% Inlined.
-rflat([B]=L) when is_binary(B) -> L;
 rflat([B]) -> B;
 rflat(B) -> rflat(B, []).
 
-rflat([B | Bs], L) when is_binary(B) ->
-    rflat(Bs, [B | L]);
 rflat([B | Bs], L) ->
     rflat(Bs, B ++ L);
 rflat([], L) -> L.
@@ -1138,17 +1104,17 @@ close_owner(Pid, L, S) ->
     S2 = do_unblock(Pid, get(log), S),
     unlink(Pid),
     do_close2(L1, S2).
-    
+
 %% -> {stop, S} | {continue, S}
-close_user(Pid, L, S) when L#log.users > 0 ->
-    L1 = L#log{users = L#log.users - 1},
+close_user(Pid, #log{users=Users}=L, S) when Users > 0 ->
+    L1 = L#log{users = Users - 1},
     put(log, L1),
     S2 = do_unblock(Pid, get(log), S),
     do_close2(L1, S2);
 close_user(_Pid, _L, S) ->
     {continue, S}.
 
-do_close2(L, S) when L#log.users =:= 0, L#log.owners =:= [] ->
+do_close2(#log{users = 0, owners = []}, S) ->
     {stop, S};
 do_close2(_L, S) ->
     {continue, S}.
@@ -1227,14 +1193,14 @@ add_pid(Pid, Notify, L) when is_pid(Pid) ->
 add_pid(_NotAPid, _Notify, L) ->
     {ok, L#log{users = L#log.users + 1}}.
 
-unblock_pid(L) when L#log.blocked_by =:= none ->
+unblock_pid(#log{blocked_by = none}) ->
     ok;
-unblock_pid(L) ->
-    case is_owner(L#log.blocked_by, L) of
+unblock_pid(#log{blocked_by = Pid}=L) ->
+    case is_owner(Pid, L) of
 	{true, _Notify} ->
 	    ok;
 	false ->
-	    unlink(L#log.blocked_by)
+	    unlink(Pid)
     end.
 
 %% -> true | false
@@ -1312,7 +1278,8 @@ compare_arg(_Attr, _Val, _A) ->
 do_open(A) ->
     #arg{type = Type, format = Format, name = Name, head = Head0,
          file = FName, repair = Repair, size = Size, mode = Mode,
-         version = V} = A,
+         quiet = Quiet, version = V} = A,
+    disk_log_1:set_quiet(Quiet),
     Head = mk_head(Head0, Format),
     case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
         {ok, Ret, Extra, FormatType, NoItems} ->
@@ -1326,7 +1293,7 @@ do_open(A) ->
     end.
 
 mk_head({head, Term}, internal) -> {ok, term_to_binary(Term)};
-mk_head({head, Bytes}, external) -> {ok, check_bytes(Bytes)};
+mk_head({head, Bytes}, external) -> {ok, ensure_binary(Bytes)};
 mk_head(H, _) -> H.
 
 terms2bins([T | Ts]) ->
@@ -1334,30 +1301,29 @@ terms2bins([T | Ts]) ->
 terms2bins([]) ->
     [].
 
-check_bytes_list([B | Bs], Bs0) when is_binary(B) ->
-    check_bytes_list(Bs, Bs0);
-check_bytes_list([], Bs0) ->
-    Bs0;
-check_bytes_list(_, Bs0) ->
-    check_bytes_list(Bs0).
+ensure_binary_list(Bs) ->
+    ensure_binary_list(Bs, Bs).
 
-check_bytes_list([B | Bs]) when is_binary(B) ->
-    [B | check_bytes_list(Bs)];
-check_bytes_list([B | Bs]) ->
-    [list_to_binary(B) | check_bytes_list(Bs)];
-check_bytes_list([]) ->
+ensure_binary_list([B | Bs], Bs0) when is_binary(B) ->
+    ensure_binary_list(Bs, Bs0);
+ensure_binary_list([], Bs0) ->
+    Bs0;
+ensure_binary_list(_, Bs0) ->
+    make_binary_list(Bs0).
+
+make_binary_list([B | Bs]) ->
+    [ensure_binary(B) | make_binary_list(Bs)];
+make_binary_list([]) ->
     [].
 
-check_bytes(Binary) when is_binary(Binary) ->     
-    Binary;
-check_bytes(Bytes) -> 
-    list_to_binary(Bytes).
+ensure_binary(Bytes) ->
+    iolist_to_binary(Bytes).
 
 %%-----------------------------------------------------------------
 %% Change size of the logs in runtime.
 %%-----------------------------------------------------------------
 %% -> ok | {big, CurSize} | throw(Error)
-do_change_size(L, NewSize) when L#log.type =:= halt ->
+do_change_size(#log{type = halt}=L, NewSize) ->
     Halt = L#log.extra,
     CurB = Halt#halt.curB,
     NewLog = L#log{extra = Halt#halt{size = NewSize}},
@@ -1373,7 +1339,7 @@ do_change_size(L, NewSize) when L#log.type =:= halt ->
 	true ->
 	    {big, CurB}
     end;
-do_change_size(L, NewSize) when L#log.type =:= wrap ->
+do_change_size(#log{type = wrap}=L, NewSize) ->
     #log{extra = Extra, version = Version} = L,
     {ok, Handle} = disk_log_1:change_size_wrap(Extra, NewSize, Version),
     erase(is_full),
@@ -1388,7 +1354,7 @@ check_head({head_func, {M, F, A}}, _Format) when is_atom(M),
                                                  is_list(A) ->
     {ok, {M, F, A}};
 check_head({head, Head}, external) ->
-    case catch check_bytes(Head) of
+    case catch ensure_binary(Head) of
 	{'EXIT', _} ->
 	    {error, {badarg, head}};
 	_ ->
@@ -1674,7 +1640,7 @@ do_block(Pid, QueueLogRecs, L) ->
 	    link(Pid)
     end.
 
-do_unblock(Pid, L, S) when L#log.blocked_by =:= Pid ->
+do_unblock(Pid, #log{blocked_by = Pid}=L, S) ->
     do_unblock(L, S);
 do_unblock(_Pid, _L, S) ->
     S.
@@ -1692,10 +1658,13 @@ do_unblock(L, S) ->
 
 -spec do_log(#log{}, [binary()]) -> integer() | {'error', _, integer()}.
 
-do_log(L, B) when L#log.type =:= halt ->
+do_log(L, B) ->
+    do_log(L, B, iolist_size(B)).
+
+do_log(#log{type = halt}=L, B, BSz) ->
     #log{format = Format, extra = Halt} = L,
     #halt{curB = CurSize, size = Sz} = Halt,
-    {Bs, BSize} = bsize(B, Format),
+    {Bs, BSize} = logl(B, Format, BSz),
     case get(is_full) of
 	true ->
             {error, {error, {full, L#log.name}}, 0};
@@ -1704,7 +1673,7 @@ do_log(L, B) when L#log.type =:= halt ->
 	undefined ->
 	    halt_write_full(L, B, Format, 0)
     end;
-do_log(L, B) when L#log.format_type =:= wrap_int ->
+do_log(#log{format_type = wrap_int}=L, B, _BSz) ->
     case disk_log_1:mf_int_log(L#log.extra, B, L#log.head) of
 	{ok, Handle, Logged, Lost, Wraps} ->
 	    notify_owners_wrap(Wraps),
@@ -1717,7 +1686,7 @@ do_log(L, B) when L#log.format_type =:= wrap_int ->
 	    put(log, L#log{extra = Handle}),
 	    {error, Error, Logged - Lost}
     end;
-do_log(L, B) when L#log.format_type =:= wrap_ext ->
+do_log(#log{format_type = wrap_ext}=L, B, _BSz) ->
     case disk_log_1:mf_ext_log(L#log.extra, B, L#log.head) of
 	{ok, Handle, Logged, Lost, Wraps} ->
 	    notify_owners_wrap(Wraps),
@@ -1731,17 +1700,16 @@ do_log(L, B) when L#log.format_type =:= wrap_ext ->
 	    {error, Error, Logged - Lost}
     end.
 
-bsize(B, external) ->
-    {B, xsz(B, 0)};
-bsize(B, internal) ->
+logl(B, external, undefined) ->
+    {B, iolist_size(B)};
+logl(B, external, Sz) ->
+    {B, Sz};
+logl(B, internal, _Sz) ->
     disk_log_1:logl(B).
 
-xsz([B|T], Sz) -> xsz(T, byte_size(B) + Sz);
-xsz([], Sz) -> Sz.
-	
 halt_write_full(L, [Bin | Bins], Format, N) ->
     B = [Bin],
-    {Bs, BSize} = bsize(B, Format),
+    {Bs, BSize} = logl(B, Format, undefined),
     Halt = L#log.extra,
     #halt{curB = CurSize, size = Sz} = Halt,
     if 
@@ -1793,7 +1761,7 @@ do_sync(#log{type = wrap, extra = Handle} = Log) ->
     Reply.
 
 %% -> ok | Error | throw(Error)
-do_trunc(L, Head) when L#log.type =:= halt ->
+do_trunc(#log{type = halt}=L, Head) ->
     #log{filename = FName, extra = Halt} = L,
     FdC = Halt#halt.fdc,
     {Reply1, FdC2} = 
@@ -1822,7 +1790,7 @@ do_trunc(L, Head) when L#log.type =:= halt ->
     end,
     put(log, L#log{extra = NewHalt}),
     Reply;
-do_trunc(L, Head) when L#log.type =:= wrap ->
+do_trunc(#log{type = wrap}=L, Head) ->
     Handle = L#log.extra,
     OldHead = L#log.head,
     {MaxB, MaxF} = disk_log_1:get_wrap_size(Handle),
@@ -2016,8 +1984,7 @@ notify_owners(Note) ->
 		     (_) -> ok
 		  end, L#log.owners).
 
-cache_error(S, Pids) ->
-    Error = S#state.cache_error,
+cache_error(#state{cache_error=Error}=S, Pids) ->
     ok = replies(Pids, Error),
     state_err(S#state{cache_error = ok}, Error).
 

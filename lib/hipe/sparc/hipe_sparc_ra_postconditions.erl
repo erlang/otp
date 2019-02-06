@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_ra_postconditions).
 
@@ -25,17 +18,13 @@
 
 -include("hipe_sparc.hrl").
 
-check_and_rewrite(Defun, Coloring, Allocator) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific),
-  check_and_rewrite2(Defun, TempMap, Allocator).
+check_and_rewrite(CFG, Coloring, Allocator) ->
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific, no_context),
+  check_and_rewrite2(CFG, TempMap, Allocator).
 
-check_and_rewrite2(Defun, TempMap, Allocator) ->
+check_and_rewrite2(CFG, TempMap, Allocator) ->
   Strategy = strategy(Allocator),
-  #defun{code=Code0} = Defun,
-  {Code1,DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  VarRange = {0, hipe_gensym:get_var(sparc)},
-  {Defun#defun{code=Code1, var_range=VarRange},
-   DidSpill}.
+  do_bbs(hipe_sparc_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 
 strategy(Allocator) ->
   case Allocator of
@@ -43,6 +32,13 @@ strategy(Allocator) ->
     'linearscan' -> 'fixed';
     'naive' -> 'fixed'
   end.
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_sparc_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_sparc_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),
@@ -58,6 +54,7 @@ do_insn(I, TempMap, Strategy) ->
     #pseudo_call{} -> do_pseudo_call(I, TempMap, Strategy);
     #pseudo_move{} -> do_pseudo_move(I, TempMap, Strategy);
     #pseudo_set{} -> do_pseudo_set(I, TempMap, Strategy);
+    #pseudo_spill_move{} -> do_pseudo_spill_move(I, TempMap, Strategy);
     #pseudo_tailcall{} -> do_pseudo_tailcall(I, TempMap, Strategy);
     #rdy{} -> do_rdy(I, TempMap, Strategy);
     #sethi{} -> do_sethi(I, TempMap, Strategy);
@@ -96,14 +93,16 @@ do_pseudo_call(I=#pseudo_call{funv=FunV}, TempMap, Strategy) ->
 
 do_pseudo_move(I=#pseudo_move{src=Src,dst=Dst}, TempMap, Strategy) ->
   %% Either Dst or Src (but not both) may be a pseudo temp.
-  %% pseudo_move is a special case: in [XXX: not pseudo_tailcall]
-  %% all other instructions, all temps must be non-pseudos
-  %% after register allocation.
-  case temp_is_spilled(Dst, TempMap) of
-    true -> % Src must not be a pseudo
-      {FixSrc,NewSrc,DidSpill} = fix_src1(Src, TempMap, Strategy),
-      NewI = I#pseudo_move{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  %% pseudo_move and pseudo_spill_move [XXX: not pseudo_tailcall]
+  %% are special cases: in all other instructions, all temps must
+  %% be non-pseudos after register allocation.
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_move
+      Temp = clone(Src, temp1(Strategy)),
+      NewI = #pseudo_spill_move{src=Src,temp=Temp,dst=Dst},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
@@ -112,6 +111,11 @@ do_pseudo_set(I=#pseudo_set{dst=Dst}, TempMap, Strategy) ->
   {FixDst,NewDst,DidSpill} = fix_dst(Dst, TempMap, Strategy),
   NewI = I#pseudo_set{dst=NewDst},
   {[NewI | FixDst], DidSpill}.
+
+do_pseudo_spill_move(I=#pseudo_spill_move{temp=Temp}, TempMap, _Strategy) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 do_pseudo_tailcall(I=#pseudo_tailcall{funv=FunV}, TempMap, Strategy) ->
   {FixFunV,NewFunV,DidSpill} = fix_funv(FunV, TempMap, Strategy),

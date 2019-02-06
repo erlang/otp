@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,32 +43,32 @@
 %%% HTTP Client per request settings
 -record(http_options,
 	{
-	  %% string() - "HTTP/1.1" | "HTTP/1.0" | "HTTP/0.9"
-	  version, 
+	  %% "HTTP/1.1" | "HTTP/1.0" | "HTTP/0.9"
+	  version :: 'undefined' | string(),
 
-	  %% integer() | infinity - ms before a request times out
-	  timeout = ?HTTP_REQUEST_TIMEOUT,  
+	  %% ms before a request times out
+	  timeout = ?HTTP_REQUEST_TIMEOUT :: timeout(),
 
-	  %% bool() - true if auto redirect on 30x response
-	  autoredirect = true, 
+	  %% true if auto redirect on 30x response
+	  autoredirect = true :: boolean(),
 
 	  %% ssl socket options
-	  ssl = [], 
+	  ssl = [],
 
 	  %% {User, Password} = {string(), string()} 
 	  proxy_auth, 
 
-	  %% bool() - true if not strictly std compliant
-	  relaxed = false, 
+	  %% true if not strictly std compliant
+	  relaxed = false :: boolean(),
 
 	  %% integer() - ms before a connect times out
-	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT,
+	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT :: timeout(),
 
-	  %% bool() - Use %-encoding rfc 2396
-	  url_encode
-
+	  %% Use %-encoding rfc 2396
+	  url_encode :: 'undefined' | boolean()
 	 }
        ).
+-type http_options() :: #http_options{}.
 
 %%% HTTP Client per profile setting. 
 -record(options, 
@@ -82,18 +82,20 @@
 	 keep_alive_timeout    = ?HTTP_KEEP_ALIVE_TIMEOUT, % Used when pipeline_timeout = 0
 	 max_sessions          = ?HTTP_MAX_TCP_SESSIONS,
 	 cookies               = disabled, % enabled | disabled | verify
-	 verbose               = false,
-	 ipfamily              = inet,    % inet | inet6 | inet6fb4
+	 verbose               = false,   % boolean(),
+	 ipfamily              = inet,    % inet | inet6 | inet6fb4 | local
 	 ip                    = default, % specify local interface
 	 port                  = default, % specify local port
-	 socket_opts           = []       % other socket options
+	 socket_opts           = [],      % other socket options
+	 unix_socket           = undefined % Local unix socket
 	}
        ).
+-type options() :: #options{}.
 
 %%% All data associated to a specific HTTP request
 -record(request,
 	{
-	  id,            % ref() - Request Id
+	  id            :: 'undefined' | reference(), % Request Id
 	  from,          % pid() - Caller
 	  redircount = 0,% Number of redirects made for this request
 	  scheme,        % http | https 
@@ -103,7 +105,7 @@
 	  method,        % atom() - HTTP request Method
 	  headers,       % #http_request_h{}
 	  content,       % {ContentType, Body} - Current HTTP request
-	  settings,      % #http_options{} - User defined settings
+	  settings      :: http_options(), % User defined settings
 	  abs_uri,       % string() ex: "http://www.erlang.org"
 	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
 	  stream,	 % boolean() - stream async reply?
@@ -112,20 +114,20 @@
 			 % for testing purposes.
 	  started,       % integer() > 0 - When we started processing the 
 			 % request
-	  timer,         % undefined | ref()
+	  timer         :: undefined | reference(),
 	  socket_opts,   % undefined | [socket_option()]
+	  unix_socket,   % undefined | string()
 	  ipv6_host_with_brackets % boolean()
 	}
-       ).               
-
+       ).
+-type request() :: #request{}.
 
 -record(session,
 	{
 	  %% {{Host, Port}, HandlerPid}
 	  id, 
 
-	  %% true | false
-	  client_close, 
+	  client_close :: 'undefined' | boolean(),
 
 	  %% http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  scheme, 
@@ -140,14 +142,13 @@
 	  queue_length = 1, 
 
 	  %% pipeline | keep_alive (wait for response before sending new request) 
-	  type, 
+	  type :: 'undefined' | 'pipeline' | 'keep_alive',
 
-	  %% true | false
 	  %% This will be true, when a response has been received for 
 	  %% the first request. See type above.
-	  available = false
+	  available = false :: boolean()
 	 }).
-
+-type session() :: #session{}.
 
 -record(http_cookie,
 	{
@@ -162,7 +163,7 @@
 	  secure = false,
 	  version = "0" 
 	 }).
-
+-type http_cookie() :: #http_cookie{}.
 
 %% -record(parsed_uri, 
 %% 	{

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,10 @@
 -export([t_load/1,
          t_conflicts/1,
          t_locations/1,
-         t_swap_keys/1]).
+         t_swap_keys/1,
+         t_implicit_start/1,
+         t_crash_before_collect/1,
+         smoke_lcnt/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -43,7 +46,8 @@ suite() ->
      {timetrap,{minutes,4}}].
 
 all() ->
-    [t_load, t_conflicts, t_locations, t_swap_keys].
+    [t_load, t_conflicts, t_locations, t_swap_keys, t_implicit_start,
+     t_crash_before_collect, smoke_lcnt].
 
 %%----------------------------------------------------------------------
 %% Tests
@@ -146,3 +150,90 @@ t_swap_keys_file([File|Files]) ->
     ok = lcnt:conflicts(),
     ok = lcnt:stop(),
     t_swap_keys_file(Files).
+
+%% Prior to OTP-14913 this would crash with 'noproc' as the lcnt server hadn't
+%% been started yet.
+t_implicit_start(Config) when is_list(Config) ->
+    ok = lcnt:conflicts().
+
+t_crash_before_collect(Config) when is_list(Config) ->
+    {ok, _} = lcnt:start(),
+    ok = lcnt:information().
+
+%% Simple smoke test of actual lock-counting, if running on
+%% a run-time with lock-counting enabled.
+smoke_lcnt(Config) ->
+    case catch erlang:system_info(lock_counting) of
+        true ->
+            do_smoke_lcnt(Config);
+        _ ->
+            {skip,"Lock counting is not enabled"}
+    end.
+
+do_smoke_lcnt(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    SaveFile = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
+    {Time,ok} = timer:tc(fun() -> lcnt:apply(fun() -> big_bang(200) end) end),
+    io:format("~p ms\n", [Time]),
+    ok = lcnt:conflicts(),
+    ok = lcnt:save(SaveFile),
+    ok = lcnt:load(SaveFile),
+    ok = lcnt:conflicts(),
+    lcnt:stop().
+
+
+%%%
+%%% A slightly modified version of Rickard Green's Big Bang benchmark.
+%%%
+
+big_bang(N) when is_integer(N) ->
+    Procs = spawn_procs(N),
+    RMsgs = lists:map(fun (P) -> {done, P} end, Procs),
+    send_procs(Procs, {procs, Procs, self()}),
+    receive_msgs(RMsgs),
+    lists:foreach(fun (P) -> exit(P, normal) end, Procs).
+
+pinger([], [], true) ->
+    receive
+        {procs, Procs, ReportTo} ->
+            pinger(Procs, [], ReportTo)
+    end;
+pinger([], [], false) ->
+    receive {ping, From} -> From ! {pong, self()} end,
+    pinger([],[],false);
+pinger([], [], ReportTo) ->
+    ReportTo ! {done, self()},
+    pinger([],[],false);
+pinger([],[Po|Pos] = Pongers, ReportTo) ->
+    receive
+        {ping, From} ->
+            From ! {pong, self()},
+            pinger([], Pongers, ReportTo);
+        {pong, Po} ->
+            pinger([], Pos, ReportTo)
+    end;
+pinger([Pi|Pis], Pongers, ReportTo) ->
+    receive {ping, From} -> From ! {pong, self()}
+    after 0 -> ok
+    end,
+    Pi ! {ping, self()},
+    pinger(Pis, [Pi|Pongers], ReportTo).
+
+spawn_procs(N) when N =< 0 ->
+    [];
+spawn_procs(N) ->
+    [spawn_link(fun () -> pinger([], [], true) end) | spawn_procs(N-1)].
+
+send_procs([], Msg) ->
+    Msg;
+send_procs([P|Ps], Msg) ->
+    P ! Msg,
+    send_procs(Ps, Msg).
+
+receive_msgs([]) ->
+    ok;
+receive_msgs([M|Ms]) ->
+    receive
+        M ->
+            receive_msgs(Ms)
+    end.

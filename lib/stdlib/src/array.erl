@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,13 +9,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% Copyright (C) 2006-2016 Richard Carlsson and Ericsson AB
+%%
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @author Dan Gudmundsson <dgud@erix.ericsson.se>
-%% @version 1.0
-
+%%
 %% @doc Functional, extendible arrays. Arrays can have fixed size, or
 %% can grow automatically as needed. A default value is used for entries
 %% that have not been explicitly set.
@@ -296,7 +290,7 @@ new(Size, Fixed, Default) ->
 	end,
     #array{size = Size, max = M, default = Default, elements = E}.
 
--spec find_max(integer(), integer()) -> integer().
+-spec find_max(integer(), non_neg_integer()) -> non_neg_integer().
 
 find_max(I, M) when I >= M ->
     find_max(I, ?extend(M));
@@ -1609,7 +1603,7 @@ foldl_2(I, E, A, Ix, F, D, N, R, S) ->
 	    Ix + S, F, D, N, R, S).
 
 -spec foldl_3(pos_integer(), _, A, array_indx(),
-	      fun((array_indx, _, A) -> B), integer()) -> B.
+	      fun((array_indx(), _, A) -> B), integer()) -> B.
 
 foldl_3(I, E, A, Ix, F, N) when I =< N ->
     foldl_3(I+1, E, F(Ix, element(I, E), A), Ix+1, F, N);

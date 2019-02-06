@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ parse_event(Mod, Trace) ->
 					  {to, undefined},
 					  {drop, NumberOfDroppedItems}]}};
         _ ->
-            error_logger:format("~p(~p): Ignoring unknown trace type -> ~p~n~n",
+            error_logger:format("~p(~p): Ignoring unknown trace type -> ~tp~n~n",
                                 [?MODULE, ?LINE, Trace]),
             false
     end.
@@ -258,7 +258,7 @@ parse_seq_event(Trace, ParsedTS, ReportedTS, Label, Info) ->
 					  {serial, Serial},
 					  {user_info, UserInfo}]}};
         _ ->
-            error_logger:format("~p(~p): Ignoring unknown trace type -> ~p~n~n",
+            error_logger:format("~p(~p): Ignoring unknown trace type -> ~tp~n~n",
                                 [?MODULE, ?LINE, Trace]),
             false
     end.
@@ -590,7 +590,7 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
                                           {to, From},
                                           {gc_items, GcKeyValueList}]}};
         _ ->
-            error_logger:format("~p(~p): Ignoring unknown trace type -> ~p~n~n",
+            error_logger:format("~p(~p): Ignoring unknown trace type -> ~tp~n~n",
                                 [?MODULE, ?LINE, Trace]),
             false
     end.

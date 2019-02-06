@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 -export([add/1,
          add_new/1,
          remove/1,
+         down/1,
          terms/1,
          pids/1]).
 
@@ -56,6 +57,7 @@ tc() ->
     [add,
      add_new,
      remove,
+     down,
      terms,
      pids].
 
@@ -87,6 +89,13 @@ remove(_) ->
     true = ?reg:remove({Ref}),
     [{Ref, Pid}] = ?reg:match(Ref),
     Pid = self().
+
+down(_) ->
+    Ref = make_ref(),
+    {_, MRef} = spawn_monitor(fun() -> ?reg:add_new(Ref), timer:sleep(1000) end),
+    receive {'DOWN', MRef, process, _, _} -> ok end,
+    timer:sleep(1000),
+    [] = ?reg:match(Ref).
 
 terms(_) ->
     Ref = make_ref(),

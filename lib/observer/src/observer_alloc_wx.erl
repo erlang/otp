@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_alloc_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -36,6 +36,7 @@
 	  wins,
 	  mem,
 	  samples,
+          max,
 	  panel,
 	  paint,
 	  appmon,
@@ -48,10 +49,10 @@
 	[make_win/4, setup_graph_drawing/1, refresh_panel/4, interval_dialog/2,
 	 add_data/5, precalc/4]).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     try
 	TopP  = wxPanel:new(Notebook),
 	Main  = wxBoxSizer:new(?wxVERTICAL),
@@ -74,17 +75,20 @@ init([Notebook, Parent]) ->
 		      wins  = Windows,
 		      mem   = MemWin,
 		      paint = PaintInfo,
-		      time  = setup_time()
+		      time  = setup_time(Config),
+                      max   = #{}
 		     }
 	}
-    catch _:Err ->
-	    io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
+    catch _:Err:Stacktrace ->
+	    io:format("~p crashed ~tp: ~tp~n",[?MODULE, Err, Stacktrace]),
 	    {stop, Err}
     end.
 
-setup_time() ->
-    Freq = 1,
-    #ti{fetch=Freq, disp=?DISP_FREQ/Freq}.
+setup_time(Config) ->
+    Freq = maps:get(fetch, Config, 1),
+    #ti{disp=?DISP_FREQ/Freq,
+        fetch=Freq,
+        secs=maps:get(secs, Config, ?DISP_SECONDS)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_event(#wx{id=?ID_REFRESH_INTERVAL, event=#wxCommand{type=command_menu_selected}},
@@ -115,6 +119,10 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
     refresh_panel(Active, Win, Ti, Paint),
     ok.
 %%%%%%%%%%
+handle_call(get_config, _, #state{time=Ti}=State) ->
+    #ti{fetch=Fetch, secs=Range} = Ti,
+    {reply, #{fetch=>Fetch, secs=>Range}, State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -126,16 +134,17 @@ handle_info({Key, {promise_reply, {badrpc, _}}}, #state{async=Key} = State) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
 handle_info({Key, {promise_reply, SysInfo}},
-	    #state{async=Key, panel=_Panel, samples=Data, active=Active, wins=Wins0,
-		   time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
+	    #state{async=Key, samples=Data, max=Max0,
+                   active=Active, wins=Wins0, time=#ti{tick=Tick, disp=Disp0}=Ti} = S0) ->
     Disp = trunc(Disp0),
     Next = max(Tick - Disp, 0),
     erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, Next}),
     Info = alloc_info(SysInfo),
+    Max = lists:foldl(fun calc_max/2, Max0, Info),
     {Wins, Samples} = add_data(Info, Data, Wins0, Ti, Active),
-    S1 = S0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples, async=undefined},
+    S1 = S0#state{time=Ti#ti{tick=Next}, wins=Wins, samples=Samples, max=Max, async=undefined},
     if Active ->
-	    update_alloc(S0, Info),
+	    update_alloc(S0, Info, Max),
 	    State = precalc(S1),
 	    {noreply, State};
        true ->
@@ -174,7 +183,7 @@ handle_info({'EXIT', Old, _}, State = #state{appmon=Old}) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
 handle_info(_Event, State) ->
-    %% io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
+    %% io:format("~p:~p: ~tp~n",[?MODULE,?LINE,_Event]),
     {noreply, State}.
 
 terminate(_Event, #state{}) ->
@@ -185,27 +194,40 @@ code_change(_, _, State) ->
 %%%%%%%%%%
 
 restart_fetcher(Node, #state{panel=Panel, wins=Wins0, time=Ti} = State) ->
-    SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-    Info = alloc_info(SysInfo),
-    {Wins, Samples} = add_data(Info, {0, queue:new()}, Wins0, Ti, true),
-    erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, 0}),
-    wxWindow:refresh(Panel),
-    precalc(State#state{active=true, appmon=Node, time=Ti#ti{tick=0},
-			wins=Wins, samples=Samples}).
+    case rpc:call(Node, observer_backend, sys_info, []) of
+        {badrpc, _} -> State;
+        SysInfo ->
+            Info = alloc_info(SysInfo),
+            Max = lists:foldl(fun calc_max/2, #{}, Info),
+            {Wins, Samples} = add_data(Info, {0, queue:new()}, Wins0, Ti, true),
+            erlang:send_after(1000 div ?DISP_FREQ, self(), {refresh, 0}),
+            wxWindow:refresh(Panel),
+            precalc(State#state{active=true, appmon=Node, time=Ti#ti{tick=0},
+                                wins=Wins, samples=Samples, max=Max})
+    end.
 
 precalc(#state{samples=Data0, paint=Paint, time=Ti, wins=Wins0}=State) ->
     Wins = [precalc(Ti, Data0, Paint, Win) || Win <- Wins0],
     State#state{wins=Wins}.
 
+calc_max({Name, _, Cs}, Max0) ->
+    case maps:get(Name, Max0, 0) of
+        Value when Value < Cs ->
+            Max0#{Name=>Cs};
+        _V ->
+            Max0
+    end.
 
-update_alloc(#state{mem=Grid}, Fields) ->
+update_alloc(#state{mem=Grid}, Fields, Max) ->
     wxWindow:freeze(Grid),
-    Max = wxListCtrl:getItemCount(Grid),
+    Last = wxListCtrl:getItemCount(Grid),
     Update = fun({Name, BS, CS}, Row) ->
-		     (Row >= Max) andalso wxListCtrl:insertItem(Grid, Row, ""),
+		     (Row >= Last) andalso wxListCtrl:insertItem(Grid, Row, ""),
+                     MaxV = maps:get(Name, Max, CS),
 		     wxListCtrl:setItem(Grid, Row, 0, observer_lib:to_str(Name)),
 		     wxListCtrl:setItem(Grid, Row, 1, observer_lib:to_str(BS div 1024)),
 		     wxListCtrl:setItem(Grid, Row, 2, observer_lib:to_str(CS div 1024)),
+                     wxListCtrl:setItem(Grid, Row, 3, observer_lib:to_str(MaxV div 1024)),
 		     Row + 1
 	     end,
     wx:foldl(Update, 0, Fields),
@@ -269,7 +291,9 @@ create_mem_info(Parent) ->
 		   end,
     ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},
 		 {"Block size (kB)",  ?wxLIST_FORMAT_RIGHT, 150},
-		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}],
+		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150},
+                 {"Max Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}
+                ],
     lists:foldl(AddListEntry, 0, ListItems),
     wxListItem:destroy(Li),
 

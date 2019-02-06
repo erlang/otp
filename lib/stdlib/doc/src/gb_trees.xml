@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2015</year>
+      <year>2001</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -105,6 +105,28 @@
           <c><anno>Tree1</anno></c> if
           the key is present in the tree, otherwise does nothing.
           Returns the new tree.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take" arity="2"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
+      <desc>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
+          and new <c><anno>Tree2</anno></c> without the node with this value.
+          Assumes that the node with key is present in the tree,
+         crashes otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="take_any" arity="2"/>
+      <fsummary>Returns a value and new tree without node with key <c>Key</c>.</fsummary>
+      <desc>
+        <p>Returns a value <c><anno>Value</anno></c> from node with key <c><anno>Key</anno></c>
+          and new <c><anno>Tree2</anno></c> without the node with this value.
+          Returns <c>error</c> if the node with the key is not present in
+          the tree.</p>
       </desc>
     </func>
 

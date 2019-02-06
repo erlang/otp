@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,343 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to HiPE.</p>
+
+<section><title>Hipe 3.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The code was updated to avoid causing a dialyzer
+	    warning because of a tightened spec for
+	    <c>beam_lib:info/1</c>.</p>
+          <p>
+	    Own Id: OTP-15482</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.18.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.18</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimize <c>receive</c> statements that are only waiting
+	    for messages containing a reference created before the
+	    receive. All messages that existed in the queue when the
+	    reference was created will be bypassed, as they cannot
+	    possibly contain the reference. This optimization has
+	    existed for vanilla BEAM since OTP R14.</p>
+          <p>
+	    Own Id: OTP-14785 Aux Id: PR-1632 </p>
+        </item>
+        <item>
+          <p>
+	    Add validation pass to hipe compiler to detect internal
+	    errors causing primop calls that may trigger an unsafe GC
+	    at run-time. The pass can be disabled with option
+	    <c>no_verify_gcsafe</c>.</p>
+          <p>
+	    Own Id: OTP-14900 Aux Id: PR-1685, PR-1621 </p>
+        </item>
+        <item>
+          <p>
+	    Make hipe compiled code work on x86_64 (amd64) with OS
+	    security feature PIE, where executable code can be loaded
+	    into a random location. Old behavior, if hipe was
+	    enabled, was to disable PIE build options for the VM.</p>
+          <p>
+	    Own Id: OTP-14903</p>
+        </item>
+        <item>
+          <p>
+	    Inline more type test BIFs; <c>is_number</c>,
+	    <c>is_bitstring</c>, <c>is_map</c>.</p>
+          <p>
+	    Own Id: OTP-14941 Aux Id: PR-1718 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.17.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE bug for binary constructs like
+	    <c>&lt;&lt;X/utf8&gt;&gt;</c> which could in rare cases
+	    cause faulty results or VM crash.</p>
+          <p>
+	    This fix affects both the <c>hipe</c> compiler and
+	    <c>erts</c> runtime in an <em>incompatible</em> way. Old
+	    hipe compiled files need to be recompiled to load and run
+	    properly as native.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14850 Aux Id: PR-1664 </p>
+        </item>
+        <item>
+	    <p>The BEAM compiler chooses not to perform tailcall
+	    optimisations for some calls in tail position, for
+	    example to some built-in functions. However, when the
+	    ErLLVM HiPE backend is used, LLVM may choose to perform
+	    tailcall optimisation on these calls, breaking the
+	    expected semantics.</p>
+	    <p>To preserve the precise semantics exhibited by BEAM,
+	    the 'notail' marker, present in LLVM since version 3.8,
+	    is added to call instructions that BEAM has not turned
+	    into tail calls, which inhibits LLVM from performing
+	    tail-call optimisation in turn.</p>
+          <p>
+	    Own Id: OTP-14886</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug for hipe compiled code using
+	    <c>&lt;&lt;X/utf32&gt;&gt;</c> binary construction that
+	    could cause faulty result or even VM crash.</p>
+          <p>
+	    On architectures other than x86_64, code need to be
+	    recompiled to benefit from this fix.</p>
+          <p>
+	    Own Id: OTP-14740</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added documentation about limitations of hipe compared to
+	    beam compiled code.</p>
+          <p>
+	    Own Id: OTP-14767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding map types that caused Dialyzer to
+	    go into an infinite loop. A consequence of the fix is
+	    that compound map keys such as maps and tuples sometimes
+	    are handled with less precision than before. </p>
+          <p>
+	    Own Id: OTP-14572 Aux Id: seq13319 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix hipe compiler flags <c>o0</c> and <c>o1</c> that have
+	    previously been ignored by mistake.</p>
+          <p>
+	    Own Id: OTP-13862 Aux Id: PR-1154 </p>
+        </item>
+        <item>
+          <p>
+	    Fix LLVM backend to not convert all remote calls to own
+	    module, like <c>?MODULE:foo()</c>, into local calls.</p>
+          <p>
+	    Own Id: OTP-13983</p>
+        </item>
+        <item>
+          <p>
+	    Hipe optional LLVM backend does require LLVM version 3.9
+	    or later as older versions forced strong dependencies on
+	    erts internals structures.</p>
+          <p>
+	    Own Id: OTP-14238</p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug that has been seen causing failed loading of
+	    hipe compiled modules on NetBSD due to unaligned data
+	    pointers.</p>
+          <p>
+	    Own Id: OTP-14302 Aux Id: ERL-376, PR-1386 </p>
+        </item>
+        <item>
+          <p>
+	    Fix miscompilation bug in hipe that could cause wrong
+	    function clause to be called from non-tail calls, where
+	    the return value is unused, if the right function clause
+	    is only reachable from those non-tail calls.</p>
+          <p>
+	    Own Id: OTP-14306 Aux Id: ERL-278, PR-1392 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve hipe compilation time for large functions.</p>
+          <p>
+	    Own Id: OTP-13810 Aux Id: PR-1124 </p>
+        </item>
+        <item>
+	    <p>Replaced usage of deprecated symbolic <seealso
+	    marker="erts:erlang#type-time_unit"><c>time
+	    unit</c></seealso> representations.</p>
+          <p>
+	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
+        </item>
+        <item>
+          <p>
+	    Speed up hipe compile time register allocation for larger
+	    function.</p>
+          <p>
+	    Own Id: OTP-13879</p>
+        </item>
+        <item>
+          <p>
+	    Various code generation improvements.</p>
+          <p>
+	    Own Id: OTP-14261 Aux Id: PR-1360 </p>
+        </item>
+        <item>
+          <p>
+	    Improve hipe compiler to generate code with better CPU
+	    register utilization at runtime by the use of 'Live Range
+	    Splitting' techniques.</p>
+          <p>
+	    Own Id: OTP-14293 Aux Id: PR-1380 </p>
+        </item>
+        <item>
+          <p>
+	    Allow HiPE to run on VM built with
+	    <c>--enable-m32-build</c>.</p>
+          <p>
+	    Own Id: OTP-14330 Aux Id: PR-1397 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.15.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-14130</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.15.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix flow control bug in hipe compiler that may cause
+	    compile time crash.</p>
+          <p>
+	    Own Id: OTP-13965 Aux Id: PR-1253 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in native compilation of bitstring pattern
+	    matching causing erroneous runtime matching result. The
+	    bug only affects code containing constant-valued segments
+	    whose size is expressed in bits; it is triggered when the
+	    pattern matching against these segments fails (i.e., when
+	    the next clause needs to be tried).</p>
+          <p>
+	    Own Id: OTP-14005</p>
+        </item>
+        <item>
+          <p>
+	    Workaround in HiPE LLVM backend for a bug in LLVM 3.9.
+	    The bug could cause LLVM-compiled modules to be rejected
+	    during loading with a badarg exception in
+	    hipe_bifs:enter_sdecs/1, but also cause corruption or
+	    segmentation faults i runtime.</p>
+          <p>
+	    Own Id: OTP-14027 Aux Id: ERL-292, PR-1237 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a bug in HiPE LLVM backend involving incorrect type
+	    tests of atoms sometimes causing incorrect behaviour or
+	    even segfaults.</p>
+          <p>
+	    Own Id: OTP-14028 Aux Id: PR-1237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Hipe 3.15.2</title>
 
@@ -85,12 +422,12 @@
         </item>
         <item>
           <p>
-	    Various fixes and improvements to the HiPE LLVM backend.
+	    Various fixes and improvements to the HiPE LLVM backend.</p>
 	    <list> <item>Add support for LLVM 3.7 and 3.8 in the
 	    HiPE/LLVM x86_64 backend</item> <item>Reinstate support
 	    for the LLVM backend on x86 (works OK for LLVM 3.5 to 3.7
 	    -- LLVM 3.8 has a bug that prevents it from generating
-	    correct native code on x86)</item> </list></p>
+	    correct native code on x86)</item> </list>
           <p>
 	    Own Id: OTP-13626</p>
         </item>
@@ -146,7 +483,7 @@
         <item>
           <p>
 	    Fix various binary construction inconsistencies for hipe
-	    compiled code. <list> <item>Passing bad field sizes to
+	    compiled code.</p> <list> <item>Passing bad field sizes to
 	    binary constructions would throw <c>badarith</c> rather
 	    than <c>badarg</c>. Worse, in guards, when the unit size
 	    of the field was 1, the exception would leak rather than
@@ -166,7 +503,7 @@
 	    missing check for unit size match when inserting a
 	    binary. For example, a faulty expression like
 	    <c>&lt;&lt;&lt;&lt;1:7&gt;&gt;/binary&gt;&gt;</c> would
-	    succeed.</item> </list></p>
+	    succeed.</item> </list>
           <p>
 	    Own Id: OTP-13272</p>
         </item>
@@ -1252,7 +1589,7 @@
       <list>
         <item>
           <p>
-	    Miscellanous updates.</p>
+	    Miscellaneous updates.</p>
           <p>
 	    Own Id: OTP-8038</p>
         </item>

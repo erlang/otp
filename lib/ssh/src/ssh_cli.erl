@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,13 +25,15 @@
 
 -module(ssh_cli).
 
--behaviour(ssh_daemon_channel).
+-behaviour(ssh_server_channel).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
-%% ssh_channel callbacks
+%% ssh_server_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
+
+-export([dbg_trace/3]).
 
 %% state
 -record(state, {
@@ -45,23 +47,8 @@
 	 }).
 
 %%====================================================================
-%% ssh_channel callbacks
+%% ssh_server_channel callbacks
 %%====================================================================
--spec init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore.
-
--spec terminate(Reason :: (normal | shutdown | {shutdown, term()} |
-                               term()),
-                    State :: term()) ->
-    term().
-
--spec handle_msg(Msg ::term(), State :: term()) ->
-    {ok, State::term()} | {stop, ChannelId::integer(), State::term()}. 
--spec handle_ssh_msg({ssh_cm, ConnectionRef::term(), SshMsg::term()},
-			 State::term()) -> {ok, State::term()} |
-					   {stop, ChannelId::integer(),
-					    State::term()}.
 
 %%--------------------------------------------------------------------
 %% Function: init(Args) -> {ok, State} 
@@ -118,31 +105,52 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{pty = Pty, buf = NewBuf}};
 
-handle_ssh_msg({ssh_cm, ConnectionHandler,
-	    {shell, ChannelId, WantReply}}, State) ->
+handle_ssh_msg({ssh_cm, ConnectionHandler,  {shell, ChannelId, WantReply}}, State) ->
     NewState = start_shell(ConnectionHandler, State),
-    ssh_connection:reply_request(ConnectionHandler, WantReply,
-				 success, ChannelId),
+    ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
     {ok, NewState#state{channel = ChannelId,
 			cm = ConnectionHandler}};
 
-handle_ssh_msg({ssh_cm, ConnectionHandler,
-		{exec, ChannelId, WantReply, Cmd}}, #state{exec=undefined} = State) ->
-    {Reply, Status} = exec(Cmd),
-    write_chars(ConnectionHandler,
-		ChannelId, io_lib:format("~p\n", [Reply])),
-    ssh_connection:reply_request(ConnectionHandler, WantReply,
-				 success, ChannelId),
-    ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
-    ssh_connection:send_eof(ConnectionHandler, ChannelId),
-    {stop, ChannelId, State#state{channel = ChannelId, cm = ConnectionHandler}};
-handle_ssh_msg({ssh_cm, ConnectionHandler,
-		{exec, ChannelId, WantReply, Cmd}}, State) ->
-    NewState = start_shell(ConnectionHandler, Cmd, State),
-    ssh_connection:reply_request(ConnectionHandler, WantReply,
-				 success, ChannelId),
-    {ok, NewState#state{channel = ChannelId,
-			cm = ConnectionHandler}};
+handle_ssh_msg({ssh_cm, ConnectionHandler,  {exec, ChannelId, WantReply, Cmd}}, S0) ->
+    case
+        case S0#state.exec of
+            {direct,F} ->
+                %% Exec called and a Fun or MFA is defined to use.  The F returns the
+                %% value to return.
+                exec_direct(ConnectionHandler, F, Cmd);
+
+            undefined when S0#state.shell == ?DEFAULT_SHELL ->
+                %% Exec called and the shell is the default shell (= Erlang shell).
+                %% To be exact, eval the term as an Erlang term (but not using the
+                %% ?DEFAULT_SHELL directly). This disables banner, prompts and such.
+                exec_in_erlang_default_shell(Cmd);
+
+            undefined ->
+                %% Exec called, but the a shell other than the default shell is defined.
+                %% No new exec shell is defined, so don't execute!
+                %% We don't know if it is intended to use the new shell or not.
+                {"Prohibited.", 255, 1};
+
+            _ ->
+                %% Exec called and a Fun or MFA is defined to use.  The F communicates via
+                %% standard io:write/read.
+                %% Kept for compatibility.
+                S1 = start_exec_shell(ConnectionHandler, Cmd, S0),
+                ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
+                {ok, S1}
+        end
+    of
+        {Reply, Status, Type} ->
+            write_chars(ConnectionHandler, ChannelId, Type, Reply),
+            ssh_connection:reply_request(ConnectionHandler, WantReply, success, ChannelId),
+            ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
+            ssh_connection:send_eof(ConnectionHandler, ChannelId),
+            {stop, ChannelId, S0#state{channel = ChannelId, cm = ConnectionHandler}};
+            
+        {ok, S} ->
+            {ok, S#state{channel = ChannelId,
+                         cm = ConnectionHandler}}
+    end;
 
 handle_ssh_msg({ssh_cm, _ConnectionHandler, {eof, _ChannelId}}, State) ->
     {ok, State};
@@ -208,8 +216,15 @@ handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
-handle_msg({'EXIT', Group, _Reason}, #state{group = Group,
-					     channel = ChannelId} = State) ->
+handle_msg({'EXIT', Group, Reason}, #state{group = Group,
+					    cm = ConnectionHandler,
+					    channel = ChannelId} = State) ->
+    Status = case Reason of
+                 normal -> 0;
+                 _      -> -1
+             end,
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State};
 
 handle_msg(_, State) ->
@@ -242,35 +257,7 @@ to_group(Data, Group) ->
     end,
     to_group(Tail, Group).
 
-exec(Cmd) ->
-    case eval(parse(scan(Cmd))) of
-	{error, _} ->
-	    {Cmd, 0}; %% This should be an external call
-	Term ->
-	    Term
-    end.
-
-scan(Cmd) ->
-    erl_scan:string(Cmd). 
-
-parse({ok, Tokens, _}) ->
-    erl_parse:parse_exprs(Tokens);
-parse(Error) ->
-    Error.
-
-eval({ok, Expr_list}) ->
-    case (catch erl_eval:exprs(Expr_list,
- 			       erl_eval:new_bindings())) of
- 	{value, Value, _NewBindings} ->
- 	    {Value, 0};
- 	{'EXIT', {Error, _}} -> 
- 	    {Error, -1};
- 	Error -> 
- 	    {Error, -1}
-    end;
-eval(Error) ->
-    {Error, -1}.
-
+%%--------------------------------------------------------------------
 %%% io_request, handle io requests from the user process,
 %%% Note, this is not the real I/O-protocol, but the mockup version
 %%% used between edlin and a user_driver. The protocol tags are
@@ -446,13 +433,22 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 %% %%% make sure that there is data to send
 %% %%% before calling ssh_connection:send
 write_chars(ConnectionHandler, ChannelId, Chars) ->
-    case erlang:iolist_size(Chars) of
-	0 ->
-	    ok;
-       _ ->
-	    ssh_connection:send(ConnectionHandler, ChannelId,
-				?SSH_EXTENDED_DATA_DEFAULT, Chars)
+    write_chars(ConnectionHandler, ChannelId, ?SSH_EXTENDED_DATA_DEFAULT, Chars).
+
+write_chars(ConnectionHandler, ChannelId, Type, Chars) ->
+    case has_chars(Chars) of
+        false -> ok;
+        true -> ssh_connection:send(ConnectionHandler,
+                                    ChannelId,
+                                    Type,
+                                    Chars)
     end.
+
+has_chars([C|_]) when is_integer(C) -> true;
+has_chars([H|T]) when is_list(H) ; is_binary(H) -> has_chars(H) orelse has_chars(T);
+has_chars(<<_:8,_/binary>>) -> true;
+has_chars(_) -> false.
+    
 
 %%% tail, works with empty lists
 tl1([_|A]) -> A;
@@ -480,57 +476,130 @@ bin_to_list(L) when is_list(L) ->
 bin_to_list(I) when is_integer(I) ->
     I.
 
+
+%%--------------------------------------------------------------------
 start_shell(ConnectionHandler, State) ->
-    Shell = State#state.shell,
-    ConnectionInfo = ssh_connection_handler:connection_info(ConnectionHandler,
-						  [peer, user]),
-    ShellFun = case is_function(Shell) of
-		   true ->
-		       User = 
-			   proplists:get_value(user, ConnectionInfo),
-		       case erlang:fun_info(Shell, arity) of
-			   {arity, 1} ->
-			       fun() -> Shell(User) end;
-			   {arity, 2} ->
-			       {_, PeerAddr} =
-				   proplists:get_value(peer, ConnectionInfo),
-			       fun() -> Shell(User, PeerAddr) end;
-			   _ ->
-			       Shell
-		       end;
-		   _ ->
-		       Shell
-	       end,
-    Echo = get_echo(State#state.pty),
-    Group = group:start(self(), ShellFun, [{echo, Echo}]),
-    State#state{group = Group, buf = empty_buf()}.
+    ShellSpawner =
+        case State#state.shell of
+            Shell when is_function(Shell, 1) ->
+                [{user,User}] = ssh_connection_handler:connection_info(ConnectionHandler, [user]),
+                fun() -> Shell(User) end;
+            Shell when is_function(Shell, 2) ->
+                ConnectionInfo =
+                    ssh_connection_handler:connection_info(ConnectionHandler, [peer, user]),
+                User = proplists:get_value(user, ConnectionInfo),
+                {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
+                fun() -> Shell(User, PeerAddr) end;
+            {_,_,_} = Shell ->
+                Shell
+        end,
+    State#state{group = group:start(self(), ShellSpawner, [{echo, get_echo(State#state.pty)}]),
+                buf = empty_buf()}.
 
-start_shell(_ConnectionHandler, Cmd, #state{exec={M, F, A}} = State) ->
-    Group = group:start(self(), {M, F, A++[Cmd]}, [{echo, false}]),
-    State#state{group = Group, buf = empty_buf()};
-start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
+%%--------------------------------------------------------------------
+start_exec_shell(ConnectionHandler, Cmd, State) ->
+    ExecShellSpawner =
+        case State#state.exec of
+            ExecShell when is_function(ExecShell, 1) ->
+                fun() -> ExecShell(Cmd) end;
+            ExecShell when is_function(ExecShell, 2) ->
+                [{user,User}] = ssh_connection_handler:connection_info(ConnectionHandler, [user]),
+                fun() -> ExecShell(Cmd, User) end;
+            ExecShell when is_function(ExecShell, 3) ->
+                ConnectionInfo =
+                    ssh_connection_handler:connection_info(ConnectionHandler, [peer, user]),
+                User = proplists:get_value(user, ConnectionInfo),
+                {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
+                fun() -> ExecShell(Cmd, User, PeerAddr) end;
+            {M,F,A} ->
+                {M, F, A++[Cmd]}
+        end,
+    State#state{group = group:start(self(), ExecShellSpawner, [{echo,false}]),
+                buf = empty_buf()}.
 
-    ConnectionInfo = ssh_connection_handler:connection_info(ConnectionHandler,
-						 [peer, user]),
-    User = 
-	proplists:get_value(user, ConnectionInfo),
-    ShellFun = 
-	case erlang:fun_info(Shell, arity) of
-	    {arity, 1} ->
-		fun() -> Shell(Cmd) end;
-	    {arity, 2} ->
-		fun() -> Shell(Cmd, User) end;
-	    {arity, 3} ->
-		{_, PeerAddr} =
-		    proplists:get_value(peer, ConnectionInfo),
-		fun() -> Shell(Cmd, User, PeerAddr) end;
-	    _ ->
-		Shell
-	end,
-    Echo = get_echo(State#state.pty),
-    Group = group:start(self(), ShellFun, [{echo,Echo}]),
-    State#state{group = Group, buf = empty_buf()}.
+%%--------------------------------------------------------------------
+exec_in_erlang_default_shell(Cmd) ->
+    case eval(parse(scan(Cmd))) of
+	{ok, Term} ->
+            {io_lib:format("~p\n", [Term]), 0, 0};
+        {error, Error} when is_atom(Error) ->
+            {io_lib:format("Error in ~p: ~p\n", [Cmd,Error]), -1, 1};
+        _ ->
+            {io_lib:format("Error: ~p\n", [Cmd]), -1, 1}
+    end.
 
+scan(Cmd) ->
+    erl_scan:string(Cmd). 
+
+parse({ok, Tokens, _}) ->
+    erl_parse:parse_exprs(Tokens);
+parse(Error) ->
+    Error.
+
+eval({ok, Expr_list}) ->
+    case (catch erl_eval:exprs(Expr_list,
+                              erl_eval:new_bindings())) of
+        {value, Value, _NewBindings} ->
+            {ok, Value};
+        {'EXIT', {Error, _}} -> 
+            {error, Error};
+        {error, Error} -> 
+            {error, Error};
+        Error -> 
+            {error, Error}
+    end;
+eval({error,Error}) ->
+    {error, Error};
+eval(Error) ->
+    {error, Error}.
+
+%%--------------------------------------------------------------------
+exec_direct(ConnectionHandler, ExecSpec, Cmd) ->
+    try
+        case ExecSpec of
+            _ when is_function(ExecSpec, 1) ->
+                ExecSpec(Cmd);
+            _ when is_function(ExecSpec, 2) ->
+                [{user,User}] = ssh_connection_handler:connection_info(ConnectionHandler, [user]),
+                ExecSpec(Cmd, User);
+            _ when is_function(ExecSpec, 3) ->
+                ConnectionInfo =
+                    ssh_connection_handler:connection_info(ConnectionHandler, [peer, user]),
+                User = proplists:get_value(user, ConnectionInfo),
+                {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
+                ExecSpec(Cmd, User, PeerAddr)
+        end
+    of
+        Reply ->
+            return_direct_exec_reply(Reply, Cmd)
+    catch
+        C:Error ->
+            {io_lib:format("Error in \"~s\": ~p ~p~n", [Cmd,C,Error]), -1, 1}
+    end.
+
+
+
+return_direct_exec_reply(Reply, Cmd) ->
+    case fmt_exec_repl(Reply) of
+        {ok,S} ->
+            {S, 0, 0};
+        {error,S} ->
+            {io_lib:format("Error in \"~s\": ~s~n", [Cmd,S]), -1, 1}
+    end.
+
+fmt_exec_repl({T,A}) when T==ok ; T==error ->
+    try
+        {T, io_lib:format("~s",[A])}
+    catch
+        error:badarg ->
+            {T, io_lib:format("~p", [A])};
+        C:Err ->
+            {error, io_lib:format("~p:~p~n",[C,Err])}
+    end;
+fmt_exec_repl(Other) ->
+    {error, io_lib:format("Bad exec-plugin return: ~p",[Other])}.
+
+%%--------------------------------------------------------------------
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.
 get_echo(undefined) ->
@@ -556,3 +625,19 @@ not_zero(0, B) ->
 not_zero(A, _) -> 
     A.
 
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+dbg_trace(points,         _,  _) -> [terminate];
+
+dbg_trace(flags,  terminate,  _) -> [c];
+dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
+dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
+dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+    ["Cli Terminating:\n",
+     io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
+    ].
+
+?wr_record(state).

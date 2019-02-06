@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,8 +135,8 @@ init([{parent,Parent}|_] = Options) ->
     catch
 	throw:{error,Reason} ->
 	    proc_lib:init_ack(Parent,{error,Reason});
-        error:Reason ->
-            exit({Reason, erlang:get_stacktrace()})
+        error:Reason:Stacktrace ->
+            exit({Reason, Stacktrace})
     end.
 
 do_init(Options) ->
@@ -225,12 +225,12 @@ parse_options([{Key, Val} | KeyVals], S, C, Sys) ->
             Sys2 = read_config(Sys, {sys, Val}),
             parse_options(KeyVals, S, C, Sys2);
         _ ->
-	    reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
+	    reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
     end;
 parse_options([], S, C, Sys) ->
     S#state{common = C, sys = Sys};
 parse_options(KeyVals, _S, _C, _Sys) ->
-    reltool_utils:throw_error("Illegal option: ~p", [KeyVals]).
+    reltool_utils:throw_error("Illegal option: ~tp", [KeyVals]).
 
 loop(#state{sys = Sys} = S) ->
     receive
@@ -400,12 +400,12 @@ loop(#state{sys = Sys} = S) ->
         {'EXIT', Pid, Reason} when Pid =:= S#state.parent_pid ->
             exit(Reason);
         {call, ReplyTo, Ref, Msg} when is_pid(ReplyTo), is_reference(Ref) ->
-            error_logger:format("~w~w got unexpected call:\n\t~p\n",
+            error_logger:format("~w~w got unexpected call:\n\t~tp\n",
                                 [?MODULE, self(), Msg]),
             reltool_utils:reply(ReplyTo, Ref, {error, {invalid_call, Msg}}),
             ?MODULE:loop(S);
         Msg ->
-            error_logger:format("~w~w got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~tp\n",
                                 [?MODULE, self(), Msg]),
             ?MODULE:loop(S)
     end.
@@ -1232,7 +1232,7 @@ parse_app_info(File, [{Key, Val} | KeyVals], AI, Status) ->
 			   Status);
         _ ->
 	    Status2 =
-		reltool_utils:add_warning("Unexpected item ~p in app file ~tp.",
+		reltool_utils:add_warning("Unexpected item ~tp in app file ~tp.",
 					  [Key,File],
 					  Status),
 	    parse_app_info(File, KeyVals, AI, Status2)
@@ -1417,9 +1417,12 @@ shrink_app(A) ->
 
 do_save_config(S, Filename, InclDef, InclDeriv) ->
     {ok, Config} = do_get_config(S, InclDef, InclDeriv),
-    IoList = io_lib:format("%% config generated at ~w ~w\n~p.\n\n",
-                           [date(), time(), Config]),
-    file:write_file(Filename, IoList).
+    IoList = io_lib:format("%% ~s\n"
+                           "%% config generated at ~w ~w\n"
+                           "~tp.\n\n",
+                           [epp:encoding_to_string(utf8),date(), time(), Config]),
+    Bin = unicode:characters_to_binary(IoList),
+    file:write_file(Filename, Bin).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1455,7 +1458,7 @@ read_config(OldSys, {sys, KeyVals}) ->
 	      [NewSys2#sys.boot_rel])
     end;
 read_config(_OldSys, BadConfig) ->
-    reltool_utils:throw_error("Illegal content: ~p", [BadConfig]).
+    reltool_utils:throw_error("Illegal content: ~tp", [BadConfig]).
 
 decode(#sys{apps = Apps} = Sys, [{erts = Name, AppKeyVals} | SysKeyVals])
   when is_atom(Name), is_list(AppKeyVals) ->
@@ -1565,7 +1568,7 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
             debug_info when Val =:= keep; Val =:= strip ->
                 Sys#sys{debug_info = Val};
             _ ->
-		reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
+		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
         end,
     decode(Sys3, KeyVals);
 decode(#app{} = App, [{Key, Val} | KeyVals]) ->
@@ -1620,14 +1623,14 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
 				active_dir = Dir,
 				sorted_dirs = [Dir]};
 		    false ->
-			reltool_utils:throw_error("Illegal lib dir for ~w: ~p",
+			reltool_utils:throw_error("Illegal lib dir for ~w: ~tp",
 						  [App#app.name, Val])
 		end;
 	    SelectVsn when SelectVsn=:=vsn; SelectVsn=:=lib_dir ->
 		reltool_utils:throw_error("Mutual exclusive options "
 					  "'vsn' and 'lib_dir'",[]);
             _ ->
-		reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
+		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
         end,
     decode(App2, KeyVals);
 decode(#app{mods = Mods} = App, [{mod, Name, ModKeyVals} | AppKeyVals]) ->
@@ -1641,7 +1644,7 @@ decode(#mod{} = Mod, [{Key, Val} | KeyVals]) ->
             debug_info when Val =:= keep; Val =:= strip ->
                 Mod#mod{debug_info = Val};
             _ ->
-		reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
+		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
         end,
     decode(Mod2, KeyVals);
 decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
@@ -1666,12 +1669,12 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
 	true ->
             decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals);
         false ->
-	    reltool_utils:throw_error("Illegal option: ~p", [RelApp])
+	    reltool_utils:throw_error("Illegal option: ~tp", [RelApp])
     end;
 decode(Acc, []) ->
     Acc;
 decode(_Acc, KeyVal) ->
-    reltool_utils:throw_error("Illegal option: ~p", [KeyVal]).
+    reltool_utils:throw_error("Illegal option: ~tp", [KeyVal]).
 
 is_type(Type) ->
     case Type of
@@ -1866,7 +1869,7 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
 	    {ok, AF} ->
 		AF;
 	    {error, Reason1} ->
-		reltool_utils:throw_error("Illegal escript ~tp: ~p",
+		reltool_utils:throw_error("Illegal escript ~tp: ~tp",
 					  [Escript,Reason1])
 	end,
 
@@ -1950,7 +1953,7 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
 				      Status2),
 	    escripts_to_apps(Escripts, Apps2, Status3);
 	{error, Reason2} ->
-	    reltool_utils:throw_error("Illegal escript ~tp: ~p",
+	    reltool_utils:throw_error("Illegal escript ~tp: ~tp",
 				      [Escript,Reason2])
     end;
 escripts_to_apps([], Apps, Status) ->
@@ -2013,7 +2016,7 @@ init_escript_app(AppName, EscriptAppName, Dir, Info, Mods, Apps, Status) ->
     case lists:keymember(AppName, #app.name, Apps) of
         true ->
 	    reltool_utils:throw_error(
-	      "~w: Application name clash. Escript ~tp contains application ~tp.",
+	      "~w: Application name clash. Escript ~tp contains application ~w.",
 	      [AppName,Dir,AppName]);
         false ->
             {App2, Status}

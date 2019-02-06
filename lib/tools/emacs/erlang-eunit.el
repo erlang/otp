@@ -23,6 +23,7 @@
 
 (eval-when-compile
   (require 'cl))
+(require 'erlang)
 
 (defvar erlang-eunit-src-candidate-dirs '("../src" ".")
   "*Name of directories which to search for source files matching
@@ -68,7 +69,7 @@ buffer and vice versa"
 ;;;
 (defun erlang-eunit-open-src-file-other-window (test-file-path)
   "Open the src file which corresponds to the an EUnit test file"
-    (find-file-other-window (erlang-eunit-src-filename test-file-path)))
+  (find-file-other-window (erlang-eunit-src-filename test-file-path)))
 
 ;;; Return the name and path of the EUnit test file
 ;;, (input may be either the source filename itself or the EUnit test filename)
@@ -154,7 +155,7 @@ buffer and vice versa"
 ;;; Join filenames
 (defun filename-join (dir file)
   (if (or (= (elt file 0) ?/)
-	  (= (car (last (append dir nil))) ?/))
+          (= (car (last (append dir nil))) ?/))
       (concat dir file)
     (concat dir "/" file)))
 
@@ -299,7 +300,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 ;;; Compile source and EUnit test file and finally run EUnit tests for
 ;;; the current module
 (defun erlang-eunit-compile-and-test (test-fun test-args &optional under-cover)
-   "Compile the source and test files and run the EUnit test suite.
+  "Compile the source and test files and run the EUnit test suite.
 
 If under-cover is set to t, the module under test is compile for
 code coverage analysis.  If under-cover is left out or not set,
@@ -311,7 +312,7 @@ and the number of times each line is covered).
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (erlang-eunit-record-recent-compile under-cover)
   (let ((src-filename  (erlang-eunit-src-filename  buffer-file-name))
-	(test-filename (erlang-eunit-test-filename buffer-file-name)))
+        (test-filename (erlang-eunit-test-filename buffer-file-name)))
 
     ;; The purpose of out-maneuvering `save-some-buffers', as is done
     ;; below, is to ask the question about saving buffers only once,
@@ -326,13 +327,12 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
       ;; be placed in the source file instead.  Any compilation error
       ;; will prevent the subsequent steps to be run (hence the `and')
       (and (erlang-eunit-compile-file src-filename under-cover)
-	   (if (file-readable-p test-filename)
-	       (erlang-eunit-compile-file test-filename)
-	     t)
+           (if (file-readable-p test-filename)
+               (erlang-eunit-compile-file test-filename)
+             t)
            (apply test-fun test-args)
            (if under-cover
-               (save-excursion
-                 (set-buffer (find-file-noselect src-filename))
+               (with-current-buffer (find-file-noselect src-filename)
                  (erlang-eunit-analyze-coverage)))))))
 
 (defun erlang-eunit-compile-and-run-module-tests-under-cover ()
@@ -348,8 +348,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 
 (defun erlang-eunit-compile-file (file-path &optional under-cover)
   (if (file-readable-p file-path)
-      (save-excursion
-        (set-buffer (find-file-noselect file-path))
+      (with-current-buffer (find-file-noselect file-path)
         ;; In order to run a code coverage analysis on a
         ;; module, we have two options:
         ;;
@@ -376,21 +375,20 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
       (error msg))))
 
 (defun erlang-eunit-last-compilation-successful-p ()
-  (save-excursion
-    (set-buffer inferior-erlang-buffer)
+  (with-current-buffer inferior-erlang-buffer
     (goto-char compilation-parsing-end)
     (erlang-eunit-all-list-elems-fulfill-p
      (lambda (re) (let ((continue t)
-			(result   t))
-		    (while continue ; ignore warnings, stop at errors
-		      (if (re-search-forward re (point-max) t)
-			  (if (erlang-eunit-is-compilation-warning)
-			      t
-			    (setq result nil)
-			    (setq continue nil))
-			(setq result t)
-			(setq continue nil)))
-		    result))
+                        (result   t))
+                    (while continue ; ignore warnings, stop at errors
+                      (if (re-search-forward re (point-max) t)
+                          (if (erlang-eunit-is-compilation-warning)
+                              t
+                            (setq result nil)
+                            (setq continue nil))
+                        (setq result t)
+                        (setq continue nil)))
+                    result))
      (mapcar (lambda (e) (car e)) erlang-error-regexp-alist))))
 
 (defun erlang-eunit-is-compilation-warning ()
@@ -402,7 +400,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (let ((matches-p t))
     (while (and list matches-p)
       (if (not (funcall pred (car list)))
-	  (setq matches-p nil))
+          (setq matches-p nil))
       (setq list (cdr list)))
     matches-p))
 
@@ -439,15 +437,21 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 
 (defun erlang-eunit-ensure-keymap-for-key (key-seq)
   (let ((prefix-keys (butlast (append key-seq nil)))
-	(prefix-seq  ""))
+        (prefix-seq  ""))
     (while prefix-keys
       (setq prefix-seq (concat prefix-seq (make-string 1 (car prefix-keys))))
       (setq prefix-keys (cdr prefix-keys))
       (if (not (keymapp (lookup-key (current-local-map) prefix-seq)))
-	  (local-set-key prefix-seq (make-sparse-keymap))))))
+          (local-set-key prefix-seq (make-sparse-keymap))))))
 
 (add-hook 'erlang-mode-hook 'erlang-eunit-add-key-bindings)
 
 
 (provide 'erlang-eunit)
-;; erlang-eunit ends here
+
+;; Local variables:
+;; coding: utf-8
+;; indent-tabs-mode: nil
+;; End:
+
+;; erlang-eunit.el ends here

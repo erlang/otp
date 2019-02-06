@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,8 @@
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1,
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
-	 test_error/1, test_warning/1]).
+	 test_error/1, test_warning/1, otp_14285/1,
+	 test_if/1,source_name/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -68,7 +69,8 @@ all() ->
      not_circular, skip_header, otp_6277, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
-     encoding, extends, function_macro, test_error, test_warning].
+     encoding, extends, function_macro, test_error, test_warning,
+     otp_14285, test_if, source_name].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -306,7 +308,7 @@ otp_5362(Config) when is_list(Config) ->
     File_Back_hrl = filename:join(Dir, "back_5362.hrl"),
     Back = <<"-module(back_5362).
 
-              -compile(export_all).
+              -export([foo/1]).
 
               -file(?FILE, 1).
               -include(\"back_5362.hrl\").
@@ -334,7 +336,7 @@ otp_5362(Config) when is_list(Config) ->
 
                 -file(?FILE, 100).
 
-                -compile(export_all).
+                -export([foo/1,bar/1]).
 
                 -file(\"other.file\", ?LINE). % like an included file...
                 foo(A) -> % line 105
@@ -362,7 +364,7 @@ otp_5362(Config) when is_list(Config) ->
 
     Blank = <<"-module(blank_5362).
 
-               -compile(export_all).
+               -export([q/1,a/1,b/1,c/1]).
 
                -
                file(?FILE, 18). q(Q) -> foo. % line 18
@@ -550,8 +552,8 @@ otp_8130(Config) when is_list(Config) ->
              "t() ->  "
              "   L = \"{ 34 , \\\"1\\\\x{AAA}\\\" , \\\"34\\\" , X . a , $\\\\x{AAA} }\", "
              "   R = ?M({34,\"1\\x{aaa}\",\"34\",X.a,$\\x{aaa}}),"
-             "   Lt = erl_scan:string(L, 1, [unicode]),"
-             "   Rt = erl_scan:string(R, 1, [unicode]),"
+             "   Lt = erl_scan:string(L, 1),"
+             "   Rt = erl_scan:string(R, 1),"
              "   Lt = Rt, ok. ">>,
           ok},
 
@@ -677,7 +679,7 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c6,
            <<"-define(M3(), A).\n"
              "t() -> A = 1, ?3.14159}.\n">>,
-           {errors,[{{2,16},epp,{call,"?3.14159"}}],[]}},
+           {errors,[{{2,16},epp,{call,[$?,"3.14159"]}}],[]}},
 
           {otp_8130_c7,
            <<"\nt() -> ?A.\n">>,
@@ -798,7 +800,8 @@ otp_8130(Config) when is_list(Config) ->
     PreDefMacs = macs(Epp),
     ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE',
      'FUNCTION_ARITY','FUNCTION_NAME',
-     'LINE','MACHINE','MODULE','MODULE_STRING'] = PreDefMacs,
+     'LINE','MACHINE','MODULE','MODULE_STRING',
+     'OTP_RELEASE'] = PreDefMacs,
     {ok,[{'-',_},{atom,_,file}|_]} = epp:scan_erl_form(Epp),
     {ok,[{'-',_},{atom,_,module}|_]} = epp:scan_erl_form(Epp),
     {ok,[{atom,_,t}|_]} = epp:scan_erl_form(Epp),
@@ -951,27 +954,7 @@ ifdef(Config) ->
 
           {define_c5,
            <<"-\ndefine a.\n">>,
-           {errors,[{{2,1},epp,{bad,define}}],[]}},
-
-          {define_c6,
-           <<"\n-if.\n"
-             "-endif.\n">>,
-           {errors,[{{2,2},epp,{'NYI','if'}}],[]}},
-
-          {define_c7,
-           <<"-ifndef(a).\n"
-             "-elif.\n"
-             "-endif.\n">>,
-           {errors,[{{2,2},epp,{'NYI',elif}}],[]}},
-
-          {define_c7,
-           <<"-ifndef(a).\n"
-             "-if.\n"
-             "-elif.\n"
-             "-endif.\n"
-             "-endif.\n"
-             "t() -> a.\n">>,
-           {errors,[{{2,2},epp,{'NYI','if'}}],[]}}
+           {errors,[{{2,1},epp,{bad,define}}],[]}}
           ],
     [] = compile(Config, Cs),
 
@@ -1116,6 +1099,147 @@ test_warning(Config) ->
     [] = compile(Config, Cs),
     ok.
 
+%% OTP-12847: Test the -if and -elif directives and the built-in
+%% function defined(Symbol).
+test_if(Config) ->
+    Cs = [{if_1c,
+	   <<"-if.\n"
+	     "-endif.\n"
+	     "-if no_parentheses.\n"
+	     "-endif.\n"
+	     "-if(syntax error.\n"
+	     "-endif.\n"
+	     "-if(true).\n"
+	     "-if(a+3).\n"
+	     "syntax error not triggered here.\n"
+	     "-endif.\n">>,
+           {errors,[{1,epp,{bad,'if'}},
+		    {3,epp,{bad,'if'}},
+		    {5,erl_parse,["syntax error before: ","error"]},
+		    {11,epp,{illegal,"unterminated",'if'}}],
+	    []}},
+
+	  {if_2c,			       	%Bad guard expressions.
+	   <<"-if(is_list(integer_to_list(42))).\n" %Not guard BIF.
+	     "-endif.\n"
+	     "-if(begin true end).\n"
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}},
+		    {3,epp,{bad,'if'}}],
+	    []}},
+
+	  {if_3c,			       	%Invalid use of defined/1.
+	   <<"-if defined(42).\n"
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}}],[]}},
+
+	  {if_4c,
+	   <<"-elif OTP_RELEASE > 18.\n">>,
+	   {errors,[{1,epp,{illegal,"unbalanced",'elif'}}],[]}},
+
+	  {if_5c,
+	   <<"-ifdef(not_defined_today).\n"
+	     "-else.\n"
+	     "-elif OTP_RELEASE > 18.\n"
+	     "-endif.\n">>,
+	   {errors,[{3,epp,{illegal,"unbalanced",'elif'}}],[]}},
+
+	  {if_6c,
+	   <<"-if(defined(OTP_RELEASE)).\n"
+	     "-else.\n"
+	     "-elif(true).\n"
+	     "-endif.\n">>,
+	   {errors,[{3,epp,elif_after_else}],[]}},
+
+	  {if_7c,
+	   <<"-if(begin true end).\n"		%Not a guard expression.
+	     "-endif.\n">>,
+	   {errors,[{1,epp,{bad,'if'}}],[]}}
+
+	 ],
+    [] = compile(Config, Cs),
+
+    Ts = [{if_1,
+	   <<"-if(?OTP_RELEASE > 18).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_2,
+	   <<"-if(false).\n"
+	     "a bug.\n"
+	     "-elif(?OTP_RELEASE > 18).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_3,
+	   <<"-if(true).\n"
+	     "t() -> ok.\n"
+	     "-elif(?OTP_RELEASE > 18).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_4,
+	   <<"-define(a, 1).\n"
+	     "-if(defined(a) andalso defined(OTP_RELEASE)).\n"
+	     "t() -> ok.\n"
+	     "-else.\n"
+	     "a bug.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_5,
+	   <<"-if(defined(a)).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_6,
+	   <<"-if(defined(not_defined_today)).\n"
+	     " -if(true).\n"
+	     "  bug1.\n"
+	     " -elif(true).\n"
+	     "  bug2.\n"
+	     " -elif(true).\n"
+	     "  bug3.\n"
+	     " -else.\n"
+	     "  bug4.\n"
+	     " -endif.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_7,
+	   <<"-if(not_builtin()).\n"
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+           ok},
+
+	  {if_8,
+	   <<"-if(42).\n"			%Not boolean.
+	     "a bug.\n"
+	     "-else.\n"
+	     "t() -> ok.\n"
+	     "-endif.\n">>,
+	   ok}
+	 ],
+    [] = run(Config, Ts),
+
+    ok.
+
 %% Advanced test on overloading macros.
 overload_mac(Config) when is_list(Config) ->
     Cs = [
@@ -1258,7 +1382,7 @@ do_otp_8911(Config) ->
 
     File = "i.erl",
     Cont = <<"-module(i).
-              -compile(export_all).
+              -export([t/0]).
               -file(\"fil1\", 100).
               -include(\"i1.erl\").
               t() ->
@@ -1384,6 +1508,26 @@ do_otp_10820(File, C, PC) ->
     true = test_server:stop_node(Node),
     ok.
 
+%% OTP_14285: Unicode atoms.
+otp_14285(Config) when is_list(Config) ->
+    %% This is just a sample of errors.
+    Cs = [{otp_8562,
+           <<"-export([f/0]).
+              -define('a\x{400}b', 'a\x{400}d').
+              f() ->
+                  ?'a\x{400}b'.
+              g() ->
+                  ?\"a\x{400}b\".
+              h() ->
+                  ?'a\x{400}no'().
+              "/utf8>>,
+           {errors,[{6,epp,{call,[63,[91,["97",44,"1024",44,"98"],93]]}},
+                    {8,epp,{undefined,'a\x{400}no',0}}],
+            []}}
+         ],
+    [] = compile(Config, Cs),
+    ok.
+
 %% OTP-11728. Bugfix circular macro.
 otp_11728(Config) when is_list(Config) ->
     Dir = proplists:get_value(priv_dir, Config),
@@ -1391,7 +1535,7 @@ otp_11728(Config) when is_list(Config) ->
     HrlFile = filename:join(Dir, "otp_11728.hrl"),
     ok = file:write_file(HrlFile, H),
     C = <<"-module(otp_11728).
-           -compile(export_all).
+           -export([function_name/0]).
 
            -include(\"otp_11728.hrl\").
 
@@ -1558,6 +1702,18 @@ function_macro(Config) ->
 
     ok.
 
+source_name(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "source_name.erl"),
+
+    source_name_1(File, "/test/gurka.erl"),
+    source_name_1(File, "gaffel.erl"),
+
+    ok.
+
+source_name_1(File, Expected) ->
+    Res = epp:parse_file(File, [{source_name, Expected}]),
+    {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
@@ -1599,12 +1755,12 @@ check_test(Config, Test) ->
     end.
 
 compile_test(Config, Test0) ->
-    Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
+    Test = [<<"-module(epp_test). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    Opts = [export_all,return,nowarn_unused_record,{outdir,PrivDir}],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}],
     case compile_file(File, Opts) of
         {ok, Ws} -> warnings(File, Ws);
         Else -> Else
@@ -1653,7 +1809,7 @@ unopaque_forms(Forms) ->
     [erl_parse:anno_to_term(Form) || Form <- Forms].
 
 run_test(Config, Test0) ->
-    Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
+    Test = [<<"-module(epp_test). -export([t/0]). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),

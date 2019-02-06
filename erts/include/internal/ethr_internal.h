@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,6 +90,7 @@ int ethr_init_common__(ethr_init_data *id);
 int ethr_late_init_common__(ethr_late_init_data *lid);
 void ethr_run_exit_handlers__(void);
 void ethr_ts_event_destructor__(void *vtsep);
+void ethr_set_stacklimit__(char *prev_c, size_t stacksize);
 
 #if defined(ETHR_X86_RUNTIME_CONF__)
 void ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx);

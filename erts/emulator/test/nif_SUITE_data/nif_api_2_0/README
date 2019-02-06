@@ -1,0 +1,5 @@
+These are old genuine header files
+checked out from tag OTP_R14A c1e94fa9a6fe4ae717d35.
+
+I choose this API version (2.0) to test as it's
+before the addition of vm_variant in ErlNifEntry.

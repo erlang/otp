@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,6 @@ XML_REF3_FILES = \
 	gen_statem.xml \
 	io.xml \
 	io_lib.xml \
-	lib.xml \
 	lists.xml \
 	log_mf_h.xml \
 	maps.xml \
@@ -98,13 +97,15 @@ XML_REF3_FILES = \
 	sys.xml \
 	timer.xml \
 	unicode.xml \
+	uri_string.xml \
 	win32reg.xml \
 	zip.xml
 
 XML_REF6_FILES = stdlib_app.xml
 
-XML_PART_FILES = part.xml part_notes.xml part_notes_history.xml
-XML_CHAPTER_FILES = io_protocol.xml unicode_usage.xml notes.xml notes_history.xml assert_hrl.xml
+XML_PART_FILES = part.xml
+XML_CHAPTER_FILES = introduction.xml io_protocol.xml unicode_usage.xml \
+	notes.xml assert_hrl.xml
 
 BOOK_FILES = book.xml
 
@@ -131,9 +132,9 @@ SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 SPECS_FLAGS = -I../../include -I../../../kernel/include
 
@@ -150,23 +151,24 @@ html: $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES) $(MAN6_FILES)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 $(SPECDIR)/specs_erl_id_trans.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module erl_id_trans
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 	       cdv_mem_cb,
 	       cdv_mod_cb,
 	       cdv_multi_wx,
+               cdv_persistent_cb,
 	       cdv_port_cb,
 	       cdv_proc_cb,
 	       cdv_table_wx,
@@ -65,8 +66,7 @@
     {registered, []},
     {applications, [kernel, stdlib]},
     {env, []},
-    {runtime_dependencies, ["wx-1.2","stdlib-2.0","runtime_tools-1.8.14",
-			    "kernel-3.0","inets-5.10","et-1.5",
-			    "erts-7.0"]}]}.
+    {runtime_dependencies, ["wx-1.2","stdlib-3.5","runtime_tools-1.8.14",
+			    "kernel-3.0","et-1.5","erts-7.0"]}]}.
 
 

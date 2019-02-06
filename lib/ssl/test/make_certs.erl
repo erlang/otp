@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 
 -module(make_certs).
--compile([export_all]).
+-compile([export_all, nowarn_export_all]).
 
 %-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
 
@@ -34,14 +34,15 @@
 	     ecc_certs = false,
 	     issuing_distribution_point = false,
 	     crl_port = 8000,
-	     openssl_cmd = "openssl"}).
+             openssl_cmd = "openssl",
+             hostname = "host.example.com"}).
 
 
 default_config() ->
-    #config{}.
+    #config{hostname = net_adm:localhost()}.
 
 make_config(Args) ->
-    make_config(Args, #config{}).
+    make_config(Args, default_config()).
 
 make_config([], C) ->
     C;
@@ -66,7 +67,9 @@ make_config([{ecc_certs, Bool}|T], C) when is_boolean(Bool) ->
 make_config([{issuing_distribution_point, Bool}|T], C) when is_boolean(Bool) ->
     make_config(T, C#config{issuing_distribution_point = Bool});
 make_config([{openssl_cmd, Cmd}|T], C) when is_list(Cmd) ->
-    make_config(T, C#config{openssl_cmd = Cmd}).
+    make_config(T, C#config{openssl_cmd = Cmd});
+make_config([{hostname, Hostname}|T], C) when is_list(Hostname) ->
+    make_config(T, C#config{hostname = Hostname}).
 
 
 all([DataDir, PrivDir]) ->
@@ -172,8 +175,8 @@ revoke(Root, CA, User, C) ->
     gencrl(Root, CA, C).
 
 gencrl(Root, CA, C) ->
-    %% By default, the CRL is valid for 24 hours from now.
-    gencrl(Root, CA, C, 24).
+    %% By default, the CRL is valid for a week from now.
+    gencrl(Root, CA, C, 24*7).
 
 gencrl(Root, CA, C, CrlHours) ->
     CACnfFile = filename:join([Root, CA, "ca.cnf"]),
@@ -384,7 +387,11 @@ req_cnf(Root, C) ->
      "subjectKeyIdentifier = hash\n"
      "subjectAltName	= email:copy\n"].
 
-ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
+ca_cnf(
+  Root,
+  #config{
+     issuing_distribution_point = true,
+     hostname = Hostname} = C) ->
     ["# Purpose: Configuration for CAs.\n"
      "\n"
      "ROOTDIR	       = " ++ Root ++ "\n"
@@ -434,7 +441,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
 
@@ -449,7 +456,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= digitalSignature\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "\n"
 
@@ -458,12 +465,17 @@ ca_cnf(Root, C = #config{issuing_distribution_point = true}) ->
      "keyUsage 		= cRLSign, keyCertSign\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid:always,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "crlDistributionPoints=@crl_section\n"
     ];
 
-ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
+ca_cnf(
+  Root,
+  #config{
+     issuing_distribution_point = false,
+     hostname = Hostname
+    } = C) ->
     ["# Purpose: Configuration for CAs.\n"
      "\n"
      "ROOTDIR	          = " ++ Root ++ "\n"
@@ -513,7 +525,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
      "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      %"crlDistributionPoints=@crl_section\n"
 
@@ -528,7 +540,7 @@ ca_cnf(Root, C = #config{issuing_distribution_point = false}) ->
      "keyUsage 		= digitalSignature\n"
      "subjectKeyIdentifier = hash\n"
      "authorityKeyIdentifier = keyid,issuer:always\n"
-     "subjectAltName	= email:copy\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
      "issuerAltName	= issuer:copy\n"
      "\n"
 

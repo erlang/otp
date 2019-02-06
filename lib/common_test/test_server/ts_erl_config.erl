@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -311,7 +311,7 @@ lib_dir(Vars, Lib) ->
 			  end,
 	    CLibDir = filename:join(CLibDirList),
 	    Cmd = "ls -d " ++ CLibDir ++ "*",
-	    XLibDir = lists:last(string:tokens(os:cmd(Cmd),"\n")),
+	    XLibDir = lists:last(string:lexemes(os:cmd(Cmd),"\n")),
 	    case file:list_dir(XLibDir) of
 		{error, enoent} ->
 		    [];
@@ -358,18 +358,22 @@ link_library(_LibName,_Other) ->
 %% Returns emulator specific variables.
 emu_vars(Vars) ->
     [{is_source_build, is_source_build()},
-     {erl_name, atom_to_list(lib:progname())}|Vars].
+     {erl_name, get_progname()}|Vars].
+
+get_progname() ->
+    case init:get_argument(progname) of
+	{ok, [[Prog]]} ->
+	    Prog;
+	_Other ->
+	    "no_prog_name"
+    end.
 
 is_source_build() ->
-    string:str(erlang:system_info(system_version), "[source]") > 0.
+    string:find(erlang:system_info(system_version), "source") =/= nomatch.
 
 is_debug_build() ->
-    case catch string:str(erlang:system_info(system_version), "debug") of
-	Int when is_integer(Int), Int > 0 ->
-	    true;
-	_ ->
-	    false
-    end.
+    string:find(erlang:system_info(system_version), "debug") =/= nomatch.
+
 %%
 %% ssl_libdir
 %%

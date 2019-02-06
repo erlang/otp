@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,15 +85,18 @@ exec(Op, S0=#s{}) ->
 
 	throw:Term ->
 	    report_trace(throw, Term, S1),
-	    throw(Term);
+	    throw({Term,Op});
 
 	error:Error ->
 	    report_trace(error, Error, S1),
-	    error(Error);
+	    error({Error,Op});
 
 	exit:Exit ->
 	    report_trace(exit, Exit, S1),
-	    exit(Exit)
+	    exit({Exit,Op});
+        Cls:Err ->
+            ct:pal("Class=~p, Error=~p", [Cls,Err]),
+            error({"fooooooO",Op})
     end;
 exec(Op, {ok,S=#s{}}) -> exec(Op, S);
 exec(_, Error) -> Error.
@@ -111,20 +114,20 @@ op({accept,Opts}, S) when ?role(S) == server ->
     {ok,Socket} = gen_tcp:accept(S#s.listen_socket, S#s.timeout),
     {Host,_Port} = ok(inet:sockname(Socket)),
     S#s{socket = Socket,
-	ssh = init_ssh(server,Socket,[{host,host(Host)}|Opts]),
+	ssh = init_ssh(server, Socket, host(Host), Opts),
 	return_value = ok};
 
 %%%---- Client ops
 op({connect,Host,Port,Opts}, S) when ?role(S) == undefined -> 
     Socket = ok(gen_tcp:connect(host(Host), Port, mangle_opts([]))),
     S#s{socket = Socket,
-	ssh = init_ssh(client, Socket, [{host,host(Host)}|Opts]),
+	ssh = init_ssh(client, Socket, host(Host), Opts),
 	return_value = ok};
 
 %%%---- ops for both client and server
 op(close_socket, S) ->
-    catch tcp_gen:close(S#s.socket),
-    catch tcp_gen:close(S#s.listen_socket),
+    catch gen_tcp:close(S#s.socket),
+    catch gen_tcp:close(S#s.listen_socket),
     S#s{socket = undefined,
 	listen_socket = undefined,
 	return_value = ok};
@@ -293,12 +296,14 @@ instantiate(X, _S) ->
 
 %%%================================================================
 %%%
-init_ssh(Role, Socket, Options0) ->
-    Options = [{user_interaction, false},
-	       {vsn, {2,0}},
-	       {id_string, "ErlangTestLib"}
-	       | Options0],
-    ssh_connection_handler:init_ssh_record(Role, Socket, Options).
+init_ssh(Role, Socket, Host, UserOptions0) ->
+    UserOptions = [{user_interaction, false},
+                   {vsn, {2,0}},
+                   {id_string, "ErlangTestLib"}
+                   | UserOptions0],
+    Opts = ?PUT_INTERNAL_OPT({host,Host},
+                             ssh_options:handle_options(Role, UserOptions)),
+    ssh_connection_handler:init_ssh_record(Role, Socket, Opts).
 
 mangle_opts(Options) ->
     SysOpts = [{reuseaddr, true},
@@ -309,8 +314,7 @@ mangle_opts(Options) ->
 				   lists:keydelete(K,1,Opts)
 			   end, Options, SysOpts).
     
-host({0,0,0,0}) -> "localhost";
-host(H) -> H.
+host(H) -> ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(H)).
 
 %%%----------------------------------------------------------------
 send(S=#s{ssh=C}, hello) ->
@@ -393,6 +397,12 @@ send(S0, {special,Msg,PacketFun}) when is_tuple(Msg),
     send_bytes(Packet, S#s{ssh = C, %%inc_send_seq_num(C),
 			   return_value = Msg});
 
+send(S0, #ssh_msg_newkeys{} = Msg) ->
+    S = opt(print_messages, S0,
+	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
+    {ok, Packet, C} = ssh_transport:new_keys_message(S#s.ssh),
+    send_bytes(Packet, S#s{ssh = C});
+    
 send(S0, Msg) when is_tuple(Msg) ->
     S = opt(print_messages, S0,
 	    fun(X) when X==true;X==detail -> {"Send~n~s~n",[format_msg(Msg)]} end),
@@ -451,7 +461,10 @@ recv(S0 = #s{}) ->
 		       };
 		#ssh_msg_kexdh_reply{} ->
 		    {ok, _NewKeys, C} = ssh_transport:handle_kexdh_reply(PeerMsg, S#s.ssh),
-		    S#s{ssh=C#ssh{send_sequence=S#s.ssh#ssh.send_sequence}}; % Back the number
+                    S#s{ssh = (S#s.ssh)#ssh{shared_secret = C#ssh.shared_secret,
+                                            exchanged_hash = C#ssh.exchanged_hash,
+                                            session_id = C#ssh.session_id}};
+		    %%%S#s{ssh=C#ssh{send_sequence=S#s.ssh#ssh.send_sequence}}; % Back the number
 		#ssh_msg_newkeys{} ->
 		    {ok, C} = ssh_transport:handle_new_keys(PeerMsg, S#s.ssh),
 		    S#s{ssh=C};

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,8 +12,6 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
 %% ====================================================================
 %% Authors : Dogan Yazar and Erdem Aksu (KT2 project of 2008)
 %% ====================================================================
@@ -25,13 +19,11 @@
 -ifdef(HIPE_AMD64).
 -define(HIPE_X86_SPILL_RESTORE, hipe_amd64_spill_restore).
 -define(HIPE_X86_LIVENESS,      hipe_amd64_liveness).
--define(HIPE_X86_SPECIFIC,      hipe_amd64_specific).
 -define(HIPE_X86_REGISTERS,	hipe_amd64_registers).
 -define(X86STR, "amd64").
 -else.
 -define(HIPE_X86_SPILL_RESTORE, hipe_x86_spill_restore).
 -define(HIPE_X86_LIVENESS,      hipe_x86_liveness).
--define(HIPE_X86_SPECIFIC,      hipe_x86_specific).
 -define(HIPE_X86_REGISTERS,     hipe_x86_registers).
 -define(X86STR, "x86").
 -endif.
@@ -51,15 +43,13 @@
 -include("../flow/cfg.hrl").     % Added for the definition of #cfg{}
 
 %% Main function
-spill_restore(Defun, Options) ->
-  CFG = ?option_time(firstPass(Defun), ?X86STR" First Pass", Options),
-  CFGFinal = ?option_time(secondPass(CFG), ?X86STR" Second Pass", Options),
-  hipe_x86_cfg:linearise(CFGFinal).
+spill_restore(CFG0, Options) ->
+  CFG1 = ?option_time(firstPass(CFG0), ?X86STR" First Pass", Options),
+  ?option_time(secondPass(CFG1), ?X86STR" Second Pass", Options).
 
 %% Performs the first pass of the algorithm.
 %% By working bottom up, introduce the pseudo_spills.
-firstPass(Defun) ->
-  CFG0 = ?HIPE_X86_SPECIFIC:defun_to_cfg(Defun),
+firstPass(CFG0) ->
   %% get the labels bottom up
   Labels = hipe_x86_cfg:postorder(CFG0),
   Liveness = ?HIPE_X86_LIVENESS:analyse(CFG0),

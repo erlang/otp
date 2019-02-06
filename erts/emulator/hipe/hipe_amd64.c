@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #include "error.h"
 #include "bif.h"
 #include "big.h"	/* term_to_Sint() */
+#include "erl_binary.h"
 
 #include "hipe_arch.h"
 #include "hipe_bif0.h"
@@ -37,6 +38,8 @@
 #undef THE_NON_VALUE
 #undef ERL_FUN_SIZE
 #include "hipe_literals.h"
+
+static void patch_trampoline(void *trampoline, void *destAddress);
 
 const Uint sse2_fnegate_mask[2] = {0x8000000000000000,0};
 
@@ -52,9 +55,9 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
     switch (type) {
       case am_closure:
       case am_constant:
+      case am_c_const:
 	*(Uint64*)address = value;
 	break;
-      case am_c_const:
       case am_atom:
 	/* check that value fits in an unsigned imm32 */
 	/* XXX: are we sure it's not really a signed imm32? */
@@ -71,40 +74,21 @@ int hipe_patch_insn(void *address, Uint64 value, Eterm type)
 
 int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
-    Sint rel32;
+    Sint64 destOffset = (Sint64)destAddress - (Sint64)callAddress - 4;
 
-    if (trampoline)
-	return -1;
-    rel32 = (Sint)destAddress - (Sint)callAddress - 4;
-    if ((Sint)(Sint32)rel32 != rel32)
-	return -1;
-    *(Uint32*)callAddress = (Uint32)rel32;
+    if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L)) {
+        destOffset = (Sint64)trampoline - (Sint64)callAddress - 4;
+
+        if ((destOffset < -0x80000000L) || (destOffset >= 0x80000000L))
+            return -1;
+
+        patch_trampoline(trampoline, destAddress);
+    }
+
+    *(Uint32*)callAddress = (Uint32)destOffset;
     hipe_flush_icache_word(callAddress);
     return 0;
 }
-
-#if 0	/* change to non-zero to get allocation statistics at exit() */
-static unsigned int total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs, nr_large, total_lost;
-static unsigned int atexit_done;
-
-static void alloc_code_stats(void)
-{
-    printf("\r\nalloc_code_stats: %u bytes mapped, %u joins, %u splits, %u bytes allocated, %u average alloc, %u large allocs, %u bytes lost\r\n",
-	   total_mapped, nr_joins, nr_splits, total_alloc, nr_allocs ? total_alloc/nr_allocs : 0, nr_large, total_lost);
-}
-
-static void atexit_alloc_code_stats(void)
-{
-    if (!atexit_done) {
-	atexit_done = 1;
-	(void)atexit(alloc_code_stats);
-    }
-}
-
-#define ALLOC_CODE_STATS(X)	do{X;}while(0)
-#else
-#define ALLOC_CODE_STATS(X)	do{}while(0)
-#endif
 
 /*
  * Memory allocator for executable code.
@@ -116,18 +100,88 @@ static void atexit_alloc_code_stats(void)
  */
 static void *alloc_code(unsigned int alloc_bytes)
 {
-    ALLOC_CODE_STATS(++nr_allocs);
-    ALLOC_CODE_STATS(total_alloc += alloc_bytes);
-
     return erts_alloc(ERTS_ALC_T_HIPE_EXEC, alloc_bytes);
+}
+
+static int check_callees(Eterm callees)
+{
+    Eterm *tuple;
+    Uint arity;
+    Uint i;
+
+    if (is_not_tuple(callees))
+	return -1;
+    tuple = tuple_val(callees);
+    arity = arityval(tuple[0]);
+    for (i = 1; i <= arity; ++i) {
+	Eterm mfa = tuple[i];
+	if (is_atom(mfa))
+	    continue;
+	if (is_not_tuple(mfa) ||
+	    tuple_val(mfa)[0] != make_arityval(3) ||
+	    is_not_atom(tuple_val(mfa)[1]) ||
+	    is_not_atom(tuple_val(mfa)[2]) ||
+	    is_not_small(tuple_val(mfa)[3]) ||
+	    unsigned_val(tuple_val(mfa)[3]) > 255)
+	    return -1;
+    }
+    return arity;
+}
+
+#define TRAMPOLINE_BYTES 12
+
+static void generate_trampolines(unsigned char *address,
+                                 int nrcallees, Eterm callees,
+                                 unsigned char **trampvec)
+{
+    unsigned char *trampoline = address;
+    int i;
+
+    for(i = 0; i < nrcallees; ++i) {
+        trampoline[0] = 0x48;           /* movabsq $..., %rax; */
+        trampoline[1] = 0xb8;
+        *(void**)(trampoline+2) = NULL; /* callee's address */
+        trampoline[10] = 0xff;          /* jmpq *%rax */
+        trampoline[11] = 0xe0;
+        trampvec[i] = trampoline;
+        trampoline += TRAMPOLINE_BYTES;
+    }
+    hipe_flush_icache_range(address, nrcallees*TRAMPOLINE_BYTES);
+}
+
+static void patch_trampoline(void *trampoline, void *destAddress)
+{
+    unsigned char *tp = (unsigned char*) trampoline;
+
+    ASSERT(tp[0] == 0x48 && tp[1] == 0xb8);
+
+    *(void**)(tp+2) = destAddress; /* callee's address */
+    hipe_flush_icache_word(tp+2);
 }
 
 void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *p)
 {
-    if (is_not_nil(callees))
+    int nrcallees;
+    Eterm trampvecbin;
+    unsigned char **trampvec;
+    unsigned char *address;
+
+    nrcallees = check_callees(callees);
+    if (nrcallees < 0)
 	return NULL;
-    *trampolines = NIL;
-    return alloc_code(nrbytes);
+
+    trampvecbin = new_binary(p, NULL, nrcallees*sizeof(unsigned char*));
+    trampvec = (unsigned char **)binary_bytes(trampvecbin);
+
+    address = alloc_code(nrbytes + nrcallees*TRAMPOLINE_BYTES);
+    generate_trampolines(address + nrbytes, nrcallees, callees, trampvec);
+    *trampolines = trampvecbin;
+    return address;
+}
+
+void hipe_free_code(void* code, unsigned int bytes)
+{
+    erts_free(ERTS_ALC_T_HIPE_EXEC, code);
 }
 
 /* Make stub for native code calling exported beam function.
@@ -150,10 +204,9 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
      */
     unsigned int codeSize;
     unsigned char *code, *codep;
-    unsigned int callEmuOffset;
 
-    codeSize =	/* 23, 26, 29, or 32 bytes */
-      23 +	/* 23 when all offsets are 8-bit */
+    codeSize =	/* 30, 33, 36, or 39 bytes */
+      30 +	/* 30 when all offsets are 8-bit */
       (P_CALLEE_EXP >= 128 ? 3 : 0) +
       ((P_CALLEE_EXP + 4) >= 128 ? 3 : 0) +
       (P_ARITY >= 128 ? 3 : 0);
@@ -218,20 +271,26 @@ void *hipe_make_native_stub(void *callee_exp, unsigned int beamArity)
     codep[0] = beamArity;
     codep += 1;
 
-    /* jmp callemu; 5 bytes */
-    callEmuOffset = (unsigned char*)nbif_callemu - (code + codeSize);
-    codep[0] = 0xe9;
-    codep[1] =  callEmuOffset        & 0xFF;
-    codep[2] = (callEmuOffset >>  8) & 0xFF;
-    codep[3] = (callEmuOffset >> 16) & 0xFF;
-    codep[4] = (callEmuOffset >> 24) & 0xFF;
-    codep += 5;
+    /* jmp callemu; 12 bytes */
+    codep[0] = 0x48;
+    codep[1] = 0xb8;
+    codep += 2;
+    *(Uint64*)codep = (Uint64)nbif_callemu;
+    codep += 8;
+    codep[0] = 0xff;
+    codep[1] = 0xe0;
+    codep += 2;
 
     ASSERT(codep == code + codeSize);
 
     /* I-cache flush? */
 
     return code;
+}
+
+void hipe_free_native_stub(void* stub)
+{
+    erts_free(ERTS_ALC_T_HIPE_EXEC, stub);
 }
 
 void hipe_arch_print_pcb(struct hipe_process_state *p)

@@ -34,7 +34,6 @@
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0]).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 %%
 %% Define to run outside of test server
@@ -130,24 +129,12 @@ test_hash_zero(Config) when is_list(Config) ->
 %%
 basic_test() ->
     685556714 = erlang:phash({a,b,c},16#FFFFFFFF),
-    14468079 = erlang:hash({a,b,c},16#7FFFFFF),
     37442646 =  erlang:phash([a,b,c,{1,2,3},c:pid(0,2,3),
 				    16#77777777777777],16#FFFFFFFF),
-    Comment = case erlang:hash([a,b,c,{1,2,3},c:pid(0,2,3),
-				      16#77777777777777],16#7FFFFFF) of
-			102727602 ->
-			    big = erlang:system_info(endian),
-			    "Big endian machine";
-			105818829 ->
-			    little = erlang:system_info(endian),
-			    "Little endian machine"
-		    end,
     ExternalReference = <<131,114,0,3,100,0,13,110,111,110,111,100,101,64,
 			 110,111,104,111,115,116,0,0,0,0,122,0,0,0,0,0,0,0,0>>,
     1113403635 = erlang:phash(binary_to_term(ExternalReference),
 				    16#FFFFFFFF),
-    123 = erlang:hash(binary_to_term(ExternalReference),
-			    16#7FFFFFF),
     ExternalFun = <<131,117,0,0,0,3,103,100,0,13,110,111,110,111,100,101,64,
 		   110,111,104,111,115,116,0,0,0,38,0,0,0,0,0,100,0,8,101,
 		   114,108,95,101,118,97,108,97,20,98,5,182,139,98,108,0,0,
@@ -166,11 +153,9 @@ basic_test() ->
 		   64,110,111,104,111,115,116,0,0,0,22,0,0,0,0,0,106>>,
     170987488 = erlang:phash(binary_to_term(ExternalFun),
 				   16#FFFFFFFF),
-    124460689 = erlang:hash(binary_to_term(ExternalFun),
-				  16#7FFFFFF),
     case (catch erlang:phash(1,0)) of
 	{'EXIT',{badarg, _}} ->
-	    {comment, Comment};
+	    ok;
 	_ ->
 	    exit(phash_accepted_zero_as_range)
     end.
@@ -193,7 +178,6 @@ range_test() ->
 	end,
     F(1,16#100000000,F).
 
-    
 
 spread_test(N) ->
     test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
@@ -419,7 +403,7 @@ phash2_test() ->
 	 {"abc"++[1009], 290369864},
 	 {"abc"++[1009]++"de", 4134369195},
 	 {"1234567890123456", 963649519},
-	 
+
 	 %% tuple
 	 {{}, 221703996},
 	 {{{}}, 2165044361},
@@ -452,30 +436,15 @@ f3(X, Y) ->
 -endif.
 
 otp_5292_test() ->
-    H = fun(E) -> [erlang:hash(E, 16#7FFFFFF),
-                   erlang:hash(-E, 16#7FFFFFF)]
-        end,
-    S1 = md5([md5(hash_int(S, E, H)) || {Start, N, Sz} <- d(), 
-                                        {S, E} <- int(Start, N, Sz)]),
     PH = fun(E) -> [erlang:phash(E, 1 bsl 32),
                     erlang:phash(-E, 1 bsl 32),
                     erlang:phash2(E, 1 bsl 32),
                     erlang:phash2(-E, 1 bsl 32)]
             end,
-    S2 = md5([md5(hash_int(S, E, PH)) || {Start, N, Sz} <- d(), 
+    S2 = md5([md5(hash_int(S, E, PH)) || {Start, N, Sz} <- d(),
                                          {S, E} <- int(Start, N, Sz)]),
-    Comment = case S1 of 
-			<<4,248,208,156,200,131,7,1,173,13,239,173,112,81,16,174>> ->
-			    big = erlang:system_info(endian),
-                            "Big endian machine";
-                        <<180,28,33,231,239,184,71,125,76,47,227,241,78,184,176,233>> ->
-			    little = erlang:system_info(endian),
-                            "Little endian machine"
-                    end,
     <<124,81,198,121,174,233,19,137,10,83,33,80,226,111,238,99>> = S2,
-    2 = erlang:hash(1, (1 bsl 27) -1),
-    {'EXIT', _} = (catch erlang:hash(1, (1 bsl 27))),
-    {comment, Comment}.
+    ok.
 
 d() ->
     [%% Start,          NumOfIntervals, SizeOfInterval
@@ -495,8 +464,6 @@ md5(T) ->
     erlang:md5(term_to_binary(T)).   
 
 bit_level_binaries_do() ->
-    [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
-	bit_level_all_different(fun erlang:hash/2),
     [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
 	bit_level_all_different(fun erlang:phash/2),
     [102233154,19716,102133857,4532024,123369135,24565730,109558721|_] =
@@ -535,9 +502,7 @@ bit_level_all_different(Hash) ->
     Hashes1.
 
 test_hash_phash(Bitstr, Rem) ->
-    Hash = erlang:hash(Bitstr, Rem),
     Hash = erlang:phash(Bitstr, Rem),
-    Hash = erlang:hash(unaligned_sub_bitstr(Bitstr), Rem),
     Hash = erlang:phash(unaligned_sub_bitstr(Bitstr), Rem).
 
 test_phash2(Bitstr, Rem) ->
@@ -555,7 +520,6 @@ hash_zero_test() ->
           binary_to_term(<<131,70,128,0,0,0,0,0,0,0>>)], %% -0.0
     ok = hash_zero_test(Zs,fun(T) -> erlang:phash2(T, 1 bsl 32) end),
     ok = hash_zero_test(Zs,fun(T) -> erlang:phash(T, 1 bsl 32) end),
-    ok = hash_zero_test(Zs,fun(T) -> erlang:hash(T, (1 bsl 27) - 1) end),
     ok.
 
 hash_zero_test([Z|Zs],F) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ had_high_cpu_util(StartTime,
     ActTo = TargetTo + TimeoutDiff,
     hcpu(ActTo, TargetTo, UtilData).
 
-hcpu(_ActTo, _TargetTo, [{UT, 0} | _] = UD) ->
+hcpu(_ActTo, _TargetTo, [{_UT, 0} | _]) ->
     missing; %% Util is the integer zero when not supported...
 %% UT2 =:= UT1
 hcpu(ActTo, TargetTo, [{UT, _}, {UT, _} | _] = UD) ->

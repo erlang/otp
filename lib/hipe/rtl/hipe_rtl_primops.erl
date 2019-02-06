@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Copyright (c) 2001 by Erik Johansson.  All Rights Reserved 
@@ -26,9 +20,6 @@
 %%  Notes    : 
 %%  History  :	* 2001-03-15 Erik Johansson (happi@it.uu.se): 
 %%               Created.
-%%
-%% $Id$
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_rtl_primops). 
@@ -300,6 +291,10 @@ gen_primop({Op,Dst,Args,Cont,Fail}, IsGuard, ConstTab) ->
 	    gen_select_msg(Dst, Cont);
 	  clear_timeout ->
 	    gen_clear_timeout(Dst, GotoCont);
+          recv_mark ->
+            gen_recv_mark(Dst, GotoCont);
+	  recv_set ->
+            gen_recv_set(Dst, Cont);
 	  set_timeout ->
 	    %% BIF call: am_set_timeout -> nbif_set_timeout -> hipe_set_timeout
 	    [hipe_rtl:mk_call(Dst, set_timeout, Args, Cont, Fail, not_remote)];
@@ -398,6 +393,10 @@ gen_primop({Op,Dst,Args,Cont,Fail}, IsGuard, ConstTab) ->
 		hipe_tagscheme:unsafe_tag_float(Dst1, Arg)
 	    end;
 	  debug_native_called -> 
+	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
+          build_stacktrace ->
+	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
+          raw_raise ->
 	    [hipe_rtl:mk_call(Dst, Op, Args, Cont, Fail, not_remote)];
 
 	  %% Only names listed above are accepted! MFA:s are not primops!
@@ -760,12 +759,9 @@ gen_fun_thing_skeleton(FunP, FunName={_Mod,_FunId,Arity}, NumFree,
   %%  And creates a fe (at load time).
   FeVar = hipe_rtl:mk_new_reg(),
   PidVar = hipe_rtl:mk_new_reg_gcsafe(),
-  NativeVar = hipe_rtl:mk_new_reg(),
 
   [hipe_rtl:mk_load_address(FeVar, {FunName, MagicNr, Index}, closure),
    store_struct_field(FunP, ?EFT_FE, FeVar),
-   load_struct_field(NativeVar, FeVar, ?EFE_NATIVE_ADDRESS),
-   store_struct_field(FunP, ?EFT_NATIVE_ADDRESS, NativeVar),
 
    store_struct_field(FunP, ?EFT_ARITY, hipe_rtl:mk_imm(Arity-NumFree)),
 
@@ -845,7 +841,7 @@ gen_free_vars([], _, _, _, AccCode) -> AccCode.
 %% call_fun (also handles enter_fun when Continuation = [])
 
 gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->  
-  NAddressReg = hipe_rtl:mk_new_reg(),
+  NCNAddressReg = hipe_rtl:mk_new_reg(),
   ArityReg = hipe_rtl:mk_new_reg_gcsafe(),
   [Fun|RevArgs] = lists:reverse(ArgsAndFun),
 
@@ -856,7 +852,7 @@ gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->
   BadFunLabName = hipe_rtl:label_name(NonClosureLabel),
   BadFunCode =
     [NonClosureLabel,
-     hipe_rtl:mk_call([NAddressReg],
+     hipe_rtl:mk_call([NCNAddressReg],
 		      'nonclosure_address',
 		      [Fun, hipe_rtl:mk_imm(length(Args))],
 		      hipe_rtl:label_name(CallNonClosureLabel),
@@ -865,25 +861,26 @@ gen_call_fun(Dst, ArgsAndFun, Continuation, Fail) ->
      CallNonClosureLabel,
      case Continuation of
        [] ->
-	 hipe_rtl:mk_enter(NAddressReg, Args, not_remote);
+	 hipe_rtl:mk_enter(NCNAddressReg, Args, not_remote);
        _ ->
-	 hipe_rtl:mk_call(Dst, NAddressReg, Args,
+	 hipe_rtl:mk_call(Dst, NCNAddressReg, Args,
 			  Continuation, Fail, not_remote)
      end],
 
   {BadArityLabName, BadArityCode} = gen_fail_code(Fail, {badarity, Fun}),
 
-  CheckGetCode = 
-    hipe_tagscheme:if_fun_get_arity_and_address(ArityReg, NAddressReg,
+  CNAddressReg = hipe_rtl:mk_new_reg(),
+  CheckGetCode =
+    hipe_tagscheme:if_fun_get_arity_and_address(ArityReg, CNAddressReg,
 						Fun, BadFunLabName,
 						0.9),
   CheckArityCode = check_arity(ArityReg, length(RevArgs), BadArityLabName),
   CallCode =
     case Continuation of
       [] -> %% This is a tailcall
-	[hipe_rtl:mk_enter(NAddressReg, ArgsAndFun, not_remote)];
+	[hipe_rtl:mk_enter(CNAddressReg, ArgsAndFun, not_remote)];
       _ -> %% Ordinary call
-	[hipe_rtl:mk_call(Dst, NAddressReg, ArgsAndFun,
+	[hipe_rtl:mk_call(Dst, CNAddressReg, ArgsAndFun,
 			  Continuation, Fail, not_remote)]
     end,
   [CheckGetCode, CheckArityCode, CallCode, BadFunCode, BadArityCode].
@@ -1074,6 +1071,27 @@ gen_tuple_header(Ptr, Arity) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
 %%% Receives
+
+%%% recv_mark is:
+%%%	p->msg.saved_last = p->msg.last;
+gen_recv_mark([], GotoCont) ->
+  TmpLast = hipe_rtl:mk_new_reg(),
+  [load_p_field(TmpLast, ?P_MSG_LAST),
+   store_p_field(TmpLast, ?P_MSG_SAVED_LAST),
+   GotoCont].
+
+%%% recv_set is:
+%%%	if (p->msg.saved_last)
+%%%	    p->msg.save = p->msg.saved_last;
+gen_recv_set([], Cont) ->
+  TmpSave = hipe_rtl:mk_new_reg(),
+  TrueLbl = hipe_rtl:mk_new_label(),
+  [load_p_field(TmpSave, ?P_MSG_SAVED_LAST),
+   hipe_rtl:mk_branch(TmpSave, ne, hipe_rtl:mk_imm(0),
+                      hipe_rtl:label_name(TrueLbl), Cont),
+   TrueLbl,
+   store_p_field(TmpSave, ?P_MSG_SAVE),
+   hipe_rtl:mk_goto(Cont)].
 
 gen_check_get_msg(Dsts, GotoCont, Fail) ->
   gen_check_get_msg_outofline(Dsts, GotoCont, Fail).

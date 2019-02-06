@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -163,27 +163,23 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
-
-real_script_name(ConfigDB, RequestURI, [{MP,Replacement} | Rest])
-  when element(1, MP) =:= re_pattern ->
-    case re:run(RequestURI, MP, [{capture, none}]) of
-	match ->
-	    ActualName =
-		re:replace(RequestURI, MP, Replacement, [{return,list}]),
-	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
-	nomatch ->
-	    real_script_name(ConfigDB, RequestURI, Rest)
-    end;
-
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
     case re:run(RequestURI, "^" ++ FakeName, [{capture, none}]) of
 	match ->
-	    ActualName = 
+	    ActualName0 =
 		re:replace(RequestURI, "^" ++ FakeName, RealName,  [{return,list}]),
+            ActualName = abs_script_path(ConfigDB, ActualName0),
 	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
 	nomatch ->
 	    real_script_name(ConfigDB, RequestURI, Rest)
     end.
+
+%% ERL-574: relative path in script_alias property results in malformed url
+abs_script_path(ConfigDB, [$.|_] = RelPath) ->
+    Root = httpd_util:lookup(ConfigDB, server_root),
+    Root ++ "/" ++ RelPath;
+abs_script_path(_, RelPath) ->
+    RelPath.
 
 %% default_index
 

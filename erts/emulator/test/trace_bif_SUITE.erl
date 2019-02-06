@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ not_run(Config) when is_list(Config) ->
 
 %% Tests switching tracing on and off.
 trace_on_and_off(Config) when is_list(Config) ->
-    Pid = spawn(?MODULE, bif_process, []),
+    Pid = spawn_link(?MODULE, bif_process, []),
     Self = self(),
     1 = erlang:trace(Pid, true, [call,timestamp]),
     {flags, Flags} = erlang:trace_info(Pid,flags),
@@ -59,6 +59,7 @@ trace_on_and_off(Config) when is_list(Config) ->
     1 = erlang:trace(Pid, false, [call]),
     {flags,[]} =  erlang:trace_info(Pid,flags),
     {tracer, []} = erlang:trace_info(Pid,tracer),
+    unlink(Pid),
     exit(Pid,kill),
     ok.
 
@@ -71,7 +72,7 @@ trace_bif_local(Config) when is_list(Config) ->
     do_trace_bif([local]).
 
 do_trace_bif(Flags) ->
-    Pid = spawn(?MODULE, bif_process, []),
+    Pid = spawn_link(?MODULE, bif_process, []),
     1 = erlang:trace(Pid, true, [call]),
     erlang:trace_pattern({erlang,'_','_'}, [], Flags),
     Pid ! {do_bif, time, []},
@@ -90,6 +91,7 @@ do_trace_bif(Flags) ->
 
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({erlang,'_','_'}, false, Flags),
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -121,7 +123,7 @@ trace_bif_timestamp_local(Config) when is_list(Config) ->
 
 do_trace_bif_timestamp(Flags, TsType, TsFlags) ->
     io:format("Testing with TsType=~p TsFlags=~p~n", [TsType, TsFlags]),
-    Pid=spawn(?MODULE, bif_process, []),
+    Pid = spawn_link(?MODULE, bif_process, []),
     1 = erlang:trace(Pid, true, [call]++TsFlags),
     erlang:trace_pattern({erlang,'_','_'}, [], Flags),
 
@@ -161,6 +163,7 @@ do_trace_bif_timestamp(Flags, TsType, TsFlags) ->
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({erlang,'_','_'}, false, Flags),
 
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -179,7 +182,7 @@ trace_bif_return(Config) when is_list(Config) ->
 
 do_trace_bif_return(TsType, TsFlags) ->
     io:format("Testing with TsType=~p TsFlags=~p~n", [TsType, TsFlags]),
-    Pid=spawn(?MODULE, bif_process, []),
+    Pid = spawn_link(?MODULE, bif_process, []),
     1 = erlang:trace(Pid, true, [call,return_to]++TsFlags),
     erlang:trace_pattern({erlang,'_','_'}, [{'_',[],[{return_trace}]}], 
                          [local]),

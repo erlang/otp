@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ package com.ericsson.otp.erlang;
  * <p>
  * Mailboxes can be named, either at creation or later. Messages can be sent to
  * named mailboxes and named Erlang processes without knowing the
- * {@link OtpErlangPid pid} that identifies the mailbox. This is neccessary in
+ * {@link OtpErlangPid pid} that identifies the mailbox. This is necessary in
  * order to set up initial communication between parts of an application. Each
  * mailbox can have at most one name.
  * </p>

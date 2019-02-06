@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2016. All Rights Reserved.
+# Copyright Ericsson AB 2002-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,8 +45,11 @@ include files.mk
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
+XML_GEN_FILES = $(GEN_XML:%=$(XMLDIR)/%)
+
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
+	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html) \
+	$(GEN_XML:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
 
@@ -82,6 +85,7 @@ clean clean_docs:
                   fi \
         done
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~

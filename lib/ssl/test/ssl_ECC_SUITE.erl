@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,51 +36,84 @@ all() ->
     [
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
     [
-     {'tlsv1.2', [], all_versions_groups()},
-     {'tlsv1.1', [], all_versions_groups()},
-     {'tlsv1', [], all_versions_groups()},
-     {'erlang_server', [], key_cert_combinations()},
-     {'erlang_client', [], key_cert_combinations()},
-     {'erlang', [], key_cert_combinations() ++ misc()}
+     {'tlsv1.2', [], [mix_sign | test_cases()]},
+     {'tlsv1.1', [], test_cases()},
+     {'tlsv1', [], test_cases()},
+     {'dtlsv1.2', [], [mix_sign | test_cases()]},
+     {'dtlsv1', [], test_cases()}     
     ].
 
-all_versions_groups ()->
-    [{group, 'erlang_server'},
-     {group, 'erlang_client'},
-     {group, 'erlang'}
-    ].
+test_cases()->
+    key_cert_combinations()
+        ++ misc() 
+        ++ ecc_negotiation().
 
 key_cert_combinations() ->
-    [client_ecdh_server_ecdh,
-     client_rsa_server_ecdh,
-     client_ecdh_server_rsa,
-     client_rsa_server_rsa,
-     client_ecdsa_server_ecdsa,
-     client_ecdsa_server_rsa,
-     client_rsa_server_ecdsa
-    ].
+    server_ecdh_rsa() ++
+        server_ecdhe_rsa() ++
+        server_ecdh_ecdsa() ++
+        server_ecdhe_ecdsa().
+
+server_ecdh_rsa() ->
+    [client_ecdh_rsa_server_ecdh_rsa,
+     client_ecdhe_rsa_server_ecdh_rsa,     
+     client_ecdhe_ecdsa_server_ecdh_rsa].
+
+server_ecdhe_rsa() ->
+    [client_ecdh_rsa_server_ecdhe_rsa,
+     client_ecdhe_rsa_server_ecdhe_rsa,
+     client_ecdhe_ecdsa_server_ecdhe_rsa].
+
+server_ecdh_ecdsa() ->
+    [client_ecdh_ecdsa_server_ecdh_ecdsa,
+     client_ecdhe_rsa_server_ecdh_ecdsa,
+     client_ecdhe_ecdsa_server_ecdh_ecdsa].
+
+server_ecdhe_ecdsa() ->
+    [client_ecdh_rsa_server_ecdhe_ecdsa,
+     client_ecdh_ecdsa_server_ecdhe_ecdsa,
+     client_ecdhe_ecdsa_server_ecdhe_ecdsa].
 
 misc()->
     [client_ecdsa_server_ecdsa_with_raw_key].
+
+ecc_negotiation() ->
+    [ecc_default_order,
+     ecc_default_order_custom_curves,
+     ecc_client_order,
+     ecc_client_order_custom_curves,
+     ecc_unknown_curve,
+     client_ecdh_rsa_server_ecdhe_ecdsa_server_custom,
+     client_ecdh_rsa_server_ecdhe_rsa_server_custom,
+     client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom,
+     client_ecdhe_rsa_server_ecdhe_rsa_server_custom,
+     client_ecdhe_rsa_server_ecdh_rsa_server_custom,
+     client_ecdhe_ecdsa_server_ecdhe_ecdsa_server_custom,
+     client_ecdhe_ecdsa_server_ecdhe_rsa_server_custom,
+     client_ecdhe_ecdsa_server_ecdhe_ecdsa_client_custom,    
+     client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom
+    ].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     end_per_suite(Config0),
     try crypto:start() of
 	ok ->
-	    %% make rsa certs using oppenssl
-	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
-				     proplists:get_value(priv_dir, Config0)),
-	    Config1 = ssl_test_lib:make_ecdsa_cert(Config0),
-	    Config2 = ssl_test_lib:make_ecdh_rsa_cert(Config1),
-	    ssl_test_lib:cert_options(Config2)
+            case ssl_test_lib:sufficient_crypto_support(cipher_ec) of
+                true ->
+                    Config0;
+                false ->
+                    {skip, "Crypto does not support ECC"}
+            end
     catch _:_ ->
-	    {skip, "Crypto did not start"}
+            {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
@@ -88,56 +121,24 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
-init_per_group(erlang_client = Group, Config) ->
-    case ssl_test_lib:is_sane_ecc(openssl) of
-	true ->
-	    common_init_per_group(Group, [{server_type, openssl},
-					  {client_type, erlang} | Config]);
-	false ->
-	    {skip, "Known ECC bug in openssl"}
-    end;
-
-init_per_group(erlang_server = Group, Config) ->
-    case ssl_test_lib:is_sane_ecc(openssl) of 
-	true ->
-	    common_init_per_group(Group, [{server_type, erlang},
-					  {client_type, openssl} | Config]);
-	false ->
-	    {skip, "Known ECC bug in openssl"}
-    end;
-	
-init_per_group(erlang = Group, Config) ->
-     case ssl_test_lib:sufficient_crypto_support(Group) of
-	 true ->
-	     common_init_per_group(Group, [{server_type, erlang},
-					   {client_type, erlang} | Config]);
-	 false ->
-	      {skip, "Crypto does not support ECC"}
-     end;
-
-init_per_group(openssl = Group, Config) ->
-     case ssl_test_lib:sufficient_crypto_support(Group) of
-	 true ->
-	     common_init_per_group(Group, [{server_type, openssl},
-					   {client_type, openssl} | Config]);
-	 false ->
-	      {skip, "Crypto does not support ECC"}
-     end;
-		 
-init_per_group(Group, Config) ->
-    common_init_per_group(Group, Config).
-
-common_init_per_group(GroupName, Config) ->
+init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    Config0 = ssl_test_lib:init_tls_version(GroupName, Config),
-	    [{tls_version, GroupName} | Config0];
-	_ ->
-	   openssl_check(GroupName, Config)
+            [{tls_version, GroupName},
+             {server_type, erlang},
+             {client_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
+        _ ->
+            Config
     end.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config0) ->
+  case ssl_test_lib:is_tls_version(GroupName) of
+      true ->
+          Config = ssl_test_lib:clean_tls_version(Config0),
+          proplists:delete(tls_version, Config);
+      false ->
+          Config0
+  end.
 
 %%--------------------------------------------------------------------
 
@@ -145,7 +146,7 @@ init_per_testcase(TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
     end_per_testcase(TestCase, Config),
-    ssl_test_lib:clean_start(),	
+    ssl:start(),
     ct:timetrap({seconds, 15}),
     Config.
 
@@ -156,209 +157,263 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+%% Test diffrent certificate chain types, note that it is the servers
+%% chain that affect what cipher suit that will be choosen
 
-client_ecdh_server_ecdh(Config) when is_list(Config) ->
-    COpts =  proplists:get_value(client_ecdh_rsa_opts, Config),
-    SOpts = proplists:get_value(server_ecdh_rsa_opts, Config),
-    basic_test(COpts, SOpts, Config).
-    
-client_ecdh_server_rsa(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_ecdh_rsa_opts, Config),
-    SOpts = proplists:get_value(server_opts, Config),
-    basic_test(COpts, SOpts, Config).
-  
-client_rsa_server_ecdh(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_opts, Config),
-    SOpts = proplists:get_value(server_ecdh_rsa_opts, Config),
-    basic_test(COpts, SOpts, Config).
-   
-client_rsa_server_rsa(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_opts, Config),
-    SOpts = proplists:get_value(server_opts, Config),
-    basic_test(COpts, SOpts, Config).
-   
-client_ecdsa_server_ecdsa(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_ecdsa_opts, Config),
-    SOpts = proplists:get_value(server_ecdsa_opts, Config),
-    basic_test(COpts, SOpts, Config).
-
-client_ecdsa_server_rsa(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_ecdsa_opts, Config),
-    SOpts = proplists:get_value(server_opts, Config),
-    basic_test(COpts, SOpts, Config).
-
-client_rsa_server_ecdsa(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_opts, Config),
-    SOpts = proplists:get_value(server_ecdsa_opts, Config),
-    basic_test(COpts, SOpts, Config).
+%% ECDH_RSA 
+client_ecdh_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdh_rsa_server_ecdh_rsa(Config).
+client_ecdhe_rsa_server_ecdh_rsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdhe_rsa_server_ecdh_rsa(Config).
+client_ecdhe_ecdsa_server_ecdh_rsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_rsa(Config).
+%% ECDHE_RSA    
+client_ecdh_rsa_server_ecdhe_rsa(Config)  when is_list(Config) ->
+    ssl_ECC:client_ecdh_rsa_server_ecdhe_rsa(Config).
+client_ecdhe_rsa_server_ecdhe_rsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdhe_rsa_server_ecdhe_rsa(Config).
+client_ecdhe_ecdsa_server_ecdhe_rsa(Config) when is_list(Config) ->
+   ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_rsa(Config).
+%% ECDH_ECDSA
+client_ecdh_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdh_ecdsa_server_ecdh_ecdsa(Config).
+client_ecdhe_rsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdhe_rsa_server_ecdh_ecdsa(Config).
+client_ecdhe_ecdsa_server_ecdh_ecdsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdhe_ecdsa_server_ecdh_ecdsa(Config).
+%% ECDHE_ECDSA
+client_ecdh_rsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdh_rsa_server_ecdhe_ecdsa(Config).
+client_ecdh_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
+    ssl_ECC:client_ecdh_ecdsa_server_ecdhe_ecdsa(Config).
+client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config) when is_list(Config) ->
+     ssl_ECC:client_ecdhe_ecdsa_server_ecdhe_ecdsa(Config).
 
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
-    COpts =  proplists:get_value(client_ecdsa_opts, Config),
-    SOpts = proplists:get_value(server_ecdsa_opts, Config),
-    ServerCert = proplists:get_value(certfile, SOpts),
+     Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                       {client_chain, Default}]
+                                                     , ecdhe_ecdsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
     ServerKeyFile = proplists:get_value(keyfile, SOpts),
     {ok, PemBin} = file:read_file(ServerKeyFile),
     PemEntries = public_key:pem_decode(PemBin),
-    {'ECPrivateKey', Key, not_encrypted} = proplists:lookup('ECPrivateKey', PemEntries),
+     {'ECPrivateKey', Key, not_encrypted} = proplists:lookup('ECPrivateKey', PemEntries),
     ServerKey = {'ECPrivateKey', Key},
-    ServerCA = proplists:get_value(cacertfile, SOpts),
-    ClientCert = proplists:get_value(certfile, COpts),
-    ClientKey = proplists:get_value(keyfile, COpts),
-    ClientCA = proplists:get_value(cacertfile, COpts),
     SType = proplists:get_value(server_type, Config),
     CType = proplists:get_value(client_type, Config),
-    {Server, Port} = start_server_with_raw_key(SType,
-				  ClientCA, ServerCA,
-				  ServerCert,
-				  ServerKey,
-				  Config),
-    Client = start_client(CType, Port, ServerCA, ClientCA,
-			  ClientCert,
-			  ClientKey, Config),
-    check_result(Server, SType, Client, CType),
-    close(Server, Client).
+    {Server, Port} = ssl_test_lib:start_server_with_raw_key(SType,
+                                                            [{key, ServerKey} | proplists:delete(keyfile, SOpts)],
+                                                            Config),
+    Client = ssl_test_lib:start_client(CType, Port, COpts, Config),
+    ssl_test_lib:gen_check_result(Server, SType, Client, CType),
+    ssl_test_lib:stop(Server, Client).
 
-%%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
-%%--------------------------------------------------------------------
-basic_test(COpts, SOpts, Config) ->
-    basic_test(proplists:get_value(certfile, COpts), 
-	       proplists:get_value(keyfile, COpts), 
-	       proplists:get_value(cacertfile, COpts), 
-	       proplists:get_value(certfile, SOpts), 
-	       proplists:get_value(keyfile, SOpts), 
-	       proplists:get_value(cacertfile, SOpts), 
-	       Config).
-    
-basic_test(ClientCert, ClientKey, ClientCA, ServerCert, ServerKey, ServerCA, Config) ->
-    SType = proplists:get_value(server_type, Config),
-    CType = proplists:get_value(client_type, Config),
-    {Server, Port} = start_server(SType,
-				  ClientCA, ServerCA,
-				  ServerCert,
-				  ServerKey,
-				  Config),
-    Client = start_client(CType, Port, ServerCA, ClientCA,
-			  ClientCert,
-			  ClientKey, Config),
-    check_result(Server, SType, Client, CType),
-    close(Server, Client).    
+ecc_default_order(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),   
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [],
+    case ssl_test_lib:supported_eccs([{eccs, [sect571r1]}]) of
+        true ->  ssl_test_lib:ecc_test(sect571r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+     end.
 
-start_client(openssl, Port, PeerCA, OwnCa, Cert, Key, _Config) ->
-    CA = new_openssl_ca("openssl_client_ca", PeerCA, OwnCa),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Exe = "openssl",
-    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
-	    ssl_test_lib:version_flag(Version),
-	    "-cert", Cert, "-CAfile", CA,
-	    "-key", Key, "-host","localhost", "-msg", "-debug"],
-
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
-    true = port_command(OpenSslPort, "Hello world"),
-    OpenSslPort;
-start_client(erlang, Port, PeerCA, OwnCa, Cert, Key, Config) ->
-    CA = new_ca("erlang_client_ca", PeerCA, OwnCa),
-    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
-    ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-			       {host, Hostname},
-			       {from, self()},
-			       {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			       {options, [{verify, verify_peer}, 
-					  {cacertfile, CA},
-					  {certfile, Cert}, {keyfile, Key}]}]).
-
-start_server(openssl, PeerCA, OwnCa, Cert, Key, _Config) ->
-    CA = new_openssl_ca("openssl_server_ca", PeerCA, OwnCa),
-    Port = ssl_test_lib:inet_port(node()),
-    Version = tls_record:protocol_version(tls_record:highest_protocol_version([])),
-    Exe = "openssl",
-    Args = ["s_server", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
-	    "-verify", "2", "-cert", Cert, "-CAfile", CA,
-	    "-key", Key, "-msg", "-debug"],
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
-    true = port_command(OpenSslPort, "Hello world"),
-    {OpenSslPort, Port};
-start_server(erlang, PeerCA, OwnCa, Cert, Key, Config) ->
-    CA = new_ca("erlang_server_ca", PeerCA, OwnCa),
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-			       {from, self()},
-			       {mfa, {ssl_test_lib,
-				      send_recv_result_active,
-				      []}},
-			       {options,
-				[{verify, verify_peer}, {cacertfile, CA},
-				 {certfile, Cert}, {keyfile, Key}]}]),
-    {Server, ssl_test_lib:inet_port(Server)}.
-start_server_with_raw_key(erlang, PeerCA, OwnCa, Cert, Key, Config) ->
-     CA = new_ca("erlang_server_ca", PeerCA, OwnCa),
-    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-			       {from, self()},
-			       {mfa, {ssl_test_lib,
-				      send_recv_result_active,
-				      []}},
-			       {options,
-				[{verify, verify_peer}, {cacertfile, CA},
-				 {certfile, Cert}, {key, Key}]}]),
-    {Server, ssl_test_lib:inet_port(Server)}.
-
-check_result(Server, erlang, Client, erlang) ->
-    ssl_test_lib:check_result(Server, ok, Client, ok);
-check_result(Server, erlang, _, _) ->
-    ssl_test_lib:check_result(Server, ok);
-check_result(_, _, Client, erlang) ->
-    ssl_test_lib:check_result(Client, ok);
-check_result(_,openssl, _, openssl) ->
-    ok.
-
-openssl_check(erlang, Config) ->
-    Config;
-openssl_check(_, Config) ->
-    TLSVersion = proplists:get_value(tls_version, Config),
-    case ssl_test_lib:check_sane_openssl_version(TLSVersion) of
-	true ->
-	    Config;
-	false ->
-	    {skip, "TLS version not supported by openssl"}
+ecc_default_order_custom_curves(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),   
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+         true ->  ssl_test_lib:ecc_test(sect571r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
     end.
 
-close(Port1, Port2) when is_port(Port1), is_port(Port2) ->
-    ssl_test_lib:close_port(Port1),
-    ssl_test_lib:close_port(Port2);
-close(Port, Pid) when is_port(Port) ->
-    ssl_test_lib:close_port(Port),
-    ssl_test_lib:close(Pid);
-close(Pid, Port) when is_port(Port) ->
-    ssl_test_lib:close_port(Port),
-    ssl_test_lib:close(Pid);
-close(Client, Server)  ->
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+ecc_client_order(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),   
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, false}],
+    case ssl_test_lib:supported_eccs([{eccs, [sect571r1]}]) of
+         true -> ssl_test_lib:ecc_test(sect571r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
 
-new_ca(FileName, CA, OwnCa) ->
-    {ok, P1} = file:read_file(CA),
-    E1 = public_key:pem_decode(P1),
-    {ok, P2} = file:read_file(OwnCa),
-    E2 = public_key:pem_decode(P2),
-    Pem = public_key:pem_encode(E1 ++E2),
-    file:write_file(FileName,  Pem),
-    FileName.
+ecc_client_order_custom_curves(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
+                                                        {client_chain, Default}],
+                                                      ecdhe_ecdsa, ecdhe_ecdsa, Config),   
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, false}, {eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(sect571r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
 
-new_openssl_ca(FileName, CA, OwnCa) ->
-    {ok, P1} = file:read_file(CA),
-    E1 = public_key:pem_decode(P1),
-    {ok, P2} = file:read_file(OwnCa),
-    E2 = public_key:pem_decode(P2),
-    case os:cmd("openssl version") of 
-	"OpenSSL 1.0.1p-freebsd" ++ _ ->
-	    Pem = public_key:pem_encode(E1 ++E2),
-	    file:write_file(FileName,  Pem);
-	"LibreSSL" ++ _ ->
-	    Pem = public_key:pem_encode(E1 ++E2),
-	    file:write_file(FileName,  Pem);
-	_ ->
-	    Pem = public_key:pem_encode(E2 ++E1),
-	    file:write_file(FileName,  Pem)
-    end,  
-    FileName.
+ecc_unknown_curve(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
+                                                       {client_chain, Default}],
+                                                      ecdhe_ecdsa, ecdhe_ecdsa, Config),   
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{eccs, ['123_fake_curve']}],
+    ssl_test_lib:ecc_test_error(COpts, SOpts, [], ECCOpts, Config).
+
+client_ecdh_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
+                                                       {client_chain, Default}], 
+                                                        ecdh_rsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+     case ssl_test_lib:supported_eccs(ECCOpts) of
+         true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+         false -> {skip, "unsupported named curves"}
+     end.
+
+client_ecdh_rsa_server_ecdhe_rsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdh_rsa, ecdhe_rsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+     ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdhe_rsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+         true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_rsa_server_ecdhe_rsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}], 
+                                                        ecdhe_rsa, ecdhe_rsa, Config),
+
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+     end.
+client_ecdhe_rsa_server_ecdh_rsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    Ext = x509_test:extensions([{key_usage, [keyEncipherment]}]),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, [[], [], [{extensions, Ext}]]},
+                                                         {client_chain, Default}], 
+                                                        ecdhe_rsa, ecdh_rsa, Config),
+
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    Expected = pubkey_cert_records:namedCurves(hd(tls_v1:ecc_curves(0))), %% The certificate curve
+
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(Expected, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_ecdsa_server_ecdhe_ecdsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                       {client_chain, Default}], 
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_ecdsa_server_ecdhe_rsa_server_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                        ecdhe_ecdsa, ecdhe_rsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{honor_ecc_order, true}, {eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, [], ECCOpts, Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_ecdsa_server_ecdhe_ecdsa_client_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                       {client_chain, Default}],
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, ECCOpts, [], Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+client_ecdhe_rsa_server_ecdhe_ecdsa_client_custom(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default}, 
+                                                         {client_chain, Default}],
+                                                         ecdhe_rsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCOpts = [{eccs, [secp256r1, sect571r1]}],
+    case ssl_test_lib:supported_eccs(ECCOpts) of
+        true -> ssl_test_lib:ecc_test(secp256r1, COpts, SOpts, ECCOpts, [], Config);
+        false -> {skip, "unsupported named curves"}
+    end.
+
+mix_sign(Config) ->
+    mix_sign_rsa_peer(Config),
+    mix_sign_ecdsa_peer(Config).
+ 
+mix_sign_ecdsa_peer(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert([{mix, peer_ecc} |Config]),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECDHE_ECDSA =
+        ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
+                                 [{key_exchange, fun(ecdhe_ecdsa) -> true; (_) -> false end}]),
+    ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_ECDSA} | SOpts], Config).
+ 
+
+mix_sign_rsa_peer(Config) ->
+    {COpts0, SOpts0} = ssl_test_lib:make_mix_cert([{mix, peer_rsa} |Config]),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config), 
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECDHE_RSA =
+        ssl:filter_cipher_suites(ssl:cipher_suites(default, 'tlsv1.2'), 
+                                 [{key_exchange, fun(ecdhe_rsa) -> true; (_) -> false end}]),
+    ssl_test_lib:basic_test(COpts, [{ciphers, ECDHE_RSA} | SOpts], Config).
+    

@@ -533,7 +533,7 @@ apply_spec_test({Mod,Fun,_Arity}=MFA, {_Domain,Range}, SpecTimeout, FalsePositiv
                      try apply(Mod,Fun,Args) of
                          X -> {ok, X}
                      catch
-                         X:Y -> {X, Y}
+                         X:Y:S -> {{X, Y}, S}
                      end,
                  case Result of
                      {ok, Z} ->
@@ -545,15 +545,15 @@ apply_spec_test({Mod,Fun,_Arity}=MFA, {_Domain,Range}, SpecTimeout, FalsePositiv
                              false ->
                                  false
                          end;
-                     Exception when is_function(FalsePositiveMFAs) ->
+                     {Exception, S2} when is_function(FalsePositiveMFAs) ->
                          case FalsePositiveMFAs(MFA, Args, Exception) of
                              true ->
                                  true;
                              false ->
-                                 error(Exception, erlang:get_stacktrace())
+                                 error(Exception, S2)
                          end;
-                     Exception ->
-                         error(Exception, erlang:get_stacktrace())
+                     {Exception, S3} ->
+                         error(Exception, S3)
                  end
              end).
 

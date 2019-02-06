@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ add_host_key(_, _, _) ->
 is_host_key(_, _, _, _) ->
     true.
 
-user_key('ssh-dss', Opts) ->
+user_key('ssh-rsa', Opts) ->
     UserDir = proplists:get_value(user_dir, Opts),
-    KeyFile = filename:join(filename:dirname(UserDir), "id_dsa"),
+    KeyFile = filename:join(filename:dirname(UserDir), "id_rsa"),
     {ok, KeyBin} = file:read_file(KeyFile),
     [Entry] = public_key:pem_decode(KeyBin),
     Key = public_key:pem_entry_decode(Entry),

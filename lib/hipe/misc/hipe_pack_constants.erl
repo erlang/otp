@@ -1,10 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
-%%=============================================================================
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,12 +11,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_pack_constants).
--export([pack_constants/2, slim_refs/1, slim_constmap/1,
+-export([pack_constants/1, slim_refs/1, slim_constmap/1,
         find_const/2, mk_data_relocs/2, slim_sorted_exportmap/3]).
 
 -include("hipe_consttab.hrl").
@@ -45,8 +37,8 @@
 
 -record(pcm_entry, {mfa       :: mfa(),
 		    label     :: hipe_constlbl(),
-                   const_num :: const_num(),
-                   start     :: addr(),
+                    const_num :: const_num(),
+                    start     :: addr(),
 		    type      :: 0 | 1 | 2,
 		    raw_data  :: raw_data()}).
 -type pcm_entry() :: #pcm_entry{}.
@@ -61,11 +53,11 @@
 
 %%-----------------------------------------------------------------------------
 
--spec pack_constants([{mfa(),[_],hipe_consttab()}], ct_alignment()) ->
+-spec pack_constants([{mfa(),[_],hipe_consttab()}]) ->
        {ct_alignment(), non_neg_integer(), packed_const_map(), mfa_refs_map()}.
 
-pack_constants(Data, Align) ->
-  pack_constants(Data, 0, Align, 0, [], []).
+pack_constants(Data) ->
+  pack_constants(Data, 0, 1, 0, [], []).	% 1 = byte alignment
 
 pack_constants([{MFA,_,ConstTab}|Rest], Size, Align, ConstNo, Acc, Refs) ->
   Labels = hipe_consttab:labels(ConstTab),

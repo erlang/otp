@@ -7,7 +7,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("dialyzer_test_constants.hrl").
 
--export([suite/0, all/0, init_per_suite/0, init_per_suite/1]).
+-export([suite/0, all/0, init_per_suite/0, init_per_suite/1, end_per_suite/1]).
 -export([generated_case/1]).
 
 suite() ->
@@ -23,6 +23,10 @@ init_per_suite(Config) ->
     fail -> {skip, "Plt creation/check failed."};
     ok -> [{dialyzer_options, []}|Config]
   end.
+
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
 
 generated_case(Config) when is_list(Config) ->
     %% Equivalent to:
@@ -79,7 +83,8 @@ generated_case(Config) when is_list(Config) ->
 	     Config, [], []),
     ok.
 
-test(Prog, Config, COpts, DOpts) ->
+test(Prog0, Config, COpts, DOpts) ->
+    Prog = erl_parse:anno_from_term(Prog0),
     {ok, BeamFile} = compile(Config, Prog, COpts),
     run_dialyzer(Config, succ_typings, [BeamFile], DOpts).
 

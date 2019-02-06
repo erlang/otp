@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #ifndef __WIN32__
 #include <unistd.h>
@@ -33,14 +34,14 @@
     exit(1); \
 }
 
-#define MAIN(argc, argv) main(argc, argv)
+#define ASSERT(e) ((void) ((e) ? 1 : abort()))
 
 extern int errno;
 
 typedef struct {
     char* progname;	        /* Name of this program (from argv[0]). */
     int header_size;	        /* Number of bytes in each packet header:
-				 * 1, 2, or 4, or 0 for a continous byte stream. */
+				 * 1, 2, or 4, or 0 for a continuous byte stream. */
     int fd_from_erl;	        /* File descriptor from Erlang. */
     int fd_to_erl;	        /* File descriptor to Erlang. */
     unsigned char* io_buf;      /* Buffer for file i/o. */
@@ -105,9 +106,7 @@ int err;
 #endif
 
 
-MAIN(argc, argv)
-int argc;
-char *argv[];
+int main(int argc, char *argv[])
 {
   int ret, fd_count;
   if((port_data = (PORT_TEST_DATA *) malloc(sizeof(PORT_TEST_DATA))) == NULL) {
@@ -377,9 +376,11 @@ write_reply(buf, size)
      int size;			/* Size of buffer to send. */
 {
     int n;			/* Temporary to hold size. */
+    int rv;
 
     if (port_data->slow_writes <= 0) {	/* Normal, "fast", write. */
-	write(port_data->fd_to_erl, buf, size);
+	rv = write(port_data->fd_to_erl, buf, size);
+        ASSERT(rv == size);
     } else {
 	/*
 	 * Write chunks with delays in between.
@@ -387,7 +388,8 @@ write_reply(buf, size)
 
 	while (size > 0) {
 	    n = size > port_data->slow_writes ? port_data->slow_writes : size;
-	    write(port_data->fd_to_erl, buf, n);
+	    rv = write(port_data->fd_to_erl, buf, n);
+            ASSERT(rv == n);
 	    size -= n;
 	    buf += n;
 	    if (size)
@@ -558,7 +560,7 @@ char* spec;			/* Specification for reply. */
     buf = (char *) malloc(total_size);
     if (buf == NULL) {
 	fprintf(stderr, "%s: insufficent memory for reply buffer of size %d\n",
-		port_data->progname, total_size);
+		port_data->progname, (int)total_size);
 	exit(1);
     }
 

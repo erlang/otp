@@ -4,14 +4,14 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,9 +19,9 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-      
+
     </legalnotice>
-    
+
     <title>Megaco Release Notes</title>
     <prepared>Lars Thors&eacute;n, H&aring;kan Mattsson, Micael Karlberg</prepared>
     <docno></docno>
@@ -35,9 +35,54 @@
   bugfixes for every release of Megaco. Each release of Megaco
   thus constitutes one section in this document. The title of each
   section is the version number of Megaco.</p>
-  
-  
-  <section><title>Megaco 3.18.1</title>
+
+
+  <section><title>Megaco 3.18.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Typos have been fixed.</p>
+          <p>
+	    Own Id: OTP-14387</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -127,7 +172,7 @@
       </item>
     </list>
     </section>
-  
+
   </section>
 
   <section><title>Megaco 3.17.0.2</title>
@@ -143,7 +188,7 @@
       </item>
     </list>
     </section>
-  
+
   </section>
 
   <section><title>Megaco 3.17.0.1</title>
@@ -175,7 +220,7 @@
       <list type="bulleted">
         <item>
           <p>Allow whitespaces in installation path. </p>
-          <p>It is now possible to give configure and make an 
+          <p>It is now possible to give configure and make an
 	  installation/release path with whitespaces in it. </p>
           <p>Own Id: OTP-10107</p>
         </item>
@@ -187,24 +232,24 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
  <!--
       <p>-</p>
  -->
-      
+
       <list type="bulleted">
 	<item>
-          <p>Buffer overrun error while flex scanner processing 
+          <p>Buffer overrun error while flex scanner processing
 	  property parm groups. </p>
-          <p>This error occured only for large messages if a 
-	  buffer realloc was needed while processing the 
+          <p>This error occured only for large messages if a
+	  buffer realloc was needed while processing the
 	  property parm groups. </p>
           <p>Own Id: OTP-10998</p>
           <p>Aux Id: Seq 12263</p>
 	</item>
-	
+
       </list>
-      
+
     </section>
 
     <section>
@@ -214,10 +259,10 @@
 <!--
       <list type="bulleted">
         <item>
-	  <p>A number of binary encoding alternatives has been removed. 
+	  <p>A number of binary encoding alternatives has been removed.
 	  The binary encoding option <c>driver</c> has been removed
-	  since this (the use of the asn1 linked in driver) is 
-	  now default and there is now way to <em>not</em> use it. 
+	  since this (the use of the asn1 linked in driver) is
+	  now default and there is now way to <em>not</em> use it.
 	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
         </item>
 
@@ -255,19 +300,19 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
       <p>-</p>
-      
+
  <!--
       <list type="bulleted">
 	<item>
 	  <p>Fixing miscellaneous things detected by dialyzer. </p>
 	  <p>Own Id: OTP-9075</p>
 	</item>
-	
+
       </list>
  -->
-      
+
     </section>
 
     <section>
@@ -278,10 +323,10 @@
 
       <list type="bulleted">
         <item>
-	  <p>A number of binary encoding alternatives has been removed. 
+	  <p>A number of binary encoding alternatives has been removed.
 	  The binary encoding option <c>driver</c> has been removed
-	  since this (the use of the asn1 linked in driver) is 
-	  now default and there is now way to <em>not</em> use it. 
+	  since this (the use of the asn1 linked in driver) is
+	  now default and there is now way to <em>not</em> use it.
 	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
         </item>
 
@@ -307,7 +352,7 @@
       <list type="bulleted">
         <item>
           <p>Allow whitespaces in installation path. </p>
-          <p>It is now possible to give configure and make an 
+          <p>It is now possible to give configure and make an
 	  installation/release path with whitespaces in it. </p>
           <p>Own Id: OTP-10107</p>
         </item>
@@ -317,8 +362,8 @@
         </item>
 
         <item>
-          <p>Removed use of deprecated system flag, 
-	  <c>global_haeps_size</c>, in the measurement tool 
+          <p>Removed use of deprecated system flag,
+	  <c>global_haeps_size</c>, in the measurement tool
 	  <c>mstone1</c>. </p>
         </item>
 
@@ -328,19 +373,19 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
       <p>-</p>
-      
+
  <!--
       <list type="bulleted">
 	<item>
 	  <p>Fixing miscellaneous things detected by dialyzer. </p>
 	  <p>Own Id: OTP-9075</p>
 	</item>
-	
+
       </list>
  -->
-      
+
     </section>
 
     <section>
@@ -350,8 +395,8 @@
 <!--
       <list type="bulleted">
         <item>
-	  <p>Due to the change in the flex driver API, 
-	  we may no longer be able to build and/or use 
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
 	  the flex driver without reentrant support. </p>
           <p>Own Id: OTP-9795</p>
         </item>
@@ -385,8 +430,8 @@
         </item>
 
         <item>
-          <p>Removed use of deprecated system flag, 
-	  <c>scheduler_bind_type</c>, in the measurement tool 
+          <p>Removed use of deprecated system flag,
+	  <c>scheduler_bind_type</c>, in the measurement tool
 	  <c>mstone1</c>. </p>
           <p>Own Id: OTP-9949</p>
         </item>
@@ -397,19 +442,19 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
       <p>-</p>
-      
+
  <!--
       <list type="bulleted">
 	<item>
 	  <p>Fixing miscellaneous things detected by dialyzer. </p>
 	  <p>Own Id: OTP-9075</p>
 	</item>
-	
+
       </list>
  -->
-      
+
     </section>
 
     <section>
@@ -419,8 +464,8 @@
 <!--
       <list type="bulleted">
         <item>
-	  <p>Due to the change in the flex driver API, 
-	  we may no longer be able to build and/or use 
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
 	  the flex driver without reentrant support. </p>
           <p>Own Id: OTP-9795</p>
         </item>
@@ -452,8 +497,8 @@
         </item>
 
         <item>
-	  <p>ASN.1 no longer makes use of a driver to accelerate encode/decode, 
-	  instead it uses NIFs. The encoding config option is <em>still</em> 
+	  <p>ASN.1 no longer makes use of a driver to accelerate encode/decode,
+	  instead it uses NIFs. The encoding config option is <em>still</em>
 	  the same, i.e. <c>driver</c>. </p>
           <p>Own Id: OTP-9672</p>
         </item>
@@ -476,19 +521,19 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
       <p>-</p>
-      
+
  <!--
       <list type="bulleted">
 	<item>
 	  <p>Fixing miscellaneous things detected by dialyzer. </p>
 	  <p>Own Id: OTP-9075</p>
 	</item>
-	
+
       </list>
  -->
-      
+
     </section>
 
     <section>
@@ -498,8 +543,8 @@
 <!--
       <list type="bulleted">
         <item>
-	  <p>Due to the change in the flex driver API, 
-	  we may no longer be able to build and/or use 
+	  <p>Due to the change in the flex driver API,
+	  we may no longer be able to build and/or use
 	  the flex driver without reentrant support. </p>
           <p>Own Id: OTP-9795</p>
         </item>
@@ -536,19 +581,19 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      
+
       <p>-</p>
-      
+
  <!--
       <list type="bulleted">
 	<item>
 	  <p>Fixing miscellaneous things detected by dialyzer. </p>
 	  <p>Own Id: OTP-9075</p>
 	</item>
-	
+
       </list>
  -->
-      
+
     </section>
 
   </section> <!-- 3.15.1.1 -->
@@ -567,8 +612,8 @@
 <!--
       <list type="bulleted">
         <item>
-          <p>Updated the 
-            <seealso marker="megaco_performance">performance</seealso> 
+          <p>Updated the
+            <seealso marker="megaco_performance">performance</seealso>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>
@@ -622,7 +667,7 @@
 <!--
       <list type="bulleted">
         <item>
-          <p>Eliminated a possible race condition while creating 
+          <p>Eliminated a possible race condition while creating
             pending counters. </p>
           <p>Own Id: OTP-8634</p>
 	  <p>Aux Id: Seq 11579</p>
@@ -651,8 +696,8 @@
 
       <list type="bulleted">
         <item>
-          <p>Updated the 
-            <seealso marker="megaco_performance">performance</seealso> 
+          <p>Updated the
+            <seealso marker="megaco_performance">performance</seealso>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>
@@ -679,14 +724,14 @@
 
         <item>
           <p>Fix shared libraries installation. </p>
-          <p>The flex shared lib(s) were incorrectly installed as data 
+          <p>The flex shared lib(s) were incorrectly installed as data
             files. </p>
           <p>Peter Lemenkov</p>
           <p>Own Id: OTP-8627</p>
         </item>
 
         <item>
-          <p>Eliminated a possible race condition while creating 
+          <p>Eliminated a possible race condition while creating
             pending counters. </p>
           <p>Own Id: OTP-8634</p>
 	  <p>Aux Id: Seq 11579</p>
@@ -742,14 +787,14 @@
 
         <item>
           <p>Fix shared libraries installation. </p>
-          <p>The flex shared lib(s) were incorrectly installed as data 
+          <p>The flex shared lib(s) were incorrectly installed as data
             files. </p>
           <p>Peter Lemenkov</p>
           <p>Own Id: OTP-8627</p>
         </item>
 
         <item>
-          <p>Eliminated a possible race condition while creating 
+          <p>Eliminated a possible race condition while creating
             pending counters. </p>
           <p>Own Id: OTP-8634</p>
 	  <p>Aux Id: Seq 11579</p>
@@ -777,18 +822,18 @@
 
       <list type="bulleted">
         <item>
-          <p>Various changes to configure and makefile(s) to facilitate cross 
+          <p>Various changes to configure and makefile(s) to facilitate cross
             compilation (and other build system improvements). </p>
           <p>Own Id: OTP-8323</p>
         </item>
 
         <item>
-          <p>Added a help target in the test Makefile to explain 
-            the most useful make targets, used when testing the 
+          <p>Added a help target in the test Makefile to explain
+            the most useful make targets, used when testing the
             application using the test-server provided with megaco.</p>
           <p>Own Id: OTP-8362</p>
         </item>
- 
+
         <item>
           <p>Adapted megaco_filter to the new internal format.</p>
           <p>Own Id: OTP-8403</p>
@@ -805,16 +850,16 @@
 
       <list type="bulleted">
         <item>
-          <p>Callbacks, when the callback module is unknown (undefined), 
+          <p>Callbacks, when the callback module is unknown (undefined),
             results in warning messages. </p>
           <p>A race condition scenario. As part of a cancelation operation,
             replies with waiting acknowledgements is cancelled. This includes
-            informing the user (via a call to the handle_trans_ack callback 
-            function). It is possible that at this point the connection data 
-            has been removed, which makes it impossible for megaco to 
-            perform this operation, resulting in the warning message. The 
-            solution is to also store the callback module with the other 
-            reply information, to be used when cleaning up after a 
+            informing the user (via a call to the handle_trans_ack callback
+            function). It is possible that at this point the connection data
+            has been removed, which makes it impossible for megaco to
+            perform this operation, resulting in the warning message. The
+            solution is to also store the callback module with the other
+            reply information, to be used when cleaning up after a
             cancelation. </p>
           <p>Own Id: OTP-8328</p>
 	  <p>Aux Id: Seq 11384</p>
@@ -848,8 +893,8 @@
         </item>
 
         <item>
-          <p>The documentation is now built with open source tools 
-            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
+          <p>The documentation is now built with open source tools
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most
             platforms. One visible change is that the frames are removed.</p>
           <p>Own Id: OTP-8249</p>
         </item>
@@ -895,11 +940,4 @@
     </section>
   </section> <!-- 3.13 -->
 
-
-  <!-- section>
-    <title>Release notes history</title>
-    <p>For information about older versions see
-      <url href="part_notes_history_frame.html">release notes history</url>.</p 
-  </section> -->
 </chapter>
-

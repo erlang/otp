@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,11 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%%% @doc Common Test Framework test execution control module.
-%%%
-%%% <p>This module is a proxy for calling and handling locks in 
-%%%    common test hooks.</p>
 
 -module(ct_hooks_lock).
 
@@ -42,7 +37,6 @@
 %%% API
 %%%===================================================================
 
-%% @doc Starts the server
 start(Id) ->
     case gen_server:start({local, ?SERVER}, ?MODULE, Id, []) of
 	{error,{already_started, Pid}} ->
@@ -76,11 +70,10 @@ release() ->
 %%% gen_server callbacks
 %%%===================================================================
 
-%% @doc Initiates the server
 init(Id) ->
+    ct_util:mark_process(),
     {ok, #state{ id = Id }}.
 
-%% @doc Handling call messages
 handle_call({stop,Id}, _From, #state{ id = Id, requests = Reqs } = State) ->
     _ = [gen_server:reply(Req, locker_stopped) || {Req,_ReqId} <- Reqs],
     {stop, normal, stopped, State};
@@ -107,11 +100,9 @@ handle_call({release, Pid}, _From,
 handle_call({release, _Pid}, _From, State) ->
     {reply, not_locked, State}.
     
-%% @doc Handling cast messages
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%% @doc Handling all non call/cast messages
 handle_info({'DOWN',Ref,process,Pid,_},
 	    #state{ locked = {true, Pid, Ref},
 		    requests = [{NextFrom,NextPid}|Rest] } = State) ->
@@ -120,11 +111,9 @@ handle_info({'DOWN',Ref,process,Pid,_},
     {noreply,State#state{ locked = {true, NextPid, NextRef},
 			  requests = Rest } }.
 
-%% @doc This function is called by a gen_server when it is about to terminate. 
 terminate(_Reason, _State) ->
     ok.
 
-%% @doc Convert process state when code is changed
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 

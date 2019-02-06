@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ start_detail_win(Id) ->
 	"#Port"++_ ->
 	    start_detail_win(Id, port);
 	_ ->
-	    io:format("cdv: unknown identifier: ~p~n",[Id]),
+	    io:format("cdv: unknown identifier: ~tp~n",[Id]),
 	    ignore
     end.
 
@@ -174,7 +174,7 @@ do_start_detail_win(Id, #state{panel=Panel,detail_wins=Opened,
 	case lists:keyfind(Id, 1, Opened) of
 	    false ->
 		Data = call(Holder, {get_data, self(), Id}),
-		case cdv_detail_wx:start_link(Id, Data, Panel, Callback) of
+		case cdv_detail_wx:start_link(Id, Data, Panel, Callback, cdv) of
 		    {error, _} -> Opened;
 		    IW -> [{Id, IW} | Opened]
 		end;
@@ -195,7 +195,7 @@ call(Holder, What) when is_pid(Holder) ->
 	    erlang:demonitor(Ref),
 	    Res
     after 5000 ->
-	    io:format("Hanging call ~p~n",[What]),
+	    io:format("Hanging call ~tp~n",[What]),
 	    ""
     end;
 call(_,_) ->
@@ -214,7 +214,7 @@ handle_info(active, State) ->
     {noreply, State};
 
 handle_info(Info, State) ->
-    io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p, Unexpected info: ~tp~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{holder=Holder}) ->
@@ -236,7 +236,7 @@ handle_call(new_dump, _From,
     {reply, ok, State#state{detail_wins=[],holder=NewHolder,trunc_warn=TW}};
 
 handle_call(Msg, _From, State) ->
-    io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled call ~tp~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast({start_detail_win,Id}, State) ->
@@ -248,7 +248,7 @@ handle_cast({detail_win_closed, Id},#state{detail_wins=Opened}=State) ->
     {noreply, State#state{detail_wins=Opened2}};
 
 handle_cast(Msg, State) ->
-    io:format("~p:~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled cast ~tp~n", [?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%LOOP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -322,7 +322,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_activated,
     {noreply, State};
 
 handle_event(Event, State) ->
-    io:format("~p:~p: handle event ~p\n", [?MODULE, ?LINE, Event]),
+    io:format("~p:~p: handle event ~tp\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 
@@ -382,7 +382,7 @@ table_holder(#holder{callback=Callback, attrs=Attrs, info=Info}=S0) ->
 	stop ->
 	    ok;
 	What ->
-	    io:format("Table holder got ~p~n",[What]),
+	    io:format("Table holder got ~tp~n",[What]),
 	    table_holder(S0)
     end.
 

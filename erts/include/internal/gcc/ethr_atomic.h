@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
  *
  *       Due to this we cannot use the __ATOMIC_SEQ_CST
  *       memory model. For more information see the comment
- *       in the begining of ethr_membar.h in this directory.
+ *       in the beginning of ethr_membar.h in this directory.
  */
 
 #undef ETHR_INCLUDE_ATOMIC_IMPL__

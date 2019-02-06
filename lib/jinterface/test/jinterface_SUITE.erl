@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -176,9 +176,27 @@ init_per_suite(Config) when is_list(Config) ->
 	     {error,bad_name} -> false;
 	     P -> filelib:is_dir(P) end of
 	true ->
-	    jitu:init_all(Config);
+            case hostname_resolves() of
+                true ->
+                    jitu:init_all(Config);
+                Skip ->
+                    Skip
+            end;
 	false ->
 	    {skip,"No jinterface application"}
+    end.
+
+%% Check if inet:gethostname() can be resolved by
+%% the native resolver. If it can, we know that
+%% jinterface name resolution works. If it cannot
+%% jinterface tests will fail.
+hostname_resolves() ->
+    {ok, HN} = inet:gethostname(),
+    case inet_gethost_native:gethostbyname(HN) of
+        {ok, _} ->
+            true;
+        _ ->
+            {skip, "Cannot resolve short hostname, add " ++ HN ++ " to /etc/hosts"}
     end.
 
 end_per_suite(Config) when is_list(Config) ->

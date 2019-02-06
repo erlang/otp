@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 %% all types in an ASN.1 module
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
 -export([gen_dec_imm/2]).
 -export([gen_dec_prim/3,gen_encode_prim_imm/3]).
@@ -35,33 +34,36 @@
 -export([extaddgroup2sequence/1]).
 -export([dialyzer_suppressions/1]).
 
--import(asn1ct_gen, [emit/1,demit/1]).
+-import(asn1ct_gen, [emit/1]).
 -import(asn1ct_func, [call/3]).
 
 
-%% Generate ENCODING ******************************
-%%****************************************x
+%%****************************************
+%% Generate ENCODING
+%%****************************************
 
-dialyzer_suppressions(Erules) ->
-    case asn1ct_func:is_used({Erules,complete,1}) of
+dialyzer_suppressions(#gen{erule=per,aligned=Aligned}) ->
+    Mod = case Aligned of
+              false -> uper;
+              true -> per
+          end,
+    suppress({Mod,complete,1}),
+    suppress({per_common,to_bitstring,2}),
+    emit(["    ok.",nl]).
+
+suppress({M,F,A}=MFA) ->
+    case asn1ct_func:is_used(MFA) of
 	false ->
 	    ok;
 	true ->
-	    emit(["    _ = complete(Arg),",nl])
-    end,
-    emit(["    ok.",nl]).
-
+	    Args =
+                [lists:concat(["element(",I,", Arg)"])
+                 || I <- lists:seq(1, A)],
+	    emit(["    ",{call,M,F,Args},com,nl])
+    end.
 
 gen_encode(Erules,Type) when is_record(Type,typedef) ->
     gen_encode_user(Erules,Type).
-%%    case Type#typedef.typespec of
-%%	Def when is_record(Def,type) ->	    
-%%	    gen_encode_user(Erules,Type);
-%%	Def when is_tuple(Def),(element(1,Def) == 'Object') ->
-%%	    gen_encode_object(Erules,Type);
-%%	Other ->
-%%	    exit({error,{asn1,{unknown,Other}}})
-%%    end.
 
 gen_encode(Erules,Typename,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTypename = [Cname|Typename],
@@ -72,15 +74,14 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
     ObjFun =
 	case lists:keysearch(objfun,1,Type#type.tablecinf) of
 	    {value,{_,_Name}} ->
-%%		lists:concat([", ObjFun",Name]);
 		", ObjFun";
 	    false ->
 		""
 	end,
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
-	    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val",ObjFun,
-		  ") ->",nl}),
+            Func = enc_func(asn1ct_gen:list2name(Typename)),
+            emit([{asis,Func},"(Val",ObjFun,") ->",nl]),
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,Type);
 	_ ->
 	    true
@@ -92,20 +93,21 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
     InnerType = asn1ct_gen:get_inner(Def#type.def),
-    emit({"'enc_",asn1ct_gen:list2name(Typename),"'(Val) ->",nl}),
+    Func = enc_func(asn1ct_gen:list2name(Typename)),
+    emit([{asis,Func},"(Val) ->",nl]),
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
 	    gen_encode_prim(Erules, Def),
-	    emit({".",nl});
+	    emit([".",nl]);
 	'ASN1_OPEN_TYPE' ->
 	    gen_encode_prim(Erules, Def#type{def='ASN1_OPEN_TYPE'}),
-	    emit({".",nl});
+	    emit([".",nl]);
 	{constructed,bif} ->
 	    asn1ct_gen:gen_encode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{module=CurrMod,type=Etype} ->
-	    emit({"'enc_",Etype,"'(Val).",nl,nl});
+            emit([{asis,enc_func(Etype)},"(Val).",nl]);
 	#'Externaltypereference'{module=Emod,type=Etype} ->
-	    emit({"'",Emod,"':'enc_",Etype,"'(Val).",nl,nl})
+            emit([{asis,Emod},":",{asis,enc_func(Etype)},"(Val).",nl])
     end.
 
 
@@ -113,11 +115,7 @@ gen_encode_prim(Erules, D) ->
     Value = {var,atom_to_list(asn1ct_gen:mk_var(asn1ct_name:curr(val)))},
     gen_encode_prim(Erules, D, Value).
 
-gen_encode_prim(Erules, #type{}=D, Value) ->
-    Aligned = case Erules of
-		  uper -> false;
-		  per -> true
-	      end,
+gen_encode_prim(#gen{erule=per,aligned=Aligned}, #type{}=D, Value) ->
     Imm = gen_encode_prim_imm(Value, D, Aligned),
     asn1ct_imm:enc_cg(Imm, Aligned).
 
@@ -224,7 +222,6 @@ gen_objectset_code(_Erules, _ObjSet) ->
 gen_decode(Erules, #typedef{}=Type) ->
     DecFunc = dec_func(Type#typedef.name),
     emit([nl,nl,{asis,DecFunc},"(Bytes) ->",nl]),
-    dbdec(Type#typedef.name),
     gen_decode_user(Erules, Type).
 
 gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
@@ -245,16 +242,10 @@ gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
 	    emit([nl,
 		  {asis,dec_func(asn1ct_gen:list2name(Typename))},
 		  "(Bytes",ObjFun,") ->",nl]),
-	    dbdec(Typename),
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,Type);
 	_ ->
 	    true
     end.
-
-dbdec(Type) when is_list(Type)->
-    demit({"io:format(\"decoding: ",asn1ct_gen:list2name(Type),"~w~n\",[Bytes]),",nl});
-dbdec(Type) ->
-    demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[Bytes]),",nl}).
 
 gen_decode_user(Erules,D) when is_record(D,typedef) ->
     Typename = [D#typedef.name],
@@ -263,17 +254,15 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     case asn1ct_gen:type(InnerType) of
 	{primitive,bif} ->
 	    gen_dec_prim(Erules,Def,"Bytes"),
-	    emit({".",nl,nl});
+	    emit([".",nl,nl]);
 	'ASN1_OPEN_TYPE' ->
 	    gen_dec_prim(Erules,Def#type{def='ASN1_OPEN_TYPE'},"Bytes"),
-	    emit({".",nl,nl});
+	    emit([".",nl,nl]);
 	{constructed,bif} ->
 	    asn1ct_gen:gen_decode_constructed(Erules,Typename,InnerType,D);
 	#'Externaltypereference'{}=Etype ->
 	    gen_dec_external(Etype, "Bytes"),
-	    emit([".",nl,nl]);
-	Other ->
-	    exit({error,{asn1,{unknown,Other}}})
+	    emit([".",nl,nl])
     end.
 
 gen_dec_external(Ext, BytesVar) ->
@@ -284,11 +273,7 @@ gen_dec_external(Ext, BytesVar) ->
 	      _ -> [{asis,Mod},":"]
 	  end,{asis,dec_func(Type)},"(",BytesVar,")"]).
 
-gen_dec_imm(Erule, #type{def=Name,constraint=C}) ->
-    Aligned = case Erule of
-		  uper -> false;
-		  per -> true
-	      end,
+gen_dec_imm(#gen{erule=per,aligned=Aligned}, #type{def=Name,constraint=C}) ->
     gen_dec_imm_1(Name, C, Aligned).
 
 gen_dec_imm_1('ASN1_OPEN_TYPE', Constraint, Aligned) ->
@@ -406,10 +391,11 @@ gen_dec_prim(Erule, Type, BytesVar) ->
     asn1ct_imm:dec_code_gen(Imm, BytesVar).
 
 
-%% For PER the ExtensionAdditionGroup notation has significance for the encoding and decoding
-%% the components within the ExtensionAdditionGroup is treated in a similar way as if they
-%% have been specified within a SEQUENCE, therefore we construct a fake sequence type here
-%% so that we can generate code for it
+%% For PER the ExtensionAdditionGroup notation has significance for
+%% the encoding and decoding. The components within the
+%% ExtensionAdditionGroup is treated in a similar way as if they have
+%% been specified within a SEQUENCE. Therefore we construct a fake
+%% sequence type here so that we can generate code for it.
 extaddgroup2sequence(ExtList) ->
     extaddgroup2sequence(ExtList,0,[]).
 

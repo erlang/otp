@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,25 +55,25 @@
 			?error("Not Matching Actual result was:~n ~p~n",[_AR_0]),
 			{fail,_AR_0}
 		catch
-		    exit:{aborted, _ER_1} when
+		    exit:{aborted, _ER_1}:Stacktrace when
 			  element(1, _ER_1) =:= node_not_running;
 			  element(1, _ER_1) =:= bad_commit;
 			  element(1, _ER_1) =:= cyclic ->
 			%% Need to re-raise these to restart transaction
-			erlang:raise(exit, {aborted, _ER_1}, erlang:get_stacktrace());
-		    exit:_AR_1 ->
+			erlang:raise(exit, {aborted, _ER_1}, Stacktrace);
+		    exit:_AR_1:Stacktrace ->
 			case fun(_AR_EXIT_) -> {'EXIT', _AR_EXIT_} end(_AR_1) of
 			    _AR_2 = ExpectedRes ->
 				?verbose("ok, ~n Result as expected:~p~n",[_AR_2]),
 				{success,_AR_2};
 			    _AR_2 ->
 				?error("Not Matching Actual result was:~n ~p~n ~p~n",
-				       [_AR_2, erlang:get_stacktrace()]),
+				       [_AR_2, Stacktrace]),
 				{fail,_AR_2}
 			end;
-		    _T1_:_AR_1 ->
+		    _T1_:_AR_1:Stacktrace ->
 			?error("Not Matching Actual result was:~n ~p~n  ~p~n",
-			       [{_T1_,_AR_1}, erlang:get_stacktrace()]),
+			       [{_T1_,_AR_1}, Stacktrace]),
 			{fail,{_T1_,_AR_1}}
 		end
 	end()).

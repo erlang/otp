@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -583,7 +583,7 @@ is_list_of_suites(List) ->
 		      S = if is_atom(Suite) -> atom_to_list(Suite);
 			     true -> Suite
 			  end,
-		      try lists:last(string:tokens(S,"_")) of
+		      try lists:last(string:lexemes(S,"_")) of
 			  "SUITE" -> true;
 			  "suite" -> true;
 			  _ -> false

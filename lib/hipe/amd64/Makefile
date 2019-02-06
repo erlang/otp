@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,10 +57,11 @@ MODULES=hipe_amd64_assemble \
 	hipe_amd64_ra_naive \
 	hipe_amd64_ra_postconditions \
 	hipe_amd64_ra_sse2_postconditions \
-	hipe_amd64_ra_x87_ls \
 	hipe_amd64_registers \
 	hipe_amd64_spill_restore \
+	hipe_amd64_subst \
 	hipe_amd64_x87 \
+	hipe_amd64_sse2 \
 	hipe_rtl_to_amd64
 
 ERL_FILES=$(MODULES:%=%.erl)
@@ -125,10 +126,11 @@ $(EBIN)/hipe_amd64_ra_ls.beam: ../main/hipe.hrl ../x86/hipe_x86_ra_ls.erl
 $(EBIN)/hipe_amd64_ra_naive.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl ../x86/hipe_x86_ra_naive.erl
 $(EBIN)/hipe_amd64_ra_postconditions.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl ../x86/hipe_x86_ra_postconditions.erl
 $(EBIN)/hipe_amd64_ra_sse2_postconditions.beam: ../main/hipe.hrl
-$(EBIN)/hipe_amd64_ra_x87_ls.beam: ../main/hipe.hrl ../x86/hipe_x86_ra_x87_ls.erl
 $(EBIN)/hipe_amd64_registers.beam: ../rtl/hipe_literals.hrl
 $(EBIN)/hipe_amd64_spill_restore.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl ../flow/cfg.hrl ../x86/hipe_x86_spill_restore.erl
+$(EBIN)/hipe_amd64_subst.beam: ../x86/hipe_x86_subst.erl
 $(EBIN)/hipe_amd64_x87.beam: ../x86/hipe_x86_x87.erl
+$(EBIN)/hipe_amd64_sse2.beam: ../main/hipe.hrl ../x86/hipe_x86.hrl
 $(EBIN)/hipe_rtl_to_amd64.beam: ../x86/hipe_rtl_to_x86.erl ../rtl/hipe_rtl.hrl
 
 $(TARGET_FILES): ../x86/hipe_x86.hrl ../misc/hipe_consttab.hrl

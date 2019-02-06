@@ -27,7 +27,8 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2016</year>
+<year>2011</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -99,7 +100,9 @@ before configuring TLS capability on diameter transports.</p>
           | {rport, integer()}
           | {accept, Match}
           | {port, integer()}
-          | {fragment_timer, infinity | 0..16#FFFFFFFF}</v>
+          | {fragment_timer, infinity | 0..16#FFFFFFFF}
+          | {message_cb, &mod_eval;}
+          | {sender, boolean()}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
 <v>TcpOpt = term()</v>
 <v>Match = &ip_address; | string() | [Match]</v>
@@ -140,6 +143,44 @@ such a message is received over the transport interface after
 two successive timeouts without the reception of additional bytes.
 Defaults to 1000.</p>
 
+<marker id="sender"/>
+<p>
+Option <c>sender</c> specifies whether or not to use a dedicated
+process for sending outgoing messages, which avoids the possibility of
+send blocking reception.
+Defaults to <c>false</c>.
+If set to <c>true</c> then a <c>message_cb</c> that avoids the
+possibility of messages being queued in the sender process without
+bound should be configured.</p>
+
+<p>
+Option <c>message_cb</c> specifies a callback that is invoked on
+incoming and outgoing messages, that can be used to implement
+flow control.
+It is applied to two arguments: an atom indicating the
+reason for the callback (<c>send</c>, <c>recv</c>, or <c>ack</c> after
+a completed send), and the message in question (binary() on
+<c>recv</c>, binary() or diameter_packet record on <c>send</c> or
+<c>ack</c>, or <c>false</c> on <c>ack</c> when an incoming request has
+been discarded).
+It should return a list of actions and a new callback as
+tail; eg. <c>[fun cb/3, State]</c>.
+Valid actions are the atoms <c>send</c> or <c>recv</c>, to
+cause a following message-valued action to be sent/received,
+a message to send/receive (binary() or
+diameter_packet record), or a boolean() to enable/disable reading on
+the socket.
+More than one <c>send</c>/<c>recv</c>/message sequence can be
+returned from the same callback, and an initial
+<c>send</c>/<c>recv</c> can be omitted if the same as the value passed
+as the callback's first argument.
+Reading is initially enabled, and returning <c>false</c> does not
+imply there cannot be subsequent <c>recv</c> callbacks since
+messages may already have been read.
+An empty tail is equivalent to the prevailing callback.
+Defaults to a callback equivalent to <c>fun(ack, _) -> []; (_, Msg) ->
+[Msg] end</c>.</p>
+
 <p>
 Remaining options are any accepted by &ssl_connect3; or
 &gen_tcp_connect3; for
@@ -170,14 +211,11 @@ that will not be forthcoming, which will eventually cause the RFC 3539
 watchdog to take down the connection.</p>
 
 <p>
-If an <c>ip</c> option is not specified then the first element of a
-non-empty <c>Host-IP-Address</c> list in <c>Svc</c> provides the local
-IP address.
-If neither is specified then the default address selected by &gen_tcp;
-is used.
-In all cases, the selected address is either returned from
-&start; or passed in a <c>connected</c> message over the transport
-interface.</p>
+The first element of a non-empty <c>Host-IP-Address</c> list in
+<c>Svc</c> provides the local IP address if an <c>ip</c> option is not
+specified.
+The local address is either returned from&start; or passed in a
+<c>connected</c> message over the transport interface.</p>
 </desc>
 </func>
 

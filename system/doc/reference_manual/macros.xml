@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -150,6 +150,11 @@ bar(X) ->
       <item>The name of the current function.</item>
       <tag><c>?FUNCTION_ARITY</c></tag>
       <item>The arity (number of arguments) for the current function.</item>
+      <tag><c>?OTP_RELEASE</c></tag>
+      <item>The OTP release that the currently executing ERTS
+        application is part of, as an integer. For details, see
+        <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seealso>.
+        This macro was introduced in OTP release 21.</item>
     </taglist>
   </section>
 
@@ -202,8 +207,16 @@ f() ->
        directive. If that condition is false, the lines following
       <c>else</c> are evaluated instead.</item>
       <tag><c>-endif.</c></tag>
-      <item>Specifies the end of an <c>ifdef</c> or <c>ifndef</c>
-       directive.</item>
+      <item>Specifies the end of an <c>ifdef</c>, an <c>ifndef</c>
+       directive, or the end of an <c>if</c> or <c>elif</c> directive.</item>
+      <tag><c>-if(Condition).</c></tag>
+      <item>Evaluates the following lines only if <c>Condition</c>
+       evaluates to true.</item>
+      <tag><c>-elif(Condition).</c></tag>
+      <item>Only allowed after an <c>if</c> or another <c>elif</c> directive.
+       If the preceding <c>if</c> or <c>elif</c> directives do not
+       evaluate to true, and the <c>Condition</c> evaluates to true,
+       the lines following the <c>elif</c> are evaluated instead.</item>
     </taglist>
     <note>
       <p>The macro directives cannot be used inside functions.</p>
@@ -231,6 +244,24 @@ or
 {ok,m}</pre>
     <p><c>?LOG(Arg)</c> is then expanded to a call to <c>io:format/2</c>
       and provide the user with some simple trace output.</p>
+
+    <p><em>Example:</em></p>
+    <code type="none">
+-module(m)
+...
+-ifdef(OTP_RELEASE).
+  %% OTP 21 or higher
+  -if(?OTP_RELEASE >= 22).
+    %% Code that will work in OTP 22 or higher
+  -elif(?OTP_RELEASE >= 21).
+    %% Code that will work in OTP 21 or higher
+  -endif.
+-else.
+  %% OTP 20 or lower.
+-endif.
+...</code>
+    <p>The code uses the <c>OTP_RELEASE</c> macro to conditionally
+    select code depending on release.</p>
   </section>
 
   <section>
@@ -286,7 +317,6 @@ t.erl:5: Warning: -warning("Macro VERSION not defined -- using default version."
       argument, is expanded to a string containing the tokens of
       the argument. This is similar to the <c>#arg</c> stringifying
       construction in C.</p>
-    <p>The feature was added in Erlang 5.0/OTP R7.</p>
     <p><em>Example:</em></p>
     <code type="none">
 -define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).

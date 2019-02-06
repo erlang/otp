@@ -45,37 +45,37 @@
   centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
   close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
-  doPrepareDC/2,enable/1,enable/2,enableScrolling/3,findWindow/2,fit/1,
-  fitInside/1,freeze/1,getAcceleratorTable/1,getBackgroundColour/1,
+  doPrepareDC/2,dragAcceptFiles/2,enable/1,enable/2,enableScrolling/3,
+  findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,getBackgroundColour/1,
   getBackgroundStyle/1,getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,
-  getChildren/1,getClientSize/1,getContainingSizer/1,getCursor/1,getDropTarget/1,
-  getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
-  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
-  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
-  getScreenRect/1,getScrollPixelsPerUnit/1,getScrollPos/2,getScrollRange/2,
-  getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,
-  getToolTip/1,getUpdateRegion/1,getViewStart/1,getVirtualSize/1,getWindowStyleFlag/1,
-  getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
-  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
-  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
-  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
-  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
-  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
-  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,prepareDC/2,
-  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
-  removeChild/2,reparent/2,screenToClient/1,screenToClient/2,scroll/3,
-  scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
-  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
-  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
-  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
-  setFocusIgnoringChildren/1,setFont/2,setForegroundColour/2,setHelpText/2,
-  setId/2,setLabel/2,setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,
-  setOwnFont/2,setOwnForegroundColour/2,setPalette/2,setScrollPos/3,
-  setScrollPos/4,setScrollRate/3,setScrollbar/5,setScrollbar/6,setScrollbars/5,
-  setScrollbars/6,setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,
-  setSizeHints/3,setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,
-  setSizerAndFit/3,setTargetWindow/2,setThemeEnabled/2,setToolTip/2,
-  setTransparent/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
+  getChildren/1,getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,
+  getCursor/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
+  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
+  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPixelsPerUnit/1,
+  getScrollPos/2,getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,
+  getTextExtent/2,getTextExtent/3,getToolTip/1,getUpdateRegion/1,getViewStart/1,
+  getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,
+  hasScrollbar/2,hasTransparentBackground/1,hide/1,inheritAttributes/1,
+  initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,isEnabled/1,
+  isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,isTopLevel/1,
+  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
+  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
+  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
+  popupMenu/2,popupMenu/3,popupMenu/4,prepareDC/2,raise/1,refresh/1,refresh/2,
+  refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,
+  screenToClient/1,screenToClient/2,scroll/3,scrollLines/2,scrollPages/2,
+  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
+  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
+  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
+  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFocusIgnoringChildren/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
+  setPalette/2,setScrollPos/3,setScrollPos/4,setScrollRate/3,setScrollbar/5,
+  setScrollbar/6,setScrollbars/5,setScrollbars/6,setSize/2,setSize/3,
+  setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,setSizer/2,
+  setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setTargetWindow/2,setThemeEnabled/2,
+  setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
   setVirtualSizeHints/3,setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,
   setWindowVariant/2,shouldInheritColours/1,show/1,show/2,thaw/1,transferDataFromWindow/1,
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
@@ -127,7 +127,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 -spec appendToPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
- when is_list(Source) ->
+ when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Source_UC = unicode:characters_to_binary([Source,0]),
   wxe_util:call(?wxHtmlWindow_AppendToPage,
@@ -209,7 +209,7 @@ historyForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec loadFile(This, Filename) -> boolean() when
 	This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   wxe_util:call(?wxHtmlWindow_LoadFile,
@@ -219,7 +219,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
 -spec loadPage(This, Location) -> boolean() when
 	This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
- when is_list(Location) ->
+ when ?is_chardata(Location) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Location_UC = unicode:characters_to_binary([Location,0]),
   wxe_util:call(?wxHtmlWindow_LoadPage,
@@ -273,7 +273,7 @@ setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
- when is_record(This, wx_ref),is_list(Normal_face),is_list(Fixed_face) ->
+ when is_record(This, wx_ref),?is_chardata(Normal_face),?is_chardata(Fixed_face) ->
   setFonts(This,Normal_face,Fixed_face, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
@@ -281,7 +281,7 @@ setFonts(This,Normal_face,Fixed_face)
 	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {'sizes', integer()}.
 setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
- when is_list(Normal_face),is_list(Fixed_face),is_list(Options) ->
+ when ?is_chardata(Normal_face),?is_chardata(Fixed_face),is_list(Options) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Normal_face_UC = unicode:characters_to_binary([Normal_face,0]),
   Fixed_face_UC = unicode:characters_to_binary([Fixed_face,0]),
@@ -295,7 +295,7 @@ setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
 -spec setPage(This, Source) -> boolean() when
 	This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
- when is_list(Source) ->
+ when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
   Source_UC = unicode:characters_to_binary([Source,0]),
   wxe_util:call(?wxHtmlWindow_SetPage,
@@ -305,7 +305,7 @@ setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
 -spec setRelatedFrame(This, Frame, Format) -> 'ok' when
 	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},Format)
- when is_list(Format) ->
+ when ?is_chardata(Format) ->
   ?CLASS(ThisT,wxHtmlWindow),
   ?CLASS(FrameT,wxFrame),
   Format_UC = unicode:characters_to_binary([Format,0]),
@@ -370,6 +370,8 @@ setFocusIgnoringChildren(This) -> wxPanel:setFocusIgnoringChildren(This).
 %% @hidden
 initDialog(This) -> wxPanel:initDialog(This).
  %% From wxWindow
+%% @hidden
+getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
@@ -688,6 +690,8 @@ findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
 enable(This) -> wxWindow:enable(This).
+%% @hidden
+dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
 disable(This) -> wxWindow:disable(This).
 %% @hidden

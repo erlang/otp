@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -355,8 +355,8 @@ pong ! {ping, self()},</code>
     <p>Let us rewrite the ping pong program with "ping" and "pong"
       on different computers. First a few things
       are needed to set up to get this to work. The distributed Erlang
-      implementation provides a basic security mechanism to prevent
-      unauthorized access to an Erlang system on another computer.
+      implementation provides a very basic authentication mechanism to prevent
+      unintentional access to an Erlang system on another computer.
       Erlang systems which talk to each other must have
       the same <em>magic cookie</em>. The easiest way to achieve this
       is by having a file called <c>.erlang.cookie</c> in your home
@@ -627,7 +627,7 @@ ping finished</pre>
 %%% Change the function below to return the name of the node where the
 %%% messenger server runs
 server_node() ->
-    messenger@bill.
+    messenger@super.
 
 %%% This is the server process for the "messenger"
 %%% the user list has the format [{ClientPid1, Name1},{ClientPid22, Name2},...]

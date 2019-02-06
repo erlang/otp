@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,8 @@
 #include "erl_mseg.h"
 #include "erl_threads.h"
 #include "erl_thr_progress.h"
+#include "erl_bif_unique.h"
+#include "erl_nif.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -139,6 +141,33 @@ MBC after deallocating first block:
 [Carrier_t|pad|Block_t 111| udata... ]
 */
 
+/* Allocation tags ...
+ *
+ * These are added to the footer of every block when enabled. Currently they
+ * consist of the allocation type and an atom identifying the allocating
+ * driver/nif (or 'system' if that can't be determined), but the format is not
+ * supposed to be set in stone.
+ *
+ * The packing scheme requires that the atom values are small enough to fit
+ * into a word with ERTS_ALC_N_BITS to spare. Users must check for overflow
+ * before MAKE_ATAG(). */
+
+typedef UWord alcu_atag_t;
+
+#define MAKE_ATAG(IdAtom, Type) \
+    (ASSERT((Type) >= ERTS_ALC_N_MIN && (Type) <= ERTS_ALC_N_MAX), \
+     ASSERT(atom_val(IdAtom) <= MAX_ATAG_ATOM_ID), \
+     (atom_val(IdAtom) << ERTS_ALC_N_BITS) | (Type))
+
+#define ATAG_ID(AT) (make_atom((AT) >> ERTS_ALC_N_BITS))
+#define ATAG_TYPE(AT) ((AT) & ERTS_ALC_N_MASK)
+
+#define MAX_ATAG_ATOM_ID (ERTS_UWORD_MAX >> ERTS_ALC_N_BITS)
+
+#define DBG_IS_VALID_ATAG(Allocator, AT) \
+    (ATAG_TYPE(AT) >= ERTS_ALC_N_MIN && \
+     ATAG_TYPE(AT) <= ERTS_ALC_N_MAX && \
+     (Allocator)->alloc_no == ERTS_ALC_T2A(ERTS_ALC_N2T(ATAG_TYPE(AT))))
 
 /* Blocks ... */
 
@@ -153,10 +182,17 @@ MBC after deallocating first block:
 #endif
 #define FBLK_FTR_SZ (sizeof(FreeBlkFtr_t))
 
+#define GET_BLK_ATAG(B) \
+    (((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1])
+#define SET_BLK_ATAG(B, T) \
+    (((alcu_atag_t *) (((char *) (B)) + (BLK_SZ(B))))[-1] = (T))
+
+#define BLK_ATAG_SZ(AP) ((AP)->atags ? sizeof(alcu_atag_t) : 0)
+
 #define UMEMSZ2BLKSZ(AP, SZ)						\
-  (ABLK_HDR_SZ + (SZ) <= (AP)->min_block_size				\
+  (ABLK_HDR_SZ + BLK_ATAG_SZ(AP) + (SZ) <= (AP)->min_block_size		\
    ? (AP)->min_block_size						\
-   : UNIT_CEILING(ABLK_HDR_SZ + (SZ)))
+   : UNIT_CEILING(ABLK_HDR_SZ + BLK_ATAG_SZ(AP) + (SZ)))
 
 #define UMEM2BLK(P) ((Block_t *) (((char *) (P)) - ABLK_HDR_SZ))
 #define BLK2UMEM(P) ((void *)    (((char *) (P)) + ABLK_HDR_SZ))
@@ -305,9 +341,6 @@ MBC after deallocating first block:
 #  define ERTS_ALC_CPOOL_DEBUG
 #endif
 
-#ifndef ERTS_SMP
-#  undef ERTS_ALC_CPOOL_DEBUG
-#endif
 
 #ifdef ERTS_ALC_CPOOL_DEBUG
 #  define ERTS_ALC_CPOOL_ASSERT(A)				\
@@ -322,13 +355,8 @@ MBC after deallocating first block:
 #  define ERTS_ALC_CPOOL_ASSERT(A) ((void) 1)
 #endif
 
-#ifdef ERTS_SMP
 #define ERTS_ALC_IS_CPOOL_ENABLED(A)	((A)->cpool.util_limit)
-#else
-#define ERTS_ALC_IS_CPOOL_ENABLED(A)	(0)
-#endif
 
-#ifdef ERTS_SMP
 
 #define ERTS_ALC_CPOOL_MAX_DISABLE_ABANDON		1000
 #define ERTS_ALC_CPOOL_ALLOC_OP_INC			8
@@ -367,28 +395,18 @@ do {										\
     }										\
 } while (0)
 
-#else
-#define ERTS_ALC_CPOOL_ALLOC_OP(A)
-#define ERTS_ALC_CPOOL_REALLOC_OP(A)
-#define ERTS_ALC_CPOOL_FREE_OP(A)
-#endif
 
 #define ERTS_CRR_ALCTR_FLG_IN_POOL	(((erts_aint_t) 1) << 0)
 #define ERTS_CRR_ALCTR_FLG_BUSY		(((erts_aint_t) 1) << 1)
+#define ERTS_CRR_ALCTR_FLG_HOMECOMING	(((erts_aint_t) 1) << 2)
 #define ERTS_CRR_ALCTR_FLG_MASK (ERTS_CRR_ALCTR_FLG_IN_POOL | \
-                                 ERTS_CRR_ALCTR_FLG_BUSY)
+                                 ERTS_CRR_ALCTR_FLG_BUSY |    \
+                                 ERTS_CRR_ALCTR_FLG_HOMECOMING)
 
-#ifdef ERTS_SMP
 #define SBC_HEADER_SIZE	   						\
     (UNIT_CEILING(offsetof(Carrier_t, cpool)                            \
 	          + ABLK_HDR_SZ)	                                \
      - ABLK_HDR_SZ)
-#else
-#define SBC_HEADER_SIZE	   						\
-    (UNIT_CEILING(sizeof(Carrier_t)					\
-		  + ABLK_HDR_SZ)					\
-     - ABLK_HDR_SZ)
-#endif
 #define MBC_HEADER_SIZE(AP) ((AP)->mbc_header_size)
 
 
@@ -402,7 +420,7 @@ do {										\
 
 #define SET_CARRIER_HDR(C, Sz, F, AP) \
   (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), \
-   erts_smp_atomic_init_nob(&(C)->allctr, (erts_aint_t) (AP)))
+   erts_atomic_init_nob(&(C)->allctr, (erts_aint_t) (AP)))
 
 #define BLK_TO_SBC(B) \
   ((Carrier_t *) (((char *) (B)) - SBC_HEADER_SIZE))
@@ -583,7 +601,7 @@ do {									\
     DEBUG_CHECK_CARRIER_NO_SZ((AP));					\
 } while (0)
 
-#define STAT_MBC_CPOOL_INSERT(AP, CRR)					\
+#define STAT_MBC_ABANDON(AP, CRR)					\
 do {									\
     UWord csz__ = CARRIER_SZ((CRR));					\
     if (IS_MSEG_CARRIER((CRR)))						\
@@ -598,15 +616,11 @@ do {									\
     (AP)->mbcs.blocks.curr.size -= (CRR)->cpool.blocks_size;		\
 } while (0)
 
-#ifdef ERTS_SMP
 #define STAT_MBC_BLK_ALLOC_CRR(CRR, BSZ)				\
 do {									\
     (CRR)->cpool.blocks++;						\
     (CRR)->cpool.blocks_size += (BSZ);					\
 } while (0)
-#else
-#define STAT_MBC_BLK_ALLOC_CRR(CRR, BSZ) ((void) (CRR)) /* Get rid of warning */
-#endif
 
 #define STAT_MBC_BLK_ALLOC(AP, CRR, BSZ, FLGS)	       			\
 do {									\
@@ -626,7 +640,6 @@ stat_cpool_mbc_blk_free(Allctr_t *allctr,
 			Carrier_t **busy_pcrr_pp,
 			UWord blksz)
 {
-#ifdef ERTS_SMP
 
     ERTS_ALC_CPOOL_ASSERT(crr->cpool.blocks > 0);
     crr->cpool.blocks--;
@@ -651,9 +664,6 @@ stat_cpool_mbc_blk_free(Allctr_t *allctr,
 #endif
 
     return 1;
-#else
-    return 0;
-#endif
 }
 
 #define STAT_MBC_BLK_FREE(AP, CRR, BPCRRPP, BSZ, FLGS)			\
@@ -689,12 +699,7 @@ do {									\
 #endif
 
 #ifdef DEBUG
-#ifdef USE_THREADS
-# ifdef ERTS_SMP
 #  define IS_ACTUALLY_BLOCKING (erts_thr_progress_is_blocking())
-# else
-#  define IS_ACTUALLY_BLOCKING 0
-# endif
 #define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)					\
 do {									\
     if (!(A)->thread_safe && !IS_ACTUALLY_BLOCKING) {                   \
@@ -703,14 +708,11 @@ do {									\
 	    (A)->debug.saved_tid = 1;					\
 	}								\
 	else {								\
-	    ERTS_SMP_LC_ASSERT(						\
+	    ERTS_LC_ASSERT(						\
 		ethr_equal_tids((A)->debug.tid, erts_thr_self()));	\
 	}								\
     }									\
 } while (0)
-#else
-#define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)
-#endif
 #else
 #define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)
 #endif
@@ -721,6 +723,62 @@ static Block_t *create_carrier(Allctr_t *, Uint, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *, Carrier_t **);
 static void mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp);
 static void dealloc_block(Allctr_t *, void *, ErtsAlcFixList_t *, int);
+
+static alcu_atag_t determine_alloc_tag(Allctr_t *allocator, ErtsAlcType_t type)
+{
+    ErtsSchedulerData *esdp;
+    Eterm id;
+
+    ERTS_CT_ASSERT(_unchecked_atom_val(am_system) <= MAX_ATAG_ATOM_ID);
+    ASSERT(allocator->atags);
+
+    esdp = erts_get_scheduler_data();
+    id = am_system;
+
+    if (esdp) {
+        if (esdp->current_nif) {
+            Module *mod = erts_nif_get_module((esdp->current_nif)->mod_nif);
+
+            /* Mod can be NULL if a resource destructor allocates memory after
+             * the module has been unloaded. */
+            if (mod) {
+                id = make_atom(mod->module);
+            }
+        } else if (esdp->current_port) {
+            Port *p = esdp->current_port;
+            id = (p->drv_ptr)->name_atom;
+        }
+
+        /* We fall back to 'system' if we can't pack the driver/NIF name into
+         * the tag. This may be a bit misleading but we've made no promises
+         * that the information is complete.
+         *
+         * This can only happen on 32-bit emulators when a new driver/NIF has
+         * been loaded *after* 16 million atoms have been used, and supporting
+         * that fringe case is not worth an extra word. 64-bit emulators are
+         * unaffected since the atom cache limits atom indexes to 32 bits. */
+        if(MAX_ATOM_TABLE_SIZE > MAX_ATAG_ATOM_ID) {
+            if (atom_val(id) > MAX_ATAG_ATOM_ID) {
+                id = am_system;
+            }
+        }
+    }
+
+    return MAKE_ATAG(id, type);
+}
+
+static void set_alloc_tag(Allctr_t *allocator, void *p, alcu_atag_t tag)
+{
+    Block_t *block;
+
+    ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+    ASSERT(allocator->atags && p);
+    (void)allocator;
+
+    block = UMEM2BLK(p);
+
+    SET_BLK_ATAG(block, tag);
+}
 
 /* internal data... */
 
@@ -776,12 +834,16 @@ static ERTS_INLINE void clr_bit(UWord* map, Uint ix)
         &= ~((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
 
+#ifdef DEBUG
+
 static ERTS_INLINE int is_bit_set(UWord* map, Uint ix)
 {
     ASSERT(ix / ERTS_VSPACE_WORD_BITS < VSPACE_MAP_SZ);
     return map[ix / ERTS_VSPACE_WORD_BITS]
         & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
 }
+
+#endif
 
 UWord erts_literal_vspace_map[VSPACE_MAP_SZ];
 
@@ -821,7 +883,7 @@ static void clear_literal_range(void* start, Uint size)
 
 #if HAVE_ERTS_MSEG
 
-void*
+static void*
 erts_alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void *res;
@@ -832,7 +894,7 @@ erts_alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
     return res;
 }
 
-void*
+static void*
 erts_alcu_mseg_realloc(Allctr_t *allctr, void *seg,
                        Uint old_size, Uint *new_size_p)
 {
@@ -845,7 +907,7 @@ erts_alcu_mseg_realloc(Allctr_t *allctr, void *seg,
     return res;
 }
 
-void
+static void
 erts_alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 {
     erts_mseg_dealloc_opt(allctr->alloc_no, seg, (UWord) size, flags, &allctr->mseg_opt);
@@ -862,7 +924,7 @@ erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
     Uint sz = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     res = erts_alcu_mseg_alloc(allctr, &sz, flags);
     if (res) {
@@ -880,7 +942,7 @@ erts_alcu_literal_32_mseg_realloc(Allctr_t *allctr, void *seg,
     Uint new_sz = ERTS_SUPERALIGNED_CEILING(*new_size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     if (seg && old_size)
         clear_literal_range(seg, old_size);
@@ -898,7 +960,7 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 {
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     erts_alcu_mseg_dealloc(allctr, seg, size, flags);
 
@@ -907,7 +969,9 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 
 #elif defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
 
-/* Used by literal allocator that has its own mmapper (super carrier) */
+/* For allocators that have their own mmapper (super carrier),
+ * like literal_alloc.
+ */
 void*
 erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
@@ -948,9 +1012,53 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 }
 #endif /* ARCH_64 && ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION */
 
-#endif /* HAVE_ERTS_MSEG */
+#if defined(ERTS_ALC_A_EXEC)
+
+/*
+ * For exec_alloc that need memory with PROT_EXEC
+ */
+void*
+erts_alcu_exec_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+{
+    void* res = erts_alcu_mseg_alloc(allctr, size_p, flags);
+
+    if (res) {
+        int r = mprotect(res, *size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    return res;
+}
 
 void*
+erts_alcu_exec_mseg_realloc(Allctr_t *allctr, void *seg,
+                            Uint old_size, Uint *new_size_p)
+{
+    void *res;
+
+    if (seg && old_size) {
+        int r = mprotect(seg, old_size, PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    res = erts_alcu_mseg_realloc(allctr, seg, old_size, new_size_p);
+    if (res) {
+        int r = mprotect(res, *new_size_p, PROT_EXEC | PROT_READ | PROT_WRITE);
+        ASSERT(r == 0); (void)r;
+    }
+    return res;
+}
+
+void
+erts_alcu_exec_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
+{
+    int r = mprotect(seg, size, PROT_READ | PROT_WRITE);
+    ASSERT(r == 0); (void)r;
+    erts_alcu_mseg_dealloc(allctr, seg, size, flags);
+}
+#endif /* ERTS_ALC_A_EXEC */
+
+#endif /* HAVE_ERTS_MSEG */
+
+static void*
 erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 {
     void *res;
@@ -967,7 +1075,7 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
     return res;
 }
 
-void*
+static void*
 erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign)
 {
     void *res;
@@ -989,7 +1097,7 @@ erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, 
     return res;
 }
 
-void
+static void
 erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 {
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
@@ -1012,7 +1120,7 @@ erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
     Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     res = erts_alcu_sys_alloc(allctr, &size, 1);
     if (res) {
@@ -1030,7 +1138,7 @@ erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint
 
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     if (ptr && old_size)
         clear_literal_range(ptr, old_size);
@@ -1047,7 +1155,7 @@ erts_alcu_literal_32_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int sup
 {
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
-    ERTS_SMP_LC_ASSERT(allctr->thread_safe);
+    ERTS_LC_ASSERT(allctr->thread_safe);
 
     erts_alcu_sys_dealloc(allctr, ptr, size, 1);
 
@@ -1143,90 +1251,23 @@ unlink_carrier(CarrierList_t *cl, Carrier_t *crr)
 	ASSERT(crr->next);
 	crr->next->prev = crr->prev;
     }
-}
-
-#ifdef ERTS_SMP
-
 #ifdef DEBUG
-static int is_in_list(ErtsDoubleLink_t* sentinel, ErtsDoubleLink_t* node)
-{
-    ErtsDoubleLink_t* p;
-
-    ASSERT(node != sentinel);
-    for (p = sentinel->next; p != sentinel; p = p->next) {
-	if (p == node)
-	    return 1;
-    }
-    return 0;
-}
-#endif /* DEBUG */
-
-static ERTS_INLINE void
-link_edl_after(ErtsDoubleLink_t* after_me, ErtsDoubleLink_t* node)
-{
-    ErtsDoubleLink_t* before_me = after_me->next;
-    ASSERT(node != after_me && node != before_me);
-    node->next = before_me;
-    node->prev = after_me;
-    before_me->prev = node;
-    after_me->next = node;
-}
-
-static ERTS_INLINE void
-link_edl_before(ErtsDoubleLink_t* before_me, ErtsDoubleLink_t* node)
-{
-    ErtsDoubleLink_t* after_me = before_me->prev;
-    ASSERT(node != before_me && node != after_me);
-    node->next = before_me;
-    node->prev = after_me;
-    before_me->prev = node;
-    after_me->next = node;
-}
-
-static ERTS_INLINE void
-unlink_edl(ErtsDoubleLink_t* node)
-{
-    node->next->prev = node->prev;
-    node->prev->next = node->next;
-}
-
-static ERTS_INLINE void
-relink_edl_before(ErtsDoubleLink_t* before_me, ErtsDoubleLink_t* node)
-{
-    if (node != before_me && node != before_me->prev) {
-	unlink_edl(node);
-	link_edl_before(before_me, node);
-    }
+    crr->next = crr;
+    crr->prev = crr;
+#endif
 }
 
 static ERTS_INLINE int is_abandoned(Carrier_t *crr)
 {
-    return crr->cpool.abandoned.next != NULL;
-}
-
-static ERTS_INLINE void
-link_abandoned_carrier(ErtsDoubleLink_t* list, Carrier_t *crr)
-{
-    ASSERT(!is_abandoned(crr));
-
-    link_edl_after(list, &crr->cpool.abandoned);
-
-    ASSERT(crr->cpool.abandoned.next != &crr->cpool.abandoned);
-    ASSERT(crr->cpool.abandoned.prev != &crr->cpool.abandoned);
+    return crr->cpool.state != ERTS_MBC_IS_HOME;
 }
 
 static ERTS_INLINE void
 unlink_abandoned_carrier(Carrier_t *crr)
 {
-    ASSERT(is_in_list(&crr->cpool.orig_allctr->cpool.pooled_list,
-		      &crr->cpool.abandoned) ||
-	   is_in_list(&crr->cpool.orig_allctr->cpool.traitor_list,
-		      &crr->cpool.abandoned));
-
-    unlink_edl(&crr->cpool.abandoned);
-
-    crr->cpool.abandoned.next = NULL;
-    crr->cpool.abandoned.prev = NULL;
+    if (crr->cpool.state == ERTS_MBC_WAS_POOLED) {
+        aoff_remove_pooled_mbc(crr->cpool.orig_allctr, crr);
+    }
 }
 
 static ERTS_INLINE void
@@ -1234,28 +1275,22 @@ clear_busy_pool_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
     if (crr) {
 	erts_aint_t max_size;
-	erts_aint_t new_val;
+	erts_aint_t iallctr;
 
 	max_size = (erts_aint_t) allctr->largest_fblk_in_mbc(allctr, crr);
 	erts_atomic_set_nob(&crr->cpool.max_size, max_size);
 
-	new_val = (((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
+        iallctr = erts_atomic_read_nob(&crr->allctr);
+        ERTS_ALC_CPOOL_ASSERT((iallctr & ~ERTS_CRR_ALCTR_FLG_HOMECOMING)
+                              == ((erts_aint_t)allctr |
+                                  ERTS_CRR_ALCTR_FLG_IN_POOL |
+                                  ERTS_CRR_ALCTR_FLG_BUSY));
 
-#ifdef ERTS_ALC_CPOOL_DEBUG
-	{
-	    erts_aint_t old_val = new_val|ERTS_CRR_ALCTR_FLG_BUSY;
-
-	    ERTS_ALC_CPOOL_ASSERT(old_val
-				  == erts_smp_atomic_xchg_relb(&crr->allctr,
-							       new_val));
-	}
-#else
-	erts_smp_atomic_set_relb(&crr->allctr, new_val);
-#endif
+	iallctr &= ~ERTS_CRR_ALCTR_FLG_BUSY;
+	erts_atomic_set_relb(&crr->allctr, iallctr);
     }
 }
 
-#endif /* ERTS_SMP */
 
 #if 0
 #define ERTS_DBG_CHK_FIX_LIST(A, FIX, IX, B)			\
@@ -1279,12 +1314,10 @@ chk_fix_list(Allctr_t *allctr, ErtsAlcFixList_t *fix, int ix, int before)
 
 static void *mbc_alloc(Allctr_t *allctr, Uint size);
 
-#ifdef ERTS_SMP
 typedef struct {
     ErtsAllctrDDBlock_t ddblock__; /* must be first */
     ErtsAlcType_t fix_type;
 } ErtsAllctrFixDDBlock_t;
-#endif
 
 #define ERTS_ALC_FIX_NO_UNUSE (((ErtsAlcType_t) 1) << ERTS_ALC_N_BITS)
 
@@ -1295,11 +1328,9 @@ dealloc_fix_block(Allctr_t *allctr,
 		  ErtsAlcFixList_t *fix,
 		  int dec_cc_on_redirect)
 {
-#ifdef ERTS_SMP
     /* May be redirected... */
     ASSERT((type & ERTS_ALC_FIX_NO_UNUSE) == 0);
     ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type = type | ERTS_ALC_FIX_NO_UNUSE;
-#endif
     dealloc_block(allctr, ptr, fix, dec_cc_on_redirect);
 }
 
@@ -1333,12 +1364,10 @@ fix_cpool_check_shrink(Allctr_t *allctr,
 	    fix->u.cpool.shrink_list = 0;
 	else {
 	    void *p;
-#ifdef ERTS_SMP
 	    if (busy_pcrr_pp) {
 		clear_busy_pool_carrier(allctr, *busy_pcrr_pp);
 		*busy_pcrr_pp = NULL;
 	    }
-#endif
 	    fix->u.cpool.shrink_list--;
 	    p = fix->list;
 	    fix->list = *((void **) p);
@@ -1361,6 +1390,7 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     res = fix->list;
     if (res) {
@@ -1372,8 +1402,6 @@ fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	fix_cpool_check_shrink(allctr, type, fix, NULL);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (size >= allctr->sbc_threshold) {
 	Block_t *blk;
 	blk = create_carrier(allctr, size, CFLG_SBC);
@@ -1432,10 +1460,8 @@ fix_cpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
     int ix, o;
     int flush = flgs == 0;
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-#endif
 
     for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
 	ErtsAlcFixList_t *fix = &allctr->fix[ix];
@@ -1475,10 +1501,8 @@ fix_cpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
     if (all_empty)
 	sched_fix_shrink(allctr, 0);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
-#endif
 
     return res;
 }
@@ -1493,6 +1517,7 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	   && type <= ERTS_ALC_N_MAX_A_FIXED_SIZE);
 
     fix = &allctr->fix[type - ERTS_ALC_N_MIN_A_FIXED_SIZE];
+    ASSERT(size == fix->type_size);
 
     ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
     fix->u.nocpool.used++;
@@ -1515,8 +1540,6 @@ fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
 	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
 	return res;
     }
-    if (size < 2*sizeof(UWord))
-	size += sizeof(UWord);
     if (fix->u.nocpool.limit < fix->u.nocpool.used)
 	fix->u.nocpool.limit = fix->u.nocpool.used;
     if (fix->u.nocpool.max_used < fix->u.nocpool.used)
@@ -1591,10 +1614,8 @@ fix_nocpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
     int ix, o;
     int flush = flgs == 0;
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-#endif
 
     for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
 	ErtsAlcFixList_t *fix = &allctr->fix[ix];
@@ -1636,10 +1657,8 @@ fix_nocpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
     if (all_empty)
 	sched_fix_shrink(allctr, 0);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
-#endif
 
     return res;
 }
@@ -1665,7 +1684,11 @@ dealloc_mbc(Allctr_t *allctr, Carrier_t *crr)
     dealloc_carrier(allctr, crr, 1);
 }
 
-#ifdef ERTS_SMP
+
+static void set_new_allctr_abandon_limit(Allctr_t*);
+static void abandon_carrier(Allctr_t*, Carrier_t*);
+static void poolify_my_carrier(Allctr_t*, Carrier_t*);
+static void enqueue_homecoming(Allctr_t*, Carrier_t*);
 
 static ERTS_INLINE Allctr_t*
 get_pref_allctr(void *extra)
@@ -1706,7 +1729,7 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 	crr = BLK_TO_SBC(blk);
 	if (sizep)
 	    *sizep = SBC_BLK_SZ(blk) - ABLK_HDR_SZ;  
-	iallctr = erts_smp_atomic_read_dirty(&crr->allctr);
+	iallctr = erts_atomic_read_dirty(&crr->allctr);
     }
     else {
 	crr = ABLK_TO_MBC(blk);
@@ -1714,10 +1737,10 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 	if (sizep)
 	    *sizep = MBC_ABLK_SZ(blk) - ABLK_HDR_SZ;
 	if (!ERTS_ALC_IS_CPOOL_ENABLED(pref_allctr))
-	    iallctr = erts_smp_atomic_read_dirty(&crr->allctr);
+	    iallctr = erts_atomic_read_dirty(&crr->allctr);
 	else {
 	    int locked_pref_allctr = 0;
-	    iallctr = erts_smp_atomic_read_ddrb(&crr->allctr);
+	    iallctr = erts_atomic_read_ddrb(&crr->allctr);
 
 	    if (ERTS_ALC_TS_PREF_LOCK_IF_USED == pref_lock
 		&& pref_allctr->thread_safe) {
@@ -1733,9 +1756,23 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 		erts_aint_t act;
 
 		ERTS_ALC_CPOOL_ASSERT(!(iallctr & ERTS_CRR_ALCTR_FLG_BUSY));
-		act = erts_smp_atomic_cmpxchg_ddrb(&crr->allctr,
-						   iallctr|ERTS_CRR_ALCTR_FLG_BUSY,
-						   iallctr);
+                if (iallctr & ERTS_CRR_ALCTR_FLG_HOMECOMING) {
+                    /*
+                     * This carrier has just been given back to us by writing
+                     * to crr->allctr with a write barrier (see abandon_carrier).
+                     *
+                     * We need a mathing read barrier to guarantee a correct view
+                     * of the carrier for deallocation work.
+                     */
+                    act = erts_atomic_cmpxchg_rb(&crr->allctr,
+                                                 iallctr|ERTS_CRR_ALCTR_FLG_BUSY,
+                                                 iallctr);
+                }
+                else {
+                    act = erts_atomic_cmpxchg_ddrb(&crr->allctr,
+                                                   iallctr|ERTS_CRR_ALCTR_FLG_BUSY,
+                                                   iallctr);
+                }
 		if (act == iallctr) {
 		    *busy_pcrr_pp = crr;
 		    break;
@@ -1751,13 +1788,6 @@ get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
 		    erts_mtx_unlock(&pref_allctr->mutex);
 		}
 	    }
-
-	    ERTS_ALC_CPOOL_ASSERT(
-		(((iallctr & ~ERTS_CRR_ALCTR_FLG_MASK) == (erts_aint_t) pref_allctr)
-		 ? (((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL)
-		    || ((iallctr & ERTS_CRR_ALCTR_FLG_MASK) == 0))
-		 : 1));
-
 	    return used_allctr;
 	}
     }
@@ -2009,9 +2039,9 @@ handle_delayed_fix_dealloc(Allctr_t *allctr, void *ptr)
 	    /* Carrier migrated; need to redirect block to new owner... */
 	    int cinit = used_allctr->dd.ix - allctr->dd.ix;
 
-	    ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
+            ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
 
-	    DEC_CC(allctr->calls.this_free);
+            DEC_CC(allctr->calls.this_free);
 
 	    ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type = type;
 	    if (ddq_enqueue(&used_allctr->dd.q, ptr, cinit))
@@ -2020,8 +2050,9 @@ handle_delayed_fix_dealloc(Allctr_t *allctr, void *ptr)
     }
 }
 
-static void
-schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr);
+static void schedule_dealloc_carrier(Allctr_t*, Carrier_t*);
+static void dealloc_my_carrier(Allctr_t*, Carrier_t*);
+
 
 static ERTS_INLINE int
 handle_delayed_dealloc(Allctr_t *allctr,
@@ -2083,39 +2114,61 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	res = 1;
 
 	blk = UMEM2BLK(ptr);
-	if (IS_FREE_LAST_MBC_BLK(blk)) {
+	if (blk->bhdr == HOMECOMING_MBC_BLK_HDR) {
 	    /*
 	     * A multiblock carrier that previously has been migrated away
-	     * from us and now is back to be deallocated. For more info
-	     * see schedule_dealloc_carrier().
-	     *
-	     * Note that we cannot use FBLK_TO_MBC(blk) since it
-	     * data has been overwritten by the queue.
+             * from us, was sent back to us either because
+             * - it became empty and we need to deallocated it, or
+             * - it was inserted into the pool and we need to update our pooled_tree
 	     */
-	    Carrier_t *crr = FIRST_BLK_TO_MBC(allctr, blk);
-
-	     /* Restore word overwritten by the dd-queue as it will be read
-	      * if this carrier is pulled from dc_list by cpool_fetch()
-	      */
-	    ERTS_ALC_CPOOL_ASSERT(FBLK_TO_MBC(blk) != crr);
-	    ERTS_CT_ASSERT(sizeof(ErtsAllctrDDBlock_t) == sizeof(void*));
-#ifdef MBC_ABLK_OFFSET_BITS
-	    blk->u.carrier = crr;
-#else
-	    blk->carrier = crr;
-#endif
+	    Carrier_t *crr = ErtsContainerStruct(blk, Carrier_t,
+                                                 cpool.homecoming_dd.blk);
+            Block_t* first_blk = MBC_TO_FIRST_BLK(allctr, crr);
+            erts_aint_t iallctr;
 
 	    ERTS_ALC_CPOOL_ASSERT(ERTS_ALC_IS_CPOOL_ENABLED(allctr));
 	    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
-	    ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
-				  != (erts_smp_atomic_read_nob(&crr->allctr)
-				      & ~ERTS_CRR_ALCTR_FLG_MASK));
 
-	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
+            iallctr = erts_atomic_read_nob(&crr->allctr);
+            ASSERT(iallctr & ERTS_CRR_ALCTR_FLG_HOMECOMING);
+            while (1) {
+                if ((iallctr & (~ERTS_CRR_ALCTR_FLG_MASK |
+                                ERTS_CRR_ALCTR_FLG_IN_POOL))
+                    == (erts_aint_t)allctr) {
+                    /*
+                     * Carrier is home (mine and not in pool)
+                     */
+                    ASSERT(!(iallctr & ERTS_CRR_ALCTR_FLG_BUSY));
+                    erts_atomic_set_nob(&crr->allctr, (erts_aint_t)allctr);
+                    if (IS_FREE_LAST_MBC_BLK(first_blk))
+                        dealloc_my_carrier(allctr, crr);
+                    else
+                        ASSERT(crr->cpool.state == ERTS_MBC_IS_HOME);
+                }
+                else {
+                    erts_aint_t exp = iallctr;
+                    erts_aint_t want = iallctr & ~ERTS_CRR_ALCTR_FLG_HOMECOMING;
 
-	    schedule_dealloc_carrier(allctr, crr);
+                    iallctr = erts_atomic_cmpxchg_nob(&crr->allctr,
+                                                          want,
+                                                          exp);
+                    if (iallctr != exp)
+                        continue; /* retry */
+
+                    ASSERT(crr->cpool.state != ERTS_MBC_IS_HOME);
+                    unlink_abandoned_carrier(crr);
+                    if (iallctr & ERTS_CRR_ALCTR_FLG_IN_POOL)
+                        poolify_my_carrier(allctr, crr);
+                    else
+                        crr->cpool.state = ERTS_MBC_WAS_TRAITOR;
+                }
+                break;
+            }
 	}
 	else {
+            ASSERT(IS_SBC_BLK(blk) || (ABLK_TO_MBC(blk) !=
+                                       ErtsContainerStruct(blk, Carrier_t,
+                                                           cpool.homecoming_dd.blk)));
 
 	    INC_CC(allctr->calls.this_free);
 
@@ -2157,22 +2210,26 @@ enqueue_dealloc_other_instance(ErtsAlcType_t type,
 	erts_alloc_notify_delayed_dealloc(allctr->ix);
 }
 
-#endif
-
-#ifdef ERTS_SMP
-static void
-set_new_allctr_abandon_limit(Allctr_t *allctr);
-static void
-abandon_carrier(Allctr_t *allctr, Carrier_t *crr);
-
+static ERTS_INLINE void
+update_pooled_tree(Allctr_t *allctr, Carrier_t *crr, Uint blk_sz)
+{
+    if (allctr == crr->cpool.orig_allctr && crr->cpool.state == ERTS_MBC_WAS_POOLED) {
+	/*
+	 * Update pooled_tree with a potentially new (larger) max_sz
+         */
+        AOFF_RBTree_t* crr_node = &crr->cpool.pooled;
+        if (blk_sz > crr_node->hdr.bhdr) {
+            crr_node->hdr.bhdr = blk_sz;
+            erts_aoff_larger_max_size(crr_node);
+        }
+    }
+}
 
 static ERTS_INLINE void
 check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
 {
     Carrier_t *crr;
-
-    if (busy_pcrr_pp && *busy_pcrr_pp)
-	return;
+    UWord ncrr_in_pool, largest_fblk;
 
     if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	return;
@@ -2181,8 +2238,7 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (--allctr->cpool.check_limit_count <= 0)
 	set_new_allctr_abandon_limit(allctr);
 
-    if (!erts_thr_progress_is_managed_thread())
-	return;
+    ASSERT(erts_thr_progress_is_managed_thread());
 
     if (allctr->cpool.disable_abandon)
 	return;
@@ -2190,6 +2246,9 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
     if (allctr->mbcs.blocks.curr.size > allctr->cpool.abandon_limit)
 	return;
 
+    ncrr_in_pool = erts_atomic_read_nob(&allctr->cpool.stat.no_carriers);
+    if (ncrr_in_pool >= allctr->cpool.in_pool_limit)
+        return;
 
     crr = FBLK_TO_MBC(fblk);
 
@@ -2200,9 +2259,14 @@ check_abandon_carrier(Allctr_t *allctr, Block_t *fblk, Carrier_t **busy_pcrr_pp)
 	return;
 
     if (crr->cpool.thr_prgr != ERTS_THR_PRGR_INVALID
-	&& !erts_thr_progress_has_reached(crr->cpool.thr_prgr))
-	return;
+        && !erts_thr_progress_has_reached(crr->cpool.thr_prgr))
+        return;
 
+    largest_fblk = allctr->largest_fblk_in_mbc(allctr, crr);
+    if (largest_fblk < allctr->cpool.fblk_min_limit)
+        return;
+
+    erts_atomic_set_nob(&crr->cpool.max_size, largest_fblk);
     abandon_carrier(allctr, crr);
 }
 
@@ -2221,7 +2285,6 @@ erts_alcu_check_delayed_dealloc(Allctr_t *allctr,
 			   thr_prgr_p,
 			   more_work);
 }
-#endif
 
 #define ERTS_ALCU_HANDLE_DD_IN_OP(Allctr, Locked)			\
     handle_delayed_dealloc((Allctr), (Locked), 1, 			\
@@ -2232,29 +2295,24 @@ dealloc_block(Allctr_t *allctr, void *ptr, ErtsAlcFixList_t *fix, int dec_cc_on_
 {
     Block_t *blk = UMEM2BLK(ptr);
 
-    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+    ERTS_LC_ASSERT(!allctr->thread_safe
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
 
     if (IS_SBC_BLK(blk)) {
 	destroy_carrier(allctr, blk, NULL);
-#ifdef ERTS_SMP
 	if (fix && ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 	    ErtsAlcType_t type = ((ErtsAllctrFixDDBlock_t *) ptr)->fix_type;
 	    if (!(type & ERTS_ALC_FIX_NO_UNUSE))
 		fix->u.cpool.used--;
 	    fix->u.cpool.allocated--;
 	}
-#endif
     }
-#ifndef ERTS_SMP
-    else
-	mbc_free(allctr, ptr, NULL);
-#else
     else if (!ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	mbc_free(allctr, ptr, NULL);
     else {
 	Carrier_t *busy_pcrr_p;
 	Allctr_t *used_allctr;
+
 	used_allctr = get_used_allctr(allctr, ERTS_ALC_TS_PREF_LOCK_NO, ptr,
 				      NULL, &busy_pcrr_p);
 	if (used_allctr == allctr) {
@@ -2271,15 +2329,14 @@ dealloc_block(Allctr_t *allctr, void *ptr, ErtsAlcFixList_t *fix, int dec_cc_on_
 	    /* Carrier migrated; need to redirect block to new owner... */
 	    int cinit = used_allctr->dd.ix - allctr->dd.ix;
 
-	    ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
+            ERTS_ALC_CPOOL_ASSERT(!busy_pcrr_p);
 
-	    if (dec_cc_on_redirect)
-		DEC_CC(allctr->calls.this_free);
+            if (dec_cc_on_redirect)
+                DEC_CC(allctr->calls.this_free);
 	    if (ddq_enqueue(&used_allctr->dd.q, ptr, cinit))
 		erts_alloc_notify_delayed_dealloc(used_allctr->ix);
 	}
     }
-#endif
 }
 
 /* Multi block carrier alloc/realloc/free ... */
@@ -2519,17 +2576,16 @@ mbc_free(Allctr_t *allctr, void *p, Carrier_t **busy_pcrr_pp)
     ASSERT(blk_sz % sizeof(Unit_t) == 0);
     ASSERT(IS_MBC_BLK(blk));
 
-    if (is_first_blk
-	&& is_last_blk
-	&& allctr->main_carrier != FIRST_BLK_TO_MBC(allctr, blk)) {
-	destroy_carrier(allctr, blk, busy_pcrr_pp);
+    if (is_first_blk && is_last_blk && crr != allctr->main_carrier) {
+        destroy_carrier(allctr, blk, busy_pcrr_pp);
     }
     else {
 	(*allctr->link_free_block)(allctr, blk);
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
-#ifdef ERTS_SMP
-	check_abandon_carrier(allctr, blk, busy_pcrr_pp);
-#endif
+        if (busy_pcrr_pp && *busy_pcrr_pp)
+            update_pooled_tree(allctr, crr, blk_sz);
+        else
+            check_abandon_carrier(allctr, blk, busy_pcrr_pp);
     }
 }
 
@@ -2563,10 +2619,19 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 	return NULL;
 #else /* !MBC_REALLOC_ALWAYS_MOVES */
 
-#ifdef ERTS_SMP
-    if (busy_pcrr_pp && *busy_pcrr_pp)
-	goto realloc_move; /* Don't want to use carrier in pool */
-#endif
+    if (busy_pcrr_pp && *busy_pcrr_pp) {
+        /*
+         * Don't want to use carrier in pool
+         */
+        new_p = mbc_alloc(allctr, size);
+        if (!new_p)
+            return NULL;
+        new_blk = UMEM2BLK(new_p);
+        ASSERT(!(IS_MBC_BLK(new_blk) && ABLK_TO_MBC(new_blk) == *busy_pcrr_pp));
+        sys_memcpy(new_p, p, MIN(size, old_blk_sz - ABLK_HDR_SZ));
+        mbc_free(allctr, p, busy_pcrr_pp);
+        return new_p;
+    }
 
     get_blk_sz = blk_sz = UMEMSZ2BLKSZ(allctr, size);
 
@@ -2687,9 +2752,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 		    
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
 
-#ifdef ERTS_SMP
 	check_abandon_carrier(allctr, nxt_blk, NULL);
-#endif
 
 	return p;
     }
@@ -2801,9 +2864,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 
     if (cand_blk_sz < get_blk_sz) {
 	/* We wont fit in cand_blk get a new one */
-#ifdef ERTS_SMP
-    realloc_move:
-#endif
+
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 
 	new_p = mbc_alloc(allctr, size);
@@ -2905,11 +2966,9 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs,
 #endif /* !MBC_REALLOC_ALWAYS_MOVES */
 }
 
-#ifdef ERTS_SMP
 
 #define ERTS_ALC_MAX_DEALLOC_CARRIER		10
-#define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	20
-#define ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT	10
+#define ERTS_ALC_CPOOL_MAX_FETCH_INSPECT	100
 #define ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT	100
 #define ERTS_ALC_CPOOL_MAX_FAILED_STAT_READS	3
 
@@ -3073,19 +3132,18 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
     ErtsAlcCPoolData_t *cpd1p, *cpd2p;
     erts_aint_t val;
     ErtsAlcCPoolData_t *sentinel = &carrier_pool[allctr->alloc_no].sentinel;
+    Allctr_t *orig_allctr = crr->cpool.orig_allctr;
 
     ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
 			  || erts_thr_progress_is_managed_thread());
-    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_read_nob(&crr->allctr)
-			  == (erts_aint_t) allctr);
 
-    erts_atomic_add_nob(&allctr->cpool.stat.blocks_size,
+    erts_atomic_add_nob(&orig_allctr->cpool.stat.blocks_size,
 			(erts_aint_t) crr->cpool.blocks_size);
-    erts_atomic_add_nob(&allctr->cpool.stat.no_blocks,
+    erts_atomic_add_nob(&orig_allctr->cpool.stat.no_blocks,
 			(erts_aint_t) crr->cpool.blocks);
-    erts_atomic_add_nob(&allctr->cpool.stat.carriers_size,
+    erts_atomic_add_nob(&orig_allctr->cpool.stat.carriers_size,
 			(erts_aint_t) CARRIER_SZ(crr));
-    erts_atomic_inc_nob(&allctr->cpool.stat.no_carriers);
+    erts_atomic_inc_nob(&orig_allctr->cpool.stat.no_carriers);
 
     /*
      * We search in 'next' direction and begin by passing
@@ -3146,8 +3204,6 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 			 (erts_aint_t) &crr->cpool,
 			 (erts_aint_t) cpd1p);
 
-    erts_smp_atomic_set_wb(&crr->allctr,
-			   ((erts_aint_t) allctr)|ERTS_CRR_ALCTR_FLG_IN_POOL);
     LTTNG3(carrier_pool_put, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, CARRIER_SZ(crr));
 }
 
@@ -3249,130 +3305,126 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 static Carrier_t *
 cpool_fetch(Allctr_t *allctr, UWord size)
 {
-    int i, i_stop, has_passed_sentinel;
+    enum { IGNORANT, HAS_SEEN_SENTINEL, THE_LAST_ONE } loop_state;
+    int i;
     Carrier_t *crr;
+    Carrier_t *reinsert_crr = NULL;
     ErtsAlcCPoolData_t *cpdp;
-    ErtsAlcCPoolData_t *cpool_entrance;
+    ErtsAlcCPoolData_t *cpool_entrance = NULL;
     ErtsAlcCPoolData_t *sentinel;
-    ErtsDoubleLink_t* dl;
-    ErtsDoubleLink_t* first_old_traitor;
 
     ERTS_ALC_CPOOL_ASSERT(allctr->alloc_no == ERTS_ALC_A_INVALID /* testcase */
 			  || erts_thr_progress_is_managed_thread());
 
     i = ERTS_ALC_CPOOL_MAX_FETCH_INSPECT;
-    first_old_traitor = allctr->cpool.traitor_list.next;
-    cpool_entrance = NULL;
 
     LTTNG3(carrier_pool_get, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, (unsigned long)size);
     /*
-     * Search my own pooled_list,
+     * Search my own pooled_tree,
      * i.e my abandoned carriers that were in the pool last time I checked.
      */
+    do {
+        erts_aint_t exp, act;
 
-    dl = allctr->cpool.pooled_list.next;
-    while(dl != &allctr->cpool.pooled_list) {
-	erts_aint_t exp, act;
-	crr = (Carrier_t *) (((char *) dl) - offsetof(Carrier_t, cpool.abandoned));
+        crr = aoff_lookup_pooled_mbc(allctr, size);
+        if (!crr)
+            break;
 
-	ASSERT(!is_in_list(&allctr->cpool.traitor_list, dl));
-	ASSERT(crr->cpool.orig_allctr == allctr);
-	dl = dl->next;
-	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if ((exp & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL
-	    && erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
-	    /* Try to fetch it... */
-	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
-					     (erts_aint_t) allctr,
-					     exp);
-	    if (act == exp) {
-		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
-		unlink_abandoned_carrier(crr);
+        ASSERT(crr->cpool.state == ERTS_MBC_WAS_POOLED);
+        ASSERT(crr->cpool.orig_allctr == allctr);
 
-		/* Move sentinel to continue next search from here */
-		relink_edl_before(dl, &allctr->cpool.pooled_list);
-		return crr;
-	    }
-	    exp = act;
-	}
-	if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
-	    if (!cpool_entrance)
-		cpool_entrance = &crr->cpool;
-	}
-	else { /* Not in pool, move to traitor_list */
-	    unlink_abandoned_carrier(crr);
-	    link_abandoned_carrier(&allctr->cpool.traitor_list, crr);
-	}
-	if (--i <= 0) {
-	    /* Move sentinel to continue next search from here */
-	    relink_edl_before(dl, &allctr->cpool.pooled_list);
-	    return NULL;
-	}
-    }
+        aoff_remove_pooled_mbc(allctr, crr);
 
-    /* Now search traitor_list.
-     * i.e carriers employed by other allocators last time I checked.
-     * They might have been abandoned since then.
+        exp = erts_atomic_read_nob(&crr->allctr);
+        if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+            ASSERT((exp & ~ERTS_CRR_ALCTR_FLG_MASK) == (erts_aint_t)allctr);
+            if (erts_atomic_read_nob(&crr->cpool.max_size) < size) {
+                /*
+                 * This carrier has been fetched and inserted back again
+                 * by a foreign allocator. That's why it has a stale search size.
+                 */
+                ASSERT(exp & ERTS_CRR_ALCTR_FLG_HOMECOMING);
+                crr->cpool.pooled.hdr.bhdr = erts_atomic_read_nob(&crr->cpool.max_size);
+                aoff_add_pooled_mbc(allctr, crr);
+                INC_CC(allctr->cpool.stat.skip_size);
+                continue;
+            }
+            else if (exp & ERTS_CRR_ALCTR_FLG_BUSY) {
+                /*
+                 * This must be our own carrier as part of a realloc call.
+                 * Skip it to make things simpler.
+                 * Must wait to re-insert to not be found again by lookup.
+                 */
+                ASSERT(!reinsert_crr);
+                reinsert_crr = crr;
+                INC_CC(allctr->cpool.stat.skip_busy);
+                continue;
+            }
+
+            /* Try to fetch it... */
+            act = erts_atomic_cmpxchg_mb(&crr->allctr,
+                                         exp & ~ERTS_CRR_ALCTR_FLG_IN_POOL,
+                                         exp);
+            if (act == exp) {
+                cpool_delete(allctr, allctr, crr);
+                crr->cpool.state = ERTS_MBC_IS_HOME;
+
+                if (reinsert_crr)
+                    aoff_add_pooled_mbc(allctr, reinsert_crr);
+                return crr;
+            }
+            exp = act;
+            INC_CC(allctr->cpool.stat.skip_race);
+        }
+        else
+            INC_CC(allctr->cpool.stat.skip_not_pooled);
+
+        /* Not in pool anymore */
+        ASSERT(!(exp & ERTS_CRR_ALCTR_FLG_BUSY));
+        crr->cpool.state = ERTS_MBC_WAS_TRAITOR;
+
+    }while (--i > 0);
+
+    if (reinsert_crr)
+        aoff_add_pooled_mbc(allctr, reinsert_crr);
+
+    /*
+     * Try find a nice cpool_entrance
      */
+    while (allctr->cpool.pooled_tree) {
+        erts_aint_t iallctr;
 
-    i_stop = (i < ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT ?
-	      0 : i - ERTS_ALC_CPOOL_MAX_TRAITOR_INSPECT);
-    dl = first_old_traitor;
-    while(dl != &allctr->cpool.traitor_list) {
-	erts_aint_t exp, act;
-	crr = (Carrier_t *) (((char *) dl) - offsetof(Carrier_t, cpool.abandoned));
-	ASSERT(dl != &allctr->cpool.pooled_list);
-	ASSERT(crr->cpool.orig_allctr == allctr);
-	dl = dl->next;
-	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
-	    if (!(exp & ERTS_CRR_ALCTR_FLG_BUSY)
-		&& erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
-		/* Try to fetch it... */
-		act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
-						 (erts_aint_t) allctr,
-						 exp);
-		if (act == exp) {
-		    cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
-		    unlink_abandoned_carrier(crr);
+        crr = ErtsContainerStruct(allctr->cpool.pooled_tree, Carrier_t, cpool.pooled);
+        iallctr = erts_atomic_read_nob(&crr->allctr);
+        if (iallctr & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+            cpool_entrance = &crr->cpool;
+            break;
+        }
+        /* Not in pool anymore */
+        ASSERT(!(iallctr & ERTS_CRR_ALCTR_FLG_BUSY));
+        aoff_remove_pooled_mbc(allctr, crr);
+        crr->cpool.state = ERTS_MBC_WAS_TRAITOR;
 
-		    /* Move sentinel to continue next search from here */
-		    relink_edl_before(dl, &allctr->cpool.traitor_list);
-		    return crr;
-		}
-		exp = act;
-	    }
-	    if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
-		if (!cpool_entrance)
-		    cpool_entrance = &crr->cpool;
-
-		/* Move to pooled_list */
-		unlink_abandoned_carrier(crr);
-		link_abandoned_carrier(&allctr->cpool.pooled_list, crr);
-	    }
-	}
-	if (--i <= i_stop) {
-	    /* Move sentinel to continue next search from here */
-	    relink_edl_before(dl, &allctr->cpool.traitor_list);
-	    if (i > 0)
-		break;
-	    else
-		return NULL;
-	}
+        if (--i <= 0) {
+            INC_CC(allctr->cpool.stat.fail_pooled);
+            return NULL;
+        }
     }
+
 
     /*
      * Finally search the shared pool and try employ foreign carriers
      */
-
     sentinel = &carrier_pool[allctr->alloc_no].sentinel;
     if (cpool_entrance) {
-	/* We saw a pooled carried above, use it as entrance into the pool
+        /*
+         * We saw a pooled carried above, use it as entrance into the pool
 	 */
 	cpdp = cpool_entrance;
     }
     else {
-	/* No pooled carried seen above. Start search at cpool sentinel,
+        /*
+         * No pooled carried seen above. Start search at cpool sentinel,
 	 * but begin by passing one element before trying to fetch.
 	 * This in order to avoid contention with threads inserting elements.
 	 */
@@ -3382,8 +3434,8 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	    goto check_dc_list;
     }
 
-    has_passed_sentinel = 0;
-    while (1) {
+    loop_state = IGNORANT;
+    do {
 	erts_aint_t exp;
 	cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 	if (cpdp == cpool_entrance) {
@@ -3392,38 +3444,52 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 		if (cpdp == sentinel)
 		    break;
 	    }
-	    i = 0; /* Last one to inspect */
+            loop_state = THE_LAST_ONE;
 	}
 	else if (cpdp == sentinel) {
-	    if (has_passed_sentinel) {
+	    if (loop_state == HAS_SEEN_SENTINEL) {
 		/* We been here before. cpool_entrance must have been removed */
+                INC_CC(allctr->cpool.stat.entrance_removed);
 		break;
 	    }
 	    cpdp = cpool_aint2cpd(cpool_read(&cpdp->prev));
 	    if (cpdp == sentinel)
                 break;
-	    has_passed_sentinel = 1;
+            loop_state = HAS_SEEN_SENTINEL;
 	}
-	crr = (Carrier_t *)(((char *)cpdp) - offsetof(Carrier_t, cpool));
-	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if (((exp & (ERTS_CRR_ALCTR_FLG_MASK)) == ERTS_CRR_ALCTR_FLG_IN_POOL)
-	    && (erts_atomic_read_nob(&cpdp->max_size) >= size)) {
+	crr = ErtsContainerStruct(cpdp, Carrier_t, cpool);
+	exp = erts_atomic_read_rb(&crr->allctr);
+
+        if (erts_atomic_read_nob(&cpdp->max_size) < size) {
+            INC_CC(allctr->cpool.stat.skip_size);
+        }
+        else if ((exp & (ERTS_CRR_ALCTR_FLG_IN_POOL | ERTS_CRR_ALCTR_FLG_BUSY))
+                  == ERTS_CRR_ALCTR_FLG_IN_POOL) {
 	    erts_aint_t act;
-	    /* Try to fetch it... */
-	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
-					     (erts_aint_t) allctr,
-					     exp);
+            erts_aint_t want = (((erts_aint_t) allctr)
+                                | (exp & ERTS_CRR_ALCTR_FLG_HOMECOMING));
+            /* Try to fetch it... */
+	    act = erts_atomic_cmpxchg_mb(&crr->allctr, want, exp);
 	    if (act == exp) {
 		cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
 		if (crr->cpool.orig_allctr == allctr) {
 		    unlink_abandoned_carrier(crr);
-		}
+                    crr->cpool.state = ERTS_MBC_IS_HOME;
+                }
 		return crr;
 	    }
 	}
-	if (--i <= 0)
+
+        if (exp & ERTS_CRR_ALCTR_FLG_BUSY)
+            INC_CC(allctr->cpool.stat.skip_busy);
+        else
+            INC_CC(allctr->cpool.stat.skip_race);
+
+	if (--i <= 0) {
+            INC_CC(allctr->cpool.stat.fail_shared);
 	    return NULL;
-    }
+        }
+    }while (loop_state != THE_LAST_ONE);
 
 check_dc_list:
     /* Last; check our own pending dealloc carrier list... */
@@ -3432,22 +3498,22 @@ check_dc_list:
 	if (erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
 	    Block_t* blk;
 	    unlink_carrier(&allctr->cpool.dc_list, crr);
-#ifdef ERTS_ALC_CPOOL_DEBUG
-	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_xchg_nob(&crr->allctr,
-							   ((erts_aint_t) allctr))
-				  == (((erts_aint_t) allctr) & ~ERTS_CRR_ALCTR_FLG_MASK));
-#else
-	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
-#endif
+	    ERTS_ALC_CPOOL_ASSERT(erts_atomic_read_nob(&crr->allctr)
+                                  == ((erts_aint_t) allctr));
 	    blk = MBC_TO_FIRST_BLK(allctr, crr);
 	    ASSERT(FBLK_TO_MBC(blk) == crr);
 	    allctr->link_free_block(allctr, blk);
 	    return crr;
 	}
 	crr = crr->prev;
-	if (--i <= 0)
+	if (--i <= 0) {
+            INC_CC(allctr->cpool.stat.fail_pend_dealloc);
 	    return NULL;
+        }
     }
+
+    if (i != ERTS_ALC_CPOOL_MAX_FETCH_INSPECT)
+        INC_CC(allctr->cpool.stat.fail);
 
     return NULL;
 }
@@ -3503,9 +3569,6 @@ static void
 schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
     Allctr_t *orig_allctr;
-    Block_t *blk;
-    int check_pending_dealloc;
-    erts_aint_t max_size;
 
     ASSERT(IS_MB_CARRIER(crr));
 
@@ -3516,9 +3579,17 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 
     orig_allctr = crr->cpool.orig_allctr;
 
-    if (allctr != orig_allctr) {
-	int cinit = orig_allctr->dd.ix - allctr->dd.ix;
-
+    if (allctr == orig_allctr) {
+        if (!(erts_atomic_read_nob(&crr->allctr) & ERTS_CRR_ALCTR_FLG_HOMECOMING)) {
+            dealloc_my_carrier(allctr, crr);
+        }
+        /*else
+         * Carrier was abandoned earlier by other thread and
+         * is still waiting for us in dd-queue.
+         * handle_delayed_dealloc() will handle it when crr is dequeued.
+         */
+    }
+    else {
 	/*
 	 * We send the carrier to its origin for deallocation.
 	 * This in order:
@@ -3527,29 +3598,39 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 	 * - to ensure that we always only reuse empty carriers
 	 *   originating from our own thread specific mseg_alloc
 	 *   instance which is beneficial on NUMA systems.
-	 *
-	 * The receiver will recognize that this is a carrier to
-	 * deallocate (and not a block which is the common case)
-	 * since the block is an mbc block that is free and last
-	 * in the carrier.
 	 */
-	blk = MBC_TO_FIRST_BLK(allctr, crr);
-	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(blk));
+        erts_aint_t iallctr;
+#ifdef ERTS_ALC_CPOOL_DEBUG
+	Block_t* first_blk = MBC_TO_FIRST_BLK(allctr, crr);
+	ERTS_ALC_CPOOL_ASSERT(IS_FREE_LAST_MBC_BLK(first_blk));
 
-	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, blk));
-	ERTS_ALC_CPOOL_ASSERT(crr == FBLK_TO_MBC(blk));
-	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, blk));
-	ERTS_ALC_CPOOL_ASSERT(((erts_aint_t) allctr)
-			      == (erts_smp_atomic_read_nob(&crr->allctr)
-				  & ~ERTS_CRR_ALCTR_FLG_MASK));
+	ERTS_ALC_CPOOL_ASSERT(IS_MBC_FIRST_ABLK(allctr, first_blk));
+	ERTS_ALC_CPOOL_ASSERT(crr == FBLK_TO_MBC(first_blk));
+	ERTS_ALC_CPOOL_ASSERT(crr == FIRST_BLK_TO_MBC(allctr, first_blk));
+	ERTS_ALC_CPOOL_ASSERT((erts_atomic_read_nob(&crr->allctr)
+                               & ~ERTS_CRR_ALCTR_FLG_HOMECOMING)
+                              == (erts_aint_t) allctr);
+#endif
 
-	if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(blk), cinit))
-	    erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
-	return;
+        iallctr = (erts_aint_t)orig_allctr | ERTS_CRR_ALCTR_FLG_HOMECOMING;
+        if (!(erts_atomic_xchg_nob(&crr->allctr, iallctr)
+              & ERTS_CRR_ALCTR_FLG_HOMECOMING)) {
+            enqueue_homecoming(allctr, crr);
+        }
     }
+}
 
-    if (is_abandoned(crr))
-	unlink_abandoned_carrier(crr);
+static void dealloc_my_carrier(Allctr_t *allctr, Carrier_t *crr)
+{
+    Block_t *blk;
+    int check_pending_dealloc;
+    erts_aint_t max_size;
+
+    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
+    if (is_abandoned(crr)) {
+        unlink_abandoned_carrier(crr);
+        crr->cpool.state = ERTS_MBC_IS_HOME;
+    }
 
     if (crr->cpool.thr_prgr == ERTS_THR_PRGR_INVALID
 	|| erts_thr_progress_has_reached(crr->cpool.thr_prgr)) {
@@ -3581,6 +3662,7 @@ schedule_dealloc_carrier(Allctr_t *allctr, Carrier_t *crr)
 static ERTS_INLINE void
 cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 {
+    crr->cpool.homecoming_dd.blk.bhdr = HOMECOMING_MBC_BLK_HDR;
     erts_atomic_init_nob(&crr->cpool.next, ERTS_AINT_NULL);
     erts_atomic_init_nob(&crr->cpool.prev, ERTS_AINT_NULL);
     crr->cpool.orig_allctr = allctr;
@@ -3599,8 +3681,7 @@ cpool_init_carrier_data(Allctr_t *allctr, Carrier_t *crr)
 	    limit = (csz/100)*allctr->cpool.util_limit;
 	crr->cpool.abandon_limit = limit;
     }
-    crr->cpool.abandoned.next = NULL;
-    crr->cpool.abandoned.prev = NULL;
+    crr->cpool.state = ERTS_MBC_IS_HOME;
 }
 
 static void
@@ -3626,23 +3707,62 @@ set_new_allctr_abandon_limit(Allctr_t *allctr)
 static void
 abandon_carrier(Allctr_t *allctr, Carrier_t *crr)
 {
-    erts_aint_t max_size;
+    erts_aint_t iallctr;
 
-    STAT_MBC_CPOOL_INSERT(allctr, crr);
+    STAT_MBC_ABANDON(allctr, crr);
 
     unlink_carrier(&allctr->mbc_list, crr);
-    if (crr->cpool.orig_allctr == allctr) {
-	link_abandoned_carrier(&allctr->cpool.pooled_list, crr);
-    }
-
     allctr->remove_mbc(allctr, crr);
-
-    max_size = (erts_aint_t) allctr->largest_fblk_in_mbc(allctr, crr);
-    erts_atomic_set_nob(&crr->cpool.max_size, max_size);
+    set_new_allctr_abandon_limit(allctr);
 
     cpool_insert(allctr, crr);
 
-    set_new_allctr_abandon_limit(allctr);
+
+    iallctr = erts_atomic_read_nob(&crr->allctr);
+    if (allctr == crr->cpool.orig_allctr) {
+        /* preserve HOMECOMING flag */
+        ASSERT((iallctr & ~ERTS_CRR_ALCTR_FLG_HOMECOMING) == (erts_aint_t)allctr);
+        erts_atomic_set_wb(&crr->allctr, iallctr | ERTS_CRR_ALCTR_FLG_IN_POOL);
+        poolify_my_carrier(allctr, crr);
+    }
+    else {
+        ASSERT((iallctr & ~ERTS_CRR_ALCTR_FLG_HOMECOMING) == (erts_aint_t)allctr);
+        iallctr = ((erts_aint_t)crr->cpool.orig_allctr |
+                   ERTS_CRR_ALCTR_FLG_HOMECOMING |
+                   ERTS_CRR_ALCTR_FLG_IN_POOL);
+        if (!(erts_atomic_xchg_wb(&crr->allctr, iallctr)
+              & ERTS_CRR_ALCTR_FLG_HOMECOMING)) {
+
+            enqueue_homecoming(allctr, crr);
+        }
+    }
+}
+
+static void
+enqueue_homecoming(Allctr_t* allctr, Carrier_t* crr)
+{
+    Allctr_t* orig_allctr = crr->cpool.orig_allctr;
+    const int cinit = orig_allctr->dd.ix - allctr->dd.ix;
+    Block_t* dd_blk = &crr->cpool.homecoming_dd.blk;
+
+    /*
+     * The receiver will recognize this as a carrier
+     * (and not a block which is the common case)
+     * since the block header is HOMECOMING_MBC_BLK_HDR.
+     */
+    ASSERT(dd_blk->bhdr == HOMECOMING_MBC_BLK_HDR);
+    if (ddq_enqueue(&orig_allctr->dd.q, BLK2UMEM(dd_blk), cinit))
+        erts_alloc_notify_delayed_dealloc(orig_allctr->ix);
+}
+
+static void
+poolify_my_carrier(Allctr_t *allctr, Carrier_t *crr)
+{
+    ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
+
+    crr->cpool.pooled.hdr.bhdr = erts_atomic_read_nob(&crr->cpool.max_size);
+    aoff_add_pooled_mbc(allctr, crr);
+    crr->cpool.state = ERTS_MBC_WAS_POOLED;
 }
 
 static void
@@ -3691,7 +3811,6 @@ cpool_read_stat(Allctr_t *allctr, UWord *nocp, UWord *cszp, UWord *nobp, UWord *
 }
 
 
-#endif /* ERTS_SMP */
 
 #ifdef DEBUG
 
@@ -3792,7 +3911,6 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
         blk_sz = UMEMSZ2BLKSZ(allctr, umem_sz);
     }
 
-#ifdef ERTS_SMP
     allctr->cpool.disable_abandon = ERTS_ALC_CPOOL_MAX_DISABLE_ABANDON;
 
     if ((flags & (CFLG_MBC|CFLG_NO_CPOOL)) == CFLG_MBC
@@ -3801,6 +3919,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	crr = cpool_fetch(allctr, blk_sz);
 	if (crr) {
 	    STAT_MBC_CPOOL_FETCH(allctr, crr);
+            INC_CC(allctr->cpool.stat.fetch);
 	    link_carrier(&allctr->mbc_list, crr);
 	    (*allctr->add_mbc)(allctr, crr);
 	    blk = (*allctr->get_free_block)(allctr, blk_sz, NULL, 0);
@@ -3808,7 +3927,6 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	    return blk;
 	}
     }
-#endif
 
 #if HAVE_ERTS_MSEG
 
@@ -3938,9 +4056,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	    allctr->main_carrier = crr;
 	}
 
-#ifdef ERTS_SMP
 	cpool_init_carrier_data(allctr, crr);
-#endif
 
 	link_carrier(&allctr->mbc_list, crr);
 
@@ -4153,26 +4269,29 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 	    ASSERT(IS_LAST_BLK(blk));
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
-	    (*allctr->link_free_block)(allctr, blk, 0);
+	    (*allctr->link_free_block)(allctr, blk);
 	    HARD_CHECK_BLK_CARRIER(allctr, blk);
-	    (*allctr->unlink_free_block)(allctr, blk, 0);
+	    (*allctr->unlink_free_block)(allctr, blk);
 #endif
 	}
 #endif
 
-#ifdef ERTS_SMP
 	if (busy_pcrr_pp && *busy_pcrr_pp) {
+            erts_aint_t iallctr = erts_atomic_read_nob(&crr->allctr);
 	    ERTS_ALC_CPOOL_ASSERT(*busy_pcrr_pp == crr);
-	    *busy_pcrr_pp = NULL;
-	    ERTS_ALC_CPOOL_ASSERT(erts_smp_atomic_read_nob(&crr->allctr)
-				  == (((erts_aint_t) allctr)
-				      | ERTS_CRR_ALCTR_FLG_IN_POOL
-				      | ERTS_CRR_ALCTR_FLG_BUSY));
-	    erts_smp_atomic_set_nob(&crr->allctr, ((erts_aint_t) allctr));
+            ERTS_ALC_CPOOL_ASSERT((iallctr & ~ERTS_CRR_ALCTR_FLG_HOMECOMING)
+                                  == (((erts_aint_t) allctr)
+                                      | ERTS_CRR_ALCTR_FLG_IN_POOL
+                                      | ERTS_CRR_ALCTR_FLG_BUSY));
+            ERTS_ALC_CPOOL_ASSERT(allctr == crr->cpool.orig_allctr);
+
+            *busy_pcrr_pp = NULL;
+	    erts_atomic_set_nob(&crr->allctr,
+                                (iallctr & ~(ERTS_CRR_ALCTR_FLG_IN_POOL |
+                                             ERTS_CRR_ALCTR_FLG_BUSY)));
 	    cpool_delete(allctr, allctr, crr);
 	}
 	else
-#endif
 	{
 	    unlink_carrier(&allctr->mbc_list, crr);
 #if HAVE_ERTS_MSEG
@@ -4203,11 +4322,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
         }
 #endif
 
-#ifdef ERTS_SMP
 	schedule_dealloc_carrier(allctr, crr);
-#else
-	dealloc_mbc(allctr, crr);
-#endif
     }
 }
 
@@ -4223,7 +4338,7 @@ static struct {
     Eterm e;
     Eterm t;
     Eterm ramv;
-    Eterm sbct;
+    Eterm atags;
 #if HAVE_ERTS_MSEG
     Eterm asbcst;
     Eterm rsbcst;
@@ -4240,6 +4355,8 @@ static struct {
     Eterm smbcs;
     Eterm mbcgs;
     Eterm acul;
+    Eterm acnl;
+    Eterm acfml;
 
 #if HAVE_ERTS_MSEG
     Eterm mmc;
@@ -4250,9 +4367,18 @@ static struct {
     Eterm fix_types;
 
     Eterm mbcs;
-#ifdef ERTS_SMP
     Eterm mbcs_pool;
-#endif
+    Eterm fetch;
+    Eterm fail_pooled;
+    Eterm fail_shared;
+    Eterm fail_pend_dealloc;
+    Eterm fail;
+    Eterm skip_size;
+    Eterm skip_busy;
+    Eterm skip_not_pooled;
+    Eterm skip_homecoming;
+    Eterm skip_race;
+    Eterm entrance_removed;
     Eterm sbcs;
 
     Eterm sys_alloc_carriers_size;
@@ -4282,11 +4408,11 @@ static struct {
 #endif
 } am;
 
-static Eterm fix_type_atoms[ERTS_ALC_NO_FIXED_SIZES];
+static Eterm alloc_type_atoms[ERTS_ALC_N_MAX + 1];
 
 static ERTS_INLINE void atom_init(Eterm *atom, char *name)
 {
-    *atom = am_atom_put(name, strlen(name));
+    *atom = am_atom_put(name, sys_strlen(name));
 }
 #define AM_INIT(AM) atom_init(&am.AM, #AM)
 
@@ -4313,7 +4439,7 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(e);
 	AM_INIT(t);
 	AM_INIT(ramv);
-	AM_INIT(sbct);
+	AM_INIT(atags);
 #if HAVE_ERTS_MSEG
 	AM_INIT(asbcst);
 	AM_INIT(rsbcst);
@@ -4330,6 +4456,8 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(smbcs);
 	AM_INIT(mbcgs);
 	AM_INIT(acul);
+        AM_INIT(acnl);
+        AM_INIT(acfml);
 
 #if HAVE_ERTS_MSEG
 	AM_INIT(mmc);
@@ -4340,9 +4468,18 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(fix_types);
 
 	AM_INIT(mbcs);
-#ifdef ERTS_SMP
 	AM_INIT(mbcs_pool);
-#endif
+	AM_INIT(fetch);
+        AM_INIT(fail_pooled);
+        AM_INIT(fail_shared);
+        AM_INIT(fail_pend_dealloc);
+        AM_INIT(fail);
+        AM_INIT(skip_size);
+        AM_INIT(skip_busy);
+        AM_INIT(skip_not_pooled);
+        AM_INIT(skip_homecoming);
+        AM_INIT(skip_race);
+        AM_INIT(entrance_removed);
 	AM_INIT(sbcs);
 
 	AM_INIT(sys_alloc_carriers_size);
@@ -4374,12 +4511,12 @@ init_atoms(Allctr_t *allctr)
 	}
 #endif
 
-	for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
-	    ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
-	    char *name = (char *) ERTS_ALC_N2TD(n);
-	    size_t len = strlen(name);
-	    fix_type_atoms[ix] = am_atom_put(name, len);
-	}
+        for (ix = ERTS_ALC_N_MIN; ix <= ERTS_ALC_N_MAX; ix++) {
+            const char *name = ERTS_ALC_N2TD(ix);
+            size_t len = sys_strlen(name);
+
+            alloc_type_atoms[ix] = am_atom_put(name, len);
+        }
     }
     
     if (allctr && !allctr->atoms_initialized) {
@@ -4473,7 +4610,7 @@ add_fix_types(Allctr_t *allctr, int internal, Uint **hpp, Uint *szp,
 static Eterm
 sz_info_fix(Allctr_t *allctr,
 	    int internal,
-	    int *print_to_p,
+	    fmtfn_t *print_to_p,
 	    void *print_to_arg,
 	    Uint **hpp,
 	    Uint *szp)
@@ -4492,22 +4629,22 @@ sz_info_fix(Allctr_t *allctr,
 		ErtsAlcFixList_t *fix = &allctr->fix[ix];
 		UWord alloced = fix->type_size * fix->u.cpool.allocated;
 		UWord used = fix->type_size * fix->u.cpool.used;
+                ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
 
 		if (print_to_p) {
-		    int to = *print_to_p;
+		    fmtfn_t to = *print_to_p;
 		    void *arg = print_to_arg;
 		    erts_print(to,
 			       arg,
 			       "fix type internal: %s %bpu %bpu\n",
-			       (char *) ERTS_ALC_N2TD(ERTS_ALC_N_MIN_A_FIXED_SIZE
-						      + ix),
+			       (char *) ERTS_ALC_N2TD(n),
 			       alloced,
 			       used);
 		}
 
 		if (hpp || szp) {
 		    add_3tup(hpp, szp, &res,
-			     fix_type_atoms[ix],
+			     alloc_type_atoms[n],
 			     bld_unstable_uint(hpp, szp, alloced),
 			     bld_unstable_uint(hpp, szp, used));
 		}
@@ -4520,22 +4657,22 @@ sz_info_fix(Allctr_t *allctr,
 	    ErtsAlcFixList_t *fix = &allctr->fix[ix];
 	    UWord alloced = fix->type_size * fix->u.nocpool.allocated;
 	    UWord used = fix->type_size*fix->u.nocpool.used;
+            ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
 
 	    if (print_to_p) {
-		int to = *print_to_p;
+		fmtfn_t to = *print_to_p;
 		void *arg = print_to_arg;
 		erts_print(to,
 			   arg,
 			   "fix type: %s %bpu %bpu\n",
-			   (char *) ERTS_ALC_N2TD(ERTS_ALC_N_MIN_A_FIXED_SIZE
-						  + ix),
+			   (char *) ERTS_ALC_N2TD(n),
 			   alloced,
 			   used);
 	    }
 
 	    if (hpp || szp) {
 		add_3tup(hpp, szp, &res,
-			 fix_type_atoms[ix],
+			 alloc_type_atoms[n],
 			 bld_unstable_uint(hpp, szp, alloced),
 			 bld_unstable_uint(hpp, szp, used));
 	    }
@@ -4548,7 +4685,7 @@ static Eterm
 sz_info_carriers(Allctr_t *allctr,
 		 CarriersStats_t *cs,
 		 char *prefix,
-		 int *print_to_p,
+		 fmtfn_t *print_to_p,
 		 void *print_to_arg,
 		 Uint **hpp,
 		 Uint *szp)
@@ -4557,7 +4694,7 @@ sz_info_carriers(Allctr_t *allctr,
     UWord curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
@@ -4592,13 +4729,12 @@ sz_info_carriers(Allctr_t *allctr,
     return res;
 }
 
-#ifdef ERTS_SMP
 
 static Eterm
 info_cpool(Allctr_t *allctr,
 	   int sz_only,
 	   char *prefix,
-	   int *print_to_p,
+	   fmtfn_t *print_to_p,
 	   void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
@@ -4615,7 +4751,7 @@ info_cpool(Allctr_t *allctr,
     }
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	if (!sz_only)
 	    erts_print(to, arg, "%sblocks: %bpu\n", prefix, nob);
@@ -4627,9 +4763,56 @@ info_cpool(Allctr_t *allctr,
 
     if (hpp || szp) {
 	res = NIL;
+
+      if (!sz_only) {
+        add_3tup(hpp, szp, &res, am.fail_pooled,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_pooled)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_pooled)));
+
+        add_3tup(hpp, szp, &res, am.fail_shared,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_shared)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_shared)));
+
+        add_3tup(hpp, szp, &res, am.fail_pend_dealloc,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail_pend_dealloc)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail_pend_dealloc)));
+
+        add_3tup(hpp, szp, &res, am.fail,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fail)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fail)));
+
+        add_3tup(hpp, szp, &res, am.fetch,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fetch)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fetch)));
+
+        add_3tup(hpp, szp, &res, am.skip_size,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_size)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_size)));
+
+        add_3tup(hpp, szp, &res, am.skip_busy,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_busy)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_busy)));
+
+        add_3tup(hpp, szp, &res, am.skip_not_pooled,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_not_pooled)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_not_pooled)));
+
+        add_3tup(hpp, szp, &res, am.skip_homecoming,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_homecoming)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_homecoming)));
+
+        add_3tup(hpp, szp, &res, am.skip_race,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_race)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_race)));
+
+        add_3tup(hpp, szp, &res, am.entrance_removed,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.entrance_removed)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.entrance_removed)));
+
 	add_2tup(hpp, szp, &res,
 		 am.carriers_size,
 		 bld_unstable_uint(hpp, szp, csz));
+      }
 	if (!sz_only)
 	    add_2tup(hpp, szp, &res,
 		     am.carriers,
@@ -4646,13 +4829,12 @@ info_cpool(Allctr_t *allctr,
     return res;
 }
 
-#endif /* ERTS_SMP */
 
 static Eterm
 info_carriers(Allctr_t *allctr,
 	      CarriersStats_t *cs,
 	      char *prefix,
-	      int *print_to_p,
+	      fmtfn_t *print_to_p,
 	      void *print_to_arg,
 	      Uint **hpp,
 	      Uint *szp)
@@ -4664,7 +4846,7 @@ info_carriers(Allctr_t *allctr,
     curr_size = cs->curr.norm.mseg.size + cs->curr.norm.sys_alloc.size;
 
     if (print_to_p) {
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 	erts_print(to,
 		   arg,
@@ -4770,27 +4952,27 @@ make_name_atoms(Allctr_t *allctr)
     char realloc[] = "realloc";
     char free[] = "free";
     char buf[MAX_ATOM_CHARACTERS];
-    size_t prefix_len = strlen(allctr->name_prefix);
+    size_t prefix_len = sys_strlen(allctr->name_prefix);
 
     if (prefix_len > MAX_ATOM_CHARACTERS + sizeof(realloc) - 1)
 	erts_exit(ERTS_ERROR_EXIT,"Too long allocator name: %salloc\n",allctr->name_prefix);
 
-    memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);
+    sys_memcpy((void *) buf, (void *) allctr->name_prefix, prefix_len);
 
-    memcpy((void *) &buf[prefix_len], (void *) alloc, sizeof(alloc) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) alloc, sizeof(alloc) - 1);
     allctr->name.alloc = am_atom_put(buf, prefix_len + sizeof(alloc) - 1);
 
-    memcpy((void *) &buf[prefix_len], (void *) realloc, sizeof(realloc) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) realloc, sizeof(realloc) - 1);
     allctr->name.realloc = am_atom_put(buf, prefix_len + sizeof(realloc) - 1);
 
-    memcpy((void *) &buf[prefix_len], (void *) free, sizeof(free) - 1);
+    sys_memcpy((void *) &buf[prefix_len], (void *) free, sizeof(free) - 1);
     allctr->name.free = am_atom_put(buf, prefix_len + sizeof(free) - 1);
 
 }
 
 static Eterm
 info_calls(Allctr_t *allctr,
-	   int *print_to_p,
+	   fmtfn_t *print_to_p,
 	   void *print_to_arg,
 	   Uint **hpp,
 	   Uint *szp)
@@ -4807,7 +4989,7 @@ info_calls(Allctr_t *allctr,
 	erts_print(TO, TOA, "%s%s calls: %b64u\n",PRFX,NAME,CC)
 
 	char *prefix = allctr->name_prefix;
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	PRINT_CC_5(to, arg, prefix, "alloc",        allctr->calls.this_alloc);
@@ -4883,13 +5065,13 @@ info_calls(Allctr_t *allctr,
 
 static Eterm
 info_options(Allctr_t *allctr,
-             int *print_to_p,
+             fmtfn_t *print_to_p,
 	     void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    int acul;
+    UWord acul, acnl, acfml;
 
     if (!allctr) {
 	if (print_to_p)
@@ -4901,11 +5083,9 @@ info_options(Allctr_t *allctr,
 	return res;
     }
 
-#ifdef ERTS_SMP
     acul = allctr->cpool.util_limit;
-#else
-    acul = 0;
-#endif
+    acnl = allctr->cpool.in_pool_limit;
+    acfml = allctr->cpool.fblk_min_limit;
 
     if (print_to_p) {
 	char topt[21]; /* Enough for any 64-bit integer */
@@ -4918,6 +5098,7 @@ info_options(Allctr_t *allctr,
 		   "option e: true\n"
 		   "option t: %s\n"
 		   "option ramv: %s\n"
+		   "option atags: %s\n"
 		   "option sbct: %beu\n"
 #if HAVE_ERTS_MSEG
 		   "option asbcst: %bpu\n"
@@ -4933,9 +5114,10 @@ info_options(Allctr_t *allctr,
 		   "option lmbcs: %beu\n"
 		   "option smbcs: %beu\n"
 		   "option mbcgs: %beu\n"
-		   "option acul: %d\n",
+		   "option acul: %bpu\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
+		   allctr->atags ? "true" : "false",
 		   allctr->sbc_threshold,
 #if HAVE_ERTS_MSEG
 		   allctr->mseg_opt.abs_shrink_th,
@@ -4958,9 +5140,15 @@ info_options(Allctr_t *allctr,
 				  hpp, szp);
 
     if (hpp || szp) {
+        add_2tup(hpp, szp, &res,
+                 am.acfml,
+                 bld_uint(hpp, szp, acfml));
+        add_2tup(hpp, szp, &res,
+                 am.acnl,
+                 bld_uint(hpp, szp, acnl));
 	add_2tup(hpp, szp, &res,
 		 am.acul,
-		 bld_uint(hpp, szp, (UWord) acul));
+		 bld_uint(hpp, szp, acul));
 	add_2tup(hpp, szp, &res,
 		 am.mbcgs,
 		 bld_uint(hpp, szp, allctr->mbc_growth_stages));
@@ -4996,9 +5184,10 @@ info_options(Allctr_t *allctr,
 		 bld_uint(hpp, szp, allctr->mseg_opt.abs_shrink_th));
 #endif
 	add_2tup(hpp, szp, &res,
-		 am.sbct,
+		 am_sbct,
 		 bld_uint(hpp, szp, allctr->sbc_threshold));
 	add_2tup(hpp, szp, &res, am.ramv, allctr->ramv ? am_true : am_false);
+	add_2tup(hpp, szp, &res, am.atags, allctr->atags ? am_true : am_false);
 	add_2tup(hpp, szp, &res, am.t, (allctr->t ? am_true : am_false));
 	add_2tup(hpp, szp, &res, am.e, am_true);
     }
@@ -5035,7 +5224,7 @@ reset_max_values(CarriersStats_t *cs)
 \*                                                                         */
 
 Eterm
-erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
+erts_alcu_au_info_options(fmtfn_t *print_to_p, void *print_to_arg,
 			  Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;    
@@ -5078,7 +5267,7 @@ erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
 
 Eterm
 erts_alcu_info_options(Allctr_t *allctr,
-		       int *print_to_p,
+		       fmtfn_t *print_to_p,
 		       void *print_to_arg,
 		       Uint **hpp,
 		       Uint *szp)
@@ -5088,19 +5277,15 @@ erts_alcu_info_options(Allctr_t *allctr,
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe) {
 	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
-#endif
     res = info_options(allctr, print_to_p, print_to_arg, hpp, szp);
-#ifdef USE_THREADS
     if (allctr->thread_safe) { 
 	erts_mtx_unlock(&allctr->mutex);
 	erts_allctr_wrapper_pre_unlock();
     }
-#endif
     return res;
 }
 
@@ -5110,15 +5295,13 @@ Eterm
 erts_alcu_sz_info(Allctr_t *allctr,
 		  int internal,
 		  int begin_max_period,
-		  int *print_to_p,
+		  fmtfn_t *print_to_p,
 		  void *print_to_arg,
 		  Uint **hpp,
 		  Uint *szp)
 {
     Eterm res, mbcs, sbcs, fix = THE_NON_VALUE;
-#ifdef ERTS_SMP
     Eterm mbcs_pool;
-#endif
 
     res  = THE_NON_VALUE;
 
@@ -5133,16 +5316,14 @@ erts_alcu_sz_info(Allctr_t *allctr,
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe) {
 	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
-#endif
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
-    /* Update sbc values not continously updated */
+    /* Update sbc values not continuously updated */
     allctr->sbcs.blocks.curr.no
 	= allctr->sbcs.curr.norm.mseg.no + allctr->sbcs.curr.norm.sys_alloc.no;
     allctr->sbcs.blocks.max.no = allctr->sbcs.max.no;
@@ -5154,23 +5335,19 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	fix = sz_info_fix(allctr, internal, print_to_p, print_to_arg, hpp, szp);
     mbcs = sz_info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
 			    print_to_arg, hpp, szp);
-#ifdef ERTS_SMP
     if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	mbcs_pool = info_cpool(allctr, 1, "mbcs_pool ", print_to_p,
 			       print_to_arg, hpp, szp);
     else
 	mbcs_pool = THE_NON_VALUE; /* shut up annoying warning... */
-#endif
     sbcs = sz_info_carriers(allctr, &allctr->sbcs, "sbcs ", print_to_p,
 			    print_to_arg, hpp, szp);
 
     if (hpp || szp) {
 	res = NIL;
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
-#ifdef ERTS_SMP
 	if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	    add_2tup(hpp, szp, &res, am.mbcs_pool, mbcs_pool);
-#endif
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_fix_types(allctr, internal, hpp, szp, &res, fix);
     }
@@ -5181,12 +5358,10 @@ erts_alcu_sz_info(Allctr_t *allctr,
     }
 
 
-#ifdef USE_THREADS
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
 	erts_allctr_wrapper_pre_unlock();
     }
-#endif
 
     return res;
 }
@@ -5196,15 +5371,13 @@ Eterm
 erts_alcu_info(Allctr_t *allctr,
 	       int internal,
 	       int begin_max_period,
-	       int *print_to_p,
+	       fmtfn_t *print_to_p,
 	       void *print_to_arg,
 	       Uint **hpp,
 	       Uint *szp)
 {
     Eterm res, sett, mbcs, sbcs, calls, fix = THE_NON_VALUE;
-#ifdef ERTS_SMP
     Eterm mbcs_pool;
-#endif
 
     res  = THE_NON_VALUE;
 
@@ -5219,16 +5392,14 @@ erts_alcu_info(Allctr_t *allctr,
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe) {
 	erts_allctr_wrapper_pre_lock();
 	erts_mtx_lock(&allctr->mutex);
     }
-#endif
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
-    /* Update sbc values not continously updated */
+    /* Update sbc values not continuously updated */
     allctr->sbcs.blocks.curr.no
 	= allctr->sbcs.curr.norm.mseg.no + allctr->sbcs.curr.norm.sys_alloc.no;
     allctr->sbcs.blocks.max.no = allctr->sbcs.max.no;
@@ -5249,13 +5420,11 @@ erts_alcu_info(Allctr_t *allctr,
 	fix = sz_info_fix(allctr, internal, print_to_p, print_to_arg, hpp, szp);
     mbcs = info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
 			 print_to_arg, hpp, szp);
-#ifdef ERTS_SMP
     if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	mbcs_pool = info_cpool(allctr, 0, "mbcs_pool ", print_to_p,
 			       print_to_arg, hpp, szp);
     else
 	mbcs_pool = THE_NON_VALUE; /* shut up annoying warning... */
-#endif
     sbcs = info_carriers(allctr, &allctr->sbcs, "sbcs ", print_to_p,
 			 print_to_arg, hpp, szp);
     calls = info_calls(allctr, print_to_p, print_to_arg, hpp, szp);
@@ -5265,10 +5434,8 @@ erts_alcu_info(Allctr_t *allctr,
 
 	add_2tup(hpp, szp, &res, am.calls, calls);
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
-#ifdef ERTS_SMP
 	if (ERTS_ALC_IS_CPOOL_ENABLED(allctr))
 	    add_2tup(hpp, szp, &res, am.mbcs_pool, mbcs_pool);
-#endif
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_fix_types(allctr, internal, hpp, szp, &res, fix);
 	add_2tup(hpp, szp, &res, am.options, sett);
@@ -5284,12 +5451,10 @@ erts_alcu_info(Allctr_t *allctr,
     }
 
 
-#ifdef USE_THREADS
     if (allctr->thread_safe) {
 	erts_mtx_unlock(&allctr->mutex);
 	erts_allctr_wrapper_pre_unlock();
     }
-#endif
 
     return res;
 }
@@ -5299,10 +5464,8 @@ void
 erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *fi, int fisz)
 {
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-#endif
 
     size->carriers = allctr->mbcs.curr.norm.mseg.size;
     size->carriers += allctr->mbcs.curr.norm.sys_alloc.size;
@@ -5312,14 +5475,12 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *
     size->blocks = allctr->mbcs.blocks.curr.size;
     size->blocks += allctr->sbcs.blocks.curr.size;
 
-#ifdef ERTS_SMP
     if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 	UWord csz, bsz;
 	cpool_read_stat(allctr, NULL, &csz, NULL, &bsz);
 	size->blocks += bsz;
 	size->carriers += csz;
     }
-#endif
 
     if (fi) {
 	int ix;
@@ -5341,25 +5502,22 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *
 	}
     }
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
-#endif
 }
 
 /* ----------------------------------------------------------------------- */
 
 static ERTS_INLINE void *
-do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
+do_erts_alcu_alloc(ErtsAlcType_t type, Allctr_t *allctr, Uint size)
 {
-    Allctr_t *allctr = (Allctr_t *) extra; 
     void *res;
 
     ASSERT(initialized);
 
     ASSERT(allctr);
 
-    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+    ERTS_LC_ASSERT(!allctr->thread_safe
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
@@ -5391,41 +5549,57 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 
 void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 {
+    Allctr_t *allctr = (Allctr_t *) extra;
     void *res;
-#ifdef ERTS_SMP
+
     ASSERT(!"This is not thread safe");
-#elif defined(USE_THREADS)
-    ASSERT(erts_equal_tids(erts_main_thread, erts_thr_self()));
-#endif
-    res = do_erts_alcu_alloc(type, extra, size);
+
+    res = do_erts_alcu_alloc(type, allctr, size);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+    }
+
     DEBUG_CHECK_ALIGNMENT(res);
+
     return res;
 }
 
 
-#ifdef USE_THREADS
 
 void *
 erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
+    alcu_atag_t tag = 0;
     void *res;
+
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     erts_mtx_lock(&allctr->mutex);
-    res = do_erts_alcu_alloc(type, extra, size);
+
+    res = do_erts_alcu_alloc(type, allctr, size);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
+
+    erts_mtx_unlock(&allctr->mutex);
 
     DEBUG_CHECK_ALIGNMENT(res);
 
-    erts_mtx_unlock(&allctr->mutex);
     return res;
 }
 
-#ifdef ERTS_SMP
 
 void *
 erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
+    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -5435,10 +5609,18 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 
     allctr = tspec->allctr[ix];
 
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_alloc(type, allctr, size);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
 
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
@@ -5452,54 +5634,55 @@ void *
 erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
 {
     Allctr_t *pref_allctr;
+    alcu_atag_t tag = 0;
     void *res;
 
     pref_allctr = get_pref_allctr(extra);
 
+    if (pref_allctr->atags) {
+        tag = determine_alloc_tag(pref_allctr, type);
+    }
+
     if (pref_allctr->thread_safe)
 	erts_mtx_lock(&pref_allctr->mutex);
 
-#ifdef ERTS_SMP
     ASSERT(pref_allctr->dd.use);
     ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1);
-#endif
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(pref_allctr);
 
     res = do_erts_alcu_alloc(type, pref_allctr, size);
 
-#ifdef ERTS_SMP
     if (!res && ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1)) {
 	/* Cleaned up a bit more; try one more time... */
 	res = do_erts_alcu_alloc(type, pref_allctr, size);
     }
-#endif
+
+    if (pref_allctr->atags && res) {
+        set_alloc_tag(pref_allctr, res, tag);
+    }
 
     if (pref_allctr->thread_safe)
 	erts_mtx_unlock(&pref_allctr->mutex);
 
     DEBUG_CHECK_ALIGNMENT(res);
 
-
     return res;
 }
 
-#endif
 
-#endif
 
 /* ------------------------------------------------------------------------- */
 
 static ERTS_INLINE void
-do_erts_alcu_free(ErtsAlcType_t type, void *extra, void *p,
+do_erts_alcu_free(ErtsAlcType_t type, Allctr_t *allctr, void *p,
 		  Carrier_t **busy_pcrr_pp)
 {
-    Allctr_t *allctr = (Allctr_t *) extra; 
     ASSERT(initialized);
 
     ASSERT(allctr);
 
-    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+    ERTS_LC_ASSERT(!allctr->thread_safe
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
@@ -5526,21 +5709,20 @@ do_erts_alcu_free(ErtsAlcType_t type, void *extra, void *p,
 
 void erts_alcu_free(ErtsAlcType_t type, void *extra, void *p)
 {
-    do_erts_alcu_free(type, extra, p, NULL);
+    Allctr_t *allctr = (Allctr_t *) extra;
+    do_erts_alcu_free(type, allctr, p, NULL);
 }
 
-#ifdef USE_THREADS
 
 void
 erts_alcu_free_ts(ErtsAlcType_t type, void *extra, void *p)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
     erts_mtx_lock(&allctr->mutex);
-    do_erts_alcu_free(type, extra, p, NULL);
+    do_erts_alcu_free(type, allctr, p, NULL);
     erts_mtx_unlock(&allctr->mutex);
 }
 
-#ifdef ERTS_SMP
 
 void
 erts_alcu_free_thr_spec(ErtsAlcType_t type, void *extra, void *p)
@@ -5574,12 +5756,13 @@ erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
 	pref_allctr = get_pref_allctr(extra);
 	used_allctr = get_used_allctr(pref_allctr, ERTS_ALC_TS_PREF_LOCK_IF_USED,
 				      p, NULL, &busy_pcrr_p);
-	if (pref_allctr != used_allctr)
+	if (pref_allctr != used_allctr) {
 	    enqueue_dealloc_other_instance(type,
-					   used_allctr,
-					   p,
-					   (used_allctr->dd.ix
-					    - pref_allctr->dd.ix));
+                                           used_allctr,
+                                           p,
+                                           (used_allctr->dd.ix
+                                            - pref_allctr->dd.ix));
+        }
 	else {
 	    ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
 	    do_erts_alcu_free(type, used_allctr, p, &busy_pcrr_p);
@@ -5590,21 +5773,18 @@ erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
     }
 }
 
-#endif
 
-#endif
 
 /* ------------------------------------------------------------------------- */
 
 static ERTS_INLINE void *
 do_erts_alcu_realloc(ErtsAlcType_t type,
-		     void *extra,
+		     Allctr_t *allctr,
 		     void *p,
 		     Uint size,
 		     Uint32 alcu_flgs,
 		     Carrier_t **busy_pcrr_pp)
 {
-    Allctr_t *allctr = (Allctr_t *) extra; 
     Block_t *blk;
     void *res;
 
@@ -5612,13 +5792,13 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 
     ASSERT(allctr);
 
-    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+    ERTS_LC_ASSERT(!allctr->thread_safe
 		       || erts_lc_mtx_is_locked(&allctr->mutex));
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
     if (!p) {
-	res = do_erts_alcu_alloc(type, extra, size);
+	res = do_erts_alcu_alloc(type, allctr, size);
 	INC_CC(allctr->calls.this_realloc);
 	DEC_CC(allctr->calls.this_alloc);
 	return res;
@@ -5627,7 +5807,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 #if ALLOC_ZERO_EQ_NULL
     if (!size) {
 	ASSERT(p);
-	do_erts_alcu_free(type, extra, p, busy_pcrr_pp);
+	do_erts_alcu_free(type, allctr, p, busy_pcrr_pp);
 	INC_CC(allctr->calls.this_realloc);
 	DEC_CC(allctr->calls.this_free);
 	return NULL;
@@ -5712,19 +5892,29 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 void *
 erts_alcu_realloc(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
+    Allctr_t *allctr = (Allctr_t *)extra;
     void *res;
-    res = do_erts_alcu_realloc(type, extra, p, size, 0, NULL);
+
+    res = do_erts_alcu_realloc(type, allctr, p, size, 0, NULL);
+
     DEBUG_CHECK_ALIGNMENT(res);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+    }
+
     return res;
 }
 
 void *
 erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
+    Allctr_t *allctr = (Allctr_t *)extra;
     void *res;
-    res = do_erts_alcu_alloc(type, extra, size);
+
+    res = do_erts_alcu_alloc(type, allctr, size);
     if (!res)
-	res = erts_alcu_realloc(type, extra, p, size);
+        res = do_erts_alcu_realloc(type, allctr, p, size, 0, NULL);
     else {
 	Block_t *blk;
 	size_t cpy_size;
@@ -5734,24 +5924,42 @@ erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, Uint size)
 	if (cpy_size > size)
 	    cpy_size = size;
 	sys_memcpy(res, p, cpy_size);
-	do_erts_alcu_free(type, extra, p, NULL);
+	do_erts_alcu_free(type, allctr, p, NULL);
     }
+
     DEBUG_CHECK_ALIGNMENT(res);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, determine_alloc_tag(allctr, type));
+    }
+
     return res;
 }
 
-
-#ifdef USE_THREADS
 
 void *
 erts_alcu_realloc_ts(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
+    alcu_atag_t tag = 0;
     void *res;
+
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     erts_mtx_lock(&allctr->mutex);
-    res = do_erts_alcu_realloc(type, extra, ptr, size, 0, NULL);
+
+    res = do_erts_alcu_realloc(type, allctr, ptr, size, 0, NULL);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
+
     erts_mtx_unlock(&allctr->mutex);
+
     DEBUG_CHECK_ALIGNMENT(res);
+
     return res;
 }
 
@@ -5759,11 +5967,17 @@ void *
 erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
+    alcu_atag_t tag = 0;
     void *res;
+
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     erts_mtx_lock(&allctr->mutex);
-    res = do_erts_alcu_alloc(type, extra, size);
+    res = do_erts_alcu_alloc(type, allctr, size);
     if (!res)
-	res = erts_alcu_realloc_ts(type, extra, p, size);
+	res = do_erts_alcu_realloc(type, allctr, p, size, 0, NULL);
     else {
 	Block_t *blk;
 	size_t cpy_size;
@@ -5773,14 +5987,20 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
 	if (cpy_size > size)
 	    cpy_size = size;
 	sys_memcpy(res, p, cpy_size);
-	do_erts_alcu_free(type, extra, p, NULL);
+	do_erts_alcu_free(type, allctr, p, NULL);
     }
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
+
     erts_mtx_unlock(&allctr->mutex);
+
     DEBUG_CHECK_ALIGNMENT(res);
+
     return res;
 }
 
-#ifdef ERTS_SMP
 
 void *
 erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
@@ -5788,6 +6008,7 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
+    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -5797,10 +6018,18 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 
     allctr = tspec->allctr[ix];
 
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_realloc(type, allctr, ptr, size, 0, NULL);
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
 
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
@@ -5816,6 +6045,7 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
+    alcu_atag_t tag = 0;
     Allctr_t *allctr;
     void *res;
 
@@ -5825,14 +6055,16 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 
     allctr = tspec->allctr[ix];
 
+    if (allctr->atags) {
+        tag = determine_alloc_tag(allctr, type);
+    }
+
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_alloc(type, allctr, size);
     if (!res) {
-	if (allctr->thread_safe)
-	    erts_mtx_unlock(&allctr->mutex);
-	res = erts_alcu_realloc_thr_spec(type, allctr, ptr, size);
+        res = do_erts_alcu_realloc(type, allctr, ptr, size, 0, NULL);
     }
     else {
 	Block_t *blk;
@@ -5844,9 +6076,14 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 	    cpy_size = size;
 	sys_memcpy(res, ptr, cpy_size);
 	do_erts_alcu_free(type, allctr, ptr, NULL);
-	if (allctr->thread_safe)
-	    erts_mtx_unlock(&allctr->mutex);
     }
+
+    if (allctr->atags && res) {
+        set_alloc_tag(allctr, res, tag);
+    }
+
+    if (allctr->thread_safe)
+        erts_mtx_unlock(&allctr->mutex);
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -5854,31 +6091,27 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 }
 
 static ERTS_INLINE void *
-realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
+realloc_thr_pref(ErtsAlcType_t type, Allctr_t *pref_allctr, void *p, Uint size,
 		 int force_move)
 {
     void *res;
-    Allctr_t *pref_allctr, *used_allctr;
+    Allctr_t *used_allctr;
     UWord old_user_size;
     Carrier_t *busy_pcrr_p;
-#ifdef ERTS_SMP
+    alcu_atag_t tag = 0;
     int retried;
-#endif
 
-    if (!p)
-	return erts_alcu_alloc_thr_pref(type, extra, size);
-
-    pref_allctr = get_pref_allctr(extra);
+    if (pref_allctr->atags) {
+        tag = determine_alloc_tag(pref_allctr, type);
+    }
 
     if (pref_allctr->thread_safe)
 	erts_mtx_lock(&pref_allctr->mutex);
 
-#ifdef ERTS_SMP
     ASSERT(pref_allctr->dd.use);
     ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1);
     retried = 0;
 restart:
-#endif
 
     used_allctr = get_used_allctr(pref_allctr, ERTS_ALC_TS_PREF_LOCK_NO,
 				  p, &old_user_size, &busy_pcrr_p);
@@ -5894,13 +6127,16 @@ restart:
 				   0,
 				   &busy_pcrr_p);
 	clear_busy_pool_carrier(used_allctr, busy_pcrr_p);
-#ifdef ERTS_SMP
 	if (!res && !retried && ERTS_ALCU_HANDLE_DD_IN_OP(pref_allctr, 1)) {
 	    /* Cleaned up a bit more; try one more time... */
 	    retried = 1;
 	    goto restart;
 	}
-#endif	    
+
+        if (pref_allctr->atags && res) {
+            set_alloc_tag(pref_allctr, res, tag);
+        }
+
 	if (pref_allctr->thread_safe)
 	    erts_mtx_unlock(&pref_allctr->mutex);
     }
@@ -5909,6 +6145,9 @@ restart:
 	if (!res)
 	    goto unlock_ts_return;
 	else {
+            if (pref_allctr->atags) {
+                set_alloc_tag(pref_allctr, res, tag);
+            }
 
 	    DEBUG_CHECK_ALIGNMENT(res);
 
@@ -5939,25 +6178,68 @@ restart:
 	}
     }
 
+    DEBUG_CHECK_ALIGNMENT(res);
+
     return res;
 }
 
 void *
 erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
 {
-    return realloc_thr_pref(type, extra, p, size, 0);
+    if (p) {
+        Allctr_t *pref_allctr = get_pref_allctr(extra);
+
+        return realloc_thr_pref(type, pref_allctr, p, size, 0);
+    }
+
+    return erts_alcu_alloc_thr_pref(type, extra, size);
 }
 
 void *
 erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 			      void *p, Uint size)
 {
-    return realloc_thr_pref(type, extra, p, size, 1);
+    if (p) {
+        Allctr_t *pref_allctr = get_pref_allctr(extra);
+
+        return realloc_thr_pref(type, pref_allctr, p, size, 1);
+    }
+
+    return erts_alcu_alloc_thr_pref(type, extra, size);
 }
 
-#endif
 
+
+static Uint adjust_sbct(Allctr_t* allctr, Uint sbct)
+{
+#ifndef ARCH_64
+    if (sbct > 0) {
+	Uint max_mbc_block_sz = UNIT_CEILING(sbct - 1 + ABLK_HDR_SZ);
+	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
+	    || max_mbc_block_sz < sbct) { /* wrap around */
+	    /*
+	     * By limiting sbc_threshold to (hard limit - min_block_size)
+	     * we avoid having to split off free "residue blocks"
+	     * smaller than min_block_size.
+	     */
+	    max_mbc_block_sz = MBC_ABLK_SZ_MASK - UNIT_FLOOR(allctr->min_block_size - 1);
+	    sbct = max_mbc_block_sz - ABLK_HDR_SZ + 1;
+	}
+    }
 #endif
+    return sbct;
+}
+
+int erts_alcu_try_set_dyn_param(Allctr_t* allctr, Eterm param, Uint value)
+{
+    const Uint MIN_DYN_SBCT = 4000;  /* a lame catastrophe prevention */
+
+    if (param == am_sbct && value >= MIN_DYN_SBCT) {
+        allctr->sbc_threshold = adjust_sbct(allctr, value);
+        return 1;
+    }
+    return 0;
+}
 
 /* ------------------------------------------------------------------------- */
 
@@ -5978,10 +6260,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     sys_memcpy((void *) &allctr->mseg_opt,
 	       (void *) &erts_mseg_default_opt,
 	       sizeof(ErtsMsegOpt_t));
-#ifdef ERTS_SMP
     if (init->tspec || init->tpref)
 	allctr->mseg_opt.sched_spec = 1;
-#endif /* ERTS_SMP */
 #endif /* HAVE_ERTS_MSEG */
 
     allctr->name_prefix			= init->name_prefix;
@@ -6009,6 +6289,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	allctr->t			= 0;
 
     allctr->ramv			= init->ramv;
+    allctr->atags                       = init->atags;
     allctr->main_carrier_size		= init->mmbcs;
 
 #if HAVE_ERTS_MSEG
@@ -6039,7 +6320,6 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	goto error;
     allctr->min_block_size		= UNIT_CEILING(allctr->min_block_size
 						       + sizeof(FreeBlkFtr_t));
-#if ERTS_SMP
     if (init->tpref) {
 	Uint sz = ABLK_HDR_SZ;
 	sz += (init->fix ? 
@@ -6049,10 +6329,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	    allctr->min_block_size = sz;
     }
 
-    allctr->cpool.pooled_list.next  = &allctr->cpool.pooled_list;
-    allctr->cpool.pooled_list.prev  = &allctr->cpool.pooled_list;
-    allctr->cpool.traitor_list.next = &allctr->cpool.traitor_list;
-    allctr->cpool.traitor_list.prev = &allctr->cpool.traitor_list;
+    allctr->cpool.pooled_tree = NULL;
     allctr->cpool.dc_list.first = NULL;
     allctr->cpool.dc_list.last = NULL;
     allctr->cpool.abandon_limit = 0;
@@ -6062,51 +6339,34 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     erts_atomic_init_nob(&allctr->cpool.stat.carriers_size, 0);
     erts_atomic_init_nob(&allctr->cpool.stat.no_carriers, 0);
     allctr->cpool.check_limit_count = ERTS_ALC_CPOOL_CHECK_LIMIT_COUNT;
-    allctr->cpool.util_limit = init->ts ? 0 : init->acul;
-#endif
-
-    allctr->sbc_threshold		= init->sbct;
-#ifndef ARCH_64
-    if (allctr->sbc_threshold > 0) {
-	Uint max_mbc_block_sz = UNIT_CEILING(allctr->sbc_threshold - 1 + ABLK_HDR_SZ); 
-	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
-	    || max_mbc_block_sz < allctr->sbc_threshold) { /* wrap around */
-	    /* 
-	     * By limiting sbc_threshold to (hard limit - min_block_size)
-	     * we avoid having to split off free "residue blocks"
-	     * smaller than min_block_size.
-	     */
-	    max_mbc_block_sz = MBC_ABLK_SZ_MASK - UNIT_FLOOR(allctr->min_block_size - 1);
-	    allctr->sbc_threshold = max_mbc_block_sz - ABLK_HDR_SZ + 1;
-	}
+    if (!init->ts && init->acul && init->acnl) {
+        allctr->cpool.util_limit = init->acul;
+        allctr->cpool.in_pool_limit = init->acnl;
+        allctr->cpool.fblk_min_limit = init->acfml;
     }
-#endif
+    else {
+        allctr->cpool.util_limit = 0;
+        allctr->cpool.in_pool_limit = 0;
+        allctr->cpool.fblk_min_limit = 0;
+    }
+
+    allctr->sbc_threshold = adjust_sbct(allctr, init->sbct);
 
 #if HAVE_ERTS_MSEG
     if (allctr->mseg_opt.abs_shrink_th > ~((UWord) 0) / 100)
 	allctr->mseg_opt.abs_shrink_th = ~((UWord) 0) / 100;
 #endif
 
-#ifdef USE_THREADS
     if (init->ts) {
 	allctr->thread_safe = 1;
-	
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	erts_mtx_init_x_opt(&allctr->mutex,
-			    "alcu_allocator",
-			    make_small(allctr->alloc_no),
-			    ERTS_LCNT_LT_ALLOC,1);
-#else
-	erts_mtx_init_x(&allctr->mutex,
-			"alcu_allocator",
-			make_small(allctr->alloc_no),1);
-#endif /*ERTS_ENABLE_LOCK_COUNT*/
-	
+
+        erts_mtx_init(&allctr->mutex, "alcu_allocator", make_small(allctr->alloc_no),
+            ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
+
 #ifdef DEBUG
 	allctr->debug.saved_tid = 0;
 #endif
     }
-#endif
 
     if(!allctr->get_free_block
        || !allctr->link_free_block
@@ -6119,14 +6379,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
     if (allctr->mbc_header_size < sizeof(Carrier_t))
 	goto error;
-#ifdef ERTS_SMP
     allctr->dd.use = 0;
     if (init->tpref) {
 	allctr->dd.use = 1;
 	init_dd_queue(&allctr->dd.q);
 	allctr->dd.ix = init->ix;
     }
-#endif
     allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
 					    + ABLK_HDR_SZ)
 			       - ABLK_HDR_SZ);
@@ -6143,6 +6401,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->sys_realloc = &erts_alcu_sys_realloc;
         allctr->sys_dealloc = &erts_alcu_sys_dealloc;
     }
+
+    allctr->try_set_dyn_param = &erts_alcu_try_set_dyn_param;
+
 #if HAVE_ERTS_MSEG
     if (init->mseg_alloc) {
         ASSERT(init->mseg_realloc && init->mseg_dealloc);
@@ -6157,6 +6418,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
         allctr->mseg_realloc = &erts_alcu_mseg_realloc;
         allctr->mseg_dealloc = &erts_alcu_mseg_dealloc;
     }
+
     /* If a custom carrier alloc function is specified, make sure it's used */
     if (init->mseg_alloc && !init->sys_alloc) {
         allctr->crr_set_flgs = CFLG_FORCE_MSEG;
@@ -6180,10 +6442,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 			     | CFLG_NO_CPOOL
 			     | CFLG_MAIN_CARRIER);
 	if (!blk) {
-#ifdef USE_THREADS
 	  if (allctr->thread_safe)
 	    erts_mtx_destroy(&allctr->mutex);
-#endif
 	  erts_exit(ERTS_ABORT_EXIT,
 	    "Failed to create main carrier for %salloc\n",
 	    init->name_prefix);
@@ -6203,9 +6463,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	    allctr->fix[i].type_size = init->fix_type_size[i];
 	    allctr->fix[i].list_size = 0;
 	    allctr->fix[i].list = NULL;
-#ifdef ERTS_SMP
 	    ASSERT(allctr->fix[i].type_size >= sizeof(ErtsAllctrFixDDBlock_t));
-#endif
 	    if (ERTS_ALC_IS_CPOOL_ENABLED(allctr)) {
 		allctr->fix[i].u.cpool.min_list_size = 0;
 		allctr->fix[i].u.cpool.shrink_list = 0;
@@ -6225,10 +6483,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
  error:
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_destroy(&allctr->mutex);
-#endif
 
     return 0;
 
@@ -6246,10 +6502,8 @@ erts_alcu_stop(Allctr_t *allctr)
     while (allctr->mbc_list.first)
 	destroy_carrier(allctr, MBC_TO_FIRST_BLK(allctr, allctr->mbc_list.first), NULL);
 
-#ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_destroy(&allctr->mutex);
-#endif
 
 }
 
@@ -6258,14 +6512,12 @@ erts_alcu_stop(Allctr_t *allctr)
 void
 erts_alcu_init(AlcUInit_t *init)
 {
-#ifdef ERTS_SMP
     int i;
     for (i = 0; i <= ERTS_ALC_A_MAX; i++) {
 	ErtsAlcCPoolData_t *sentinel = &carrier_pool[i].sentinel;
 	erts_atomic_init_nob(&sentinel->next, (erts_aint_t) sentinel);
 	erts_atomic_init_nob(&sentinel->prev, (erts_aint_t) sentinel);
     }
-#endif
     ERTS_CT_ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
     ASSERT(erts_mseg_unit_size() == ERTS_SACRR_UNIT_SZ);
@@ -6280,10 +6532,1077 @@ erts_alcu_init(AlcUInit_t *init)
     carrier_alignment = sizeof(Unit_t);
 #endif
 
-    erts_mtx_init(&init_atoms_mtx, "alcu_init_atoms");
+    erts_mtx_init(&init_atoms_mtx, "alcu_init_atoms", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
 
     atoms_initialized = 0;
     initialized = 1;
+}
+
+/* ------------------------------------------------------------------------- */
+
+/* Allocation histograms and carrier information is gathered by walking through
+ * all carriers associated with each allocator instance. This is done as
+ * aux_yield_work on the scheduler that owns each instance.
+ *
+ * Yielding is implemented by temporarily inserting a "dummy carrier" at the
+ * last position. It's permanently "busy" so it won't get picked up by someone
+ * else when in the carrier pool, and we never make the employer aware of it
+ * through callbacks so we can't accidentally allocate on it.
+ *
+ * Plain malloc/free is used to guarantee we won't allocate with the allocator
+ * we're scanning. */
+
+/* Yield between carriers once this many blocks have been processed. Note that
+ * a single carrier scan may exceed this figure. */
+#ifndef DEBUG
+    #define BLOCKSCAN_REDUCTIONS (8000)
+#else
+    #define BLOCKSCAN_REDUCTIONS (400)
+#endif
+
+/* Abort a single carrier scan after this many blocks to prevent really large
+ * MBCs from blocking forever. */
+#define BLOCKSCAN_BAILOUT_THRESHOLD (16000)
+
+typedef struct alcu_blockscan {
+    /* A per-scheduler list used when multiple scans have been queued. The
+     * current scanner will always run until completion/abort before moving on
+     * to the next. */
+    struct alcu_blockscan *scanner_queue;
+
+    Allctr_t *allocator;
+    Process *process;
+
+    int (*current_op)(struct alcu_blockscan *scanner);
+    int (*next_op)(struct alcu_blockscan *scanner);
+    int reductions;
+
+    ErtsAlcCPoolData_t *cpool_cursor;
+    CarrierList_t *current_clist;
+    Carrier_t *clist_cursor;
+    Carrier_t dummy_carrier;
+
+    /* Called if the process that started this job dies before we're done. */
+    void (*abort)(void *user_data);
+
+    /* Called on each carrier. The callback must return the number of blocks
+     * scanned to yield properly between carriers.
+     *
+     * Note that it's not possible to "yield back" into a carrier. */
+    int (*scan)(Allctr_t *, void *user_data, Carrier_t *);
+
+    /* Called when all carriers have been scanned. The callback may return
+     * non-zero to yield. */
+    int (*finish)(void *user_data);
+
+    void *user_data;
+} blockscan_t;
+
+static Carrier_t *blockscan_restore_clist_cursor(blockscan_t *state)
+{
+    Carrier_t *cursor = state->clist_cursor;
+
+    ASSERT(state->clist_cursor == (state->current_clist)->first ||
+           state->clist_cursor == &state->dummy_carrier);
+
+    if (cursor == &state->dummy_carrier) {
+        cursor = cursor->next;
+
+        unlink_carrier(state->current_clist, state->clist_cursor);
+    }
+
+    return cursor;
+}
+
+static void blockscan_save_clist_cursor(blockscan_t *state, Carrier_t *after)
+{
+    ASSERT(state->clist_cursor == (state->current_clist)->first ||
+           state->clist_cursor == &state->dummy_carrier);
+
+    state->clist_cursor = &state->dummy_carrier;
+
+    (state->clist_cursor)->next = after->next;
+    (state->clist_cursor)->prev = after;
+
+    relink_carrier(state->current_clist, state->clist_cursor);
+}
+
+static int blockscan_clist_yielding(blockscan_t *state)
+{
+    Carrier_t *cursor = blockscan_restore_clist_cursor(state);
+
+    if (ERTS_PROC_IS_EXITING(state->process)) {
+        return 0;
+    }
+
+    while (cursor) {
+        /* Skip dummy carriers inserted by another (concurrent) block scan.
+         * This can happen when scanning thread-safe allocators from multiple
+         * schedulers. */
+        if (CARRIER_SZ(cursor) > 0) {
+            int blocks_scanned = state->scan(state->allocator,
+                                             state->user_data,
+                                             cursor);
+
+            state->reductions -= blocks_scanned;
+
+            if (state->reductions <= 0) {
+                blockscan_save_clist_cursor(state, cursor);
+                return 1;
+            }
+        }
+
+        cursor = cursor->next;
+    }
+
+    return 0;
+}
+
+static ErtsAlcCPoolData_t *blockscan_restore_cpool_cursor(blockscan_t *state)
+{
+    ErtsAlcCPoolData_t *cursor;
+
+    cursor = cpool_aint2cpd(cpool_read(&(state->cpool_cursor)->next));
+
+    if (state->cpool_cursor == &state->dummy_carrier.cpool) {
+        cpool_delete(state->allocator, state->allocator, &state->dummy_carrier);
+    }
+
+    return cursor;
+}
+
+static void blockscan_save_cpool_cursor(blockscan_t *state,
+                                        ErtsAlcCPoolData_t *after)
+{
+    ErtsAlcCPoolData_t *dummy_carrier, *prev_carrier, *next_carrier;
+
+    dummy_carrier = &state->dummy_carrier.cpool;
+
+    next_carrier = cpool_aint2cpd(cpool_mod_mark(&after->next));
+    prev_carrier = cpool_aint2cpd(cpool_mod_mark(&next_carrier->prev));
+
+    cpool_init(&dummy_carrier->next, (erts_aint_t)next_carrier);
+    cpool_init(&dummy_carrier->prev, (erts_aint_t)prev_carrier);
+
+    cpool_set_mod_marked(&prev_carrier->next,
+                         (erts_aint_t)dummy_carrier,
+                         (erts_aint_t)next_carrier);
+    cpool_set_mod_marked(&next_carrier->prev,
+                         (erts_aint_t)dummy_carrier,
+                         (erts_aint_t)prev_carrier);
+
+    state->cpool_cursor = dummy_carrier;
+}
+
+static int blockscan_cpool_yielding(blockscan_t *state)
+{
+    ErtsAlcCPoolData_t *sentinel, *cursor;
+
+    sentinel = &carrier_pool[(state->allocator)->alloc_no].sentinel;
+    cursor = blockscan_restore_cpool_cursor(state);
+
+    if (ERTS_PROC_IS_EXITING(state->process)) {
+        return 0;
+    }
+
+    while (cursor != sentinel) {
+        Carrier_t *carrier;
+        erts_aint_t exp;
+
+        /* When a deallocation happens on a pooled carrier it will be routed to
+         * its owner, so the only way to be sure that it isn't modified while
+         * scanning is to skip all carriers that aren't ours. The deallocations
+         * deferred to us will get handled when we're done. */
+        while (cursor->orig_allctr != state->allocator) {
+            cursor = cpool_aint2cpd(cpool_read(&cursor->next));
+
+            if (cursor == sentinel) {
+                return 0;
+            }
+        }
+
+        carrier = ErtsContainerStruct(cursor, Carrier_t, cpool);
+        exp = erts_atomic_read_rb(&carrier->allctr);
+
+        if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
+            ASSERT(state->allocator == (Allctr_t*)(exp & ~ERTS_CRR_ALCTR_FLG_MASK));
+            ASSERT(!(exp & ERTS_CRR_ALCTR_FLG_BUSY));
+
+            if (erts_atomic_cmpxchg_acqb(&carrier->allctr,
+                                         exp | ERTS_CRR_ALCTR_FLG_BUSY,
+                                         exp) == exp) {
+                /* Skip dummy carriers inserted by another (concurrent) block
+                 * scan. This can happen when scanning thread-safe allocators
+                 * from multiple schedulers. */
+                if (CARRIER_SZ(carrier) > 0) {
+                    int blocks_scanned = state->scan(state->allocator,
+                                                     state->user_data,
+                                                     carrier);
+
+                    state->reductions -= blocks_scanned;
+
+                    if (state->reductions <= 0) {
+                        blockscan_save_cpool_cursor(state, cursor);
+                        erts_atomic_set_relb(&carrier->allctr, exp);
+
+                        return 1;
+                    }
+                }
+
+                erts_atomic_set_relb(&carrier->allctr, exp);
+            }
+        }
+
+        cursor = cpool_aint2cpd(cpool_read(&cursor->next));
+    }
+
+    return 0;
+}
+
+static int blockscan_yield_helper(blockscan_t *state,
+                                  int (*yielding_op)(blockscan_t*))
+{
+    /* Note that we don't check whether to abort here; only yielding_op knows
+     * whether the carrier is still in the list/pool. */
+
+    if ((state->allocator)->thread_safe) {
+        /* Locked scans have to be as short as possible. */
+        state->reductions = 1;
+
+        erts_mtx_lock(&(state->allocator)->mutex);
+    } else {
+        state->reductions = BLOCKSCAN_REDUCTIONS;
+    }
+
+    if (yielding_op(state)) {
+        state->next_op = state->current_op;
+    }
+
+    if ((state->allocator)->thread_safe) {
+        erts_mtx_unlock(&(state->allocator)->mutex);
+    }
+
+    return 1;
+}
+
+/* */
+
+static int blockscan_finish(blockscan_t *state)
+{
+    if (ERTS_PROC_IS_EXITING(state->process)) {
+        state->abort(state->user_data);
+        return 0;
+    }
+
+    state->current_op = blockscan_finish;
+
+    return state->finish(state->user_data);
+}
+
+static int blockscan_sweep_sbcs(blockscan_t *state)
+{
+    if (state->current_op != blockscan_sweep_sbcs) {
+        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_SBC, state->allocator);
+        state->current_clist = &(state->allocator)->sbc_list;
+        state->clist_cursor = (state->current_clist)->first;
+    }
+
+    state->current_op = blockscan_sweep_sbcs;
+    state->next_op = blockscan_finish;
+
+    return blockscan_yield_helper(state, blockscan_clist_yielding);
+}
+
+static int blockscan_sweep_mbcs(blockscan_t *state)
+{
+    if (state->current_op != blockscan_sweep_mbcs) {
+        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        state->current_clist = &(state->allocator)->mbc_list;
+        state->clist_cursor = (state->current_clist)->first;
+    }
+
+    state->current_op = blockscan_sweep_mbcs;
+    state->next_op = blockscan_sweep_sbcs;
+
+    return blockscan_yield_helper(state, blockscan_clist_yielding);
+}
+
+static int blockscan_sweep_cpool(blockscan_t *state)
+{
+    if (state->current_op != blockscan_sweep_cpool) {
+        ErtsAlcCPoolData_t *sentinel;
+
+        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        sentinel = &carrier_pool[(state->allocator)->alloc_no].sentinel;
+        state->cpool_cursor = sentinel;
+    }
+
+    state->current_op = blockscan_sweep_cpool;
+    state->next_op = blockscan_sweep_mbcs;
+
+    return blockscan_yield_helper(state, blockscan_cpool_yielding);
+}
+
+static int blockscan_get_specific_allocator(int allocator_num,
+                                            int sched_id,
+                                            Allctr_t **out)
+{
+    ErtsAllocatorInfo_t *ai;
+    Allctr_t *allocator;
+
+    ASSERT(allocator_num >= ERTS_ALC_A_MIN &&
+           allocator_num <= ERTS_ALC_A_MAX);
+    ASSERT(sched_id >= 0 && sched_id <= erts_no_schedulers);
+
+    ai = &erts_allctrs_info[allocator_num];
+
+    if (!ai->enabled || !ai->alloc_util) {
+        return 0;
+    }
+
+    if (!ai->thr_spec) {
+        if (sched_id != 0) {
+            /* Only thread-specific allocators can be scanned on a specific
+             * scheduler. */
+            return 0;
+        }
+
+        allocator = (Allctr_t*)ai->extra;
+        ASSERT(allocator->thread_safe);
+    } else {
+        ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t*)ai->extra;
+
+        ASSERT(sched_id < tspec->size);
+
+        allocator = tspec->allctr[sched_id];
+    }
+
+    *out = allocator;
+
+    return 1;
+}
+
+static void blockscan_sched_trampoline(void *arg)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+    ErtsSchedulerData *esdp;
+    blockscan_t *scanner;
+
+    esdp = erts_get_scheduler_data();
+    scanner = (blockscan_t*)arg;
+
+    yield = ERTS_SCHED_AUX_YIELD_DATA(esdp, alcu_blockscan);
+
+    ASSERT((yield->last == NULL) == (yield->current == NULL));
+
+    if (yield->last != NULL) {
+        blockscan_t *prev_scanner = yield->last;
+
+        ASSERT(prev_scanner->scanner_queue == NULL);
+
+        prev_scanner->scanner_queue = scanner;
+    } else {
+        yield->current = scanner;
+    }
+
+    scanner->scanner_queue = NULL;
+    yield->last = scanner;
+
+    erts_notify_new_aux_yield_work(esdp);
+}
+
+static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
+                               Allctr_t *allocator, int sched_id)
+{
+    ASSERT(erts_get_scheduler_id() != 0);
+
+    if (sched_id == 0) {
+        /* Global instances are always handled on the current scheduler. */
+        sched_id = ERTS_ALC_GET_THR_IX();
+        ASSERT(allocator->thread_safe);
+    }
+
+    scanner->allocator = allocator;
+    scanner->process = owner;
+
+    erts_proc_inc_refc(scanner->process);
+
+    cpool_init_carrier_data(scanner->allocator, &scanner->dummy_carrier);
+    erts_atomic_init_nob(&(scanner->dummy_carrier).allctr,
+                         (erts_aint_t)allocator | ERTS_CRR_ALCTR_FLG_BUSY);
+
+    if (ERTS_ALC_IS_CPOOL_ENABLED(scanner->allocator)) {
+        scanner->next_op = blockscan_sweep_cpool;
+    } else {
+        scanner->next_op = blockscan_sweep_mbcs;
+    }
+
+    /* Aux yield jobs can only be set up while running on the scheduler that
+     * services them, so we move there before continuing.
+     *
+     * We can't drive the scan itself through this since the scheduler will
+     * always finish *all* misc aux work in one go which makes it impossible to
+     * yield. */
+    erts_schedule_misc_aux_work(sched_id, blockscan_sched_trampoline, scanner);
+}
+
+int erts_handle_yielded_alcu_blockscan(ErtsSchedulerData *esdp,
+                                       ErtsAlcuBlockscanYieldData *yield)
+{
+    blockscan_t *scanner = yield->current;
+
+    (void)esdp;
+
+    ASSERT((yield->last == NULL) == (yield->current == NULL));
+
+    if (scanner) {
+        if (scanner->next_op(scanner)) {
+            return 1;
+        }
+
+        ASSERT(ERTS_PROC_IS_EXITING(scanner->process) ||
+               scanner->current_op == blockscan_finish);
+
+        yield->current = scanner->scanner_queue;
+
+        if (yield->current == NULL) {
+            ASSERT(scanner == yield->last);
+            yield->last = NULL;
+        }
+
+        erts_proc_dec_refc(scanner->process);
+
+        /* Plain free is intentional. */
+        free(scanner);
+
+        return yield->current != NULL;
+    }
+
+    return 0;
+}
+
+void erts_alcu_sched_spec_data_init(ErtsSchedulerData *esdp)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+
+    yield = ERTS_SCHED_AUX_YIELD_DATA(esdp, alcu_blockscan);
+
+    yield->current = NULL;
+    yield->last = NULL;
+}
+
+/* ------------------------------------------------------------------------- */
+
+static ERTS_INLINE int u64_log2(Uint64 v)
+{
+    static const int log2_tab64[64] = {
+        63,  0, 58,  1, 59, 47, 53,  2,
+        60, 39, 48, 27, 54, 33, 42,  3,
+        61, 51, 37, 40, 49, 18, 28, 20,
+        55, 30, 34, 11, 43, 14, 22,  4,
+        62, 57, 46, 52, 38, 26, 32, 41,
+        50, 36, 17, 19, 29, 10, 13, 21,
+        56, 45, 25, 31, 35, 16,  9, 12,
+        44, 24, 15,  8, 23,  7,  6,  5};
+
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v |= v >> 32;
+
+    return log2_tab64[((Uint64)((v - (v >> 1))*0x07EDD5E59A4E28C2)) >> 58];
+}
+
+/* ------------------------------------------------------------------------- */
+
+typedef struct hist_tree__ {
+    struct hist_tree__ *parent;
+    struct hist_tree__ *left;
+    struct hist_tree__ *right;
+
+    int is_red;
+
+    alcu_atag_t tag;
+    UWord histogram[1];
+} hist_tree_t;
+
+#define ERTS_RBT_PREFIX hist_tree
+#define ERTS_RBT_T hist_tree_t
+#define ERTS_RBT_KEY_T UWord
+#define ERTS_RBT_FLAGS_T int
+#define ERTS_RBT_INIT_EMPTY_TNODE(T) ((void)0)
+#define ERTS_RBT_IS_RED(T) ((T)->is_red)
+#define ERTS_RBT_SET_RED(T) ((T)->is_red = 1)
+#define ERTS_RBT_IS_BLACK(T) (!ERTS_RBT_IS_RED(T))
+#define ERTS_RBT_SET_BLACK(T) ((T)->is_red = 0)
+#define ERTS_RBT_GET_FLAGS(T) ((T)->is_red)
+#define ERTS_RBT_SET_FLAGS(T, F) ((T)->is_red = F)
+#define ERTS_RBT_GET_PARENT(T) ((T)->parent)
+#define ERTS_RBT_SET_PARENT(T, P) ((T)->parent = P)
+#define ERTS_RBT_GET_RIGHT(T) ((T)->right)
+#define ERTS_RBT_SET_RIGHT(T, R) ((T)->right = (R))
+#define ERTS_RBT_GET_LEFT(T) ((T)->left)
+#define ERTS_RBT_SET_LEFT(T, L) ((T)->left = (L))
+#define ERTS_RBT_GET_KEY(T) ((T)->tag)
+#define ERTS_RBT_IS_LT(KX, KY) (KX < KY)
+#define ERTS_RBT_IS_EQ(KX, KY) (KX == KY)
+#define ERTS_RBT_WANT_FOREACH_DESTROY_YIELDING
+#define ERTS_RBT_WANT_FOREACH_DESTROY
+#define ERTS_RBT_WANT_INSERT
+#define ERTS_RBT_WANT_LOOKUP
+#define ERTS_RBT_UNDEF
+
+#include "erl_rbtree.h"
+
+typedef struct {
+    blockscan_t common;
+
+    ErtsIRefStorage iref;
+    Process *process;
+
+    hist_tree_rbt_yield_state_t hist_tree_yield;
+    hist_tree_t *hist_tree;
+    UWord hist_count;
+
+    UWord hist_slot_start;
+    int hist_slot_count;
+
+    UWord unscanned_size;
+
+    ErtsHeapFactory msg_factory;
+    int building_result;
+    Eterm result_list;
+} gather_ahist_t;
+
+static void gather_ahist_update(gather_ahist_t *state, UWord tag, UWord size)
+{
+    hist_tree_t *hist_node;
+    UWord size_interval;
+    int hist_slot;
+
+    hist_node = hist_tree_rbt_lookup(state->hist_tree, tag);
+
+    if (hist_node == NULL) {
+        /* Plain calloc is intentional. */
+        hist_node = (hist_tree_t*)calloc(1, sizeof(hist_tree_t) +
+                                            (state->hist_slot_count - 1) *
+                                            sizeof(hist_node->histogram[0]));
+        hist_node->tag = tag;
+
+        hist_tree_rbt_insert(&state->hist_tree, hist_node);
+        state->hist_count++;
+    }
+
+    size_interval = (size / state->hist_slot_start);
+    size_interval = u64_log2(size_interval + 1);
+
+    hist_slot = MIN(size_interval, state->hist_slot_count - 1);
+
+    hist_node->histogram[hist_slot]++;
+}
+
+static int gather_ahist_scan(Allctr_t *allocator,
+                             void *user_data,
+                             Carrier_t *carrier)
+{
+    gather_ahist_t *state;
+    int blocks_scanned;
+    Block_t *block;
+
+    state = (gather_ahist_t*)user_data;
+    blocks_scanned = 1;
+
+    if (IS_SB_CARRIER(carrier)) {
+        alcu_atag_t tag;
+
+        block = SBC2BLK(allocator, carrier);
+        tag = GET_BLK_ATAG(block);
+
+        ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+
+        gather_ahist_update(state, tag, SBC_BLK_SZ(block));
+    } else {
+        UWord scanned_bytes = MBC_HEADER_SIZE(allocator);
+
+        ASSERT(IS_MB_CARRIER(carrier));
+
+        block = MBC_TO_FIRST_BLK(allocator, carrier);
+
+        while (1) {
+            UWord block_size = MBC_BLK_SZ(block);
+
+            if (IS_ALLOCED_BLK(block)) {
+                alcu_atag_t tag = GET_BLK_ATAG(block);
+
+                ASSERT(DBG_IS_VALID_ATAG(allocator, tag));
+
+                gather_ahist_update(state, tag, block_size);
+            }
+
+            scanned_bytes += block_size;
+
+            if (blocks_scanned >= BLOCKSCAN_BAILOUT_THRESHOLD) {
+                state->unscanned_size += CARRIER_SZ(carrier) - scanned_bytes;
+                break;
+            } else if (IS_LAST_BLK(block)) {
+                break;
+            }
+
+            block = NXT_BLK(block);
+            blocks_scanned++;
+        }
+    }
+
+    return blocks_scanned;
+}
+
+static void gather_ahist_append_result(hist_tree_t *node, void *arg)
+{
+    gather_ahist_t *state = (gather_ahist_t*)arg;
+
+    Eterm histogram_tuple, tag_tuple;
+
+    Eterm *hp;
+    int ix;
+
+    ASSERT(state->building_result);
+
+    hp = erts_produce_heap(&state->msg_factory, 7 + state->hist_slot_count, 0);
+
+    hp[0] = make_arityval(state->hist_slot_count);
+
+    for (ix = 0; ix < state->hist_slot_count; ix++) {
+        hp[1 + ix] = make_small(node->histogram[ix]);
+    }
+
+    histogram_tuple = make_tuple(hp);
+    hp += 1 + state->hist_slot_count;
+
+    hp[0] = make_arityval(3);
+    hp[1] = ATAG_ID(node->tag);
+    hp[2] = alloc_type_atoms[ATAG_TYPE(node->tag)];
+    hp[3] = histogram_tuple;
+
+    tag_tuple = make_tuple(hp);
+    hp += 4;
+
+    state->result_list = CONS(hp, tag_tuple, state->result_list);
+
+    /* Plain free is intentional. */
+    free(node);
+}
+
+static void gather_ahist_send(gather_ahist_t *state)
+{
+    Eterm result_tuple, unscanned_size, task_ref;
+
+    Uint term_size;
+    Eterm *hp;
+
+    ASSERT((state->result_list == NIL) ^ (state->hist_count > 0));
+    ASSERT(state->building_result);
+
+    term_size = 4 + erts_iref_storage_heap_size(&state->iref);
+    term_size += IS_USMALL(0, state->unscanned_size) ? 0 : BIG_UINT_HEAP_SIZE;
+
+    hp = erts_produce_heap(&state->msg_factory, term_size, 0);
+
+    task_ref = erts_iref_storage_make_ref(&state->iref, &hp,
+        &(state->msg_factory.message)->hfrag.off_heap, 0);
+
+    unscanned_size = bld_unstable_uint(&hp, NULL, state->unscanned_size);
+
+    hp[0] = make_arityval(3);
+    hp[1] = task_ref;
+    hp[2] = unscanned_size;
+    hp[3] = state->result_list;
+
+    result_tuple = make_tuple(hp);
+
+    erts_factory_trim_and_close(&state->msg_factory, &result_tuple, 1);
+
+    erts_queue_message(state->process, 0, state->msg_factory.message,
+                       result_tuple, am_system);
+}
+
+static int gather_ahist_finish(void *arg)
+{
+    gather_ahist_t *state = (gather_ahist_t*)arg;
+
+    if (!state->building_result) {
+        ErtsMessage *message;
+        Uint minimum_size;
+        Eterm *hp;
+
+        /* {Ref, unscanned size, [{Tag, {Histogram}} | Rest]} */
+        minimum_size = 4 + erts_iref_storage_heap_size(&state->iref) +
+                       state->hist_count * (7 + state->hist_slot_count);
+
+        message = erts_alloc_message(minimum_size, &hp);
+        erts_factory_selfcontained_message_init(&state->msg_factory,
+                                                message, hp);
+
+        ERTS_RBT_YIELD_STAT_INIT(&state->hist_tree_yield);
+
+        state->result_list = NIL;
+        state->building_result = 1;
+    }
+
+    if (hist_tree_rbt_foreach_destroy_yielding(&state->hist_tree,
+                                               &gather_ahist_append_result,
+                                               state,
+                                               &state->hist_tree_yield,
+                                               BLOCKSCAN_REDUCTIONS)) {
+        return 1;
+    }
+
+    gather_ahist_send(state);
+
+    return 0;
+}
+
+static void gather_ahist_destroy_result(hist_tree_t *node, void *arg)
+{
+    (void)arg;
+    free(node);
+}
+
+static void gather_ahist_abort(void *arg)
+{
+    gather_ahist_t *state = (gather_ahist_t*)arg;
+
+    if (state->building_result) {
+        erts_factory_undo(&state->msg_factory);
+    }
+
+    hist_tree_rbt_foreach_destroy(&state->hist_tree,
+                                  &gather_ahist_destroy_result,
+                                  NULL);
+}
+
+int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
+                                      int sched_id, int hist_width,
+                                      UWord hist_start, Eterm ref)
+{
+    gather_ahist_t *gather_state;
+    blockscan_t *scanner;
+    Allctr_t *allocator;
+
+    ASSERT(is_internal_ref(ref));
+
+    if (!blockscan_get_specific_allocator(allocator_num,
+                                          sched_id,
+                                          &allocator)) {
+        return 0;
+    } else if (!allocator->atags) {
+        return 0;
+    }
+
+    ensure_atoms_initialized(allocator);
+
+    /* Plain calloc is intentional. */
+    gather_state = (gather_ahist_t*)calloc(1, sizeof(gather_ahist_t));
+    scanner = &gather_state->common;
+
+    scanner->abort = gather_ahist_abort;
+    scanner->scan = gather_ahist_scan;
+    scanner->finish = gather_ahist_finish;
+    scanner->user_data = gather_state;
+
+    erts_iref_storage_save(&gather_state->iref, ref);
+    gather_state->hist_slot_start = hist_start;
+    gather_state->hist_slot_count = hist_width;
+    gather_state->process = p;
+
+    blockscan_dispatch(scanner, p, allocator, sched_id);
+
+    return 1;
+}
+
+/* ------------------------------------------------------------------------- */
+
+typedef struct chist_node__ {
+    struct chist_node__ *next;
+
+    UWord carrier_size;
+    UWord unscanned_size;
+    UWord allocated_size;
+
+    /* BLOCKSCAN_BAILOUT_THRESHOLD guarantees we won't overflow this or the
+     * counters in the free block histogram. */
+    int allocated_count;
+    int flags;
+
+    int histogram[1];
+} chist_node_t;
+
+typedef struct {
+    blockscan_t common;
+
+    ErtsIRefStorage iref;
+    Process *process;
+
+    Eterm allocator_desc;
+
+    chist_node_t *info_list;
+    UWord info_count;
+
+    UWord hist_slot_start;
+    int hist_slot_count;
+
+    ErtsHeapFactory msg_factory;
+    int building_result;
+    Eterm result_list;
+} gather_cinfo_t;
+
+static int gather_cinfo_scan(Allctr_t *allocator,
+                             void *user_data,
+                             Carrier_t *carrier)
+{
+    gather_cinfo_t *state;
+    chist_node_t *node;
+    int blocks_scanned;
+    Block_t *block;
+
+    state = (gather_cinfo_t*)user_data;
+    node = calloc(1, sizeof(chist_node_t) +
+                     (state->hist_slot_count - 1) *
+                     sizeof(node->histogram[0]));
+    blocks_scanned = 1;
+
+    /* ERTS_CRR_ALCTR_FLG_BUSY is ignored since we've set it ourselves and it
+     * would be misleading to include it. */
+    node->flags = erts_atomic_read_rb(&carrier->allctr) &
+                  (ERTS_CRR_ALCTR_FLG_MASK & ~ERTS_CRR_ALCTR_FLG_BUSY);
+    node->carrier_size = CARRIER_SZ(carrier);
+
+    if (IS_SB_CARRIER(carrier)) {
+        UWord block_size;
+
+        block = SBC2BLK(allocator, carrier);
+        block_size = SBC_BLK_SZ(block);
+
+        node->allocated_size = block_size;
+        node->allocated_count = 1;
+    } else {
+        UWord scanned_bytes = MBC_HEADER_SIZE(allocator);
+
+        block = MBC_TO_FIRST_BLK(allocator, carrier);
+
+        while (1) {
+            UWord block_size = MBC_BLK_SZ(block);
+
+            scanned_bytes += block_size;
+
+            if (IS_ALLOCED_BLK(block)) {
+                node->allocated_size += block_size;
+                node->allocated_count++;
+            } else {
+                UWord size_interval;
+                int hist_slot;
+
+                size_interval = (block_size / state->hist_slot_start);
+                size_interval = u64_log2(size_interval + 1);
+
+                hist_slot = MIN(size_interval, state->hist_slot_count - 1);
+
+                node->histogram[hist_slot]++;
+            }
+
+            if (blocks_scanned >= BLOCKSCAN_BAILOUT_THRESHOLD) {
+                node->unscanned_size += CARRIER_SZ(carrier) - scanned_bytes;
+                break;
+            } else if (IS_LAST_BLK(block)) {
+                break;
+            }
+
+            block = NXT_BLK(block);
+            blocks_scanned++;
+        }
+    }
+
+    node->next = state->info_list;
+    state->info_list = node;
+    state->info_count++;
+
+    return blocks_scanned;
+}
+
+static void gather_cinfo_append_result(gather_cinfo_t *state,
+                                       chist_node_t *info)
+{
+    Eterm carrier_size, unscanned_size, allocated_size;
+    Eterm histogram_tuple, carrier_tuple;
+
+    Uint term_size;
+    Eterm *hp;
+    int ix;
+
+    ASSERT(state->building_result);
+
+    term_size = 11 + state->hist_slot_count;
+    term_size += IS_USMALL(0, info->carrier_size) ? 0 : BIG_UINT_HEAP_SIZE;
+    term_size += IS_USMALL(0, info->unscanned_size) ? 0 : BIG_UINT_HEAP_SIZE;
+    term_size += IS_USMALL(0, info->allocated_size) ? 0 : BIG_UINT_HEAP_SIZE;
+
+    hp = erts_produce_heap(&state->msg_factory, term_size, 0);
+
+    hp[0] = make_arityval(state->hist_slot_count);
+
+    for (ix = 0; ix < state->hist_slot_count; ix++) {
+        hp[1 + ix] = make_small(info->histogram[ix]);
+    }
+
+    histogram_tuple = make_tuple(hp);
+    hp += 1 + state->hist_slot_count;
+
+    carrier_size = bld_unstable_uint(&hp, NULL, info->carrier_size);
+    unscanned_size = bld_unstable_uint(&hp, NULL, info->unscanned_size);
+    allocated_size = bld_unstable_uint(&hp, NULL, info->allocated_size);
+
+    hp[0] = make_arityval(7);
+    hp[1] = state->allocator_desc;
+    hp[2] = carrier_size;
+    hp[3] = unscanned_size;
+    hp[4] = allocated_size;
+    hp[5] = make_small(info->allocated_count);
+    hp[6] = (info->flags & ERTS_CRR_ALCTR_FLG_IN_POOL) ? am_true : am_false;
+    hp[7] = histogram_tuple;
+
+    carrier_tuple = make_tuple(hp);
+    hp += 8;
+
+    state->result_list = CONS(hp, carrier_tuple, state->result_list);
+
+    free(info);
+}
+
+static void gather_cinfo_send(gather_cinfo_t *state)
+{
+    Eterm result_tuple, task_ref;
+
+    int term_size;
+    Eterm *hp;
+
+    ASSERT((state->result_list == NIL) ^ (state->info_count > 0));
+    ASSERT(state->building_result);
+
+    term_size = 3 + erts_iref_storage_heap_size(&state->iref);
+    hp = erts_produce_heap(&state->msg_factory, term_size, 0);
+
+    task_ref = erts_iref_storage_make_ref(&state->iref, &hp,
+        &(state->msg_factory.message)->hfrag.off_heap, 0);
+
+    hp[0] = make_arityval(2);
+    hp[1] = task_ref;
+    hp[2] = state->result_list;
+
+    result_tuple = make_tuple(hp);
+
+    erts_factory_trim_and_close(&state->msg_factory, &result_tuple, 1);
+
+    erts_queue_message(state->process, 0, state->msg_factory.message,
+                       result_tuple, am_system);
+}
+
+static int gather_cinfo_finish(void *arg)
+{
+    gather_cinfo_t *state = (gather_cinfo_t*)arg;
+    int reductions = BLOCKSCAN_REDUCTIONS;
+
+    if (!state->building_result) {
+        ErtsMessage *message;
+        Uint minimum_size;
+        Eterm *hp;
+
+        /* {Ref, [{Carrier size, unscanned size, allocated size,
+         *         allocated block count, {Free block histogram}} | Rest]} */
+        minimum_size = 3 + erts_iref_storage_heap_size(&state->iref) +
+                       state->info_count * (11 + state->hist_slot_count);
+
+        message = erts_alloc_message(minimum_size, &hp);
+        erts_factory_selfcontained_message_init(&state->msg_factory,
+                                                message, hp);
+
+        state->result_list = NIL;
+        state->building_result = 1;
+    }
+
+    while (state->info_list) {
+        chist_node_t *current = state->info_list;
+        state->info_list = current->next;
+
+        gather_cinfo_append_result(state, current);
+
+        if (reductions-- <= 0) {
+            return 1;
+        }
+    }
+
+    gather_cinfo_send(state);
+
+    return 0;
+}
+
+static void gather_cinfo_abort(void *arg)
+{
+    gather_cinfo_t *state = (gather_cinfo_t*)arg;
+
+    if (state->building_result) {
+        erts_factory_undo(&state->msg_factory);
+    }
+
+    while (state->info_list) {
+        chist_node_t *current = state->info_list;
+        state->info_list = current->next;
+
+        free(current);
+    }
+}
+
+int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
+                                  int sched_id, int hist_width,
+                                  UWord hist_start, Eterm ref)
+{
+    gather_cinfo_t *gather_state;
+    blockscan_t *scanner;
+
+    const char *allocator_desc;
+    Allctr_t *allocator;
+
+    ASSERT(is_internal_ref(ref));
+
+    if (!blockscan_get_specific_allocator(allocator_num,
+                                          sched_id,
+                                          &allocator)) {
+        return 0;
+    }
+
+    allocator_desc = ERTS_ALC_A2AD(allocator_num);
+
+    /* Plain calloc is intentional. */
+    gather_state = (gather_cinfo_t*)calloc(1, sizeof(gather_cinfo_t));
+    scanner = &gather_state->common;
+
+    scanner->abort = gather_cinfo_abort;
+    scanner->scan = gather_cinfo_scan;
+    scanner->finish = gather_cinfo_finish;
+    scanner->user_data = gather_state;
+
+    gather_state->allocator_desc = erts_atom_put((byte *)allocator_desc,
+                                                 sys_strlen(allocator_desc),
+                                                 ERTS_ATOM_ENC_LATIN1, 1);
+    erts_iref_storage_save(&gather_state->iref, ref);
+    gather_state->hist_slot_start = hist_start * 2;
+    gather_state->hist_slot_count = hist_width;
+    gather_state->process = p;
+
+    blockscan_dispatch(scanner, p, allocator, sched_id);
+
+    return 1;
 }
 
 
@@ -6332,7 +7651,6 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
     case 0x01c: return (UWord) BLK_TO_MBC((Block_t*) a1);
     case 0x01d: ((Allctr_t*) a1)->add_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
     case 0x01e: ((Allctr_t*) a1)->remove_mbc((Allctr_t*)a1, (Carrier_t*)a2); break;
-#ifdef ERTS_SMP
     case 0x01f: return (UWord) sizeof(ErtsAlcCrrPool_t);
     case 0x020:
 	SET_CARRIER_HDR((Carrier_t *) a2, 0, SCH_SYS_ALLOC|SCH_MBC, (Allctr_t *) a1);
@@ -6346,14 +7664,6 @@ erts_alcu_test(UWord op, UWord a1, UWord a2)
 	return (UWord) a2;
     case 0x023: return (UWord) cpool_is_empty((Allctr_t *) a1);
     case 0x024: return (UWord) cpool_dbg_is_in_pool((Allctr_t *) a1, (Carrier_t *) a2);
-#else
-    case 0x01f: return (UWord) 0;
-    case 0x020: return (UWord) 0;
-    case 0x021: return (UWord) 0;
-    case 0x022: return (UWord) 0;
-    case 0x023: return (UWord) 0;
-    case 0x024: return (UWord) 0;
-#endif
     case 0x025: /* UMEM2BLK_TEST*/
 #ifdef DEBUG
 # ifdef HARD_DEBUG
@@ -6411,14 +7721,11 @@ erts_alcu_verify_unused(Allctr_t *allctr)
 void
 erts_alcu_verify_unused_ts(Allctr_t *allctr)
 {
-#ifdef USE_THREADS
     erts_mtx_lock(&allctr->mutex);
-#endif
     erts_alcu_verify_unused(allctr);
-#ifdef USE_THREADS
     erts_mtx_unlock(&allctr->mutex);
-#endif
 }
+
 
 #ifdef DEBUG
 int is_sbc_blk(Block_t* blk)
@@ -6440,11 +7747,6 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 	ASSERT(SBC2BLK(allctr, sbc) == iblk);
 	ASSERT(CARRIER_SZ(sbc) - SBC_HEADER_SIZE >= SBC_BLK_SZ(iblk));
-#if HAVE_ERTS_MSEG
-	if (IS_MSEG_CARRIER(sbc)) {
-	    ASSERT(CARRIER_SZ(sbc) % ERTS_SACRR_UNIT_SZ == 0);
-	}
-#endif
 	crr = sbc;
 	cl = &allctr->sbc_list;
     }
@@ -6553,3 +7855,45 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 #endif /* ERTS_ALLOC_UTIL_HARD_DEBUG */
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+static void lcnt_enable_allocator_lock_count(Allctr_t *allocator, int enable) {
+    if(!allocator->thread_safe) {
+        return;
+    }
+
+    if(enable) {
+        erts_lcnt_install_new_lock_info(&allocator->mutex.lcnt,
+            "alcu_allocator", make_small(allocator->alloc_no),
+            ERTS_LOCK_TYPE_MUTEX | ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR);
+    } else {
+        erts_lcnt_uninstall(&allocator->mutex.lcnt);
+    }
+}
+
+static void lcnt_update_thread_spec_locks(ErtsAllocatorThrSpec_t *tspec, int enable) {
+    if(tspec->enabled) {
+        int i;
+
+        for(i = 0; i < tspec->size; i++) {
+            lcnt_enable_allocator_lock_count(tspec->allctr[i], enable);
+        }
+    }
+}
+
+void erts_lcnt_update_allocator_locks(int enable) {
+    int i;
+
+    for(i = ERTS_ALC_A_MIN; i < ERTS_ALC_A_MAX; i++) {
+        ErtsAllocatorInfo_t *ai = &erts_allctrs_info[i];
+
+        if(ai->enabled && ai->alloc_util) {
+            if(ai->thr_spec) {
+                lcnt_update_thread_spec_locks((ErtsAllocatorThrSpec_t*)ai->extra, enable);
+            } else {
+                lcnt_enable_allocator_lock_count((Allctr_t*)ai->extra, enable);
+            }
+        }
+    }
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,10 +50,7 @@
       <item><em><c>base</c></em><c>#</c><em><c>value</c></em>      <br></br>
 
        Integer with the base <em><c>base</c></em>, that must be an
-       integer in the range 2..36.      <br></br>
-
-       In Erlang 5.2/OTP R9B and earlier versions, the allowed range
-       is 2..16.</item>
+       integer in the range 2..36.</item>
     </list>
     <p><em>Examples:</em></p>
     <pre>
@@ -455,7 +452,7 @@ hello
 &lt;&lt;"77">>
 16> <input>float_to_binary(7.0).</input>
 &lt;&lt;"7.00000000000000000000e+00">>
-17> <input>binary_to_float(&lt;&lt;"7.000e+00>>").</input>
+17> <input>binary_to_float(&lt;&lt;"7.000e+00">>).</input>
 7.0</pre>
   </section>
 </chapter>

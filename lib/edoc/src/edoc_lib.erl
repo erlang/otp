@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -536,13 +541,13 @@ uri_get_http_1(Result, URI) ->
 	    Reason = inet:format_error(R),
 	    {error, http_errmsg(Reason, URI)};
 	{ok, R} ->
-	    Reason = io_lib:format("bad return value ~P", [R, 5]),
+	    Reason = io_lib:format("bad return value ~tP", [R, 5]),
 	    {error, http_errmsg(Reason, URI)};
 	{'EXIT', R} ->
-	    Reason = io_lib:format("crashed with reason ~w", [R]),
+	    Reason = io_lib:format("crashed with reason ~tw", [R]),
 	    {error, http_errmsg(Reason, URI)};
 	R ->
-	    Reason = io_lib:format("uncaught throw: ~w", [R]),
+	    Reason = io_lib:format("uncaught throw: ~tw", [R]),
 	    {error, http_errmsg(Reason, URI)}
     end.
 
@@ -598,7 +603,7 @@ filename([]) ->
 filename(N) when is_atom(N) ->
     atom_to_list(N);
 filename(N) ->
-    report("bad filename: `~P'.", [N, 25]),
+    report("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 %% @private
@@ -995,7 +1000,7 @@ run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
 	{ok, Value} ->
 	    Value;
 	R ->
-	    report("error in ~ts '~w': ~P.", [Name, Module, R, 20]),
+	    report("error in ~ts '~w': ~tP.", [Name, Module, R, 20]),
 	    exit(error)
     end.
 
@@ -1004,7 +1009,7 @@ get_plugin(Key, Default, Opts) ->
 	M when is_atom(M) ->
 	    M;
 	Other ->
-	    report("bad value for option '~w': ~P.", [Key, Other, 10]),
+	    report("bad value for option '~w': ~tP.", [Key, Other, 10]),
 	    exit(error)
     end.
 

@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 1998-2014 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -412,7 +417,7 @@ merge_files(Name, Files, Options) ->
 %%
 %%     <dd>Specifies a list of rules for associating object files with
 %%     source files, to be passed to the function
-%%     `filename:find_src/2'. This can be used to change the
+%%     `filelib:find_source/2'. This can be used to change the
 %%     way Igor looks for source files. If this option is not specified,
 %%     the default system rules are used. The first occurrence of this
 %%     option completely overrides any later in the option list.</dd>
@@ -457,7 +462,7 @@ merge_files(Name, Files, Options) ->
 %% @see merge/3
 %% @see merge_files/3
 %% @see merge_sources/3
-%% @see //stdlib/filename:find_src/2
+%% @see //stdlib/filelib:find_source/2
 %% @see epp_dodger
 
 -spec merge_files(atom(), erl_syntax:forms(), [file:filename()], [option()]) ->
@@ -829,7 +834,7 @@ merge_sources_1(Name, Modules, Trees, Opts) ->
 		       dict:from_list(Rs);
 		   false ->
 		       report_error("bad value for `redirect' option: "
-				    "~P.",
+				    "~tP.",
 				    [Rs, 10]),
 		       exit(error)
 	       end,
@@ -1064,7 +1069,7 @@ filter_forms_2(Forms, Env) ->
 		    comment -> kill;
 		    _ ->
 			report_error("invalid value for option "
-				     "`file_attributes': ~w.",
+				     "`file_attributes': ~tw.",
 				     [FileAttrsOpt]),
 			exit(error)
 		end,
@@ -1175,7 +1180,7 @@ merge_namespaces(Modules, Env) ->
 	[] ->
 	    ok;
 	Fs ->
-	    report_warning("interface functions renamed:\n\t~p.", [Fs])
+	    report_warning("interface functions renamed:\n\t~tp.", [Fs])
     end,
     {M4, Acc2} = merge_namespaces_1(M2, Acc1),
     Ms = M3 ++ M4,
@@ -1773,7 +1778,7 @@ transform_function(T, Env, St) ->
     {maybe_modified(V, T1, 2, Text, Env), St1}.
 
 renaming_note(Name) ->
-    [lists:flatten(io_lib:fwrite("renamed function to `~w'",
+    [lists:flatten(io_lib:fwrite("renamed function to `~tw'",
 				 [Name]))].
 
 rename_atom(Node, Atom) ->
@@ -2483,7 +2488,7 @@ rename(Files, Renamings, Opts) ->
 	       true ->
 		   dict:from_list(Renamings);
 	       false ->
-		   report_error("bad module renaming: ~P.",
+		   report_error("bad module renaming: ~tP.",
 				[Renamings, 10]),
 		   exit(error)
 	   end,
@@ -2667,7 +2672,7 @@ error_text(D, Name) ->
     end.
 
 error_text_1(D, Name) ->
-    io_lib:fwrite("error: `~w', ~P.", [Name, D, 15]).
+    io_lib:fwrite("error: `~w', ~tP.", [Name, D, 15]).
 
 check_records(Rs, Name) ->
     case duplicates([N || {N, _} <- Rs]) of
@@ -2675,7 +2680,7 @@ check_records(Rs, Name) ->
 	    ok;
 	Ns ->
 	    report_error("in module `~w': "
-			 "multiply defined records: ~p.",
+			 "multiply defined records: ~tp.",
 			 [Name, Ns]),
 	    exit(error)
     end.
@@ -2689,7 +2694,7 @@ expand_imports(Is, Name) ->
 	    ordsets:from_list(As);
 	Ns ->
 	    report_error("in module `~w': "
-			 "multiply imported functions: ~p.",
+			 "multiply imported functions: ~tp.",
 			 [Name, Ns]),
 	    exit(error)
     end.
@@ -2741,8 +2746,8 @@ read_module(Name, Options) ->
 		    %% It seems that we have no file - go on anyway,
 		    %% just to get a decent error message.
 		    read_module_1(Name, Options);
-		{Name1, _} ->
-		    read_module_1(Name1 ++ ".erl", Options)
+		{ok, Name1} ->
+		    read_module_1(Name1, Options)
 	    end
     end.
 
@@ -2802,9 +2807,9 @@ check_forms([], _) ->
     ok.
 
 find_src(Name, undefined) ->
-    filename:find_src(filename(Name));
+    filelib:find_source(filename(Name));
 find_src(Name, Rules) ->
-    filename:find_src(filename(Name), Rules).
+    filelib:find_source(filename(Name), Rules).
 
 %% file_type(filename()) -> {value, Type} | none
 
@@ -2963,7 +2968,7 @@ filename([]) ->
 filename(N) when is_atom(N) ->
     atom_to_list(N);
 filename(N) ->
-    report_error("bad filename: `~P'.", [N, 25]),
+    report_error("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 duplicates(Xs) ->
@@ -3026,7 +3031,7 @@ split_lines_1(Cs, Cs1, Ls) ->
 %% Reporting
 
 warning_unsafe_call(Name, Module, Target) ->
-    report_warning("call to `~w' in module `~w' "
+    report_warning("call to `~tw' in module `~w' "
 		   "possibly unsafe in `~s'.", [Name, Module, Target]).
 
 warning_apply_2(Module, Target) ->

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,6 @@ typedef struct {
     Uint nos;
     ErtsMMapInit dflt_mmap;
     ErtsMMapInit literal_mmap;
-    ErtsMMapInit exec_mmap;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
@@ -72,7 +71,6 @@ typedef struct {
     1000,		/* cci:   Cache check interval		*/	\
     ERTS_MMAP_INIT_DEFAULT_INITER,					\
     ERTS_MMAP_INIT_LITERAL_INITER,                                      \
-    ERTS_MMAP_INIT_HIPE_EXEC_INITER                                     \
 }
 
 typedef struct {
@@ -98,8 +96,8 @@ Uint  erts_mseg_unit_size(void);
 void  erts_mseg_init(ErtsMsegInit_t *init);
 void  erts_mseg_late_init(void); /* Have to be called after all allocators,
 				   threads and timers have been initialized. */
-Eterm erts_mseg_info_options(int, int *, void*, Uint **, Uint *);
-Eterm erts_mseg_info(int, int *, void*, int, int, Uint **, Uint *);
+Eterm erts_mseg_info_options(int, fmtfn_t*, void*, Uint **, Uint *);
+Eterm erts_mseg_info(int, fmtfn_t *, void*, int, int, Uint **, Uint *);
 
 #endif /* #if HAVE_ERTS_MSEG */
 

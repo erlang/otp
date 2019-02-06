@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_process.h"
-#include "erl_smp.h"
 #include "atom.h"
 #include "erl_mmap.h"
 #include <stddef.h>
@@ -61,11 +61,11 @@
     (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
      < ((UWord) mm->sua.top) - ((UWord) mm->sa.bot))
 #define ERTS_MMAP_IN_SUPERALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+    (ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
      (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
       < ((UWord) mm->sa.top) - ((UWord) mm->sa.bot)))
 #define ERTS_MMAP_IN_SUPERUNALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+    (ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
      (((UWord) (PTR)) - ((UWord) mm->sua.bot)			\
       < ((UWord) mm->sua.top) - ((UWord) mm->sua.bot)))
 
@@ -198,10 +198,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MMAP_OP_LCK(RES, IN_SZ, OUT_SZ)			\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MMAP_OP_START((IN_SZ));				\
 	ERTS_MMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MUNMAP_OP(PTR, SZ)					\
@@ -220,9 +220,9 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MUNMAP_OP_LCK(PTR, SZ)				\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MUNMAP_OP((PTR), (SZ));				\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MREMAP_OP_START(OLD_PTR, OLD_SZ, IN_SZ)		\
@@ -248,10 +248,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MREMAP_OP_LCK(RES, OLD_PTR, OLD_SZ, IN_SZ, OUT_SZ)	\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MREMAP_OP_START((OLD_PTR), (OLD_SZ), (IN_SZ));	\
 	ERTS_MREMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MMAP_OP_ABORT()					\
@@ -296,11 +296,10 @@ typedef struct {
 }ErtsFreeSegMap;
 
 struct ErtsMemMapper_ {
-    int (*reserve_physical)(char *, UWord, int exec);
+    int (*reserve_physical)(char *, UWord);
     void (*unreserve_physical)(char *, UWord);
     int supercarrier;
     int no_os_mmap;
-    int executable;   /* is client a native code allocator? */
     /*
      * Super unaligned area is located above super aligned
      * area. That is, `sa.bot` is beginning of the super
@@ -320,7 +319,7 @@ struct ErtsMemMapper_ {
 #if HAVE_MMAP && (!defined(MAP_ANON) && !defined(MAP_ANONYMOUS))
     int mmap_fd;
 #endif
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
     struct {
 	char *free_list;
 	char *unused_start;
@@ -357,11 +356,6 @@ ErtsMemMapper erts_literal_mmapper;
 char* erts_literals_start;
 UWord erts_literals_size;
 #endif
-
-#ifdef ERTS_ALC_A_EXEC
-ErtsMemMapper erts_exec_mmapper;
-#endif
-
 
 
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
@@ -1241,7 +1235,6 @@ Eterm build_free_seg_list(Process* p, ErtsFreeSegMap* map)
 
 #if HAVE_MMAP
 #  define ERTS_MMAP_PROT		(PROT_READ|PROT_WRITE)
-#  define ERTS_MMAP_PROT_EXEC		(PROT_READ|PROT_WRITE|PROT_EXEC)
 #  if defined(MAP_ANONYMOUS)
 #    define ERTS_MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
 #    define ERTS_MMAP_FD		(-1)
@@ -1255,26 +1248,24 @@ Eterm build_free_seg_list(Process* p, ErtsFreeSegMap* map)
 #endif
 
 static ERTS_INLINE void *
-os_mmap(void *hint_ptr, UWord size, int try_superalign, int executable)
+os_mmap(void *hint_ptr, UWord size, int try_superalign)
 {
 #if HAVE_MMAP
-    const int prot = executable ? ERTS_MMAP_PROT_EXEC : ERTS_MMAP_PROT;
     void *res;
 #ifdef MAP_ALIGN
     if (try_superalign)
-	res = mmap((void *) ERTS_SUPERALIGNED_SIZE, size, prot,
+	res = mmap((void *) ERTS_SUPERALIGNED_SIZE, size, ERTS_MMAP_PROT,
 		   ERTS_MMAP_FLAGS|MAP_ALIGN, ERTS_MMAP_FD, 0);
     else
 #endif
-	res = mmap((void *) hint_ptr, size, prot,
+	res = mmap((void *) hint_ptr, size, ERTS_MMAP_PROT,
 		   ERTS_MMAP_FLAGS, ERTS_MMAP_FD, 0);
     if (res == MAP_FAILED)
 	return NULL;
     return res;
 #elif HAVE_VIRTUALALLOC
-    const DWORD prot = executable ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE;
     return (void *) VirtualAlloc(NULL, (SIZE_T) size,
-				 MEM_COMMIT|MEM_RESERVE, prot);
+				 MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
 #else
 #  error "missing mmap() or similar"
 #endif
@@ -1331,7 +1322,6 @@ os_mremap(void *ptr, UWord old_size, UWord new_size, int try_superalign)
 #if HAVE_MMAP
 
 #define ERTS_MMAP_RESERVE_PROT		(ERTS_MMAP_PROT)
-#define ERTS_MMAP_RESERVE_PROT_EXEC	(ERTS_MMAP_PROT_EXEC)
 #define ERTS_MMAP_RESERVE_FLAGS		(ERTS_MMAP_FLAGS|MAP_FIXED)
 #define ERTS_MMAP_UNRESERVE_PROT	(PROT_NONE)
 #if defined(__FreeBSD__)
@@ -1347,10 +1337,9 @@ os_mremap(void *ptr, UWord old_size, UWord new_size, int try_superalign)
 #endif /* __FreeBSD__ */
 
 static int
-os_reserve_physical(char *ptr, UWord size, int exec)
+os_reserve_physical(char *ptr, UWord size)
 {
-    const int prot = exec ? ERTS_MMAP_RESERVE_PROT_EXEC : ERTS_MMAP_RESERVE_PROT;
-    void *res = mmap((void *) ptr, (size_t) size, prot,
+    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_RESERVE_PROT,
 		     ERTS_MMAP_RESERVE_FLAGS, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
 	return 0;
@@ -1367,37 +1356,11 @@ os_unreserve_physical(char *ptr, UWord size)
 }
 
 static void *
-os_mmap_virtual(char *ptr, UWord size, int exec)
+os_mmap_virtual(char *ptr, UWord size)
 {
     int flags = ERTS_MMAP_VIRTUAL_FLAGS;
     void* res;
 
-#ifdef ERTS_ALC_A_EXEC
-    if (exec) {
-        ASSERT(!ptr);
-        /* OTP-19.0: Nice hack below cut-and-pasted from hipe_amd64.c */
-
-#  ifdef MAP_32BIT
-        /* If we got MAP_32BIT (Linux), then use that to ask for low memory */
-        flags |= MAP_32BIT;
-#  else
-        /* FreeBSD doesn't have MAP_32BIT, and it doesn't respect
-           a plain map_hint (returns high mappings even though the
-           hint refers to a free area), so we have to use both map_hint
-           and MAP_FIXED to get addresses below the 2GB boundary.
-           This is even worse than the Linux/ppc64 case.
-           Similarly, Solaris 10 doesn't have MAP_32BIT,
-           and it doesn't respect a plain map_hint. */
-        ptr = (char*)(512*1024*1024); /* 0.5GB */
-
-#    if defined(__FreeBSD__) || defined(__sun__)
-        flags |= MAP_FIXED;
-#    endif
-#  endif /* !MAP_32BIT */
-    }
-#else /* !ERTS_ALC_A_EXEC */
-    ASSERT(!exec);
-#endif
     res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_VIRTUAL_PROT,
                flags, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
@@ -1412,7 +1375,7 @@ os_mmap_virtual(char *ptr, UWord size, int exec)
 
 #endif /* ERTS_HAVE_OS_MMAP */
 
-static int reserve_noop(char *ptr, UWord size, int exec)
+static int reserve_noop(char *ptr, UWord size)
 {
 #ifdef ERTS_MMAP_DEBUG_FILL_AREAS
     Uint32 *uip, *end = (Uint32 *) (ptr + size);
@@ -1455,7 +1418,7 @@ alloc_desc_insert_free_seg(ErtsMemMapper* mm,
 
 #if ERTS_HAVE_OS_MMAP
     if (!mm->no_os_mmap) {
-        ptr = os_mmap(mm->desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0, 0);
+        ptr = os_mmap(mm->desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
         if (ptr) {
             mm->desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
             ERTS_MMAP_SIZE_OS_INC(ERTS_PAGEALIGNED_SIZE);
@@ -1474,7 +1437,7 @@ alloc_desc_insert_free_seg(ErtsMemMapper* mm,
     da_map = &mm->sua.map;
     desc = lookup_free_seg(da_map, ERTS_PAGEALIGNED_SIZE);
     if (desc) {
-	if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE, 0))
+	if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
 	    ERTS_MMAP_SIZE_SC_SUA_INC(ERTS_PAGEALIGNED_SIZE);
 	else
 	    desc = NULL;
@@ -1484,7 +1447,7 @@ alloc_desc_insert_free_seg(ErtsMemMapper* mm,
 	da_map = &mm->sa.map;
 	desc = lookup_free_seg(da_map, ERTS_PAGEALIGNED_SIZE);
 	if (desc) {
-	    if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE, 0))
+	    if (mm->reserve_physical(desc->start, ERTS_PAGEALIGNED_SIZE))
 		ERTS_MMAP_SIZE_SC_SA_INC(ERTS_PAGEALIGNED_SIZE);
 	    else
 		desc = NULL;
@@ -1536,7 +1499,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	ErtsFreeSegDesc *desc;
 	Uint32 superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	ERTS_MMAP_OP_START(*sizep);
 
@@ -1545,7 +1508,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	    if (desc) {
 		seg = desc->start;
 		end = seg+asize;
-		if (!mm->reserve_physical(seg, asize, mm->executable))
+		if (!mm->reserve_physical(seg, asize))
 		    goto supercarrier_reserve_failure;
 		if (desc->end == end) {
 		    delete_free_seg(&mm->sua.map, desc);
@@ -1560,8 +1523,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	    }
 
 	    if (asize <= mm->sua.bot - mm->sa.top) {
-		if (!mm->reserve_physical(mm->sua.bot - asize, asize,
-                                          mm->executable))
+		if (!mm->reserve_physical(mm->sua.bot - asize, asize))
 		    goto supercarrier_reserve_failure;
 		mm->sua.bot -= asize;
 		seg = mm->sua.bot;
@@ -1577,8 +1539,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	    char *start = seg = desc->start;
 	    seg = (char *) ERTS_SUPERALIGNED_CEILING(seg);
 	    end = seg+asize;
-	    if (!mm->reserve_physical(start, (UWord) (end - start),
-                                      mm->executable))
+	    if (!mm->reserve_physical(start, (UWord) (end - start)))
 		goto supercarrier_reserve_failure;
 	    ERTS_MMAP_SIZE_SC_SA_INC(asize);
 	    if (desc->end == end) {
@@ -1610,8 +1571,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 
 	    if (asize + (seg - start) <= mm->sua.bot - start) {
 		end = seg + asize;
-		if (!mm->reserve_physical(start, (UWord) (end - start),
-                                          mm->executable))
+		if (!mm->reserve_physical(start, (UWord) (end - start)))
 		    goto supercarrier_reserve_failure;
 		mm->sa.top = end;
 		ERTS_MMAP_SIZE_SC_SA_INC(asize);
@@ -1633,8 +1593,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 
 		seg = (char *) ERTS_SUPERALIGNED_CEILING(org_start);
 		end = seg + asize;
-		if (!mm->reserve_physical(seg, (UWord) (org_end - seg),
-                                          mm->executable))
+		if (!mm->reserve_physical(seg, (UWord) (org_end - seg)))
 		    goto supercarrier_reserve_failure;
 		ERTS_MMAP_SIZE_SC_SUA_INC(asize);
 		if (org_start != seg) {
@@ -1660,20 +1619,20 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mm->mtx);
+	erts_mtx_unlock(&mm->mtx);
     }
 
 #if ERTS_HAVE_OS_MMAP
     /* Map using OS primitives */
     if (!(ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags) && !mm->no_os_mmap) {
 	if (!(ERTS_MMAPFLG_SUPERALIGNED & flags)) {
-	    seg = os_mmap(NULL, asize, 0, mm->executable);
+	    seg = os_mmap(NULL, asize, 0);
 	    if (!seg)
 		goto failure;
 	}
 	else {
 	    asize = ERTS_SUPERALIGNED_CEILING(*sizep);
-	    seg = os_mmap(NULL, asize, 1, mm->executable);
+	    seg = os_mmap(NULL, asize, 1);
 	    if (!seg)
 		goto failure;
 
@@ -1683,8 +1642,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 
 		os_munmap(seg, asize);
 
-		ptr = os_mmap(NULL, asize + ERTS_SUPERALIGNED_SIZE, 1,
-                              mm->executable);
+		ptr = os_mmap(NULL, asize + ERTS_SUPERALIGNED_SIZE, 1);
 		if (!ptr)
 		    goto failure;
 
@@ -1724,13 +1682,13 @@ supercarrier_success:
 #endif
 
     ERTS_MMAP_OP_END(seg, asize);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return (void *) seg;
 
 supercarrier_reserve_failure:
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
     *sizep = 0;
     return NULL;
 }
@@ -1760,7 +1718,7 @@ erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 	start = (char *) ptr;
 	end = start + size;
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	ERTS_MUNMAP_OP(ptr, size);
 
@@ -1829,7 +1787,7 @@ erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 	    if (unres_sz)
 		mm->unreserve_physical(((char *) ptr) + ad_sz, unres_sz);
 
-            erts_smp_mtx_unlock(&mm->mtx);
+            erts_mtx_unlock(&mm->mtx);
 	}
     }
 }
@@ -1878,7 +1836,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return NULL;
 	}
 
-#if ERTS_HAVE_OS_MREMAP || ERTS_HAVE_GENUINE_OS_MMAP
+#if defined(ERTS_HAVE_OS_MREMAP) || defined(ERTS_HAVE_GENUINE_OS_MMAP)
 	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
 	if (superaligned) {
@@ -1898,7 +1856,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    }
 	}
 
-#if ERTS_HAVE_GENUINE_OS_MMAP
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
 	if (asize < old_size
 	    && (!superaligned
 		|| ERTS_IS_SUPERALIGNED(ptr))) {
@@ -1913,7 +1871,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return ptr;
 	}
 #endif
-#if ERTS_HAVE_OS_MREMAP
+#ifdef ERTS_HAVE_OS_MREMAP
 	if (superaligned)
 	    return remap_move(mm, flags, new_ptr, old_size, sizep);
 	else {
@@ -1948,12 +1906,12 @@ erts_mremap(ErtsMemMapper* mm,
 		 ? ERTS_SUPERALIGNED_CEILING(*sizep)
 		 : ERTS_PAGEALIGNED_CEILING(*sizep));
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)
 	    ? (!superaligned && lookup_free_seg(&mm->sua.map, asize))
 	    : (superaligned && lookup_free_seg(&mm->sa.map, asize))) {
-	    erts_smp_mtx_unlock(&mm->mtx);
+	    erts_mtx_unlock(&mm->mtx);
 	    /*
 	     * Segment currently in wrong area (due to a previous memory
 	     * shortage), move it to the right area.
@@ -2019,8 +1977,7 @@ erts_mremap(ErtsMemMapper* mm,
 
 	    if (next && new_end <= next->end) {
 		if (!mm->reserve_physical(((char *) ptr) + old_size,
-                                          asize - old_size,
-                                          mm->executable))
+                                          asize - old_size))
 		    goto supercarrier_reserve_failure;
 		if (new_end < next->end)
 		    resize_free_seg(&mm->sua.map, next, new_end, next->end);
@@ -2038,8 +1995,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    if (end == mm->sa.top) {
 		if (new_end <= mm->sua.bot) {
 		    if (!mm->reserve_physical(((char *) ptr) + old_size,
-                                              asize - old_size,
-                                              mm->executable))
+                                              asize - old_size))
 			goto supercarrier_reserve_failure;
 		    mm->sa.top = new_end;
 		    new_ptr = ptr;
@@ -2051,8 +2007,7 @@ erts_mremap(ErtsMemMapper* mm,
 		adjacent_free_seg(&mm->sa.map, start, end, &prev, &next);
 		if (next && new_end <= next->end) {
 		    if (!mm->reserve_physical(((char *) ptr) + old_size,
-                                              asize - old_size,
-                                              mm->executable))
+                                              asize - old_size))
 			goto supercarrier_reserve_failure;
 		    if (new_end < next->end)
 			resize_free_seg(&mm->sa.map, next, new_end, next->end);
@@ -2068,7 +2023,7 @@ erts_mremap(ErtsMemMapper* mm,
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mm->mtx);
+	erts_mtx_unlock(&mm->mtx);
 
 	/* Failed to resize... */
     }
@@ -2090,14 +2045,14 @@ supercarrier_resize_success:
 #endif
 
     ERTS_MREMAP_OP_END(new_ptr, asize);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return new_ptr;
 
 supercarrier_reserve_failure:
     ERTS_MREMAP_OP_END(NULL, old_size);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
     *sizep = old_size;
     return NULL;
     
@@ -2172,7 +2127,7 @@ static void hard_dbg_mseg_init(void);
 #endif
 
 void
-erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
+erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
     static int is_first_call = 1;
     int virtual_map = 0;
@@ -2204,7 +2159,6 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
     mm->supercarrier = 0;
     mm->reserve_physical = reserve_noop;
     mm->unreserve_physical = unreserve_noop;
-    mm->executable = executable;
 
 #if HAVE_MMAP && !defined(MAP_ANON)
     mm->mmap_fd = open("/dev/zero", O_RDWR);
@@ -2212,9 +2166,11 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	erts_exit(1, "erts_mmap: Failed to open /dev/zero\n");
 #endif
 
-    erts_smp_mtx_init(&mm->mtx, "erts_mmap");
+    erts_mtx_init(&mm->mtx, "erts_mmap", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     if (is_first_call) {
-        erts_mtx_init(&am.init_mutex, "mmap_init_atoms");
+        erts_mtx_init(&am.init_mutex, "mmap_init_atoms", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     }
 
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
@@ -2224,7 +2180,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	ptr = (char *) ERTS_PAGEALIGNED_CEILING(init->virtual_range.start);
 	end = (char *) ERTS_PAGEALIGNED_FLOOR(init->virtual_range.end);
 	sz = end - ptr;
-	start = os_mmap_virtual(ptr, sz, executable);
+	start = os_mmap_virtual(ptr, sz);
 	if (!start || start > ptr || start >= end)
 	    erts_exit(1,
 		     "erts_mmap: Failed to create virtual range for super carrier\n");
@@ -2249,7 +2205,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	sz = ERTS_PAGEALIGNED_CEILING(init->scs);
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
 	if (!init->scrpm) {
-	    start = os_mmap_virtual(NULL, sz, executable);
+	    start = os_mmap_virtual(NULL, sz);
 	    mm->reserve_physical = os_reserve_physical;
 	    mm->unreserve_physical = os_unreserve_physical;
 	    virtual_map = 1;
@@ -2261,7 +2217,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	     * The whole supercarrier will by physically
 	     * reserved all the time.
 	     */
-	    start = os_mmap(NULL, sz, 1, executable);
+	    start = os_mmap(NULL, sz, 1);
 	}
 	if (!start)
 	    erts_exit(1,
@@ -2335,7 +2291,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	    mm->sua.top -= ERTS_PAGEALIGNED_SIZE;
 	    mm->size.supercarrier.used.total += ERTS_PAGEALIGNED_SIZE;
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-	    if (!virtual_map || os_reserve_physical(mm->sua.top, ERTS_PAGEALIGNED_SIZE, 0))
+	    if (!virtual_map || os_reserve_physical(mm->sua.top, ERTS_PAGEALIGNED_SIZE))
 #endif
 		add_free_desc_area(mm, mm->sua.top, end);
             mm->desc.reserved += (end - mm->sua.top) / sizeof(ErtsFreeSegDesc);
@@ -2348,7 +2304,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	 * will be used for free segment descritors.
 	 */
 #ifdef ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION
-	if (virtual_map && !os_reserve_physical(start, mm->sa.bot - start, 0))
+	if (virtual_map && !os_reserve_physical(start, mm->sa.bot - start))
 	    erts_exit(1, "erts_mmap: Failed to reserve physical memory for descriptors\n");
 #endif
 	mm->desc.unused_start = start;
@@ -2390,7 +2346,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 }
 
 Eterm erts_mmap_info(ErtsMemMapper* mm,
-                     int *print_to_p,
+                     fmtfn_t *print_to_p,
                      void *print_to_arg,
                      Eterm** hpp, Uint* szp,
                      struct erts_mmap_info_struct* emis)
@@ -2405,7 +2361,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
     Eterm res = THE_NON_VALUE;
 
     if (!hpp) {
-        erts_smp_mtx_lock(&mm->mtx);
+        erts_mtx_lock(&mm->mtx);
         emis->sizes[0] = mm->size.supercarrier.total;
         emis->sizes[1] = mm->sa.top  - mm->sa.bot;
         emis->sizes[2] = mm->sua.top - mm->sua.bot;
@@ -2421,7 +2377,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
         emis->segs[5] = mm->sua.map.nseg;
 
         emis->os_used = mm->size.os.used;
-        erts_smp_mtx_unlock(&mm->mtx);
+        erts_mtx_unlock(&mm->mtx);
     }
 
     list[lix] = erts_mmap_info_options(mm, "option ", print_to_p, print_to_arg,
@@ -2431,7 +2387,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         if (mm->supercarrier) {
             const char* prefix = "supercarrier ";
@@ -2485,7 +2441,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 Eterm erts_mmap_info_options(ErtsMemMapper* mm,
                              char *prefix,
-                             int *print_to_p,
+                             fmtfn_t *print_to_p,
                              void *print_to_arg,
                              Uint **hpp,
                              Uint *szp)
@@ -2496,7 +2452,7 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
     Eterm res = THE_NON_VALUE;
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
         if (mm->supercarrier) {
@@ -2541,14 +2497,14 @@ Eterm erts_mmap_debug_info(Process* p)
         Eterm *hp, *hp_end;
         Uint may_need;
 
-        erts_smp_mtx_lock(&mm->mtx);
+        erts_mtx_lock(&mm->mtx);
         values[0] = (UWord)mm->sa.bot;
         values[1] = (UWord)mm->sa.top;
         values[2] = (UWord)mm->sua.bot;
         values[3] = (UWord)mm->sua.top;
         sa_list = build_free_seg_list(p, &mm->sa.map);
         sua_list = build_free_seg_list(p, &mm->sua.map);
-        erts_smp_mtx_unlock(&mm->mtx);
+        erts_mtx_unlock(&mm->mtx);
 
         may_need = 4*(2+3+2) + 2*(2+3);
         hp = HAlloc(p, may_need);
@@ -2558,8 +2514,8 @@ Eterm erts_mmap_debug_info(Process* p)
                                             sizeof(values)/sizeof(*values),
                                             tags, values);
 
-        sa_list = TUPLE2(hp, am_atom_put("sa_free_segs",12), sa_list); hp+=3;
-        sua_list = TUPLE2(hp, am_atom_put("sua_free_segs",13), sua_list); hp+=3;
+        sa_list = TUPLE2(hp, ERTS_MAKE_AM("sa_free_segs"), sa_list); hp+=3;
+        sua_list = TUPLE2(hp, ERTS_MAKE_AM("sua_free_segs"), sua_list); hp+=3;
         list = CONS(hp, sua_list, list); hp+=2;
         list = CONS(hp, sa_list, list); hp+=2;
 
@@ -2816,7 +2772,8 @@ static void hard_dbg_mseg_init(void)
 {
     ErtsFreeSegDesc_fake* p;
 
-    erts_mtx_init(&hard_dbg_mseg_mtx, "hard_dbg_mseg");
+    erts_mtx_init(&hard_dbg_mseg_mtx, "hard_dbg_mseg", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
     hard_dbg_mseg_tree.root = NULL;
     hard_dbg_mseg_tree.order = ADDR_ORDER;
 

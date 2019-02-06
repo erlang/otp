@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,6 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [self_compile_old_inliner,self_compile,
      {group,p}].
 
@@ -88,6 +87,7 @@ groups() ->
        string_table,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -319,7 +319,7 @@ self_compile_1(Config, Prefix, Opts) ->
     %% Compile the compiler. (In this node to get better coverage.)
     CompA = make_compiler_dir(Priv, Prefix++"compiler_a"),
     VsnA = Version ++ ".0",
-    compile_compiler(compiler_src(), CompA, VsnA, [clint0,clint|Opts]),
+    compile_compiler(compiler_src(), CompA, VsnA, Opts),
 
     %% Compile the compiler again using the newly compiled compiler.
     %% (In another node because reloading the compiler would disturb cover.)

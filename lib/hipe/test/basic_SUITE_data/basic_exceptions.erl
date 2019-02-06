@@ -6,12 +6,13 @@
 %%%-------------------------------------------------------------------
 -module(basic_exceptions).
 
--export([test/0, test_catches/0]).
+-export([test/0]).
 
 %% functions used as arguments to spawn/3
 -export([bad_guy/2]).
 
 test() ->
+  ok = test_catches(),
   ok = test_catch_exit(42),
   ok = test_catch_throw(42),
   ok = test_catch_element(),
@@ -22,6 +23,8 @@ test() ->
   ok = test_pending_errors(),
   ok = test_bad_fun_call(),
   ok = test_guard_bif(),
+  ok = test_eclectic(),
+  ok = test_raise(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -463,3 +466,213 @@ guard_bif('node/0', X, Y) when node() == Y ->
   {'node/0', X, Y};
 guard_bif('node/1', X, Y) when node(X) == Y ->
   {'node/1', X, Y}.
+
+%%--------------------------------------------------------------------
+%% Taken from trycatch_SUITE.erl (compiler test suite).
+%%
+%% Cases that are commented out contain exception information that was
+%% added to Erlang/OTP in commit e8d45ae14c6c3bdfcbbc7964228b004ef4f11ea6
+%% (May 2017) only in the BEAM emulator.  Thus, part of this test fails
+%% when compiled in native code.
+%% The remaining cases are uncommented so that they are properly tested
+%% in native code too.
+%%--------------------------------------------------------------------
+
+test_eclectic() ->
+  V = {make_ref(),3.1415926535,[[]|{}]},
+  {{value,{value,V},V},V} =
+    eclectic_1({foo,{value,{value,V}}}, undefined, {value,V}),
+  {{'EXIT',{V,[{?MODULE,foo,1,_}|_]}},V} =
+    eclectic_1({catch_foo,{error,V}}, undefined, {value,V}),
+  {{error,{exit,V},{'EXIT',V}},V} =
+    eclectic_1({foo,{error,{exit,V}}}, error, {value,V}),
+  %% {{value,{value,V},V},
+  %%        {'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}} =
+  %%     eclectic_1({foo,{value,{value,V}}}, undefined, {'add',{0,a}}),
+  {{'EXIT',V},V} =
+    eclectic_1({catch_foo,{exit,V}}, undefined, {throw,V}),
+  %% {{error,{'div',{1,0}},{'EXIT',{badarith,[{erlang,'div',[1,0],_},{?MODULE,my_div,2,_}|_]}}},
+  %%        {'EXIT',V}} =
+  %%     eclectic_1({foo,{error,{'div',{1,0}}}}, error, {exit,V}),
+  {{{error,V},{'EXIT',{V,[{?MODULE,foo,1,_}|_]}}},
+   {'EXIT',V}} =
+    eclectic_1({catch_foo,{throw,{error,V}}}, undefined, {exit,V}),
+  %%
+  {{value,{value,{value,V},V}},V} =
+    eclectic_2({value,{value,V}}, undefined, {value,V}),
+  {{value,{throw,{value,V},V}},V} =
+    eclectic_2({throw,{value,V}}, throw, {value,V}),
+  {{caught,{'EXIT',V}},undefined} =
+    eclectic_2({value,{value,V}}, undefined, {exit,V}),
+  {{caught,{'EXIT',{V,[{?MODULE,foo,1,_}|_]}}},undefined} =
+    eclectic_2({error,{value,V}}, throw, {error,V}),
+  %% The following fails in native code
+  %% %% {{caught,{'EXIT',{badarg,[{erlang,abs,[V],_}|_]}}},V} =
+  %% %%     eclectic_2({value,{'abs',V}}, undefined, {value,V}),
+  %% {{caught,{'EXIT',{badarith,[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]}}},V} =
+  %%     eclectic_2({exit,{'add',{0,a}}}, exit, {value,V}),
+  {{caught,{'EXIT',V}},undefined} =
+    eclectic_2({value,{error,V}}, undefined, {exit,V}),
+  {{caught,{'EXIT',{V,[{?MODULE,foo,1,_}|_]}}},undefined} =
+    eclectic_2({throw,{'div',{1,0}}}, throw, {error,V}),
+  ok.
+
+eclectic_1(X, C, Y) ->
+  erase(eclectic),
+  Done = make_ref(),
+  Try =
+    try case X of
+          {catch_foo,V} -> catch {Done,foo(V)};
+          {foo,V} -> {Done,foo(V)}
+        end of
+        {Done,D} -> {value,D,catch foo(D)};
+        {'EXIT',_}=Exit -> Exit;
+        D -> {D,catch foo(D)}
+    catch
+      C:D -> {C,D,catch foo(D)}
+    after
+      put(eclectic, catch foo(Y))
+    end,
+  {Try,erase(eclectic)}.
+
+eclectic_2(X, C, Y) ->
+  Done = make_ref(),
+  erase(eclectic),
+  Catch =
+    case
+      catch
+        {Done,
+         try foo(X) of
+             V -> {value,V,foo(V)}
+         catch
+           C:D -> {C,D,foo(D)}
+         after
+           put(eclectic, foo(Y))
+         end} of
+        {Done,Z} -> {value,Z};
+        Z -> {caught,Z}
+      end,
+  {Catch,erase(eclectic)}.
+
+foo({value,Value}) -> Value;
+foo({'div',{A,B}}) ->
+  my_div(A, B);
+foo({'add',{A,B}}) ->
+  my_add(A, B);
+foo({'abs',X}) ->
+  my_abs(X);
+foo({error,Error}) ->
+  erlang:error(Error);
+foo({throw,Throw}) ->
+  erlang:throw(Throw);
+foo({exit,Exit}) ->
+  erlang:exit(Exit);
+foo({raise,{Class,Reason}}) ->
+  erlang:raise(Class, Reason);
+foo(Term) when not is_atom(Term) -> Term.
+%%foo(Atom) when is_atom(Atom) -> % must not be defined!
+
+my_div(A, B) ->
+  A div B.
+
+my_add(A, B) ->
+  A + B.
+
+my_abs(X) ->
+  abs(X).
+
+test_raise() ->
+  test_raise(fun() -> exit({exit,tuple}) end),
+  test_raise(fun() -> abs(id(x)) end),
+  test_raise(fun() -> throw({was,thrown}) end),
+
+  badarg = bad_raise(fun() -> abs(id(x)) end),
+
+  ok.
+
+bad_raise(Expr) ->
+  try
+    Expr()
+  catch
+    _:E:Stk ->
+      erlang:raise(bad_class, E, Stk)
+  end.
+
+test_raise(Expr) ->
+  test_raise_1(Expr),
+  test_raise_2(Expr),
+  test_raise_3(Expr).
+
+test_raise_1(Expr) ->
+  erase(exception),
+  try
+    do_test_raise_1(Expr)
+  catch
+    C:E:Stk ->
+      {C,E,Stk} = erase(exception)
+  end.
+
+do_test_raise_1(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here the stacktrace must be built.
+      put(exception, {C,E,Stk}),
+      erlang:raise(C, E, Stk)
+  end.
+
+test_raise_2(Expr) ->
+  erase(exception),
+  try
+    do_test_raise_2(Expr)
+  catch
+    C:E:Stk ->
+      {C,E} = erase(exception),
+      try
+        Expr()
+      catch
+        _:_:S ->
+          [StkTop|_] = S,
+          [StkTop|_] = Stk
+      end
+  end.
+
+do_test_raise_2(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here it is possible to replace erlang:raise/3 with
+      %% the raw_raise/3 instruction since the stacktrace is
+      %% not actually used.
+      put(exception, {C,E}),
+      erlang:raise(C, E, Stk)
+  end.
+
+test_raise_3(Expr) ->
+  try
+    do_test_raise_3(Expr)
+  catch
+    exit:{exception,C,E}:Stk ->
+      try
+        Expr()
+      catch
+        C:E:S ->
+          [StkTop|_] = S,
+          [StkTop|_] = Stk
+      end
+  end.
+
+do_test_raise_3(Expr) ->
+  try
+    Expr()
+  catch
+    C:E:Stk ->
+      %% Here it is possible to replace erlang:raise/3 with
+      %% the raw_raise/3 instruction since the stacktrace is
+      %% not actually used.
+      erlang:raise(exit, {exception,C,E}, Stk)
+  end.
+
+id(I) -> I.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,6 +128,13 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
+         codec :: #{decode_format := diameter:decode_format(),
+                    string_decode := boolean(),
+                    strict_mbit := boolean(),
+                    rfc := 3588 | 6733,
+                    ordered_encode := false},
+         strict :: boolean(),
+         ack = false :: boolean(),
          length_errors :: exit | handle | discard,
          incoming_maxlen :: integer() | infinity}).
 
@@ -158,10 +165,7 @@
 %% # start/3
 %% ---------------------------------------------------------------------------
 
--spec start(T, [Opt], {[diameter:service_opt()],
-                       [node()],
-                       module(),
-                       #diameter_service{}})
+-spec start(T, [Opt], {map(), [node()], module(), #diameter_service{}})
    -> {reference(), pid()}
  when T   :: {connect|accept, diameter:transport_ref()},
       Opt :: diameter:transport_opt().
@@ -220,9 +224,10 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
     erlang:monitor(process, WPid),
     wait(Ack, WPid),
     diameter_stats:reg(Ref),
-    diameter_codec:setopts([{common_dictionary, Dict0} | SvcOpts]),
-    {_,_} = Mask = proplists:get_value(sequence, SvcOpts),
-    Maxlen = proplists:get_value(incoming_maxlen, SvcOpts, 16#FFFFFF),
+
+    #{sequence := Mask, incoming_maxlen := Maxlen}
+        = SvcOpts,
+
     {[Cs,Ds], Rest} = proplists:split(Opts, [capabilities_cb, disconnect_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Cs]}),
     putr(?DPR_KEY, [F || {_, F} <- Ds]),
@@ -233,7 +238,8 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
                     proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
-    OnLengthErr = proplists:get_value(length_errors, Opts, exit),
+    Strict = proplists:get_value(strict_capx, Opts, true),
+    LengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
 
@@ -245,8 +251,15 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            dictionary = Dict0,
            mode = M,
            service = svc(Svc, Addrs),
-           length_errors = OnLengthErr,
-           incoming_maxlen = Maxlen}.
+           length_errors = LengthErr,
+           strict = Strict,
+           incoming_maxlen = Maxlen,
+           codec = maps:with([decode_format,
+                              string_decode,
+                              strict_mbit,
+                              rfc,
+                              ordered_encode],
+                             SvcOpts#{ordered_encode => false})}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -356,7 +369,7 @@ handle_info(T, #state{} = State) ->
 
 %% Note that there's no guarantee that the service and transport
 %% capabilities are good enough to build a CER/CEA that can be
-%% succesfully encoded. It's not checked at diameter:add_transport/2
+%% successfully encoded. It's not checked at diameter:add_transport/2
 %% since this can be called before creating the service.
 
 %% terminate/2
@@ -439,9 +452,18 @@ transition({connection_timeout = T, TPid},
 transition({connection_timeout, _}, _) ->
     ok;
 
+%% Requests for acknowledgements to the transport.
+transition({diameter, ack}, S) ->
+    S#state{ack = true};
+
 %% Incoming message from the transport.
-transition({diameter, {recv, MsgT}}, S) ->
-    incoming(MsgT, S);
+transition({diameter, {recv, Msg}}, S) ->
+    incoming(recv(Msg, S), S);
+
+%% Handler of an incoming request is telling of its existence.
+transition({handler, Pid}, _) ->
+    put_route(Pid),
+    ok;
 
 %% Timeout when still in the same state ...
 transition({timeout = T, PS}, #state{state = PS}) ->
@@ -453,6 +475,9 @@ transition({timeout, _}, _) ->
 
 %% Outgoing message.
 transition({send, Msg}, S) ->
+    outgoing(Msg, S);
+transition({send, Msg, Route}, S) ->
+    route_outgoing(Route),
     outgoing(Msg, S);
 
 %% Request for graceful shutdown at remove_transport, stop_service of
@@ -481,10 +506,13 @@ transition({'DOWN', _, process, WPid, _},
 transition({'DOWN', _, process, TPid, _},
            #state{transport = TPid}
            = S) ->
-    start_next(S);
+    start_next(S#state{ack = false});
 
-%% Transport has died after connection timeout.
-transition({'DOWN', _, process, _, _}, _) ->
+%% Transport has died after connection timeout, or handler process has
+%% died.
+transition({'DOWN', _, process, Pid, _}, #state{transport = TPid}) ->
+    is_reference(erase_route(Pid))
+        andalso send(TPid, false),  %% answer not forthcoming
     ok;
 
 %% State query.
@@ -493,6 +521,65 @@ transition({state, Pid}, #state{state = S, transport = TPid}) ->
     ok.
 
 %% Crash on anything unexpected.
+
+%% route_outgoing/1
+
+%% Map identifiers in an outgoing request to be able to lookup the
+%% handler process when the answer is received.
+route_outgoing({Pid, Ref, Seqs}) ->  %% request
+    MRef = monitor(process, Pid),
+    put(Pid, Seqs),
+    put(Seqs, {Pid, Ref, MRef});
+
+%% Remove a mapping made for an incoming request.
+route_outgoing(Pid)
+  when is_pid(Pid) ->  %% answer
+    MRef = erase_route(Pid),
+    undefined == MRef orelse demonitor(MRef).
+
+%% put_route/1
+
+%% Monitor on a handler process for an incoming request.
+put_route(Pid) ->
+    MRef = monitor(process, Pid),
+    put(Pid, MRef).
+
+%% get_route/3
+
+%% Incoming answer.
+get_route(_, _, #diameter_packet{header = #diameter_header{is_request = false}}
+                = Pkt) ->
+    Seqs = diameter_codec:sequence_numbers(Pkt),
+    case erase(Seqs) of
+        {Pid, Ref, MRef} ->
+            demonitor(MRef),
+            erase(Pid),
+            {Pid, Ref, self()};
+        undefined ->  %% request unknown
+            false
+    end;
+
+%% Requests answered here ...
+get_route(_, N, _)
+  when N == 'CER';
+       N == 'DPR' ->
+    false;
+
+%% ... or not.
+get_route(Ack, _, _) ->
+    Ack.
+
+%% erase_route/1
+
+erase_route(Pid) ->
+    case erase(Pid) of
+        {_,_} = Seqs ->
+            erase(Seqs);
+        T ->
+            T
+    end.
+
+%% capx/1
 
 capx(recv_CER) ->
     'CER';
@@ -518,7 +605,8 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
                 mode = {connect, Remote},
                 service = #diameter_service{capabilities = LCaps},
                 transport = TPid,
-                dictionary = Dict}
+                dictionary = Dict,
+                codec = Opts}
          = S) ->
     OH = LCaps#diameter_caps.origin_host,
     req_send_CER(OH, Remote)
@@ -528,7 +616,7 @@ send_CER(#state{state = {'Wait-Conn-Ack', Tmo},
     #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
                                                hop_by_hop_id = Hid}}
         = Pkt
-        = encode(CER, Dict),
+        = encode(CER, Opts, Dict),
     incr(send, Pkt, Dict),
     send(TPid, Pkt),
     ?LOG(send, 'CER'),
@@ -557,116 +645,126 @@ build_CER(#state{service = #diameter_service{capabilities = LCaps},
     {ok, CER} = diameter_capx:build_CER(LCaps, Dict),
     CER.
 
-%% encode/2
+%% encode/3
 
-encode(Rec, Dict) ->
+encode(Rec, Opts, Dict) ->
     Seq = diameter_session:sequence({_,_} = getr(?SEQUENCE_KEY)),
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    diameter_codec:encode(Dict, #diameter_packet{header = Hdr,
-                                                 msg = Rec}).
+    diameter_codec:encode(Dict, Opts, #diameter_packet{header = Hdr,
+                                                       msg = Rec}).
 
 %% incoming/2
 
-incoming({Msg, NPid}, S) ->
-    try recv(Msg, S) of
-        T ->
-            NPid ! {diameter, discard},
-            T
-    catch
-        {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, {Pkt, NPid}},
-            rcv(Name, Pkt, S)
-    end;
+incoming(#diameter_header{is_request = R}, #state{transport = TPid,
+                                                  ack = Ack}) ->
+    R andalso Ack andalso send(TPid, false),
+    ok;
 
-incoming(Msg, S) ->
-    try
-        recv(Msg, S)
-    catch
-        {?MODULE, Name, Pkt} ->
-            S#state.parent ! {recv, self(), Name, Pkt},
-            rcv(Name, Pkt, S)
-    end.
+incoming(<<_:32, 1:1, _/bits>>, #state{ack = true} = S) ->
+    send(S#state.transport, false),
+    ok;
+
+incoming(<<_/bits>>, _) ->
+    ok;
+
+incoming(T, _) ->
+    T.
 
 %% recv/2
 
-recv(#diameter_packet{header = #diameter_header{} = Hdr}
-     = Pkt,
-     #state{dictionary = Dict0}
-     = S) ->
-    recv1(diameter_codec:msg_name(Dict0, Hdr), Pkt, S);
-
-recv(#diameter_packet{header = undefined,
-                      bin = Bin}
-     = Pkt,
-     S) ->
-    recv(diameter_codec:decode_header(Bin), Pkt, S);
+recv(#diameter_packet{bin = Bin} = Pkt, S) ->
+    recv(Bin, Pkt, S);
 
 recv(Bin, S) ->
-    recv(#diameter_packet{bin = Bin}, S).
-
-%% recv1/3
-
-recv1(_,
-      #diameter_packet{header = H, bin = Bin},
-      #state{incoming_maxlen = M})
-  when M < size(Bin) ->
-    invalid(false, incoming_maxlen_exceeded, {size(Bin), H});
-
-%% Incoming request after outgoing DPR: discard. Don't discard DPR, so
-%% both ends don't do so when sending simultaneously.
-recv1(Name,
-      #diameter_packet{header = #diameter_header{is_request = true} = H},
-      #state{dpr = {_,_,_}})
-  when Name /= 'DPR' ->
-    invalid(false, recv_after_outgoing_dpr, H);
-
-%% Incoming request after incoming DPR: discard.
-recv1(_,
-      #diameter_packet{header = #diameter_header{is_request = true} = H},
-      #state{dpr = true}) ->
-    invalid(false, recv_after_incoming_dpr, H);
-
-%% DPA with identifier mismatch, or in response to a DPR initiated by
-%% the service.
-recv1('DPA' = N,
-      #diameter_packet{header = #diameter_header{hop_by_hop_id = Hid,
-                                                 end_to_end_id = Eid}}
-      = Pkt,
-      #state{dpr = {X,H,E}}
-      = S)
-  when H /= Hid;
-       E /= Eid;
-       not X ->
-    rcv(N, Pkt, S);
-
-%% Any other message with a header and no length errors: send to the
-%% parent.
-recv1(Name, Pkt, #state{}) ->
-    throw({?MODULE, Name, Pkt}).
+    recv(Bin, Bin, S).
 
 %% recv/3
 
-recv(#diameter_header{length = Len}
-     = H,
-     #diameter_packet{bin = Bin}
-     = Pkt,
-     #state{length_errors = E}
-     = S)
+recv(Bin, Msg, S) ->
+    recv(diameter_codec:decode_header(Bin), Bin, Msg, S).
+
+%% recv/4
+
+recv(false, Bin, _, #state{length_errors = E}) ->
+    invalid(E, truncated_header, Bin),
+    Bin;
+
+recv(#diameter_header{length = Len} = H, Bin, Msg, #state{length_errors = E,
+                                                          incoming_maxlen = M,
+                                                          dictionary = Dict0}
+                                                   = S)
   when E == handle;
-       0 == Len rem 4, bit_size(Bin) == 8*Len ->
-    recv(Pkt#diameter_packet{header = H}, S);
+       0 == Len rem 4, bit_size(Bin) == 8*Len, size(Bin) =< M ->
+    recv1(diameter_codec:msg_name(Dict0, H), H, Msg, S);
 
-recv(#diameter_header{}
-     = H,
-     #diameter_packet{bin = Bin},
-     #state{length_errors = E}) ->
+recv(H, Bin, _, #state{incoming_maxlen = M})
+  when M < size(Bin) ->
+    invalid(false, incoming_maxlen_exceeded, {size(Bin), H}),
+    H;
+
+recv(H, Bin, _, #state{length_errors = E}) ->
     T = {size(Bin), bit_size(Bin) rem 8, H},
-    invalid(E, message_length_mismatch, T);
+    invalid(E, message_length_mismatch, T),
+    H.
 
-recv(false, #diameter_packet{bin = Bin}, #state{length_errors = E}) ->
-    invalid(E, truncated_header, Bin).
+%% recv1/4
+
+%% Ignore anything but an expected CER/CEA if so configured. This is
+%% non-standard behaviour.
+recv1(Name, H, _, #state{state = {'Wait-CEA', _, _},
+                         strict = false})
+  when Name /= 'CEA' ->
+    H;
+recv1(Name, H, _, #state{state = recv_CER,
+                         strict = false})
+  when Name /= 'CER' ->
+    H;
+
+%% Incoming request after outgoing DPR: discard. Don't discard DPR, so
+%% both ends don't do so when sending simultaneously.
+recv1(Name, #diameter_header{is_request = true} = H, _, #state{dpr = {_,_,_}})
+  when Name /= 'DPR' ->
+    invalid(false, recv_after_outgoing_dpr, H),
+    H;
+
+%% Incoming request after incoming DPR: discard.
+recv1(_, #diameter_header{is_request = true} = H, _, #state{dpr = true}) ->
+    invalid(false, recv_after_incoming_dpr, H),
+    H;
+
+%% DPA with identifier mismatch, or in response to a DPR initiated by
+%% the service.
+recv1('DPA' = Name,
+      #diameter_header{hop_by_hop_id = Hid, end_to_end_id = Eid}
+      = H,
+      Msg,
+      #state{dpr = {X,HI,EI}}
+      = S)
+  when HI /= Hid;
+       EI /= Eid;
+       not X ->
+    Pkt = pkt(H, Msg),
+    handle(Name, Pkt, S);
+
+%% Any other message with a header and no length errors.
+recv1(Name, H, Msg, #state{parent = Pid, ack = Ack} = S) ->
+    Pkt = pkt(H, Msg),
+    Pid ! {recv, self(), get_route(Ack, Name, Pkt), Name, Pkt},
+    handle(Name, Pkt, S).
+
+%% pkt/2
+
+pkt(H, Bin)
+  when is_binary(Bin) ->
+    #diameter_packet{header = H,
+                     bin = Bin};
+
+pkt(H, Pkt) ->
+    Pkt#diameter_packet{header = H}.
+
+%% invalid/3
 
 %% Note that counters here only count discarded messages.
 invalid(E, Reason, T) ->
@@ -675,67 +773,65 @@ invalid(E, Reason, T) ->
     ?LOG(Reason, T),
     ok.
 
-%% rcv/3
+%% handle/3
 
 %% Incoming CEA.
-rcv('CEA' = N,
-    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}}
-    = Pkt,
-    #state{state = {'Wait-CEA', Hid, Eid}}
-    = S) ->
+handle('CEA' = N,
+       #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                                  hop_by_hop_id = Hid}}
+       = Pkt,
+       #state{state = {'Wait-CEA', Hid, Eid}}
+       = S) ->
     ?LOG(recv, N),
     handle_CEA(Pkt, S);
 
 %% Incoming CER
-rcv('CER' = N, Pkt, #state{state = recv_CER} = S) ->
+handle('CER' = N, Pkt, #state{state = recv_CER} = S) ->
     handle_request(N, Pkt, S);
 
 %% Anything but CER/CEA in a non-Open state is an error, as is
 %% CER/CEA in anything but recv_CER/Wait-CEA.
-rcv(Name, _, #state{state = PS})
+handle(Name, _, #state{state = PS})
   when PS /= 'Open';
        Name == 'CER';
        Name == 'CEA' ->
     {stop, {Name, PS}};
 
-rcv('DPR' = N, Pkt, S) ->
+handle('DPR' = N, Pkt, S) ->
     handle_request(N, Pkt, S);
 
 %% DPA in response to DPR, with the expected identifiers.
-rcv('DPA' = N,
-    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}
-                            = H}
-    = Pkt,
+handle('DPA' = N,
+       #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                                  hop_by_hop_id = Hid}
+                               = H}
+       = Pkt,
     #state{dictionary = Dict0,
            transport = TPid,
-           dpr = {X, Hid, Eid}}) ->
+           dpr = {X, Hid, Eid},
+           codec = Opts}) ->
     ?LOG(recv, N),
     X orelse begin
                  %% Only count DPA in response to a DPR sent by the
                  %% service: explicit DPR is counted in the same way
                  %% as other explicitly sent requests.
                  incr(recv, H, Dict0),
-                 incr_rc(recv, diameter_codec:decode(Dict0, Pkt), Dict0)
+                 {_, RecPkt} = decode(Dict0, Opts, Pkt),
+                 incr_rc(recv, RecPkt, Dict0)
              end,
     diameter_peer:close(TPid),
     {stop, N};
 
-%% Ignore anything else, an unsolicited DPA in particular. Note that
-%% dpa_timeout deals with the case in which the peer sends the wrong
-%% identifiers in DPA.
-rcv(N, #diameter_packet{header = H}, _)
-  when N == 'CER';
-       N == 'CEA';
-       N == 'DPR';
-       N == 'DPA' ->
+%% Ignore an unsolicited DPA in particular. Note that dpa_timeout
+%% deals with the case in which the peer sends the wrong identifiers
+%% in DPA.
+handle('DPA' = N, #diameter_packet{header = H}, _) ->
     ?LOG(ignored, N),
     %% Note that these aren't counted in the normal recv counter.
     diameter_stats:incr({diameter_codec:msg_id(H), recv, ignored}),
     ok;
 
-rcv(_, _, _) ->
+handle(_, _, _) ->
     ok.
 
 %% incr/3
@@ -782,7 +878,7 @@ outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
             invalid(false, dpr_after_dpr, H)   %% DPR sent: discard
     end;
 
-%% Explict CER or DWR: discard. These are sent by us.
+%% Explicit CER or DWR: discard. These are sent by us.
 outgoing(#diameter_packet{header = #diameter_header{application_id = 0,
                                                     cmd_code = C,
                                                     is_request = true}
@@ -805,7 +901,7 @@ outgoing(#diameter_packet{header = #diameter_header{is_request = false}}
     ok;
 
 %% Outgoing request: discard.
-outgoing(Msg, #state{dpr = {_,_,_}}) ->
+outgoing(Msg, #state{}) ->
     invalid(false, send_after_dpr, header(Msg)).
 
 header(#diameter_packet{header = H}) ->
@@ -818,22 +914,37 @@ header(Bin) ->  %% DWR
 %% Incoming CER or DPR.
 
 handle_request(Name,
-               #diameter_packet{header = H} = Pkt,
-               #state{dictionary = Dict0} = S) ->
+               #diameter_packet{header = H}
+               = Pkt,
+               #state{dictionary = Dict0,
+                      codec = Opts}
+               = S) ->
     ?LOG(recv, Name),
     incr(recv, H, Dict0),
-    send_answer(Name, diameter_codec:decode(Dict0, Pkt), S).
+    send_answer(Name, decode(Dict0, Opts, Pkt), S).
+
+%% decode/3
+%%
+%% Decode the message as record for diameter_capx, and in the
+%% configured format for events.
+
+decode(Dict0, Opts, Pkt) ->
+    {diameter_codec:decode(Dict0, Opts, Pkt),
+     diameter_codec:decode(Dict0, Opts#{decode_format := record}, Pkt)}.
 
 %% send_answer/3
 
-send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
-    incr_error(recv, ReqPkt, Dict),
+send_answer(Type, {DecPkt, RecPkt}, #state{transport = TPid,
+                                           dictionary = Dict,
+                                           codec = Opts}
+                                    = S) ->
+    incr_error(recv, RecPkt, Dict),
 
     #diameter_packet{header = H,
                      transport_data = TD}
-        = ReqPkt,
+        = RecPkt,
 
-    {Msg, PostF} = build_answer(Type, ReqPkt, S),
+    {Msg, PostF} = build_answer(Type, DecPkt, RecPkt, S),
 
     %% An answer message clears the R and T flags and retains the P
     %% flag. The E flag is set at encode.
@@ -845,7 +956,7 @@ send_answer(Type, ReqPkt, #state{transport = TPid, dictionary = Dict} = S) ->
                            msg = Msg,
                            transport_data = TD},
 
-    AnsPkt = diameter_codec:encode(Dict, Pkt),
+    AnsPkt = diameter_codec:encode(Dict, Opts, Pkt),
 
     incr(send, AnsPkt, Dict),
     incr_rc(send, AnsPkt, Dict),
@@ -861,19 +972,17 @@ eval([F|A], S) ->
 eval(T, _) ->
     close(T).
 
-%% build_answer/3
+%% build_answer/4
 
 build_answer('CER',
+             DecPkt,
              #diameter_packet{msg = CER,
                               header = #diameter_header{version
                                                         = ?DIAMETER_VERSION,
                                                         is_error = false},
-                              errors = []}
-             = Pkt,
+                              errors = []},
              #state{dictionary = Dict0}
              = S) ->
-    diameter_codec:setopts([{string_decode, false}]),
-
     {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
 
     [RC, IS] = Dict0:'#get-'(['Result-Code', 'Inband-Security-Id'], CEA),
@@ -889,25 +998,25 @@ build_answer('CER',
             orelse ?THROW(4003),  %% DIAMETER_ELECTION_LOST
         caps_cb(Caps)
     of
-        N -> {cea(CEA, N, Dict0), [fun open/5, Pkt,
+        N -> {cea(CEA, N, Dict0), [fun open/5, DecPkt,
                                                SupportedApps,
                                                Caps,
                                                {accept, inband_security(IS)}]}
     catch
         ?FAILURE(Reason) ->
-            rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
+            rejected(Reason, {'CER', Reason, Caps, DecPkt}, S)
     end;
 
 %% The error checks below are similar to those in diameter_traffic for
 %% other messages. Should factor out the commonality.
 
 build_answer(Type,
+             DecPkt,
              #diameter_packet{header = H,
-                              errors = Es}
-             = Pkt,
+                              errors = Es},
              S) ->
     {RC, FailedAVP} = result_code(Type, H, Es),
-    {answer(Type, RC, FailedAVP, S), post(Type, RC, Pkt, S)}.
+    {answer(Type, RC, FailedAVP, S), post(Type, RC, DecPkt, S)}.
 
 inband_security([]) ->
     ?NO_INBAND_SECURITY;
@@ -1074,19 +1183,15 @@ recv_CER(CER, #state{service = Svc, dictionary = Dict}) ->
 handle_CEA(#diameter_packet{header = H}
            = Pkt,
            #state{dictionary = Dict0,
-                  service = #diameter_service{capabilities = LCaps}}
+                  service = #diameter_service{capabilities = LCaps},
+                  codec = Opts}
            = S) ->
     incr(recv, H, Dict0),
 
-    #diameter_packet{}
-        = DPkt
-        = diameter_codec:decode(Dict0, Pkt),
+    {DecPkt, RecPkt} = decode(Dict0, Opts, Pkt),
 
-    diameter_codec:setopts([{string_decode, false}]),
-
-    RC = result_code(incr_rc(recv, DPkt, Dict0)),
-
-    {SApps, IS, RCaps} = recv_CEA(DPkt, S),
+    RC = result_code(incr_rc(recv, RecPkt, Dict0)),
+    {SApps, IS, RCaps} = recv_CEA(RecPkt, S),
 
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
@@ -1109,9 +1214,9 @@ handle_CEA(#diameter_packet{header = H}
             orelse ?THROW(election_lost),
         caps_cb(Caps)
     of
-        _ -> open(DPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
+        _ -> open(DecPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
     catch
-        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt})
+        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DecPkt})
     end.
 %% Check more than the result code since the peer could send success
 %% regardless. If not 2001 then a peer_up callback could do anything
@@ -1273,8 +1378,9 @@ dpr([], [Reason | _], S) ->
 
 -record(opts, {cause, timeout}).
 
-send_dpr(Reason, Opts, #state{dictionary = Dict,
-                              service = #diameter_service{capabilities = Caps}}
+send_dpr(Reason, DprOpts, #state{dictionary = Dict,
+                                 service = #diameter_service{capabilities = Caps},
+                                 codec = Opts}
                        = S) ->
     #opts{cause = Cause, timeout = Tmo}
         = lists:foldl(fun opt/2,
@@ -1283,7 +1389,7 @@ send_dpr(Reason, Opts, #state{dictionary = Dict,
                                         _         -> ?REBOOT
                                     end,
                             timeout = dpa_timeout()},
-                      Opts),
+                      DprOpts),
     #diameter_caps{origin_host = {OH, _},
                    origin_realm = {OR, _}}
         = Caps,
@@ -1291,6 +1397,7 @@ send_dpr(Reason, Opts, #state{dictionary = Dict,
     Pkt = encode(['DPR', {'Origin-Host', OH},
                          {'Origin-Realm', OR},
                          {'Disconnect-Cause', Cause}],
+                 Opts,
                  Dict),
     send_dpr(false, Pkt, Tmo, S).
 

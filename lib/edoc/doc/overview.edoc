@@ -276,11 +276,11 @@ The following tags can be used before a module declaration:
 ```%% @author Richard Carlsson'''
 
 ```%% @author Richard Carlsson <carlsson.richard@gmail.com>
-   %%   [http://user.it.uu.se/~richardc/]'''
+   %%   [http://example.net/richardc/]'''
 
 ```%% @author <carlsson.richard@gmail.com>'''
 
-```%% @author carlsson.richard@gmail.com [http://user.it.uu.se/~richardc/]'''
+```%% @author carlsson.richard@gmail.com [http://example.net/richardc/]'''
       </dd>
 
 <dt><a name="mtag-copyright">`@copyright'</a></dt>
@@ -377,6 +377,12 @@ The following tags can be used before a function definition:
       Useful for debug/test functions, etc. The content can be
       used as a comment; it is ignored by EDoc.</dd>
 
+  <dt><a name="ftag-param">`@param'</a></dt>
+      <dd>Provide more information on a single parameter of the
+      enclosing function. The content consists of a parameter name, 
+      followed by one or more whitespace characters, and XHTML text.
+      </dd>
+      
   <dt><a name="ftag-private">`@private'</a></dt>
       <dd>Marks the function as private (i.e., not part of the public
       interface), so that it will not appear in the normal
@@ -385,6 +391,10 @@ The following tags can be used before a function definition:
       e.g. entry points for `spawn'. (Non-exported functions are
       always "private".) The content can be used as a comment; it is
       ignored by EDoc.</dd>
+
+  <dt><a name="ftag-returns">`@returns'</a></dt>
+      <dd>Specify additional information about the value returned by
+      the function. Content consists of XHTML text.</dd>
 
   <dt><a name="ftag-see">`@see'</a></dt>
       <dd>Make a reference to a module, function, datatype, or

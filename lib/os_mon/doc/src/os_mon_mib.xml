@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,7 +35,10 @@
     <p>Functions for loading and unloading the OTP-OS-MON-MIB into/from
       an SNMP agent. The instrumentation of the OTP-OS-MON-MIB uses
       Mnesia, hence Mnesia must be started prior to loading
-      the OTP-OS-MON-MIB.</p>
+    the OTP-OS-MON-MIB.</p>
+    <warning>
+      <p>This module has been deprecated and will be removed in a furture release.</p>
+    </warning>
   </description>
   <funcs>
     <func>

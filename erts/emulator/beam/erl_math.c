@@ -247,6 +247,17 @@ BIF_RETTYPE math_pow_2(BIF_ALIST_2)
     return math_call_2(BIF_P, pow, BIF_ARG_1, BIF_ARG_2);
 }
 
+BIF_RETTYPE math_ceil_1(BIF_ALIST_1)
+{
+    return math_call_1(BIF_P, ceil, BIF_ARG_1);
+}
 
+BIF_RETTYPE math_floor_1(BIF_ALIST_1)
+{
+    return math_call_1(BIF_P, floor, BIF_ARG_1);
+}
 
-
+BIF_RETTYPE math_fmod_2(BIF_ALIST_2)
+{
+    return math_call_2(BIF_P, fmod, BIF_ARG_1, BIF_ARG_2);
+}

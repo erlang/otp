@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ read_pem(File) ->
 
 
 extract_base64(Binary) ->
-    extract_base64_lines(string:tokens(binary_to_list(Binary), "\n")).
+    extract_base64_lines(string:lexemes(binary_to_list(Binary), "\n")).
 
 extract_base64_lines(["-----BEGIN"++_ | Lines]) ->
     take_base64_lines(Lines, _Acc = []);

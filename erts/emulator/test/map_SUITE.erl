@@ -18,7 +18,6 @@
 %%
 -module(map_SUITE).
 -export([all/0, suite/0]).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 -export([t_build_and_match_literals/1, t_build_and_match_literals_large/1,
          t_update_literals/1, t_update_literals_large/1,
@@ -37,7 +36,9 @@
          t_map_equal/1,
          t_map_compare/1,
          t_map_size/1,
+         t_map_get/1,
          t_is_map/1,
+         t_is_map_key/1,
 
          %% Specific Map BIFs
          t_bif_map_get/1,
@@ -53,6 +54,7 @@
          t_bif_map_values/1,
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
+         t_bif_map_next/1,
 
          %% erlang
          t_erlang_hash/1,
@@ -119,11 +121,12 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_update,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
+          t_bif_map_next,
 
           %% erlang
           t_erlang_hash, t_map_encode_decode,
           t_gc_rare_map_overflow,
-          t_map_size, t_is_map,
+          t_map_size, t_map_get, t_is_map,
 
           %% non specific BIF related
           t_bif_build_and_check,
@@ -677,6 +680,88 @@ t_map_size(Config) when is_list(Config) ->
                     {'EXIT',{{badmap,T},_}} =
                       (catch map_size(T))
               end),
+    ok.
+
+t_map_get(Config) when is_list(Config) ->
+    %% small map
+    1    = map_get(a, id(#{a=>1})),
+    2    = map_get(b, id(#{a=>1, b=>2})),
+    "hi" = map_get("hello", id(#{a=>1, "hello"=>"hi"})),
+    "tuple hi" = map_get({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0    = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    "v4" = map_get(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    1    = map_get(a, M1),
+    2    = map_get(b, M1),
+    "hi" = map_get("hello", M1),
+    "tuple hi" = map_get({1,1.0}, M1),
+    "v3" = map_get(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,map_get,_,_}|_]}} =
+			  (catch map_get(a, T))
+	      end),
+
+    {'EXIT',{{badkey,{1,1}},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get({1,1}, id(#{{1,1.0}=>"tuple"}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} = (catch map_get(a, id(#{}))),
+    {'EXIT',{{badkey,a},[{erlang,map_get,_,_}|_]}} =
+	(catch map_get(a, id(#{b=>1, c=>2}))),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if map_get(a, M2) =:= 1 -> true; true -> false end,
+    false = if map_get(x, M2) =:= 1 -> true; true -> false end,
+    do_badmap(fun
+        (T) when map_get(x, T) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
+    ok.
+
+t_is_map_key(Config) when is_list(Config) ->
+    %% small map
+    true = is_map_key(a, id(#{a=>1})),
+    true = is_map_key(b, id(#{a=>1, b=>2})),
+    true = is_map_key("hello", id(#{a=>1, "hello"=>"hi"})),
+    true = is_map_key({1,1.0}, id(#{a=>a, {1,1.0}=>"tuple hi"})),
+
+    M0   = id(#{ k1=>"v1", <<"k2">> => <<"v3">> }),
+    true = is_map_key(<<"k2">>, M0#{<<"k2">> => "v4"}),
+
+    %% large map
+    M1   = maps:from_list([{I,I}||I<-lists:seq(1,100)] ++
+			  [{a,1},{b,2},{"hello","hi"},{{1,1.0},"tuple hi"},
+			   {k1,"v1"},{<<"k2">>,"v3"}]),
+    true = is_map_key(a, M1),
+    true = is_map_key(b, M1),
+    true = is_map_key("hello", M1),
+    true = is_map_key({1,1.0}, M1),
+    true = is_map_key(<<"k2">>, M1),
+
+    %% error cases
+    do_badmap(fun(T) ->
+		      {'EXIT',{{badmap,T},[{erlang,is_map_key,_,_}|_]}} =
+			  (catch is_map_key(a, T))
+	      end),
+
+    false = is_map_key({1,1}, id(#{{1,1.0}=>"tuple"})),
+    false = is_map_key(a, id(#{})),
+    false = is_map_key(a, id(#{b=>1, c=>2})),
+
+    %% in guards
+    M2 = id(#{a=>1}),
+    true = if is_map_key(a, M2) -> true; true -> false end,
+    false = if is_map_key(x, M2) -> true; true -> false end,
+    do_badmap(fun
+        (T) when is_map_key(T, x) =:= 1 -> ok;
+        (T) -> false = is_map(T)
+    end),
     ok.
 
 build_and_check_size([K|Ks],N,M0) ->
@@ -2130,8 +2215,6 @@ t_erlang_hash(Config) when is_list(Config) ->
 
     ok = t_bif_erlang_phash2(),
     ok = t_bif_erlang_phash(),
-    ok = t_bif_erlang_hash(),
-
     ok.
 
 t_bif_erlang_phash2() ->
@@ -2173,27 +2256,6 @@ t_bif_erlang_phash() ->
     1670235874 = erlang:phash(M1,Sz), % 4066388227
     2620391445 = erlang:phash(M2,Sz), % 3590546636
     ok.
-
-t_bif_erlang_hash() ->
-    Sz = 1 bsl 27 - 1,
-    39684169 = erlang:hash(#{},Sz),  % 5158
-    33673142 = erlang:hash(#{ a => 1, "a" => 2, <<"a">> => 3, {a,b} => 4 },Sz), % 71555838
-    95337869 = erlang:hash(#{ 1 => a, 2 => "a", 3 => <<"a">>, 4 => {a,b} },Sz), % 5497225
-    108959561 = erlang:hash(#{ 1 => a },Sz), % 126071654
-    59623150 = erlang:hash(#{ a => 1 },Sz), % 126426236
-
-    42775386 = erlang:hash(#{{} => <<>>},Sz), % 101655720
-    71692856 = erlang:hash(#{<<>> => {}},Sz), % 101655720
-
-    M0 = #{ a => 1, "key" => <<"value">> },
-    M1 = maps:remove("key",M0),
-    M2 = M1#{ "key" => <<"value">> },
-
-    70254632 = erlang:hash(M0,Sz), % 38260486
-    59623150 = erlang:hash(M1,Sz), % 126426236
-    70254632 = erlang:hash(M2,Sz), % 38260486
-    ok.
-
 
 t_map_encode_decode(Config) when is_list(Config) ->
     <<131,116,0,0,0,0>> = erlang:term_to_binary(#{}),
@@ -2386,23 +2448,85 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
 
-t_bif_build_and_check(Config) when is_list(Config) ->
-    ok = check_build_and_remove(750,[
-				      fun(K) -> [K,K] end,
-				      fun(K) -> [float(K),K] end,
-				      fun(K) -> K end,
-				      fun(K) -> {1,K} end,
-				      fun(K) -> {K} end,
-				      fun(K) -> [K|K] end,
-				      fun(K) -> [K,1,2,3,4] end,
-				      fun(K) -> {K,atom} end,
-				      fun(K) -> float(K) end,
-				      fun(K) -> integer_to_list(K) end,
-				      fun(K) -> list_to_atom(integer_to_list(K)) end,
-				      fun(K) -> [K,{K,[K,{K,[K]}]}] end,
-				      fun(K) -> <<K:32>> end
-			      ]),
+t_bif_map_next(Config) when is_list(Config) ->
 
+    erts_debug:set_internal_state(available_internal_state, true),
+
+    try
+
+        none = maps:next(maps:iterator(id(#{}))),
+
+        verify_iterator(#{}),
+        verify_iterator(#{a => 1, b => 2, c => 3}),
+
+        %% Use fatmap in order to test iterating in very deep maps
+        FM = fatmap(43),
+        verify_iterator(FM),
+
+        {'EXIT', {{badmap,[{a,b},b]},_}} = (catch maps:iterator(id([{a,b},b]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id(a))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([a|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFFFFFFFFFFF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-16#FFFFFFFFFFFFFFFF|FM]))),
+
+        %% This us a whitebox test that the error code works correctly.
+        %% It uses a path for a tree of depth 4 and tries to do next on
+        %% each of those paths.
+        (fun F(0) -> ok;
+             F(N) ->
+                 try maps:next([N|FM]) of
+                     none ->
+                         F(N-1);
+                     {_K,_V,_I} ->
+                         F(N-1)
+                 catch error:badarg ->
+                         F(N-1)
+                 end
+         end)(16#FFFF),
+
+        ok
+    after
+            erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+verify_iterator(Map) ->
+    KVs = t_fold(fun(K, V, A) -> [{K, V} | A] end, [], Map),
+
+    %% Verify that KVs created by iterating Map is of
+    %% correct size and contains all elements
+    true = length(KVs) == maps:size(Map),
+    [maps:get(K, Map) || {K, _} <- KVs],
+    ok.
+
+
+t_fold(Fun, Init, Map) ->
+    t_fold_1(Fun, Init, maps:iterator(Map)).
+
+t_fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, V, NextIter} ->
+            t_fold_1(Fun, Fun(K,V,Acc), NextIter);
+        none ->
+            Acc
+    end.
+
+t_bif_build_and_check(Config) when is_list(Config) ->
+    ok = check_build_and_remove(750,[fun(K) -> [K,K] end,
+				     fun(K) -> [float(K),K] end,
+				     fun(K) -> K end,
+				     fun(K) -> {1,K} end,
+				     fun(K) -> {K} end,
+				     fun(K) -> [K|K] end,
+				     fun(K) -> [K,1,2,3,4] end,
+				     fun(K) -> {K,atom} end,
+				     fun(K) -> float(K) end,
+				     fun(K) -> integer_to_list(K) end,
+				     fun(K) -> list_to_atom(integer_to_list(K)) end,
+				     fun(K) -> [K,{K,[K,{K,[K]}]}] end,
+				     fun(K) -> <<K:32>> end]),
     ok.
 
 check_build_and_remove(_,[]) -> ok;
@@ -2956,7 +3080,18 @@ y_regs(Config) when is_list(Config) ->
 
     true = is_map(Map2) andalso is_map(Map4),
 
+    gurka = y_regs_literal(0),
+    gaffel = y_regs_literal(1),
+
     ok.
+
+y_regs_literal(Key) when is_integer(Key) ->
+    %% Forces the key to be placed in a Y register.
+    lists:seq(1, 2),
+    case is_map_key(Key, #{ 0 => 0 }) of
+        true -> gurka;
+        false -> gaffel
+    end.
 
 y_regs_update(Map0, Val0) ->
     Val1 = {t,Val0},

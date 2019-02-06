@@ -22,7 +22,10 @@
 -include_lib("common_test/include/ct.hrl").
 -compile({no_auto_import,[binary_part/2]}).
 -export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
-	 is_cloned_mod/1,smoke_disasm/1,p_run/2,binary_part/2]).
+	 is_cloned_mod/1,smoke_disasm/1,p_run/2]).
+
+%% Used by test case that override BIFs.
+-export([binary_part/2,binary/1]).
 
 id(I) -> I.
 
@@ -151,3 +154,7 @@ p_run_loop(Test, List, N, Refs0, Errors0, Ws0) ->
 %% This is for the misc_SUITE:override_bif testcase
 binary_part(_A,_B) ->
     dummy.
+
+%% This is for overridden_bif_SUITE.
+binary(N) ->
+    N rem 10 =:= 0.

@@ -1,0 +1,78 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%%% Open this file in your editor and manually check the colors of
+%%% different types and calls and builtin words
+
+%%% Not everything in these test are set in stone
+%%% better indentation rules can be added but by having
+%%% these tests we can see what changes in new implementations
+%%% and notice when doing unintentional changes
+
+
+highlighting(X)			  % Function definitions should be highlighted
+  when is_integer(X) ->	          % and so should `when' and `is_integer' be
+    %% Highlighting
+    %% Various characters (we keep an `atom' after to see that highlighting ends)
+    $a,atom,			  % Characters should be marked
+    "string",atom,		  % and strings
+    'asdasd',atom,		  % quote should be atoms??
+    'VaV',atom,
+    'aVa',atom,
+    '\'atom',atom,
+    'atom\'',atom,
+    'at\'om',atom,
+    '#1',atom,
+
+    $", atom,					% atom should be ok
+    $', atom,
+
+    "string$", atom,  "string$", atom,  		% currently buggy I know...
+    "string\$", atom,   				% workaround for bug above
+
+    "char $in string", atom,
+
+    'atom$', atom,  'atom$', atom,
+    'atom\$', atom,
+
+    'char $in atom', atom,
+
+    $[, ${, $\\, atom,
+    ?MACRO_1,
+    ?MACRO_2(foo),
+
+    %% Numerical constants
+    16#DD,					% Should not be highlighted
+    32#dd,					% Should not be highlighted
+    32#ddAB,				        % Should not be highlighted
+    32#101,				        % Should not be highlighted
+    32#ABTR,				        % Should not be highlighted
+
+    %% Variables
+    Variables = lists:foo(),
+    _Variables = lists:foo(),
+    AppSpec = Xyz/2,
+    Module42 = Xyz(foo, bar),
+    Module:foo(),
+    _Module:foo(),				%
+    FooÅÅ = lists:reverse([tl,hd,tl,hd]),	%  Should highlight FooÅÅ
+    _FooÅÅ = 42,				%  Should highlight _FooÅÅ
+
+    %% Bifs
+    erlang:registered(),
+    registered(),
+    hd(tl(tl(hd([a,b,c])))),
+    erlang:anything(lists),
+    %% Guards
+    is_atom(foo), is_float(2.3), is_integer(32), is_number(4323.3),
+    is_function(Fun), is_pid(self()),
+    not_a_guard:is_list([]),
+    %% Other Types
+
+    atom,			  % not (currently) hightlighted
+    234234,
+    234.43,
+
+    [list, are, not, higlighted],
+    {nor, is, tuple},
+    ok.

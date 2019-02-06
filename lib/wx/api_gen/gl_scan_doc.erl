@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,6 +208,10 @@ gen_output({startElement, _Uri, "para", _QName, _Attributes}, #state{gen_output=
 	_ ->
 	    State#state{str=[para|Str]}
     end;
+
+gen_output({endElement, _Uri, "para", _QName}, #state{gen_output=true, str=Str} = State) ->
+    %% Pick only the first paragraph in the descriptions
+    State#state{gen_output=false};
 
 %% gen_output({startElement, _Uri, What, _QName, _Attributes}, State) ->
 %%     io:format("Skipped ~s~n",[What]),

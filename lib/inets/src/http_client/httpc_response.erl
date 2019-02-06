@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,7 +83,6 @@ whole_body(Body, Length) ->
 %% result(Response, Request) ->
 %%   Response - {StatusLine, Headers, Body}
 %%   Request - #request{}
-%%   Session - #tcp_session{}
 %%                                   
 %% Description: Checks the status code ...
 %%-------------------------------------------------------------------------
@@ -110,27 +109,30 @@ result(Response = {{_, 300, _}, _, _},
     redirect(Response, Request);
 
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = true},
-			  method = head}) when (Code =:= 301) orelse
-					       (Code =:= 302) orelse
-					       (Code =:= 303) orelse
-					       (Code =:= 307) ->
+       Request = #request{settings =
+              #http_options{autoredirect = true},
+              method = post}) when (Code =:= 301) orelse
+                           (Code =:= 302) orelse
+                           (Code =:= 303) ->
+    redirect(Response, Request#request{method = get});
+result(Response = {{_, Code, _}, _, _}, 
+       Request = #request{settings =
+              #http_options{autoredirect = true},
+              method = post}) when (Code =:= 307) ->
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _}, 
        Request = #request{settings = 
 			  #http_options{autoredirect = true},
-			  method = get}) when (Code =:= 301) orelse 
-					      (Code =:= 302) orelse 
-					      (Code =:= 303) orelse 
-					      (Code =:= 307) ->
-    redirect(Response, Request);
-result(Response = {{_, 303, _}, _, _},
-       Request = #request{settings =
-			  #http_options{autoredirect = true},
-			  method = post}) ->
-    redirect(Response, Request#request{method = get});
-
+			  method = Method}) when (Code =:= 301) orelse
+					       (Code =:= 302) orelse
+					       (Code =:= 303) orelse
+					       (Code =:= 307) ->
+    case lists:member(Method, [get, head, options, trace]) of
+    true ->
+        redirect(Response, Request);
+    false ->
+        transparent(Response, Request)
+    end;
 
 result(Response = {{_,503,_}, _, _}, Request) ->
     status_service_unavailable(Response, Request);
@@ -187,7 +189,7 @@ parse_status_code(<<?CR, ?LF, Rest/binary>>, StatusCodeStr,
 		  MaxHeaderSize, Result, true) ->
     parse_headers(Rest, [], [], MaxHeaderSize,
  		  [" ", list_to_integer(lists:reverse(
-				     string:strip(StatusCodeStr))) 
+                                          string:trim(StatusCodeStr)))
 		   | Result], true); 
 
 parse_status_code(<<?SP, Rest/binary>>, StatusCodeStr, 
@@ -266,7 +268,7 @@ parse_headers(<<?LF,?LF,Body/binary>>, Header, Headers,
 		  MaxHeaderSize, Result, Relaxed);
 
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
-	      MaxHeaderSize, Result, _) ->
+	      MaxHeaderSize, Result, Relaxed) ->
     HTTPHeaders = [lists:reverse(Header) | Headers],
     Length = lists:foldl(fun(H, Acc) -> length(H) + Acc end,
 			   0, HTTPHeaders),
@@ -274,8 +276,42 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers,
  	true ->   
 	    ResponseHeaderRcord = 
 		http_response:headers(HTTPHeaders, #http_response_h{}),
-	    {ok, list_to_tuple(
-		   lists:reverse([Body, ResponseHeaderRcord | Result]))};
+
+            %% RFC7230, Section 3.3.3
+            %% If a message is received with both a Transfer-Encoding and a
+            %% Content-Length header field, the Transfer-Encoding overrides the
+            %% Content-Length. Such a message might indicate an attempt to
+            %% perform request smuggling (Section 9.5) or response splitting
+            %% (Section 9.4) and ought to be handled as an error. A sender MUST
+            %% remove the received Content-Length field prior to forwarding such
+            %% a message downstream.
+            case ResponseHeaderRcord#http_response_h.'transfer-encoding' of
+                undefined ->
+                    {ok, list_to_tuple(
+                           lists:reverse([Body, ResponseHeaderRcord | Result]))};
+                Value ->
+                    TransferEncoding = string:lowercase(Value),
+                    ContentLength = ResponseHeaderRcord#http_response_h.'content-length',
+                    if
+                        %% Respond without error but remove Content-Length field in relaxed mode
+                        (Relaxed =:= true)
+                        andalso (TransferEncoding =:= "chunked")
+                        andalso (ContentLength =/= "-1") ->
+                            ResponseHeaderRcordFixed =
+                                ResponseHeaderRcord#http_response_h{'content-length' = "-1"},
+                            {ok, list_to_tuple(
+                                   lists:reverse([Body, ResponseHeaderRcordFixed | Result]))};
+                        %% Respond with error in default (not relaxed) mode
+                        (Relaxed =:= false)
+                        andalso (TransferEncoding =:= "chunked")
+                        andalso (ContentLength =/= "-1") ->
+                            throw({error, {headers_conflict, {'content-length',
+                                                              'transfer-encoding'}}});
+                        true  ->
+                            {ok, list_to_tuple(
+                                   lists:reverse([Body, ResponseHeaderRcord | Result]))}
+                    end
+            end;
  	false ->
 	    throw({error, {header_too_long, MaxHeaderSize, 
 			   MaxHeaderSize-Length}})
@@ -340,57 +376,172 @@ status_server_error_50x(Response, Request) ->
     {stop, {Request#request.id, Msg}}.
 
 
-redirect(Response = {StatusLine, Headers, Body}, Request) ->
+redirect(Response = {_, Headers, _}, Request) ->
     {_, Data} =  format_response(Response),
     case Headers#http_response_h.location of
-	undefined ->
-	    transparent(Response, Request);
-	RedirUrl ->
-	    UrlParseOpts = [{ipv6_host_with_brackets, 
-			     Request#request.ipv6_host_with_brackets}], 
-	    case uri_parse(RedirUrl, UrlParseOpts) of
-		{error, no_scheme} when
-		(Request#request.settings)#http_options.relaxed ->
-		    NewLocation = fix_relative_uri(Request, RedirUrl),
-		    redirect({StatusLine, Headers#http_response_h{
-					    location = NewLocation},
-			      Body}, Request);
-		{error, Reason} ->
-		    {ok, error(Request, Reason), Data};
-		%% Automatic redirection
-		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
-		    NewHeaders = 
-			(Request#request.headers)#http_request_h{host = Host},
-		    NewRequest = 
-			Request#request{redircount = 
-					Request#request.redircount+1,
-					scheme = Scheme,
-					headers = NewHeaders,
-					address = {Host,Port},
-					path = Path,
-					pquery = Query,
-					abs_uri =
-					atom_to_list(Scheme) ++ "://" ++
-                                        Host ++ ":" ++ 
-					integer_to_list(Port) ++
-					Path ++ Query},
-		    {redirect, NewRequest, Data}
-	    end
+        undefined ->
+            transparent(Response, Request);
+        RedirUrl ->
+            Brackets = Request#request.ipv6_host_with_brackets,
+            case uri_string:parse(RedirUrl) of
+                {error, Reason, _} ->
+                    {ok, error(Request, Reason), Data};
+                %% Automatic redirection
+                URI ->
+                    {Host, Port0} = Request#request.address,
+                    Port = maybe_to_integer(Port0),
+                    Path = Request#request.path,
+                    Scheme = atom_to_list(Request#request.scheme),
+                    Query = Request#request.pquery,
+                    URIMap = resolve_uri(Scheme, Host, Port, Path, Query, URI),
+                    TScheme = list_to_atom(maps:get(scheme, URIMap)),
+                    THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
+                    TPort = maps:get(port, URIMap),
+                    TPath = maps:get(path, URIMap),
+                    TQuery = maps:get(query, URIMap, ""),
+                    NewURI = uri_string:normalize(
+                               uri_string:recompose(URIMap)),
+                    HostPort = http_request:normalize_host(TScheme, THost, TPort),
+                    NewHeaders =
+                        (Request#request.headers)#http_request_h{host = HostPort},
+                    NewRequest =
+                        Request#request{redircount =
+                                            Request#request.redircount+1,
+                                        scheme = TScheme,
+                                        headers = NewHeaders,
+                                        address = {THost,TPort},
+                                        path = TPath,
+                                        pquery = TQuery,
+                                        abs_uri = NewURI},
+                    {redirect, NewRequest, Data}
+            end
     end.
 
-maybe_to_list(Port) when is_integer(Port) ->
-    integer_to_list(Port);
-maybe_to_list(Port) when is_list(Port) ->
+
+%% RFC3986 - 5.2.2.  Transform References
+resolve_uri(Scheme, Host, Port, Path, Query, URI) ->
+    resolve_uri(Scheme, Host, Port, Path, Query, URI, #{}).
+%%
+resolve_uri(Scheme, Host, Port, Path, Query, URI, Map0) ->
+    case maps:get(scheme, URI, undefined) of
+        undefined ->
+            Port0 = get_port(Scheme, URI),
+            Map = Map0#{scheme => Scheme,
+                        port => Port0},
+            resolve_authority(Host, Port, Path, Query, URI, Map);
+        URIScheme ->
+            Port0 = get_port(URIScheme, URI),
+            maybe_add_query(
+              Map0#{scheme => URIScheme,
+                    host => maps:get(host, URI),
+                    port => Port0,
+                    path => maps:get(path, URI)},
+              URI)
+    end.
+
+
+get_port(Scheme, URI) ->
+    case maps:get(port, URI, undefined) of
+        undefined ->
+            get_default_port(Scheme);
+        Port ->
+            Port
+    end.
+
+
+get_default_port("http") ->
+    80;
+get_default_port("https") ->
+    443.
+
+
+resolve_authority(Host, Port, Path, Query, RelURI, Map) ->
+    case maps:is_key(host, RelURI) of
+        true ->
+            maybe_add_query(
+              Map#{host => maps:get(host, RelURI),
+                   path => maps:get(path, RelURI)},
+              RelURI);
+        false ->
+            Map1 = Map#{host => Host,
+                        port => Port},
+            resolve_path(Path, Query, RelURI, Map1)
+    end.
+
+
+maybe_add_query(Map, RelURI) ->
+     case maps:is_key(query, RelURI) of
+         true ->
+             Map#{query => maps:get(query, RelURI)};
+         false ->
+             Map
+         end.
+
+
+resolve_path(Path, Query, RelURI, Map) ->
+    case maps:is_key(path, RelURI) of
+        true ->
+            Path1 = calculate_path(Path,  maps:get(path, RelURI)),
+            maybe_add_query(
+              Map#{path => Path1},
+              RelURI);
+        false ->
+            Map1 = Map#{path => Path},
+            resolve_query(Query, RelURI, Map1)
+    end.
+
+
+calculate_path(BaseP, RelP) ->
+    case starts_with_slash(RelP) of
+        true ->
+            RelP;
+        false ->
+            merge_paths(BaseP, RelP)
+    end.
+
+
+starts_with_slash([$/|_]) ->
+    true;
+starts_with_slash(<<$/,_/binary>>) ->
+    true;
+starts_with_slash(_) ->
+    false.
+
+
+%% RFC3986 - 5.2.3.  Merge Paths
+merge_paths("", RelP) ->
+    [$/|RelP];
+merge_paths(BaseP, RelP) when is_list(BaseP) ->
+    do_merge_paths(lists:reverse(BaseP), RelP);
+merge_paths(BaseP, RelP) when is_binary(BaseP) ->
+    B = binary_to_list(BaseP),
+    R = binary_to_list(RelP),
+    Res = merge_paths(B, R),
+    list_to_binary(Res).
+
+
+do_merge_paths([$/|_] = L, RelP) ->
+    lists:reverse(L) ++ RelP;
+do_merge_paths([_|T], RelP) ->
+    do_merge_paths(T, RelP).
+
+
+resolve_query(Query, RelURI, Map) ->
+    case maps:is_key(query, RelURI) of
+        true ->
+            Map#{query => maps:get(query, RelURI)};
+        false ->
+            Map#{query => Query}
+    end.
+
+
+maybe_to_integer(Port) when is_list(Port) ->
+    {Port1, _} = string:to_integer(Port),
+    Port1;
+maybe_to_integer(Port) when is_integer(Port) ->
     Port.
 
-%%% Guessing that we received a relative URI, fix it to become an absoluteURI
-fix_relative_uri(Request, RedirUrl) ->
-    {Server, Port0} = Request#request.address,
-    Port = maybe_to_list(Port0),
-    Path = Request#request.path,
-    atom_to_list(Request#request.scheme) ++ "://" ++ Server ++ ":" ++ Port
-	++ Path ++ RedirUrl.
-    
+
 error(#request{id = Id}, Reason) ->
     {Id, {error, Reason}}.
 
@@ -431,7 +582,7 @@ format_response({StatusLine, Headers, Body}) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
-	    -1 -> % When no lenght indicator is provided
+	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
 	    Length when (Length =< size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,
@@ -440,18 +591,3 @@ format_response({StatusLine, Headers, Body}) ->
 		{Body, <<>>}
 	end,
     {{StatusLine, http_response:header_list(Headers), NewBody}, Data}.
-
-%%--------------------------------------------------------------------------
-%% These functions is just simple wrappers to parse specifically HTTP URIs
-%%--------------------------------------------------------------------------
-
-scheme_defaults() ->
-    [{http, 80}, {https, 443}].
-
-uri_parse(URI, Opts) ->
-    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
-
-
-%%--------------------------------------------------------------------------
-
-

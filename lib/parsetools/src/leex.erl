@@ -37,7 +37,6 @@
 -import(lists, [member/2,reverse/1,sort/1,delete/2,
                 keysort/2,keydelete/3,
                 map/2,foldl/3,foreach/2,flatmap/2]).
--import(string, [substr/2,substr/3,span/2]).
 -import(ordsets, [is_element/2,add_element/2,union/2]).
 -import(orddict, [store/3]).
 
@@ -251,10 +250,10 @@ is_filename(T) ->
 
 shorten_filename(Name0) ->
     {ok,Cwd} = file:get_cwd(),
-    case lists:prefix(Cwd, Name0) of
-        false -> Name0;
-        true ->
-            case lists:nthtail(length(Cwd), Name0) of
+    case string:prefix(Name0, Cwd) of
+        nomatch -> Name0;
+        Rest ->
+            case unicode:characters_to_list(Rest) of
                 "/"++N -> N;
                 N -> N
             end
@@ -490,12 +489,9 @@ parse_rules_end(_, NextLine, REAs, As, St) ->
 %% action has been read. Keep track of line number.
 
 collect_rule(Ifile, Chars, L0) ->
-    %% Erlang strings are 1 based, but re 0 :-(
-    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+", [unicode]),
-    St = St0 + 1,
-    %%io:fwrite("RE = ~p~n", [substr(Chars, St, Len)]),
-    case collect_action(Ifile, substr(Chars, St+Len), L0, []) of
-        {ok,[{':',_}|Toks],L1} -> {ok,substr(Chars, St, Len),Toks,L1};
+    {RegExp,Rest} = string:take(Chars, " \t\r\n", true),
+    case collect_action(Ifile, Rest, L0, []) of
+        {ok,[{':',_}|Toks],L1} -> {ok,RegExp,Toks,L1};
         {ok,_,_} -> {error,{L0,leex,bad_rule}};
         {eof,L1} -> {error,{L1,leex,bad_rule}};
         {error,E,_} -> {error,E}
@@ -549,7 +545,7 @@ var_used(Name, Toks) ->
 
 parse_rule_regexp(RE0, [{M,Exp}|Ms], St) ->
     Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list},unicode]),
-    RE1 = string:join(Split, Exp),
+    RE1 = lists:append(lists:join(Exp, Split)),
     parse_rule_regexp(RE1, Ms, St);
 parse_rule_regexp(RE, [], St) ->
     %%io:fwrite("RE = ~p~n", [RE]),
@@ -589,9 +585,9 @@ nextline(Ifile, L, St) ->
         eof -> {eof,L};
         {error, _} -> add_error({L+1, leex, cannot_parse}, St);
         Chars ->
-            case substr(Chars, span(Chars, " \t\n")+1) of
-                [$%|_Rest] -> nextline(Ifile, L+1, St);
-                [] -> nextline(Ifile, L+1, St);
+            case string:take(Chars, " \t\n") of
+                {_, [$%|_Rest]} -> nextline(Ifile, L+1, St);
+                {_, []} -> nextline(Ifile, L+1, St);
                 _Other -> {ok,Chars,L+1}
             end
     end.
@@ -824,7 +820,7 @@ re_char_class(Cs, Cc, _) -> {reverse(Cc),Cs}.   % Preserve order
 %% posix_cc("space" ++ Cs) -> {space,Cs};
 %% posix_cc("upper" ++ Cs) -> {upper,Cs};
 %% posix_cc("xdigit" ++ Cs) -> {xdigit,Cs};
-%% posix_cc(Cs) -> parse_error({posix_cc,substr(Cs, 1, 5)}).
+%% posix_cc(Cs) -> parse_error({posix_cc,string:slice(Cs, 0, 5)}).
 
 escape_char($n) -> $\n;                         % \n = LF
 escape_char($r) -> $\r;                         % \r = CR
@@ -863,7 +859,7 @@ escape_char(C) -> C.                            % Pass it straight through
 %% re_number(Cs, Acc) -> {Acc,Cs}.
 
 string_between(Cs1, Cs2) ->
-    substr(Cs1, 1, length(Cs1)-length(Cs2)).
+    string:slice(Cs1, 0, string:length(Cs1)-string:length(Cs2)).
 
 %% We use standard methods, Thompson's construction and subset
 %% construction, to create first an NFA and then a DFA from the
@@ -1264,7 +1260,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%      {Action, AcceptLength, CurrTokLen, RestChars, Line, State}.
 
 %% The return CurrTokLen is always the current number of characters
-%% scanned in the current token. The returns have the follwoing
+%% scanned in the current token. The returns have the following
 %% meanings:
 %% {Action, AcceptLength, RestChars, Line} -
 %%  The scanner has reached an accepting end-state, for example after
@@ -1281,7 +1277,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%
 %% {reject, AcceptLength, CurrTokLen, RestChars, Line, State} -
 %% {Action, AcceptLength, CurrTokLen, RestChars, Line, State} -
-%%  The scanner has reached a non-accepting transistion state. If
+%%  The scanner has reached a non-accepting transition state. If
 %%  RestChars == [] we need to get more characters to continue.
 %%  Otherwise if 'reject' then no accepting state has been reached it
 %%  is an error. If we have an Action and AcceptLength then these are
@@ -1343,7 +1339,7 @@ out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
         eof -> output_file_directive(Ofile, St#leex.ifile, L);
         {error, _} -> add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
         Line ->
-            case substr(Line, 1, 5) of
+            case string:slice(Line, 0, 5) of
                 "##mod" -> out_module(Ofile, St);
                 "##cod" -> out_erlang_code(Ofile, St, Code, L);
                 "##dfa" -> out_dfa(Ofile, St, DFA, Code, DF, L);
@@ -1523,7 +1519,7 @@ prep_out_actions(As) ->
                 Name = list_to_atom(lists:concat([yyaction_,A])),
                 [Chars,Len,Line,_,_] = Vars,
                 Args = [V || V <- [Chars,Len,Line], V =/= "_"],
-                ArgsChars = string:join(Args, ", "),
+                ArgsChars = lists:join(", ", Args),
                 {A,Code,Vars,Name,Args,ArgsChars}
         end, As).
 
@@ -1548,22 +1544,23 @@ out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
     L = erl_scan:line(hd(Code)),
     output_file_directive(File, XrlFile, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
-    io:fwrite(File, "    ~s\n", [pp_tokens(Code, L)]).
+    io:fwrite(File, "    ~ts\n", [pp_tokens(Code, L, File)]).
 
-%% pp_tokens(Tokens, Line) -> [char()].
+%% pp_tokens(Tokens, Line, File) -> [char()].
 %%  Prints the tokens keeping the line breaks of the original code.
 
-pp_tokens(Tokens, Line0) -> pp_tokens(Tokens, Line0, none).
+pp_tokens(Tokens, Line0, File) -> pp_tokens(Tokens, Line0, File, none).
     
-pp_tokens([], _Line0, _) -> [];
-pp_tokens([T | Ts], Line0, Prev) ->
+pp_tokens([], _Line0, _, _) -> [];
+pp_tokens([T | Ts], Line0, File, Prev) ->
     Line = erl_scan:line(T),
-    [pp_sep(Line, Line0, Prev, T), pp_symbol(T) | pp_tokens(Ts, Line, T)].
+    [pp_sep(Line, Line0, Prev, T),
+     pp_symbol(T, File) | pp_tokens(Ts, Line, File, T)].
 
-pp_symbol({var,_,Var}) -> atom_to_list(Var);
-pp_symbol({_,_,Symbol}) -> io_lib:fwrite("~p", [Symbol]);
-pp_symbol({dot, _}) -> ".";
-pp_symbol({Symbol, _}) -> atom_to_list(Symbol).
+pp_symbol({var,_,Var}, _) -> atom_to_list(Var);
+pp_symbol({_,_,Symbol}, File) -> format_symbol(Symbol, File);
+pp_symbol({dot, _}, _) -> ".";
+pp_symbol({Symbol, _}, _) -> atom_to_list(Symbol).
 
 pp_sep(Line, Line0, Prev, T) when Line > Line0 -> 
     ["\n    " | pp_sep(Line - 1, Line0, Prev, T)];
@@ -1586,6 +1583,8 @@ out_dfa_graph(St, DFA, DF) ->
     case file:open(St#leex.gfile, [write]) of
         {ok,Gfile} ->
             try
+                %% Set the same encoding as infile:
+                set_encoding(St, Gfile),
                 io:fwrite(Gfile, "digraph DFA {~n", []),
                 out_dfa_states(Gfile, DFA, DF),
                 out_dfa_edges(Gfile, DFA),
@@ -1620,17 +1619,17 @@ out_dfa_edges(File, DFA) ->
                                   end, orddict:new(), Pt),
                     foreach(fun (T) ->
                                     Crs = orddict:fetch(T, Tdict),
-                                    Edgelab = dfa_edgelabel(Crs),
-                                    io:fwrite(File, "  ~b -> ~b [label=\"~s\"];~n",
+                                    Edgelab = dfa_edgelabel(Crs, File),
+                                    io:fwrite(File, "  ~b -> ~b [label=\"~ts\"];~n",
                                               [S,T,Edgelab])
                             end, sort(orddict:fetch_keys(Tdict)))
             end, DFA).
 
-dfa_edgelabel([C]) when is_integer(C) -> quote(C);
-dfa_edgelabel(Cranges) ->
+dfa_edgelabel([C], File) when is_integer(C) -> quote(C, File);
+dfa_edgelabel(Cranges, File) ->
     %% io:fwrite("el: ~p\n", [Cranges]),
-    "[" ++ map(fun ({A,B}) -> [quote(A), "-", quote(B)];
-                   (C)     -> [quote(C)]
+    "[" ++ map(fun ({A,B}) -> [quote(A, File), "-", quote(B, File)];
+                   (C)     -> [quote(C, File)]
                end, Cranges) ++ "]".
 
 set_encoding(#leex{encoding = none}, File) ->
@@ -1649,33 +1648,50 @@ output_file_directive(File, Filename, Line) ->
 
 format_filename(Filename0, File) ->
     Filename = filename:flatten(Filename0),
-    case lists:keyfind(encoding, 1, io:getopts(File)) of
-        {encoding, unicode} -> io_lib:write_string(Filename);
-        _ ->                   io_lib:write_string_as_latin1(Filename)
+    case enc(File) of
+        unicode -> io_lib:write_string(Filename);
+        latin1  -> io_lib:write_string_as_latin1(Filename)
     end.
 
-quote($^)  -> "\\^";
-quote($.)  -> "\\.";
-quote($$)  -> "\\$";
-quote($-)  -> "\\-";
-quote($[)  -> "\\[";
-quote($])  -> "\\]";
-quote($\s) -> "\\\\s";
-quote($\") -> "\\\"";
-quote($\b) -> "\\\\b";
-quote($\f) -> "\\\\f";
-quote($\n) -> "\\\\n";
-quote($\r) -> "\\\\r";
-quote($\t) -> "\\\\t";
-quote($\e) -> "\\\\e";
-quote($\v) -> "\\\\v";
-quote($\d) -> "\\\\d";
-quote($\\) -> "\\\\";
-quote(C) when is_integer(C) ->
+format_symbol(Symbol, File) ->
+    Format = case enc(File) of
+                 latin1  -> "~p";
+                 unicode -> "~tp"
+             end,
+    io_lib:fwrite(Format, [Symbol]).
+
+enc(File) ->
+    case lists:keyfind(encoding, 1, io:getopts(File)) of
+	false -> latin1; % should never happen
+	{encoding, Enc} -> Enc
+    end.
+
+quote($^, _File)  -> "\\^";
+quote($., _File)  -> "\\.";
+quote($$, _File)  -> "\\$";
+quote($-, _File)  -> "\\-";
+quote($[, _File)  -> "\\[";
+quote($], _File)  -> "\\]";
+quote($\s, _File) -> "\\\\s";
+quote($\", _File) -> "\\\"";
+quote($\b, _File) -> "\\\\b";
+quote($\f, _File) -> "\\\\f";
+quote($\n, _File) -> "\\\\n";
+quote($\r, _File) -> "\\\\r";
+quote($\t, _File) -> "\\\\t";
+quote($\e, _File) -> "\\\\e";
+quote($\v, _File) -> "\\\\v";
+quote($\d, _File) -> "\\\\d";
+quote($\\, _File) -> "\\\\";
+quote(C, File) when is_integer(C) ->
     %% Must remove the $ and get the \'s right.
-    case io_lib:write_char(C) of
+    S = case enc(File) of
+            unicode -> io_lib:write_char(C);
+            latin1  -> io_lib:write_char_as_latin1(C)
+        end,
+    case S of
         [$$,$\\|Cs] -> "\\\\" ++ Cs;
         [$$|Cs] -> Cs
     end;
-quote(maxchar) ->
+quote(maxchar, _File) ->
     "MAXCHAR".

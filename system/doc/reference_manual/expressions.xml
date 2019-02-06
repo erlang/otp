@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -123,10 +123,9 @@ member(_Elem, []) ->
       or <c>receive</c> expression must be bound in all branches 
       to have a value outside the expression. Otherwise they
       are regarded as 'unsafe' outside the expression.</p>
-    <p>For the <c>try</c> expression introduced in 
-      Erlang 5.4/OTP R10B, variable scoping is limited so that
+    <p>For the <c>try</c> expression variable scoping is limited so that
       variables bound in the expression are always 'unsafe' outside 
-      the expression. This is to be improved.</p>
+      the expression.</p>
   </section>
 
   <section>
@@ -189,7 +188,6 @@ f([$p,$r,$e,$f,$i,$x | Str]) -> ...</pre>
       <pre>
 case {Value, Result} of
     {?THRESHOLD+1, ok} -> ...</pre>
-      <p>This feature was added in Erlang 5.0/OTP R7.</p>
     </section>
   </section>
 
@@ -569,6 +567,10 @@ Expr1 <input>op</input> Expr2</pre>
       order is defined:</p>
     <pre>
 number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; map &lt; nil &lt; list &lt; bit string</pre>
+    <p><c>nil</c> in the previous expression represents the empty list
+      (<c>[]</c>), which is regarded as a separate type from
+      <c>list/0</c>. That is why <c>nil &lt; list</c>.
+    </p>
     <p>Lists are compared element by element. Tuples are ordered by
       size, two tuples with the same size are compared element by
       element.</p>
@@ -1342,14 +1344,14 @@ hello</pre>
     <code type="none">
 try Exprs
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso> that appeared in
-      Erlang 5.4/OTP R10B. It gives the possibility to:</p>
+      <seealso marker="#catch">catch</seealso>.
+      It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
       <item>Choose to handle only the desired ones.</item>
@@ -1364,10 +1366,12 @@ end</code>
       the evaluation. In that case the exception is caught and
       the patterns <c>ExceptionPattern</c> with the right exception
       class <c>Class</c> are sequentially matched against the caught
-      exception. An omitted <c>Class</c> is shorthand for <c>throw</c>.
-      If a match succeeds and the optional guard sequence
+      exception. If a match succeeds and the optional guard sequence
       <c>ExceptionGuardSeq</c> is true, the corresponding
       <c>ExceptionBody</c> is evaluated to become the return value.</p>
+    <p><c>Stacktrace</c>, if specified, must be the name of a variable
+      (not a pattern). The stack trace is bound to the variable when
+      the corresponding <c>ExceptionPattern</c> matches.</p>
     <p>If an exception occurs during evaluation of <c>Exprs</c> but
       there is no matching <c>ExceptionPattern</c> of the right
       <c>Class</c> with a true guard sequence, the exception is passed
@@ -1375,6 +1379,18 @@ end</code>
       expression.</p>
     <p>If an exception occurs during evaluation of <c>ExceptionBody</c>,
       it is not caught.</p>
+    <p>It is allowed to omit <c>Class</c> and <c>Stacktrace</c>.
+      An omitted <c>Class</c> is shorthand for <c>throw</c>:</p>
+
+    <code type="none">
+try Exprs
+catch
+    ExceptionPattern1 [when ExceptionGuardSeq1] ->
+        ExceptionBody1;
+    ExceptionPatternN [when ExceptionGuardSeqN] ->
+        ExceptionBodyN
+end</code>
+
     <p>The <c>try</c> expression can have an <c>of</c>
       section:
       </p>
@@ -1386,10 +1402,10 @@ try Exprs of
     PatternN [when GuardSeqN] ->
         BodyN
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
     ...;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 end</code>
     <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
@@ -1410,10 +1426,10 @@ try Exprs of
     PatternN [when GuardSeqN] ->
         BodyN
 catch
-    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+    Class1:ExceptionPattern1[:Stacktrace] [when ExceptionGuardSeq1] ->
         ExceptionBody1;
     ...;
-    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+    ClassN:ExceptionPatternN[:Stacktrace] [when ExceptionGuardSeqN] ->
         ExceptionBodyN
 after
     AfterBody
@@ -1472,7 +1488,7 @@ try Expr
 catch
     throw:Term -> Term;
     exit:Reason -> {'EXIT',Reason}
-    error:Reason -> {'EXIT',{Reason,erlang:get_stacktrace()}}
+    error:Reason:Stk -> {'EXIT',{Reason,Stk}}
 end</code>
   </section>
 

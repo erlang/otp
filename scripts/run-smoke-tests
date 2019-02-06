@@ -1,0 +1,19 @@
+#!/bin/bash
+set -ev
+
+if [ -z "$ERL_TOP" ]; then
+    ERL_TOP=$(pwd)
+fi
+
+function run_smoke_tests {
+    cd $ERL_TOP/release/tests/test_server
+    $ERL_TOP/bin/erl -s ts install -s ts smoke_test batch -s init stop
+
+    if grep -q '=failed *[1-9]' ct_run.test_server@*/*/run.*/suite.log; then
+        echo "One or more tests failed."
+        exit 1
+    fi
+    rm -rf ct_run.test_server@*
+}
+
+run_smoke_tests

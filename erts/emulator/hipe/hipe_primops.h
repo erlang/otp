@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,13 +41,12 @@ PRIMOP_LIST(am_bnot, &nbif_bnot_1)
 
 PRIMOP_LIST(am_gc_1, &nbif_gc_1)
 PRIMOP_LIST(am_check_get_msg, &nbif_check_get_msg)
-#ifdef ERTS_SMP
 PRIMOP_LIST(am_atomic_inc, &nbif_atomic_inc)
 PRIMOP_LIST(am_clear_timeout, &nbif_clear_timeout)
-#endif
 PRIMOP_LIST(am_select_msg, &nbif_select_msg)
 PRIMOP_LIST(am_set_timeout, &nbif_set_timeout)
 PRIMOP_LIST(am_rethrow, &nbif_rethrow)
+PRIMOP_LIST(am_raw_raise, &nbif_raw_raise)
 
 
 PRIMOP_LIST(am_bs_get_integer_2, &nbif_bs_get_integer_2)
@@ -65,7 +64,7 @@ PRIMOP_LIST(am_bs_utf16_size, &nbif_bs_utf16_size)
 PRIMOP_LIST(am_bs_put_utf16be, &nbif_bs_put_utf16be)
 PRIMOP_LIST(am_bs_put_utf16le, &nbif_bs_put_utf16le)
 PRIMOP_LIST(am_bs_get_utf16, &nbif_bs_get_utf16)
-PRIMOP_LIST(am_bs_validate_unicode, &nbif_bs_validate_unicode)
+PRIMOP_LIST(am_is_unicode, &nbif_is_unicode)
 PRIMOP_LIST(am_bs_validate_unicode_retract, &nbif_bs_validate_unicode_retract)
 
 PRIMOP_LIST(am_is_divisible, &nbif_is_divisible)
@@ -85,6 +84,7 @@ PRIMOP_LIST(am_emulate_fpe, &nbif_emulate_fpe)
 #endif
 PRIMOP_LIST(am_emasculate_binary, &nbif_emasculate_binary)
 PRIMOP_LIST(am_debug_native_called, &nbif_hipe_bifs_debug_native_called)
+PRIMOP_LIST(am_build_stacktrace, &nbif_hipe_bifs_build_stacktrace)
 
 #if defined(__sparc__)
 #include "hipe_sparc_primops.h"

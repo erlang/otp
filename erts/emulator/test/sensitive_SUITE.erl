@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -413,7 +413,7 @@ my_process_info(Pid, Tag) ->
 
 t_process_display(Config) when is_list(Config) ->
     Dir = filename:dirname(code:which(?MODULE)),
-    Cmd = atom_to_list(lib:progname()) ++ " -noinput -pa " ++ Dir ++
+    Cmd = ct:get_progname() ++ " -noinput -pa " ++ Dir ++
     " -run " ++ ?MODULE_STRING ++ " remote_process_display",
     io:put_chars(Cmd),
     P = open_port({spawn,Cmd}, [in,stderr_to_stdout,eof]),

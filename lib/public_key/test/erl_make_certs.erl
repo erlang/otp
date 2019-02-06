@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -178,8 +178,9 @@ make_tbs(SubjectKey, Opts) ->
 		  _ ->
 		      subject(proplists:get_value(subject, Opts),false)
 	      end,
-
-    {#'OTPTBSCertificate'{serialNumber = trunc(random:uniform()*100000000)*10000 + 1,
+    Rnd = rand:uniform( 1000000000000 ),
+    %% 1 =< Rnd < 1000000000001
+    {#'OTPTBSCertificate'{serialNumber = Rnd,
 			  signature    = SignAlgo,
 			  issuer       = Issuer,
 			  validity     = validity(Opts),
@@ -346,10 +347,22 @@ make_key(ec, _Opts) ->
 %% RSA key generation  (OBS: for testing only)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+gen_rsa2(Size) -> 
+    try
+        %% The numbers 2048,17 is choosen to not cause the cryptolib on
+        %% FIPS-enabled test machines be mad at us.
+        public_key:generate_key({rsa, 2048, 17})
+    catch
+        error:notsup ->
+            %% Disabled dirty_schedulers => crypto:generate_key not working
+            weak_gen_rsa2(Size)
+    end.
+
+
 -define(SMALL_PRIMES, [65537,97,89,83,79,73,71,67,61,59,53,
 		       47,43,41,37,31,29,23,19,17,13,11,7,5,3]).
 
-gen_rsa2(Size) ->
+weak_gen_rsa2(Size) ->
     P = prime(Size),
     Q = prime(Size),
     N = P*Q,
@@ -454,7 +467,8 @@ odd_rand(Size) ->
     odd_rand(Min, Max).
 
 odd_rand(Min,Max) ->
-    Rand = crypto:rand_uniform(Min,Max),
+    %% Odd random number N such that Min =< N =< Max
+    Rand = (Min-1) + rand:uniform(Max-Min), %  Min =< Rand < Max
     case Rand rem 2 of
 	0 -> 
 	    Rand + 1;

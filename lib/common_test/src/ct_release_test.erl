@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 %%-----------------------------------------------------------------
-%% @doc EXPERIMENTAL support for testing of upgrade.
+%% EXPERIMENTAL support for testing of upgrade.
 %%
 %% This is a library module containing support for test of release
 %% related activities in one or more applications. Currenty it
@@ -27,7 +27,7 @@
 %% == Configuration ==
 %%
 %% In order to find version numbers of applications to upgrade from,
-%% `{@module}' needs to access and start old OTP
+%% ct_release_test needs to access and start old OTP
 %% releases. A `common_test' configuration file can be used for
 %% specifying the location of such releases, for example:
 %%
@@ -39,48 +39,45 @@
 %% The configuration file should preferably point out the latest patch
 %% level on each major release.
 %%
-%% If no such configuration file is given, {@link init/1} will return
-%% `{skip,Reason}' and any attempt at running {@link upgrade/4}
+%% If no such configuration file is given, init/1 will return
+%% {skip,Reason} and any attempt at running upgrade/4
 %% will fail.
 %%
 %% == Callback functions ==
 %%
-%% The following functions should be exported from a {@module}
+%% The following functions should be exported from a ct_release_test
 %% callback module.
 %%
 %% All callback functions are called on the node where the upgrade is
 %% executed.
 %%
-%% <dl>
-%%   <dt>Module:upgrade_init(CtData,State) -> NewState</dt>
-%%   <dd>Types:
+%%   Module:upgrade_init(CtData,State) -> NewState
+%%   Types:
 %%
-%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
-%%     <b><code>State = NewState = cb_state()</code></b>
+%%     CtData = ct_data()
+%%     State = NewState = cb_state()
 %%
 %%     Initialyze system before upgrade test starts.
 %%
 %%     This function is called before the upgrade is started. All
-%%     applications given in {@link upgrade/4} are already started by
+%%     applications given in upgrade/4 are already started by
 %%     the boot script, so this callback is intended for additional
 %%     initialization, if necessary.
 %%
-%%     <code>CtData</code> is an opaque data structure which shall be used
-%%     in any call to <code>ct_release_test</code> inside the callback.
+%%     CtData is an opaque data structure which shall be used
+%%     in any call to ct_release_test inside the callback.
 %%
 %%     Example:
 %%
-%% ```
 %% upgrade_init(CtData,State) ->
 %%     {ok,{FromVsn,ToVsn}} = ct_release_test:get_app_vsns(CtData,myapp),
-%%     open_connection(State).'''
-%%   </dd>
+%%     open_connection(State).
 %%
-%%   <dt>Module:upgrade_upgraded(CtData,State) -> NewState</dt>
-%%   <dd>Types:
+%%   Module:upgrade_upgraded(CtData,State) -> NewState
+%%   Types:
 %%
-%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
-%%     <b><code>State = NewState = cb_state()</code></b>
+%%     CtData = ct_data()
+%%     State = NewState = cb_state()
 %%
 %%     Check that upgrade was successful.
 %%
@@ -89,21 +86,19 @@
 %%     been made permanent. It allows application specific checks to
 %%     ensure that the upgrade was successful.
 %%
-%%     <code>CtData</code> is an opaque data structure which shall be used
-%%     in any call to <code>ct_release_test</code> inside the callback.
+%%     CtData is an opaque data structure which shall be used
+%%     in any call to ct_release_test inside the callback.
 %%
 %%     Example:
 %%
-%% ```
 %% upgrade_upgraded(CtData,State) ->
-%%     check_connection_still_open(State).'''
-%%   </dd>
+%%     check_connection_still_open(State).
 %%
-%%   <dt>Module:upgrade_downgraded(CtData,State) -> NewState</dt>
-%%   <dd>Types:
+%%   Module:upgrade_downgraded(CtData,State) -> NewState
+%%   Types:
 %%
-%%     <b><code>CtData = {@link ct_data()}</code></b><br/>
-%%     <b><code>State = NewState = cb_state()</code></b>
+%%     CtData = ct_data()
+%%     State = NewState = cb_state()
 %%
 %%     Check that downgrade was successful.
 %%
@@ -112,17 +107,13 @@
 %%     made permanent. It allows application specific checks to ensure
 %%     that the downgrade was successful.
 %%
-%%     <code>CtData</code> is an opaque data structure which shall be used
-%%     in any call to <code>ct_release_test</code> inside the callback.
+%%     CtData is an opaque data structure which shall be used
+%%     in any call to ct_release_test inside the callback.
 %%
 %%     Example:
 %%
-%% ```
 %% upgrade_downgraded(CtData,State) ->
-%%     check_connection_closed(State).'''
-%%   </dd>
-%% </dl>
-%% @end
+%%     check_connection_closed(State).
 %%-----------------------------------------------------------------
 -module(ct_release_test).
 
@@ -132,7 +123,7 @@
 
 %%-----------------------------------------------------------------
 -define(testnode, 'ct_release_test-upgrade').
--define(exclude_apps, [hipe, typer, dialyzer]). % never include these apps
+-define(exclude_apps, [hipe, dialyzer]). % never include these apps
 
 %%-----------------------------------------------------------------
 -record(ct_data, {from,to}).
@@ -152,7 +143,7 @@
       Config :: config(),
       Result :: config() | SkipOrFail,
       SkipOrFail :: {skip,Reason} | {fail,Reason}.
-%% @doc Initialize `{@module}'.
+%% Initialize ct_release_test.
 %%
 %% This function can be called from any of the
 %% `init_per_*' functions in the test suite. It updates
@@ -168,9 +159,8 @@
 %%
 %% Example:
 %%
-%% ```
 %% init_per_suite(Config) ->
-%%     ct_release_test:init(Config).'''
+%%     ct_release_test:init(Config).
 %%
 init(Config) ->
     try init_upgrade_test() of
@@ -194,47 +184,42 @@ init(Config) ->
       Callback :: {module(),InitState},
       InitState :: cb_state(),
       Config :: config().
-%% @doc Test upgrade of the given application(s).
+%% Test upgrade of the given application(s).
 %%
 %% This function can be called from a test case. It requires that
-%% `Config' has been initialized by calling {@link
-%% init/1} prior to this, for example from `init_per_suite/1'.
+%% `Config' has been initialized by calling
+%% init/1 prior to this, for example from `init_per_suite/1'.
 %%
 %% Upgrade tests are performed as follows:
 %%
-%% <ol>
-%%   <li>Figure out which OTP release to test upgrade
+%%   Figure out which OTP release to test upgrade
 %%     from. Start a node running that release and find the
 %%     application versions on that node. Terminate the
-%%     node.</li>
-%%   <li>Figure out all dependencies for the applications under
-%%     test.</li>
-%%   <li>Create a release containing the core
+%%     node.
+%%   Figure out all dependencies for the applications under
+%%     test.
+%%   Create a release containing the core
 %%     applications `kernel', `stdlib' and `sasl'
 %%     in addition to the application(s) under test and all
 %%     dependencies of these. The versions of the applications
 %%     under test will be the ones found on the OTP release to
 %%     upgrade from. The versions of all other applications will
 %%     be those found on the current node, i.e. the common_test
-%%     node. This is the "From"-release.</li>
-%%   <li>Create another release containing the same
+%%     node. This is the "From"-release.
+%%   Create another release containing the same
 %%     applications as in the previous step, but with all
 %%     application versions taken from the current node. This is
-%%     the "To"-release.</li>
-%%   <li>Install the "From"-release and start a new node
-%%     running this release.</li>
-%%   <li>Perform the upgrade test and allow customized
+%%     the "To"-release.
+%%   Install the "From"-release and start a new node
+%%     running this release.
+%%   Perform the upgrade test and allow customized
 %%     control by using callbacks:
-%%     <ol>
-%%       <li>Callback: `upgrade_init/2'</li>
-%%       <li>Unpack the new release</li>
-%%       <li>Install the new release</li>
-%%       <li>Callback: `upgrade_upgraded/2'</li>
-%%       <li>Install the original release</li>
-%%       <li>Callback: `upgrade_downgraded/2'</li>
-%%     </ol>
-%%   </li>
-%% </ol>
+%%       Callback: `upgrade_init/2'
+%%       Unpack the new release
+%%       Install the new release
+%%       Callback: `upgrade_upgraded/2'
+%%       Install the original release
+%%       Callback: `upgrade_downgraded/2'
 %%
 %% `App' or `Apps'
 %% specifies the applications under test, i.e. the applications
@@ -244,27 +229,25 @@ init(Config) ->
 %%
 %% `Level' specifies which OTP release to
 %% pick the "From" versions from.
-%% <dl>
-%%   <dt>major</dt>
-%%   <dd>From verions are picked from the previous major
+%%   major
+%%   From verions are picked from the previous major
 %%     release. For example, if the test is run on an OTP-17
-%%     node, `{@module}' will pick the application
+%%     node, ct_release_test will pick the application
 %%     "From" versions from an OTP installation running OTP
-%%     R16B.</dd>
+%%     R16B.
 %%
-%%   <dt>minor</dt>
-%%   <dd>From verions are picked from the current major
+%%   minor
+%%   From verions are picked from the current major
 %%     release. For example, if the test is run on an OTP-17
-%%     node, `{@module}' will pick the application
+%%     node, ct_release_test will pick the application
 %%     "From" versions from an OTP installation running an
-%%     earlier patch level of OTP-17.</dd>
-%% </dl>
+%%     earlier patch level of OTP-17.
 %%
 %% The application "To" versions are allways picked from the
 %% current node, i.e. the common_test node.
 %%
 %% `Callback' specifies the module (normally the
-%% test suite) which implements the {@section Callback functions}, and
+%% test suite) which implements the Callback functions, and
 %% the initial value of the `State' variable used in these
 %% functions.
 %%
@@ -273,10 +256,8 @@ init(Config) ->
 %%
 %% Example:
 %%
-%% ```
 %% minor_upgrade(Config) ->
 %%     ct_release_test:upgrade(ssl,minor,{?MODULE,[]},Config).
-%% '''
 %%
 upgrade(App,Level,Callback,Config) when is_atom(App) ->
     upgrade([App],Level,Callback,Config);
@@ -318,10 +299,10 @@ upgrade(Apps,Level,Callback,Config) ->
 -spec cleanup(Config) -> Result when
       Config :: config(),
       Result :: config().
-%% @doc Clean up after tests.
+%% Clean up after tests.
 %%
 %% This function shall be called from the `end_per_*' function
-%% complementing the `init_per_*' function where {@link init/1}
+%% complementing the `init_per_*' function where init/1
 %% is called.
 %%
 %% It cleans up after the test, for example kills hanging
@@ -329,9 +310,8 @@ upgrade(Apps,Level,Callback,Config) ->
 %%
 %% Example:
 %%
-%% ```
 %% end_per_suite(Config) ->
-%%     ct_release_test:cleanup(Config).'''
+%%     ct_release_test:cleanup(Config).
 %%
 cleanup(Config) ->
     AllNodes = [node_name(?testnode)|nodes()],
@@ -352,15 +332,15 @@ cleanup(Config) ->
       From :: string(),
       To :: string(),
       Reason :: {app_not_found,App}.
-%% @doc Get versions involved in this upgrade for the given application.
+%% Get versions involved in this upgrade for the given application.
 %%
 %% This function can be called from inside any of the callback
 %% functions. It returns the old (From) and new (To) versions involved
 %% in the upgrade/downgrade test for the given application.
 %%
-%% <code>CtData</code> must be the first argument received in the
+%% CtData must be the first argument received in the
 %% calling callback function - an opaque data structure set by
-%% <code>ct_release_tests</code>.
+%% ct_release_tests.
 get_app_vsns(#ct_data{from=FromApps,to=ToApps},App) ->
     case {lists:keyfind(App,1,FromApps),lists:keyfind(App,1,ToApps)} of
 	{{App,FromVsn,_},{App,ToVsn,_}} ->
@@ -380,16 +360,16 @@ get_app_vsns(#ct_data{from=FromApps,to=ToApps},App) ->
       Down :: [Instr],
       Instr :: term(),
       Reason :: {app_not_found,App} | {vsn_not_found,{App,From}}.
-%% @doc Get appup instructions for the given application.
+%% Get appup instructions for the given application.
 %%
 %% This function can be called from inside any of the callback
 %% functions. It reads the appup file for the given application and
 %% returns the instructions for upgrade and downgrade for the versions
 %% in the test.
 %%
-%% <code>CtData</code> must be the first argument received in the
+%% CtData must be the first argument received in the
 %% calling callback function - an opaque data structure set by
-%% <code>ct_release_tests</code>.
+%% ct_release_tests.
 %%
 %% See reference manual for appup files for types definitions for the
 %% instructions.
@@ -445,7 +425,7 @@ init_upgrade_test(Level) ->
 	end,
     case OldRel of
 	false ->
-	    ct:log("Release ~p is not available."
+	    ct:log("Release ~tp is not available."
 		   " Upgrade on '~p' level can not be tested.",
 		   [FromVsn,Level]),
 	    undefined;
@@ -522,8 +502,8 @@ upgrade(Apps,Level,Callback,CreateDir,InstallDir,Config) ->
 		    {ToVsn,ToRel,ToAppsVsns} =
 			upgrade_system(Apps, FromRel, CreateDir,
 				       InstallDir, Data),
-		    ct:log("Upgrade from: OTP-~ts, ~p",[FromVsn, FromAppsVsns]),
-		    ct:log("Upgrade to: OTP-~ts, ~p",[ToVsn, ToAppsVsns]),
+		    ct:log("Upgrade from: OTP-~ts, ~tp",[FromVsn, FromAppsVsns]),
+		    ct:log("Upgrade to: OTP-~ts, ~tp",[ToVsn, ToAppsVsns]),
 		    do_upgrade(Callback, FromVsn, FromAppsVsns, ToRel,
 			       ToAppsVsns, InstallDir)
 	    end
@@ -727,9 +707,9 @@ do_upgrade({Cb,InitState},FromVsn,FromAppsVsns,ToRel,ToAppsVsns,InstallDir) ->
 do_callback(Node,Mod,Func,Args) ->
     Dir = filename:dirname(code:which(Mod)),
     _ = rpc:call(Node,code,add_path,[Dir]),
-    ct:log("Calling ~p:~p/1",[Mod,Func]),
+    ct:log("Calling ~p:~tp/1",[Mod,Func]),
     R = rpc:call(Node,Mod,Func,Args),
-    ct:log("~p:~p/~w returned: ~p",[Mod,Func,length(Args),R]),
+    ct:log("~p:~tp/~w returned: ~tp",[Mod,Func,length(Args),R]),
     case R of
 	{badrpc,Error} ->
 	    throw({fail,{test_upgrade_callback,Mod,Func,Args,Error}});
@@ -817,7 +797,7 @@ get_runtime_deps([App|Apps],StartApps,Acc,Visited) ->
 	    RuntimeDeps =
 		lists:flatmap(
 		  fun(Str) ->
-			  [RuntimeAppStr,_] = string:tokens(Str,"-"),
+			  [RuntimeAppStr,_] = string:lexemes(Str,"-"),
 			  RuntimeApp = list_to_atom(RuntimeAppStr),
 			  case {lists:keymember(RuntimeApp,1,Acc),
 				lists:member(RuntimeApp,StartApps)} of
@@ -860,10 +840,7 @@ copy_file(Src, Dest, Opts) ->
     end.
 
 write_file(FName, Conts) ->
-    Enc = file:native_name_encoding(),
-    {ok, Fd} = file:open(FName, [write]),
-    ok = file:write(Fd, unicode:characters_to_binary(Conts,Enc,Enc)),
-    ok = file:close(Fd).
+    file:write_file(FName, unicode:characters_to_binary(Conts)).
 
 %% Substitute all occurrences of %Var% for Val in the given scripts
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
@@ -879,7 +856,7 @@ subst_src_script(Script, SrcDir, DestDir, Vars, Opts) ->
 
 subst_file(Src, Dest, Vars, Opts) ->
     {ok, Bin} = file:read_file(Src),
-    Conts = binary_to_list(Bin),
+    Conts = unicode:characters_to_list(Bin),
     NConts = subst(Conts, Vars),
     write_file(Dest, NConts),
     case lists:member(preserve, Opts) of
@@ -891,7 +868,7 @@ subst_file(Src, Dest, Vars, Opts) ->
     end.
 
 subst(Str, [{Var,Val}|Vars]) ->
-    subst(re:replace(Str,"%"++Var++"%",Val,[{return,list}]),Vars);
+    subst(re:replace(Str,"%"++Var++"%",Val,[{return,list},unicode]),Vars);
 subst(Str, []) ->
     Str.
 

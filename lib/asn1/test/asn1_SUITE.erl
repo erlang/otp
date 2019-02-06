@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,9 @@
 
 -module(asn1_SUITE).
 
+%% Suppress compilation of an addititional module compiled for maps.
+-define(NO_MAPS_MODULE, asn1_test_lib_no_maps).
+
 -define(only_ber(Func),
     if Rule =:= ber -> Func;
        true -> ok
@@ -39,10 +42,11 @@ suite() ->
      {timetrap,{minutes,60}}].
 
 all() ->
-    [{group, compile},
+    [xref,
+     xref_export_all,
+
+     {group, compile},
      {group, parallel},
-     {group, app_test},
-     {group, appup_test},
 
      % TODO: Investigate parallel running of these:
      testComment,
@@ -59,18 +63,14 @@ groups() ->
        constraint_equivalence]},
 
      {ber, Parallel,
-      [ber_choiceinseq,
+      [ber_decode_invalid_length,
+       ber_choiceinseq,
        % Uses 'SOpttest'
        ber_optional,
        tagdefault_automatic]},
 
-     {app_test, [], [{asn1_app_test, all}]},
-
-     {appup_test, [], [{asn1_appup_test, all}]},
-
      {parallel, Parallel,
       [cover,
-       xref,
        {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
@@ -102,6 +102,7 @@ groups() ->
        testMultipleLevels,
        testOpt,
        testSeqDefault,
+       testMaps,
        % Uses 'External'
        {group, [], [testExternal,
                     testSeqExtension]},
@@ -132,7 +133,8 @@ groups() ->
        testSeq2738,
        % Uses 'Constructed'
        {group, [], [constructed,
-                    ber_decode_error]},
+                    ber_decode_error,
+                    otp_14440]},
        testSeqSetIndefinite,
        testChoiceIndefinite,
        per_open_type,
@@ -147,6 +149,7 @@ groups() ->
        testImport,
        testDER,
        testDEFAULT,
+       testExtensionDefault,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
@@ -176,8 +179,11 @@ groups() ->
 
      {performance, [],
       [testTimer_ber,
+       testTimer_ber_maps,
        testTimer_per,
-       testTimer_uper]}].
+       testTimer_per_maps,
+       testTimer_uper,
+       testTimer_uper_maps]}].
 
 %%------------------------------------------------------------------------------
 %% Init/end
@@ -223,10 +229,9 @@ test(Config, TestF, Rules) ->
                   try
                       TestF(C, R, O)
                   catch
-                      Class:Reason ->
+                      Class:Reason:Stk ->
                           NewReason = {Reason, [{rule, R}, {options, O}]},
-                          erlang:raise(Class, NewReason,
-                                       erlang:get_stacktrace())
+                          erlang:raise(Class, NewReason, Stk)
                   end
           end,
     Result = [run_case(Config, Fun, rule(Rule), opts(Rule)) || Rule <- Rules],
@@ -262,7 +267,7 @@ replace_path(PathA, PathB) ->
     true = code:add_patha(PathB).
 
 join(Rule, Opts) ->
-    string:join([atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)], "_").
+    lists:join("_", [atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)]).
 
 %%------------------------------------------------------------------------------
 %% Test cases
@@ -441,6 +446,22 @@ testDEFAULT(Config, Rule, Opts) ->
     testDef:main(Rule),
     testSeqSetDefaultVal:main(Rule, Opts).
 
+testExtensionDefault(Config) ->
+    test(Config, fun testExtensionDefault/3).
+testExtensionDefault(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["ExtensionDefault"], Config, [Rule|Opts]),
+    testExtensionDefault:main(Rule).
+
+testMaps(Config) ->
+    test(Config, fun testMaps/3,
+         [{ber,[maps,no_ok_wrapper]},
+          {ber,[maps,der,no_ok_wrapper]},
+          {per,[maps,no_ok_wrapper]},
+          {uper,[maps,no_ok_wrapper]}]).
+testMaps(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
+    testMaps:main(Rule).
+
 testOpt(Config) -> test(Config, fun testOpt/3).
 testOpt(Config, Rule, Opts) ->
     asn1_test_lib:compile("Opt", Config, [Rule|Opts]),
@@ -614,12 +635,12 @@ parse(Config) ->
     [asn1_test_lib:compile(M, Config, [abs]) || M <- test_modules()].
 
 per(Config) ->
-    test(Config, fun per/3, [per,uper]).
+    test(Config, fun per/3, [per,uper,{per,[maps]},{uper,[maps]}]).
 per(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- per_modules()].
 
 ber_other(Config) ->
-    test(Config, fun ber_other/3, [ber]).
+    test(Config, fun ber_other/3, [ber,{ber,[maps]}]).
 
 ber_other(Config, Rule, Opts) ->
     [module_test(M, Config, Rule, Opts) || M <- ber_modules()].
@@ -628,7 +649,7 @@ der(Config) ->
     asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
 module_test(M0, Config, Rule, Opts) ->
-    asn1_test_lib:compile(M0, Config, [Rule|Opts]),
+    asn1_test_lib:compile(M0, Config, [Rule,?NO_MAPS_MODULE|Opts]),
     case list_to_atom(M0) of
 	'LDAP' ->
 	    %% Because of the recursive definition of 'Filter' in
@@ -645,6 +666,19 @@ module_test(M0, Config, Rule, Opts) ->
 	    end
     end.
 
+ber_decode_invalid_length(_Config) ->
+    Bin = <<48,129,157,48,0,2,1,2,164,0,48,129,154,49,24,48,22,6,
+            3,85,4,10,19,15,69,120,97,109,112,108,101,32,67,111,
+            109,112,97,110,121,49,29,48,27,6,9,42,134,72,134,247,
+            13,1,9,1,22,14,99,97,64,101,120,97,109,112,108,101,46,
+            99,111,109,49,13,48,11,6,3,85,4,7,19,4,79,117,108,117,
+            49,26,48,24,6,3,85,4,8,19,17,80,111,104,106,111,105,
+            115,45,80,111,104,106,97,110,109,97,97,49,11,48,9,6,3,
+            85,4,6,19,2,70,73,49,19,48,17,6,3,85,4,3,19,10,69,120,
+            97,109,112,108,101,32,67,65,49,11,48,16,6,3,85,4,11,
+            19,9,84,101>>,
+    {'EXIT',{error,{asn1,{invalid_value,12}}}} = (catch asn1rt_nif:decode_ber_tlv(Bin)),
+    ok.
 
 ber_choiceinseq(Config) ->
     test(Config, fun ber_choiceinseq/3, [ber]).
@@ -716,6 +750,36 @@ ber_decode_error(Config) ->
 ber_decode_error(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
     ber_decode_error:run(Opts).
+
+otp_14440(_Config) ->
+    Args = " -pa \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    {ok,N} = slave:start(hostname(), otp_14440, Args),
+    Result = rpc:call(N, ?MODULE, otp_14440_decode, []),
+    io:format("Decode result = ~p~n", [Result]),
+    case Result of
+        {exit,{error,{asn1,{invalid_value,5}}}} ->
+            ok = slave:stop(N);
+        %% We get this if stack depth limit kicks in:
+        {exit,{error,{asn1,{unknown,_}}}} ->
+            ok = slave:stop(N);
+        _ ->
+            _ = slave:stop(N),
+            ?t:fail(Result)
+    end.
+%%
+otp_14440_decode() ->
+    Data =
+        iolist_to_binary(
+          lists:duplicate(
+            32, list_to_binary(lists:duplicate(1024, 16#7f)))),
+    try asn1rt_nif:decode_ber_tlv(Data) of
+        Result ->
+            {unexpected_return,Result}
+    catch
+        Class:Reason ->
+            {Class,Reason}
+    end.
+
 
 h323test(Config) -> test(Config, fun h323test/3).
 h323test(Config, Rule, Opts) ->
@@ -995,7 +1059,9 @@ testS1AP(Config, Rule, Opts) ->
 testRfcs() ->
     [{timetrap,{minutes,90}}].
 
-testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
+testRfcs(Config) ->  test(Config, fun testRfcs/3,
+                          [{ber,[der,?NO_MAPS_MODULE]},
+                           {ber,[der,maps]}]).
 testRfcs(Config, Rule, Opts) ->
     case erlang:system_info(system_architecture) of
 	"sparc-sun-solaris2.10" ->
@@ -1010,7 +1076,8 @@ test_compile_options(Config) ->
     ok = test_compile_options:path(Config),
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
-    ok = test_compile_options:verbose(Config).
+    ok = test_compile_options:verbose(Config),
+    ok = test_compile_options:maps(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
@@ -1026,18 +1093,6 @@ test_modified_x420(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(Files, Config, [Rule,der|Opts]),
     test_modified_x420:test(Config).
 
-
-testX420() ->
-    [{timetrap,{minutes,90}}].
-testX420(Config) ->
-    case erlang:system_info(system_architecture) of
-	"sparc-sun-solaris2.10" ->
-	    {skip,"Too slow for an old Sparc"};
-	_ ->
-	    Rule = ber,
-	    testX420:compile(Rule, [der], Config),
-	    ok = testX420:ticket7759(Rule, Config)
-    end.
 
 test_x691(Config) ->
     test(Config, fun test_x691/3, [per, uper]).
@@ -1069,7 +1124,7 @@ test_x691(Config, Rule, Opts) ->
     ok.
 
 ticket_6143(Config) ->
-    ok = test_compile_options:ticket_6143(Config).
+    asn1_test_lib:compile("AA1", Config, [?NO_MAPS_MODULE]).
 
 testExtensionAdditionGroup(Config) ->
     test(Config, fun testExtensionAdditionGroup/3).
@@ -1104,6 +1159,7 @@ test_modules() ->
      "From",
      "H235-SECURITY-MESSAGES",
      "H323-MESSAGES",
+     "HighTagNumbers",
      "Import",
      "Int",
      "MAP-commonDataTypes",
@@ -1157,20 +1213,33 @@ END
     ok = asn1ct:compile(File, [{outdir, PrivDir}]).
 
 
-timer_compile(Config, Rule) ->
-    asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
-                              Config, [no_ok_wrapper,Rule]).
+timer_compile(Config, Opts0) ->
+    Files = ["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
+    Opts = [no_ok_wrapper,?NO_MAPS_MODULE|Opts0],
+    asn1_test_lib:compile_all(Files, Config, Opts).
 
 testTimer_ber(Config) ->
-    timer_compile(Config, ber),
+    timer_compile(Config, [ber]),
     testTimer:go().
 
 testTimer_per(Config) ->
-    timer_compile(Config, per),
+    timer_compile(Config, [per]),
     testTimer:go().
 
 testTimer_uper(Config) ->
-    timer_compile(Config, uper),
+    timer_compile(Config, [uper]),
+    testTimer:go().
+
+testTimer_ber_maps(Config) ->
+    timer_compile(Config, [ber,maps]),
+    testTimer:go().
+
+testTimer_per_maps(Config) ->
+    timer_compile(Config, [per,maps]),
+    testTimer:go().
+
+testTimer_uper_maps(Config) ->
+    timer_compile(Config, [uper,maps]),
     testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
@@ -1179,20 +1248,23 @@ testComment(Config) ->
     asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
 testName2Number(Config) ->
-    N2NOptions = [{n2n,Type} || Type <- ['CauseMisc', 'CauseProtocol',
-                                         'CauseRadioNetwork',
-                                         'CauseTransport','CauseNas']],
-    asn1_test_lib:compile("S1AP-IEs", Config, N2NOptions),
+    N2NOptions0 = [{n2n,Type} ||
+                     Type <- ['Cause-Misc', 'CauseProtocol']],
+    N2NOptions = [?NO_MAPS_MODULE|N2NOptions0],
+    asn1_test_lib:compile("EnumN2N", Config, N2NOptions),
 
-    0 = 'S1AP-IEs':name2num_CauseMisc('control-processing-overload'),
-    'unknown-PLMN' = 'S1AP-IEs':num2name_CauseMisc(5),
+    0 = 'EnumN2N':'name2num_Cause-Misc'('control-processing-overload'),
+    'unknown-PLMN' = 'EnumN2N':'num2name_Cause-Misc'(5),
+    4 = 'EnumN2N':name2num_CauseProtocol('semantic-error'),
+    'transfer-syntax-error' = 'EnumN2N':num2name_CauseProtocol(0),
 
     %% OTP-10144
     %% Test that n2n option generates name2num and num2name functions supporting
     %% values not within the extension root if the enumeration type has an
     %% extension marker.
-    N2NOptionsExt = [{n2n, 'NoExt'}, {n2n, 'Ext'}, {n2n, 'Ext2'}],
+    N2NOptionsExt = [?NO_MAPS_MODULE,{n2n,'NoExt'},{n2n,'Ext'},{n2n,'Ext2'}],
     asn1_test_lib:compile("EnumN2N", Config, N2NOptionsExt),
+
     %% Previously, name2num and num2name was not generated if the type didn't
     %% have an extension marker:
     0 = 'EnumN2N':name2num_NoExt('blue'),
@@ -1210,9 +1282,11 @@ testName2Number(Config) ->
     ok.
 
 ticket_7407(Config) ->
-    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper]),
+    Opts = [uper,?NO_MAPS_MODULE],
+    asn1_test_lib:compile("EUTRA-extract-7407", Config, Opts),
     ticket_7407_code(true),
-    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper,no_final_padding]),
+    asn1_test_lib:compile("EUTRA-extract-7407", Config,
+                          [no_final_padding|Opts]),
     ticket_7407_code(false).
 
 ticket_7407_code(FinalPadding) ->
@@ -1287,16 +1361,80 @@ ticket7904(Config) ->
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1),
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1).
 
+
+%% Make sure that functions exported from other modules are
+%% actually used.
+
 xref(_Config) ->
-    xref:start(s),
-    xref:set_default(s, [{verbose,false},{warnings,false},{builtins,true}]),
+    S = ?FUNCTION_NAME,
+    xref:start(S),
+    xref:set_default(S, [{verbose,false},{warnings,false},{builtins,true}]),
     Test = filename:dirname(code:which(?MODULE)),
-    {ok,_PMs} = xref:add_directory(s, Test),
-    UnusedExports = "X - XU - asn1_appup_test - asn1_app_test - \".*_SUITE\" : Mod",
-    case xref:q(s, UnusedExports) of
+    {ok,_PMs} = xref:add_directory(S, Test),
+    Q = "X - XU - \".*_SUITE\" : Mod",
+    UnusedExports = xref:q(S, Q),
+    xref:stop(S),
+    case UnusedExports of
 	{ok,[]} ->
 	    ok;
 	{ok,[_|_]=Res} ->
 	    io:format("Exported, but unused: ~p\n", [Res]),
 	    ?t:fail()
     end.
+
+%% Ensure that all functions that are implicitly exported by
+%% 'export_all' in this module are actually used.
+
+xref_export_all(_Config) ->
+    S = ?FUNCTION_NAME,
+    xref:start(S),
+    xref:set_default(S, [{verbose,false},{warnings,false},{builtins,true}]),
+    {ok,_PMs} = xref:add_module(S, code:which(?MODULE)),
+    AllCalled = all_called(),
+    Def = "Called := " ++ lists:flatten(io_lib:format("~p", [AllCalled])),
+    {ok,_} = xref:q(S, Def),
+    {ok,Unused} = xref:q(S, "X - Called - range (closure E | Called)"),
+    xref:stop(S),
+    case Unused -- [{?MODULE,otp_14440_decode,0}] of
+        [] ->
+            ok;
+        [_|_] ->
+            Msg = [io_lib:format("~p:~p/~p\n", [M,F,A]) || {M,F,A} <- Unused],
+            io:format("There are unused functions:\n\n~s\n", [Msg]),
+            ?t:fail(unused_functions)
+    end.
+
+%% Collect all functions that common_test will call in this module.
+
+all_called() ->
+    [{?MODULE,end_per_group,2},
+     {?MODULE,end_per_suite,1},
+     {?MODULE,end_per_testcase,2},
+     {?MODULE,init_per_group,2},
+     {?MODULE,init_per_suite,1},
+     {?MODULE,init_per_testcase,2},
+     {?MODULE,suite,0}] ++
+        all_called_1(all() ++ groups()).
+
+all_called_1([{_,_}|T]) ->
+    all_called_1(T);
+all_called_1([{_Name,_Flags,Fs}|T]) ->
+    all_called_1(Fs ++ T);
+all_called_1([F|T]) when is_atom(F) ->
+    L = case erlang:function_exported(?MODULE, F, 0) of
+            false ->
+                [{?MODULE,F,1}];
+            true ->
+                [{?MODULE,F,0},{?MODULE,F,1}]
+        end,
+    L ++ all_called_1(T);
+all_called_1([]) ->
+    [].
+
+hostname() ->
+    hostname(atom_to_list(node())).
+
+hostname([$@ | Hostname]) ->
+    list_to_atom(Hostname);
+hostname([_C | Cs]) ->
+    hostname(Cs).

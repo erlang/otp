@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +23,7 @@
 %% Description:
 %%    This file contains the test cases for the code coverage support
 %%
-%% @author Support
-%% @doc Test  of code coverage support in common_test
-%% @end
+%% Test  of code coverage support in common_test
 %%----------------------------------------------------------------------
 %%----------------------------------------------------------------------
 -module(cover_SUITE).

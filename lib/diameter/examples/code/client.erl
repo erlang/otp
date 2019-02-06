@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@
 -module(client).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc6733.hrl").
 
 -export([start/1,     %% start a service
          start/2,     %%
@@ -71,6 +70,7 @@
                         {'Product-Name', "Client"},
                         {'Auth-Application-Id', [0]},
                         {string_decode, false},
+                        {decode_format, map},
                         {application, [{alias, common},
                                        {dictionary, diameter_gen_base_rfc6733},
                                        {module, client_cb}]}]).
@@ -108,9 +108,9 @@ connect(T) ->
 
 call(Name) ->
     SId = diameter:session_id(?L(Name)),
-    RAR = #diameter_base_RAR{'Session-Id' = SId,
-                             'Auth-Application-Id' = 0,
-                             'Re-Auth-Request-Type' = 0},
+    RAR = ['RAR' | #{'Session-Id' => SId,
+                     'Auth-Application-Id' => 0,
+                     'Re-Auth-Request-Type' => 0}],
     diameter:call(Name, common, RAR, []).
 
 call() ->

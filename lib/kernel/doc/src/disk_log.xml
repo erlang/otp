@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2016</year>
+      <year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
       <taglist>
 	<tag>halt logs</tag>
 	<item><p>Appends items to a single file, which size can
-	be limited by the disk log module.</p></item>
+	be limited by the <c>disk_log</c> module.</p></item>
 	<tag>wrap logs</tag>
 	<item><p>Uses a sequence of wrap log files of limited size. As a
 	wrap log file is filled up, further items are logged on to the next
@@ -62,8 +62,8 @@
 	An item logged to an internally formatted log must not occupy more
 	than 4 GB of disk space (the size must fit in 4 bytes).</p></item>
 	<tag>external format</tag>
-	<item><p>Leaves it up to the user to read the logged deep byte lists.
-	The disk log module cannot repair externally formatted logs.</p></item>
+	<item><p>Leaves it up to the user to read and interpret the logged data.
+	The <c>disk_log</c> module cannot repair externally formatted logs.</p></item>
       </taglist>
 
     <p>For each open disk log, one process handles requests
@@ -109,8 +109,7 @@
       These functions log one or more Erlang terms.
       By prefixing each of the functions with a <c>b</c> (for "binary"),
       we get the corresponding <c>blog()</c> functions for the external format.
-      These functions log one or more deep lists of bytes or, alternatively,
-      binaries of deep lists of bytes.
+      These functions log one or more chunks of bytes.
       For example, to log the string <c>"hello"</c> in ASCII format, you
       can use <c>disk_log:blog(Log, "hello")</c>, or
       <c>disk_log:blog(Log, list_to_binary("hello"))</c>. The two
@@ -219,9 +218,6 @@
       <name name="dlog_head_opt"/>
     </datatype>
     <datatype>
-      <name name="dlog_byte"/>
-    </datatype>
-    <datatype>
       <name name="dlog_mode"/>
     </datatype>
     <datatype>
@@ -232,9 +228,6 @@
       <desc><p>Chunk continuation returned by
          <c>chunk/2,3</c>, <c>bchunk/2,3</c>, or <c>chunk_step/3</c>.</p>
       </desc>
-    </datatype>
-    <datatype>
-      <name name="bytes"/>
     </datatype>
     <datatype>
       <name name="invalid_header"/>
@@ -953,7 +946,7 @@
               written first on the log file. If the log is a wrap
               log, the item <c><anno>Head</anno></c> is written first in each new file.
               <c><anno>Head</anno></c> is to be a term if the format is
-              <c>internal</c>, otherwise a deep list of bytes (or a binary).
+              <c>internal</c>, otherwise a sequence of bytes.
               Defaults to <c>none</c>, which means that
               no header is written first on the file.
               </p>
@@ -965,7 +958,7 @@
               The call <c>M:F(A)</c> is assumed to return <c>{ok, Head}</c>.
               The item <c>Head</c> is written first in each file.
               <c>Head</c> is to be a term if the format is
-              <c>internal</c>, otherwise a deep list of bytes (or a binary).
+              <c>internal</c>, otherwise a sequence of bytes.
               </p>
           </item>
 	  <tag><c>{mode, <anno>Mode</anno>}</c></tag>
@@ -974,6 +967,12 @@
               opened in read-only or read-write mode. Defaults to
               <c>read_write</c>.
               </p>
+          </item>
+          <tag><c>{quiet, Boolean}</c></tag>
+          <item>
+              <p>Specifies if messages will be sent to
+                <c>error_logger</c> on recoverable errors with
+                the log files. Defaults to <c>false</c>.</p>
           </item>
         </taglist>
         <p><c>open/1</c> returns <c>{ok, <anno>Log</anno>}</c> if the

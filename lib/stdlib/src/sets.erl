@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 -module(sets).
 
 %% Standard interface.
--export([new/0,is_set/1,size/1,to_list/1,from_list/1]).
+-export([new/0,is_set/1,size/1,is_empty/1,to_list/1,from_list/1]).
 -export([is_element/2,add_element/2,del_element/2]).
 -export([union/2,union/1,intersection/2,intersection/1]).
 -export([is_disjoint/2]).
@@ -96,6 +96,12 @@ is_set(_) -> false.
       Set :: set().
 size(S) -> S#set.size. 
 
+%% is_empty(Set) -> boolean().
+%%  Return 'true' if Set is an empty set, otherwise 'false'.
+-spec is_empty(Set) -> boolean() when
+      Set :: set().
+is_empty(S) -> S#set.size=:=0.
+
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
 -spec to_list(Set) -> List when
@@ -128,14 +134,14 @@ is_element(E, S) ->
       Set2 :: set(Element).
 add_element(E, S0) ->
     Slot = get_slot(S0, E),
-    {S1,Ic} = on_bucket(fun (B0) -> add_bkt_el(E, B0, B0) end, S0, Slot),
-    maybe_expand(S1, Ic).
-
--spec add_bkt_el(T, [T], [T]) -> {[T], 0 | 1}.
-add_bkt_el(E, [E|_], Bkt) -> {Bkt,0};
-add_bkt_el(E, [_|B], Bkt) ->
-    add_bkt_el(E, B, Bkt);
-add_bkt_el(E, [], Bkt) -> {[E|Bkt],1}.
+    Bkt = get_bucket(S0, Slot),
+    case lists:member(E, Bkt) of
+        true ->
+            S0;
+        false ->
+            S1 = update_bucket(S0, Slot, [E | Bkt]),
+            maybe_expand(S1)
+    end.
 
 %% del_element(Element, Set) -> Set.
 %%  Return Set but with Element removed.
@@ -144,15 +150,28 @@ add_bkt_el(E, [], Bkt) -> {[E|Bkt],1}.
       Set2 :: set(Element).
 del_element(E, S0) ->
     Slot = get_slot(S0, E),
-    {S1,Dc} = on_bucket(fun (B0) -> del_bkt_el(E, B0) end, S0, Slot),
-    maybe_contract(S1, Dc).
+    Bkt = get_bucket(S0, Slot),
+    case lists:member(E, Bkt) of
+        false ->
+            S0;
+        true ->
+            S1 = update_bucket(S0, Slot, lists:delete(E, Bkt)),
+            maybe_contract(S1, 1)
+    end.
 
--spec del_bkt_el(T, [T]) -> {[T], 0 | 1}.
-del_bkt_el(E, [E|Bkt]) -> {Bkt,1};
-del_bkt_el(E, [Other|Bkt0]) ->
-    {Bkt1,Dc} = del_bkt_el(E, Bkt0),
-    {[Other|Bkt1],Dc};
-del_bkt_el(_, []) -> {[],0}.
+%% update_bucket(Set, Slot, NewBucket) -> UpdatedSet.
+%%  Replace bucket in Slot by NewBucket
+-spec update_bucket(Set1, Slot, Bkt) -> Set2 when
+      Set1 :: set(Element),
+      Set2 :: set(Element),
+      Slot :: non_neg_integer(),
+      Bkt :: [Element].
+update_bucket(Set, Slot, NewBucket) ->
+    SegI = ((Slot-1) div ?seg_size) + 1,
+    BktI = ((Slot-1) rem ?seg_size) + 1,
+    Segs = Set#set.segs,
+    Seg = element(SegI, Segs),
+    Set#set{segs = setelement(SegI, Segs, setelement(BktI, Seg, NewBucket))}.
 
 %% union(Set1, Set2) -> Set
 %%  Return the union of Set1 and Set2.
@@ -272,19 +291,6 @@ get_slot(T, Key) ->
 -spec get_bucket(set(), non_neg_integer()) -> term().
 get_bucket(T, Slot) -> get_bucket_s(T#set.segs, Slot).
 
-%% on_bucket(Fun, Hashdb, Slot) -> {NewHashDb,Result}.
-%%  Apply Fun to the bucket in Slot and replace the returned bucket.
--spec on_bucket(fun((_) -> {[_], 0 | 1}), set(E), non_neg_integer()) ->
-	  {set(E), 0 | 1}.
-on_bucket(F, T, Slot) ->
-    SegI = ((Slot-1) div ?seg_size) + 1,
-    BktI = ((Slot-1) rem ?seg_size) + 1,
-    Segs = T#set.segs,
-    Seg = element(SegI, Segs),
-    B0 = element(BktI, Seg),
-    {B1, Res} = F(B0),				%Op on the bucket.
-    {T#set{segs = setelement(SegI, Segs, setelement(BktI, Seg, B1))},Res}.
-
 %% fold_set(Fun, Acc, Dictionary) -> Dictionary.
 %% filter_set(Fun, Dictionary) -> Dictionary.
 
@@ -349,8 +355,8 @@ put_bucket_s(Segs, Slot, Bkt) ->
     Seg = setelement(BktI, element(SegI, Segs), Bkt),
     setelement(SegI, Segs, Seg).
 
--spec maybe_expand(set(E), 0 | 1) -> set(E).
-maybe_expand(T0, Ic) when T0#set.size + Ic > T0#set.exp_size ->
+-spec maybe_expand(set(E)) -> set(E).
+maybe_expand(T0) when T0#set.size + 1 > T0#set.exp_size ->
     T = maybe_expand_segs(T0),			%Do we need more segments.
     N = T#set.n + 1,				%Next slot to expand into
     Segs0 = T#set.segs,
@@ -360,12 +366,12 @@ maybe_expand(T0, Ic) when T0#set.size + Ic > T0#set.exp_size ->
     {B1,B2} = rehash(B, Slot1, Slot2, T#set.maxn),
     Segs1 = put_bucket_s(Segs0, Slot1, B1),
     Segs2 = put_bucket_s(Segs1, Slot2, B2),
-    T#set{size = T#set.size + Ic,
+    T#set{size = T#set.size + 1,
 	  n = N,
 	  exp_size = N * ?expand_load,
 	  con_size = N * ?contract_load,
 	  segs = Segs2};
-maybe_expand(T, Ic) -> T#set{size = T#set.size + Ic}.
+maybe_expand(T) -> T#set{size = T#set.size + 1}.
 
 -spec maybe_expand_segs(set(E)) -> set(E).
 maybe_expand_segs(T) when T#set.n =:= T#set.maxn ->

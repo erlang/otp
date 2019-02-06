@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2014. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_port_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -52,7 +52,13 @@
 	 slot,
 	 id_str,
 	 links,
-	 monitors}).
+	 monitors,
+	 monitored_by,
+         parallelism,
+         locking,
+         queue_size,
+         memory,
+         inet}).
 
 -record(opt, {sort_key=2,
 	      sort_incr=true
@@ -63,7 +69,7 @@
 	  parent,
 	  grid,
 	  panel,
-	  node=node(),
+	  node={node(),true},
 	  opt=#opt{},
 	  right_clicked_port,
 	  ports,
@@ -71,10 +77,10 @@
 	  open_wins=[]
 	}).
 
-start_link(Notebook,  Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook,  Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, Config]) ->
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     Style = ?wxLC_REPORT bor ?wxLC_HRULES,
@@ -104,12 +110,12 @@ init([Notebook, Parent]) ->
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer={false, 10}}}.
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer=Config}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     {noreply, State#state{ports=Ports}};
 
 handle_event(#wx{obj=Obj, event=#wxClose{}}, #state{open_wins=Opened} = State) ->
@@ -128,7 +134,7 @@ handle_event(#wx{event=#wxList{type=command_list_col_click, col=Col}},
 	      NewKey -> Opt0#opt{sort_key=NewKey}
 	  end,
     Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     {noreply, State#state{opt=Opt, ports=Ports}};
 
@@ -236,6 +242,10 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
+handle_event(#wx{obj=MoreEntry,event=#wxMouse{type=left_down},userData={more,More}}, State) ->
+    observer_lib:add_scroll_entries(MoreEntry,More),
+    {noreply, State};
+
 handle_event(#wx{event=#wxMouse{type=left_down}, userData=TargetPid}, State) ->
     observer ! {open_link, TargetPid},
     {noreply, State};
@@ -254,6 +264,9 @@ handle_event(Event, _State) ->
 handle_sync_event(_Event, _Obj, _State) ->
     ok.
 
+handle_call(get_config, _, #state{timer=Timer}=State) ->
+    {reply, observer_lib:timer_config(Timer), State};
+
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -261,10 +274,39 @@ handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
 handle_info({portinfo_open, PortIdStr},
-	    State = #state{grid=Grid, ports=Ports, open_wins=Opened}) ->
-    Port = lists:keyfind(PortIdStr,#port.id_str,Ports),
-    NewOpened = display_port_info(Grid, Port, Opened),
-    {noreply, State#state{open_wins = NewOpened}};
+	    State = #state{node={ActiveNodeName,ActiveAvailable}, grid=Grid,
+                           opt=Opt, open_wins=Opened}) ->
+    NodeName = node(list_to_port(PortIdStr)),
+    Available =
+        case NodeName of
+            ActiveNodeName ->
+                ActiveAvailable;
+            _ ->
+                portinfo_available(NodeName)
+        end,
+    if Available ->
+            Ports0 = get_ports({NodeName,Available}),
+            Port = lists:keyfind(PortIdStr, #port.id_str, Ports0),
+            NewOpened =
+                case Port of
+                    false ->
+                        self() ! {error,"No such port: " ++ PortIdStr},
+                        Opened;
+                    _ ->
+                        display_port_info(Grid, Port, Opened)
+                end,
+            Ports =
+                case NodeName of
+                    ActiveNodeName ->
+                        update_grid(Grid, sel(State), Opt, Ports0);
+                    _ ->
+                        State#state.ports
+                end,
+            {noreply, State#state{ports=Ports, open_wins=NewOpened}};
+       true ->
+            popup_unavailable_info(NodeName),
+            {noreply, State}
+    end;
 
 handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
                                              ports=OldPorts}) ->
@@ -273,25 +315,35 @@ handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
             %% no change
             {noreply, State};
         Ports0 ->
-            Ports = update_grid(Grid, Opt, Ports0),
+            Ports = update_grid(Grid, sel(State), Opt, Ports0),
             {noreply, State#state{ports=Ports}}
     end;
 
-handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
-					   timer=Timer0}) ->
-    Ports0 = get_ports(Node),
-    Ports = update_grid(Grid, Opt, Ports0),
+handle_info({active, NodeName}, State = #state{parent=Parent, grid=Grid, opt=Opt,
+                                               timer=Timer0}) ->
+    Available = portinfo_available(NodeName),
+    Available orelse popup_unavailable_info(NodeName),
+    Ports0 = get_ports({NodeName,Available}),
+    Ports = update_grid(Grid, sel(State), Opt, Ports0),
     wxWindow:setFocus(Grid),
     create_menus(Parent),
-    Timer = observer_lib:start_timer(Timer0),
-    {noreply, State#state{node=Node, ports=Ports, timer=Timer}};
+    Timer = observer_lib:start_timer(Timer0, 10),
+    {noreply, State#state{node={NodeName,Available}, ports=Ports, timer=Timer}};
 
 handle_info(not_active, State = #state{timer = Timer0}) ->
     Timer = observer_lib:stop_timer(Timer0),
     {noreply, State#state{timer=Timer}};
 
-handle_info({error, Error}, State) ->
-    handle_error(Error),
+handle_info({info, {port_info_not_available,NodeName}},
+            State = #state{panel=Panel}) ->
+    Str = io_lib:format("Can not fetch port info from ~p.~n"
+                        "Too old OTP version.",[NodeName]),
+    observer_lib:display_info_dialog(Panel, Str),
+    {noreply, State};
+
+handle_info({error, Error}, #state{panel=Panel} = State) ->
+    Str = io_lib:format("ERROR: ~ts~n",[Error]),
+    observer_lib:display_info_dialog(Panel, Str),
     {noreply, State};
 
 handle_info(_Event, State) ->
@@ -322,16 +374,18 @@ create_menus(Parent) ->
 	],
     observer_wx:create_menus(Parent, MenuEntries).
 
-get_ports(Node) ->
-    case get_ports2(Node) of
+get_ports({_NodeName,false}) ->
+    [];
+get_ports({NodeName,true}) ->
+    case get_ports2(NodeName) of
 	Error = {error, _} ->
 	    self() ! Error,
 	    [];
 	Res ->
 	    Res
     end.
-get_ports2(Node) ->
-    case rpc:call(Node, observer_backend, get_port_list, []) of
+get_ports2(NodeName) ->
+    case rpc:call(NodeName, observer_backend, get_port_list, []) of
 	{badrpc, Error} ->
 	    {error, Error};
 	Error = {error, _} ->
@@ -358,7 +412,13 @@ list_to_portrec(PL) ->
 	  links = proplists:get_value(links, PL, []),
 	  name = proplists:get_value(registered_name, PL, []),
 	  monitors = proplists:get_value(monitors, PL, []),
-	  controls = proplists:get_value(name, PL)}.
+	  monitored_by = proplists:get_value(monitored_by, PL, []),
+	  controls = proplists:get_value(name, PL),
+          parallelism = proplists:get_value(parallelism, PL),
+          locking = proplists:get_value(locking, PL),
+          queue_size = proplists:get_value(queue_size, PL, 0),
+          memory = proplists:get_value(memory, PL, 0),
+          inet = proplists:get_value(inet, PL, [])}.
 
 portrec_to_list(#port{id = Id,
 		      slot = Slot,
@@ -366,14 +426,26 @@ portrec_to_list(#port{id = Id,
 		      links = Links,
 		      name = Name,
 		      monitors = Monitors,
-		      controls = Controls}) ->
+                      monitored_by = MonitoredBy,
+		      controls = Controls,
+                      parallelism = Parallelism,
+                      locking = Locking,
+                      queue_size = QueueSize,
+                      memory = Memory,
+                      inet = Inet}) ->
     [{id,Id},
      {slot,Slot},
      {connected,Connected},
      {links,Links},
      {name,Name},
      {monitors,Monitors},
-     {controls,Controls}].
+     {monitored_by,MonitoredBy},
+     {controls,Controls},
+     {parallelism,Parallelism},
+     {locking,Locking},
+     {queue_size,QueueSize},
+     {memory,Memory} |
+     Inet].
 
 display_port_info(Parent, PortRec, Opened) ->
     PortIdStr = PortRec#port.id_str,
@@ -391,28 +463,85 @@ do_display_port_info(Parent0, PortRec) ->
     Title = "Port Info: " ++ PortRec#port.id_str,
     Frame = wxMiniFrame:new(Parent, ?wxID_ANY, Title,
 			    [{style, ?wxSYSTEM_MENU bor ?wxCAPTION
-				  bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER}]),
-
+				  bor ?wxCLOSE_BOX bor ?wxRESIZE_BORDER},
+                             {size,{600,400}}]),
+    ScrolledWin = wxScrolledWindow:new(Frame,[{style,?wxHSCROLL bor ?wxVSCROLL}]),
+    wxScrolledWindow:enableScrolling(ScrolledWin,true,true),
+    wxScrolledWindow:setScrollbars(ScrolledWin,20,20,0,0),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    wxWindow:setSizer(ScrolledWin,Sizer),
     Port = portrec_to_list(PortRec),
     Fields0 = port_info_fields(Port),
-    {_FPanel, _Sizer, _UpFields} = observer_lib:display_info(Frame, Fields0),
+    _UpFields = observer_lib:display_info(ScrolledWin, Sizer, Fields0),
     wxFrame:center(Frame),
     wxFrame:connect(Frame, close_window, [{skip, true}]),
     wxFrame:show(Frame),
     Frame.
 
 
-port_info_fields(Port) ->
+
+port_info_fields(Port0) ->
+    {InetStruct,Port} = inet_extra_fields(Port0),
     Struct =
 	[{"Overview",
-	  [{"Name",             name},
+	  [{"Registered Name",  name},
 	   {"Connected",        {click,connected}},
 	   {"Slot",             slot},
-	   {"Controls",         controls}]},
+	   {"Controls",         controls},
+           {"Parallelism",      parallelism},
+           {"Locking",          locking},
+           {"Queue Size",       {bytes,queue_size}},
+           {"Memory",           {bytes,memory}}]},
 	 {scroll_boxes,
 	  [{"Links",1,{click,links}},
-	   {"Monitors",1,{click,filter_monitor_info()}}]}],
+	   {"Monitors",1,{click,filter_monitor_info()}},
+	   {"Monitored by",1,{click,monitored_by}}]} | InetStruct],
     observer_lib:fill_info(Struct, Port).
+
+inet_extra_fields(Port) ->
+    Statistics = proplists:get_value(statistics,Port,[]),
+    Options = proplists:get_value(options,Port,[]),
+    Struct =
+        case proplists:get_value(controls,Port) of
+            Inet when Inet=="tcp_inet"; Inet=="udp_inet"; Inet=="sctp_inet" ->
+                [{"Inet",
+                  [{"Local Address",      {inet,local_address}},
+                   {"Local Port Number",  local_port},
+                   {"Remote Address",     {inet,remote_address}},
+                   {"Remote Port Number", remote_port}]},
+                 {"Statistics",
+                  [stat_name_and_unit(Key) || {Key,_} <- Statistics]},
+                 {"Options",
+                  [{atom_to_list(Key),Key} || {Key,_} <- Options]}];
+            _ ->
+                []
+        end,
+    Port1 = lists:keydelete(statistics,1,Port),
+    Port2 = lists:keydelete(options,1,Port1),
+    {Struct,Port2 ++ Statistics ++ Options}.
+
+stat_name_and_unit(recv_avg) ->
+    {"Average package size received", {bytes,recv_avg}};
+stat_name_and_unit(recv_cnt) ->
+    {"Number of packets received", recv_cnt};
+stat_name_and_unit(recv_dvi) ->
+    {"Average packet size deviation received", {bytes,recv_dvi}};
+stat_name_and_unit(recv_max) ->
+    {"Largest packet received", {bytes,recv_max}};
+stat_name_and_unit(recv_oct) ->
+    {"Total received", {bytes,recv_oct}};
+stat_name_and_unit(send_avg) ->
+    {"Average packet size sent", {bytes, send_avg}};
+stat_name_and_unit(send_cnt) ->
+    {"Number of packets sent", send_cnt};
+stat_name_and_unit(send_max) ->
+    {"Largest packet sent", {bytes, send_max}};
+stat_name_and_unit(send_oct) ->
+    {"Total sent", {bytes, send_oct}};
+stat_name_and_unit(send_pend) ->
+    {"Data waiting to be sent from driver", {bytes,send_pend}};
+stat_name_and_unit(Key) ->
+    {atom_to_list(Key), Key}.
 
 filter_monitor_info() ->
     fun(Data) ->
@@ -420,14 +549,9 @@ filter_monitor_info() ->
 	    [Pid || {process, Pid} <- Ms]
     end.
 
-
-handle_error(Foo) ->
-    Str = io_lib:format("ERROR: ~s~n",[Foo]),
-    observer_lib:display_info_dialog(Str).
-
-update_grid(Grid, Opt, Ports) ->
-    wx:batch(fun() -> update_grid2(Grid, Opt, Ports) end).
-update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
+update_grid(Grid, Sel, Opt, Ports) ->
+    wx:batch(fun() -> update_grid2(Grid, Sel, Opt, Ports) end).
+update_grid2(Grid, Sel, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
     wxListCtrl:deleteAllItems(Grid),
     Update =
 	fun(#port{id = Id,
@@ -447,6 +571,12 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
 							 observer_lib:to_str(Val))
 			      end,
 			      [{0,Id},{1,Connected},{2,Name},{3,Ctrl},{4,Slot}]),
+                case lists:member(Id, Sel) of
+                    true ->
+                        wxListCtrl:setItemState(Grid, Row, 16#FFFF, ?wxLIST_STATE_SELECTED);
+                    false ->
+                        wxListCtrl:setItemState(Grid, Row, 0, ?wxLIST_STATE_SELECTED)
+                end,
 		Row + 1
 	end,
     PortInfo = case Dir of
@@ -456,6 +586,8 @@ update_grid2(Grid, #opt{sort_key=Sort,sort_incr=Dir}, Ports) ->
     lists:foldl(Update, 0, PortInfo),
     PortInfo.
 
+sel(#state{grid=Grid, ports=Ports}) ->
+    [Id || #port{id=Id} <- get_selected_items(Grid, Ports)].
 
 get_selected_items(Grid, Data) ->
     get_indecies(get_selected_items(Grid, -1, []), Data).
@@ -477,3 +609,15 @@ get_indecies(Rest = [_|_], I, [_|T]) ->
     get_indecies(Rest, I+1, T);
 get_indecies(_, _, _) ->
     [].
+
+portinfo_available(NodeName) ->
+    _ = rpc:call(NodeName, code, ensure_loaded, [observer_backend]),
+    case rpc:call(NodeName, erlang, function_exported,
+                  [observer_backend, get_port_list, 0]) of
+        true  -> true;
+        false -> false
+    end.
+
+popup_unavailable_info(NodeName) ->
+    self() ! {info, {port_info_not_available, NodeName}},
+    ok.

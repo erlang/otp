@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,15 +32,6 @@
 #include "erl_bits.h"
 #include "erl_binary.h"
 
-#ifdef MAX
-#undef MAX
-#endif
-#define MAX(x,y) (((x)>(y))?(x):(y))
-#ifdef MIN
-#undef MIN
-#endif
-#define MIN(x,y) (((x)<(y))?(x):(y))
-
 #if defined(WORDS_BIGENDIAN)
 # define BIT_ENDIAN_MACHINE 0
 #else
@@ -64,30 +55,19 @@
 
 static byte get_bit(byte b, size_t a_offs); 
 
-#if defined(ERTS_SMP)
 /* the state resides in the current process' scheduler data */
-#elif defined(ERL_BITS_REENTRANT)
-/* reentrant API but with a hidden single global state, for testing only */
-struct erl_bits_state ErlBitsState_;
-#else
-/* non-reentrant API with a single global state */
-struct erl_bits_state ErlBitsState;
-#endif
 
 #define byte_buf	(ErlBitsState.byte_buf_)
 #define byte_buf_len	(ErlBitsState.byte_buf_len_)
 
-static erts_smp_atomic_t bits_bufs_size;
+static erts_atomic_t bits_bufs_size;
 
 Uint
 erts_bits_bufs_size(void)
 {
-    return (Uint) erts_smp_atomic_read_nob(&bits_bufs_size);
+    return (Uint) erts_atomic_read_nob(&bits_bufs_size);
 }
 
-#if !defined(ERTS_SMP)
-static
-#endif
 void
 erts_bits_init_state(ERL_BITS_PROTO_0)
 {
@@ -97,32 +77,22 @@ erts_bits_init_state(ERL_BITS_PROTO_0)
     erts_bin_offset = 0;
 }
 
-#if defined(ERTS_SMP)
 void
 erts_bits_destroy_state(ERL_BITS_PROTO_0)
 {
     erts_free(ERTS_ALC_T_BITS_BUF, byte_buf);
 }
-#endif
 
 void
 erts_init_bits(void)
 {
     ERTS_CT_ASSERT(offsetof(Binary,orig_bytes) % 8 == 0);
     ERTS_CT_ASSERT(offsetof(ErtsMagicBinary,u.aligned.data) % 8 == 0);
-    ERTS_CT_ASSERT(ERTS_MAGIC_BIN_BYTES_TO_ALIGN ==
-                   (offsetof(ErtsMagicBinary,u.aligned.data)
-                    - offsetof(ErtsMagicBinary,u.unaligned.data)));
     ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
                 == offsetof(Binary,orig_bytes));
 
-    erts_smp_atomic_init_nob(&bits_bufs_size, 0);
-#if defined(ERTS_SMP)
+    erts_atomic_init_nob(&bits_bufs_size, 0);
     /* erl_process.c calls erts_bits_init_state() on all state instances */
-#else
-    ERL_BITS_DECLARE_STATEP;
-    erts_bits_init_state(ERL_BITS_ARGS_0);
-#endif
 }
 
 /*****************************************************************
@@ -756,7 +726,7 @@ static void
 ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
 {
     if (byte_buf_len < need) {
-	erts_smp_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
+	erts_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
 	byte_buf_len = need;
 	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
     }
@@ -1324,7 +1294,14 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	    goto badarg;
 	}
     }
+
+    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        c_p->freason = SYSTEM_LIMIT;
+        return THE_NON_VALUE;
+    }
+
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
+
     sb->is_writable = 0;	/* Make sure that no one else can write. */
     pb->size = NBYTES(used_size_in_bits);
     pb->flags |= PB_ACTIVE_WRITER;
@@ -1398,16 +1375,27 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 		goto badarg;
 	    }
 	}
-	used_size_in_bits = erts_bin_offset + build_size_in_bits;
-	used_size_in_bytes = NBYTES(used_size_in_bits);
-	bin_size = 2*used_size_in_bytes;
+
+        if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+            c_p->freason = SYSTEM_LIMIT;
+            return THE_NON_VALUE;
+        }
+
+        used_size_in_bits = erts_bin_offset + build_size_in_bits;
+        used_size_in_bytes = NBYTES(used_size_in_bits);
+
+        if(used_size_in_bits < (ERTS_UINT_MAX / 2)) {
+            bin_size = 2 * used_size_in_bytes;
+        } else {
+            bin_size = NBYTES(ERTS_UINT_MAX);
+        }
+
 	bin_size = (bin_size < 256) ? 256 : bin_size;
 
 	/*
 	 * Allocate the binary data struct itself.
 	 */
 	bptr = erts_bin_nrml_alloc(bin_size);
-	erts_refc_init(&bptr->refc, 1);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
 	/*
@@ -1491,6 +1479,12 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
      * Calculate new size in bytes.
      */
     erts_bin_offset = 8*sb->size + sb->bitsize;
+
+    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        p->freason = SYSTEM_LIMIT;
+        return THE_NON_VALUE;
+    }
+
     pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
     pb->size = (pos_in_bits_after_build+7) >> 3;
     pb->flags |= PB_ACTIVE_WRITER;
@@ -1521,14 +1515,11 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * binary and copy the contents of the old binary into it.
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    erts_refc_init(&bptr->refc, 1);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
-	    if (erts_refc_dectest(&binp->refc, 0) == 0) {
-		erts_bin_free(binp);
-	    }
+            erts_bin_release(binp);
 	}
     }
     erts_current_bin = pb->bytes;
@@ -1568,7 +1559,6 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate the binary data struct itself.
      */
     bptr = erts_bin_nrml_alloc(bin_size);
-    erts_refc_init(&bptr->refc, 1);
     
     /*
      * Now allocate the ProcBin on the heap.
@@ -1644,7 +1634,7 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
-void
+static void
 erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf)
 {
     Uint bits = mb->size - mb->offset;

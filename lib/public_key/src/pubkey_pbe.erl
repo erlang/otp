@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -222,7 +222,8 @@ pbe_pad(Data, {#'PBEParameter'{}, _}) ->
 pbe_pad(Data, #'PBES2-params'{}) ->
     pbe_pad(Data);
 pbe_pad(Data, _) ->
-    Data.
+pbe_pad(Data).%%    Data.
+
 
 pbe_pad(Data) ->
     N = 8 - (erlang:byte_size(Data) rem 8), 

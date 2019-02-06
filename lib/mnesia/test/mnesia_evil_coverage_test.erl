@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,33 @@
 -author('hakan@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([system_info/1, table_info/1, error_description/1,
+         db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
+         checkpoint/1, table_lifecycle/1, storage_options/1,
+         add_copy_conflict/1, add_copy_when_going_down/1,
+         add_copy_with_down/1,
+         replica_management/1, clear_table_during_load/1,
+         schema_availability/1, local_content/1,
+         replica_location/1, user_properties/1, unsupp_user_props/1,
+         sorted_ets/1, index_cleanup/1,
+         change_table_access_mode/1, change_table_load_order/1,
+         set_master_nodes/1, offline_set_master_nodes/1,
+         dump_tables/1, dump_log/1, wait_for_tables/1, force_load_table/1,
+         snmp_open_table/1, snmp_close_table/1, snmp_get_next_index/1,
+         snmp_get_row/1, snmp_get_mnesia_key/1, snmp_update_counter/1,
+         snmp_order/1, subscribe_standard/1, subscribe_extended/1,
+         foldl/1, info/1, schema_0/1, schema_1/1, view_0/1, view_1/1, view_2/1,
+         lkill/1, kill/1,
+         record_name_dirty_access_ram/1,
+         record_name_dirty_access_disc/1,
+         record_name_dirty_access_disc_only/1,
+         record_name_dirty_access_xets/1]).
+
+-export([info_check/8, index_size/1]).
 
 -define(cleanup(N, Config),
 	mnesia_test_lib:prepare_test_case([{reload_appls, [mnesia]}],
@@ -40,13 +66,14 @@ all() ->
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
      checkpoint, table_lifecycle, storage_options, 
      add_copy_conflict,
-     add_copy_when_going_down, replica_management, clear_table_during_load,
+     add_copy_when_going_down, add_copy_with_down, replica_management,
+     clear_table_during_load,
      schema_availability, local_content,
      {group, table_access_modifications}, replica_location,
      {group, table_sync}, user_properties, unsupp_user_props,
      {group, record_name}, {group, snmp_access},
      {group, subscriptions}, {group, iteration},
-     {group, debug_support}, sorted_ets,
+     {group, debug_support}, sorted_ets, index_cleanup,
      {mnesia_dirty_access_test, all},
      {mnesia_trans_access_test, all},
      {mnesia_evil_backup, all}].
@@ -707,6 +734,49 @@ add_copy_when_going_down(Config) ->
     ?match_receive({test,{aborted,_}}),
     ?verify_mnesia([Node2], []).
 
+add_copy_with_down(suite) -> [];
+add_copy_with_down(Config) ->
+    %% Allow add_table_copy() with ram_copies even all other replicas are down
+    Nodes = [Node1, Node2, Node3] = ?acquire_nodes(3, Config),
+    ?match({atomic, ok}, mnesia:create_table(a, [{ram_copies, [Node3]}, {disc_copies, [Node2]}])),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({aborted, _}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match({aborted, _}, mnesia:del_table_copy(a, Node2)),
+    ok = rpc:call(Node3, mnesia, start, []),
+    ?match({aborted, _}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match([], mnesia_test_lib:start_mnesia([Node2], [a])),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(a, Node2, ram_copies)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, ram_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?match({atomic, ok}, mnesia:del_table_copy(a, Node1)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, disc_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?match({atomic, ok}, mnesia:del_table_copy(a, Node1)),
+    stopped = rpc:call(Node2, mnesia, stop, []),
+    stopped = rpc:call(Node3, mnesia, stop, []),
+    ?match({atomic, ok}, mnesia:add_table_copy(a, Node1, disc_only_copies)),
+    ?match(ok, mnesia:dirty_write({a,1,1})),
+    ?match([], mnesia_test_lib:start_mnesia([Node2,Node3], [a])),
+    ?match([{a,1,1}], rpc:call(Node1, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node2, mnesia, dirty_read, [{a,1}])),
+    ?match([{a,1,1}], rpc:call(Node3, mnesia, dirty_read, [{a,1}])),
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add, drop and move replicas, change storage types
@@ -2489,3 +2559,55 @@ sorted_ets(Config) when is_list(Config) ->
     ?match({atomic, [{rec,1,1}, {rec,2,1}]}, mnesia:transaction(TestIt)).
 
 
+index_cleanup(Config) when is_list(Config) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+    ?match({atomic, ok}, mnesia:create_table(i_set, [{type, set}, {ram_copies, [N1]}, {index, [val]},
+                                                     {disc_only_copies, [N2]}])),
+    ?match({atomic, ok}, mnesia:create_table(i_bag, [{type, bag}, {ram_copies, [N1]}, {index, [val]},
+                                                     {disc_only_copies, [N2]}])),
+    ?match({atomic, ok}, mnesia:create_table(i_oset, [{type, ordered_set}, {ram_copies, [N1, N2]},
+                                                      {index, [val]}])),
+
+    Tabs = [i_set, i_bag, i_oset],
+
+    Add = fun(Tab) ->
+                  Write = fun(Tab) ->
+                                  Recs = [{Tab, N, N rem 5} || N <- lists:seq(1,10)],
+                                  [ok = mnesia:write(Rec) || Rec <- Recs],
+                                  Recs
+                          end,
+                  {atomic, Recs} = mnesia:sync_transaction(Write, [Tab]),
+                  lists:sort(Recs)
+          end,
+
+    IRead = fun(Tab) ->
+                    Read = fun(Tab) ->
+                                   [mnesia:index_read(Tab, N, val) || N <- lists:seq(0,4)]
+                           end,
+                    {atomic, Recs} = mnesia:transaction(Read, [Tab]),
+                    lists:sort(lists:flatten(Recs))
+           end,
+
+    Delete = fun(Rec) ->
+                     Del = fun() -> mnesia:delete_object(Rec) end,
+                     {atomic, ok} = mnesia:sync_transaction(Del),
+                     ok
+             end,
+
+
+    Recs = [Add(Tab) || Tab <- Tabs],
+    ?match(Recs, [IRead(Tab) || Tab <- Tabs]),
+    [Delete(Rec) || Rec <- lists:flatten(Recs)],
+
+    [?match({Tab,0}, {Tab,mnesia:table_info(Tab, size)}) || Tab <- Tabs],
+
+    [?match({Tab,Node,0, _}, rpc:call(Node, ?MODULE, index_size, [Tab]))
+     || Node <- All, Tab <- Tabs],
+    ?verify_mnesia(All, []).
+
+index_size(Tab) ->
+    %% White box testing
+    case mnesia:table_info(Tab, index_info) of
+        {index, _, [{_, {ram, Ref}}=Dbg]} -> {Tab, node(), ets:info(Ref, size), Dbg};
+        {index, _, [{_, {dets, Ref}}=Dbg]} -> {Tab, node(), dets:info(Ref, size), Dbg}
+    end.

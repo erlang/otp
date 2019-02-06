@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -263,6 +263,7 @@ slave_start_link(Host, Name, Retries) ->
 	    Path = code:get_path(),
 	    ok = rpc:call(NewNode, file, set_cwd, [Cwd]),
 	    true = rpc:call(NewNode, code, set_path, [Path]),
+	    ok = rpc:call(NewNode, error_logger, tty, [false]),
 	    spawn_link(NewNode, ?MODULE, slave_sup, []),
 	    rpc:multicall([node() | nodes()], global, sync, []),
 	    {ok, NewNode};
@@ -469,9 +470,9 @@ get_suite(Mod, {group, Suite}) ->
 	{_, _, TCList} = lists:keyfind(Suite, 1, Groups),
 	TCList
     catch
-	_:Reason ->
+	_:Reason:Stacktrace ->
 	    io:format("Not implemented ~p ~p (~p ~p)~n",
-		      [Mod,Suite,Reason, erlang:get_stacktrace()]),
+		      [Mod,Suite,Reason,Stacktrace]),
 	    'NYI'
     end;
 get_suite(Mod, all) ->
@@ -773,7 +774,7 @@ init_nodes([], _File, _Line) ->
 
 %% Returns [Name, Host]
 node_to_name_and_host(Node) ->
-    string:tokens(atom_to_list(Node), [$@]).
+    string:lexemes(atom_to_list(Node), [$@]).
 
 lookup_config(Key,Config) ->
     case lists:keysearch(Key,1,Config) of

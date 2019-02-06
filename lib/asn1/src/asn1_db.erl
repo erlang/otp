@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 -module(asn1_db).
 
--export([dbstart/1,dbnew/2,dbload/1,dbload/3,dbsave/2,dbput/2,
+-export([dbstart/1,dbnew/3,dbload/1,dbload/4,dbsave/2,dbput/2,
 	 dbput/3,dbget/2]).
 -export([dbstop/0]).
 
@@ -37,13 +37,13 @@ dbstart(Includes0) ->
     put(?MODULE, spawn_link(fun() -> init(Parent, Includes) end)),
     ok.
 
-dbload(Module, Erule, Mtime) ->
-    req({load, Module, Erule, Mtime}).
+dbload(Module, Erule, Maps, Mtime) ->
+    req({load, Module, {Erule,Maps}, Mtime}).
 
 dbload(Module) ->
     req({load, Module, any, {{0,0,0},{0,0,0}}}).
 
-dbnew(Module, Erule)       -> req({new, Module, Erule}).
+dbnew(Module, Erule, Maps) -> req({new, Module, {Erule,Maps}}).
 dbsave(OutFile, Module)    -> cast({save, OutFile, Module}).
 dbput(Module, K, V)        -> cast({set, Module, K, V}).
 dbput(Module, Kvs)         -> cast({set, Module, Kvs}).
@@ -110,19 +110,19 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             ok = ets:tab2file(Mtab, TempFile),
 	    ok = file:rename(TempFile, OutFile),
             loop(State);
-        {From, {new, Mod, Erule}} ->
+        {From, {new, Mod, EruleMaps}} ->
             [] = ets:lookup(Table, Mod),	%Assertion.
             ModTableId = ets:new(list_to_atom(lists:concat(["asn1_",Mod])), []),
             ets:insert(Table, {Mod, ModTableId}),
-	    ets:insert(ModTableId, {?MAGIC_KEY, info(Erule)}),
+	    ets:insert(ModTableId, {?MAGIC_KEY, info(EruleMaps)}),
             reply(From, ok),
             loop(State);
-	{From, {load, Mod, Erule, Mtime}} ->
+	{From, {load, Mod, EruleMaps, Mtime}} ->
 	    case ets:member(Table, Mod) of
 		true ->
 		    reply(From, ok);
 		false ->
-		    case load_table(Mod, Erule, Mtime, Includes) of
+		    case load_table(Mod, EruleMaps, Mtime, Includes) of
 			{ok, ModTableId} ->
 			    ets:insert(Table, {Mod, ModTableId}),
 			    reply(From, ok);
@@ -151,20 +151,20 @@ lookup(Tab, K) ->
         [{K,V}] -> V
     end.
 
-info(Erule) ->
-    {asn1ct:vsn(),Erule}.
+info(EruleMaps) ->
+    {asn1ct:vsn(),EruleMaps}.
 
-load_table(Mod, Erule, Mtime, Includes) ->
+load_table(Mod, EruleMaps, Mtime, Includes) ->
     Base = lists:concat([Mod, ".asn1db"]),
     case path_find(Includes, Mtime, Base) of
 	error ->
 	    error;
-	{ok,ModTab} when Erule =:= any ->
+	{ok,ModTab} when EruleMaps =:= any ->
 	    {ok,ModTab};
 	{ok,ModTab} ->
 	    Vsn = asn1ct:vsn(),
 	    case ets:lookup(ModTab, ?MAGIC_KEY) of
-		[{_,{Vsn,Erule}}] ->
+		[{_,{Vsn,EruleMaps}}] ->
 		    %% Correct version and encoding rule.
 		    {ok,ModTab};
 		_ ->

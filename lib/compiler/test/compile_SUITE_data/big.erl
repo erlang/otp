@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -741,3 +741,7 @@ snmp_access(suite) ->
 debug_support(suite) ->
     [  info, schema, schema, kill, lkill ].
 
+%% Cover translation of get_hd/2 to get_list/3 when option no_get_hd_tl
+%% is given.
+cover_get_hd([Hd|_]) ->
+    Hd.

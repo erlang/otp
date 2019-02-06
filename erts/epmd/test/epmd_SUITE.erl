@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -838,7 +838,7 @@ no_live_killing(Config) when is_list(Config) ->
 %% sends TCP RST at wrong time
 socket_reset_before_alive2_reply_is_written(Config) when is_list(Config) ->
     %% - delay_write for easier triggering of race condition
-    %% - relaxed_command_check for gracefull shutdown of epmd even if there
+    %% - relaxed_command_check for graceful shutdown of epmd even if there
     %%   is stuck node.
     ok = epmdrun("-delay_write 1 -relaxed_command_check"),
 

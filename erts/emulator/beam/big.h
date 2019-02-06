@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,20 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 /* Check for small */
 #define IS_USMALL(sgn,x)  ((sgn) ? ((x) <= MAX_SMALL+1) : ((x) <= MAX_SMALL))
-#define IS_SSMALL(x)      (((x) >= MIN_SMALL) && ((x) <= MAX_SMALL))
+
+/*
+ * It seems that both clang and gcc will generate sub-optimal code
+ * for the more obvious way to write the range check:
+ *
+ *    #define IS_SSMALL(x)  (((x) >= MIN_SMALL) && ((x) <= MAX_SMALL))
+ *
+ * Note that IS_SSMALL() may be used in the 32-bit emulator with
+ * a Uint64 argument. Therefore, we must test the size of the argument
+ * to ensure that the cast does not discard the high-order 32 bits.
+ */
+#define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#define _IS_SSMALL64(x) (((Uint64) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#define IS_SSMALL(x) (sizeof(x) == sizeof(Uint32) ? _IS_SSMALL32(x) : _IS_SSMALL64(x))
 
 /* The heap size needed for a bignum */
 #define BIG_NEED_SIZE(x)  ((x) + 1)
@@ -118,9 +131,7 @@ Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
-Eterm big_neg(Eterm, Eterm*);
 
-Eterm big_minus_small(Eterm, Uint, Eterm*);
 Eterm big_plus_small(Eterm, Uint, Eterm*);
 Eterm big_times_small(Eterm, Uint, Eterm*);
 

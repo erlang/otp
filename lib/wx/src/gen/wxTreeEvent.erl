@@ -111,7 +111,7 @@ isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec setToolTip(This, ToolTip) -> 'ok' when
 	This::wxTreeEvent(), ToolTip::unicode:chardata().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},ToolTip)
- when is_list(ToolTip) ->
+ when ?is_chardata(ToolTip) ->
   ?CLASS(ThisT,wxTreeEvent),
   ToolTip_UC = unicode:characters_to_binary([ToolTip,0]),
   wxe_util:cast(?wxTreeEvent_SetToolTip,

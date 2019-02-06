@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -487,7 +487,7 @@ edit_ms(TextCtrl, Label0, Parent) ->
 		    _ -> Label0
 		end,
 	#match_spec{name=Label, term=MatchSpec,
-		    str=io_lib:format("~w",[MatchSpec]),
+		    str=io_lib:format("~tw",[MatchSpec]),
 		    func=Str}
     catch
 	throw:cancel ->
@@ -511,18 +511,18 @@ ms_from_string(Str) ->
 	Tokens = case erl_scan:string(Str) of
 		     {ok, Ts, _} -> Ts;
 		     {error, {SLine, SMod, SError}, _} ->
-			 throw(io_lib:format("~w: ~s", [SLine,SMod:format_error(SError)]))
+			 throw(io_lib:format("~w: ~ts", [SLine,SMod:format_error(SError)]))
 		 end,
 	Exprs  = case erl_parse:parse_exprs(Tokens) of
 		     {ok, T} -> T;
 		     {error, {PLine, PMod, PError}} ->
-			 throw(io_lib:format("~w: ~s", [PLine,PMod:format_error(PError)]))
+			 throw(io_lib:format("~w: ~ts", [PLine,PMod:format_error(PError)]))
 		 end,
 	Term = case Exprs of
 		   [{'fun', _, {clauses, Clauses}}|_] ->
 		       case ms_transform:transform_from_shell(dbg,Clauses,orddict:new()) of
 			   {error, [{_,[{MSLine,Mod,MSInfo}]}],_} ->
-			       throw(io_lib:format("~w: ~p", [MSLine,Mod:format_error(MSInfo)]));
+			       throw(io_lib:format("~w: ~tp", [MSLine,Mod:format_error(MSInfo)]));
 			   {error, _} ->
 			       throw("Could not convert fun() to match spec");
 			   Ms ->
@@ -536,7 +536,7 @@ ms_from_string(Str) ->
 	    {error, List} -> throw([[Error, $\n] || {_, Error} <- List])
 	end
     catch error:_Reason ->
-	    %% io:format("Bad term: ~s~n ~p in ~p~n", [Str, _Reason, erlang:get_stacktrace()]),
+	    %% io:format("Bad term: ~ts~n ~tp in ~tp~n", [Str, _Reason, Stacktrace]),
 	    throw("Invalid term")
     end.
 
@@ -556,7 +556,8 @@ filter_listbox_data(Input, Data, ListBox) ->
     filter_listbox_data(Input, Data, ListBox, true).
 
 filter_listbox_data(Input, Data, ListBox, AddClientData) ->
-    FilteredData = [X || X = {Str, _} <- Data, re:run(Str, Input) =/= nomatch],
+    FilteredData = [X || X = {Str, _} <- Data,
+                         re:run(Str, Input, [unicode]) =/= nomatch],
     wxListBox:clear(ListBox),
     wxListBox:appendStrings(ListBox, [Str || {Str,_} <- FilteredData]),
     AddClientData andalso
@@ -618,7 +619,7 @@ create_styled_txtctrl(Parent) ->
 
 keyWords() ->
     L = ["after","begin","case","try","cond","catch","andalso","orelse",
-	 "end","fun","if","let","of","query","receive","when","bnot","not",
+	 "end","fun","if","let","of","receive","when","bnot","not",
 	 "div","rem","band","and","bor","bxor","bsl","bsr","or","xor"],
     lists:flatten([K ++ " " || K <- L] ++ [0]).
 
@@ -648,9 +649,9 @@ parse_function_names(Choices) ->
 parse_function_names([], Acc) ->
     lists:reverse(Acc);
 parse_function_names([{H, Term}|T], Acc) ->
-    IsFun = re:run(H, ".*-fun-\\d*?-"),
-    IsLc = re:run(H, ".*-lc\\$\\^\\d*?/\\d*?-\\d*?-"),
-    IsLbc = re:run(H, ".*-lbc\\$\\^\\d*?/\\d*?-\\d*?-"),
+    IsFun = re:run(H, ".*-fun-\\d*?-", [unicode,ucp]),
+    IsLc = re:run(H, ".*-lc\\$\\^\\d*?/\\d*?-\\d*?-", [unicode,ucp]),
+    IsLbc = re:run(H, ".*-lbc\\$\\^\\d*?/\\d*?-\\d*?-", [unicode,ucp]),
     Parsed =
 	if IsFun =/= nomatch -> "Fun: " ++ H;
 	   IsLc =/= nomatch -> "List comprehension: " ++ H;

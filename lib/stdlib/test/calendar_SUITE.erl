@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 	 leap_years/1,
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
-	 iso_week_number/1]).
+	 iso_week_number/1,
+         system_time/1, rfc3339/1]).
 
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
@@ -40,7 +41,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
-     last_day_of_the_month, local_time_to_universal_time_dst, iso_week_number].
+     last_day_of_the_month, local_time_to_universal_time_dst,
+     iso_week_number, system_time, rfc3339].
 
 groups() -> 
     [].
@@ -157,9 +159,166 @@ local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
 iso_week_number(Config) when is_list(Config) ->
     check_iso_week_number().
 
+system_time(Config) when is_list(Config) ->
+    EpochDate = {{1970,1,1}, {0,0,0}},
+    Epoch = calendar:datetime_to_gregorian_seconds(EpochDate),
+    Y0 = {{0,1,1},{0,0,0}},
+
+    EpochDate = calendar:system_time_to_universal_time(0, second),
+    0 = calendar:datetime_to_gregorian_seconds(Y0),
+    Y0 = calendar:system_time_to_universal_time(-Epoch, second),
+
+    T = erlang:system_time(second),
+    UDate = calendar:system_time_to_universal_time(T, second),
+    LDate = erlang:universaltime_to_localtime(UDate),
+    LDate = calendar:system_time_to_local_time(T, second),
+
+    ok.
+
+rfc3339(Config) when is_list(Config) ->
+    Ms = [{unit, millisecond}],
+    Mys = [{unit, microsecond}],
+    Ns = [{unit, nanosecond}],
+    S = [{unit, second}],
+    D = [{time_designator, $\s}],
+    Z = [{offset, "Z"}],
+
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12t23:20:50.52z", Ms),
+    "1985-04-12T21:20:50.520Z" =
+        test_parse("1985-04-12T23:20:50.52+02:00", Ms),
+    "1985-04-12T23:20:50Z" = test_parse("1985-04-12T23:20:50.52Z", S),
+    "1985-04-12T23:20:50.520Z" = test_parse("1985-04-12T23:20:50.52Z", Ms),
+    "1985-04-12T23:20:50.520000Z" =
+        test_parse("1985-04-12t23:20:50.52z", Mys),
+    "1985-04-12 21:20:50.520000000Z" =
+        test_parse("1985-04-12 23:20:50.52+02:00", Ns++D),
+    "1985-04-12T23:20:50Z" = test_parse("1985-04-12T23:20:50.52Z"),
+    "1996-12-20T00:39:57Z" = test_parse("1996-12-19T16:39:57-08:00"),
+    "1991-01-01T00:00:00Z" = test_parse("1990-12-31T23:59:60Z"),
+    "1991-01-01T08:00:00Z" = test_parse("1990-12-31T23:59:60-08:00"),
+
+    "1996-12-20T00:39:57Z" = test_parse("1996-12-19T16:39:57-08:00"),
+    %% The leap second is not handled:
+    "1991-01-01T00:00:00Z" = test_parse("1990-12-31T23:59:60Z"),
+
+    "9999-12-31T23:59:59Z" = do_format_z(253402300799, []),
+    "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*1000+999, Ms),
+    "9999-12-31T23:59:59.999999Z" =
+        do_format_z(253402300799*1000000+999999, Mys),
+    "9999-12-31T23:59:59.999999999Z" =
+        do_format_z(253402300799*1000000000+999999999, Ns),
+    {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
+    {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
+    {'EXIT', _} = (catch do_format_z(253402300799*1000000000+999999999+1, Ns)),
+    253402300799 = do_parse("9999-12-31T23:59:59Z", []),
+
+    "0000-01-01T00:00:00Z" = test_parse("0000-01-01T00:00:00.0+00:00"),
+    "9999-12-31T00:00:00Z" = test_parse("9999-12-31T00:00:00.0+00:00"),
+    "1584-03-04T00:00:00Z" = test_parse("1584-03-04T00:00:00.0+00:00"),
+    "1900-01-01T00:00:00Z" = test_parse("1900-01-01T00:00:00.0+00:00"),
+    "2016-01-24T00:00:00Z" = test_parse("2016-01-24T00:00:00.0+00:00"),
+    "1970-01-01T00:00:00Z" = test_parse("1970-01-01T00:00:00Z"),
+    "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60Z"),
+    "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60.5Z"),
+    "1970-01-02T00:00:00Z" = test_parse("1970-01-01T23:59:60.55Z"),
+    "1970-01-02T00:00:00.550Z" = test_parse("1970-01-01T23:59:60.55Z", Ms),
+    "1970-01-02T00:00:00.550000Z" =
+        test_parse("1970-01-01T23:59:60.55Z", Mys),
+    "1970-01-02T00:00:00.550000000Z" =
+        test_parse("1970-01-01T23:59:60.55Z", Ns),
+    "1970-01-02T00:00:00.999999Z" =
+        test_parse("1970-01-01T23:59:60.999999Z", Mys),
+    "1970-01-02T00:00:01.000Z" =
+        test_parse("1970-01-01T23:59:60.999999Z", Ms),
+    "1970-01-01T00:00:00Z" = test_parse("1970-01-01T00:00:00+00:00"),
+    "1970-01-01T00:00:00Z" = test_parse("1970-01-01T00:00:00-00:00"),
+    "1969-12-31T00:01:00Z" = test_parse("1970-01-01T00:00:00+23:59"),
+    "1918-11-11T09:00:00.000000Z" =
+        test_parse("1918-11-11T11:00:00+02:00", Mys),
+    "1970-01-01T00:00:00.000001Z" =
+        test_parse("1970-01-01T00:00:00.000001Z", Mys),
+
+    test_time(erlang:system_time(second), []),
+    test_time(erlang:system_time(second), Z),
+    test_time(erlang:system_time(second), Z ++ S),
+    test_time(erlang:system_time(second), [{offset, "+02:20"}]),
+    test_time(erlang:system_time(millisecond), Ms),
+    test_time(erlang:system_time(microsecond), Mys++[{offset, "-02:20"}]),
+
+    946720800 = TO = do_parse("2000-01-01 10:00:00Z", []),
+    Str = "2000-01-01T10:02:00+00:02",
+    Str = do_format(TO, [{offset, 120}]),
+    "2000-01-01T10:02:00.000+00:02" =
+        do_format(TO * 1000, [{offset, 120 * 1000}]++Ms),
+    "2000-01-01T10:02:00.000000+00:02" =
+        do_format(TO * 1000 * 1000, [{offset, 120 * 1000 * 1000}]++Mys),
+    "2000-01-01T10:02:00.000000000+00:02" =
+        do_format(TO * 1000 * 1000 * 1000,
+                  [{offset, 120 * 1000 * 1000 * 1000}]++Ns),
+
+    NStr = "2000-01-01T09:58:00-00:02",
+    NStr = do_format(TO, [{offset, -120}]),
+    "2000-01-01T09:58:00.000-00:02" =
+        do_format(TO * 1000, [{offset, -120 * 1000}]++Ms),
+    "2000-01-01T09:58:00.000000-00:02" =
+        do_format(TO * 1000 * 1000, [{offset, -120 * 1000 * 1000}]++Mys),
+    "2000-01-01T09:58:00.000000000-00:02" =
+        do_format(TO * 1000 * 1000 * 1000,
+                  [{offset, -120 * 1000 * 1000 * 1000}]++Ns),
+
+    543210000 = do_parse("1970-01-01T00:00:00.54321Z", Ns),
+    54321000 = do_parse("1970-01-01T00:00:00.054321Z", Ns),
+    543210 = do_parse("1970-01-01T00:00:00.54321Z", Mys),
+    543 = do_parse("1970-01-01T00:00:00.54321Z", Ms),
+    0 = do_parse("1970-01-01T00:00:00.000001Z", Ms),
+    1 = do_parse("1970-01-01T00:00:00.000001Z", Mys),
+    1000 = do_parse("1970-01-01T00:00:00.000001Z", Ns),
+    0 = do_parse("1970-01-01Q00:00:00.00049Z", Ms),
+    1 = do_parse("1970-01-01Q00:00:00.0005Z", Ms),
+    6543210 = do_parse("1970-01-01T00:00:06.54321Z", Mys),
+    298815132000000 = do_parse("1979-06-21T12:12:12Z", Mys),
+    -1613826000000000 = do_parse("1918-11-11T11:00:00Z", Mys),
+    -1613833200000000 = do_parse("1918-11-11T11:00:00+02:00", Mys),
+    -1613833200000000 = do_parse("1918-11-11T09:00:00Z", Mys),
+
+    "1970-01-01T00:00:00.000000Z" = do_format_z(0, Mys),
+    "1970-01-01T00:00:01Z" = do_format_z(1, S),
+    "1970-01-01T00:00:00.001Z" = do_format_z(1, Ms),
+    "1970-01-01T00:00:00.000001Z" = do_format_z(1, Mys),
+    "1970-01-01T00:00:00.000000001Z" = do_format_z(1, Ns),
+    "1970-01-01T00:00:01.000000Z" = do_format_z(1000000, Mys),
+    "1970-01-01T00:00:00.543210Z" = do_format_z(543210, Mys),
+    "1970-01-01T00:00:00.543Z" = do_format_z(543, Ms),
+    "1970-01-01T00:00:00.543210000Z" = do_format_z(543210000, Ns),
+    "1970-01-01T00:00:06.543210Z" = do_format_z(6543210, Mys),
+    "1979-06-21T12:12:12.000000Z" = do_format_z(298815132000000, Mys),
+    "1918-11-11T13:00:00.000000Z" = do_format_z(-1613818800000000, Mys),
+    ok.
+
 %%
 %% LOCAL FUNCTIONS
 %%
+
+test_parse(String) ->
+    test_parse(String, []).
+
+test_parse(String, Options) ->
+    T = do_parse(String, Options),
+    calendar:system_time_to_rfc3339(T, [{offset, "Z"} | Options]).
+
+do_parse(String, Options) ->
+    calendar:rfc3339_to_system_time(String, Options).
+
+test_time(Time, Options) ->
+    F = calendar:system_time_to_rfc3339(Time, Options),
+    Time = calendar:rfc3339_to_system_time(F, Options).
+
+do_format_z(Time, Options) ->
+    do_format(Time, [{offset, "Z"}|Options]).
+
+do_format(Time, Options) ->
+    calendar:system_time_to_rfc3339(Time, Options).
 
 %% check_gregorian_days
 %% 

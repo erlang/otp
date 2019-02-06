@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2016</year>
+      <year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -45,9 +45,10 @@
 
     <p>The matching algorithms of the library are based on the
       PCRE library, but not all of the PCRE library is interfaced and
-      some parts of the library go beyond what PCRE offers. The sections of
-      the PCRE documentation that are relevant to this module are included
-      here.</p>
+      some parts of the library go beyond what PCRE offers. Currently
+      PCRE version 8.40 (release date 2017-01-11) is used. The sections
+      of the PCRE documentation that are relevant to this module are
+      included here.</p>
 
     <note>
       <p>The Erlang literal syntax for strings uses the &quot;\&quot;
@@ -77,6 +78,14 @@
   </datatypes>
 
   <funcs>
+    <func>
+      <name name="version" arity="0"/>
+      <fsummary>Gives the PCRE version of the system in a string format</fsummary>
+      <desc>
+      <p>The return of this function is a string with the PCRE version of the system that was used in the Erlang/OTP compilation.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="compile" arity="1"/>
       <fsummary>Compile a regular expression into a match program</fsummary>
@@ -149,13 +158,25 @@
           </item>
           <tag><c>extended</c></tag>
           <item>
-            <p>Whitespace data characters in the pattern are ignored except
-              when escaped or inside a character class. Whitespace does not
-              include character 'vt' (ASCII 11). Characters between an
-              unescaped <c>#</c> outside a character class and the next newline,
-              inclusive, are also ignored. This is equivalent to Perl option
-              <c>/x</c> and can be changed within a pattern by a <c>(?x)</c>
-              option setting.</p>
+            <p>If this option is set, most white space characters in the
+            pattern are totally ignored except when escaped or inside a
+            character class. However, white space is not allowed within
+            sequences such as <c>(?&#62;</c> that introduce various
+            parenthesized subpatterns, nor within a numerical quantifier
+            such as <c>{1,3}</c>. However, ignorable white space is permitted
+            between an item and a following quantifier and between a
+            quantifier and a following + that indicates possessiveness.
+            </p>
+            <p>White space did not used to include the VT character (code
+            11), because Perl did not treat this character as white space.
+            However, Perl changed at release 5.18, so PCRE followed at
+            release 8.34, and VT is now treated as white space.
+            </p>
+            <p>This also causes characters between an unescaped #
+            outside a character class and the next newline, inclusive, to
+            be ignored. This is equivalent to Perl's <c>/x</c> option, and it
+            can be changed within a pattern by a <c>(?x)</c> option setting.
+            </p>
             <p>With this option, comments inside complicated patterns can be
               included. However, notice that this applies only to data
               characters. Whitespace characters can never appear within special
@@ -1321,6 +1342,8 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
       VM. Notice that the recursion limit does not affect the stack depth of the
       VM, as PCRE for Erlang is compiled in such a way that the match function
       never does recursion on the C stack.</p>
+    <p>Note that <c>LIMIT_MATCH</c> and <c>LIMIT_RECURSION</c> can only reduce
+    the value of the limits set by the caller, not increase them.</p>
   </section>
 
   <section>
@@ -1444,11 +1467,16 @@ Pattern            PCRE matches   Perl matches
       <tag>\n</tag><item>Line feed (hex 0A)</item>
       <tag>\r</tag><item>Carriage return (hex 0D)</item>
       <tag>\t</tag><item>Tab (hex 09)</item>
+      <tag>\0dd</tag><item>Character with octal code 0dd</item>
       <tag>\ddd</tag><item>Character with octal code ddd, or back reference
         </item>
+      <tag>\o{ddd..}</tag><item>character with octal code ddd..</item>
       <tag>\xhh</tag><item>Character with hex code hh</item>
       <tag>\x{hhh..}</tag><item>Character with hex code hhh..</item>
     </taglist>
+
+    <note><p>Note that \0dd is always an octal code, and that \8 and \9 are
+    the literal characters "8" and "9".</p></note>
 
     <p>The precise effect of \cx on ASCII characters is as follows: if x is a
       lowercase letter, it is converted to upper case. Then bit 6 of the
@@ -1461,50 +1489,38 @@ Pattern            PCRE matches   Perl matches
     <p>The \c facility was designed for use with ASCII characters, but with the
       extension to Unicode it is even less useful than it once was.</p>
 
-    <p>By default, after \x, from zero to two hexadecimal digits are read
-      (letters can be in upper or lower case). Any number of hexadecimal digits
-      can appear between \x{ and }, but the character code is constrained as
-      follows:</p>
-
-    <taglist>
-      <tag>8-bit non-Unicode mode</tag>
-      <item>&lt; 0x100</item>
-      <tag>8-bit UTF-8 mode</tag>
-      <item>&lt; 0x10ffff and a valid code point</item>
-    </taglist>
-
-    <p>Invalid Unicode code points are the range 0xd800 to 0xdfff (the so-called
-      "surrogate" code points), and 0xffef.</p>
-
-    <p>If characters other than hexadecimal digits appear between \x{ and },
-      or if there is no terminating }, this form of escape is not recognized.
-      Instead, the initial \x is interpreted as a basic hexadecimal escape,
-      with no following digits, giving a character whose value is zero.</p>
-
-    <p>Characters whose value is &lt; 256 can be defined by either of the two
-      syntaxes for \x. There is no difference in the way they are handled. For
-      example, \xdc is the same as \x{dc}.</p>
-
     <p>After \0 up to two further octal digits are read. If there are fewer than
-      two digits, only those that are present are used. Thus the sequence
-      \0\x\07 specifies two binary zeros followed by a BEL character (code value
-      7). Ensure to supply two digits after the initial zero if the pattern
-      character that follows is itself an octal digit.</p>
+    two digits, just those that are present are used. Thus the sequence
+    \0\x\015 specifies two binary zeros followed by a CR character (code value
+    13). Make sure you supply two digits after the initial zero if the pattern
+    character that follows is itself an octal digit.</p>
+
+    <p>The escape \o must be followed by a sequence of octal digits, enclosed
+    in braces. An error occurs if this is not the case. This escape is a recent
+    addition to Perl; it provides way of specifying character code points as
+    octal numbers greater than 0777, and it also allows octal numbers and back
+    references to be unambiguously specified.</p>
+
+    <p>For greater clarity and unambiguity, it is best to avoid following \ by
+    a digit greater than zero. Instead, use \o{} or \x{} to specify character
+    numbers, and \g{} to specify back references. The following paragraphs
+    describe the old, ambiguous syntax.</p>
 
     <p>The handling of a backslash followed by a digit other than 0 is
-      complicated. Outside a character class, PCRE reads it and any following
-      digits as a decimal number. If the number is &lt; 10, or if there have
+      complicated, and Perl has changed in recent releases, causing PCRE also
+      to change. Outside a character class, PCRE reads the digit and any following
+      digits as a decimal number. If the number is &lt; 8, or if there have
       been at least that many previous capturing left parentheses in the
       expression, the entire sequence is taken as a <em>back reference</em>. A
       description of how this works is provided later, following the discussion
       of parenthesized subpatterns.</p>
 
-    <p>Inside a character class, or if the decimal number is &gt; 9 and there
-      have not been that many capturing subpatterns, PCRE re-reads up to three
-      octal digits following the backslash, and uses them to generate a data
-      character. Any subsequent digits stand for themselves. The value of the
-      character is constrained in the same way as characters specified in
-      hexadecimal. For example:</p>
+    <p>Inside a character class, or if the decimal number following \ is &gt;
+      7 and there have not been that many capturing subpatterns, PCRE handles
+      \8 and \9 as the literal characters "8" and "9", and otherwise re-reads
+      up to three octal digits following the backslash, and using them to
+      generate a data character. Any subsequent digits stand for themselves.
+      For example:</p>
 
     <taglist>
       <tag>\040</tag>
@@ -1526,12 +1542,38 @@ Pattern            PCRE matches   Perl matches
       <tag>\377</tag>
         <item>Can be a back reference, otherwise value 255 (decimal)</item>
       <tag>\81</tag>
-        <item>Either a back reference, or a binary zero followed by the two
-          characters "8" and "1"</item>
+        <item>Either a back reference, or the two characters "8" and "1"</item>
     </taglist>
 
-    <p>Notice that octal values &gt;= 100 must not be introduced by a leading
-      zero, as no more than three octal digits are ever read.</p>
+    <p>Notice that octal values &gt;= 100 that are specified using this syntax
+    must not be introduced by a leading zero, as no more than three octal digits
+    are ever read.</p>
+
+    <p>By default, after \x that is not followed by {, from zero to two
+    hexadecimal digits are read (letters can be in upper or lower case). Any
+    number of hexadecimal digits may appear between \x{ and }. If a character
+    other than a hexadecimal digit appears between \x{ and }, or if there is no
+    terminating }, an error occurs.
+    </p>
+
+    <p>Characters whose value is less than 256 can be defined by either of the
+    two syntaxes for \x. There is no difference in the way they are handled. For
+    example, \xdc is exactly the same as \x{dc}.</p>
+
+    <p><em>Constraints on character values</em></p>
+
+    <p>Characters that are specified using octal or hexadecimal numbers are
+    limited to certain values, as follows:</p>
+    <taglist>
+      <tag>8-bit non-UTF mode</tag>
+      <item><p>&lt; 0x100</p></item>
+      <tag>8-bit UTF-8 mode</tag>
+      <item><p>&lt; 0x10ffff and a valid codepoint</p></item>
+    </taglist>
+    <p>Invalid Unicode codepoints are the range 0xd800 to 0xdfff (the
+    so-called "surrogate" codepoints), and 0xffef.</p>
+
+    <p><em>Escape sequences in character classes</em></p>
 
     <p>All the sequences that define a single character value can be used both
       inside and outside character classes. Also, inside a character class, \b
@@ -1597,11 +1639,14 @@ Pattern            PCRE matches   Perl matches
       appropriate type. If the current matching point is at the end of the
       subject string, all fail, as there is no character to match.</p>
 
-    <p>For compatibility with Perl, \s does not match the VT character
-      (code 11). This makes it different from the Posix "space" class. The \s
-      characters are HT (9), LF (10), FF (12), CR (13), and space (32). If "use
-      locale;" is included in a Perl script, \s can match the VT character. In
-      PCRE, it never does.</p>
+    <p>For compatibility with Perl, \s did not used to match the VT character (code
+      11), which made it different from the the POSIX "space" class. However, Perl
+      added VT at release 5.18, and PCRE followed suit at release 8.34. The default
+      \s characters are now HT (9), LF (10), VT (11), FF (12), CR (13), and space
+      (32), which are defined as white space in the "C" locale. This list may vary if
+      locale-specific matching is taking place. For example, in some locales the
+      "non-breaking space" character (\xA0) is recognized as white space, and in
+      others the VT character is not.</p>
 
     <p>A "word" character is an underscore or any character that is a letter or
       a digit. By default, the definition of letters and digits is controlled by
@@ -1619,9 +1664,9 @@ Pattern            PCRE matches   Perl matches
     <taglist>
       <tag>\d</tag><item>Any character that \p{Nd} matches (decimal digit)
         </item>
-      <tag>\s</tag><item>Any character that \p{Z} matches, plus HT, LF, FF, CR
+      <tag>\s</tag><item>Any character that \p{Z} or \h or \v
         </item>
-      <tag>\w</tag><item>Any character that \p{L} or \p{N} matches, plus
+      <tag>\w</tag><item>Any character that matches \p{L} or \p{N} matches, plus
         underscore</item>
     </taglist>
 
@@ -1769,6 +1814,7 @@ Pattern            PCRE matches   Perl matches
       <item>Avestan</item>
       <item>Balinese</item>
       <item>Bamum</item>
+      <item>Bassa_Vah</item>
       <item>Batak</item>
       <item>Bengali</item>
       <item>Bopomofo</item>
@@ -1777,6 +1823,7 @@ Pattern            PCRE matches   Perl matches
       <item>Buhid</item>
       <item>Canadian_Aboriginal</item>
       <item>Carian</item>
+      <item>Caucasian_Albanian</item>
       <item>Chakma</item>
       <item>Cham</item>
       <item>Cherokee</item>
@@ -1787,11 +1834,14 @@ Pattern            PCRE matches   Perl matches
       <item>Cyrillic</item>
       <item>Deseret</item>
       <item>Devanagari</item>
+      <item>Duployan</item>
       <item>Egyptian_Hieroglyphs</item>
+      <item>Elbasan</item>
       <item>Ethiopic</item>
       <item>Georgian</item>
       <item>Glagolitic</item>
       <item>Gothic</item>
+      <item>Grantha</item>
       <item>Greek</item>
       <item>Gujarati</item>
       <item>Gurmukhi</item>
@@ -1811,40 +1861,56 @@ Pattern            PCRE matches   Perl matches
       <item>Kayah_Li</item>
       <item>Kharoshthi</item>
       <item>Khmer</item>
+      <item>Khojki</item>
+      <item>Khudawadi</item>
       <item>Lao</item>
       <item>Latin</item>
       <item>Lepcha</item>
       <item>Limbu</item>
+      <item>Linear_A</item>
       <item>Linear_B</item>
       <item>Lisu</item>
       <item>Lycian</item>
       <item>Lydian</item>
+      <item>Mahajani</item>
       <item>Malayalam</item>
       <item>Mandaic</item>
+      <item>Manichaean</item>
       <item>Meetei_Mayek</item>
+      <item>Mende_Kikakui</item>
       <item>Meroitic_Cursive</item>
       <item>Meroitic_Hieroglyphs</item>
       <item>Miao</item>
+      <item>Modi</item>
       <item>Mongolian</item>
+      <item>Mro</item>
       <item>Myanmar</item>
+      <item>Nabataean</item>
       <item>New_Tai_Lue</item>
       <item>Nko</item>
       <item>Ogham</item>
+      <item>Ol_Chiki</item>
       <item>Old_Italic</item>
+      <item>Old_North_Arabian</item>
+      <item>Old_Permic</item>
       <item>Old_Persian</item>
       <item>Oriya</item>
       <item>Old_South_Arabian</item>
       <item>Old_Turkic</item>
-      <item>Ol_Chiki</item>
       <item>Osmanya</item>
+      <item>Pahawh_Hmong</item>
+      <item>Palmyrene</item>
+      <item>Pau_Cin_Hau</item>
       <item>Phags_Pa</item>
       <item>Phoenician</item>
+      <item>Psalter_Pahlavi</item>
       <item>Rejang</item>
       <item>Runic</item>
       <item>Samaritan</item>
       <item>Saurashtra</item>
       <item>Sharada</item>
       <item>Shavian</item>
+      <item>Siddham</item>
       <item>Sinhala</item>
       <item>Sora_Sompeng</item>
       <item>Sundanese</item>
@@ -1862,8 +1928,10 @@ Pattern            PCRE matches   Perl matches
       <item>Thai</item>
       <item>Tibetan</item>
       <item>Tifinagh</item>
+      <item>Tirhuta</item>
       <item>Ugaritic</item>
       <item>Vai</item>
+      <item>Warang_Citi</item>
       <item>Yi</item>
     </list>
 
@@ -2001,10 +2069,10 @@ Pattern            PCRE matches   Perl matches
 
     <p>In addition to the standard Unicode properties described earlier, PCRE
       supports four more that make it possible to convert traditional escape
-      sequences, such as \w and \s, and Posix character classes to use Unicode
+      sequences, such as \w and \s to use Unicode
       properties. PCRE uses these non-standard, non-Perl properties internally
-      when <c>PCRE_UCP</c> is set. However, they can also be used explicitly.
-      The properties are as follows:</p>
+      when the <c>ucp</c> option is passed. However, they can also be used
+      explicitly. The properties are as follows:</p>
 
     <taglist>
       <tag>Xan</tag>
@@ -2030,6 +2098,16 @@ Pattern            PCRE matches   Perl matches
       </item>
     </taglist>
 
+    <p>Perl and POSIX space are now the same. Perl added VT to its space
+    character set at release 5.18 and PCRE changed at release 8.34.</p>
+
+    <p>Xan matches characters that have either the L (letter) or the N (number)
+    property. Xps matches the characters tab, linefeed, vertical tab, form feed,
+    or carriage return, and any other character that has the Z (separator)
+    property. Xsp is the same as Xps; it used to exclude vertical tab, for Perl
+    compatibility, but Perl changed, and so PCRE followed at release 8.34. Xwd
+    matches the same characters as Xan, plus underscore.
+    </p>
     <p>There is another non-standard property, Xuc, which matches any character
       that can be represented by a Universal Character Name in C++ and other
       programming languages. These are the characters $, @, ` (grave accent),
@@ -2062,7 +2140,9 @@ foo\Kbar</code>
 
     <p>Perl documents that the use of \K within assertions is "not well
       defined". In PCRE, \K is acted upon when it occurs inside positive
-      assertions, but is ignored in negative assertions.</p>
+      assertions, but is ignored in negative assertions. Note that when a
+      pattern such as (?=ab\K) matches, the reported start of the match can
+      be greater than the end of the match.</p>
 
     <p><em>Simple Assertions</em></p>
 
@@ -2301,7 +2381,8 @@ foo\Kbar</code>
       m, inclusive. If a minus character is required in a class, it must be
       escaped with a backslash or appear in a position where it cannot be
       interpreted as indicating a range, typically as the first or last
-      character in the class.</p>
+      character in the class, or immediately after a range. For example, [b-d-z]
+      matches letters in the range b to d, a hyphen character, or z.</p>
 
     <p>The literal character "]" cannot be the end character of a range. A
       pattern such as [W-]46] is interpreted as a class of two characters ("W"
@@ -2310,6 +2391,11 @@ foo\Kbar</code>
       the end of range, so [W-\]46] is interpreted as a class containing a range
       followed by two other characters. The octal or hexadecimal representation
       of "]" can also be used to end a range.</p>
+
+      <p>An error is generated if a POSIX character class (see below) or an
+      escape sequence other than one that defines a single character appears at
+      a point where a range ending character is expected. For example, [z-\xff]
+      is valid, but [A-\d] and [A-[:digit:]] are not.</p>
 
     <p>Ranges operate in the collating sequence of character values. They can
       also be used for characters specified numerically, for example,
@@ -2353,7 +2439,8 @@ foo\Kbar</code>
         range)</item>
       <item>Circumflex (only at the start)</item>
       <item>Opening square bracket (only when it can be interpreted as
-        introducing a Posix class name; see the next section)</item>
+        introducing a Posix class name, or for a special compatibility
+        feature; see the next two sections)</item>
       <item>Terminating closing square bracket</item>
     </list>
 
@@ -2385,16 +2472,18 @@ foo\Kbar</code>
       <tag>print</tag><item>Printing characters, including space</item>
       <tag>punct</tag><item>Printing characters, excluding letters, digits, and
         space</item>
-      <tag>space</tag><item>Whitespace (not quite the same as \s)</item>
+      <tag>space</tag><item>Whitespace (the same as \s from PCRE 8.34)</item>
       <tag>upper</tag><item>Uppercase letters</item>
       <tag>word</tag><item>"Word" characters (same as \w)</item>
       <tag>xdigit</tag><item>Hexadecimal digits</item>
     </taglist>
 
-    <p>The "space" characters are HT (9), LF (10), VT (11), FF (12), CR (13),
-      and space (32). Notice that this list includes the VT character (code 11).
-      This makes "space" different to \s, which does not include VT (for Perl
-      compatibility).</p>
+    <p>The default "space" characters are HT (9), LF (10), VT (11), FF (12),
+    CR (13), and space (32). If locale-specific matching is taking place, the
+    list of space characters may be different; there may be fewer or more of
+    them. "Space" used to be different to \s, which did not include VT, for
+    Perl compatibility. However, Perl changed at release 5.18, and PCRE followed
+    at release 8.34. "Space" and \s now match the same set of characters.</p>
 
     <p>The name "word" is a Perl extension, and "blank" is a GNU extension from
       Perl 5.8. Another Perl extension is negation, which is indicated by a ^
@@ -2408,11 +2497,11 @@ foo\Kbar</code>
       "ch" is a "collating element", but these are not supported, and an error
       is given if they are encountered.</p>
 
-    <p>By default, in UTF modes, characters with values &gt; 255 do not match
+    <p>By default, characters with values &gt; 255 do not match
       any of the Posix character classes. However, if option <c>PCRE_UCP</c> is
       passed to <c>pcre_compile()</c>, some of the classes are changed so that
-      Unicode character properties are used. This is achieved by replacing the
-      Posix classes by other sequences, as follows:</p>
+      Unicode character properties are used. This is achieved by replacing
+      certain Posix classes by other sequences, as follows:</p>
 
     <taglist>
       <tag>[:alnum:]</tag><item>Becomes <em>\p{Xan}</em></item>
@@ -2425,9 +2514,49 @@ foo\Kbar</code>
       <tag>[:word:]</tag><item>Becomes <em>\p{Xwd}</em></item>
     </taglist>
 
-    <p>Negated versions, such as [:^alpha:], use \P instead of \p. The other
-      Posix classes are unchanged, and match only characters with code points
-      &lt; 256.</p>
+    <p>Negated versions, such as [:^alpha:], use \P instead of \p. Three other
+    POSIX classes are handled specially in UCP mode:</p>
+    <taglist>
+      <tag>[:graph:]</tag>
+      <item><p>This matches characters that have glyphs that mark the page
+      when printed. In Unicode property terms, it matches all characters with
+      the L, M, N, P, S, or Cf properties, except for:</p>
+      <taglist>
+        <tag>U+061C</tag><item><p>Arabic Letter Mark</p></item>
+        <tag>U+180E</tag><item><p>Mongolian Vowel Separator</p></item>
+        <tag>U+2066 - U+2069</tag><item><p>Various "isolate"s</p></item>
+      </taglist>
+      </item>
+      <tag>[:print:]</tag>
+      <item><p>This matches the same characters as [:graph:] plus space
+      characters that are not controls, that is, characters with the Zs
+      property.</p></item>
+      <tag>[:punct:]</tag><item><p>This matches all characters that have
+      the Unicode P (punctuation) property, plus those characters whose code
+      points are less than 128 that have the S (Symbol) property.</p></item>
+    </taglist>
+    <p>The other POSIX classes are unchanged, and match only characters with
+    code points less than 128.
+    </p>
+
+    <p><em>Compatibility Feature for Word Boundaries</em></p>
+
+    <p>In the POSIX.2 compliant library that was included in 4.4BSD Unix,
+    the ugly syntax [[:&#60;:]] and [[:&#62;:]] is used for matching "start
+    of word" and "end of word". PCRE treats these items as follows:</p>
+    <taglist>
+      <tag>[[:&#60;:]]</tag><item><p>is converted to  \b(?=\w)</p></item>
+      <tag>[[:&#62;:]]</tag><item><p>is converted to  \b(?&#60;=\w)</p></item>
+    </taglist>
+    <p>Only these exact character sequences are recognized. A sequence such as
+    [a[:&#60;:]b] provokes error for an unrecognized POSIX class name. This
+    support is not compatible with Perl. It is provided to help migrations from
+    other environments, and is best not used in any new patterns. Note that \b
+    matches at the start and the end of a word (see "Simple assertions" above),
+    and in a Perl-style pattern the preceding or following character normally
+    shows which is wanted, without the need for the assertions that are used
+    above in order to give exactly the POSIX behaviour.</p>
+
   </section>
 
   <section>
@@ -2476,8 +2605,7 @@ gilbert|sullivan</code>
 
     <p>When one of these option changes occurs at top-level (that is, not inside
       subpattern parentheses), the change applies to the remainder of the
-      pattern that follows. If the change is placed right at the start of a
-      pattern, PCRE extracts it into the global options.</p>
+      pattern that follows.</p>
     <p>An option change within a subpattern (see section
       <seealso marker="#sect11">Subpatterns</seealso>) affects only that part of
       the subpattern that follows it. So, the following matches abc and aBc and
@@ -2645,9 +2773,9 @@ the ((?:red|white) (king|queen))</code>
       parentheses from other parts of the pattern, such as back references,
       recursion, and conditions, can be made by name and by number.</p>
 
-    <p>Names consist of up to 32 alphanumeric characters and underscores. Named
-      capturing parentheses are still allocated numbers as well as names,
-      exactly as if the names were not present.
+    <p>Names consist of up to 32 alphanumeric characters and underscores, but
+      must start with a non-digit. Named capturing parentheses are still allocated
+      numbers as well as names, exactly as if the names were not present.
       The <c>capture</c> specification to <seealso marker="#run/3">
       <c>run/3</c></seealso> can use named values if they are present in the
       regular expression.</p>
@@ -3118,7 +3246,14 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</code>
       purposes of numbering the capturing subpatterns in the whole pattern.
       However, substring capturing is done only for positive assertions. (Perl
       sometimes, but not always, performs capturing in negative assertions.)</p>
-
+      <warning>
+        <p>If a positive assertion containing one or more capturing subpatterns
+        succeeds, but failure to match later in the pattern causes backtracking over
+        this assertion, the captures within the assertion are reset only if no higher
+        numbered captures are already set. This is, unfortunately, a fundamental
+        limitation of the current implementation, and as PCRE1 is now in
+        maintenance-only status, it is unlikely ever to change.</p>
+      </warning>
     <p>For compatibility with Perl, assertion subpatterns can be repeated.
       However, it makes no sense to assert the same thing many times, the side
       effect of capturing parentheses can occasionally be useful. In practice,
@@ -3371,12 +3506,7 @@ abcd$</code>
     <p>Perl uses the syntax (?(&lt;name&gt;)...) or (?('name')...) to test for a
       used subpattern by name. For compatibility with earlier versions of PCRE,
       which had this facility before Perl, the syntax (?(name)...) is also
-      recognized. However, there is a possible ambiguity with this syntax, as
-      subpattern names can consist entirely of digits. PCRE looks first for a
-      named subpattern; if it cannot find one and the name consists entirely of
-      digits, PCRE looks for a subpattern of that number, which must be &gt; 0.
-      Using subpattern names that consist entirely of digits is not
-      recommended.</p>
+      recognized.</p>
 
     <p>Rewriting the previous example to use a named subpattern gives:</p>
 
@@ -3958,11 +4088,13 @@ a+(*COMMIT)b</code>
 2&gt; re:run("xyzabc","(*COMMIT)abc",[{capture,all,list},no_start_optimize]).
 nomatch</code>
 
-    <p>PCRE knows that any match must start with "a", so the optimization skips
-      along the subject to "a" before running the first match attempt, which
-      succeeds. When the optimization is disabled by option
-      <c>no_start_optimize</c>, the match starts at "x" and so the (*COMMIT)
-      causes it to fail without trying any other starting points.</p>
+    <p>For this pattern, PCRE knows that any match must start with "a", so the
+    optimization skips along the subject to "a" before applying the pattern to the
+    first set of data. The match attempt then succeeds. In the second call the
+    <c>no_start_optimize</c> disables the optimization that skips along to the
+    first character. The pattern is now applied starting at "x", and so the
+    (*COMMIT) causes the match to fail without trying any other starting
+    points.</p>
 
     <p>The following verb causes the match to fail at the current starting
       position in the subject if there is a later matching failure that causes
@@ -4138,7 +4270,7 @@ A (B(*THEN)C | (*FAIL)) | D</code>
 ...(*COMMIT)(*PRUNE)...</code>
 
     <p>If there is a matching failure to the right, backtracking onto (*PRUNE)
-      cases it to be triggered, and its action is taken. There can never be a
+      causes it to be triggered, and its action is taken. There can never be a
       backtrack onto (*COMMIT).</p>
 
     <p><em>Backtracking Verbs in Repeated Groups</em></p>

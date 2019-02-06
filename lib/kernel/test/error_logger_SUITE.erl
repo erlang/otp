@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,8 +30,10 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
+         off_heap/1,
 	 error_report/1, info_report/1, error/1, info/1,
-	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
+	 emulator/1, via_logger_process/1, other_node/1,
+         tty/1, logfile/1, add/1, delete/1, format_depth/1]).
 
 -export([generate_error/2]).
 
@@ -45,16 +47,20 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [error_report, info_report, error, info, emulator, tty,
-     logfile, add, delete].
+    [off_heap, error_report, info_report, error, info, emulator,
+     via_logger_process, other_node, tty, logfile, add, delete,
+     format_depth].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    logger:add_handler(error_logger,error_logger,
+                       #{level=>info,filter_default=>log}),
     Config.
 
 end_per_suite(_Config) ->
+    logger:remove_handler(error_logger),
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -63,6 +69,16 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+
+%%-----------------------------------------------------------------
+
+off_heap(_Config) ->
+    %% The error_logger process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    MQD = message_queue_data,
+    {MQD,off_heap} = process_info(whereis(error_logger), MQD),
+    ok.
 
 %%-----------------------------------------------------------------
 
@@ -215,6 +231,40 @@ generate_error(Error, Stack) ->
     erlang:raise(error, Error, Stack).
 
 %%-----------------------------------------------------------------
+
+via_logger_process(Config) ->
+    case os:type() of
+        {win32,_} ->
+            {skip,"Skip on windows - cant change file mode"};
+        _ ->
+            error_logger:add_report_handler(?MODULE, self()),
+            Dir = filename:join(?config(priv_dir,Config),"dummydir"),
+            Msg = "File operation error: eacces. Target: " ++
+                Dir ++ ". Function: list_dir. ",
+            ok = file:make_dir(Dir),
+            ok = file:change_mode(Dir,8#0222),
+            error = erl_prim_loader:list_dir(Dir),
+            ok = file:change_mode(Dir,8#0664),
+            _ = file:del_dir(Dir),
+            reported(error_report, std_error, Msg),
+            my_yes = error_logger:delete_report_handler(?MODULE),
+            ok
+    end.
+
+%%-----------------------------------------------------------------
+
+other_node(_Config) ->
+    error_logger:add_report_handler(?MODULE, self()),
+    {ok,Node} = test_server:start_node(?FUNCTION_NAME,slave,[]),
+    ok = rpc:call(Node,logger,add_handler,[error_logger,error_logger,
+                                           #{level=>info,filter_default=>log}]),
+    rpc:call(Node,error_logger,error_report,[hi_from_remote]),
+    reported(error_report,std_error,hi_from_remote),
+    test_server:stop_node(Node),
+    ok.
+
+
+%%-----------------------------------------------------------------
 %% We don't enables or disables tty error logging here. We do not
 %% want to interact with the test run.
 %%-----------------------------------------------------------------
@@ -260,6 +310,21 @@ delete(Config) when is_list(Config) ->
     ok.
 
 %%-----------------------------------------------------------------
+
+format_depth(_Config) ->
+    ok = application:set_env(kernel,error_logger_format_depth,30),
+    30 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,3),
+    10 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,11),
+    11 = error_logger:get_format_depth(),
+    ok = application:set_env(kernel,error_logger_format_depth,unlimited),
+    unlimited = error_logger:get_format_depth(),
+    ok = application:unset_env(kernel,error_logger_format_depth),
+    unlimited = error_logger:get_format_depth(),
+    ok.
+
+%%-----------------------------------------------------------------
 %% Check that the report has been received.
 %%-----------------------------------------------------------------
 reported(Tag, Type, Report) ->
@@ -268,7 +333,7 @@ reported(Tag, Type, Report) ->
 	    test_server:messages_get(),
 	    ok
     after 1000 ->
-	    ct:fail(no_report_received)
+	    ct:fail({no_report_received,test_server:messages_get()})
     end.
 
 %%-----------------------------------------------------------------

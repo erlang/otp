@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_test_lib).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include("reltool_test_lib.hrl").
 -define(timeout, 20). % minutes

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,8 +72,7 @@ store_module(Mod, File, Binary, Db) ->
 		    exit({Mod,too_old_beam_file});
 		{raw_abstract_v1,Code0} ->
                     Code = interpret_file_attribute(Code0),
-		    {_,_,Forms0,_} = sys_pre_expand:module(Code, []),
-		    Forms0
+		    standard_transforms(Code)
 	    end,
     dbg_idb:insert(Db, mod_file, File),
     dbg_idb:insert(Db, defs, []),
@@ -94,6 +93,11 @@ store_module(Mod, File, Binary, Db) ->
     dbg_idb:insert(Db, mod_bin, NewBinary),
     dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
 
+standard_transforms(Forms0) ->
+    Forms = erl_expand_records:module(Forms0, []),
+    erl_internal:add_predefined_functions(Forms).
+
+
 %% Adjust line numbers using the file/2 attribute. 
 %% Also take the absolute value of line numbers.
 %% This simple fix will make the marker point at the correct line
@@ -101,7 +105,6 @@ store_module(Mod, File, Binary, Db) ->
 %% not point at code in included files.
 interpret_file_attribute(Code) ->
     epp:interpret_file_attribute(Code).
-
 
 abstr(Bin) when is_binary(Bin) -> binary_to_term(Bin);
 abstr(Term) -> Term.
@@ -124,8 +127,9 @@ store_forms([{function,_,Name,Arity,Cs0}|Fs], Mod, Db, Exp) ->
     store_forms(Fs, Mod, Db, Exp);
 store_forms([{attribute,_,_Name,_Val}|Fs], Mod, Db, Exp) ->
     store_forms(Fs, Mod, Db, Exp);
-store_forms([F|_], _Mod, _Db, _Exp) ->
-    exit({unknown_form,F});
+store_forms([_|Fs],  Mod, Db, Exp) ->
+    %% Ignore other forms such as {eof,_} or {warning,_}.
+    store_forms(Fs, Mod, Db, Exp);
 store_forms([], _, _, _) ->
     ok.
 
@@ -216,12 +220,36 @@ pattern({op,_,'-',{float,Anno,I}}) ->
 pattern({op,_,'+',{float,Anno,I}}) ->
     {value,ln(Anno),I};
 pattern({bin,Anno,Grp}) ->
-    Grp1 = pattern_list(Grp),
+    Grp1 = pattern_list(bin_expand_strings(Grp)),
     {bin,ln(Anno),Grp1};
-pattern({bin_element,Anno,Expr,Size,Type}) ->
-    Expr1 = pattern(Expr),
-    Size1 = expr(Size, false),
-    {bin_element,ln(Anno),Expr1,Size1,Type}.
+pattern({bin_element,Anno,Expr0,Size0,Type0}) ->
+    {Size1,Type} = make_bit_type(Anno, Size0, Type0),
+    Expr1 = pattern(Expr0),
+    Expr = coerce_to_float(Expr1, Type0),
+    Size = pattern(Size1),
+    {bin_element,ln(Anno),Expr,Size,Type};
+%% Evaluate compile-time expressions.
+pattern({op,_,'++',{nil,_},R}) ->
+    pattern(R);
+pattern({op,_,'++',{cons,Li,H,T},R}) ->
+    pattern({cons,Li,H,{op,Li,'++',T,R}});
+pattern({op,_,'++',{string,Li,L},R}) ->
+    pattern(string_to_conses(Li, L, R));
+pattern({op,_Line,_Op,_A}=Op) ->
+    pattern(erl_eval:partial_eval(Op));
+pattern({op,_Line,_Op,_L,_R}=Op) ->
+    pattern(erl_eval:partial_eval(Op)).
+
+string_to_conses(Anno, Cs, Tail) ->
+    lists:foldr(fun (C, T) -> {cons,Anno,{char,Anno,C},T} end, Tail, Cs).
+
+coerce_to_float({value,Anno,Int}=E, [float|_]) when is_integer(Int) ->
+    try
+	{value,Anno,float(Int)}
+    catch
+        error:badarg -> E
+    end;
+coerce_to_float(E, _) -> E.
 
 %%  These patterns are processed "in parallel" for purposes of variable
 %%  definition etc.
@@ -297,13 +325,14 @@ gexpr({map,Anno,E0,Fs0}) ->
     Fs1 = map_fields(Fs0, fun gexpr/1),
     {map,ln(Anno),E1,Fs1};
 gexpr({bin,Anno,Flds0}) ->
-    Flds = gexpr_list(Flds0),
+    Flds = gexpr_list(bin_expand_strings(Flds0)),
     {bin,ln(Anno),Flds};
-gexpr({bin_element,Anno,Expr0,Size0,Type}) ->
+gexpr({bin_element,Anno,Expr0,Size0,Type0}) ->
+    {Size1,Type} = make_bit_type(Anno, Size0, Type0),
     Expr = gexpr(Expr0),
-    Size = gexpr(Size0),
+    Size = gexpr(Size1),
     {bin_element,ln(Anno),Expr,Size,Type};
-%%% The previous passes have added the module name 'erlang' to
+%%% The erl_expand_records pass has added the module name 'erlang' to
 %%% all BIF calls, even in guards.
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}) ->
     {dbg,ln(Anno),self,[]};
@@ -383,18 +412,21 @@ expr({'receive',Anno,Cs0,To0,ToEs0}, Lc) ->
     ToEs1 = exprs(ToEs0, Lc),
     Cs1 = icr_clauses(Cs0, Lc),
     {'receive',ln(Anno),Cs1,To1,ToEs1};
-expr({'fun',Anno,{clauses,Cs0},{_,_,Name}}, _Lc) when is_atom(Name) ->
+expr({'fun',Anno,{clauses,Cs0}}, _Lc) ->
     %% New R10B-2 format (abstract_v2).
     Cs = fun_clauses(Cs0),
+    Name = new_fun_name(),
     {make_fun,ln(Anno),Name,Cs};
-expr({'fun',Anno,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
+expr({'fun',Anno,{function,F,A}}, _Lc) ->
     %% New R8 format (abstract_v2).
     Line = ln(Anno),
     As = new_vars(A, Line),
+    Name = new_fun_name(),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
-expr({named_fun,Anno,FName,Cs0,{_,_,Name}}, _Lc) when is_atom(Name) ->
+expr({named_fun,Anno,FName,Cs0}, _Lc) ->
     Cs = fun_clauses(Cs0),
+    Name = new_fun_name(),
     {make_named_fun,ln(Anno),Name,FName,Cs};
 expr({'fun',Anno,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
   when 0 =< A, A =< 255 ->
@@ -454,30 +486,10 @@ expr({'try',Anno,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     CatchCs = icr_clauses(CatchCs0, Lc),
     As = expr_list(As0),
     {'try',ln(Anno),Es,CaseCs,CatchCs,As};
-expr({lc,Anno,E0,Gs0}, _Lc) ->			%R8.
-    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,pattern(P0),expr(Qs, false)};
-		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,pattern(P0),expr(Qs, false)};
-		       (Expr) ->
-			   case erl_lint:is_guard_test(Expr) of
-			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr, false)
-			   end
-		   end, Gs0),
-    {lc,ln(Anno),expr(E0, false),Gs};
-expr({bc,Anno,E0,Gs0}, _Lc) ->			%R12.
-    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,pattern(P0),expr(Qs, false)};
-		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,pattern(P0),expr(Qs, false)};
-		       (Expr) ->
-			   case erl_lint:is_guard_test(Expr) of
-			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr, false)
-			   end
-		   end, Gs0),
-    {bc,ln(Anno),expr(E0, false),Gs};
+expr({lc,_,_,_}=Compr, _Lc) ->
+    expr_lc_bc(Compr);
+expr({bc,_,_,_}=Compr, _Lc) ->
+    expr_lc_bc(Compr);
 expr({match,Anno,P0,E0}, _Lc) ->
     E1 = expr(E0, false),
     P1 = pattern(P0),
@@ -506,18 +518,57 @@ expr({op,Anno,Op,L0,R0}, _Lc) ->
     R1 = expr(R0, false),		  %They see the same variables
     {op,ln(Anno),Op,[L1,R1]};
 expr({bin,Anno,Grp}, _Lc) ->
-    Grp1 = expr_list(Grp),
+    Grp1 = expr_list(bin_expand_strings(Grp)),
     {bin,ln(Anno),Grp1};
-expr({bin_element,Anno,Expr,Size,Type}, _Lc) ->
-    Expr1 = expr(Expr, false),
-    Size1 = expr(Size, false),
-    {bin_element,ln(Anno),Expr1,Size1,Type};
-expr(Other, _Lc) ->
-    exit({?MODULE,{unknown_expr,Other}}).
+expr({bin_element,Anno,Expr0,Size0,Type0}, _Lc) ->
+    {Size1,Type} = make_bit_type(Anno, Size0, Type0),
+    Expr = expr(Expr0, false),
+    Size = expr(Size1, false),
+    {bin_element,ln(Anno),Expr,Size,Type}.
 
 consify([A|As]) -> 
     {cons,0,A,consify(As)};
 consify([]) -> {value,0,[]}.
+
+make_bit_type(Line, default, Type0) ->
+    case erl_bits:set_bit_type(default, Type0) of
+        {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
+	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
+        {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)}
+    end;
+make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
+    {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
+    {Size,erl_bits:as_list(Bt)}.
+
+expr_lc_bc({Tag,Anno,E0,Gs0}) ->
+    Gs = lists:map(fun ({generate,L,P0,Qs}) ->
+			   {generate,L,pattern(P0),expr(Qs, false)};
+		       ({b_generate,L,P0,Qs}) -> %R12.
+			   {b_generate,L,pattern(P0),expr(Qs, false)};
+		       (Expr) ->
+			   case is_guard_test(Expr) of
+			       true -> {guard,guard([[Expr]])};
+			       false -> expr(Expr, false)
+			   end
+		   end, Gs0),
+    {Tag,ln(Anno),expr(E0, false),Gs}.
+
+is_guard_test(Expr) ->
+    IsOverridden = fun({_,_}) -> true end,
+    erl_lint:is_guard_test(Expr, [], IsOverridden).
+
+%% The debugger converts both strings "abc" and lists [67, 68, 69]
+%% into {value, Line, [67, 68, 69]}, making it impossible to later
+%% distingish one or the other inside binaries when evaluating. To
+%% avoid <<[67, 68, 69]>> from evaluating, we convert strings into
+%% chars to avoid the ambiguity.
+bin_expand_strings(Es) ->
+    lists:foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
+		  lists:foldr(fun (C, Es2) ->
+				[{bin_element,Line,{char,Line,C},Sz,Ts}|Es2]
+			end, Es1, S);
+	      (E, Es1) -> [E|Es1]
+	  end, [], Es).
 
 %% -type expr_list([Expression]) -> [Expression].
 %%  These expressions are processed "in parallel" for purposes of variable
@@ -580,6 +631,14 @@ new_vars(N, L, Vs) when N > 0 ->
     V = {var,L,new_var_name()},
     new_vars(N-1, L, [V|Vs]);
 new_vars(0, _, Vs) -> Vs.
+
+new_fun_name() ->
+    {F,A} = get(current_function),
+    I = get(fun_count),
+    put(fun_count, I+1),
+    Name = "-" ++ atom_to_list(F) ++ "/" ++ integer_to_list(A) ++
+        "-fun-" ++ integer_to_list(I) ++ "-",
+    list_to_atom(Name).
 
 ln(Anno) ->
     erl_anno:line(Anno).

@@ -44,7 +44,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 ifdef HIPE_ENABLED
-HIPE_MODULES = hipe_data_pp hipe_pack_constants hipe_sdi 
+HIPE_MODULES = hipe_data_pp hipe_pack_constants hipe_sdi hipe_segment_trees
 else
 HIPE_MODULES =
 endif

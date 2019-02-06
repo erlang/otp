@@ -11,7 +11,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2016</year>
+<year>2018</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -42,6 +42,413 @@ Releases are listed in reverse chronological order, most recent
 first.</p>
 
 <!-- ===================================================================== -->
+
+<section><title>diameter 2.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix function_clause when sending an outgoing request
+	    after DPA has been sent in response to an incoming DPR.
+	    The caused the diameter_peer_fsm gen_server associated
+	    with the peer connection to fail, which could then result
+	    in the transport connection being reset before the peer
+	    closed it upon reception of DPA.</p>
+          <p>
+	    Own Id: OTP-15198 Aux Id: ERIERL-213 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typos.</p>
+          <p>
+	    Own Id: OTP-15045</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix close of diameter_tcp/sctp listening socket at
+	    diameter:remove_transport/2, that was broken in diameter
+	    2.1. A reconfigured transport could not listen on the
+	    same endpoint as a result.</p>
+          <p>
+	    Own Id: OTP-14839</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of SUSPECT connections at service
+	    termination. A connection with this watchdog state caused
+	    diameter_service:terminate/2 to fail.</p>
+          <p>
+	    Own Id: OTP-14947 Aux Id: ERIERL-124 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix documentation typo: peer_up/3 was written where
+	    peer_down/3 was intended.</p>
+          <p>
+	    Own Id: OTP-14805</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A fault introduced in diameter 2.1 could cause decode
+	    errors to be ignored in AVPs following the header of a
+	    Grouped AVP.</p>
+          <p>
+	    Own Id: OTP-14684 Aux Id: ERIERL-85 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An inadvertently removed monitor in diameter 2.1 caused
+	    the ets table diameter_reg to leak entries, and caused
+	    service restart and more to fail.</p>
+          <p>
+	    Own Id: OTP-14668 Aux Id: ERIERL-83 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Proxy-Info in answer messages setting the
+	    E-bit.</p>
+          <p>
+	    RFC 6733 requires that Proxy-Info AVPs in an incoming
+	    request be echoed in an outgoing answer. This was not
+	    done in answers formulated by diameter; for example, as a
+	    result of a handle_request callback having returned an
+	    'answer-message' or protocol_error tuple.</p>
+          <p>
+	    Own Id: OTP-9869</p>
+        </item>
+        <item>
+          <p>
+	    React to nodeup/nodedown when sharing peer connections.</p>
+          <p>
+	    Service configuration share_peers and use_shared_peers
+	    did not respond to the coming and going of remote nodes.</p>
+          <p>
+	    Own Id: OTP-14011</p>
+        </item>
+        <item>
+          <p>
+	    Fix inappropriate message callbacks.</p>
+          <p>
+	    An incoming CER or DPR was regarded as discarded,
+	    resulting in a corresponding message callback (if
+	    configured) in diameter_tcp/sctp.</p>
+          <p>
+	    Own Id: OTP-14486</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 5009 errors (DIAMETER_AVP_OCCURS_TOO_MANY
+	    TIMES).</p>
+          <p>
+	    RFC 6733 says that the first AVP that exceeds the bound
+	    should be reported, but the suggestions in the errors
+	    field of a diameter_packet record counted AVPs from the
+	    rear of the message, not the front. Additionally,
+	    diameter 2.0 in OTP 20.0 broke the counting by accepting
+	    one more AVP than the message grammar in question
+	    allowed.</p>
+          <p>
+	    Own Id: OTP-14512</p>
+        </item>
+        <item>
+          <p>
+	    Match case insensitively in diameter_tcp/sctp accept
+	    tuple.</p>
+          <p>
+	    Matching of remote addresses when accepting connections
+	    in a listening transport was case-sensitive, causing the
+	    semantics to change as a consequence of (kernel)
+	    OTP-13006.</p>
+          <p>
+	    Own Id: OTP-14535 Aux Id: OTP-13006 </p>
+        </item>
+        <item>
+          <p>
+	    Fix backwards incompatibility of remote send when sharing
+	    transports.</p>
+          <p>
+	    The sending of requests over a transport connection on a
+	    remote node running an older version of diameter was
+	    broken by diameter 2.0 in OTP 20.0.</p>
+          <p>
+	    Own Id: OTP-14552</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_packet.avps decode of Grouped AVP errors in
+	    Failed-AVP.</p>
+          <p>
+	    Decode didn't produce a list of diameter_avp records, so
+	    information about faulty component AVPs was lost.</p>
+          <p>
+	    Own Id: OTP-14607</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let unordered delivery be configured in diameter_sctp.</p>
+          <p>
+	    With option {unordered, boolean() | pos_integer()}, with
+	    false the default, and N equivalent to OS =&lt; N, where
+	    OS is the number of outbound streams negotiated on the
+	    association in question. If configured, unordered sending
+	    commences upon reception of a second message, outgoing
+	    messages being sent on stream 0 before this.</p>
+          <p>
+	    The default false is for backwards compatibility, but
+	    false or 1 should be set to follow RFC 6733's
+	    recommendation on the use of unordered sending to avoid
+	    head-of-line blocking. There is typically no meaningful
+	    order to preserve, since the order in which outgoing
+	    messages are received by a transport process isn't known
+	    to the sender.</p>
+          <p>
+	    Own Id: OTP-10889</p>
+        </item>
+        <item>
+          <p>
+	    Complete/simplify Standards Compliance in User's Guide.</p>
+          <p>
+	    Own Id: OTP-10927</p>
+        </item>
+        <item>
+          <p>
+	    Add service option decode_format.</p>
+          <p>
+	    To allow incoming messages to be decoded into maps or
+	    lists instead of records. Messages can be presented in
+	    any of the formats for encode.</p>
+          <p>
+	    Decode performance has also been improved.</p>
+          <p>
+	    Own Id: OTP-14511 Aux Id: OTP-14343 </p>
+        </item>
+        <item>
+          <p>
+	    Add service option traffic_counters.</p>
+          <p>
+	    To let message-related counters be disabled, which can be
+	    a performance improvement in some usecases.</p>
+          <p>
+	    Own Id: OTP-14521</p>
+        </item>
+        <item>
+          <p>
+	    Allow loopback/any as local addresses in
+	    diameter_tcp/sctp.</p>
+          <p>
+	    The atoms were implied by documentation, but not handled
+	    in code.</p>
+          <p>
+	    Own Id: OTP-14544</p>
+        </item>
+        <item>
+          <p>
+	    Add transport option strict_capx.</p>
+          <p>
+	    To allow the RFC 6733 requirement that a transport
+	    connection be closed if a message is received before
+	    capabilities exchange to be relaxed.</p>
+          <p>
+	    Own Id: OTP-14546</p>
+        </item>
+        <item>
+          <p>
+	    Be consistent with service/transport configuration.</p>
+          <p>
+	    For options for which it's meaningful, defaults values
+	    for transport options can now be configured on a service.
+	    This was previously the case only for an arbitrary subset
+	    of options.</p>
+          <p>
+	    Own Id: OTP-14555</p>
+        </item>
+        <item>
+          <p>
+	    Add service/transport option avp_dictionaries.</p>
+          <p>
+	    To provide better support for AVPs that are not defined
+	    in the application dictionary: configuring additional
+	    dictionaries in an avp_dictionaries tuple allows their
+	    AVPs to be encoded/decoded in much the same fashion as
+	    application AVPs.</p>
+          <p>
+	    The motivation is RFC 7683 Diameter Overload, Indicator
+	    Conveyance (DOIC), that defines AVPs intended to be
+	    piggybacked onto arbitrary messages. A DOIC dictionary
+	    has been included in the installation, in module
+	    diameter_gen_doic_rfc7683.</p>
+          <p>
+	    Own Id: OTP-14588</p>
+        </item>
+        <item>
+          <p>
+	    Decode application AVPs in answers setting the E-bit.</p>
+          <p>
+	    AVPs defined in the application of the message being sent
+	    were previously not decoded, only those in the common
+	    application that defines the answer-message grammar.</p>
+          <p>
+	    Own Id: OTP-14596</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let candidate peers be passed to diameter:call/4</p>
+          <p>
+	    With call option peer, to allow a request to be sent to a
+	    peer that hasn't advertised support for the application
+	    in question.</p>
+          <p>
+	    RFC 6733 2.4 requires a node to send the application
+	    identifiers of all locally supported applications at
+	    capabilities exchange, but not all nodes respect this for
+	    the common application, and diameter itself will send
+	    D[WP][RA] without the common application having been
+	    explicitly advertised. Regarding the common application
+	    as implicit renders Result-Code 5010
+	    (DIAMETER_NO_COMMON_APPLICATION) meaningless however, so
+	    allow any request to be sent as long as there is a
+	    configured dictionary to support it.</p>
+          <p>
+	    Own Id: OTP-14338</p>
+        </item>
+        <item>
+          <p>
+	    Improve performance of message encode/decode and related
+	    handling.</p>
+          <p>
+	    Dictionaries using @custom_types or @codecs will need to
+	    adapt the corresponding functions to accept an additional
+	    argument that is now passed through encode/decode, which
+	    was required to remove various process dictionary-based
+	    workarounds that have been used to solve problems in the
+	    past.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14343</p>
+        </item>
+        <item>
+          <p>
+	    Add transport options to avoid deadlock and allow for
+	    load regulation.</p>
+          <p>
+	    Both diameter_tcp and diameter_sctp now accept two new
+	    configuration options: sender and message_cb. The former
+	    causes outgoing sends to take place in a dedicated
+	    process, to avoid the possibility of deadlock when both
+	    the transport process and its peer block in send. The
+	    latter allows a callback to control the reading of
+	    messages on the socket, to allow for backpressure towards
+	    peers when the rate of incoming traffic is greater than
+	    can otherwise be handled.</p>
+          <p>
+	    Neither of these options are yet documented, but are
+	    unlikely to change unless problems are discovered. The
+	    sender option is not the default since it should probably
+	    always be used in combination with message_cb, to prevent
+	    incoming requests from being read at a higher rate than a
+	    peer allows outgoing answers to be sent.</p>
+          <p>
+	    Own Id: OTP-14455 Aux Id: ERL-332 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>diameter 1.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An improvement in the handling of peer failover in
+	    diameter 1.12.1 adversely affected performance when
+	    sending requests. Further, the inefficient use of a
+	    public table to route incoming answers has been removed.</p>
+          <p>
+	    Own Id: OTP-14206</p>
+        </item>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>diameter 1.12.1</title>
 
@@ -255,8 +662,8 @@ first.</p>
 	    Fix decode of Grouped AVPs containing errors.</p>
           <p>
 	    RFC 6733 says this of Failed-AVP in 7.5:</p>
-          <p>
-	    <taglist><item><p><c> In the case where the offending AVP
+
+	    <taglist><tag></tag><item><p><c> In the case where the offending AVP
 	    is embedded within a Grouped AVP, the Failed-AVP MAY
 	    contain the grouped AVP, which in turn contains the
 	    single offending AVP. The same method MAY be employed if
@@ -265,11 +672,11 @@ first.</p>
 	    the grouped AVP hierarchy up to the single offending AVP.
 	    This enables the recipient to detect the location of the
 	    offending AVP when embedded in a
-	    group.</c></p></item></taglist></p>
+	    group.</c></p></item></taglist>
           <p>
 	    It says this of DIAMETER_INVALID_AVP_LENGTH in 7.1.5:</p>
-          <p>
-	    <taglist><item><p><c> The request contained an AVP with
+
+	    <taglist><tag></tag><item><p><c> The request contained an AVP with
 	    an invalid length. A Diameter message indicating this
 	    error MUST include the offending AVPs within a Failed-AVP
 	    AVP. In cases where the erroneous AVP length value
@@ -284,7 +691,8 @@ first.</p>
 	    the minimum AVP header length, it is sufficient to
 	    include an offending AVP header that is formulated by
 	    padding the incomplete AVP header with zero up to the
-	    minimum AVP header length.</c></p></item></taglist></p>
+	    minimum AVP header length.</c></p></item></taglist>
+
           <p>
 	    The AVPs placed in the errors field of a diameter_packet
 	    record are intended to be appropriate for inclusion in a
@@ -949,8 +1357,8 @@ first.</p>
 	    Be lenient with the M-bit in Grouped AVPs.</p>
           <p>
 	    RFC 6733 says this, in 4.4:</p>
-          <p>
-	    <taglist><item><p><c>Receivers of a Grouped AVP that does
+
+	    <taglist><tag></tag><item><p><c>Receivers of a Grouped AVP that does
 	    not have the 'M' (mandatory) bit set and one or more of
 	    the encapsulated AVPs within the group has the 'M'
 	    (mandatory) bit set MAY simply be ignored if the Grouped
@@ -958,14 +1366,14 @@ first.</p>
 	    encapsulated AVP with its 'M' (mandatory) bit set is
 	    further encapsulated within other sub-groups, i.e., other
 	    Grouped AVPs embedded within the Grouped
-	    AVP.</c></p></item></taglist></p>
+	    AVP.</c></p></item></taglist>
           <p>
 	    The first sentence is mangled but take it to mean this:</p>
-          <p>
-	    <taglist><item><p><c>An unrecognized AVP of type Grouped
+
+	    <taglist><tag></tag><item><p><c>An unrecognized AVP of type Grouped
 	    that does not set the 'M' bit MAY be ignored even if one
 	    of its encapsulated AVPs sets the 'M'
-	    bit.</c></p></item></taglist></p>
+	    bit.</c></p></item></taglist>
           <p>
 	    This is a bit of a non-statement since if the AVP is
 	    unrecognized then its type is unknown. We therefore don't

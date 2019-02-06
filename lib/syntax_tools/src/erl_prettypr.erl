@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 1997-2006 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -447,7 +452,7 @@ lay_2(Node, Ctxt) ->
 	    text(erl_syntax:variable_literal(Node));
 	
 	atom ->
-	    text(erl_syntax:atom_literal(Node));
+	    text(erl_syntax:atom_literal(Node, Ctxt#ctxt.encoding));
 	
 	integer ->
 	    text(erl_syntax:integer_literal(Node));
@@ -670,7 +675,12 @@ lay_2(Node, Ctxt) ->
 	    %% attribute name, without following parentheses.
 	    Ctxt1 = reset_prec(Ctxt),
             Args = erl_syntax:attribute_arguments(Node),
-            N = erl_syntax:attribute_name(Node),
+            N = case erl_syntax:attribute_name(Node) of
+                    {atom, _, 'if'} ->
+                        erl_syntax:variable('if');
+                    N0 ->
+                        N0
+                end,
             D = case attribute_type(Node) of
                     spec ->
                         [SpecTuple] = Args,
@@ -769,9 +779,16 @@ lay_2(Node, Ctxt) ->
 	class_qualifier ->
 	    Ctxt1 = set_prec(Ctxt, max_prec()),
 	    D1 = lay(erl_syntax:class_qualifier_argument(Node), Ctxt1),
-	    D2 = lay(erl_syntax:class_qualifier_body(Node), Ctxt1),
-	    beside(D1, beside(text(":"), D2));
-
+            D2 = lay(erl_syntax:class_qualifier_body(Node), Ctxt1),
+            Stacktrace = erl_syntax:class_qualifier_stacktrace(Node),
+            case erl_syntax:variable_name(Stacktrace) of
+                '_' ->
+                    beside(D1, beside(text(":"), D2));
+                _ ->
+                    D3 = lay(Stacktrace, Ctxt1),
+                    beside(D1, beside(beside(text(":"), D2),
+                                      beside(text(":"), D3)))
+            end;
 	comment ->
 	    D = stack_comment_lines(
 		  erl_syntax:comment_text(Node)),

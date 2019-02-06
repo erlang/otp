@@ -24,7 +24,7 @@
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
 
-    <title>The Eight Myths of Erlang Performance</title>
+    <title>The Seven Myths of Erlang Performance</title>
     <prepared>Bjorn Gustavsson</prepared>
     <docno></docno>
     <date>2007-11-10</date>
@@ -35,80 +35,33 @@
   <marker id="myths"></marker>
   <p>Some truths seem to live on well beyond their best-before date,
   perhaps because "information" spreads faster from person-to-person
-  than a single release note that says, for example, that funs
-  have become faster.</p>
+  than a single release note that says, for example, that body-recursive
+  calls have become faster.</p>
 
   <p>This section tries to kill the old truths (or semi-truths) that have
   become myths.</p>
-
-  <section>
-    <title>Myth: Funs are Slow</title>
-    <p>Funs used to be very slow, slower than <c>apply/3</c>.
-    Originally, funs were implemented using nothing more than
-    compiler trickery, ordinary tuples, <c>apply/3</c>, and a great
-    deal of ingenuity.</p>
-
-    <p>But that is history. Funs was given its own data type
-    in R6B and was further optimized in R7B.
-    Now the cost for a fun call falls roughly between the cost for a call
-    to a local function and <c>apply/3</c>.</p>
-  </section>
-
-  <section>
-    <title>Myth: List Comprehensions are Slow</title>
-
-    <p>List comprehensions used to be implemented using funs, and in the
-    old days funs were indeed slow.</p>
-
-    <p>Nowadays, the compiler rewrites list comprehensions into an ordinary
-    recursive function. Using a tail-recursive function with
-    a reverse at the end would be still faster. Or would it?
-    That leads us to the next myth.</p>
-  </section>
 
   <section>
     <title>Myth: Tail-Recursive Functions are Much Faster
     Than Recursive Functions</title>
 
     <p><marker id="tail_recursive"></marker>According to the myth,
-    recursive functions leave references
-    to dead terms on the stack and the garbage collector has to copy
-    all those dead terms, while tail-recursive functions immediately
-    discard those terms.</p>
+    using a tail-recursive function that builds a list in reverse
+    followed by a call to <c>lists:reverse/1</c> is faster than
+    a body-recursive function that builds the list in correct order;
+    the reason being that body-recursive functions use more memory than
+    tail-recursive functions.</p>
 
-    <p>That used to be true before R7B. In R7B, the compiler started
-    to generate code that overwrites references to terms that will never
-    be used with an empty list, so that the garbage collector would not
-    keep dead values any longer than necessary.</p>
+    <p>That was true to some extent before R12B. It was even more true
+    before R7B. Today, not so much. A body-recursive function
+    generally uses the same amount of memory as a tail-recursive
+    function. It is generally not possible to predict whether the
+    tail-recursive or the body-recursive version will be
+    faster. Therefore, use the version that makes your code cleaner
+    (hint: it is usually the body-recursive version).</p>
 
-    <p>Even after that optimization, a tail-recursive function is
-    still most of the times faster than a body-recursive function. Why?</p>
-
-    <p>It has to do with how many words of stack that are used in each
-    recursive call. In most cases, a recursive function uses more words
-    on the stack for each recursion than the number of words a tail-recursive
-    would allocate on the heap. As more memory is used, the garbage
-    collector is invoked more frequently, and it has more work traversing
-    the stack.</p>
-
-    <p>In R12B and later releases, there is an optimization that
-    in many cases reduces the number of words used on the stack in
-    body-recursive calls. A body-recursive list function and a
-    tail-recursive function that calls <seealso
-    marker="stdlib:lists#reverse/1">lists:reverse/1</seealso> at
-    the end will use the same amount of memory.
-    <c>lists:map/2</c>, <c>lists:filter/2</c>, list comprehensions,
-    and many other recursive functions now use the same amount of space
-    as their tail-recursive equivalents.</p>
-
-    <p>So, which is faster?
-    It depends. On Solaris/Sparc, the body-recursive function seems to
-    be slightly faster, even for lists with a lot of elements. On the x86
-    architecture, tail-recursion was up to about 30% faster.</p>
-
-    <p>So, the choice is now mostly a matter of taste. If you really do need
-    the utmost speed, you must <em>measure</em>. You can no longer be
-    sure that the tail-recursive list function always is the fastest.</p>
+    <p>For a more thorough discussion about tail and body recursion,
+    see <url href="http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html">Erlang's Tail Recursion is Not a Silver Bullet</url>.</p>
 
     <note><p>A tail-recursive function that does not need to reverse the
     list at the end is faster than a body-recursive function,
@@ -199,6 +152,29 @@ vanilla_reverse([], Acc) ->
 
     <p>That was once true, but from R6B the BEAM compiler can see
     that a variable is not used.</p>
+
+    <p>Similarly, trivial transformations on the source-code level
+    such as converting a <c>case</c> statement to clauses at the
+    top-level of the function seldom makes any difference to the
+    generated code.</p>
+  </section>
+
+  <section>
+    <title>Myth: A NIF Always Speeds Up Your Program</title>
+
+    <p>Rewriting Erlang code to a NIF to make it faster should be
+    seen as a last resort. It is only guaranteed to be dangerous,
+    but not guaranteed to speed up the program.</p>
+
+    <p>Doing too much work in each NIF call will
+    <seealso marker="erts:erl_nif#WARNING">degrade responsiveness
+    of the VM</seealso>. Doing too little work may mean that
+    the gain of the faster processing in the NIF is eaten up by
+    the overhead of calling the NIF and checking the arguments.</p>
+
+    <p>Be sure to read about
+    <seealso marker="erts:erl_nif#lengthy_work">Long-running NIFs</seealso>
+    before writing a NIF.</p>
   </section>
 </chapter>
 

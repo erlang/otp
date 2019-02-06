@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 #include "global.h"
 #include "index.h"
 
-void index_info(int to, void *arg, IndexTable *t)
+void index_info(fmtfn_t to, void *arg, IndexTable *t)
 {
     hash_info(to, arg, &t->htable);
     erts_print(to, arg, "=index_table:%s\n", t->htable.name);
@@ -58,7 +58,7 @@ IndexTable*
 erts_index_init(ErtsAlcType_t type, IndexTable* t, char* name,
 		int size, int limit, HashFunctions fun)
 {
-    Uint base_size = ((limit+INDEX_PAGE_SIZE-1)/INDEX_PAGE_SIZE)*sizeof(IndexSlot*);
+    Uint base_size = (((Uint)limit+INDEX_PAGE_SIZE-1)/INDEX_PAGE_SIZE)*sizeof(IndexSlot*);
     hash_init(type, &t->htable, name, 3*size/4, fun);
 
     t->size = 0;
@@ -91,9 +91,16 @@ index_put_entry(IndexTable* t, void* tmpl)
 	t->seg_table[ix>>INDEX_PAGE_SHIFT] = erts_alloc(t->type, sz);
 	t->size += INDEX_PAGE_SIZE;
     }
-    t->entries++;
     p->index = ix;
     t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
+
+    /*
+     * Do a write barrier here to allow readers to do lock free iteration.
+     * erts_index_num_entries() does matching read barrier.
+     */
+    ERTS_THR_WRITE_MEMORY_BARRIER;
+    t->entries++;
+
     return p;
 }
 

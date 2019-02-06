@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -249,9 +249,17 @@
     <pre>
 {restart_application, Application}
   Application = atom()</pre>
-    <p>Restarting an application means that the application is
-      stopped and then started again, similar to using the instructions
-      <c>remove_application</c> and <c>add_application</c> in sequence.</p>
+    <p>Restarting an application means that the application is stopped
+    and then started again, similar to using the instructions
+    <c>remove_application</c> and <c>add_application</c> in sequence.
+    Note that, even if the application has been started before the
+    release upgrade is performed, <c>restart_application</c> may only
+    <c>load</c> it rather than <c>start</c> it, depending on the
+    application's <c>start type</c>:
+    If <c>Type = load</c>, the application is only loaded.
+    If <c>Type = none</c>, the application is not loaded and not
+    started, although the code for its modules is loaded.
+    </p>
     </section>
 
     <section>

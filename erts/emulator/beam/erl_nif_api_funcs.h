@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ ERL_NIF_API_FUNC_DECL(int,enif_thread_join,(ErlNifTid, void **respp));
 
 ERL_NIF_API_FUNC_DECL(void*,enif_realloc,(void* ptr, size_t size));
 ERL_NIF_API_FUNC_DECL(void,enif_system_info,(ErlNifSysInfo *sip, size_t si_size));
-ERL_NIF_API_FUNC_DECL(int,enif_fprintf,(void/* FILE* */ *filep, const char *format, ...));
+ERL_NIF_API_FUNC_DECL(int,enif_fprintf,(FILE* filep, const char *format, ...));
 ERL_NIF_API_FUNC_DECL(int,enif_inspect_iolist_as_binary,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifBinary* bin));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_sub_binary,(ErlNifEnv*, ERL_NIF_TERM bin_term, size_t pos, size_t size));
 ERL_NIF_API_FUNC_DECL(int,enif_get_string,(ErlNifEnv*, ERL_NIF_TERM list, char* buf, unsigned len, ErlNifCharEncoding));
@@ -175,6 +175,40 @@ ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsign
 ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
 ERL_NIF_API_FUNC_DECL(int,enif_thread_type,(void));
 ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
+ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref));
+ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
+ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlNifMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlNifMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
+ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_pid, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port));
+
+ERL_NIF_API_FUNC_DECL(ErlNifIOQueue *,enif_ioq_create,(ErlNifIOQueueOpts opts));
+ERL_NIF_API_FUNC_DECL(void,enif_ioq_destroy,(ErlNifIOQueue *q));
+
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enq_binary,(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enqv,(ErlNifIOQueue *q, ErlNifIOVec *iov, size_t skip));
+
+ERL_NIF_API_FUNC_DECL(size_t,enif_ioq_size,(ErlNifIOQueue *q));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_deq,(ErlNifIOQueue *q, size_t count, size_t *size));
+
+ERL_NIF_API_FUNC_DECL(SysIOVec*,enif_ioq_peek,(ErlNifIOQueue *q, int *iovlen));
+
+ERL_NIF_API_FUNC_DECL(int,enif_inspect_iovec,(ErlNifEnv *env, size_t max_length, ERL_NIF_TERM iovec_term, ERL_NIF_TERM *tail, ErlNifIOVec **iovec));
+ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
+
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_peek_head,(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *head));
+
+ERL_NIF_API_FUNC_DECL(char*,enif_mutex_name,(ErlNifMutex*));
+ERL_NIF_API_FUNC_DECL(char*,enif_cond_name,(ErlNifCond*));
+ERL_NIF_API_FUNC_DECL(char*,enif_rwlock_name,(ErlNifRWLock*));
+ERL_NIF_API_FUNC_DECL(char*,enif_thread_name,(ErlNifTid));
+
+ERL_NIF_API_FUNC_DECL(int,enif_vfprintf,(FILE*, const char *fmt, va_list));
+ERL_NIF_API_FUNC_DECL(int,enif_vsnprintf,(char*, size_t, const char *fmt, va_list));
+
+ERL_NIF_API_FUNC_DECL(int,enif_make_map_from_arrays,(ErlNifEnv *env, ERL_NIF_TERM keys[], ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -332,6 +366,32 @@ ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char 
 #  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
 #  define enif_thread_type ERL_NIF_API_FUNC_MACRO(enif_thread_type)
 #  define enif_snprintf ERL_NIF_API_FUNC_MACRO(enif_snprintf)
+#  define enif_select ERL_NIF_API_FUNC_MACRO(enif_select)
+#  define enif_open_resource_type_x ERL_NIF_API_FUNC_MACRO(enif_open_resource_type_x)
+#  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
+#  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
+#  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
+#  define enif_hash ERL_NIF_API_FUNC_MACRO(enif_hash)
+#  define enif_whereis_pid ERL_NIF_API_FUNC_MACRO(enif_whereis_pid)
+#  define enif_whereis_port ERL_NIF_API_FUNC_MACRO(enif_whereis_port)
+#  define enif_ioq_create ERL_NIF_API_FUNC_MACRO(enif_ioq_create)
+#  define enif_ioq_destroy ERL_NIF_API_FUNC_MACRO(enif_ioq_destroy)
+#  define enif_ioq_enq ERL_NIF_API_FUNC_MACRO(enif_ioq_enq)
+#  define enif_ioq_enq_binary ERL_NIF_API_FUNC_MACRO(enif_ioq_enq_binary)
+#  define enif_ioq_enqv ERL_NIF_API_FUNC_MACRO(enif_ioq_enqv)
+#  define enif_ioq_size ERL_NIF_API_FUNC_MACRO(enif_ioq_size)
+#  define enif_ioq_deq ERL_NIF_API_FUNC_MACRO(enif_ioq_deq)
+#  define enif_ioq_peek ERL_NIF_API_FUNC_MACRO(enif_ioq_peek)
+#  define enif_inspect_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iovec)
+#  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
+#  define enif_ioq_peek_head ERL_NIF_API_FUNC_MACRO(enif_ioq_peek_head)
+#  define enif_mutex_name ERL_NIF_API_FUNC_MACRO(enif_mutex_name)
+#  define enif_cond_name ERL_NIF_API_FUNC_MACRO(enif_cond_name)
+#  define enif_rwlock_name ERL_NIF_API_FUNC_MACRO(enif_rwlock_name)
+#  define enif_thread_name ERL_NIF_API_FUNC_MACRO(enif_thread_name)
+#  define enif_vfprintf ERL_NIF_API_FUNC_MACRO(enif_vfprintf)
+#  define enif_vsnprintf ERL_NIF_API_FUNC_MACRO(enif_vsnprintf)
+#  define enif_make_map_from_arrays ERL_NIF_API_FUNC_MACRO(enif_make_map_from_arrays)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

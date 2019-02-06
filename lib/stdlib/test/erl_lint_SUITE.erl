@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,7 +64,11 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1]).
+         record_errors/1, otp_11879_cont/1,
+         non_latin1_module/1, otp_14323/1,
+         stacktrace_syntax/1,
+         otp_14285/1, otp_14378/1,
+         external_funs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +88,8 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors].
+     record_errors, otp_11879_cont, non_latin1_module, otp_14323,
+     stacktrace_syntax, otp_14285, otp_14378, external_funs].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -1554,7 +1559,15 @@ guard(Config) when is_list(Config) ->
             [],
             {errors,[{1,erl_lint,illegal_guard_expr},
                      {2,erl_lint,illegal_guard_expr}],
-             []}}
+             []}},
+           {guard10,
+            <<"is_port(_) -> false.
+               t(P) when port(P) -> ok.
+            ">>,
+            [],
+            {error,
+	     [{2,erl_lint,{obsolete_guard_overridden,port}}],
+	     [{2,erl_lint,{obsolete_guard,{port,1}}}]}}
 	  ],
     [] = run(Config, Ts1),
     ok.
@@ -1855,7 +1868,7 @@ otp_5276(Config) when is_list(Config) ->
 %% OTP-5917. Check the 'deprecated' attributed.
 otp_5917(Config) when is_list(Config) ->
     Ts = [{otp_5917_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -deprecated({t,0}).
 
@@ -1870,7 +1883,7 @@ otp_5917(Config) when is_list(Config) ->
 %% OTP-6585. Check the deprecated guards list/1, pid/1, ....
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
-          <<"-compile(export_all).
+          <<"-export([t/0]).
 
              -record(r, {}).
 
@@ -1994,22 +2007,22 @@ otp_5362(Config) when is_list(Config) ->
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
-           {[nowarn_unused_function, 
+           {[nowarn_unused_function,
              warn_deprecated_function,
              warn_bif_clash]},
            {error,
             [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
-	    [{4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "a future release"}}]}},
-
+            [{4,erl_lint,{deprecated,{erlang,now,0},
+                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more information."}}]}},
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
@@ -2018,37 +2031,35 @@ otp_5362(Config) when is_list(Config) ->
 
           %% The special nowarn_X are not affected by general warn_X.
           {otp_5362_6,
-           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+           <<"-compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
-           {[nowarn_unused_function, 
-             warn_deprecated_function, 
+           {[nowarn_unused_function,
+             warn_deprecated_function,
              warn_bif_clash]},
            {errors,
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           {otp_5362_7,
            <<"-export([spawn/1]).
-              -compile({nowarn_deprecated_function,{erlang,hash,2}}).
+              -compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               -compile({nowarn_bif_clash,{spawn,2}}). % bad
               -compile([{nowarn_deprecated_function, 
-                                [{erlang,hash,-1},{3,hash,-1}]}, % 2 bad
-                     {nowarn_deprecated_function, {{a,b,c},hash,-1}}]). % bad
+                                [{erlang,now,-1},{3,now,-1}]}, % 2 bad
+                     {nowarn_deprecated_function, {{a,b,c},now,-1}}]). % bad
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
-		   {4,erl_lint,disallowed_nowarn_bif_clash},
-		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
-            [{5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,hash,-1}}},
-             {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},hash,-1}}}]}
+           {errors,[{3,erl_lint,disallowed_nowarn_bif_clash},
+                    {4,erl_lint,disallowed_nowarn_bif_clash},
+                    {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+            []}
            },
 
           {otp_5362_8,
@@ -2056,14 +2067,15 @@ otp_5362(Config) when is_list(Config) ->
               -compile(warn_deprecated_function).
               -compile(warn_bif_clash).
               spawn(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
              {nowarn_bif_clash,{spawn,1}}]}, % has no effect
            {warnings,
-            [{5,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
-			  "a future release"}}]}},
+            [{5,erl_lint,{deprecated,{erlang,now,0},
+                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more information."}}]}},
 
           {otp_5362_9,
            <<"-include_lib(\"stdlib/include/qlc.hrl\").
@@ -2075,11 +2087,11 @@ otp_5362(Config) when is_list(Config) ->
            []},
 
           {otp_5362_10,
-           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+           <<"-compile({nowarn_deprecated_function,{erlang,now,0}}).
               -compile({nowarn_bif_clash,{spawn,1}}).
               -import(x,[spawn/1]).
               spin(A) ->
-                  erlang:hash(A, 3000),
+                  erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
@@ -2089,11 +2101,11 @@ otp_5362(Config) when is_list(Config) ->
             [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
 	  {call_deprecated_function,
-	   <<"t(X) -> erlang:hash(X, 2000).">>,
+	   <<"t(X) -> calendar:local_time_to_universal_time(X).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{deprecated,{erlang,hash,2},
-			  {erlang,phash2,2},"a future release"}}]}},
+            [{1,erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
+			  {calendar,local_time_to_universal_time_dst,1}, "a future release"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> regexp:match(X).">>,
@@ -2540,7 +2552,7 @@ otp_5878(Config) when is_list(Config) ->
                    {function,9,t,0,[{clause,9,[],[],[{record,10,r,[]}]}]},
                    {eof,11}],
     {error,[{"rec.erl",[{7,erl_lint,old_abstract_code}]}],[]} =
-        compile:forms(OldAbstract, [return, report]),
+        compile_forms(OldAbstract, [return, report]),
 
     ok.
 
@@ -2619,7 +2631,7 @@ otp_11772(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% Built-in:
             -type node() :: node().
@@ -2644,7 +2656,7 @@ otp_11771(Config) when is_list(Config) ->
     Ts = <<"
             -module(newly).
 
-            -compile(export_all).
+            -export([t/0]).
 
             %% No longer allowed in 17.0:
             -type arity() :: atom().
@@ -2671,7 +2683,7 @@ otp_11872(Config) when is_list(Config) ->
     Ts = <<"
             -module(map).
 
-            -compile(export_all).
+            -export([t/0]).
 
             -export_type([map/0, product/0]).
 
@@ -2694,9 +2706,9 @@ export_all(Config) when is_list(Config) ->
 
             id(I) -> I.
            ">>,
-    [] = run_test2(Config, Ts, []),
+    [] = run_test2(Config, Ts, [nowarn_export_all]),
     {warnings,[{2,erl_lint,export_all}]} =
-	run_test2(Config, Ts, [warn_export_all]),
+	run_test2(Config, Ts, []),
     ok.
 
 %% Test warnings for functions that clash with BIFs.
@@ -2997,7 +3009,7 @@ behaviour_basic(Config) when is_list(Config) ->
 
           {behaviour4,
            <<"-behavior(application).  %% Test callbacks with export_all
-              -compile(export_all).
+              -compile([export_all, nowarn_export_all]).
               stop(_) -> ok.
              ">>,
            [],
@@ -3048,10 +3060,7 @@ behaviour_multiple(Config) when is_list(Config) ->
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,
-		       {undefined_behaviour_func,{code_change,3},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{terminate,2},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,
@@ -3065,10 +3074,7 @@ behaviour_multiple(Config) when is_list(Config) ->
               handle_info(_, _) -> ok.
              ">>,
            [],
-	   {warnings,[{1,erl_lint,
-		       {undefined_behaviour_func,{code_change,3},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
-		      {1,erl_lint,{undefined_behaviour_func,{terminate,2},gen_server}},
+	   {warnings,[{1,erl_lint,{undefined_behaviour_func,{init,1},gen_server}},
 		      {2,erl_lint,{undefined_behaviour_func,{init,1},supervisor}},
 		      {2,
 		       erl_lint,
@@ -3839,8 +3845,12 @@ otp_11879(_Config) ->
              [{1,erl_lint,{spec_fun_undefined,{f,1}}},
               {2,erl_lint,spec_wrong_arity},
               {22,erl_lint,callback_wrong_arity}]}],
-     []} = compile:forms(Fs, [return,report]),
+     []} = compile_forms(Fs, [return,report]),
     ok.
+
+compile_forms(Terms, Opts) ->
+    Forms = [erl_parse:anno_from_term(Term) || Term <- Terms],
+    compile:forms(Forms, Opts).
 
 %% OTP-13230: -deprecated without -module.
 otp_13230(Config) when is_list(Config) ->
@@ -3860,6 +3870,288 @@ record_errors(Config) when is_list(Config) ->
            {errors,[{2,erl_lint,{redefine_field,r,a}},
 		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
     run(Config, Ts).
+
+otp_11879_cont(Config) ->
+    Ts = [{constraint1,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["is_subtype"]}],
+            []}},
+          {constraint2,
+           <<"-export([t/1]).
+              -spec t(X) -> X when bad_atom(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,
+            [{2,erl_parse,"unsupported constraint " ++ ["bad_atom"]}],
+            []}},
+          {constraint3,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(bad_variable, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint4,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(atom(), integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           {errors,[{2,erl_parse,"bad type variable"}],[]}},
+          {constraint5,
+           <<"-export([t/1]).
+              -spec t(X) -> X when is_subtype(X, integer()).
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []},
+          {constraint6,
+           <<"-export([t/1]).
+              -spec t(X) -> X when X :: integer().
+              t(a) -> foo:bar().
+             ">>,
+           [],
+           []}],
+    run(Config, Ts).
+
+%% OTP-14285: We currently don't support non-latin1 module names.
+
+non_latin1_module(Config) ->
+    do_non_latin1_module('юникод'),
+    do_non_latin1_module(list_to_atom([256,$a,$b,$c])),
+    do_non_latin1_module(list_to_atom([$a,$b,256,$c])),
+
+    "module names with non-latin1 characters are not supported" =
+        format_error(non_latin1_module_unsupported),
+    BadCallback =
+        {bad_callback,{'кирилли́ческий атом','кирилли́ческий атом',0}},
+    "explicit module not allowed for callback "
+    "'кирилли́ческий атом':'кирилли́ческий атом'/0" =
+        format_error(BadCallback),
+    UndefBehav = {undefined_behaviour,'кирилли́ческий атом'},
+    "behaviour 'кирилли́ческий атом' undefined" =
+        format_error(UndefBehav),
+    Ts = [{non_latin1_module,
+           <<"
+            %% Report uses of module names with non-Latin-1 characters.
+
+            -import('кирилли́ческий атом', []).
+            -behaviour('кирилли́ческий атом').
+            -behavior('кирилли́ческий атом').
+
+            -callback 'кирилли́ческий атом':'кирилли́ческий атом'() -> a.
+
+            %% erl_lint:gexpr/3 is not extended to check module name here:
+            t1() when 'кирилли́ческий атом':'кирилли́ческий атом'(1) ->
+                b.
+
+            t2() ->
+                'кирилли́ческий атом':'кирилли́ческий атом'().
+
+            -spec 'кирилли́ческий атом':'кирилли́ческий атом'() -> atom().
+
+            -spec 'кирилли́ческий атом'(integer()) ->
+              'кирилли́ческий атом':'кирилли́ческий атом'().
+
+            'кирилли́ческий атом'(1) ->
+                'кирилли́ческий атом':f(),
+                F = f,
+                'кирилли́ческий атом':F()."/utf8>>,
+           [],
+           {error,
+            [{4,erl_lint,non_latin1_module_unsupported},
+             {5,erl_lint,non_latin1_module_unsupported},
+             {6,erl_lint,non_latin1_module_unsupported},
+             {8,erl_lint,non_latin1_module_unsupported},
+             {8,erl_lint,BadCallback},
+             {11,erl_lint,illegal_guard_expr},
+             {15,erl_lint,non_latin1_module_unsupported},
+             {17,erl_lint,non_latin1_module_unsupported},
+             {20,erl_lint,non_latin1_module_unsupported},
+             {23,erl_lint,non_latin1_module_unsupported},
+             {25,erl_lint,non_latin1_module_unsupported}],
+            [{5,erl_lint,UndefBehav},
+             {6,erl_lint,UndefBehav}]}}],
+    run(Config, Ts),
+    ok.
+
+do_non_latin1_module(Mod) ->
+    File = atom_to_list(Mod) ++ ".erl",
+    L1 = erl_anno:new(1),
+    Forms = [{attribute,L1,file,{File,1}},
+             {attribute,L1,module,Mod},
+             {eof,2}],
+    error = compile:forms(Forms),
+    {error,_,[]} = compile:forms(Forms, [return]),
+    ok.
+
+
+otp_14378(Config) ->
+    Ts = [
+          {otp_14378_1,
+           <<"-export([t/0]).
+              -compile({nowarn_deprecated_function,{erlang,now,1}}).
+              t() ->
+                 erlang:now().">>,
+           [],
+           {warnings,[{4,erl_lint,
+                       {deprecated,{erlang,now,0},
+                        "Deprecated BIF. See the \"Time and Time Correction"
+                        " in Erlang\" chapter of the ERTS User's Guide"
+                        " for more information."}}]}}],
+    [] = run(Config, Ts),
+    ok.
+
+%% OTP-14323: Check the dialyzer attribute.
+otp_14323(Config) ->
+    Ts = [
+          {otp_14323_1,
+           <<"-import(mod, [m/1]).
+
+              -export([f/0, g/0, h/0]).
+
+              -dialyzer({nowarn_function,module_info/0}). % undefined function
+              -dialyzer({nowarn_function,record_info/2}). % undefined function
+              -dialyzer({nowarn_function,m/1}). % undefined function
+
+              -dialyzer(nowarn_function). % unknown option
+              -dialyzer(1). % badly formed
+              -dialyzer(malformed). % unkonwn option
+              -dialyzer({malformed,f/0}). % unkonwn option
+              -dialyzer({nowarn_function,a/1}). % undefined function
+              -dialyzer({nowarn_function,{a,-1}}). % badly formed
+
+              -dialyzer([no_return, no_match]).
+              -dialyzer({nowarn_function, f/0}).
+              -dialyzer(no_improper_lists).
+              -dialyzer([{nowarn_function, [f/0]}, no_improper_lists]).
+              -dialyzer({no_improper_lists, g/0}).
+              -dialyzer({[no_return, no_match], [g/0, h/0]}).
+
+              f() -> a.
+              g() -> b.
+              h() -> c.">>,
+           [],
+           {errors,[{5,erl_lint,{undefined_function,{module_info,0}}},
+                    {6,erl_lint,{undefined_function,{record_info,2}}},
+                    {7,erl_lint,{undefined_function,{m,1}}},
+                    {9,erl_lint,{bad_dialyzer_option,nowarn_function}},
+                    {10,erl_lint,{bad_dialyzer_attribute,1}},
+                    {11,erl_lint,{bad_dialyzer_option,malformed}},
+                    {12,erl_lint,{bad_dialyzer_option,malformed}},
+                    {13,erl_lint,{undefined_function,{a,1}}},
+                    {14,erl_lint,{bad_dialyzer_attribute,
+                                  {nowarn_function,{a,-1}}}}],
+            []}},
+          {otp_14323_2,
+           <<"-type t(_) :: atom().">>,
+           [],
+           {errors,[{1,erl_parse,"bad type variable"}],[]}}],
+    [] = run(Config, Ts),
+    ok.
+
+stacktrace_syntax(Config) ->
+    Ts = [{guard,
+           <<"t1() ->
+                  try error(foo)
+                  catch _:_:Stk when is_number(Stk) -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{3,erl_lint,{stacktrace_guard,'Stk'}}],[]}},
+          {bound,
+           <<"t1() ->
+                  Stk = [],
+                  try error(foo)
+                  catch _:_:Stk -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{4,erl_lint,{stacktrace_bound,'Stk'}}],[]}},
+          {guard_and_bound,
+           <<"t1() ->
+                  Stk = [],
+                  try error(foo)
+                  catch _:_:Stk when is_integer(Stk) -> ok
+                  end.
+           ">>,
+           [],
+           {errors,[{4,erl_lint,{stacktrace_bound,'Stk'}},
+                    {4,erl_lint,{stacktrace_guard,'Stk'}}],[]}}
+         ],
+
+    run(Config, Ts),
+    ok.
+
+
+%% Unicode atoms.
+otp_14285(Config) ->
+    %% A small sample of all the errors and warnings in module erl_lint.
+    E1 = {redefine_function,{'кирилли́ческий атом',0}},
+    E2 = {attribute,'кирилли́ческий атом'},
+    E3 = {undefined_record,'кирилли́ческий атом'},
+    E4 = {undefined_bittype,'кирилли́ческий атом'},
+    "function 'кирилли́ческий атом'/0 already defined" = format_error(E1),
+    "attribute 'кирилли́ческий атом' after function definitions" =
+        format_error(E2),
+    "record 'кирилли́ческий атом' undefined" = format_error(E3),
+    "bit type 'кирилли́ческий атом' undefined" = format_error(E4),
+    Ts = [{otp_14285_1,
+           <<"'кирилли́ческий атом'() -> a.
+              'кирилли́ческий атом'() -> a.
+             "/utf8>>,
+           [],
+           {errors,
+            [{2,erl_lint,E1}],
+            []}},
+         {otp_14285_2,
+           <<"'кирилли́ческий атом'() -> a.
+              -'кирилли́ческий атом'(a).
+             "/utf8>>,
+           [],
+           {errors,
+            [{2,erl_lint,E2}],
+            []}},
+         {otp_14285_3,
+           <<"'кирилли́ческий атом'() -> #'кирилли́ческий атом'{}.
+             "/utf8>>,
+           [],
+           {errors,
+            [{1,erl_lint,E3}],
+            []}},
+         {otp_14285_4,
+           <<"t() -> <<34/'кирилли́ческий атом'>>.
+             "/utf8>>,
+           [],
+           {errors,
+            [{1,erl_lint,E4}],
+            []}}],
+    run(Config, Ts),
+    ok.
+
+external_funs(Config) when is_list(Config) ->
+    Ts = [{external_funs_1,
+           %% ERL-762: Unused variable warning not being emitted.
+           <<"f() ->
+                BugVar = process_info(self()),
+                if true -> fun m:f/1 end.
+              f(M, F) ->
+                BugVar = process_info(self()),
+                if true -> fun M:F/1 end.">>,
+           [],
+           {warnings,[{2,erl_lint,{unused_var,'BugVar'}},
+                      {5,erl_lint,{unused_var,'BugVar'}}]}}],
+    run(Config, Ts),
+    ok.
+
+format_error(E) ->
+    lists:flatten(erl_lint:format_error(E)).
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->

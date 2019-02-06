@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ timetrap(Timeout0, Scale, Pid) ->
 
 timetrap(Timeout0, ReportTVal, Scale, Pid) ->
     process_flag(priority, max),
+    ct_util:mark_process(),
     Timeout = if not Scale -> Timeout0;
 		 true -> test_server:timetrap_scale_factor() * Timeout0
 	      end,
@@ -83,7 +84,7 @@ kill_the_process(Pid, Timeout0, TruncTO, ReportTVal) ->
 			    "Testcase process ~w not "
 			    "responding to timetrap "
 			    "timeout:~n"
-			    "  ~p.~n"
+			    "  ~tp.~n"
 			    "Killing testcase...~n",
 			    [Pid, Trap]),
 		    exit(Pid, kill)
@@ -144,11 +145,11 @@ call_crash(Time,Crash,M,F,A) ->
 	    {'EXIT',Pid,_Reason} when Crash==any ->
 		ok;
 	    {'EXIT',Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
+		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',Pid,Reason} ->
-		test_server:format(12, "Wrong crash reason. Wanted ~p, got ~p.",
+		test_server:format(12, "Wrong crash reason. Wanted ~tp, got ~tp.",
 		      [Crash, Reason]),
 		exit({wrong_crash_reason,Reason});
 	    {'EXIT',OtherPid,Reason} when OldTrapExit == false ->
@@ -334,11 +335,11 @@ do_appup_tests(_, _Application, Up, Down, Modules) ->
                 ok ->
                     test_server:format(minor, "OK~n");
                 Error ->
-                    test_server:format(minor, "ERROR ~p~n", [Error]),
+                    test_server:format(minor, "ERROR ~tp~n", [Error]),
                     test_server:fail(Error)
             end;
         Error ->
-            test_server:format(minor, "ERROR ~p~n", [Error]),
+            test_server:format(minor, "ERROR ~tp~n", [Error]),
             test_server:fail(Error)
     end.
     
@@ -346,7 +347,7 @@ check_appup_clauses_plausible([], _Direction, _Modules) ->
     ok;
 check_appup_clauses_plausible([{Re, Instrs} | Rest], Direction, Modules)
   when is_binary(Re) ->
-    case re:compile(Re) of
+    case re:compile(Re,[unicode]) of
         {ok, _} ->
             case check_appup_instructions(Instrs, Direction, Modules) of
                 ok ->
@@ -557,7 +558,7 @@ check_dict(Dict, Reason) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~ts (~ts) ->~n~p~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
 	    0
     end.
 
@@ -566,7 +567,7 @@ check_dict_tolerant(Dict, Reason, Mode) ->
 	[] ->
 	    1;                         % All ok.
 	List ->
-	    io:format("** ~ts (~ts) ->~n~p~n",[Reason, Dict, List]),
+	    io:format("** ~ts (~ts) ->~n~tp~n",[Reason, Dict, List]),
 	    case Mode of
 		pedantic ->
 		    0;
@@ -646,7 +647,7 @@ append_files_to_logfile([File|Files]) ->
 		    %% fail, but in that case it will throw an exception so that
 		    %% we will be aware of the problem.
 		    io:format(Fd, "Unable to write the crash dump "
-			      "to this file: ~p~n", [file:format_error(Error)])
+			      "to this file: ~tp~n", [file:format_error(Error)])
 	    end;
 	_Error ->
 	    io:format(Fd, "Failed to read: ~ts\n", [File])
@@ -773,14 +774,15 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
 		false ->
 		    ok
 	    end,
+            ct_util:mark_process(),
 	    try apply(Mod,Func,Args) of
 		Result ->
 		    Result
 	    catch
 		exit:Why ->
 		    EH(Why);
-		error:Why ->
-		    EH({Why,erlang:get_stacktrace()});
+		error:Why:Stacktrace ->
+		    EH({Why,Stacktrace});
 		throw:Why ->
 		    EH(Why)
 	    end;
@@ -802,9 +804,9 @@ format_loc([{Mod,Func,Line}|Rest]) ->
 format_loc([{Mod,LineOrFunc}]) ->
     format_loc({Mod,LineOrFunc});
 format_loc({Mod,Func}) when is_atom(Func) -> 
-    io_lib:format("{~w,~w}",[Mod,Func]);
+    io_lib:format("{~w,~tw}",[Mod,Func]);
 format_loc(Loc) ->
-    io_lib:format("~p",[Loc]).
+    io_lib:format("~tp",[Loc]).
 
 format_loc1([{Mod,Func,Line}]) ->
     ["              ",format_loc1({Mod,Func,Line}),"]"];
@@ -824,12 +826,12 @@ format_loc1({Mod,Func,Line}) ->
 		      true ->
 			   Line
 		   end,
-	    io_lib:format("{~w,~w,<a href=\"~ts~ts#~s\">~w</a>}",
+	    io_lib:format("{~w,~tw,<a href=\"~ts~ts#~ts\">~tw</a>}",
 			  [Mod,Func,
 			   test_server_ctrl:uri_encode(downcase(ModStr)),
 			   ?src_listing_ext,Link,Line]);
 	_ ->
-	    io_lib:format("{~w,~w,~w}",[Mod,Func,Line])
+	    io_lib:format("{~w,~tw,~tw}",[Mod,Func,Line])
     end.
 
 downcase(S) -> downcase(S, []).
@@ -850,6 +852,7 @@ util_start() ->
 	undefined ->	
 	    spawn_link(fun() ->
 			       register(?MODULE, self()),
+                               put(app, common_test),
 			       util_loop(#util_state{starter=Starter})
 		       end),
 	    ok;

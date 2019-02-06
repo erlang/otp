@@ -101,7 +101,7 @@ wxeCommand * wxeFifo::Peek(unsigned int *i)
 }
 
 
-void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
+int wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
 {
   unsigned int pos;
   wxeCommand *curr;
@@ -144,6 +144,7 @@ void wxeFifo::Add(int fc, char * cbuf,int buflen, wxe_data *sd)
   } else {   // No-op only PING currently
     curr->buffer = NULL;
   }
+  return m_n;
 }
 
 void wxeFifo::Append(wxeCommand *orig)

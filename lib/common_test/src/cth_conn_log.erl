@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@
 %%
 %% suite() ->
 %%    [{ct_hooks, [{cth_conn_log,
-%%                  [{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}]}].
+%%                  [{conn_mod(),hook_options()}]}]}].
 %%
 %% or specified in a configuration file:
 %%
-%% {ct_conn_log,[{ct_netconfc:conn_mod(),ct_netconfc:hook_options()}]}.
+%% {ct_conn_log,[{conn_mod(),hook_options()}]}.
 %%
 %% The conn_mod() is the common test module implementing the protocol,
 %% e.g. ct_netconfc, ct_telnet, etc. This module must log by calling
@@ -54,32 +54,21 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([init/2,
-	 pre_init_per_testcase/3,
-	 post_end_per_testcase/4]).
-
-%%----------------------------------------------------------------------
-%% Exported types
-%%----------------------------------------------------------------------
--export_type([hook_options/0,
-	      log_type/0,
-	      conn_mod/0]).
+	 pre_init_per_testcase/4,
+	 post_end_per_testcase/5]).
 
 %%----------------------------------------------------------------------
 %% Type declarations
 %%----------------------------------------------------------------------
--type hook_options() :: [hook_option()].
-%% Options that can be given to `cth_conn_log' in the `ct_hook' statement.
--type hook_option() :: {log_type,log_type()} |
-		       {hosts,[ct_gen_conn:key_or_name()]}.
--type log_type() :: raw | pretty | html | silent.
--type conn_mod() :: ct_netconfc | ct_telnet.
+-type hook_options() :: ct:conn_log_options().
+-type log_type() :: ct:conn_log_type().
+-type conn_mod() :: ct:conn_log_mod().
 %%----------------------------------------------------------------------
 
 -spec init(Id, HookOpts) -> Result when
       Id :: term(),
       HookOpts :: hook_options(),
-      Result :: {ok,[{conn_mod(),
-		      {log_type(),[ct_gen_conn:key_or_name()]}}]}.
+      Result :: {ok,[{conn_mod(),{log_type(),[ct:key_or_name()]}}]}.
 init(_Id, HookOpts) ->
     ConfOpts = ct:get_config(ct_conn_log,[]),
     {ok,merge_log_info(ConfOpts,HookOpts)}.
@@ -104,7 +93,7 @@ get_log_opts(Mod,Opts) ->
     Hosts = proplists:get_value(hosts,Opts,[]),
     {LogType,Hosts}.
 
-pre_init_per_testcase(TestCase,Config,CthState) ->
+pre_init_per_testcase(_Suite,TestCase,Config,CthState) ->
     Logs =
 	lists:map(
 	  fun({ConnMod,{LogType,Hosts}}) ->		  
@@ -127,7 +116,7 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
 			      "<table borders=1>"
 			      "<b>" ++ ConnModStr ++ " logs:</b>\n" ++
 			      [io_lib:format(
-				 "<tr><td>~p</td><td><a href=\"~ts\">~ts</a>"
+				 "<tr><td>~tp</td><td><a href=\"~ts\">~ts</a>"
 				 "</td></tr>",
 				 [S,ct_logs:uri(L),filename:basename(L)])
 			       || {S,L} <- Ls] ++
@@ -158,7 +147,7 @@ pre_init_per_testcase(TestCase,Config,CthState) ->
     ct_util:update_testdata(?MODULE, Update, [create]),
     {Config,CthState}.
 
-post_end_per_testcase(TestCase,_Config,Return,CthState) ->
+post_end_per_testcase(_Suite,TestCase,_Config,Return,CthState) ->
     Update =
 	fun(PrevUsers) ->
 		case lists:delete(TestCase, PrevUsers) of

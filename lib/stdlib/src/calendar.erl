@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,8 +39,14 @@
 	 now_to_datetime/1,			% = now_to_universal_time/1
 	 now_to_local_time/1,
 	 now_to_universal_time/1,
+         rfc3339_to_system_time/1,
+         rfc3339_to_system_time/2,
 	 seconds_to_daystime/1,
 	 seconds_to_time/1,
+         system_time_to_local_time/2,
+         system_time_to_universal_time/2,
+         system_time_to_rfc3339/1,
+         system_time_to_rfc3339/2,
 	 time_difference/2,
 	 time_to_seconds/1,
 	 universal_time/0,
@@ -55,10 +61,13 @@
 -define(SECONDS_PER_DAY, 86400).
 -define(DAYS_PER_YEAR, 365).
 -define(DAYS_PER_LEAP_YEAR, 366).
--define(DAYS_PER_4YEARS, 1461).
--define(DAYS_PER_100YEARS, 36524).
--define(DAYS_PER_400YEARS, 146097).
+%% -define(DAYS_PER_4YEARS, 1461).
+%% -define(DAYS_PER_100YEARS, 36524).
+%% -define(DAYS_PER_400YEARS, 146097).
 -define(DAYS_FROM_0_TO_1970, 719528).
+-define(DAYS_FROM_0_TO_10000, 2932897).
+-define(SECONDS_FROM_0_TO_1970, (?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY)).
+-define(SECONDS_FROM_0_TO_10000, (?DAYS_FROM_0_TO_10000*?SECONDS_PER_DAY)).
 
 %%----------------------------------------------------------------------
 %% Types
@@ -82,6 +91,13 @@
 -type datetime()       :: {date(),time()}.
 -type datetime1970()   :: {{year1970(),month(),day()},time()}.
 -type yearweeknum()    :: {year(),weeknum()}.
+
+-type rfc3339_string() :: [byte(), ...].
+%% By design 'native' is not supported:
+-type rfc3339_time_unit() :: 'microsecond'
+                           | 'millisecond'
+                           | 'nanosecond'
+                           | 'second'.
 
 %%----------------------------------------------------------------------
 
@@ -309,8 +325,7 @@ local_time_to_universal_time_dst(DateTime) ->
 -spec now_to_datetime(Now) -> datetime1970() when
       Now :: erlang:timestamp().
 now_to_datetime({MSec, Sec, _uSec}) ->
-    Sec0 = MSec*1000000 + Sec + ?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY,
-    gregorian_seconds_to_datetime(Sec0).
+    system_time_to_datetime(MSec*1000000 + Sec).
 
 -spec now_to_universal_time(Now) -> datetime1970() when
       Now :: erlang:timestamp().
@@ -327,6 +342,33 @@ now_to_universal_time(Now) ->
 now_to_local_time({MSec, Sec, _uSec}) ->
     erlang:universaltime_to_localtime(
       now_to_universal_time({MSec, Sec, _uSec})).
+
+-spec rfc3339_to_system_time(DateTimeString) -> integer() when
+      DateTimeString :: rfc3339_string().
+
+rfc3339_to_system_time(DateTimeString) ->
+    rfc3339_to_system_time(DateTimeString, []).
+
+-spec rfc3339_to_system_time(DateTimeString, Options) -> integer() when
+      DateTimeString :: rfc3339_string(),
+      Options :: [Option],
+      Option :: {'unit', rfc3339_time_unit()}.
+
+rfc3339_to_system_time(DateTimeString, Options) ->
+    Unit = proplists:get_value(unit, Options, second),
+    %% _T is the character separating the date and the time:
+    {DateStr, [_T|TimeStr]} = lists:split(10, DateTimeString),
+    {TimeStr2, TimeStr3} = lists:split(8, TimeStr),
+    {ok, [Hour, Min, Sec], []} = io_lib:fread("~d:~d:~d", TimeStr2),
+    {ok, [Year, Month, Day], []} = io_lib:fread("~d-~d-~d", DateStr),
+    DateTime = {{Year, Month, Day}, {Hour, Min, Sec}},
+    IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
+    {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr3),
+    Time = datetime_to_system_time(DateTime),
+    Secs = Time - offset_adjustment(Time, second, UtcOffset),
+    check(DateTimeString, Options, Secs),
+    ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
+    ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
 
 
 
@@ -362,6 +404,55 @@ seconds_to_time(Secs) when Secs >= 0, Secs < ?SECONDS_PER_DAY ->
     Minute =  Secs1 div ?SECONDS_PER_MINUTE,
     Second =  Secs1 rem ?SECONDS_PER_MINUTE,
     {Hour, Minute, Second}.
+
+-spec system_time_to_local_time(Time, TimeUnit) -> datetime() when
+      Time :: integer(),
+      TimeUnit :: erlang:time_unit().
+
+system_time_to_local_time(Time, TimeUnit) ->
+    UniversalDate = system_time_to_universal_time(Time, TimeUnit),
+    erlang:universaltime_to_localtime(UniversalDate).
+
+-spec system_time_to_universal_time(Time, TimeUnit) -> datetime() when
+      Time :: integer(),
+      TimeUnit :: erlang:time_unit().
+
+system_time_to_universal_time(Time, TimeUnit) ->
+    Secs = erlang:convert_time_unit(Time, TimeUnit, second),
+    system_time_to_datetime(Secs).
+
+-spec system_time_to_rfc3339(Time) -> DateTimeString when
+      Time :: integer(),
+      DateTimeString :: rfc3339_string().
+
+system_time_to_rfc3339(Time) ->
+    system_time_to_rfc3339(Time, []).
+
+-type offset() :: [byte()] | (Time :: integer()).
+-spec system_time_to_rfc3339(Time, Options) -> DateTimeString when
+      Time :: integer(), % Since Epoch
+      Options :: [Option],
+      Option :: {'offset', offset()}
+              | {'time_designator', byte()}
+              | {'unit', rfc3339_time_unit()},
+      DateTimeString :: rfc3339_string().
+
+system_time_to_rfc3339(Time, Options) ->
+    Unit = proplists:get_value(unit, Options, second),
+    OffsetOption = proplists:get_value(offset, Options, ""),
+    T = proplists:get_value(time_designator, Options, $T),
+    AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption),
+    Offset = offset(OffsetOption, AdjustmentSecs),
+    Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, Unit),
+    AdjustedTime = Time + Adjustment,
+    Factor = factor(Unit),
+    Secs = AdjustedTime div Factor,
+    check(Time, Options, Secs),
+    DateTime = system_time_to_datetime(Secs),
+    {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
+    FractionStr = fraction_str(Factor, AdjustedTime),
+    flat_fwrite("~4.10.0B-~2.10.0B-~2.10.0B~c~2.10.0B:~2.10.0B:~2.10.0B~s~s",
+                [Year, Month, Day, T, Hour, Min, Sec, FractionStr, Offset]).
 
 %% time_difference(T1, T2) = Tdiff
 %%
@@ -550,3 +641,82 @@ df(Year, _) ->
 	true -> 1;
 	false  -> 0
     end.
+
+check(_Arg, _Options, Secs) when Secs >= - ?SECONDS_FROM_0_TO_1970,
+                                 Secs < ?SECONDS_FROM_0_TO_10000 ->
+    ok;
+check(Arg, Options, _Secs) ->
+    erlang:error({badarg, [Arg, Options]}).
+
+datetime_to_system_time(DateTime) ->
+    datetime_to_gregorian_seconds(DateTime) - ?SECONDS_FROM_0_TO_1970.
+
+system_time_to_datetime(Seconds) ->
+    gregorian_seconds_to_datetime(Seconds + ?SECONDS_FROM_0_TO_1970).
+
+offset(OffsetOption, Secs0) when OffsetOption =:= "";
+                                 is_integer(OffsetOption) ->
+    Sign = case Secs0 < 0 of
+               true -> $-;
+               false -> $+
+           end,
+    Secs = abs(Secs0),
+    Hour = Secs div 3600,
+    Min = (Secs rem 3600) div 60,
+    io_lib:fwrite("~c~2.10.0B:~2.10.0B", [Sign, Hour, Min]);
+offset(OffsetOption, _Secs) ->
+    OffsetOption.
+
+offset_adjustment(Time, Unit, OffsetString) when is_list(OffsetString) ->
+    offset_string_adjustment(Time, Unit, OffsetString);
+offset_adjustment(_Time, Unit, Offset) when is_integer(Offset) ->
+    erlang:convert_time_unit(Offset, Unit, second).
+
+offset_string_adjustment(Time, Unit, "") ->
+    local_offset(Time, Unit);
+offset_string_adjustment(_Time, _Unit, "Z") ->
+    0;
+offset_string_adjustment(_Time, _Unit, "z") ->
+    0;
+offset_string_adjustment(_Time, _Unit, [Sign|Tz]) ->
+    {ok, [Hour, Min], []} = io_lib:fread("~d:~d", Tz),
+    Adjustment = 3600 * Hour + 60 * Min,
+    case Sign of
+        $- -> -Adjustment;
+        $+ -> Adjustment
+    end.
+
+local_offset(SystemTime, Unit) ->
+    LocalTime = system_time_to_local_time(SystemTime, Unit),
+    UniversalTime = system_time_to_universal_time(SystemTime, Unit),
+    LocalSecs = datetime_to_gregorian_seconds(LocalTime),
+    UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
+    LocalSecs - UniversalSecs.
+
+fraction_str(1, _Time) ->
+    "";
+fraction_str(Factor, Time) ->
+    Fraction = Time rem Factor,
+    io_lib:fwrite(".~*..0B", [log10(Factor), abs(Fraction)]).
+
+fraction(second, _) ->
+    0;
+fraction(_, "") ->
+    0;
+fraction(Unit, FractionStr) ->
+    round(factor(Unit) * list_to_float([$0|FractionStr])).
+
+copy_sign(N1, N2) when N2 < 0 -> -N1;
+copy_sign(N1, _N2) -> N1.
+
+factor(second)      -> 1;
+factor(millisecond) -> 1000;
+factor(microsecond) -> 1000000;
+factor(nanosecond)  -> 1000000000.
+
+log10(1000) -> 3;
+log10(1000000) -> 6;
+log10(1000000000) -> 9.
+
+flat_fwrite(F, S) ->
+    lists:flatten(io_lib:fwrite(F, S)).

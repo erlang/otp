@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,13 +35,35 @@
   <module>ct_netconfc</module>
   <modulesummary>NETCONF client module.</modulesummary>
 
-<description>
+  <description>
 
     <p>NETCONF client module.</p>
 
     <p>The NETCONF client is compliant with RFC 4741 NETCONF Configuration
       Protocol and RFC 4742 Using the NETCONF Configuration Protocol over
-      Secure SHell (SSH)..</p>
+      Secure SHell (SSH).</p>
+
+    <marker id="Connecting"/>
+    <p><em>Connecting to a NETCONF server</em></p>
+
+    <p>NETCONF sessions can either be opened by a single call
+      to <seealso marker="#open-1"><c>open/1,2</c></seealso> or by a call
+      to <seealso marker="#connect-1"><c>connect/1,2</c></seealso> followed
+      by one or more calls to
+      <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+
+    <p>The properties of the sessions will be exactly the same, except
+      that when
+      using <seealso marker="#connect-1"><c>connect/1,2</c></seealso>, you
+      may start multiple sessions over the same SSH connection. Each
+      session is implemented as an SSH channel.</p>
+
+    <p><seealso marker="#open-1"><c>open/1,2</c></seealso> will establish one
+      SSH connection with one SSH channel implementing one NETCONF
+      session. You may start mutiple sessions by
+      calling <seealso marker="#open-1"><c>open/1,2</c></seealso> multiple
+      times, but then a new SSH connection will be established for each
+      session.</p>
 
     <p>For each server to test against, the following entry can be added to a
       configuration file:</p>
@@ -49,23 +71,21 @@
     <pre>
  {server_id(),options()}.</pre>
 
-    <p>The <c>server_id()</c> or an associated <c>target_name()</c> (see
-      module <seealso marker="ct"><c>ct</c></seealso>) must then be used
-      in calls to
-      <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso>.</p>
+    <p>The <seealso marker="#type-server_id"><c>server_id()</c></seealso>
+      or an associated
+      <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
+      must then be used in calls to
+      <seealso marker="#connect-2"><c>connect/2</c></seealso>
+      or <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
 
-    <p>If no configuration exists for a server, a session can still be
-      opened by calling
-      <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso> with
-      all necessary options specified in the call. The first argument to
-      <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso> can
-      then be any atom.</p>
+    <p>If no configuration exists for a server,
+      use <seealso marker="#connect-1"><c>connect/1</c></seealso>
+      or <seealso marker="#open-1"><c>open/1</c></seealso> instead,
+      and specify all necessary options in the <c>Options</c> parameter.</p>
 
-  </description>
+    <marker id="Logging"/>
+    <p><em>Logging</em></p>
 
-  <section>
-  <marker id="Logging"/>
-    <title>Logging</title> 
     <p>The NETCONF server uses <c>error_logger</c> for logging of NETCONF
       traffic. A special purpose error handler is implemented in
       <c>ct_conn_log_h</c>. To use this error handler, add the
@@ -73,9 +93,9 @@
 
     <pre>
  suite() -&gt;
-    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].</pre>
+    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
 
-    <p><c>conn_mod()</c> is the name of the <c>Common Test</c> module
+    <p><c>conn_log_mod()</c> is the name of the <c>Common Test</c> module
       implementing the connection protocol, for example, <c>ct_netconfc</c>.</p>
 
     <p>Hook option <c>log_type</c> specifies the type of logging:</p>
@@ -84,7 +104,7 @@
       <tag><c>raw</c></tag>
       <item><p>The sent and received NETCONF data is logged to a separate
         text file "as is" without any formatting. A link to the file is
-        added to the test case HTML log.</p>.</item>
+        added to the test case HTML log.</p></item>
 
       <tag><c>pretty</c></tag>
       <item><p>The sent and received NETCONF data is logged to a separate
@@ -104,7 +124,7 @@
       To do this, use hook option <c>hosts</c> and list the names of the
       servers/connections to be used in the suite. The connections
       must be named for this to work, that is, they must be opened with
-      <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso>.</p>
+      <seealso marker="#open-2"><c>open/2</c></seealso>.</p>
 
     <p>Option <c>hosts</c> has no effect if <c>log_type</c> is set to
       <c>html</c> or <c>silent</c>.</p>
@@ -113,13 +133,13 @@
       configuration variable <c>ct_conn_log</c>:</p>
 
     <pre>
- {ct_conn_log,[{conn_mod(),hook_options()}]}.</pre>
+ {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>,<seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
 
     <p>For example:</p>
 
     <pre>
  {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-                             {hosts,[key_or_name()]}]}]}</pre>
+                             {hosts,[<seealso marker="ct#type-key_or_name"><c>ct:key_or_name()</c></seealso>]}]}]}</pre>
 
     <note>
       <p>Hook options specified in a configuration file overwrite the
@@ -164,173 +184,149 @@
     <p>The same <c>ct_hooks</c> statement without the configuration file
       would cause HTML logging of all NETCONF connections in to the test
       case HTML log.</p>
-  </section>
 
-  <section>
-  <marker id="Notifications"/>
-    <title>Notifications</title>
+    <marker id="Notifications"/>
+    <p><em>Notifications</em></p>
 
     <p>The NETCONF client is also compliant with RFC 5277 NETCONF Event
       Notifications, which defines a mechanism for an asynchronous message 
       notification delivery service for the NETCONF protocol.</p>
 
     <p>Specific functions to support this are
-      <seealso marker="#create_subscription-6"><c>ct_netconfc:create_subscription/6</c></seealso>
+      <seealso marker="#create_subscription-1"><c>create_subscription/1-6</c></seealso>
       and
-      <seealso marker="#get_event_streams-3"><c>ct_netconfc:get_event_streams/3</c></seealso>.
-      (The functions also exist with other arities.)</p>
-  </section>
+      <seealso marker="#get_event_streams-1"><c>get_event_streams/1-3</c></seealso>.</p>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>client() = handle() | key_or_name()</c></tag>
-      <item><marker id="type-client"/>
-        <p>For <c>handle()</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+    <marker id="Default_timeout"/>
+    <p><em>Default Timeout</em></p>
 
-      <tag><c>error_reason() = term()</c></tag>
-      <item><marker id="type-error_reason"/> </item>
-      <tag><c>event_time() = {eventTime, xml_attributes(), [xs_datetime()]}</c></tag>
-      <item><marker id="type-event_time"/> </item>
+    <p>Most of the functions in this module have one variant with
+      a <c>Timeout</c> parameter, and one without. If nothing else is
+      specified, the default value <c>infinity</c> is used when
+      the <c>Timeout</c> parameter is not given.</p>
 
-      <tag><c>handle() = term()</c></tag>
-      <item><marker id="type-handle"/>
-        <p>Opaque reference for a connection (NETCONF session). For more
-          information, see module <seealso marker="ct"><c>ct</c></seealso>.</p>
-      </item>
+  </description>
 
-      <tag><c>host() = </c><seealso marker="kernel:inet#type-hostname"><c>inet:hostname()</c></seealso>
-          <c> | </c><seealso marker="kernel:inet#type-ip_address"><c>inet:ip_address()</c></seealso></tag>
-      <item><marker id="type-host"/></item>
-
-      <tag><c>key_or_name() = server_id() | target_name()</c></tag>
-      <item><marker id="type-key_or_name"/>
-        <p>For <c>target_name</c>, see module
-          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
-
-      <tag><c>netconf_db() = running | startup | candidate</c></tag>
-      <item><marker id="type-netconf_db"/> </item>
-
-      <tag><c>notification() = {notification, xml_attributes(), notification_content()}</c></tag>
-      <item><marker id="type-notification"/> </item>
-
-      <tag><c>notification_content() = [event_time() | simple_xml()]</c></tag> 
-      <item><marker id="type-notification_content"/> </item>
-
-      <tag><c>option() = {ssh, host()} | {port, </c>
-          <seealso marker="kernel:inet#type-port_number"><c>inet:port_number()</c></seealso>
-          <c>} | {timeout, timeout()} | SshConnectOption</c></tag>
-      <item><marker id="type-option"/>
-
+  <datatypes>
+    <datatype>
+      <name name="client"/>
+    </datatype>
+    <datatype>
+      <name name="error_reason"/>
+    </datatype>
+    <datatype>
+      <name name="event_time"/>
+    </datatype>
+    <datatype>
+      <name name="handle"/>
+      <desc>
+	<p>Opaque reference for a connection to a NETCONF server or a
+	  NETCONF session.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="host"/>
+    </datatype>
+    <datatype>
+      <name name="netconf_db"/>
+    </datatype>
+    <datatype>
+      <name name="notification"/>
+    </datatype>
+    <datatype>
+      <name name="notification_content"/>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+      <desc>
         <p><c>SshConnectOption</c> is any valid option to
           <seealso marker="ssh:ssh#connect-3"><c>ssh:connect/3,4</c></seealso>.
 	  Common options used are <c>user</c>, <c>password</c>
 	  and <c>user_dir</c>. The <c>SshConnectOptions</c> are
-	  verfied by the SSH application.</p></item>
-
-      <tag><c>options() = [option()]</c></tag>
-      <item><marker id="type-options"/>
-        <p>Options used for setting up an SSH connection to a NETCONF
-          server.</p></item>
-
-      <tag><c>server_id() = atom()</c></tag>
-      <item><marker id="type-server_id"/>
+	  verfied by the SSH application.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="options"/>
+      <desc>
+	<p>Options used for setting up an SSH connection to a NETCONF
+          server.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="server_id"/>
+      <desc>
         <p>The identity of a server, specified in a configuration
-          file.</p></item>
-
-      <tag><c>simple_xml() = {xml_tag(), xml_attributes(), xml_content()} | {xml_tag(), xml_content()} | xml_tag()</c></tag>
-      <item><marker id="type-simple_xml"/>
-        <p>This type is further described in application
-          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p></item>
-
-      <tag><c>stream_data() = {description, string()} | {replaySupport, string()} | {replayLogCreationTime, string()} | {replayLogAgedTime, string()}</c></tag>
-      <item><marker id="type-stream_data"/>
-        <p>For details about the data format for the string values, see
-          "XML Schema for Event Notifications" in RFC 5277.</p></item>
-
-      <tag><c>stream_name() = string()</c></tag>
-      <item><marker id="type-stream_name"/> </item>
-
-      <tag><c>streams() = [{stream_name(), [stream_data()]}]</c></tag>
-      <item><marker id="type-streams"/> </item>
-
-      <tag><c>xml_attribute_tag() = atom()</c></tag>
-      <item><marker id="type-xml_attribute_tag"/> </item>
-
-      <tag><c>xml_attribute_value() = string()</c></tag>
-      <item><marker id="type-xml_attribute_value"/> </item>
-
-      <tag><c>xml_attributes() = [{xml_attribute_tag(), xml_attribute_value()}]</c></tag>
-      <item><marker id="type-xml_attributes"/> </item>
-
-      <tag><c>xml_content() = [simple_xml() | iolist()]</c></tag>
-      <item><marker id="type-xml_content"/> </item>
-
-      <tag><c>xml_tag() = atom()</c></tag>
-      <item><marker id="type-xml_tag"/> </item>
-
-      <tag><c>xpath() = {xpath, string()}</c></tag>
-      <item><marker id="type-xpath"/> </item>
-
-      <tag><c>xs_datetime() = string()</c></tag>
-      <item><marker id="type-xs_datetime"/>
-        <p>This date and time identifier has the same format as the XML type
+          file.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="simple_xml"/>
+      <desc>
+	<p>This type is further described in application
+          <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="stream_data"/>
+      <desc>
+	<p>For details about the data format for the string values, see
+          "XML Schema for Event Notifications" in RFC 5277.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="stream_name"/>
+    </datatype>
+    <datatype>
+      <name name="streams"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attribute_tag"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attribute_value"/>
+    </datatype>
+    <datatype>
+      <name name="xml_attributes"/>
+    </datatype>
+    <datatype>
+      <name name="xml_content"/>
+    </datatype>
+    <datatype>
+      <name name="xml_tag"/>
+    </datatype>
+    <datatype>
+      <name name="xpath"/>
+    </datatype>
+    <datatype>
+      <name name="xs_datetime"/>
+      <desc>
+	<p>This date and time identifier has the same format as the XML type
           <c>dateTime</c> and is compliant with RFC 3339 Date and Time on
           the Internet Timestamps. The format is as follows:</p>
-      <pre>
+	<pre>
  [-]CCYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]</pre>
-      </item>
-    </taglist>
-  </section>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>
-      <name>action(Client, Action) -&gt; Result</name>
-      <fsummary>Equivalent to action(Client, Action, infinity).</fsummary>
-      <desc><marker id="action-2"/>
-        <p>Equivalent to
-          <seealso marker="#action-3"><c>ct_netconfc:action(Client, Action,
-          infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>action(Client, Action, Timeout) -&gt; Result</name>
+      <name name="action" arity="2"/>
+      <name name="action" arity="3"/>
       <fsummary>Executes an action.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Action = simple_xml()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {ok, [simple_xml()]} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="action-3"/>
+      <desc>
         <p>Executes an action. If the return type is void, <c>ok</c> is
           returned instead of <c>{ok,[simple_xml()]}</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>close_session(Client) -&gt; Result</name>
-      <fsummary>Equivalent to close_session(Client, infinity).</fsummary>
-      <desc><marker id="close_session-1"/>
-        <p>Equivalent to
-          <seealso marker="#close_session-2"><c>ct_netconfc:close_session(Client,
-            infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>close_session(Client, Timeout) -&gt; Result</name>
+      <name name="close_session" arity="1"/>
+      <name name="close_session" arity="2"/>
       <fsummary>Requests graceful termination of the session associated with
         the client.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="close_session-2"/>
+      <desc>
         <p>Requests graceful termination of the session associated with the
           client.</p>
 
@@ -343,27 +339,70 @@
     </func>
 
     <func>
-      <name>copy_config(Client, Source, Target) -&gt; Result</name>
-      <fsummary>Equivalent to copy_config(Client, Source, Target,
-        infinity).</fsummary>
-      <desc><marker id="copy_config-3"/>
-        <p>Equivalent to
-          <seealso marker="#copy_config-4"><c>ct_netconfc:copy_config(Client,
-            Source, Target, infinity)</c></seealso>.</p>
+      <name name="connect" arity="1"/>
+      <fsummary>Opens an SSH connection to a NETCONF server.</fsummary>
+      <desc>
+        <p>Opens an SSH connection to a NETCONF server.</p>
+
+        <p>If the server options are specified in a configuration file, use
+          <seealso marker="#connect-2"><c>connect/2</c></seealso>
+          instead.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function is required as connection identifier when opening
+          sessions over this connection, see
+          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
       </desc>
     </func>
 
     <func>
-      <name>copy_config(Client, Target, Source, Timeout) -&gt; Result</name>
+      <name name="connect" arity="2"/>
+      <fsummary>Opens an SSH connection to a named NETCONF server.</fsummary>
+      <desc>
+        <p>Open an SSH connection to a named NETCONF server.</p>
+
+        <p>If <c><anno>KeyOrName</anno></c> is a
+          configured <c>server_id()</c> or a
+          <c>target_name()</c> associated with such an Id, then the options
+          for this server are fetched from the configuration file.</p>
+
+        <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
+          options found in the configuration file. If the same options
+          are specified, the values from the configuration file
+          overwrite <c><anno>ExtraOptions</anno></c>.</p>
+
+        <p>If the server is not specified in a configuration file, use
+          <seealso marker="#connect-1"><c>connect/1</c></seealso>
+          instead.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function can be used as connection identifier when opening
+          sessions over this connection, see
+          <seealso marker="#session-1"><c>session/1,2,3</c></seealso>.
+          However, if <c><anno>KeyOrName</anno></c> is a
+          <c>target_name()</c>, that is, if the server is named through a
+          call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement in the test suite, then this name can
+          be used instead of
+	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+
+        <p>Option <c>timeout</c> (milliseconds) is used when setting up the
+          SSH connection. It is not used for any other purposes during the
+          lifetime of the connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="copy_config" arity="3"/>
+      <name name="copy_config" arity="4"/>
       <fsummary>Copies configuration data.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = netconf_db()</v>
-        <v>Source = netconf_db()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="copy_config-4"/>
+      <desc>
         <p>Copies configuration data.</p>
 
         <p>Which source and target options that can be issued depends on the
@@ -373,85 +412,75 @@
     </func>
 
     <func>
-      <name>create_subscription(Client) -&gt; term()</name>
+      <name>create_subscription(Client) -> Result</name>
+      <name>create_subscription(Client, Stream) -> Result</name>
+      <name>create_subscription(Client, Stream, Filter) -> Result</name>
+      <name>create_subscription(Client, Stream, Filter, Timeout) -> Result</name>
+      <name name="create_subscription" arity="5" clause_i="2"/>
+      <name name="create_subscription" arity="6"/>
       <fsummary>Creates a subscription for event notifications.</fsummary>
-      <desc><marker id="create_subscription-1"/></desc>
-    </func>
-
-    <func>
-      <name>create_subscription(Client, Timeout) -&gt; term()</name>
-      <fsummary>Creates a subscription for event notifications.</fsummary>
-      <desc><marker id="create_subscription-2"/></desc>
-    </func>
-
-    <func>
-      <name>create_subscription(Client, Stream, Timeout) -&gt; term()</name>
-      <fsummary>Creates a subscription for event notifications.</fsummary>
-      <desc><marker id="create_subscription-3"/></desc>
-    </func>
-
-    <func>
-      <name>create_subscription(Client, StartTime, StopTime, Timeout) -&gt; term()</name>
-      <fsummary>Creates a subscription for event notifications.</fsummary>
-      <desc><marker id="create_subscription-4"/></desc>
-    </func>
-
-    <func>
-      <name>create_subscription(Client, Stream, StartTime, StopTime, Timeout) -&gt; term()</name>
-      <fsummary>Creates a subscription for event notifications.</fsummary>
-      <desc><marker id="create_subscription-5"/></desc>
-    </func>
-
-    <func>
-      <name>create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout) -&gt; Result</name>
-      <fsummary>Creates a subscription for event notifications.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Stream = stream_name()</v>
-        <v>Filter = simple_xml() | [simple_xml()]</v>
-        <v>StartTime = xs_datetime()</v>
-        <v>StopTime = xs_datetime()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="create_subscription-6"/>
+      <desc>
         <p>Creates a subscription for event notifications.</p>
 
         <p>This function sets up a subscription for NETCONF event
           notifications of the specified stream type, matching the specified
           filter. The calling process receives notifications as messages of
-          type <c>notification()</c>.</p>
+          type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
+
+	<p>Only a subset of the function clauses are show above. The
+	  full set of valid combinations of input parameters is as
+	  follows:</p>
+
+<pre>create_subscription(Client)
+
+create_subscription(Client, Timeout)
+create_subscription(Client, Stream)
+create_subscription(Client, Filter)
+
+create_subscription(Client, Stream, Timeout)
+create_subscription(Client, Filter, Timeout)
+create_subscription(Client, Stream, Filter)
+create_subscription(Client, StartTime, StopTime)
+
+create_subscription(Client, Stream, Filter, Timeout)
+create_subscription(Client, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, StartTime, StopTime)
+create_subscription(Client, Filter, StartTime, StopTime)
+
+create_subscription(Client, Stream, StartTime, StopTime, Timeout)
+create_subscription(Client, Stream, Filter, StartTime, StopTime)
+create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout)</pre>
 
         <taglist>
-          <tag><c>Stream</c></tag>
+          <tag><c><anno>Stream</anno></c></tag>
           <item><p>Optional parameter that indicates which stream of event
             is of interest. If not present, events in the default NETCONF
             stream are sent.</p></item>
-          <tag><c>Filter</c></tag>
+          <tag><c><anno>Filter</anno></c></tag>
           <item><p>Optional parameter that indicates which subset of all
             possible events is of interest. The parameter format is the
             same as that of the filter parameter in the NETCONF protocol
             operations. If not present, all events not precluded by other
             parameters are sent.</p></item>
-          <tag><c>StartTime</c></tag>
+          <tag><c><anno>StartTime</anno></c></tag>
           <item><p>Optional parameter used to trigger the replay feature and
               indicate that the replay is to start at the time specified.
-              If <c>StartTime</c> is not present, this is not a replay
-              subscription.</p>
+              If <c><anno>StartTime</anno></c> is not present, this is not a
+	      replay subscription.</p>
             <p>It is not valid to specify start times that are later than
-              the current time. If <c>StartTime</c> is specified earlier
-              than the log can support, the replay begins with the earliest
-              available notification.</p>
+              the current time. If <c><anno>StartTime</anno></c> is specified
+	      earlier than the log can support, the replay begins with the
+	      earliest available notification.</p>
             <p>This parameter is of type <c>dateTime</c> and compliant to
               RFC 3339. Implementations must support time zones.</p></item>
-          <tag><c>StopTime</c></tag>
+          <tag><c><anno>StopTime</anno></c></tag>
           <item><p>Optional parameter used with the optional replay feature
               to indicate the newest notifications of interest. If
-              <c>StopTime</c> is not present, the notifications continues
-              until the subscription is terminated.</p>
+              <c><anno>StopTime</anno></c> is not present, the notifications
+	      continues until the subscription is terminated.</p>
             <p>Must be used with and be later than <c>StartTime</c>. Values
-              of <c>StopTime</c> in the future are valid. This parameter is
-              of type <c>dateTime</c> and compliant to RFC 3339.
+              of <c><anno>StopTime</anno></c> in the future are valid. This
+	      parameter is of type <c>dateTime</c> and compliant to RFC 3339.
               Implementations must support time zones.</p></item>
         </taglist>
 
@@ -461,25 +490,10 @@
     </func>
 
     <func>
-      <name>delete_config(Client, Target) -&gt; Result</name>
-      <fsummary>Equivalent to delete_config(Client, Target,
-        infinity).</fsummary>
-      <desc><marker id="delete_config-2"/>
-        <p>Equivalent to
-          <seealso marker="#delete_config-3"><c>ct_netconfc:delete_config(Client, Target, infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>delete_config(Client, Target, Timeout) -&gt; Result</name>
+      <name name="delete_config" arity="2"/>
+      <name name="delete_config" arity="3"/>
       <fsummary>Deletes configuration data.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = startup | candidate</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="delete_config-3"/>
+      <desc>
         <p>Deletes configuration data.</p>
 
         <p>The running configuration cannot be deleted and <c>:candidate</c>
@@ -487,54 +501,25 @@
       </desc>
     </func>
 
-    <func>
-      <name>edit_config(Client, Target, Config) -&gt; Result</name>
-        <fsummary>Equivalent to edit_config(Client, Target, Config, [],
-          infinity).</fsummary>
-      <desc><marker id="edit_config-3"/>
-        <p>Equivalent to
-          <seealso marker="#edit_config-5"><c>ct_netconfc:edit_config(Client,
-          Target, Config, [], infinity)</c></seealso>.</p>
+     <func>
+      <name name="disconnect" arity="1"/>
+      <fsummary>Closes the given SSH connection.</fsummary>
+      <desc>
+	<p>Closes the given SSH connection.</p>
+
+	<p>If there are open NETCONF sessions on the connection, these
+	  will be brutally aborted. To avoid this, close each session
+	  with <seealso marker="#close_session-1"><c>close_session/1,2</c></seealso></p>
       </desc>
     </func>
 
     <func>
-      <name>edit_config(Client, Target, Config, OptParamsOrTimeout) -&gt; Result</name>
-      <fsummary>If OptParamsOrTimeout is a time-out value, this function is
-        equivalent to ct_netconfc:edit_config(Client, Target, Config, [],
-        Timeout).</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = netconf_db()</v>
-        <v>Config = simple_xml()</v>
-        <v>OptParamsOrTimeout = [simple_xml()] | timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="edit_config-4"/>
-        <p>If <c>OptParamsOrTimeout</c> is a time-out value, this function is
-          equivalent to
-          <seealso marker="#edit_config-5"><c>ct_netconfc:edit_config(Client,
-          Target, Config, [], Timeout)</c></seealso>.</p>
-
-        <p>If <c>OptParamsOrTimeout</c> is a list of simple XML, this
-          function is equivalent to
-          <seealso marker="#edit_config-5"><c>ct_netconfc:edit_config(Client,
-          Target, Config, OptParams, infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>edit_config(Client, Target, Config, OptParams, Timeout) -&gt; Result</name>
+      <name name="edit_config" arity="3"/>
+      <name name="edit_config" arity="4" clause_i="1"/>
+      <name name="edit_config" arity="4" clause_i="2"/>
+      <name name="edit_config" arity="5"/>
       <fsummary>Edits configuration data.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = netconf_db()</v>
-        <v>Config = simple_xml()</v>
-        <v>OptParams = [simple_xml()]</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="edit_config-5"/>
+      <desc>
         <p>Edits configuration data.</p>
 
         <p>By default only the running target is available, unless the server
@@ -550,29 +535,17 @@
         <pre>
  [{'default-operation', ["none"]},
   {'error-option', ["rollback-on-error"]}]</pre>
+
+	<p>If <c><anno>OptParams</anno></c> is not given, the default
+	  value <c>[]</c> is used.</p>
       </desc>
     </func>
 
     <func>
-      <name>get(Client, Filter) -&gt; Result</name>
-      <fsummary>Equivalent to get(Client, Filter, infinity).</fsummary>
-      <desc><marker id="get-2"/>
-        <p>Equivalent to
-          <seealso marker="#get-3"><c>ct_netconfc:get(Client, Filter,
-            infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>get(Client, Filter, Timeout) -&gt; Result</name>
+      <name name="get" arity="2"/>
+      <name name="get" arity="3"/>
       <fsummary>Gets data.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Filter = simple_xml() | xpath()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = {ok, [simple_xml()]} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="get-3"/>
+      <desc>
         <p>Gets data.</p>
  
         <p>This operation returns both configuration and state data from the
@@ -584,24 +557,10 @@
     </func>
 
     <func>
-      <name>get_capabilities(Client) -&gt; Result</name>
-      <fsummary>Equivalent to get_capabilities(Client, infinity).</fsummary>
-      <desc><marker id="get_capabilities-1"/>
-        <p>Equivalent to
-          <seealso marker="#get_capabilities-2"><c>ct_netconfc:get_capabilities(Client,
-          infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>get_capabilities(Client, Timeout) -&gt; Result</name>
+      <name name="get_capabilities" arity="1"/>
+      <name name="get_capabilities" arity="2"/>
       <fsummary>Returns the server side capabilities.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = [string()] | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="get_capabilities-2"/>
+      <desc>
         <p>Returns the server side capabilities.</p>
 
         <p>The following capability identifiers, defined in RFC 4741 NETCONF
@@ -623,26 +582,10 @@
     </func>
 
     <func>
-      <name>get_config(Client, Source, Filter) -&gt; Result</name>
-      <fsummary>Equivalent to get_config(Client, Source, Filter,
-        infinity).</fsummary>
-      <desc><marker id="get_config-3"/>
-        <p>Equivalent to
-          <seealso marker="#get_config-4"><c>ct_netconfc:get_config(Client, Source, Filter, infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>get_config(Client, Source, Filter, Timeout) -&gt; Result</name>
+      <name name="get_config" arity="3"/>
+      <name name="get_config" arity="4"/>
       <fsummary>Gets configuration data.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Source = netconf_db()</v>
-        <v>Filter = simple_xml() | xpath()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = {ok, [simple_xml()]} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="get_config-4"/>
+      <desc>
         <p>Gets configuration data.</p>
 
         <p>To be able to access another source than <c>running</c>, the
@@ -654,25 +597,12 @@
     </func>
 
     <func>
-      <name>get_event_streams(Client, Timeout) -&gt; Result</name>
-      <fsummary>Equivalent to get_event_streams(Client, [], Timeout).</fsummary>
-      <desc><marker id="get_event_streams-2"/>
-        <p>Equivalent to
-          <seealso marker="#get_event_streams-3"><c>ct_netconfc:get_event_streams(Client,
-          [], Timeout)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>get_event_streams(Client, Streams, Timeout) -&gt; Result</name>
+      <name name="get_event_streams" arity="1"/>
+      <name name="get_event_streams" arity="2" clause_i="1"/>
+      <name name="get_event_streams" arity="2" clause_i="2"/>
+      <name name="get_event_streams" arity="3"/>
       <fsummary>Sends a request to get the specified event streams.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Streams = [stream_name()]</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = {ok, streams()} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="get_event_streams-3"/>
+      <desc>
         <p>Sends a request to get the specified event streams.</p>
 
         <p><c>Streams</c> is a list of stream names. The following filter is
@@ -700,67 +630,28 @@
  &lt;/netconf&gt;</pre>
 
         <p>If more complex filtering is needed, use
-          <seealso marker="#get-2"><c>ct_netconfc:get/2</c></seealso> or
-          <seealso marker="#get-3"><c>ct_netconfc:get/3</c></seealso> and
+          <seealso marker="#get-2"><c>ct_netconfc:get/2,3</c></seealso> and
           specify the exact filter according to "XML Schema for Event
           Notifications" in RFC 5277.</p>
       </desc>
     </func>
 
     <func>
-      <name>get_session_id(Client) -&gt; Result</name>
-      <fsummary>Equivalent to get_session_id(Client, infinity).</fsummary>
-      <desc><marker id="get_session_id-1"/>
-        <p>Equivalent to
-          <seealso marker="#get_session_id-2"><c>ct_netconfc:get_session_id(Client,
-          infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>get_session_id(Client, Timeout) -&gt; Result</name>
+      <name name="get_session_id" arity="1"/>
+      <name name="get_session_id" arity="2"/>
       <fsummary>Returns the session Id associated with the specified
         client.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = pos_integer() | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="get_session_id-2"/>
+      <desc>
         <p>Returns the session Id associated with the specified client.</p>
       </desc>
     </func>
 
     <func>
-      <name>hello(Client) -&gt; Result</name>
-      <fsummary>Equivalent to hello(Client, [], infinity).</fsummary>
-      <desc><marker id="hello-1"/>
-        <p>Equivalent to
-          <seealso marker="#hello-3"><c>ct_netconfc:hello(Client, [],
-          infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>hello(Client, Timeout) -&gt; Result</name>
-      <fsummary>Equivalent to hello(Client, [], Timeout).</fsummary>
-      <desc><marker id="hello-2"/>
-        <p>Equivalent to
-          <seealso marker="#hello-3"><c>ct_netconfc:hello(Client, [],
-          Timeout)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>hello(Client, Options, Timeout) -&gt; Result</name>
+      <name name="hello" arity="1"/>
+      <name name="hello" arity="2"/>
+      <name name="hello" arity="3"/>
       <fsummary>Exchanges hello messages with the server.</fsummary>
-      <type>
-        <v>Client = handle()</v>
-        <v>Options = [{capability, [string()]}]</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="hello-3"/>
+      <desc>
         <p>Exchanges <c>hello</c> messages with the server.</p>
 
         <p>Adds optional capabilities and sends a <c>hello</c> message to the
@@ -769,27 +660,11 @@
     </func>
 
     <func>
-      <name>kill_session(Client, SessionId) -&gt; Result</name>
-      <fsummary>Equivalent to kill_session(Client, SessionId,
-        infinity).</fsummary>
-      <desc><marker id="kill_session-2"/>
-        <p>Equivalent to
-          <seealso marker="#kill_session-3"><c>ct_netconfc:kill_session(Client,
-SessionId, infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>kill_session(Client, SessionId, Timeout) -&gt; Result</name>
+      <name name="kill_session" arity="2"/>
+      <name name="kill_session" arity="3"/>
       <fsummary>Forces termination of the session associated with the supplied
         session Id.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>SessionId = pos_integer()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="kill_session-3"/>
+      <desc>
         <p>Forces termination of the session associated with the supplied
           session Id.</p>
 
@@ -807,26 +682,11 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>lock(Client, Target) -&gt; Result</name>
-      <fsummary>Equivalent to lock(Client, Target, infinity).</fsummary>
-      <desc><marker id="lock-2"/>
-        <p>Equivalent to
-          <seealso marker="#lock-3"><c>ct_netconfc:lock(Client, Target,
-            infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>lock(Client, Target, Timeout) -&gt; Result</name>
-      <fsummary>Unlocks the configuration target.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = netconf_db()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="lock-3"/>
-        <p>Unlocks the configuration target.</p>
+      <name name="lock" arity="2"/>
+      <name name="lock" arity="3"/>
+      <fsummary>Locks the configuration target.</fsummary>
+      <desc>
+        <p>Locks the configuration target.</p>
 
         <p>Which target parameters that can be used depends on if
           <c>:candidate</c> and/or <c>:startup</c> are supported by the
@@ -835,9 +695,7 @@ SessionId, infinity)</c></seealso>.</p>
           Locks are intended to be short-lived.</p>
 
          <p>Operation
-           <seealso marker="#kill_session-2"><c>ct_netconfc:kill_session/2</c></seealso>
-           or
-           <seealso marker="#kill_session-3"><c>ct_netconfc:kill_session/3</c></seealso>
+           <seealso marker="#kill_session-2"><c>kill_session/2,3</c></seealso>
            can be used to force the release of a lock owned by another NETCONF
            session. How this is achieved by the server side is
            implementation-specific.</p>
@@ -845,54 +703,41 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>only_open(Options) -&gt; Result</name>
+      <name name="only_open" arity="1"/>
       <fsummary>Opens a NETCONF session, but does not send hello.</fsummary>
-      <type>
-        <v>Options = options()</v>
-        <v>Result = {ok, handle()} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="only_open-1"/>
+      <desc>
         <p>Opens a NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open-1"><c>ct_netconfc:open/1</c></seealso>,
-          but does not send a <c>hello</c> message.</p>
+        <p>As <seealso marker="#open-1"><c>open/1</c></seealso>, but
+          does not send a <c>hello</c> message.</p>
       </desc>
     </func>
 
     <func>
-      <name>only_open(KeyOrName, ExtraOptions) -&gt; Result</name>
-      <fsummary>Opens a name NETCONF session, but does not send
-        hello.</fsummary>
-      <type>
-        <v>KeyOrName = key_or_name()</v>
-        <v>ExtraOptions = options()</v>
-        <v>Result = {ok, handle()} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="only_open-2"/>
-        <p>Opens a name NETCONF session, but does not send <c>hello</c>.</p>
+      <name name="only_open" arity="2"/>
+      <fsummary>Opens a named NETCONF session, but does not send hello.</fsummary>
+      <desc>
+        <p>Opens a named NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso>,
-          but does not send a <c>hello</c> message.</p>
+        <p>As <seealso marker="#open-2"><c>open/2</c></seealso>, but
+          does not send a <c>hello</c> message.</p>
       </desc>
     </func>
 
     <func>
-    <name>open(Options) -&gt; Result</name>
-    <fsummary>Opens a NETCONF session and exchanges hello messages.</fsummary>
-      <type>
-        <v>Options = options()</v>
-        <v>Result = {ok, handle()} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="open-1"/>
+      <name name="open" arity="1"/>
+      <fsummary>Opens a NETCONF session and exchanges hello messages.</fsummary>
+      <desc>
         <p>Opens a NETCONF session and exchanges <c>hello</c> messages.</p>
 
         <p>If the server options are specified in a configuration file,
           or if a named client is needed for logging purposes (see section
           <seealso marker="#Logging">Logging</seealso> in this module), use
-          <seealso marker="#open-2"><c>ct_netconfc:open/2</c></seealso>
+          <seealso marker="#open-2"><c>open/2</c></seealso>
           instead.</p>
 
-        <p>The opaque <c>handle()</c> reference returned from this
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
           function is required as client identifier when calling any other
           function in this module.</p>
 
@@ -904,37 +749,36 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>open(KeyOrName, ExtraOptions) -&gt; Result</name>
+      <name name="open" arity="2"/>
       <fsummary>Opens a named NETCONF session and exchanges hello
         messages.</fsummary>
-      <type>
-        <v>KeyOrName = key_or_name()</v>
-        <v>ExtraOptions = options()</v>
-        <v>Result = {ok, handle()} | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="open-2"/>
+      <desc>
         <p>Opens a named NETCONF session and exchanges <c>hello</c>
           messages.</p>
 
-         <p>If <c>KeyOrName</c> is a configured <c>server_id()</c> or a
+         <p>If <c><anno>KeyOrName</anno></c> is a
+           configured <c>server_id()</c> or a
            <c>target_name()</c> associated with such an Id, then the options
            for this server are fetched from the configuration file.</p>
 
-         <p>Argument <c>ExtraOptions</c> is added to the options found in the
-           configuration file. If the same options are specified, the values
-           from the configuration file overwrite <c>ExtraOptions</c>.</p>
+         <p>Argument <c><anno>ExtraOptions</anno></c> is added to the
+           options found in the configuration file. If the same
+           options are specified, the values from the configuration
+           file overwrite <c><anno>ExtraOptions</anno></c>.</p>
 
          <p>If the server is not specified in a configuration file, use
-           <seealso marker="#open-1"><c>ct_netconfc:open/1</c></seealso>
+           <seealso marker="#open-1"><c>open/1</c></seealso>
            instead.</p>
 
-         <p>The opaque <c>handle()</c> reference returned from this
+         <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	   reference returned from this
            function can be used as client identifier when calling any other
-           function in this module. However, if <c>KeyOrName</c> is a
+           function in this module. However, if <c><anno>KeyOrName</anno></c> is a
            <c>target_name()</c>, that is, if the server is named through a
            call to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
            or a <c>require</c> statement in the test suite, then this name can
-           be used instead of <c>handle()</c>.</p>
+           be used instead of
+	   <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
 
         <p>Option <c>timeout</c> (milliseconds) is used when setting up the
           SSH connection and when waiting for the <c>hello</c> message from
@@ -947,25 +791,10 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send(Client, SimpleXml) -&gt; Result</name>
-      <fsummary>Equivalent to send(Client, SimpleXml, infinity).</fsummary>
-      <desc><marker id="send-2"/>
-        <p>Equivalent to
-          <seealso marker="#send-3"><c>ct_netconfc:send(Client, SimpleXml,
-            infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>send(Client, SimpleXml, Timeout) -&gt; Result</name>
+      <name name="send" arity="2"/>
+      <name name="send" arity="3"/>
       <fsummary>Sends an XML document to the server.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>SimpleXml = simple_xml()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = simple_xml() | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="send-3"/>
+      <desc>
         <p>Sends an XML document to the server.</p>
 
         <p>The specified XML document is sent "as is" to the server. This
@@ -975,25 +804,10 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>send_rpc(Client, SimpleXml) -&gt; Result</name>
-      <fsummary>Equivalent to send_rpc(Client, SimpleXml, infinity).</fsummary>
-      <desc><marker id="send_rpc-2"/>
-        <p>Equivalent to
-          <seealso marker="#send_rpc-3"><c>ct_netconfc:send_rpc(Client,
-          SimpleXml, infinity)</c></seealso>.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>send_rpc(Client, SimpleXml, Timeout) -&gt; Result</name>
+      <name name="send_rpc" arity="2"/>
+      <name name="send_rpc" arity="3"/>
       <fsummary>Sends a NETCONF rpc request to the server.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>SimpleXml = simple_xml()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = [simple_xml()] | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="send_rpc-3"/>
+      <desc>
         <p>Sends a NETCONF <c>rpc</c> request to the server.</p>
 
         <p>The specified XML document is wrapped in a valid NETCONF <c>rpc</c>
@@ -1006,30 +820,42 @@ SessionId, infinity)</c></seealso>.</p>
     </func>
 
     <func>
-      <name>unlock(Client, Target) -&gt; Result</name>
-      <fsummary>Equivalent to unlock(Client, Target, infinity).</fsummary>
-      <desc><marker id="unlock-2"/>
-        <p>Equivalent to
-          <seealso marker="#unlock-3"><c>ct_netconfc:unlock(Client, Target,
-            infinity)</c></seealso>.</p>
+      <name name="session" arity="1"/>
+      <name name="session" arity="2" clause_i="1"/>
+      <name name="session" arity="2" clause_i="2"/>
+      <name name="session" arity="3"/>
+      <fsummary>Opens a NETCONF session as a channel on the given SSH
+	connection, and exchanges hello messages with the
+	server.</fsummary>
+      <type name="session_options"/>
+      <type name="session_option"/>
+      <desc>
+	<p>Opens a NETCONF session as a channel on the given SSH
+          connection, and exchanges hello messages with the server.</p>
+
+        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+	  reference returned from this
+          function can be used as client identifier when calling any
+          other function in this module. However, if <c><anno>KeyOrName</anno></c>
+          is used and it is a <c>target_name()</c>, that is, if the
+          server is named through a call
+          to <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          or a <c>require</c> statement in the test suite, then this
+          name can be used instead of
+	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+
       </desc>
     </func>
 
     <func>
-      <name>unlock(Client, Target, Timeout) -&gt; Result</name>
+      <name name="unlock" arity="2"/>
+      <name name="unlock" arity="3"/>
       <fsummary>Unlocks the configuration target.</fsummary>
-      <type>
-        <v>Client = client()</v>
-        <v>Target = netconf_db()</v>
-        <v>Timeout = timeout()</v>
-        <v>Result = ok | {error, error_reason()}</v>
-      </type>
-      <desc><marker id="unlock-3"/>
+      <desc>
         <p>Unlocks the configuration target.</p>
 
         <p>If the client earlier has acquired a lock through
-          <seealso marker="#lock-2"><c>ct_netconfc:lock/2</c></seealso> or
-          <seealso marker="#lock-3"><c>ct_netconfc:lock/3</c></seealso>, this
+          <seealso marker="#lock-2"><c>lock/2,3</c></seealso>, this
           operation releases the associated lock. To access another target
           than <c>running</c>, the server must support <c>:candidate</c>
           and/or <c>:startup</c>.</p>

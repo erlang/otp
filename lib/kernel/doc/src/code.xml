@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,25 +34,27 @@
     <p>This module contains the interface to the Erlang
       <em>code server</em>, which deals with the loading of compiled
       code into a running Erlang runtime system.</p>
-    <p>The runtime system can be started in <em>embedded</em> or
-      <em>interactive</em> mode. Which one is decided by command-line
+    <p>The runtime system can be started in <em>interactive</em> or
+      <em>embedded</em> mode. Which one is decided by the command-line
       flag <c>-mode</c>:</p>
     <pre>
 % <input>erl -mode interactive</input></pre>
     <p>The modes are as follows:</p>
     <list type="bulleted">
       <item>
-        <p>In embedded mode, all code is loaded during system startup
-          according to the boot script. (Code can also be loaded later
-          by explicitly ordering the code server to do so).</p>
-      </item>
-      <item>
         <p>In interactive mode, which is default, only some code is loaded
-	  during system startup, basically the modules needed by the runtime
+          during system startup, basically the modules needed by the runtime
           system. Other code is dynamically loaded when first
           referenced. When a call to a function in a certain module is
           made, and the module is not loaded, the code server searches
           for and tries to load the module.</p>
+      </item>
+      <item>
+        <p>In embedded mode, modules are not auto loaded. Trying to use
+        a module that has not been loaded results in an error. This mode is
+        recommended when the boot script loads all modules, as it is
+        typically done in OTP releases. (Code can still be loaded later
+        by explicitly ordering the code server to do so).</p>
       </item>
     </list>
     <p>To prevent accidentally reloading of modules affecting the Erlang
@@ -258,7 +260,7 @@ zip:create("mnesia-4.4.7.ez",
     both strings and atoms, but a future release will probably only allow
     the arguments that are documented.</p>
 
-    <p>As from Erlang/OTP R12B, functions in this module generally fail with an
+    <p>Functions in this module generally fail with an
     exception if they are passed an incorrect type (for example, an integer or a tuple
     where an atom is expected). An error tuple is returned if the argument type
     is correct, but there are some other errors (for example, a non-existing directory
@@ -382,9 +384,14 @@ zip:create("mnesia-4.4.7.ez",
       <name name="add_pathsa" arity="1"/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
-        <p>Adds the directories in <c><anno>Dirs</anno></c> to the beginning of
-          the code path. If a <c><anno>Dir</anno></c> exists, it is removed
-          from the old position in the code path.</p>
+	<p>Traverses <c><anno>Dirs</anno></c> and adds
+	  each <c><anno>Dir</anno></c> to the beginning of the code
+	  path. This means that the order of <c><anno>Dirs</anno></c>
+	  is reversed in the resulting code path. For example, if you
+	  add <c>[Dir1,Dir2]</c>, the resulting path will
+	  be <c>[Dir2,Dir1|OldCodePath]</c>.</p>
+	<p>If a <c><anno>Dir</anno></c> already exists in the code
+	  path, it is removed from the old position.</p>
 	<p>Always returns <c>ok</c>, regardless of the validity of each
           individual <c><anno>Dir</anno></c>.</p>
       </desc>
@@ -891,6 +898,48 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <desc>
         <p>Searches all directories in the code path for module names with
           identical names and writes a report to <c>stdout</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="module_status" arity="1"/>
+      <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
+      <desc>
+	<p>Returns:</p>
+	<taglist>
+	<tag><c>not_loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is not currently loaded.</p></item>
+        <tag><c>loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded and the object file
+	exists and contains the same code.</p></item>
+	<tag><c>removed</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but no
+	corresponding object file can be found in the code path.</p></item>
+        <tag><c>modified</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but the object file
+	contains code with a different MD5 checksum.</p></item>
+	</taglist>
+        <p>Preloaded modules are always reported as <c>loaded</c>, without
+        inspecting the contents on disk. Cover compiled modules will always
+        be reported as <c>modified</c> if an object file exists, or as
+        <c>removed</c> otherwise. Modules whose load path is an empty string
+        (which is the convention for auto-generated code) will only be
+        reported as <c>loaded</c> or <c>not_loaded</c>.</p>
+        <p>For modules that have native code loaded (see
+        <seealso marker="#is_module_native/1"><c>is_module_native/1</c></seealso>),
+        the MD5 sum of the native code in the object file is used for the
+        comparison, if it exists; the Beam code in the file is ignored.
+        Reversely, for modules that do not currently have native code
+        loaded, any native code in the file will be ignored.</p>
+        <p>See also <seealso marker="#modified_modules/0"><c>modified_modules/0</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="modified_modules" arity="0"/>
+      <fsummary>Return a list of all modules modified on disk.</fsummary>
+      <desc>
+        <p>Returns the list of all currently loaded modules for which
+        <seealso marker="#module_status/1"><c>module_status/1</c></seealso>
+        returns <c>modified</c>. See also <seealso marker="#all_loaded/0"><c>all_loaded/0</c></seealso>.</p>
       </desc>
     </func>
     <func>

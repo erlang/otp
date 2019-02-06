@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #define WANT_NONBLOCKING
 
@@ -131,6 +133,7 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
+    struct sigaction sa;
     int errln = -1;
     int size, res, i, pos = 0;
     char *buff, *o_buff;
@@ -141,6 +144,16 @@ start_new_child(int pipes[])
 
     /* only child executes here */
 
+    /* Restore default handling of sigterm... */
+    sa.sa_handler = SIG_DFL;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+    
     do {
         res = read(pipes[0], (char*)&size, sizeof(size));
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
@@ -433,6 +446,21 @@ main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     if (sigaction(SIGCHLD, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+
+    /* Ignore SIGTERM.
+       Some container environments send SIGTERM to all processes
+       when terminating. We don't want erl_child_setup to terminate
+       in these cases as that will prevent beam from properly
+       cleaning up.
+    */
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, 0) == -1) {
         perror(NULL);
         exit(1);
     }

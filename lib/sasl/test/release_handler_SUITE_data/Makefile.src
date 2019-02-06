@@ -76,7 +76,13 @@ SUP= \
 	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@ \
 	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@
 
-all: $(LIB) $(APP) $(OTP2740) $(C) $(SUP)
+UNICODE= \
+     unicode/u-1.0/ebin/u.@EMULATOR@ \
+     unicode/u-1.0/ebin/u_sup.@EMULATOR@ \
+     unicode/u-1.1/ebin/u.@EMULATOR@ \
+     unicode/u-1.1/ebin/u_sup.@EMULATOR@
+
+all: $(LIB) $(APP) $(OTP2740) $(C) $(SUP) $(UNICODE)
 
 lib/a-1.0/ebin/a.@EMULATOR@: lib/a-1.0/src/a.erl
 	erlc $(EFLAGS) -olib/a-1.0/ebin lib/a-1.0/src/a.erl
@@ -236,3 +242,13 @@ release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@: release_handler_ti
 	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
 	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
+
+unicode/u-1.0/ebin/u.@EMULATOR@: unicode/u-1.0/src/u.erl
+	erlc $(EFLAGS) -ounicode/u-1.0/ebin unicode/u-1.0/src/u.erl
+unicode/u-1.0/ebin/u_sup.@EMULATOR@: unicode/u-1.0/src/u_sup.erl
+	erlc $(EFLAGS) -ounicode/u-1.0/ebin unicode/u-1.0/src/u_sup.erl
+
+unicode/u-1.1/ebin/u.@EMULATOR@: unicode/u-1.1/src/u.erl
+	erlc $(EFLAGS) -ounicode/u-1.1/ebin unicode/u-1.1/src/u.erl
+unicode/u-1.1/ebin/u_sup.@EMULATOR@: unicode/u-1.1/src/u_sup.erl
+	erlc $(EFLAGS) -ounicode/u-1.1/ebin unicode/u-1.1/src/u_sup.erl

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@
 %%
 -module(filename).
 
+-deprecated({find_src,1,next_major_release}).
+-deprecated({find_src,2,next_major_release}).
+
 %% Purpose: Provides generic manipulation of filenames.
 %%
 %% Generally, these functions accept filenames in the native format
@@ -31,12 +34,46 @@
 %% we flatten the arguments immediately on function entry as that makes
 %% it easier to ensure that the code works.
 
+%%
+%% *** Requirements on Raw Filename Format ***
+%%
+%% These requirements are due to the 'filename' module
+%% in stdlib. This since it is documented that it
+%% should be able to operate on raw filenames as well
+%% as ordinary filenames.
+%%
+%% A raw filename *must* be a byte sequence where:
+%% 1. Codepoints 0-127 (7-bit ascii) *must* be encoded
+%%    as a byte with the corresponding value. That is,
+%%    the most significant bit in the byte encoding the
+%%    codepoint is never set.
+%% 2. Codepoints greater than 127 *must* be encoded
+%%    with the most significant bit set in *every* byte
+%%    encoding it.
+%%
+%% Latin1 and UTF-8 meet these requirements while
+%% UTF-16 and UTF-32 don't.
+%%
+%% On Windows filenames are natively stored as malformed
+%% UTF-16LE (lonely surrogates may appear). A more correct
+%% description than UTF-16 would be an array of 16-bit
+%% words... In order to meet the requirements of the
+%% raw file format we convert the malformed UTF-16LE to
+%% malformed UTF-8 which meet the requirements.
+%%
+%% Note that these requirements are today only OTP
+%% internal (erts-stdlib internal) requirements that
+%% could be changed.
+%%
+
 -export([absname/1, absname/2, absname_join/2, 
 	 basename/1, basename/2, dirname/1,
 	 extension/1, join/1, join/2, pathtype/1,
-	 rootname/1, rootname/2, split/1, nativename/1]).
--export([find_src/1, find_src/2, flatten/1]).
+         rootname/1, rootname/2, split/1, flatten/1, nativename/1,
+         safe_relative_path/1]).
+-export([find_src/1, find_src/2]). % deprecated
 -export([basedir/2, basedir/3]).
+-export([validate/1]).
 
 %% Undocumented and unsupported exports.
 -export([append/2]).
@@ -435,6 +472,10 @@ join(Name1, Name2) when is_atom(Name2) ->
 join1([UcLetter, $:|Rest], RelativeName, [], win32)
 when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
+join1([$\\,$\\|Rest], RelativeName, [], win32) ->
+    join1([$/,$/|Rest], RelativeName, [], win32);
+join1([$/,$/|Rest], RelativeName, [], win32) ->
+    join1(Rest, RelativeName, [$/,$/], win32);
 join1([$\\|Rest], RelativeName, Result, win32) ->
     join1([$/|Rest], RelativeName, Result, win32);
 join1([$/|Rest], RelativeName, [$., $/|Result], OsType) ->
@@ -463,6 +504,10 @@ join1([Atom|Rest], RelativeName, Result, OsType) when is_atom(Atom) ->
 join1b(<<UcLetter, $:, Rest/binary>>, RelativeName, [], win32)
 when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1b(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
+join1b(<<$\\,$\\,Rest/binary>>, RelativeName, [], win32) ->
+    join1b(<<$/,$/,Rest/binary>>, RelativeName, [], win32);
+join1b(<<$/,$/,Rest/binary>>, RelativeName, [], win32) ->
+    join1b(Rest, RelativeName, [$/,$/], win32);
 join1b(<<$\\,Rest/binary>>, RelativeName, Result, win32) ->
     join1b(<<$/,Rest/binary>>, RelativeName, Result, win32);
 join1b(<<$/,Rest/binary>>, RelativeName, [$., $/|Result], OsType) ->
@@ -473,6 +518,8 @@ join1b(<<>>, <<>>, Result, OsType) ->
     list_to_binary(maybe_remove_dirsep(Result, OsType));
 join1b(<<>>, RelativeName, [$:|Rest], win32) ->
     join1b(RelativeName, <<>>, [$:|Rest], win32);
+join1b(<<>>, RelativeName, [$/,$/|Result], win32) ->
+    join1b(RelativeName, <<>>, [$/,$/|Result], win32);
 join1b(<<>>, RelativeName, [$/|Result], OsType) ->
     join1b(RelativeName, <<>>, [$/|Result], OsType);
 join1b(<<>>, RelativeName, [$., $/|Result], OsType) ->
@@ -486,6 +533,8 @@ maybe_remove_dirsep([$/, $:, Letter], win32) ->
     [Letter, $:, $/];
 maybe_remove_dirsep([$/], _) ->
     [$/];
+maybe_remove_dirsep([$/,$/], win32) ->
+    [$/,$/];
 maybe_remove_dirsep([$/|Name], _) ->
     lists:reverse(Name);
 maybe_remove_dirsep(Name, _) ->
@@ -675,6 +724,9 @@ win32_splitb(<<Letter0,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter0) ->
     Letter = fix_driveletter(Letter0),
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<Letter,$:>> | [ X || X <- L, X =/= <<>> ]];
+win32_splitb(<<Slash,Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
+    L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
+    [<<"//">> | [ X || X <- L, X =/= <<>> ]];
 win32_splitb(<<Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<$/>> | [ X || X <- L, X =/= <<>> ]];
@@ -686,6 +738,8 @@ win32_splitb(Name) ->
 unix_split(Name) ->
     split(Name, [], unix).
 
+win32_split([Slash,Slash|Rest]) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
+    split(Rest, [[$/,$/]], win32);
 win32_split([$\\|Rest]) ->
     win32_split([$/|Rest]);
 win32_split([X, $\\|Rest]) when is_integer(X) ->
@@ -750,7 +804,45 @@ separators() ->
 	_ -> {false, false}
     end.
 
+-spec safe_relative_path(Filename) -> 'unsafe' | SafeFilename when
+      Filename :: file:name_all(),
+      SafeFilename :: file:name_all().
 
+safe_relative_path(Path) ->
+    case pathtype(Path) of
+        relative ->
+            Cs0 = split(Path),
+            safe_relative_path_1(Cs0, []);
+        _ ->
+            unsafe
+    end.
+
+safe_relative_path_1(["."|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([<<".">>|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([".."|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([<<"..">>|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([H|T], Acc) ->
+    safe_relative_path_1(T, [H|Acc]);
+safe_relative_path_1([], []) ->
+    [];
+safe_relative_path_1([], Acc) ->
+    join(lists:reverse(Acc)).
+
+climb(_, []) ->
+    unsafe;
+climb(T, [_|Acc]) ->
+    safe_relative_path_1(T, Acc).
+
+%% NOTE: The find_src/1/2 functions are deprecated; they try to do too much
+%% at once and are not a good fit for this module. Parts of the code have
+%% been moved to filelib:find_file/2 instead. Only this part of this
+%% module is allowed to call the filelib module; such mutual dependency
+%% should otherwise be avoided! This code should eventually be removed.
+%%
 
 %% find_src(Module) --
 %% find_src(Module, Rules) --
@@ -793,14 +885,7 @@ separators() ->
               | {'d', atom()},
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod) ->
-    Default = [{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}],
-    Rules = 
-	case application:get_env(kernel, source_search_rules) of
-	    undefined -> Default;
-	    {ok, []} -> Default;
-	    {ok, R} when is_list(R) -> R
-	end,
-    find_src(Mod, Rules).
+    find_src(Mod, []).
 
 -spec find_src(Beam, Rules) -> {SourceFile, Options}
                              | {error, {ErrorReason, Module}} when
@@ -816,44 +901,47 @@ find_src(Mod) ->
       ErrorReason :: 'non_existing' | 'preloaded' | 'interpreted'.
 find_src(Mod, Rules) when is_atom(Mod) ->
     find_src(atom_to_list(Mod), Rules);
-find_src(File0, Rules) when is_list(File0) ->
-    Mod = list_to_atom(basename(File0, ".erl")),
-    File = rootname(File0, ".erl"),
-    case readable_file(File++".erl") of
-	true  ->
-	    try_file(File, Mod, Rules);
-	false ->
-	    try_file(undefined, Mod, Rules)
-    end.
-
-try_file(File, Mod, Rules) ->
+find_src(ModOrFile, Rules) when is_list(ModOrFile) ->
+    Extension = ".erl",
+    Mod = list_to_atom(basename(ModOrFile, Extension)),
     case code:which(Mod) of
 	Possibly_Rel_Path when is_list(Possibly_Rel_Path) ->
-	    {ok, Cwd} = file:get_cwd(),
-	    Path = join(Cwd, Possibly_Rel_Path),
-	    try_file(File, Path, Mod, Rules);
+            {ok, Cwd} = file:get_cwd(),
+            ObjPath = make_abs_path(Cwd, Possibly_Rel_Path),
+            find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules);
 	Ecode when is_atom(Ecode) -> % Ecode :: ecode()
 	    {error, {Ecode, Mod}}
     end.
 
 %% At this point, the Mod is known to be valid.
 %% If the source name is not known, find it.
-%% Then get the compilation options.
-%% Returns: {SrcFile, Options}
+find_src_1(ModOrFile, ObjPath, Mod, Extension, Rules) ->
+    %% The documentation says this function must return the found path
+    %% without extension in all cases. Also, ModOrFile could be given with
+    %% or without extension. Hence the calls to rootname below.
+    ModOrFileRoot = rootname(ModOrFile, Extension),
+    case filelib:is_regular(ModOrFileRoot++Extension) of
+        true  ->
+            find_src_2(ModOrFileRoot, Mod);
+        false ->
+            SrcName = basename(ObjPath, code:objfile_extension()) ++ Extension,
+            case filelib:find_file(SrcName, dirname(ObjPath), Rules) of
+                {ok, SrcFile} ->
+                    find_src_2(rootname(SrcFile, Extension), Mod);
+                Error ->
+                    Error
+            end
+    end.
 
-try_file(undefined, ObjFilename, Mod, Rules) ->
-    case get_source_file(ObjFilename, Mod, Rules) of
-	{ok, File} -> try_file(File, ObjFilename, Mod, Rules);
-	Error -> Error
-    end;
-try_file(Src, _ObjFilename, Mod, _Rules) ->
+%% Get the compilation options and return {SrcFileRoot, Options}
+find_src_2(SrcRoot, Mod) ->
     List = case Mod:module_info(compile) of
 	       none -> [];
 	       List0 -> List0
 	   end,
     Options = proplists:get_value(options, List, []),
     {ok, Cwd} = file:get_cwd(),
-    AbsPath = make_abs_path(Cwd, Src),
+    AbsPath = make_abs_path(Cwd, SrcRoot),
     {AbsPath, filter_options(dirname(AbsPath), Options, [])}.
 
 %% Filters the options.
@@ -883,42 +971,6 @@ filter_options(Base, [_|Rest], Result) ->
     filter_options(Base, Rest, Result);
 filter_options(_Base, [], Result) ->
     Result.
-
-%% Gets the source file given path of object code and module name.
-
-get_source_file(Obj, Mod, Rules) ->
-    source_by_rules(dirname(Obj), atom_to_list(Mod), Rules).
-
-source_by_rules(Dir, Base, [{From, To}|Rest]) ->
-    case try_rule(Dir, Base, From, To) of
-	{ok, File} -> {ok, File};
-	error      -> source_by_rules(Dir, Base, Rest)
-    end;
-source_by_rules(_Dir, _Base, []) ->
-    {error, source_file_not_found}.
-
-try_rule(Dir, Base, From, To) ->
-    case lists:suffix(From, Dir) of
-	true -> 
-	    NewDir = lists:sublist(Dir, 1, length(Dir)-length(From))++To,
-	    Src = join(NewDir, Base),
-	    case readable_file(Src++".erl") of
-		true -> {ok, Src};
-		false -> error
-	    end;
-	false ->
-	    error
-    end.
-
-readable_file(File) ->
-    case file:read_file_info(File) of
-	{ok, #file_info{type=regular, access=read}} ->
-	    true;
-	{ok, #file_info{type=regular, access=read_write}} ->
-	    true;
-	_Other ->
-	    false
-    end.
 
 make_abs_path(BasePath, Path) ->
     join(BasePath, Path).
@@ -960,24 +1012,33 @@ filename_string_to_binary(List) ->
 %% basedir
 %% http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
--type basedir_type() :: 'user_cache' | 'user_config' | 'user_data'
-                      | 'user_log'
-                      | 'site_config' | 'site_data'.
+-type basedir_path_type() :: 'user_cache' | 'user_config' | 'user_data'
+                           | 'user_log'.
+-type basedir_paths_type() :: 'site_config' | 'site_data'.
 
--spec basedir(Type,Application) -> file:filename_all() when
-      Type :: basedir_type(),
+-type basedir_opts() :: #{author => string() | binary(),
+                          os => 'windows' | 'darwin' | 'linux',
+                          version => string() | binary()}.
+
+-spec basedir(PathType,Application) -> file:filename_all() when
+      PathType :: basedir_path_type(),
+      Application :: string() | binary();
+             (PathsType,Application) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
       Application :: string() | binary().
 
 basedir(Type,Application) when is_atom(Type), is_list(Application) orelse
                                               is_binary(Application) ->
     basedir(Type, Application, #{}).
 
--spec basedir(Type,Application,Opts) -> file:filename_all() when
-      Type :: basedir_type(),
+-spec basedir(PathType,Application,Opts) -> file:filename_all() when
+      PathType :: basedir_path_type(),
       Application :: string() | binary(),
-      Opts :: #{author => string() | binary(),
-                os => 'windows' | 'darwin' | 'linux',
-                version => string() | binary()}.
+      Opts :: basedir_opts();
+             (PathsType,Application,Opts) -> [file:filename_all()] when
+      PathsType :: basedir_paths_type(),
+      Application :: string() | binary(),
+      Opts :: basedir_opts().
 
 basedir(Type,Application,Opts) when is_atom(Type), is_map(Opts),
                                     is_list(Application) orelse
@@ -1034,10 +1095,10 @@ basedir_linux(Type) ->
         user_log    -> getenv("XDG_CACHE_HOME", ?basedir_linux_user_log,   true);
         site_data   ->
             Base = getenv("XDG_DATA_DIRS",?basedir_linux_site_data,false),
-            string:tokens(Base,":");
+            string:lexemes(Base, ":");
         site_config ->
             Base = getenv("XDG_CONFIG_DIRS",?basedir_linux_site_config,false),
-            string:tokens(Base,":")
+            string:lexemes(Base, ":")
     end.
 
 -define(basedir_darwin_user_data,   "Library/Application Support").
@@ -1133,3 +1194,72 @@ basedir_os_type() ->
         {win32,_}     -> windows;
         _             -> linux
     end.
+
+%%
+%% validate/1
+%%
+
+-spec validate(FileName) -> boolean() when
+      FileName :: file:name_all().
+
+validate(FileName) when is_binary(FileName) ->
+    %% Raw filename...
+    validate_bin(FileName);
+validate(FileName) when is_list(FileName);
+                        is_atom(FileName) ->
+    validate_list(FileName,
+                  file:native_name_encoding(),
+                  os:type()).
+
+validate_list(FileName, Enc, Os) ->
+    try
+        true = validate_list(FileName, Enc, Os, 0) > 0
+    catch
+        _ : _ -> false
+    end.
+
+validate_list([], _Enc, _Os, Chars) ->
+    Chars;
+validate_list(C, Enc, Os, Chars) when is_integer(C) ->
+    validate_char(C, Enc, Os),
+    Chars+1;
+validate_list(A, Enc, Os, Chars) when is_atom(A) ->
+    validate_list(atom_to_list(A), Enc, Os, Chars);
+validate_list([H|T], Enc, Os, Chars) ->
+    NewChars = validate_list(H, Enc, Os, Chars),
+    validate_list(T, Enc, Os, NewChars).
+
+%% C is always an integer...
+% validate_char(C, _, _) when not is_integer(C) ->
+%     throw(invalid);
+validate_char(C, _, _) when C < 1 ->
+    throw(invalid); %% No negative or null characters...
+validate_char(C, latin1, _) when C > 255 ->
+    throw(invalid);
+validate_char(C, utf8, _) when C >= 16#110000 ->
+    throw(invalid);
+validate_char(C, utf8, {win32, _}) when C > 16#ffff ->
+    throw(invalid); %% invalid win wchar...
+validate_char(_C, utf8, {win32, _}) ->
+    ok; %% Range below is accepted on windows...
+validate_char(C, utf8, _) when 16#D800 =< C, C =< 16#DFFF ->
+    throw(invalid); %% invalid unicode range...
+validate_char(_, _, _) ->
+    ok.
+
+validate_bin(Bin) ->
+    %% Raw filename. That is, we do not interpret
+    %% the encoding, but we still do not accept
+    %% null characters...
+    try
+        true = validate_bin(Bin, 0) > 0
+    catch
+        _ : _ -> false
+    end.
+
+validate_bin(<<>>, Bs) ->
+    Bs;
+validate_bin(<<0, _Rest/binary>>, _Bs) ->
+    throw(invalid); %% No null characters allowed...
+validate_bin(<<_B, Rest/binary>>, Bs) ->
+    validate_bin(Rest, Bs+1).

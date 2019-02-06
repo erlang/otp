@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 -import(lists, [sort/1,foreach/2]).
 
 iv() ->
-    Vsn = string:substr(filename:basename(code:lib_dir(debugger)), 10),
+    Vsn = string:slice(filename:basename(code:lib_dir(debugger)), 9),
     list_to_atom(Vsn).
 
 %% -------------------------------------------
@@ -307,13 +307,13 @@ ip() ->
 
 ip([{Pid,{M,F,A},Status,{}}|Stats]) ->
     hformat(io_lib:format("~w",[Pid]),
-	    io_lib:format("~p:~p/~p",[M,F,length(A)]),
+	    io_lib:format("~w:~tw/~w",[M,F,length(A)]),
 	    io_lib:format("~w",[Status]),
 	    ""),
     ip(Stats);
 ip([{Pid,{M,F,A},Status,Info}|Stats]) ->
     hformat(io_lib:format("~w",[Pid]),
-	    io_lib:format("~p:~p/~p",[M,F,length(A)]),
+	    io_lib:format("~w:~tw/~w",[M,F,length(A)]),
 	    io_lib:format("~w",[Status]),
 	    io_lib:format("~w",[Info])),
     ip(Stats);
@@ -321,7 +321,7 @@ ip([]) ->
     ok.
 
 hformat(A1, A2, A3, A4) ->
-    format("~-12s ~-21s ~-9s ~-21s~n", [A1,A2,A3,A4]).
+    format("~-12s ~-21ts ~-9s ~-21s~n", [A1,A2,A3,A4]).
 
 
 %% -------------------------------------------

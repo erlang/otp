@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,14 +89,14 @@ handle_data(Last, {_, Pid, out, _, Time2} = G, Store) ->
              end,
              New;
          false ->
-             io:format("Erlang top got garbage ~p~n", [G]),
+             io:format("Erlang top got garbage ~tp~n", [G]),
              Last
     end;
 handle_data(_W, {drop, D}, _) ->  %% Error case we are missing data here!
     io:format("Erlang top dropped data ~p~n", [D]),
     [];
 handle_data(Last, G, _) ->
-    io:format("Erlang top got garbage ~p~n", [G]),
+    io:format("Erlang top got garbage ~tp~n", [G]),
     Last.
 
 elapsed({Me1, S1, Mi1}, {Me2, S2, Mi2}) ->

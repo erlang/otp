@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ include $(LIBPATH)/stdlib/vsn.mk
 
 ##############################################################################
 
-debug opt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
+debug opt lcnt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
 
 rel:	$(REL_SCRIPTS)
 
@@ -171,8 +171,7 @@ $(ERL_TOP)/bin/no_dot_erlang.script:
 	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build +no_dot_erlang -o $@ $(SS_ROOT)/no_dot_erlang.rel )
 
 ## Special target used from system/build/Makefile for source code release bootstrap.
-## Add no_dot_erlang after next release
-bootstrap_scripts: $(SS_ROOT)/start_clean.rel
+bootstrap_scripts: $(SS_ROOT)/start_clean.rel $(SS_ROOT)/no_dot_erlang.rel
 	$(V_at)$(INSTALL_DIR) $(TESTROOT)/bin
 	$(V_at)$(INSTALL_DIR) $(SS_TMP)
 	$(V_at)( cd $(SS_TMP) && \
@@ -181,6 +180,10 @@ bootstrap_scripts: $(SS_ROOT)/start_clean.rel
 	$(V_at)( cd $(SS_TMP) && \
 	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
 	    -o $(TESTROOT)/bin/start_clean.script $(SS_ROOT)/start_clean.rel )
+	$(V_at)( cd $(SS_TMP) && \
+	  $(ERLC) $(BOOTSTRAP_SCRIPT_PATH) +otp_build +no_module_tests \
+	    -o $(TESTROOT)/bin/no_dot_erlang.script $(SS_ROOT)/no_dot_erlang.rel )
+
 
 clean:
 	$(V_at)$(RM) $(REL_SCRIPTS) $(INSTALL_SCRIPTS)

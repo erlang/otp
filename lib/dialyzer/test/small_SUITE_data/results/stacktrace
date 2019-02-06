@@ -1,0 +1,5 @@
+
+stacktrace.erl:11: The pattern {'a', 'b'} can never match the type [{atom(),atom(),[any()] | byte(),[{'file',string()} | {'line',pos_integer()}]}]
+stacktrace.erl:19: The pattern ['a', 'b'] can never match the type [{atom(),atom(),[any()] | byte(),[{'file',string()} | {'line',pos_integer()}]}]
+stacktrace.erl:44: The pattern {'a', 'b'} can never match the type [{atom(),atom(),[any()] | byte(),[{'file',string()} | {'line',pos_integer()}]}]
+stacktrace.erl:53: The pattern ['a', 'b'] can never match the type [{atom(),atom(),[any()] | byte(),[{'file',string()} | {'line',pos_integer()}]}]

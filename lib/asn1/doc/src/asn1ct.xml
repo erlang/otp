@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -170,11 +170,24 @@ File3.asn</pre>
               as for <c>ber</c>.
 	    </p>
           </item>
+          <tag><c>maps</c></tag>
+          <item>
+	    <p>This option changes the representation of the types
+	    <c>SEQUENCE</c> and <c>SET</c> to use maps (instead of
+	    records).  This option also suppresses the generation of
+	    <c>.hrl</c> files.</p>
+	    <p>For details, see Section
+	      <seealso marker="asn1_getting_started#MAP_SEQ_SET">
+		Map representation for SEQUENCE and SET</seealso>
+		in the User's Guide.
+	    </p>
+	  </item>
           <tag><c>compact_bit_string</c></tag>
           <item>
             <p>
 	      The <c>BIT STRING</c> type is decoded to "compact notation".
 	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
 	      <seealso marker="asn1_getting_started#BIT STRING">
@@ -188,6 +201,7 @@ File3.asn</pre>
 	      The <c>BIT STRING</c> type is decoded to the legacy
 	      format, that is, a list of zeroes and ones.
 	      <em>This option is not recommended for new code.</em>
+	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
 	      <seealso marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>
@@ -202,7 +216,8 @@ File3.asn</pre>
             marker="asn1_getting_started#BIT STRING">BIT STRING</seealso> and Section
             <seealso marker="asn1_getting_started#OCTET STRING">OCTET
             STRING</seealso> in the User's Guide.</p>
-	    <p><em>This option is not recommended for new code.</em></p>
+	    <p><em>This option is not recommended for new code.</em>
+	    This option cannot be combined with the option <c>maps</c>.</p>
 	  </item>
           <tag><c>{n2n, EnumTypeName}</c></tag>
           <item>
@@ -321,45 +336,6 @@ File3.asn</pre>
     </func>
 
     <func>
-      <name>encode(Module, Type, Value)-> {ok, Bytes} | {error, Reason}</name>
-      <fsummary>Encodes an ASN.1 value.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = term()</v>
-        <v>Bytes = binary()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Encodes <c>Value</c> of <c>Type</c> defined in the <c>ASN.1</c> module
-          <c>Module</c>. To get as fast execution as possible, the
-          encode function performs only the rudimentary tests that input 
-          <c>Value</c> is a correct instance of <c>Type</c>. So, for example,
-	  the length of strings is
-          not always checked. Returns <c>{ok, Bytes}</c> if successful or
-          <c>{error, Reason}</c> if an error occurred.
-          </p>
-	<p>This function is deprecated.
-	Use <c>Module:encode(Type, Value)</c> instead.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>decode(Module, Type, Bytes) -> {ok, Value} | {error, Reason}</name>
-      <fsummary>Decode from Bytes into an ASN.1 value.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = Reason = term()</v>
-        <v>Bytes = binary()</v>
-      </type>
-      <desc>
-        <p>Decodes <c>Type</c> from <c>Module</c> from the binary
-          <c>Bytes</c>. Returns <c>{ok, Value}</c> if successful.</p>
-	<p>This function is deprecated.
-	Use <c>Module:decode(Type, Bytes)</c> instead.</p>
-      </desc>
-    </func>
-
-    <func>
       <name>value(Module, Type) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Creates an ASN.1 value for test purposes.</fsummary>
       <type>
@@ -424,11 +400,11 @@ File3.asn</pre>
         <p>Schematically, the following occurs for each type in the module:</p>
         <code type="none">
 {ok, Value} = asn1ct:value(Module, Type),
-{ok, Bytes} = asn1ct:encode(Module, Type, Value),
-{ok, Value} = asn1ct:decode(Module, Type, Bytes).</code>
+{ok, Bytes} = Module:encode(Type, Value),
+{ok, Value} = Module:decode(Type, Bytes).</code>
         <p>The <c>test</c> functions use the <c>*.asn1db</c> files
           for all included modules. If they are located in a different
-          directory than the current working directory, use the include
+          directory than the current working directory, use the <c>include</c>
           option to add paths. This is only needed when automatically
           generating values. For static values using <c>Value</c> no
           options are needed.</p>

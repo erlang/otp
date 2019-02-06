@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,16 +108,15 @@ static int lbuf_size = BUFSIZ;
 static Uint32 *lbuf;		/* The current line buffer */
 static int llen;		/* The current line length */
 static int lpos;                /* The current "cursor position" in the line buffer */
-
+                                /* NOTE: not the same as column position a char may not take a"
+                                 * column to display or it might take many columns
+                                 */
 /* 
  * Tags used in line buffer to show that these bytes represent special characters,
  * Max unicode is 0x0010ffff, so we have lots of place for meta tags... 
  */
 #define CONTROL_TAG 0x10000000U /* Control character, value in first position */
 #define ESCAPED_TAG 0x01000000U /* Escaped character, value in first position */
-#ifdef HAVE_WCWIDTH
-#define WIDE_TAG    0x02000000U /* Wide character, value in first position    */
-#endif
 #define TAG_MASK    0xFF000000U
 
 #define MAXSIZE (1 << 16)
@@ -156,6 +155,8 @@ static int insert_buf(byte*,int);
 static int write_buf(Uint32 *,int);
 static int outc(int c);
 static int move_cursor(int,int);
+static int cp_pos_to_col(int cp_pos);
+
 
 /* Termcap functions. */
 static int start_termcap(void);
@@ -891,8 +892,8 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 		tpos = 0;
 	    }
 	}
-    } else {
-        DEBUGLOG(("ttysl_from_tty: driver failure in read(%d,..) = %d\n", (int)(SWord)fd, i)); 
+    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        DEBUGLOG(("ttysl_from_tty: driver failure in read(%d,..) = %d (errno = %d)\n", (int)(SWord)fd, i, errno));
 	driver_failure(ttysl_port, -1);
     }
 }
@@ -935,10 +936,10 @@ static int put_chars(byte *s, int l)
     int n;
 
     n = insert_buf(s, l);
+    if (lpos > llen)
+        llen = lpos;
     if (n > 0)
       write_buf(lbuf + lpos - n, n);
-    if (lpos > llen)
-      llen = lpos;
     return TRUE;
 }
 
@@ -991,34 +992,36 @@ static int del_chars(int n)
 {
     int i, l, r;
     int pos;
+    int gcs; /* deleted grapheme characters */
 
     update_cols();
 
     /* Step forward or backwards over n logical characters. */
     pos = step_over_chars(n);
-
+    DEBUGLOG(("del_chars: %d from %d %d %d\n", n, lpos, pos, llen));
     if (pos > lpos) {
 	l = pos - lpos;		/* Buffer characters to delete */
 	r = llen - lpos - l;	/* Characters after deleted */
+        gcs = cp_pos_to_col(pos) - cp_pos_to_col(lpos);
 	/* Fix up buffer and buffer pointers. */
 	if (r > 0)
 	    memmove(lbuf + lpos, lbuf + pos, r * sizeof(Uint32));
 	llen -= l;
 	/* Write out characters after, blank the tail and jump back to lpos. */
 	write_buf(lbuf + lpos, r);
-	for (i = l ; i > 0; --i)
+	for (i = gcs ; i > 0; --i)
 	  outc(' ');
-	if (COL(llen+l) == 0 && xn)
+	if (xn && COL(cp_pos_to_col(llen)+gcs) == 0)
 	{
 	   outc(' ');
 	   move_left(1);
 	}
-	move_cursor(llen + l, lpos);
+	move_cursor(llen + gcs, lpos);
     }
     else if (pos < lpos) {
 	l = lpos - pos;		/* Buffer characters */
 	r = llen - lpos;	/* Characters after deleted */
-	move_cursor(lpos, lpos-l);	/* Move back */
+	gcs = -move_cursor(lpos, lpos-l);	/* Move back */
 	/* Fix up buffer and buffer pointers. */
 	if (r > 0)
 	    memmove(lbuf + pos, lbuf + lpos, r * sizeof(Uint32));
@@ -1026,14 +1029,14 @@ static int del_chars(int n)
 	llen -= l;
 	/* Write out characters after, blank the tail and jump back to lpos. */
 	write_buf(lbuf + lpos, r);
-	for (i = l ; i > 0; --i)
-	  outc(' ');
-	if (COL(llen+l) == 0 && xn)
+	for (i = gcs ; i > 0; --i)
+          outc(' ');
+        if (xn && COL(cp_pos_to_col(llen)+gcs) == 0)
 	{
-	   outc(' ');
-	   move_left(1);
+          outc(' ');
+          move_left(1);
 	}
-	move_cursor(llen + l, lpos);
+        move_cursor(llen + gcs, lpos);
     }
     return TRUE;
 }
@@ -1047,22 +1050,12 @@ static int step_over_chars(int n)
     end = lbuf + llen;
     c = lbuf + lpos;
     for ( ; n > 0 && c < end; --n) {
-#ifdef HAVE_WCWIDTH
-	while (*c & WIDE_TAG) {
-	    c++;
-	}
-#endif
 	c++;
 	while (c < end && (*c & TAG_MASK) && ((*c & ~TAG_MASK) == 0))
 	    c++;
     }
     for ( ; n < 0 && c > beg; n++) {
 	--c;
-#ifdef HAVE_WCWIDTH
-	while (c > beg + 1 && (c[-1] & WIDE_TAG)) {
-	    --c;
-	}
-#endif
 	while (c > beg && (*c & TAG_MASK) && ((*c & ~TAG_MASK) == 0))
 	    --c;
     }
@@ -1088,15 +1081,6 @@ static int insert_buf(byte *s, int n)
 	    ++pos;
 	}
 	if ((utf8_mode && (ch >= 128 || isprint(ch))) || (ch <= 255 && isprint(ch))) {
-#ifdef HAVE_WCWIDTH
-	    int width;
-	    if ((width = wcwidth(ch)) > 1) {
-		while (--width) {
-		    DEBUGLOG(("insert_buf: Wide(UTF-8):%d,%d",width,ch));
-		    lbuf[lpos++] = (WIDE_TAG | ((Uint32) ch));
-		}
-	    }
-#endif
 	    DEBUGLOG(("insert_buf: Printable(UTF-8):%d",ch));
 	    lbuf[lpos++] = (Uint32) ch;
 	} else if (ch >= 128) { /* not utf8 mode */
@@ -1110,15 +1094,14 @@ static int insert_buf(byte *s, int n)
 		lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
 		ch = 0;
 	    } while (lpos % 8);
-	} else if (ch == '\e' || ch == '\n' || ch == '\r') {
+	} else if (ch == '\e') {
+	    DEBUGLOG(("insert_buf: ANSI Escape: \\e"));
+	    lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
+	} else if (ch == '\n' || ch == '\r') {
 	    write_buf(lbuf + buffpos, lpos - buffpos);
-            if (ch == '\e') {
-                outc('\e');
-            } else {
                 outc('\r');
                 if (ch == '\n')
                     outc('\n');
-            }
 	    if (llen > lpos) {
 		memcpy(lbuf, lbuf + lpos, llen - lpos);
 	    }
@@ -1166,14 +1149,17 @@ static int write_buf(Uint32 *s, int n)
 	    }
 	    --n;
 	    ++s;
-	}
-	else if (*s == (CONTROL_TAG | ((Uint32) '\t'))) {
+	} else if (*s == (CONTROL_TAG | ((Uint32) '\t'))) {
 	    outc(lastput = ' ');
 	    --n; s++;
 	    while (n > 0 && *s == CONTROL_TAG) {
 		outc(lastput = ' ');
 		--n; s++;
 	    }
+	} else if (*s == (CONTROL_TAG | ((Uint32) '\e'))) {
+	    outc(lastput = '\e');
+	    --n;
+	    ++s;
 	} else if (*s & CONTROL_TAG) {
 	    outc('^');
 	    outc(lastput = ((byte) ((*s == 0177) ? '?' : *s | 0x40)));
@@ -1204,10 +1190,6 @@ static int write_buf(Uint32 *s, int n)
 	    if (octbuff != octtmp) {
 		driver_free(octbuff);
 	    }
-#ifdef HAVE_WCWIDTH
-	} else if (*s & WIDE_TAG) {
-	    --n; s++;
-#endif
 	} else {
 	    DEBUGLOG(("write_buf: Very unexpected character %d",(int) *s));
 	    ++n;
@@ -1216,7 +1198,7 @@ static int write_buf(Uint32 *s, int n)
     }
     /* Check landed in first column of new line and have 'xn' bug. */
     n = s - lbuf;
-    if (COL(n) == 0 && xn && n != 0) {
+    if (xn && n != 0 && COL(cp_pos_to_col(n)) == 0) {
 	if (n >= llen) {
 	    outc(' ');
 	} else if (lastput == 0) { /* A multibyte UTF8 character */
@@ -1246,14 +1228,19 @@ static int outc(int c)
     return 1;
 }
 
-static int move_cursor(int from, int to)
+static int move_cursor(int from_pos, int to_pos)
 {
+    int from_col, to_col;
     int dc, dl;
-
     update_cols();
 
-    dc = COL(to) - COL(from);
-    dl = LINE(to) - LINE(from);
+    from_col = cp_pos_to_col(from_pos);
+    to_col = cp_pos_to_col(to_pos);
+
+    dc = COL(to_col) - COL(from_col);
+    dl = LINE(to_col) - LINE(from_col);
+    DEBUGLOG(("move_cursor: from %d %d to %d %d => %d %d\n",
+              from_pos, from_col, to_pos, to_col, dl, dc));
     if (dl > 0)
       move_down(dl);
     else if (dl < 0)
@@ -1262,7 +1249,66 @@ static int move_cursor(int from, int to)
       move_right(dc);
     else if (dc < 0)
       move_left(-dc);
-    return TRUE;
+    return to_col-from_col;
+}
+
+/*
+ * Returns the length of an ANSI escape code in a buffer, this function only consider
+ * color escape sequences like `\e[33m` or `\e[21;33m`. If a sequence has no valid
+ * terminator, the length is equal the number of characters between `\e` and the first
+ * invalid character, inclusive.
+ */
+
+static int ansi_escape_width(Uint32 *s, int max_length)
+{
+    int i;
+    
+    if (*s != (CONTROL_TAG | ((Uint32) '\e'))) {
+       return 0;
+    } else if (max_length <= 1) {
+       return 1;
+    } else if (s[1] != '[') {
+       return 2;
+    }
+    
+    for (i = 2; i < max_length && (s[i] == ';' || (s[i] >= '0' && s[i] <= '9')); i++);
+
+    return i + 1;
+}
+
+static int cp_pos_to_col(int cp_pos)
+{
+    /*
+     * If we don't have any character width information. Assume that
+     * code points are one column wide
+     */
+    int w = 1;
+    int col = 0;
+    int i = 0;
+    int j;
+
+    if (cp_pos > llen) {
+        col += cp_pos - llen;
+        cp_pos = llen;
+    }
+
+    while (i < cp_pos) {
+       j = ansi_escape_width(lbuf + i, llen - i);
+
+       if (j > 0) {
+           i += j;
+       } else {
+#ifdef HAVE_WCWIDTH
+           w = wcwidth(lbuf[i]);
+#endif
+           if (w > 0) {
+              col += w;
+           }
+           i++;
+       }
+    }
+
+    return col;    
 }
 
 static int start_termcap(void)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@
 %% In specific:
 %% - hipe does not support any upgrade at all
 %% - dialyzer requires hipe (in the .app file)
-%% - typer requires hipe (in the .app file)
 %% - erl_interface, jinterface support no upgrade
 -define(appup_exclude, 
 	[dialyzer,hipe,typer,erl_interface,jinterface,ose]).
@@ -53,6 +52,10 @@ init_per_suite(Config) ->
 	    rm_rf(filename:join([proplists:get_value(data_dir,Config),priv_dir])),
 	    Config
     end.
+
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
 
 init_per_testcase(Case,Config) ->
     PrivDir = filename:join([proplists:get_value(data_dir,Config),priv_dir,Case]),
@@ -129,7 +132,7 @@ upgrade_test1(FromVsn,ToVsn,Config) ->
 
     {FromRel,FromApps} = target_system(FromRelName, FromVsn,
 				       CreateDir, InstallDir,Config),
-    {ToRel,ToApps} = upgrade_system(FromRel, ToRelName, ToVsn,
+    {ToRel,ToApps} = upgrade_system(FromVsn, FromRel, ToRelName, ToVsn,
 				    CreateDir, InstallDir),
     do_upgrade(FromVsn, FromApps, ToRel, ToApps, InstallDir).
 
@@ -213,7 +216,7 @@ target_system(RelName0,RelVsn,CreateDir,InstallDir,Config) ->
 %%% Create a release containing the current (the test node) OTP
 %%% release, including relup to allow upgrade from an earlier OTP
 %%% release.
-upgrade_system(FromRel, ToRelName0, ToVsn,
+upgrade_system(FromVsn, FromRel, ToRelName0, ToVsn,
 	       CreateDir, InstallDir) ->
 
     {RelName,Apps,_} = create_relfile(node(),CreateDir,ToRelName0,ToVsn),
@@ -223,12 +226,52 @@ upgrade_system(FromRel, ToRelName0, ToVsn,
     ok = systools:make_relup(RelName,[FromRel],[FromRel],
 			     [{path,[FromPath]},
 			      {outdir,CreateDir}]),
+    case {FromVsn,ToVsn} of
+        {"20"++_,"21"++_} -> fix_relup_inets_ftp(filename:dirname(RelName));
+        _ -> ok
+    end,
+
     SysConfig = filename:join([CreateDir, "sys.config"]),
     write_file(SysConfig, "[]."),
 
     ok = systools:make_tar(RelName,[{erts,code:root_dir()}]),
 
     {RelName,Apps}.
+
+%% In OTP-21, ftp and tftp were split out from inets and formed two
+%% new separate applications. When creating the relup, systools
+%% automatically adds new applications first, before upgrading
+%% existing applications. Since ftp and tftp have processes with the
+%% same name as in the old version of inets, the upgrade failed with
+%% trying to start the new applications (already exist).
+%%
+%% To go around this problem, this function adds an instruction to
+%% stop inets before the new applications are started. This is a very
+%% specific adjustment, and it will be needed for any upgrade which
+%% involves conversion from inets to ftp/tftp.
+fix_relup_inets_ftp(Dir) ->
+    Filename = filename:join(Dir,"relup"),
+    {ok,[{ToVsn,Up,Down}]} = file:consult(Filename),
+    [{FromVsn,UpDescr,UpInstr}] = Up,
+    [{FromVsn,DownDescr,DownInstr}] = Down,
+
+    Fun = fun(point_of_no_return) -> false;
+             (_) -> true
+          end,
+    {UpBefore,[point_of_no_return|UpAfter]} = lists:splitwith(Fun,UpInstr),
+    {DownBefore,[point_of_no_return|DownAfter]} = lists:splitwith(Fun,DownInstr),
+    NewRelup =
+        {ToVsn,
+         [{FromVsn,UpDescr,UpBefore++[point_of_no_return,
+                                      {apply,{application,stop,[inets]}} |
+                                      UpAfter]}],
+         [{FromVsn,DownDescr,DownBefore++[point_of_no_return,
+                                          {apply,{application,stop,[inets]}} |
+                                          DownAfter]}]},
+    {ok, Fd} = file:open(Filename, [write,{encoding,utf8}]),
+    io:format(Fd, "%% ~s~n~tp.~n", [epp:encoding_to_string(utf8),NewRelup]),
+    ok = file:close(Fd).
+
 
 %%%-----------------------------------------------------------------
 %%% Start a new node running the release from target_system/5
@@ -284,7 +327,7 @@ create_relfile(Node,CreateDir,RelName0,RelVsn) ->
 			 true ->
 			     case filename:split(Path) -- SplitLibDir of
 				 [AppVsn,"ebin"] ->
-				     case string:tokens(AppVsn,"-") of
+				     case string:lexemes(AppVsn,"-") of
 					 [AppStr,Vsn] ->
 					     App = list_to_atom(AppStr),
 					     case lists:member(App,Exclude) of

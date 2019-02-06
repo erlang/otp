@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -157,7 +157,7 @@
     </note>
 
     <p>Most functions in this API are <em>not</em> thread-safe, that is,
-      they <em>cannot</em> be called from any thread. Functions
+      they <em>cannot</em> be called from arbitrary threads. Functions
       that are not documented as thread-safe can only be called from
       driver callbacks or function calls descending from a driver
       callback call. Notice that driver callbacks can be called from
@@ -429,7 +429,7 @@
     <taglist>
       <tag>Return types for driver callbacks</tag>
       <item>
-	<p>Rrewrite driver callback
+	<p>Rewrite driver callback
 	  <seealso marker="driver_entry#control"><c>control</c></seealso>
 	  to use return type <c>ErlDrvSSizeT</c> instead of <c>int</c>.</p>
 	<p>Rewrite driver callback
@@ -841,7 +841,7 @@ int suggested_stack_size;</code>
         <p>Thread options structure passed to
 	  <seealso marker="#erl_drv_thread_create">
             <c>erl_drv_thread_create</c></seealso>.
-	    The following fields exists:</p>
+	    The following field exists:</p>
         <taglist>
           <tag><c>suggested_stack_size</c></tag>
           <item>A suggestion, in kilowords, on how large a stack to use.
@@ -1103,8 +1103,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <marker id="driver_binary_dec_refc"></marker>
         <p>Decrements the reference count on <c>bin</c> and returns
           the reference count reached after the decrement.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
         <note>
           <p>The reference count of driver binary is normally to be decremented
             by calling <seealso marker="#driver_free_binary">
@@ -1124,8 +1123,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <desc>
         <marker id="driver_binary_get_refc"></marker>
         <p>Returns the current reference count on <c>bin</c>.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1137,8 +1135,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <marker id="driver_binary_inc_refc"></marker>
         <p>Increments the reference count on <c>bin</c> and returns
           the reference count reached after the increment.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1434,8 +1431,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <seealso marker="#driver_alloc_binary">
         <c>driver_alloc_binary</c></seealso>. As binaries
           in Erlang are reference counted, the binary can still be around.</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1872,8 +1868,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
         <p>Resizes a driver binary, while keeping the data.</p>
         <p>Returns the resized driver binary on success. Returns <c>NULL</c>
           on failure (out of memory).</p>
-        <p>This function is only thread-safe when the emulator with SMP
-          support is used.</p>
+        <p>This function is thread-safe.</p>
       </desc>
     </func>
 
@@ -1916,9 +1911,9 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           returned. Another thread can still be using the event object
           internally. To safely close an event object, call
           <c>driver_select</c> with <c>ERL_DRV_USE</c> and <c>on==0</c>, which
-          clears all events. Then call
-          <seealso marker="driver_entry#stop_select">
-          <c>stop_select</c></seealso> when it is safe to close the event
+          clears all events and then either calls
+	  <seealso marker="driver_entry#stop_select"><c>stop_select</c></seealso>
+	  or schedules it to be called when it is safe to close the event
           object. <c>ERL_DRV_USE</c> is to be set together with the first event
           for an event object. It is harmless to set <c>ERL_DRV_USE</c>
           even if it already has been done. Clearing all events but keeping
@@ -2039,7 +2034,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
       <fsummary>Set and get limits for busy port message queue.</fsummary>
       <desc>
         <marker id="erl_drv_busy_msgq_limits"></marker>
-        <p>Sets and gets limits that will be used for controling the
+        <p>Sets and gets limits that will be used for controlling the
           busy state of the port message queue.</p>
         <p>The port message queue is set into a busy
           state when the amount of command data queued on the
@@ -2112,7 +2107,7 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           It is used to identify the condition variable in planned
           future debug functionality.</p>
         <p>Returns <c>NULL</c> on failure. The driver
-          creating the condition variable is responsibile for
+          creating the condition variable is responsible for
           destroying it before the driver is unloaded.</p>
         <p>This function is thread-safe.</p>
       </desc>
@@ -2309,8 +2304,13 @@ r = driver_async(myPort, &myKey, myData, myFunc);    ]]></code>
           buffer is too small, a value &gt; <c>0</c> is returned and
           <c>*value_size</c> has been set to the buffer size needed.</p>
         <warning>
-          <p>Do <em>not</em> use libc's <c>getenv</c> or similar C library
-            interfaces from a driver.</p>
+          <p>This function reads the emulated environment used by
+            <seealso marker="os:getenv/1"><c>os:getenv/1</c></seealso> and not
+            the environment used by libc's <c>getenv(3)</c> or similar. Drivers
+            that <em>require</em> that these are in sync will need to do so
+            themselves, but keep in mind that they are segregated for a reason;
+            <c>getenv(3)</c> and its friends are <em>not thread-safe</em> and
+            may cause unrelated code to misbehave or crash the emulator.</p>
         </warning>
         <p>This function is thread-safe.</p>
       </desc>
@@ -2655,8 +2655,13 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
             environment variable is removed.</p>
         </note>
         <warning>
-          <p>Do <em>not</em> use libc's <c>putenv</c> or similar C library
-            interfaces from a driver.</p>
+          <p>This function modifies the emulated environment used by
+            <seealso marker="os:putenv/2"><c>os:putenv/2</c></seealso> and not
+            the environment used by libc's <c>putenv(3)</c> or similar. Drivers
+            that <em>require</em> that these are in sync will need to do so
+            themselves, but keep in mind that they are segregated for a reason;
+            <c>putenv(3)</c> and its friends are <em>not thread-safe</em> and
+            may cause unrelated code to misbehave or crash the emulator.</p>
         </warning>
         <p>This function is thread-safe.</p>
       </desc>
@@ -3215,6 +3220,6 @@ erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]
       <seealso marker="erlang"><c>erlang(3)</c></seealso>,
       <seealso marker="kernel:erl_ddll"><c>erl_ddll(3)</c></seealso>,
       section <seealso marker="alt_dist">How to Implement an Alternative
-      Carrier for the Erlang Distribution></seealso> in the User's Guide</p>
+      Carrier for the Erlang Distribution</seealso> in the User's Guide</p>
   </section>
 </cref>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1293,8 +1293,11 @@ static dsize_t I_bxor(ErtsDigit* x, dsize_t xl, short xsgn,
 		*r++ = ~c ^ *y++;
 		x++;
 	    }
-	    while(xl--)
-		*r++ = ~*x++;
+	    while(xl--) {
+		DSUBb(*x,0,b,c);
+		*r++ = ~c;
+		x++;
+	    }
 	}
 	else {
 	    ErtsDigit b1, b2;
@@ -1312,7 +1315,9 @@ static dsize_t I_bxor(ErtsDigit* x, dsize_t xl, short xsgn,
 		x++; y++;
 	    }
 	    while(xl--) {
-		*r++ = *x++;
+                DSUBb(*x,0,b1,c1);
+		*r++ = c1;
+                x++;
 	    }
 	}
     }
@@ -2266,21 +2271,6 @@ Eterm big_minus(Eterm x, Eterm y, Eterm *r)
 }
 
 /*
-** Subtract a digit from big number
-*/
-Eterm big_minus_small(Eterm x, Eterm y, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-
-    if (BIG_SIGN(xp))
-	return big_norm(r, D_add(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, BIG_V(r)), 
-			(short) BIG_SIGN(xp));
-    else
-	return big_norm(r, D_sub(BIG_V(xp),BIG_SIZE(xp), (ErtsDigit) y, BIG_V(r)), 
-			(short) BIG_SIGN(xp));
-}
-
-/*
 ** Multiply smallnums
 */
 
@@ -2410,16 +2400,6 @@ Eterm big_rem(Eterm x, Eterm y, Eterm *r)
 	dsize_t rsz = I_rem(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
 	return big_norm(r, rsz, sign);
     }
-}
-
-Eterm big_neg(Eterm x, Eterm *r)
-{
-    Eterm* xp = big_val(x);
-    dsize_t xsz = BIG_SIZE(xp);
-    short xsgn = BIG_SIGN(xp);
-    
-    MOVE_DIGITS(BIG_V(r), BIG_V(xp), xsz);
-    return big_norm(r, xsz, (short) !xsgn);
 }
 
 Eterm big_band(Eterm x, Eterm y, Eterm *r)
@@ -2569,12 +2549,17 @@ int term_equals_2pow32(Eterm x)
     }
 }
 
+static ERTS_INLINE int c2int_is_valid_char(byte ch, int base) {
+    if (base <= 10)
+        return (ch >= '0' && ch < ('0' + base));
+    else
+        return (ch >= '0' && ch <= '9')
+            || (ch >= 'A' && ch < ('A' + base - 10))
+            || (ch >= 'a' && ch < ('a' + base - 10));
+}
+
 static ERTS_INLINE int c2int_is_invalid_char(byte ch, int base) {
-    return (ch < '0'
-            || (ch > ('0' + base - 1)
-                && !(base > 10
-                     && ((ch >= 'a' && ch < ('a' + base - 10))
-                         || (ch >= 'A' && ch < ('A' + base - 10))))));
+    return !c2int_is_valid_char(ch, base);
 }
 
 static ERTS_INLINE byte c2int_digit_from_base(byte ch) {

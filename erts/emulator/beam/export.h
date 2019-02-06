@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,27 +33,25 @@ typedef struct export
 {
     void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
 
-    BeamInstr fake_op_func_info_for_hipe[2]; /* MUST be just before code[] */
+    ErtsCodeInfo info; /* MUST be just before beam[] */
+
     /*
-     * code[0]: Tagged atom for module.
-     * code[1]: Tagged atom for function.
-     * code[2]: Arity (untagged integer).
-     * code[3]: This entry is 0 unless the 'address' field points to it.
+     * beam[0]: This entry is 0 unless the 'addressv' field points to it.
      *          Threaded code instruction to load function
      *		(em_call_error_handler), execute BIF (em_apply_bif),
      *		or a breakpoint instruction (op_i_generic_breakpoint).
-     * code[4]: Function pointer to BIF function (for BIFs only),
+     * beam[1]: Function pointer to BIF function (for BIFs only),
      *		or pointer to threaded code if the module has an
      *		on_load function that has not been run yet, or pointer
-     *          to code for function code[3] is a breakpont instruction.
+     *          to code if function beam[0] is a breakpoint instruction.
      *		Otherwise: 0.
      */
-    BeamInstr code[5];
+    BeamInstr beam[2];
 } Export;
 
 
 void init_export_table(void);
-void export_info(int, void *);
+void export_info(fmtfn_t, void *);
 
 ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
@@ -68,14 +66,14 @@ Export *export_get(Export*);
 void export_start_staging(void);
 void export_end_staging(int commit);
 
-extern erts_smp_mtx_t export_staging_lock;
-#define export_staging_lock()	erts_smp_mtx_lock(&export_staging_lock)
-#define export_staging_unlock()	erts_smp_mtx_unlock(&export_staging_lock)
+extern erts_mtx_t export_staging_lock;
+#define export_staging_lock()	erts_mtx_lock(&export_staging_lock)
+#define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
-(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code + 3) && \
- ((EntryPtr)->code[3] == (BeamInstr) em_apply_bif))
+(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->beam) && \
+ (BeamIsOpCode((EntryPtr)->beam[0], op_apply_bif)))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

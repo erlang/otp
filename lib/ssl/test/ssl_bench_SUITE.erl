@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,11 +40,12 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Config) ->
-    try
-	Server = setup(ssl, node()),
-	[{server_node, Server}|Config]
-    catch _:_ ->
-	    {skipped, "Benchmark machines only"}
+    case node() of
+        nonode@nohost ->
+            {skipped, "Node not distributed"};
+        _ ->
+            ssl_test_lib:clean_start(),
+            [{server_node, ssl_bench_test_lib:setup(perf_server)}|Config]
     end.
 
 end_per_suite(_Config) ->
@@ -88,7 +89,6 @@ end_per_testcase(_Func, _Conf) ->
 -define(FPROF_SERVER, false).
 -define(EPROF_CLIENT, false).
 -define(EPROF_SERVER, false).
--define(PERCEPT_SERVER, false).
 
 %% Current numbers gives roughly a testcase per minute on todays hardware..
 
@@ -133,10 +133,10 @@ bypass_pem_cache(_Config) ->
 
 
 ssl() ->
-    test(ssl, ?COUNT, node()).
+    test(ssl, ?COUNT).
 
-test(Type, Count, Host) ->
-    Server = setup(Type, Host),
+test(Type, Count) ->
+    Server = ssl_bench_test_lib:setup(perf_server),
     (do_test(Type, setup_connection, Count * 20, 1, Server)),
     (do_test(Type, setup_connection, Count, 100, Server)),
     (do_test(Type, payload, Count*300, 10, Server)),
@@ -190,7 +190,6 @@ server_init(ssl, setup_connection, _, _, Server) ->
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
-    ?PERCEPT_SERVER andalso percept:profile("/tmp/ssl_server.percept"),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
 		   ok = ssl:ssl_accept(TSocket),
@@ -247,7 +246,6 @@ setup_server_connection(LSocket, Test) ->
     receive quit ->
 	    ?FPROF_SERVER andalso stop_profile(fprof, "test_server_res.fprof"),
 	    ?EPROF_SERVER andalso stop_profile(eprof, "test_server_res.eprof"),
-	    ?PERCEPT_SERVER andalso stop_profile(percept, "/tmp/ssl_server.percept"),
 	    ok
     after 0 ->
 	    case ssl:transport_accept(LSocket, 2000) of
@@ -297,47 +295,6 @@ msg() ->
       "asdlkjsafsdfoierwlejsdlkfjsdf">>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-setup(_Type, nonode@nohost) ->
-    exit(dist_not_enabled);
-setup(Type, _This) ->
-    Host = case os:getenv(?remote_host) of
-	       false ->
-		   {ok, This} = inet:gethostname(),
-		   This;
-	       RemHost ->
-		   RemHost
-	   end,
-    Node = list_to_atom("perf_server@" ++ Host),
-    SlaveArgs = case init:get_argument(pa) of
-	       {ok, PaPaths} ->
-		   lists:append([" -pa " ++ P || [P] <- PaPaths]);
-	       _ -> []
-	   end,
-    %% io:format("Slave args: ~p~n",[SlaveArgs]),
-    Prog =
-	case os:find_executable("erl") of
-	    false -> "erl";
-	    P -> P
-	end,
-    io:format("Prog = ~p~n", [Prog]),
-
-    case net_adm:ping(Node) of
-	pong -> ok;
-	pang ->
-	    {ok, Node} = slave:start(Host, perf_server, SlaveArgs, no_link, Prog)
-    end,
-    Path = code:get_path(),
-    true = rpc:call(Node, code, set_path, [Path]),
-    ok = rpc:call(Node, ?MODULE, setup_server, [Type, node()]),
-    io:format("Client (~p) using ~s~n",[node(), code:which(ssl)]),
-    (Node =:= node()) andalso restrict_schedulers(client),
-    Node.
-
-setup_server(_Type, ClientNode) ->
-    (ClientNode =:= node()) andalso restrict_schedulers(server),
-    io:format("Server (~p) using ~s~n",[node(), code:which(ssl)]),
-    ok.
-
 
 ensure_all_started(App, Ack) ->
     case application:start(App) of
@@ -361,13 +318,6 @@ setup_server_init(Type, Tc, Loop, PC) ->
     unlink(Pid),
     Res.
 
-restrict_schedulers(Type) ->
-    %% We expect this to run on 8 core machine
-    Extra0 = 1,
-    Extra =  if (Type =:= server) -> -Extra0; true -> Extra0 end,
-    Scheds = erlang:system_info(schedulers),
-    erlang:system_flag(schedulers_online, (Scheds div 2) + Extra).
-
 tc(Fun, Mod, Line) ->
     case timer:tc(Fun) of
 	{_,{'EXIT',Reason}} ->
@@ -388,13 +338,6 @@ start_profile(fprof, Procs) ->
     fprof:trace([start, {procs, Procs}]),
     io:format("(F)Profiling ...",[]).
 
-stop_profile(percept, File) ->
-    percept:stop_profile(),
-    percept:analyze(File),
-    {started, _Host, Port} = percept:start_webserver(),
-    wx:new(),
-    wx_misc:launchDefaultBrowser("http://" ++ net_adm:localhost() ++ ":" ++ integer_to_list(Port)),
-    ok;
 stop_profile(eprof, File) ->
     profiling_stopped = eprof:stop_profiling(),
     eprof:log(File),
@@ -420,13 +363,19 @@ ssl_opts(connect_der) ->
     [{verify, verify_peer} | ssl_opts("client_der")];
 ssl_opts(Role) ->
     CertData = cert_data(Role),
-    [{active, false},
-     {depth, 2},
-     {reuseaddr, true},
-     {mode,binary},
-     {nodelay, true},
-     {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
-    |CertData].
+    Opts = [{active, false},
+            {depth, 2},
+            {reuseaddr, true},
+            {mode,binary},
+            {nodelay, true},
+            {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
+            |CertData],
+    case Role of
+        "client" ++ _ ->
+            [{server_name_indication, disable} | Opts];
+        "server" ++ _ ->
+            Opts
+    end.
 
 cert_data(Der) when Der =:= "server_der"; Der =:= "client_der" ->
     [Role,_] = string:tokens(Der, "_"),

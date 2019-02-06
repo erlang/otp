@@ -1,6 +1,8 @@
 /-- This set of tests is for UTF support, excluding Unicode properties. It is
     compatible with all versions of Perl >= 5.10 and both the 8-bit and 16-bit
     PCRE libraries. --/
+    
+< forbid 9?=ABCDEFfGILMNPTUWXZ<
    
 /a.b/8
     acb
@@ -1255,6 +1257,24 @@ No match
     \x{100}\x{100}\x{100}\x{100}
  0: \x{100}\x{100}\x{100}\x{100}
     \x{100}\x{100}\x{100}
+No match
+
+/^a+[a\x{200}]/8
+    aa
+ 0: aa
+
+/^.\B.\B./8
+    \x{10123}\x{10124}\x{10125}
+ 0: \x{10123}\x{10124}\x{10125}
+
+/^#[^\x{ffff}]#[^\x{ffff}]#[^\x{ffff}]#/8
+    #\x{10000}#\x{100}#\x{10ffff}#
+ 0: #\x{10000}#\x{100}#\x{10ffff}#
+
+"[\S\V\H]"8
+
+/\C(\W?ſ)'?{{/8
+    \\C(\\W?ſ)'?{{
 No match
 
 /-- End of testinput4 --/

@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 %%%-------------------------------------------------------------------
 %%% File        : dialyzer.erl
@@ -118,13 +111,13 @@ get_plt_info([PLT|PLTs]) ->
   String =
     case dialyzer_plt:included_files(PLT) of
       {ok, Files} ->
-	io_lib:format("The PLT ~s includes the following files:\n~p\n\n",
+	io_lib:format("The PLT ~ts includes the following files:\n~tp\n\n",
 		      [PLT, Files]);
       {error, read_error} ->
-	Msg = io_lib:format("Could not read the PLT file ~p\n\n", [PLT]),
+	Msg = io_lib:format("Could not read the PLT file ~tp\n\n", [PLT]),
 	throw({dialyzer_error, Msg});
       {error, no_such_file} ->
-	Msg = io_lib:format("The PLT file ~p does not exist\n\n", [PLT]),
+	Msg = io_lib:format("The PLT file ~tp does not exist\n\n", [PLT]),
 	throw({dialyzer_error, Msg})
     end,
   String ++ get_plt_info(PLTs);
@@ -133,16 +126,16 @@ get_plt_info([]) -> "".
 do_print_plt_info(PLTInfo, OutputFile) ->
   case OutputFile =:= none of
     true ->
-      io:format("~s", [PLTInfo]),
+      io:format("~ts", [PLTInfo]),
       ?RET_NOTHING_SUSPICIOUS;
     false ->
       case file:open(OutputFile, [write]) of
 	{ok, FileDesc} ->
-	  io:format(FileDesc, "~s", [PLTInfo]),
+	  io:format(FileDesc, "~ts", [PLTInfo]),
 	  ok = file:close(FileDesc),
 	  ?RET_NOTHING_SUSPICIOUS;
 	{error, Reason} ->
-	  Msg1 = io_lib:format("Could not open output file ~p, Reason: ~p\n",
+	  Msg1 = io_lib:format("Could not open output file ~tp, Reason: ~p\n",
 			       [OutputFile, Reason]),
 	  throw({dialyzer_error, Msg1})
       end
@@ -271,7 +264,7 @@ cl_halt({ok, R = ?RET_DISCREPANCIES}, #options{output_file = Output}) ->
   halt(R);
 cl_halt({error, Msg1}, #options{output_file = Output}) ->
   %% Msg2 = "dialyzer: Internal problems were encountered in the analysis",
-  io:format("\ndialyzer: ~s\n", [Msg1]),
+  io:format("\ndialyzer: ~ts\n", [Msg1]),
   cl_check_log(Output),
   halt(?RET_INTERNAL_ERROR).
 
@@ -280,7 +273,7 @@ cl_halt({error, Msg1}, #options{output_file = Output}) ->
 cl_check_log(none) ->
   ok;
 cl_check_log(Output) ->
-  io:format("  Check output file `~s' for details\n", [Output]).
+  io:format("  Check output file `~ts' for details\n", [Output]).
 
 -spec format_warning(raw_warning() | dial_warning()) -> string().
 
@@ -298,7 +291,7 @@ format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
 	basename -> filename:basename(File)
       end,
   String = lists:flatten(message_to_string(Msg)),
-  lists:flatten(io_lib:format("~s:~w: ~s", [F, Line, String])).
+  lists:flatten(io_lib:format("~ts:~w: ~ts", [F, Line, String])).
 
 
 %%-----------------------------------------------------------------------------
@@ -309,54 +302,55 @@ format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
 %%----- Warnings for general discrepancies ----------------
 message_to_string({apply, [Args, ArgNs, FailReason,
 			   SigArgs, SigRet, Contract]}) ->
-  io_lib:format("Fun application with arguments ~s ", [Args]) ++
+  io_lib:format("Fun application with arguments ~ts ", [Args]) ++
     call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet, Contract);
 message_to_string({app_call, [M, F, Args, Culprit, ExpectedType, FoundType]}) ->
-  io_lib:format("The call ~s:~s~s requires that ~s is of type ~s not ~s\n",
+  io_lib:format("The call ~s:~ts~ts requires that ~ts is of type ~ts not ~ts\n",
 		[M, F, Args, Culprit, ExpectedType, FoundType]);
 message_to_string({bin_construction, [Culprit, Size, Seg, Type]}) ->
   io_lib:format("Binary construction will fail since the ~s field ~s in"
 		" segment ~s has type ~s\n", [Culprit, Size, Seg, Type]);
 message_to_string({call, [M, F, Args, ArgNs, FailReason,
 			  SigArgs, SigRet, Contract]}) ->
-  io_lib:format("The call ~w:~w~s ", [M, F, Args]) ++
+  io_lib:format("The call ~w:~tw~ts ", [M, F, Args]) ++
     call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet, Contract);
 message_to_string({call_to_missing, [M, F, A]}) ->
-  io_lib:format("Call to missing or unexported function ~w:~w/~w\n", [M, F, A]);
+  io_lib:format("Call to missing or unexported function ~w:~tw/~w\n",
+                [M, F, A]);
 message_to_string({exact_eq, [Type1, Op, Type2]}) ->
-  io_lib:format("The test ~s ~s ~s can never evaluate to 'true'\n",
+  io_lib:format("The test ~ts ~s ~ts can never evaluate to 'true'\n",
 		[Type1, Op, Type2]);
 message_to_string({fun_app_args, [Args, Type]}) ->
-  io_lib:format("Fun application with arguments ~s will fail"
-		" since the function has type ~s\n", [Args, Type]);
+  io_lib:format("Fun application with arguments ~ts will fail"
+		" since the function has type ~ts\n", [Args, Type]);
 message_to_string({fun_app_no_fun, [Op, Type, Arity]}) ->
-  io_lib:format("Fun application will fail since ~s :: ~s"
+  io_lib:format("Fun application will fail since ~ts :: ~ts"
 		" is not a function of arity ~w\n", [Op, Type, Arity]);
 message_to_string({guard_fail, []}) ->
   "Clause guard cannot succeed.\n";
 message_to_string({guard_fail, [Arg1, Infix, Arg2]}) ->
-  io_lib:format("Guard test ~s ~s ~s can never succeed\n", [Arg1, Infix, Arg2]);
+  io_lib:format("Guard test ~ts ~s ~ts can never succeed\n", [Arg1, Infix, Arg2]);
 message_to_string({map_update, [Type, Key]}) ->
-  io_lib:format("A key of type ~s cannot exist "
-		"in a map of type ~s\n", [Key, Type]);
+  io_lib:format("A key of type ~ts cannot exist "
+		"in a map of type ~ts\n", [Key, Type]);
 message_to_string({neg_guard_fail, [Arg1, Infix, Arg2]}) ->
-  io_lib:format("Guard test not(~s ~s ~s) can never succeed\n",
+  io_lib:format("Guard test not(~ts ~s ~ts) can never succeed\n",
 		[Arg1, Infix, Arg2]);
 message_to_string({guard_fail, [Guard, Args]}) ->
-  io_lib:format("Guard test ~w~s can never succeed\n", [Guard, Args]);
+  io_lib:format("Guard test ~w~ts can never succeed\n", [Guard, Args]);
 message_to_string({neg_guard_fail, [Guard, Args]}) ->
-  io_lib:format("Guard test not(~w~s) can never succeed\n", [Guard, Args]);
+  io_lib:format("Guard test not(~w~ts) can never succeed\n", [Guard, Args]);
 message_to_string({guard_fail_pat, [Pat, Type]}) ->
-  io_lib:format("Clause guard cannot succeed. The ~s was matched"
-		" against the type ~s\n", [Pat, Type]);
+  io_lib:format("Clause guard cannot succeed. The ~ts was matched"
+		" against the type ~ts\n", [Pat, Type]);
 message_to_string({improper_list_constr, [TlType]}) ->
   io_lib:format("Cons will produce an improper list"
-		" since its 2nd argument is ~s\n", [TlType]);
+		" since its 2nd argument is ~ts\n", [TlType]);
 message_to_string({no_return, [Type|Name]}) ->
   NameString =
     case Name of
       [] -> "The created fun ";
-      [F, A] -> io_lib:format("Function ~w/~w ", [F, A])
+      [F, A] -> io_lib:format("Function ~tw/~w ", [F, A])
     end,
   case Type of
     no_match -> NameString ++ "has no clauses that will ever match\n";
@@ -365,125 +359,133 @@ message_to_string({no_return, [Type|Name]}) ->
     both -> NameString ++ "has no local return\n"
   end;
 message_to_string({record_constr, [RecConstr, FieldDiffs]}) ->
-  io_lib:format("Record construction ~s violates the"
-		" declared type of field ~s\n", [RecConstr, FieldDiffs]);
+  io_lib:format("Record construction ~ts violates the"
+		" declared type of field ~ts\n", [RecConstr, FieldDiffs]);
 message_to_string({record_constr, [Name, Field, Type]}) ->
-  io_lib:format("Record construction violates the declared type for #~w{}"
-		" since ~s cannot be of type ~s\n", [Name, Field, Type]);
+  io_lib:format("Record construction violates the declared type for #~tw{}"
+		" since ~ts cannot be of type ~ts\n", [Name, Field, Type]);
 message_to_string({record_matching, [String, Name]}) ->
-  io_lib:format("The ~s violates the"
-		" declared type for #~w{}\n", [String, Name]);
+  io_lib:format("The ~ts violates the"
+		" declared type for #~tw{}\n", [String, Name]);
 message_to_string({record_match, [Pat, Type]}) ->
-  io_lib:format("Matching of ~s tagged with a record name violates the declared"
-		" type of ~s\n", [Pat, Type]);
+  io_lib:format("Matching of ~ts tagged with a record name violates"
+                " the declared type of ~ts\n", [Pat, Type]);
 message_to_string({pattern_match, [Pat, Type]}) ->
-  io_lib:format("The ~s can never match the type ~s\n", [Pat, Type]);
+  io_lib:format("The ~ts can never match the type ~ts\n", [Pat, Type]);
 message_to_string({pattern_match_cov, [Pat, Type]}) ->
-  io_lib:format("The ~s can never match since previous"
-		" clauses completely covered the type ~s\n",
+  io_lib:format("The ~ts can never match since previous"
+		" clauses completely covered the type ~ts\n",
 		[Pat, Type]);
 message_to_string({unmatched_return, [Type]}) ->
-  io_lib:format("Expression produces a value of type ~s,"
+  io_lib:format("Expression produces a value of type ~ts,"
 		" but this value is unmatched\n", [Type]);
 message_to_string({unused_fun, [F, A]}) ->
-  io_lib:format("Function ~w/~w will never be called\n", [F, A]);
+  io_lib:format("Function ~tw/~w will never be called\n", [F, A]);
 %%----- Warnings for specs and contracts -------------------
 message_to_string({contract_diff, [M, F, _A, Contract, Sig]}) ->
-  io_lib:format("Type specification ~w:~w~s"
-		" is not equal to the success typing: ~w:~w~s\n",
+  io_lib:format("Type specification ~w:~tw~ts"
+		" is not equal to the success typing: ~w:~tw~ts\n",
 		[M, F, Contract, M, F, Sig]);
 message_to_string({contract_subtype, [M, F, _A, Contract, Sig]}) ->
-  io_lib:format("Type specification ~w:~w~s"
-		" is a subtype of the success typing: ~w:~w~s\n",
+  io_lib:format("Type specification ~w:~tw~ts"
+		" is a subtype of the success typing: ~w:~tw~ts\n",
 		[M, F, Contract, M, F, Sig]);
 message_to_string({contract_supertype, [M, F, _A, Contract, Sig]}) ->
-  io_lib:format("Type specification ~w:~w~s"
-		" is a supertype of the success typing: ~w:~w~s\n",
+  io_lib:format("Type specification ~w:~tw~ts"
+		" is a supertype of the success typing: ~w:~tw~ts\n",
 		[M, F, Contract, M, F, Sig]);
 message_to_string({contract_range, [Contract, M, F, ArgStrings, Line, CRet]}) ->
-  io_lib:format("The contract ~w:~w~s cannot be right because the inferred"
-		" return for ~w~s on line ~w is ~s\n",
+  io_lib:format("The contract ~w:~tw~ts cannot be right because the inferred"
+		" return for ~tw~ts on line ~w is ~ts\n",
 		[M, F, Contract, F, ArgStrings, Line, CRet]);
 message_to_string({invalid_contract, [M, F, A, Sig]}) ->
-  io_lib:format("Invalid type specification for function ~w:~w/~w."
-		" The success typing is ~s\n", [M, F, A, Sig]);
+  io_lib:format("Invalid type specification for function ~w:~tw/~w."
+		" The success typing is ~ts\n", [M, F, A, Sig]);
+message_to_string({contract_with_opaque, [M, F, A, OpaqueType, SigType]}) ->
+  io_lib:format("The specification for ~w:~tw/~w"
+                " has an opaque subtype ~ts which is violated by the"
+                " success typing ~ts\n", [M, F, A, OpaqueType, SigType]);
 message_to_string({extra_range, [M, F, A, ExtraRanges, SigRange]}) ->
-  io_lib:format("The specification for ~w:~w/~w states that the function"
-		" might also return ~s but the inferred return is ~s\n",
+  io_lib:format("The specification for ~w:~tw/~w states that the function"
+		" might also return ~ts but the inferred return is ~ts\n",
 		[M, F, A, ExtraRanges, SigRange]);
+message_to_string({missing_range, [M, F, A, ExtraRanges, ContrRange]}) ->
+  io_lib:format("The success typing for ~w:~tw/~w implies that the function"
+		" might also return ~ts but the specification return is ~ts\n",
+		[M, F, A, ExtraRanges, ContrRange]);
 message_to_string({overlapping_contract, [M, F, A]}) ->
-  io_lib:format("Overloaded contract for ~w:~w/~w has overlapping domains;"
+  io_lib:format("Overloaded contract for ~w:~tw/~w has overlapping domains;"
 		" such contracts are currently unsupported and are simply ignored\n",
 		[M, F, A]);
 message_to_string({spec_missing_fun, [M, F, A]}) ->
-  io_lib:format("Contract for function that does not exist: ~w:~w/~w\n",
+  io_lib:format("Contract for function that does not exist: ~w:~tw/~w\n",
 		[M, F, A]);
 %%----- Warnings for opaque type violations -------------------
 message_to_string({call_with_opaque, [M, F, Args, ArgNs, ExpArgs]}) ->
-  io_lib:format("The call ~w:~w~s contains ~s when ~s\n",
+  io_lib:format("The call ~w:~tw~ts contains ~ts when ~ts\n",
 		[M, F, Args, form_positions(ArgNs), form_expected(ExpArgs)]);
 message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}) ->
-  io_lib:format("The call ~w:~w~s does not have ~s\n",
+  io_lib:format("The call ~w:~tw~ts does not have ~ts\n",
 		[M, F, Args, form_expected_without_opaque(ExpectedTriples)]);
 message_to_string({opaque_eq, [Type, _Op, OpaqueType]}) ->
-  io_lib:format("Attempt to test for equality between a term of type ~s"
-		" and a term of opaque type ~s\n", [Type, OpaqueType]);
+  io_lib:format("Attempt to test for equality between a term of type ~ts"
+		" and a term of opaque type ~ts\n", [Type, OpaqueType]);
 message_to_string({opaque_guard, [Arg1, Infix, Arg2, ArgNs]}) ->
-  io_lib:format("Guard test ~s ~s ~s contains ~s\n",
+  io_lib:format("Guard test ~ts ~s ~ts contains ~s\n",
 		[Arg1, Infix, Arg2, form_positions(ArgNs)]);
 message_to_string({opaque_guard, [Guard, Args]}) ->
-  io_lib:format("Guard test ~w~s breaks the opaqueness of its argument\n",
+  io_lib:format("Guard test ~w~ts breaks the opacity of its argument\n",
 		[Guard, Args]);
 message_to_string({opaque_match, [Pat, OpaqueType, OpaqueTerm]}) ->
   Term = if OpaqueType =:= OpaqueTerm -> "the term";
 	    true -> OpaqueTerm
 	 end,
-  io_lib:format("The attempt to match a term of type ~s against the ~s"
-		" breaks the opaqueness of ~s\n", [OpaqueType, Pat, Term]);
+  io_lib:format("The attempt to match a term of type ~s against the ~ts"
+		" breaks the opacity of ~ts\n", [OpaqueType, Pat, Term]);
 message_to_string({opaque_neq, [Type, _Op, OpaqueType]}) ->
-  io_lib:format("Attempt to test for inequality between a term of type ~s"
-		" and a term of opaque type ~s\n", [Type, OpaqueType]);
+  io_lib:format("Attempt to test for inequality between a term of type ~ts"
+		" and a term of opaque type ~ts\n", [Type, OpaqueType]);
 message_to_string({opaque_type_test, [Fun, Args, Arg, ArgType]}) ->
-  io_lib:format("The type test ~s~s breaks the opaqueness of the term ~s~s\n",
+  io_lib:format("The type test ~ts~ts breaks the opacity of the term ~ts~ts\n",
                 [Fun, Args, Arg, ArgType]);
 message_to_string({opaque_size, [SizeType, Size]}) ->
-  io_lib:format("The size ~s breaks the opaqueness of ~s\n",
+  io_lib:format("The size ~ts breaks the opacity of ~ts\n",
                 [SizeType, Size]);
 message_to_string({opaque_call, [M, F, Args, Culprit, OpaqueType]}) ->
-  io_lib:format("The call ~s:~s~s breaks the opaqueness of the term ~s :: ~s\n",
+  io_lib:format("The call ~s:~ts~ts breaks the opacity of the term ~ts :: ~ts\n",
                 [M, F, Args, Culprit, OpaqueType]);
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
-  io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
+  io_lib:format("The call ~w:~tw~ts ~ts\n", [M, F, Args, Reason]);
 %%----- Warnings for behaviour errors --------------------
 message_to_string({callback_type_mismatch, [B, F, A, ST, CT]}) ->
-  io_lib:format("The inferred return type of ~w/~w (~s) has nothing in common"
-		" with ~s, which is the expected return type for the callback of"
-		" ~w behaviour\n", [F, A, ST, CT, B]);
+  io_lib:format("The inferred return type of ~tw/~w (~ts) has nothing in"
+                " common with ~ts, which is the expected return type for"
+                " the callback of the ~w behaviour\n", [F, A, ST, CT, B]);
 message_to_string({callback_arg_type_mismatch, [B, F, A, N, ST, CT]}) ->
-  io_lib:format("The inferred type for the ~s argument of ~w/~w (~s) is"
-		" not a supertype of ~s, which is expected type for this"
+  io_lib:format("The inferred type for the ~s argument of ~tw/~w (~ts) is"
+		" not a supertype of ~ts, which is expected type for this"
 		" argument in the callback of the ~w behaviour\n",
 		[ordinal(N), F, A, ST, CT, B]);
 message_to_string({callback_spec_type_mismatch, [B, F, A, ST, CT]}) ->
-  io_lib:format("The return type ~s in the specification of ~w/~w is not a"
-		" subtype of ~s, which is the expected return type for the"
-		" callback of ~w behaviour\n", [ST, F, A, CT, B]);
+  io_lib:format("The return type ~ts in the specification of ~tw/~w is not a"
+		" subtype of ~ts, which is the expected return type for the"
+		" callback of the ~w behaviour\n", [ST, F, A, CT, B]);
 message_to_string({callback_spec_arg_type_mismatch, [B, F, A, N, ST, CT]}) ->
-  io_lib:format("The specified type for the ~s argument of ~w/~w (~s) is"
-		" not a supertype of ~s, which is expected type for this"
+  io_lib:format("The specified type for the ~ts argument of ~tw/~w (~ts) is"
+		" not a supertype of ~ts, which is expected type for this"
 		" argument in the callback of the ~w behaviour\n",
 		[ordinal(N), F, A, ST, CT, B]);
 message_to_string({callback_missing, [B, F, A]}) ->
-  io_lib:format("Undefined callback function ~w/~w (behaviour '~w')\n",
+  io_lib:format("Undefined callback function ~tw/~w (behaviour ~w)\n",
 		[F, A, B]);
 message_to_string({callback_info_missing, [B]}) ->
   io_lib:format("Callback info about the ~w behaviour is not available\n", [B]);
 %%----- Warnings for unknown functions, types, and behaviours -------------
 message_to_string({unknown_type, {M, F, A}}) ->
-  io_lib:format("Unknown type ~w:~w/~w", [M, F, A]);
+  io_lib:format("Unknown type ~w:~tw/~w", [M, F, A]);
 message_to_string({unknown_function, {M, F, A}}) ->
-  io_lib:format("Unknown function ~w:~w/~w", [M, F, A]);
+  io_lib:format("Unknown function ~w:~tw/~w", [M, F, A]);
 message_to_string({unknown_behaviour, B}) ->
   io_lib:format("Unknown behaviour ~w", [B]).
 
@@ -500,24 +502,24 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 	true ->
 	  %% We do not know which argument(s) caused the failure
 	  io_lib:format("will never return since the success typing arguments"
-			" are ~s\n", [SigArgs]);
+			" are ~ts\n", [SigArgs]);
         false ->
 	  io_lib:format("will never return since it differs in the ~s argument"
-			" from the success typing arguments: ~s\n",
+			" from the success typing arguments: ~ts\n",
 			[PositionString, SigArgs])
       end;
     only_contract ->
       case (ArgNs =:= []) orelse IsOverloaded of
 	true ->
 	  %% We do not know which arguments caused the failure
-	  io_lib:format("breaks the contract ~s\n", [Contract]);
+	  io_lib:format("breaks the contract ~ts\n", [Contract]);
 	false ->
-	  io_lib:format("breaks the contract ~s in the ~s argument\n",
+	  io_lib:format("breaks the contract ~ts in the ~s argument\n",
 			[Contract, PositionString])
       end;
     both ->
-      io_lib:format("will never return since the success typing is ~s -> ~s"
-		    " and the contract is ~s\n", [SigArgs, SigRet, Contract])
+      io_lib:format("will never return since the success typing is ~ts -> ~ts"
+		    " and the contract is ~ts\n", [SigArgs, SigRet, Contract])
   end.
 
 form_positions(ArgNs) ->
@@ -535,9 +537,9 @@ form_positions(ArgNs) ->
 form_expected_without_opaque([{N, T, TStr}]) ->
   case erl_types:t_is_opaque(T) of
     true  ->
-      io_lib:format("an opaque term of type ~s as ", [TStr]);
+      io_lib:format("an opaque term of type ~ts as ", [TStr]);
     false ->
-      io_lib:format("a term of type ~s (with opaque subterms) as ", [TStr])
+      io_lib:format("a term of type ~ts (with opaque subterms) as ", [TStr])
   end ++ form_position_string([N]) ++ " argument";
 form_expected_without_opaque(ExpectedTriples) -> %% TODO: can do much better here
   {ArgNs, _Ts, _TStrs} = lists:unzip3(ExpectedTriples),
@@ -548,8 +550,8 @@ form_expected(ExpectedArgs) ->
     [T] ->
       TS = erl_types:t_to_string(T),
       case erl_types:t_is_opaque(T) of
-	true  -> io_lib:format("an opaque term of type ~s is expected", [TS]);
-	false -> io_lib:format("a structured term of type ~s is expected", [TS])
+	true  -> io_lib:format("an opaque term of type ~ts is expected", [TS]);
+	false -> io_lib:format("a structured term of type ~ts is expected", [TS])
       end;
     [_,_|_] -> "terms of different types are expected in these positions"
   end.

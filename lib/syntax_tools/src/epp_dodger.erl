@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 2001-2006 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -497,6 +502,10 @@ quickscan_form([{'-', _L}, {atom, La, ifdef} | _Ts]) ->
     kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, ifndef} | _Ts]) ->
     kill_form(La);
+quickscan_form([{'-', _L}, {'if', La} | _Ts]) ->
+    kill_form(La);
+quickscan_form([{'-', _L}, {atom, La, elif} | _Ts]) ->
+    kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, else} | _Ts]) ->
     kill_form(La);
 quickscan_form([{'-', _L}, {atom, La, endif} | _Ts]) ->
@@ -610,8 +619,13 @@ filter_form(T) ->
 %% ---------------------------------------------------------------------
 %% Normal parsing - try to preserve all information
 
-normal_parser(Ts, Opt) ->
-    rewrite_form(parse_tokens(scan_form(Ts, Opt))).
+normal_parser(Ts0, Opt) ->
+    case scan_form(Ts0, Opt) of
+	Ts when is_list(Ts) ->
+	    rewrite_form(parse_tokens(Ts));
+	Node ->
+	    Node
+    end.
 
 scan_form([{'-', _L}, {atom, La, define} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
@@ -631,12 +645,26 @@ scan_form([{'-', _L}, {atom, La, ifdef} | Ts], Opt) ->
 scan_form([{'-', _L}, {atom, La, ifndef} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, ifndef} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {'if', La} | Ts], Opt) ->
+    [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
+     {atom, La, 'if'} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {atom, La, elif} | Ts], Opt) ->
+    [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
+     {atom, La, 'elif'} | scan_macros(Ts, Opt)];
 scan_form([{'-', _L}, {atom, La, else} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, else} | scan_macros(Ts, Opt)];
 scan_form([{'-', _L}, {atom, La, endif} | Ts], Opt) ->
     [{atom, La, ?pp_form}, {'(', La}, {')', La}, {'->', La},
      {atom, La, endif} | scan_macros(Ts, Opt)];
+scan_form([{'-', _L}, {atom, La, error} | Ts], _Opt) ->
+    Desc = build_info_string("-error", Ts),
+    ErrorInfo = {La, ?MODULE, {error, Desc}},
+    erl_syntax:error_marker(ErrorInfo);
+scan_form([{'-', _L}, {atom, La, warning} | Ts], _Opt) ->
+    Desc = build_info_string("-warning", Ts),
+    ErrorInfo = {La, ?MODULE, {warning, Desc}},
+    erl_syntax:error_marker(ErrorInfo);
 scan_form([{'-', L}, {'?', L1}, {Type, _, _}=N | [{'(', _} | _]=Ts], Opt)
   when Type =:= atom; Type =:= var ->
     %% minus, macro and open parenthesis at start of form - assume that
@@ -651,6 +679,11 @@ scan_form([{'?', L}, {Type, _, _}=N | [{'(', _} | _]=Ts], Opt)
     macro(L, N, Ts, [], Opt);
 scan_form(Ts, Opt) ->
     scan_macros(Ts, Opt).
+
+build_info_string(Prefix, Ts0) ->
+    Ts = lists:droplast(Ts0),
+    String = lists:droplast(tokens_to_string(Ts)),
+    Prefix ++ " " ++ String ++ ".".
 
 scan_macros(Ts, Opt) ->
     scan_macros(Ts, [], Opt).
@@ -860,11 +893,15 @@ tokens_to_string([]) ->
 
 format_error(macro_args) ->
     errormsg("macro call missing end parenthesis");
+format_error({error, Error}) ->
+    Error;
+format_error({warning, Error}) ->
+    Error;
 format_error({unknown, Reason}) ->
-    errormsg(io_lib:format("unknown error: ~P", [Reason, 15])).
+    errormsg(io_lib:format("unknown error: ~tP", [Reason, 15])).
 
 errormsg(String) ->
-    io_lib:format("~s: ~s", [?MODULE, String]).
+    io_lib:format("~s: ~ts", [?MODULE, String]).
 
 
 %% =====================================================================

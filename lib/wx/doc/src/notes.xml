@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2016</year>
+      <year>2009</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,143 @@
   </header>
   <p>This document describes the changes made to the wxErlang
     application.</p>
+
+<section><title>Wx 1.8.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed delayed delete bug which caused wx applications to
+	    crash on Mojave.</p>
+          <p>
+	    Own Id: OTP-15426 Aux Id: ERL-755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compilation warning on Darwin.</p>
+          <p>
+	    Own Id: OTP-15230 Aux Id: PR-1860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed implementation so wx can now be built towards
+	    wxWidgets-3.1.1.</p>
+          <p>
+	    Own Id: OTP-15027</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    wx crashes in otp 20.1 if empty binaries was sent down as
+	    arguments.</p>
+          <p>
+	    Own Id: OTP-14688</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not deprecate
+	    <c>wxGraphicsContext:createLinearGradientBrush/7</c> and
+	    <c>wxGraphicsContext:createRadialGradientBrush/8</c>
+	    which are still available in wxWidgets-3.0.</p>
+          <p>
+	    Own Id: OTP-14539</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a livelock that could be caused by <c>wx:batch/1</c>.</p>
+          <p>
+	    Own Id: OTP-14289</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Allow string arguments to be binaries as specified, i.e.
+	    unicode:chardata().</p>
+          <p>
+	    Own Id: OTP-13934 Aux Id: ERL-270 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxWindow:dragAcceptFiles/2 and wxDropFilesEvent to
+	    support simple drag and drop from file browser.</p>
+          <p>
+	    Own Id: OTP-13933</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Wx 1.7.1</title>
 

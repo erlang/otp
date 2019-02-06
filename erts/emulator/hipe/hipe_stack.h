@@ -30,40 +30,43 @@
 
 #include <stddef.h>	/* offsetof() */
 
-struct sdesc {
+struct hipe_sdesc {
     struct {
 	unsigned long hvalue;	/* return address */
-	struct sdesc *next;	/* hash collision chain */
+	struct hipe_sdesc *next;	/* hash collision chain */
     } bucket;
-    unsigned int summary; /* frame size, exn handler presence flag, arity */
-#ifdef DEBUG
-    Eterm dbg_M, dbg_F;
-    unsigned dbg_A;
-#endif
-    unsigned int livebits[1]; /* size depends on arch & data in summary field */
+    unsigned int fsize : 23;    /* frame size */
+    unsigned int has_exnra : 1; /* exn handler presence flag */
+    unsigned int stk_nargs : 8; /* arguments on stack */
+    Uint32 m_aix;
+    Uint32 f_aix;
+    Uint32 a;
+    struct hipe_sdesc* next_in_modi;
+    Uint32 livebits[1]; /* size depends on arch & data in summary field */
 };
 
-struct sdesc_with_exnra {
+struct hipe_sdesc_with_exnra {
     unsigned long exnra;
-    struct sdesc sdesc;
+    struct hipe_sdesc sdesc;
 };
 
-static __inline__ unsigned int sdesc_fsize(const struct sdesc *sdesc)
+static __inline__ unsigned int sdesc_fsize(const struct hipe_sdesc *sdesc)
 {
-    return sdesc->summary >> 9;
+    return sdesc->fsize;
 }
 
-static __inline__ unsigned int sdesc_arity(const struct sdesc *sdesc)
+/* Nr of arguments pushed on stack */
+static __inline__ unsigned int sdesc_arity(const struct hipe_sdesc *sdesc)
 {
-    return sdesc->summary & 0xFF;
+    return sdesc->stk_nargs;
 }
 
-static __inline__ unsigned long sdesc_exnra(const struct sdesc *sdesc)
+static __inline__ unsigned long sdesc_exnra(const struct hipe_sdesc *sdesc)
 {
-    if ((sdesc->summary & (1<<8))) {
+    if (sdesc->has_exnra) {
 	const char *tmp;
-	tmp = (const char*)sdesc - offsetof(struct sdesc_with_exnra, sdesc);
-	return ((const struct sdesc_with_exnra*)tmp)->exnra;
+	tmp = (const char*)sdesc - offsetof(struct hipe_sdesc_with_exnra, sdesc);
+	return ((const struct hipe_sdesc_with_exnra*)tmp)->exnra;
     }
     return 0;
 }
@@ -72,13 +75,14 @@ struct hipe_sdesc_table {
     unsigned int log2size;
     unsigned int mask;		/* INV: mask == (1 << log2size)-1 */
     unsigned int used;
-    struct sdesc **bucket;
+    struct hipe_sdesc **bucket;
 };
 extern struct hipe_sdesc_table hipe_sdesc_table;
 
-extern struct sdesc *hipe_put_sdesc(struct sdesc*);
-extern void hipe_init_sdesc_table(struct sdesc*);
-extern struct sdesc *hipe_decode_sdesc(Eterm);
+extern struct hipe_sdesc *hipe_put_sdesc(struct hipe_sdesc*);
+extern void hipe_destruct_sdesc(struct hipe_sdesc*);
+extern void hipe_init_sdesc_table(struct hipe_sdesc*);
+extern struct hipe_sdesc *hipe_decode_sdesc(Eterm);
 
 #if !defined(__GNUC__) || (__GNUC__ < 2) || (__GNUC__ == 2 && __GNUC_MINOR__ < 96)
 #define __builtin_expect(x, expected_value) (x)
@@ -86,10 +90,10 @@ extern struct sdesc *hipe_decode_sdesc(Eterm);
 #define likely(x)	__builtin_expect((x),1)
 #define unlikely(x)	__builtin_expect((x),0)
 
-static __inline__ const struct sdesc *hipe_find_sdesc(unsigned long ra)
+static __inline__ const struct hipe_sdesc *hipe_find_sdesc(unsigned long ra)
 {
     unsigned int i = (ra >> HIPE_RA_LSR_COUNT) & hipe_sdesc_table.mask;
-    const struct sdesc *sdesc = hipe_sdesc_table.bucket[i];
+    const struct hipe_sdesc *sdesc = hipe_sdesc_table.bucket[i];
     if (likely(sdesc->bucket.hvalue == ra))
 	return sdesc;
     do {
@@ -103,7 +107,7 @@ AEXTERN(void,nbif_stack_trap_ra,(void));
 extern void hipe_print_nstack(Process*);
 extern void hipe_find_handler(Process*);
 extern void (*hipe_handle_stack_trap(Process*))(void);
-extern void hipe_update_stack_trap(Process*, const struct sdesc*);
+extern void hipe_update_stack_trap(Process*, const struct hipe_sdesc*);
 extern int hipe_fill_stacktrace(Process*, int, Eterm**);
 
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
@@ -134,5 +138,7 @@ extern void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop
 extern Eterm *sweep_literals_nstack(Process *p, Eterm *n_htop, char *area,
 				    Uint area_size);
 extern int nstack_any_heap_ref_ptrs(Process *, char* mod_start, Uint mod_size);
+extern int nstack_any_cps_in_segment(Process *, char* seg_start, Uint seg_size);
+
 
 #endif /* HIPE_STACK_H */

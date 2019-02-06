@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(cdv_wx).
--compile(export_all).
+
 -behaviour(wx_object).
 
 -export([start/1]).
@@ -51,6 +51,7 @@
 -define(DIST_STR,  "Nodes").
 -define(MOD_STR,   "Modules").
 -define(MEM_STR,   "Memory").
+-define(PERSISTENT_STR, "Persistent Terms").
 -define(INT_STR,   "Internal Tables").
 
 %% Records
@@ -74,6 +75,7 @@
 	 dist_panel,
 	 mod_panel,
 	 mem_panel,
+         persistent_panel,
 	 int_panel,
 	 active_tab
 	}).
@@ -130,8 +132,9 @@ init(File0) ->
 	{ok,File} ->
 	    %% Set window title
 	    T1 = "Crashdump Viewer: ",
+            FileLength = string:length(File),
 	    Title =
-		if length(File) > 70 ->
+		if FileLength > 70 ->
 			T1 ++ filename:basename(File);
 		   true ->
 			T1 ++ File
@@ -192,6 +195,10 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
     %% Memory Panel
     MemPanel = add_page(Notebook, ?MEM_STR, cdv_multi_wx, cdv_mem_cb),
 
+    %% Persistent Terms Panel
+    PersistentPanel = add_page(Notebook, ?PERSISTENT_STR,
+                               cdv_html_wx, cdv_persistent_cb),
+
     %% Memory Panel
     IntPanel = add_page(Notebook, ?INT_STR, cdv_multi_wx, cdv_int_tab_cb),
 
@@ -214,6 +221,7 @@ setup(#state{frame=Frame, notebook=Notebook}=State) ->
 			dist_panel = DistPanel,
 			mod_panel = ModPanel,
 			mem_panel = MemPanel,
+                        persistent_panel = PersistentPanel,
 			int_panel = IntPanel,
 			active_tab = GenPid
 		       }}.
@@ -249,6 +257,7 @@ handle_event(#wx{id = ?wxID_OPEN,
 			  State#state.dist_panel,
 			  State#state.mod_panel,
 			  State#state.mem_panel,
+			  State#state.persistent_panel,
 			  State#state.int_panel],
 		_ = [wx_object:call(Panel,new_dump) || Panel<-Panels],
 		wxNotebook:setSelection(State#state.notebook,0),
@@ -306,7 +315,7 @@ handle_info({'EXIT', Pid, normal}, #state{server=Pid}=State) ->
     {stop, normal, State};
 
 handle_info({'EXIT', Pid, _Reason}, State) ->
-    io:format("Child (~s) crashed exiting:  ~p ~p~n",
+    io:format("Child (~s) crashed exiting:  ~p ~tp~n",
 	      [pid2panel(Pid, State), Pid,_Reason]),
     {stop, normal, State};
 
@@ -342,8 +351,8 @@ check_page_title(Notebook) ->
 get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		      port_panel=Ports, ets_panel=Ets, timer_panel=Timers,
 		      fun_panel=Funs, atom_panel=Atoms, dist_panel=Dist,
-		      mod_panel=Mods, mem_panel=Mem, int_panel=Int,
-		      sched_panel=Sched
+		      mod_panel=Mods, mem_panel=Mem, persistent_panel=Persistent,
+                      int_panel=Int, sched_panel=Sched
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		?GEN_STR -> Gen;
@@ -357,6 +366,7 @@ get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 		?DIST_STR -> Dist;
 		?MOD_STR -> Mods;
 		?MEM_STR -> Mem;
+		?PERSISTENT_STR -> Persistent;
 		?INT_STR -> Int
 	    end,
     wx_object:get_pid(Panel).
@@ -364,7 +374,7 @@ get_active_pid(#state{notebook=Notebook, gen_panel=Gen, pro_panel=Pro,
 pid2panel(Pid, #state{gen_panel=Gen, pro_panel=Pro, port_panel=Ports,
 		      ets_panel=Ets, timer_panel=Timers, fun_panel=Funs,
 		      atom_panel=Atoms, dist_panel=Dist, mod_panel=Mods,
-		      mem_panel=Mem, int_panel=Int}) ->
+		      mem_panel=Mem, persistent_panel=Persistent, int_panel=Int}) ->
     case Pid of
 	Gen -> ?GEN_STR;
 	Pro -> ?PRO_STR;
@@ -376,6 +386,7 @@ pid2panel(Pid, #state{gen_panel=Gen, pro_panel=Pro, port_panel=Ports,
 	Dist -> ?DIST_STR;
 	Mods -> ?MOD_STR;
 	Mem -> ?MEM_STR;
+        ?PERSISTENT_STR -> Persistent;
 	Int -> ?INT_STR;
 	_ -> "unknown"
     end.
@@ -412,15 +423,25 @@ load_dump(Frame,undefined) ->
 	    error
     end;
 load_dump(Frame,FileName) ->
-    ok = observer_lib:display_progress_dialog("Crashdump Viewer",
+    case maybe_warn_filename(FileName) of
+        continue ->
+            do_load_dump(Frame,FileName);
+        stop ->
+            error
+    end.
+
+do_load_dump(Frame,FileName) ->
+    ok = observer_lib:display_progress_dialog(wx:null(),
+                                              "Crashdump Viewer",
 					      "Loading crashdump"),
     crashdump_viewer:read_file(FileName),
     case observer_lib:wait_for_progress() of
 	ok    ->
 	    %% Set window title
 	    T1 = "Crashdump Viewer: ",
+            FileLength = string:length(FileName),
 	    Title =
-		if length(FileName) > 70 ->
+		if FileLength > 70 ->
 			T1 ++ filename:basename(FileName);
 		   true ->
 			T1 ++ FileName
@@ -429,6 +450,33 @@ load_dump(Frame,FileName) ->
 	    {ok,FileName};
 	error ->
 	    error
+    end.
+
+maybe_warn_filename(FileName) ->
+    case os:getenv("ERL_CRASH_DUMP_SECONDS")=="0" orelse
+        os:getenv("ERL_CRASH_DUMP_BYTES")=="0" of
+        true ->
+            continue;
+        false ->
+            DumpName = case os:getenv("ERL_CRASH_DUMP") of
+                           false -> filename:absname("erl_crash.dump");
+                           Name -> filename:absname(Name)
+                       end,
+            case filename:absname(FileName) of
+                DumpName ->
+                    Warning =
+                        "WARNING: the current crashdump might be overwritten "
+                        "if the crashdump_viewer node crashes.\n\n"
+                        "Renaming the file before inspecting it will "
+                        "remove the problem.\n\n"
+                        "Do you want to continue?",
+                    case observer_lib:display_yes_no_dialog(Warning) of
+                        ?wxID_YES -> continue;
+                        ?wxID_NO -> stop
+                    end;
+                _ ->
+                    continue
+            end
     end.
 
 %%%-----------------------------------------------------------------

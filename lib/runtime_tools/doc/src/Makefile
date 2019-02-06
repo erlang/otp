@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 include $(ERL_TOP)/make/target.mk
@@ -41,11 +41,17 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = dbg.xml dyntrace.xml erts_alloc_config.xml system_information.xml msacc.xml
+XML_REF3_FILES = \
+	dbg.xml \
+	dyntrace.xml \
+	erts_alloc_config.xml \
+	system_information.xml \
+	msacc.xml \
+	scheduler.xml
 XML_REF6_FILES = runtime_tools_app.xml
 
-XML_PART_FILES = part_notes.xml part_notes_history.xml part.xml
-XML_CHAPTER_FILES = notes.xml notes_history.xml LTTng.xml
+XML_PART_FILES = part.xml
+XML_CHAPTER_FILES = notes.xml LTTng.xml
 
 GENERATED_XML_FILES = DTRACE.xml SYSTEMTAP.xml
 
@@ -55,6 +61,8 @@ XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) \
 	$(XML_REF6_FILES) $(XML_APPLICATION_FILES)
+
+XML_GEN_FILES = $(GENERATED_XML_FILES:%=$(XMLDIR)/%)
 
 GIF_FILES =
 
@@ -77,10 +85,10 @@ SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 SPECS_ESRC = ../../src
 
@@ -89,9 +97,8 @@ SPECS_FLAGS = -I../../include -I../../../kernel/src
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(XML_FILES): $(GENERATED_XML_FILES)
 
-%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
+$(XMLDIR)/%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
 $(HTMLDIR)/%.gif: %.gif
@@ -109,18 +116,19 @@ man: $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -136,4 +144,3 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
 
 release_spec:
-

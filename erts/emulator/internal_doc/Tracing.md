@@ -51,7 +51,7 @@ the new instrumented code. Normally loaded code can only be reached
 through external functions calls. Trace settings must be activated
 instantaneously without the need of external function calls.
 
-The choosen solution is instead for tracing to use the technique of
+The chosen solution is instead for tracing to use the technique of
 replication applied on the data structures for breakpoints. Two
 generations of breakpoints are kept and indentified by index of 0 and
 1. The global atomic variables `erts_active_bp_index` will determine

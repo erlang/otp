@@ -457,7 +457,7 @@ append([],X) ->
     X.
 
 system_time() ->    
-    erlang:monotonic_time(micro_seconds).
+    erlang:monotonic_time(microsecond).
 
 %% ------------------------------------------------------- %%
 

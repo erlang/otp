@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@
 %%
 %% =====================================================================
 %% Multiple PRNG module for Erlang/OTP
-%% Copyright (c) 2015 Kenji Rikitake
+%% Copyright (c) 2015-2016 Kenji Rikitake
+%%
+%% exrop (xoroshiro116+) added, statistical distribution
+%% improvements and uniform_real added by the Erlang/OTP team 2017
 %% =====================================================================
 
 -module(rand).
@@ -27,34 +30,191 @@
 -export([seed_s/1, seed_s/2, seed/1, seed/2,
 	 export_seed/0, export_seed_s/1,
          uniform/0, uniform/1, uniform_s/1, uniform_s/2,
-	 normal/0, normal_s/1
+         uniform_real/0, uniform_real_s/1,
+         jump/0, jump/1,
+	     normal/0, normal/2, normal_s/1, normal_s/3
 	]).
+
+%% Debug
+-export([make_float/3, float2str/1, bc64/1]).
 
 -compile({inline, [exs64_next/1, exsplus_next/1,
 		   exs1024_next/1, exs1024_calc/2,
+                   exrop_next/1, exrop_next_s/2,
 		   get_52/1, normal_kiwi/1]}).
 
--define(DEFAULT_ALG_HANDLER, exsplus).
+-define(DEFAULT_ALG_HANDLER, exrop).
 -define(SEED_DICT, rand_seed).
+
+%% =====================================================================
+%% Bit fiddling macros
+%% =====================================================================
+
+-define(BIT(Bits), (1 bsl (Bits))).
+-define(MASK(Bits), (?BIT(Bits) - 1)).
+-define(MASK(Bits, X), ((X) band ?MASK(Bits))).
+-define(
+   BSL(Bits, X, N),
+   %% N is evaluated 2 times
+   (?MASK((Bits)-(N), (X)) bsl (N))).
+-define(
+   ROTL(Bits, X, N),
+   %% Bits is evaluated 2 times
+   %% X is evaluated 2 times
+   %% N i evaluated 3 times
+   (?BSL((Bits), (X), (N)) bor ((X) bsr ((Bits)-(N))))).
+
+-define(
+   BC(V, N),
+   bc((V), ?BIT((N) - 1), N)).
+
+%%-define(TWO_POW_MINUS53, (math:pow(2, -53))).
+-define(TWO_POW_MINUS53, 1.11022302462515657e-16).
 
 %% =====================================================================
 %% Types
 %% =====================================================================
 
-%% This depends on the algorithm handler function
--type alg_seed() :: exs64_state() | exsplus_state() | exs1024_state().
-%% This is the algorithm handler function within this module
--type alg_handler() :: #{type      := alg(),
-			 max       := integer(),
-			 next      := fun(),
-			 uniform   := fun(),
-			 uniform_n := fun()}.
+-type uint64() :: 0..?MASK(64).
+-type uint58() :: 0..?MASK(58).
 
-%% Internal state
--opaque state() :: {alg_handler(), alg_seed()}.
--type alg() :: exs64 | exsplus | exs1024.
--opaque export_state() :: {alg(), alg_seed()}.
--export_type([alg/0, state/0, export_state/0]).
+%% This depends on the algorithm handler function
+-type alg_state() ::
+        exs64_state() | exsplus_state() | exs1024_state() |
+        exrop_state() | term().
+
+%% This is the algorithm handling definition within this module,
+%% and the type to use for plugins.
+%%
+%% The 'type' field must be recognized by the module that implements
+%% the algorithm, to interpret an exported state.
+%%
+%% The 'bits' field indicates how many bits the integer
+%% returned from 'next' has got, i.e 'next' shall return
+%% an random integer in the range 0..(2^Bits - 1).
+%% At least 55 bits is required for the floating point
+%% producing fallbacks, but 56 bits would be more future proof.
+%%
+%% The fields 'next', 'uniform' and 'uniform_n'
+%% implement the algorithm.  If 'uniform' or 'uniform_n'
+%% is not present there is a fallback using 'next' and either
+%% 'bits' or the deprecated 'max'.  The 'next' function
+%% must generate a word with at least 56 good random bits.
+%%
+%% The 'weak_low_bits' field indicate how many bits are of
+%% lesser quality and they will not be used by the floating point
+%% producing functions, nor by the range producing functions
+%% when more bits are needed, to avoid weak bits in the middle
+%% of the generated bits.  The lowest bits from the range
+%% functions still have the generator's quality.
+%%
+-type alg_handler() ::
+        #{type := alg(),
+          bits => non_neg_integer(),
+          weak_low_bits => non_neg_integer(),
+          max => non_neg_integer(), % Deprecated
+          next :=
+              fun ((alg_state()) -> {non_neg_integer(), alg_state()}),
+          uniform =>
+              fun ((state()) -> {float(), state()}),
+          uniform_n =>
+              fun ((pos_integer(), state()) -> {pos_integer(), state()}),
+          jump =>
+              fun ((state()) -> state())}.
+
+%% Algorithm state
+-type state() :: {alg_handler(), alg_state()}.
+-type builtin_alg() :: exs64 | exsplus | exsp | exs1024 | exs1024s | exrop.
+-type alg() :: builtin_alg() | atom().
+-type export_state() :: {alg(), alg_state()}.
+-export_type(
+   [builtin_alg/0, alg/0, alg_handler/0, alg_state/0,
+    state/0, export_state/0]).
+-export_type(
+   [exs64_state/0, exsplus_state/0, exs1024_state/0, exrop_state/0]).
+
+%% =====================================================================
+%% Range macro and helper
+%% =====================================================================
+
+-define(
+   uniform_range(Range, Alg, R, V, MaxMinusRange, I),
+   if
+       0 =< (MaxMinusRange) ->
+           if
+               %% Really work saving in odd cases;
+               %% large ranges in particular
+               (V) < (Range) ->
+                   {(V) + 1, {(Alg), (R)}};
+               true ->
+                   (I) = (V) rem (Range),
+                   if
+                       (V) - (I) =< (MaxMinusRange) ->
+                           {(I) + 1, {(Alg), (R)}};
+                       true ->
+                           %% V in the truncated top range
+                           %% - try again
+                           ?FUNCTION_NAME((Range), {(Alg), (R)})
+                   end
+           end;
+       true ->
+           uniform_range((Range), (Alg), (R), (V))
+   end).
+
+%% For ranges larger than the algorithm bit size
+uniform_range(Range, #{next:=Next, bits:=Bits} = Alg, R, V) ->
+    WeakLowBits = maps:get(weak_low_bits, Alg, 0),
+    %% Maybe waste the lowest bit(s) when shifting in new bits
+    Shift = Bits - WeakLowBits,
+    ShiftMask = bnot ?MASK(WeakLowBits),
+    RangeMinus1 = Range - 1,
+    if
+        (Range band RangeMinus1) =:= 0 -> % Power of 2
+            %% Generate at least the number of bits for the range
+            {V1, R1, _} =
+                uniform_range(
+                  Range bsr Bits, Next, R, V, ShiftMask, Shift, Bits),
+            {(V1 band RangeMinus1) + 1, {Alg, R1}};
+        true ->
+            %% Generate a value with at least two bits more than the range
+            %% and try that for a fit, otherwise recurse
+            %%
+            %% Just one bit more should ensure that the generated
+            %% number range is at least twice the size of the requested
+            %% range, which would make the probability to draw a good
+            %% number better than 0.5.  And repeating that until
+            %% success i guess would take 2 times statistically amortized.
+            %% But since the probability for fairly many attemtpts
+            %% is not that low, use two bits more than the range which 
+            %% should make the probability to draw a bad number under 0.25,
+            %% which decreases the bad case probability a lot.
+            {V1, R1, B} =
+                uniform_range(
+                  Range bsr (Bits - 2), Next, R, V, ShiftMask, Shift, Bits),
+            I = V1 rem Range,
+            if
+                (V1 - I) =< (1 bsl B) - Range ->
+                    {I + 1, {Alg, R1}};
+                true ->
+                    %% V1 drawn from the truncated top range
+                    %% - try again
+                    {V2, R2} = Next(R1),
+                    uniform_range(Range, Alg, R2, V2)
+            end
+    end.
+%%
+uniform_range(Range, Next, R, V, ShiftMask, Shift, B) ->
+    if 
+        Range =< 1 ->
+            {V, R, B};
+        true ->
+            {V1, R1} = Next(R),
+            %% Waste the lowest bit(s) when shifting in new bits
+            uniform_range(
+              Range bsr Shift, Next, R1,
+              ((V band ShiftMask) bsl Shift) bor V1,
+              ShiftMask, Shift, B + Shift)
+    end.
 
 %% =====================================================================
 %% API
@@ -68,7 +228,7 @@ export_seed() ->
 	_ -> undefined
     end.
 
--spec export_seed_s(state()) -> export_state().
+-spec export_seed_s(State :: state()) -> export_state().
 export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 
 %% seed(Alg) seeds RNG with runtime dependent values
@@ -77,31 +237,37 @@ export_seed_s({#{type:=Alg}, Seed}) -> {Alg, Seed}.
 %% seed({Alg,Seed}) setup RNG with a previously exported seed
 %% and return the NEW state
 
--spec seed(AlgOrExpState::alg() | export_state()) -> state().
+-spec seed(
+        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                  state().
 seed(Alg) ->
-    R = seed_s(Alg),
-    _ = seed_put(R),
-    R.
+    seed_put(seed_s(Alg)).
 
--spec seed_s(AlgOrExpState::alg() | export_state()) -> state().
-seed_s(Alg) when is_atom(Alg) ->
-    seed_s(Alg, {erlang:phash2([{node(),self()}]),
-		 erlang:system_time(),
-		 erlang:unique_integer()});
+-spec seed_s(
+        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
+                    state().
+seed_s({AlgHandler, _Seed} = State) when is_map(AlgHandler) ->
+    State;
 seed_s({Alg0, Seed}) ->
     {Alg,_SeedFun} = mk_alg(Alg0),
-    {Alg, Seed}.
+    {Alg, Seed};
+seed_s(Alg) ->
+    seed_s(Alg, {erlang:phash2([{node(),self()}]),
+		 erlang:system_time(),
+		 erlang:unique_integer()}).
 
 %% seed/2: seeds RNG with the algorithm and given values
 %% and returns the NEW state.
 
--spec seed(Alg :: alg(), {integer(), integer(), integer()}) -> state().
+-spec seed(
+        Alg :: builtin_alg(), Seed :: {integer(), integer(), integer()}) ->
+                  state().
 seed(Alg0, S0) ->
-    State = seed_s(Alg0, S0),
-    _ = seed_put(State),
-    State.
+    seed_put(seed_s(Alg0, S0)).
 
--spec seed_s(Alg :: alg(), {integer(), integer(), integer()}) -> state().
+-spec seed_s(
+        Alg :: builtin_alg(), Seed :: {integer(), integer(), integer()}) ->
+                    state().
 seed_s(Alg0, S0 = {_, _, _}) ->
     {Alg, Seed} = mk_alg(Alg0),
     AS = Seed(S0),
@@ -110,10 +276,10 @@ seed_s(Alg0, S0 = {_, _, _}) ->
 %%% uniform/0, uniform/1, uniform_s/1, uniform_s/2 are all
 %%% uniformly distributed random numbers.
 
-%% uniform/0: returns a random float X where 0.0 < X < 1.0,
+%% uniform/0: returns a random float X where 0.0 =< X < 1.0,
 %% updating the state in the process dictionary.
 
--spec uniform() -> X::float().
+-spec uniform() -> X :: float().
 uniform() ->
     {X, Seed} = uniform_s(seed_get()),
     _ = seed_put(Seed),
@@ -123,32 +289,259 @@ uniform() ->
 %% uniform/1 returns a random integer X where 1 =< X =< N,
 %% updating the state in the process dictionary.
 
--spec uniform(N :: pos_integer()) -> X::pos_integer().
+-spec uniform(N :: pos_integer()) -> X :: pos_integer().
 uniform(N) ->
     {X, Seed} = uniform_s(N, seed_get()),
     _ = seed_put(Seed),
     X.
 
 %% uniform_s/1: given a state, uniform_s/1
-%% returns a random float X where 0.0 < X < 1.0,
+%% returns a random float X where 0.0 =< X < 1.0,
 %% and a new state.
 
--spec uniform_s(state()) -> {X::float(), NewS :: state()}.
+-spec uniform_s(State :: state()) -> {X :: float(), NewState :: state()}.
 uniform_s(State = {#{uniform:=Uniform}, _}) ->
-    Uniform(State).
+    Uniform(State);
+uniform_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
+    {V, R1} = Next(R0),
+    %% Produce floats on the form N * 2^(-53)
+    {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {Alg, R1}};
+uniform_s({#{max:=Max, next:=Next} = Alg, R0}) ->
+    {V, R1} = Next(R0),
+    %% Old algorithm with non-uniform density
+    {V / (Max + 1), {Alg, R1}}.
+
 
 %% uniform_s/2: given an integer N >= 1 and a state, uniform_s/2
 %% uniform_s/2 returns a random integer X where 1 =< X =< N,
 %% and a new state.
 
--spec uniform_s(N::pos_integer(), state()) -> {X::pos_integer(), NewS::state()}.
-uniform_s(N, State = {#{uniform_n:=Uniform, max:=Max}, _})
-  when 0 < N, N =< Max ->
-    Uniform(N, State);
-uniform_s(N, State0 = {#{uniform:=Uniform}, _})
-  when is_integer(N), 0 < N ->
-    {F, State} = Uniform(State0),
-    {trunc(F * N) + 1, State}.
+-spec uniform_s(N :: pos_integer(), State :: state()) ->
+                       {X :: pos_integer(), NewState :: state()}.
+uniform_s(N, State = {#{uniform_n:=UniformN}, _})
+  when is_integer(N), 1 =< N ->
+    UniformN(N, State);
+uniform_s(N, {#{bits:=Bits, next:=Next} = Alg, R0})
+  when is_integer(N), 1 =< N ->
+    {V, R1} = Next(R0),
+    MaxMinusN = ?BIT(Bits) - N,
+    ?uniform_range(N, Alg, R1, V, MaxMinusN, I);
+uniform_s(N, {#{max:=Max, next:=Next} = Alg, R0})
+  when is_integer(N), 1 =< N ->
+    %% Old algorithm with skewed probability
+    %% and gap in ranges > Max
+    {V, R1} = Next(R0),  
+    if
+        N =< Max ->
+            {(V rem N) + 1, {Alg, R1}};
+        true ->
+            F = V / (Max + 1),
+            {trunc(F * N) + 1, {Alg, R1}}
+    end.
+
+%% uniform_real/0: returns a random float X where 0.0 < X =< 1.0,
+%% updating the state in the process dictionary.
+
+-spec uniform_real() -> X :: float().
+uniform_real() ->
+    {X, Seed} = uniform_real_s(seed_get()),
+    _ = seed_put(Seed),
+    X.
+
+%% uniform_real_s/1: given a state, uniform_s/1
+%% returns a random float X where 0.0 < X =< 1.0,
+%% and a new state.
+%%
+%% This function does not use the same form of uniformity
+%% as the uniform_s/1 function.
+%%
+%% Instead, this function does not generate numbers with equal
+%% distance in the interval, but rather tries to keep all mantissa
+%% bits random also for small numbers, meaning that the distance
+%% between possible numbers decreases when the numbers
+%% approaches 0.0, as does the possibility for a particular
+%% number.  Hence uniformity is preserved.
+%%
+%% To generate 56 bits at the time instead of 53 is actually
+%% a speed optimization since the probability to have to
+%% generate a second word decreases by 1/2 for every extra bit.
+%%
+%% This function generates normalized numbers, so the smallest number
+%% that can be generated is 2^-1022 with the distance 2^-1074
+%% to the next to smallest number, compared to 2^-53 for uniform_s/1.
+%%
+%% This concept of uniformity should work better for applications
+%% where you need to calculate 1.0/X or math:log(X) since those
+%% operations benefits from larger precision approaching 0.0,
+%% and that this function does not return 0.0 nor denormalized
+%% numbers very close to 0.0.  The log() operation in The Box-Muller
+%% transformation for normal distribution is an example of this.
+%%
+%%-define(TWO_POW_MINUS55, (math:pow(2, -55))).
+%%-define(TWO_POW_MINUS110, (math:pow(2, -110))).
+%%-define(TWO_POW_MINUS55, 2.7755575615628914e-17).
+%%-define(TWO_POW_MINUS110, 7.7037197775489436e-34).
+%%
+-spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
+uniform_real_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
+    %% Generate a 56 bit number without using the weak low bits.
+    %%
+    %% Be sure to use only 53 bits when multiplying with
+    %% math:pow(2.0, -N) to avoid rounding which would make
+    %% "even" floats more probable than "odd".
+    %%
+    {V1, R1} = Next(R0),
+    M1 = V1 bsr (Bits - 56),
+    if
+        ?BIT(55) =< M1 ->
+            %% We have 56 bits - waste 3
+            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+        ?BIT(54) =< M1 ->
+            %% We have 55 bits - waste 2
+            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+        ?BIT(53) =< M1 ->
+            %% We have 54 bits - waste 1
+            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+        ?BIT(52) =< M1 ->
+            %% We have 53 bits - use all
+            {M1 * math:pow(2.0, -56), {Alg, R1}};
+        true ->
+            %% Need more bits
+            {V2, R2} = Next(R1),
+            uniform_real_s(Alg, Next, M1, -56, R2, V2, Bits)
+    end;
+uniform_real_s({#{max:=_, next:=Next} = Alg, R0}) ->
+    %% Generate a 56 bit number.
+    %% Ignore the weak low bits for these old algorithms,
+    %% just produce something reasonable.
+    %%
+    %% Be sure to use only 53 bits when multiplying with
+    %% math:pow(2.0, -N) to avoid rounding which would make
+    %% "even" floats more probable than "odd".
+    %%
+    {V1, R1} = Next(R0),
+    M1 = ?MASK(56, V1),
+    if
+        ?BIT(55) =< M1 ->
+            %% We have 56 bits - waste 3
+            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+        ?BIT(54) =< M1 ->
+            %% We have 55 bits - waste 2
+            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+        ?BIT(53) =< M1 ->
+            %% We have 54 bits - waste 1
+            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+        ?BIT(52) =< M1 ->
+            %% We have 53 bits - use all
+            {M1 * math:pow(2.0, -56), {Alg, R1}};
+        true ->
+            %% Need more bits
+            {V2, R2} = Next(R1),
+            uniform_real_s(Alg, Next, M1, -56, R2, V2, 56)
+    end.
+
+uniform_real_s(Alg, _Next, M0, -1064, R1, V1, Bits) -> % 19*56
+    %% This is a very theoretical bottom case.
+    %% The odds of getting here is about 2^-1008,
+    %% through a white box test case, or thanks to
+    %% a malfunctioning PRNG producing 18 56-bit zeros in a row.
+    %%
+    %% Fill up to 53 bits, we have at most 52
+    B0 = (53 - ?BC(M0, 52)), % Missing bits
+    {(((M0 bsl B0) bor (V1 bsr (Bits - B0))) * math:pow(2.0, -1064 - B0)),
+     {Alg, R1}};
+uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
+    if
+        %% Optimize the most probable.
+        %% Fill up to 53 bits.
+        ?BIT(51) =< M0 ->
+            %% We have 52 bits in M0 - need 1
+            {(((M0 bsl 1) bor (V1 bsr (Bits - 1)))
+              * math:pow(2.0, BitNo - 1)),
+             {Alg, R1}};
+        ?BIT(50) =< M0 ->
+            %% We have 51 bits in M0 - need 2
+            {(((M0 bsl 2) bor (V1 bsr (Bits - 2)))
+              * math:pow(2.0, BitNo - 2)),
+             {Alg, R1}};
+        ?BIT(49) =< M0 ->
+            %% We have 50 bits in M0 - need 3
+            {(((M0 bsl 3) bor (V1 bsr (Bits - 3)))
+              * math:pow(2.0, BitNo - 3)),
+             {Alg, R1}};
+        M0 == 0 ->
+            M1 = V1 bsr (Bits - 56),
+            if
+                ?BIT(55) =< M1 ->
+                    %% We have 56 bits - waste 3
+                    {(M1 bsr 3) * math:pow(2.0, BitNo - 53), {Alg, R1}};
+                ?BIT(54) =< M1 ->
+                    %% We have 55 bits - waste 2
+                    {(M1 bsr 2) * math:pow(2.0, BitNo - 54), {Alg, R1}};
+                ?BIT(53) =< M1 ->
+                    %% We have 54 bits - waste 1
+                    {(M1 bsr 1) * math:pow(2.0, BitNo - 55), {Alg, R1}};
+                ?BIT(52) =< M1 ->
+                    %% We have 53 bits - use all
+                    {M1 * math:pow(2.0, BitNo - 56), {Alg, R1}};
+                BitNo =:= -1008 ->
+                    %% Endgame
+                    %% For the last round we can not have 14 zeros or more
+                    %% at the top of M1 because then we will underflow,
+                    %% so we need at least 43 bits
+                    if
+                        ?BIT(42) =< M1 ->
+                            %% We have 43 bits - get the last bits
+                            uniform_real_s(Alg, Next, M1, BitNo - 56, R1);
+                        true ->
+                            %% Would underflow 2^-1022 - start all over
+                            %%
+                            %% We could just crash here since the odds for
+                            %% the PRNG being broken is much higher than
+                            %% for a good PRNG generating this many zeros
+                            %% in a row.  Maybe we should write an error
+                            %% report or call this a system limit...?
+                            uniform_real_s({Alg, R1})
+                    end;
+                true ->
+                    %% Need more bits
+                    uniform_real_s(Alg, Next, M1, BitNo - 56, R1)
+            end;
+        true ->
+            %% Fill up to 53 bits
+            B0 = 53 - ?BC(M0, 49), % Number of bits we need to append
+            {(((M0 bsl B0) bor (V1 bsr (Bits - B0)))
+              * math:pow(2.0, BitNo - B0)),
+             {Alg, R1}}
+    end.
+%%
+uniform_real_s(#{bits:=Bits} = Alg, Next, M0, BitNo, R0) ->
+    {V1, R1} = Next(R0),
+    uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits);
+uniform_real_s(#{max:=_} = Alg, Next, M0, BitNo, R0) ->
+    {V1, R1} = Next(R0),
+    uniform_real_s(Alg, Next, M0, BitNo, R1, ?MASK(56, V1), 56).
+
+%% jump/1: given a state, jump/1
+%% returns a new state which is equivalent to that
+%% after a large number of call defined for each algorithm.
+%% The large number is algorithm dependent.
+
+-spec jump(state()) -> NewState :: state().
+jump(State = {#{jump:=Jump}, _}) ->
+    Jump(State);
+jump({#{}, _}) ->
+    erlang:error(not_implemented).
+
+
+%% jump/0: read the internal state and
+%% apply the jump function for the state as in jump/1
+%% and write back the new value to the internal state,
+%% then returns the new value.
+
+-spec jump() -> NewState :: state().
+jump() ->
+    seed_put(jump(seed_get())).
 
 %% normal/0: returns a random float with standard normal distribution
 %% updating the state in the process dictionary.
@@ -159,14 +552,21 @@ normal() ->
     _ = seed_put(Seed),
     X.
 
+%% normal/2: returns a random float with N(μ, σ²) normal distribution
+%% updating the state in the process dictionary.
+
+-spec normal(Mean :: number(), Variance :: number()) -> float().
+normal(Mean, Variance) ->
+    Mean + (math:sqrt(Variance) * normal()).
+
 %% normal_s/1: returns a random float with standard normal distribution
 %% The Ziggurat Method for generating random variables - Marsaglia and Tsang
 %% Paper and reference code: http://www.jstatsoft.org/v05/i08/
 
--spec normal_s(state()) -> {float(), NewS :: state()}.
+-spec normal_s(State :: state()) -> {float(), NewState :: state()}.
 normal_s(State0) ->
     {Sign, R, State} = get_52(State0),
-    Idx = R band 16#FF,
+    Idx = ?MASK(8, R),
     Idx1 = Idx+1,
     {Ki, Wi} = normal_kiwi(Idx1),
     X = R * Wi,
@@ -179,22 +579,20 @@ normal_s(State0) ->
 	false -> normal_s(Idx, Sign, -X, State)
     end.
 
+%% normal_s/3: returns a random float with normal N(μ, σ²) distribution
+
+-spec normal_s(Mean :: number(), Variance :: number(), state()) -> {float(), NewS :: state()}.
+normal_s(Mean, Variance, State0) when Variance > 0 ->
+    {X, State} = normal_s(State0),
+    {Mean + (math:sqrt(Variance) * X), State}.
+
 %% =====================================================================
 %% Internal functions
 
--define(UINT21MASK, 16#00000000001fffff).
--define(UINT32MASK, 16#00000000ffffffff).
--define(UINT33MASK, 16#00000001ffffffff).
--define(UINT39MASK, 16#0000007fffffffff).
--define(UINT58MASK, 16#03ffffffffffffff).
--define(UINT64MASK, 16#ffffffffffffffff).
-
--type uint64() :: 0..16#ffffffffffffffff.
--type uint58() :: 0..16#03ffffffffffffff.
-
--spec seed_put(state()) -> undefined | state().
+-spec seed_put(state()) -> state().
 seed_put(Seed) ->
-    put(?SEED_DICT, Seed).
+    put(?SEED_DICT, Seed),
+    Seed.
 
 seed_get() ->
     case get(?SEED_DICT) of
@@ -204,17 +602,30 @@ seed_get() ->
 
 %% Setup alg record
 mk_alg(exs64) ->
-    {#{type=>exs64, max=>?UINT64MASK, next=>fun exs64_next/1,
-       uniform=>fun exs64_uniform/1, uniform_n=>fun exs64_uniform/2},
+    {#{type=>exs64, max=>?MASK(64), next=>fun exs64_next/1},
      fun exs64_seed/1};
 mk_alg(exsplus) ->
-    {#{type=>exsplus, max=>?UINT58MASK, next=>fun exsplus_next/1,
-       uniform=>fun exsplus_uniform/1, uniform_n=>fun exsplus_uniform/2},
+    {#{type=>exsplus, max=>?MASK(58), next=>fun exsplus_next/1,
+       jump=>fun exsplus_jump/1},
+     fun exsplus_seed/1};
+mk_alg(exsp) ->
+    {#{type=>exsp, bits=>58, weak_low_bits=>1, next=>fun exsplus_next/1,
+       uniform=>fun exsp_uniform/1, uniform_n=>fun exsp_uniform/2,
+       jump=>fun exsplus_jump/1},
      fun exsplus_seed/1};
 mk_alg(exs1024) ->
-    {#{type=>exs1024, max=>?UINT64MASK, next=>fun exs1024_next/1,
-       uniform=>fun exs1024_uniform/1, uniform_n=>fun exs1024_uniform/2},
-     fun exs1024_seed/1}.
+    {#{type=>exs1024, max=>?MASK(64), next=>fun exs1024_next/1,
+       jump=>fun exs1024_jump/1},
+     fun exs1024_seed/1};
+mk_alg(exs1024s) ->
+    {#{type=>exs1024s, bits=>64, weak_low_bits=>3, next=>fun exs1024_next/1,
+       jump=>fun exs1024_jump/1},
+     fun exs1024_seed/1};
+mk_alg(exrop) ->
+    {#{type=>exrop, bits=>58, weak_low_bits=>1, next=>fun exrop_next/1,
+       uniform=>fun exrop_uniform/1, uniform_n=>fun exrop_uniform/2,
+       jump=>fun exrop_jump/1},
+     fun exrop_seed/1}.
 
 %% =====================================================================
 %% exs64 PRNG: Xorshift64*
@@ -222,29 +633,21 @@ mk_alg(exs1024) ->
 %% Reference URL: http://xorshift.di.unimi.it/
 %% =====================================================================
 
--type exs64_state() :: uint64().
+-opaque exs64_state() :: uint64().
 
 exs64_seed({A1, A2, A3}) ->
-    {V1, _} = exs64_next(((A1 band ?UINT32MASK) * 4294967197 + 1)),
-    {V2, _} = exs64_next(((A2 band ?UINT32MASK) * 4294967231 + 1)),
-    {V3, _} = exs64_next(((A3 band ?UINT32MASK) * 4294967279 + 1)),
-    ((V1 * V2 * V3) rem (?UINT64MASK - 1)) + 1.
+    {V1, _} = exs64_next((?MASK(32, A1) * 4294967197 + 1)),
+    {V2, _} = exs64_next((?MASK(32, A2) * 4294967231 + 1)),
+    {V3, _} = exs64_next((?MASK(32, A3) * 4294967279 + 1)),
+    ((V1 * V2 * V3) rem (?MASK(64) - 1)) + 1.
 
 %% Advance xorshift64* state for one step and generate 64bit unsigned integer
 -spec exs64_next(exs64_state()) -> {uint64(), exs64_state()}.
 exs64_next(R) ->
     R1 = R bxor (R bsr 12),
-    R2 = R1 bxor ((R1 band ?UINT39MASK) bsl 25),
+    R2 = R1 bxor ?BSL(64, R1, 25),
     R3 = R2 bxor (R2 bsr 27),
-    {(R3 * 2685821657736338717) band ?UINT64MASK, R3}.
-
-exs64_uniform({Alg, R0}) ->
-    {V, R1} = exs64_next(R0),
-    {V / 18446744073709551616, {Alg, R1}}.
-
-exs64_uniform(Max, {Alg, R}) ->
-    {V, R1} = exs64_next(R),
-    {(V rem Max) + 1, {Alg, R1}}.
+    {?MASK(64, R3 * 2685821657736338717), R3}.
 
 %% =====================================================================
 %% exsplus PRNG: Xorshift116+
@@ -254,15 +657,17 @@ exs64_uniform(Max, {Alg, R}) ->
 %% Modification of the original Xorshift128+ algorithm to 116
 %% by Sebastiano Vigna, a lot of thanks for his help and work.
 %% =====================================================================
--type exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
+-opaque exsplus_state() :: nonempty_improper_list(uint58(), uint58()).
 
 -dialyzer({no_improper_lists, exsplus_seed/1}).
 
 exsplus_seed({A1, A2, A3}) ->
-    {_, R1} = exsplus_next([(((A1 * 4294967197) + 1) band ?UINT58MASK)|
-			    (((A2 * 4294967231) + 1) band ?UINT58MASK)]),
-    {_, R2} = exsplus_next([(((A3 * 4294967279) + 1) band ?UINT58MASK)|
-			    tl(R1)]),
+    {_, R1} = exsplus_next(
+                [?MASK(58, (A1 * 4294967197) + 1)|
+                 ?MASK(58, (A2 * 4294967231) + 1)]),
+    {_, R2} = exsplus_next(
+                [?MASK(58, (A3 * 4294967279) + 1)|
+                 tl(R1)]),
     R2.
 
 -dialyzer({no_improper_lists, exsplus_next/1}).
@@ -271,17 +676,56 @@ exsplus_seed({A1, A2, A3}) ->
 -spec exsplus_next(exsplus_state()) -> {uint58(), exsplus_state()}.
 exsplus_next([S1|S0]) ->
     %% Note: members s0 and s1 are swapped here
-    S11 = (S1 bxor (S1 bsl 24)) band ?UINT58MASK,
+    S11 = S1 bxor ?BSL(58, S1, 24),
     S12 = S11 bxor S0 bxor (S11 bsr 11) bxor (S0 bsr 41),
-    {(S0 + S12) band ?UINT58MASK, [S0|S12]}.
+    {?MASK(58, S0 + S12), [S0|S12]}.
 
-exsplus_uniform({Alg, R0}) ->
+
+exsp_uniform({Alg, R0}) ->
     {I, R1} = exsplus_next(R0),
-    {I / (?UINT58MASK+1), {Alg, R1}}.
+    %% Waste the lowest bit since it is of lower
+    %% randomness quality than the others
+    {(I bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
 
-exsplus_uniform(Max, {Alg, R}) ->
+exsp_uniform(Range, {Alg, R}) ->
     {V, R1} = exsplus_next(R),
-    {(V rem Max) + 1, {Alg, R1}}.
+    MaxMinusRange = ?BIT(58) - Range,
+    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
+
+
+%% This is the jump function for the exsplus generator, equivalent
+%% to 2^64 calls to next/1; it can be used to generate 2^52
+%% non-overlapping subsequences for parallel computations.
+%% Note: the jump function takes 116 times of the execution time of
+%% next/1.
+
+%% -define(JUMPCONST, 16#000d174a83e17de2302f8ea6bc32c797).
+%% split into 58-bit chunks
+%% and two iterative executions
+
+-define(JUMPCONST1, 16#02f8ea6bc32c797).
+-define(JUMPCONST2, 16#345d2a0f85f788c).
+-define(JUMPELEMLEN, 58).
+
+-dialyzer({no_improper_lists, exsplus_jump/1}).
+-spec exsplus_jump(state()) -> state().
+exsplus_jump({Alg, S}) ->
+    {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
+    {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
+    {Alg, AS2}.
+
+-dialyzer({no_improper_lists, exsplus_jump/4}).
+exsplus_jump(S, AS, _, 0) ->
+    {S, AS};
+exsplus_jump(S, [AS0|AS1], J, N) ->
+    {_, NS} = exsplus_next(S),
+    case ?MASK(1, J) of
+        1 ->
+            [S0|S1] = S,
+            exsplus_jump(NS, [(AS0 bxor S0)|(AS1 bxor S1)], J bsr 1, N-1);
+        0 ->
+            exsplus_jump(NS, [AS0|AS1], J bsr 1, N-1)
+    end.
 
 %% =====================================================================
 %% exs1024 PRNG: Xorshift1024*
@@ -289,12 +733,12 @@ exsplus_uniform(Max, {Alg, R}) ->
 %% Reference URL: http://xorshift.di.unimi.it/
 %% =====================================================================
 
--type exs1024_state() :: {list(uint64()), list(uint64())}.
+-opaque exs1024_state() :: {list(uint64()), list(uint64())}.
 
 exs1024_seed({A1, A2, A3}) ->
-    B1 = (((A1 band ?UINT21MASK) + 1) * 2097131) band ?UINT21MASK,
-    B2 = (((A2 band ?UINT21MASK) + 1) * 2097133) band ?UINT21MASK,
-    B3 = (((A3 band ?UINT21MASK) + 1) * 2097143) band ?UINT21MASK,
+    B1 = ?MASK(21, (?MASK(21, A1) + 1) * 2097131),
+    B2 = ?MASK(21, (?MASK(21, A2) + 1) * 2097133),
+    B3 = ?MASK(21, (?MASK(21, A3) + 1) * 2097143),
     {exs1024_gen1024((B1 bsl 43) bor (B2 bsl 22) bor (B3 bsl 1) bor 1),
      []}.
 
@@ -317,11 +761,11 @@ exs1024_gen1024(N, R, L) ->
 %% X: random number output
 -spec exs1024_calc(uint64(), uint64()) -> {uint64(), uint64()}.
 exs1024_calc(S0, S1) ->
-    S11 = S1 bxor ((S1 band ?UINT33MASK) bsl 31),
+    S11 = S1 bxor ?BSL(64, S1, 31),
     S12 = S11 bxor (S11 bsr 11),
     S01 = S0 bxor (S0 bsr 30),
     NS1 = S01 bxor S12,
-    {(NS1 * 1181783497276652981) band ?UINT64MASK, NS1}.
+    {?MASK(64, NS1 * 1181783497276652981), NS1}.
 
 %% Advance xorshift1024* state for one step and generate 64bit unsigned integer
 -spec exs1024_next(exs1024_state()) -> {uint64(), exs1024_state()}.
@@ -332,13 +776,190 @@ exs1024_next({[H], RL}) ->
     NL = [H|lists:reverse(RL)],
     exs1024_next({NL, []}).
 
-exs1024_uniform({Alg, R0}) ->
-    {V, R1} = exs1024_next(R0),
-    {V / 18446744073709551616, {Alg, R1}}.
 
-exs1024_uniform(Max, {Alg, R}) ->
-    {V, R1} = exs1024_next(R),
-    {(V rem Max) + 1, {Alg, R1}}.
+%% This is the jump function for the exs1024 generator, equivalent
+%% to 2^512 calls to next(); it can be used to generate 2^512
+%% non-overlapping subsequences for parallel computations.
+%% Note: the jump function takes ~2000 times of the execution time of
+%% next/1.
+
+%% Jump constant here split into 58 bits for speed
+-define(JUMPCONSTHEAD, 16#00242f96eca9c41d).
+-define(JUMPCONSTTAIL,
+        [16#0196e1ddbe5a1561,
+         16#0239f070b5837a3c,
+         16#03f393cc68796cd2,
+         16#0248316f404489af,
+         16#039a30088bffbac2,
+         16#02fea70dc2d9891f,
+         16#032ae0d9644caec4,
+         16#0313aac17d8efa43,
+         16#02f132e055642626,
+         16#01ee975283d71c93,
+         16#00552321b06f5501,
+         16#00c41d10a1e6a569,
+         16#019158ecf8aa1e44,
+         16#004e9fc949d0b5fc,
+         16#0363da172811fdda,
+         16#030e38c3b99181f2,
+         16#0000000a118038fc]).
+-define(JUMPTOTALLEN, 1024).
+-define(RINGLEN, 16).
+
+-spec exs1024_jump(state()) -> state().
+
+exs1024_jump({Alg, {L, RL}}) ->
+    P = length(RL),
+    AS = exs1024_jump({L, RL},
+         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+         ?JUMPCONSTTAIL, ?JUMPCONSTHEAD, ?JUMPELEMLEN, ?JUMPTOTALLEN),
+    {ASL, ASR} = lists:split(?RINGLEN - P, AS),
+    {Alg, {ASL, lists:reverse(ASR)}}.
+
+exs1024_jump(_, AS, _, _, _, 0) ->
+    AS;
+exs1024_jump(S, AS, [H|T], _, 0, TN) ->
+    exs1024_jump(S, AS, T, H, ?JUMPELEMLEN, TN);
+exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
+    {_, NS} = exs1024_next({L, RL}),
+    case ?MASK(1, J) of
+        1 ->
+            AS2 = lists:zipwith(fun(X, Y) -> X bxor Y end,
+                        AS, L ++ lists:reverse(RL)),
+            exs1024_jump(NS, AS2, JL, J bsr 1, N-1, TN-1);
+        0 ->
+            exs1024_jump(NS, AS, JL, J bsr 1, N-1, TN-1)
+    end.
+
+%% =====================================================================
+%% exrop PRNG: Xoroshiro116+
+%%
+%% Reference URL: http://xorshift.di.unimi.it/
+%%
+%% 58 bits fits into an immediate on 64bits Erlang and is thus much faster.
+%% In fact, an immediate number is 60 bits signed in Erlang so you can
+%% add two positive 58 bit numbers and get a 59 bit number that still is
+%% a positive immediate, which is a property we utilize here...
+%%
+%% Modification of the original Xororhiro128+ algorithm to 116 bits
+%% by Sebastiano Vigna.  A lot of thanks for his help and work.
+%% =====================================================================
+%% (a, b, c) = (24, 2, 35)
+%% JUMP Polynomial = 0x9863200f83fcd4a11293241fcb12a (116 bit)
+%%
+%% From http://xoroshiro.di.unimi.it/xoroshiro116plus.c:
+%% ---------------------------------------------------------------------
+%% /* Written in 2017 by Sebastiano Vigna (vigna@acm.org).
+%%
+%% To the extent possible under law, the author has dedicated all copyright
+%% and related and neighboring rights to this software to the public domain
+%% worldwide. This software is distributed without any warranty.
+%%
+%% See <http://creativecommons.org/publicdomain/zero/1.0/>. */
+%%
+%% #include <stdint.h>
+%%
+%% #define UINT58MASK (uint64_t)((UINT64_C(1) << 58) - 1)
+%%
+%% uint64_t s[2];
+%%
+%% static inline uint64_t rotl58(const uint64_t x, int k) {
+%%     return (x << k) & UINT58MASK | (x >> (58 - k));
+%% }
+%% 
+%% uint64_t next(void) {
+%%     uint64_t s1 = s[1];
+%%     const uint64_t s0 = s[0];
+%%     const uint64_t result = (s0 + s1) & UINT58MASK;
+%%
+%%     s1 ^= s0;
+%%     s[0] = rotl58(s0, 24) ^ s1 ^ ((s1 << 2) & UINT58MASK); // a, b
+%%     s[1] = rotl58(s1, 35); // c
+%%     return result;
+%% }
+%%
+%% void jump(void) {
+%%     static const uint64_t JUMP[] =
+%%         { 0x4a11293241fcb12a, 0x0009863200f83fcd };
+%%
+%%     uint64_t s0 = 0;
+%%     uint64_t s1 = 0;
+%%     for(int i = 0; i < sizeof JUMP / sizeof *JUMP; i++)
+%%         for(int b = 0; b < 64; b++) {
+%%             if (JUMP[i] & UINT64_C(1) << b) {
+%%                 s0 ^= s[0];
+%% 	           s1 ^= s[1];
+%% 	       }
+%% 	       next();
+%% 	   }
+%%     s[0] = s0;
+%%     s[1] = s1;
+%% }
+
+-opaque exrop_state() :: nonempty_improper_list(uint58(), uint58()).
+
+-dialyzer({no_improper_lists, exrop_seed/1}).
+exrop_seed({A1, A2, A3}) ->
+    [_|S1] =
+        exrop_next_s(
+          ?MASK(58, (A1 * 4294967197) + 1),
+          ?MASK(58, (A2 * 4294967231) + 1)),
+    exrop_next_s(?MASK(58, (A3 * 4294967279) + 1), S1).
+
+-dialyzer({no_improper_lists, exrop_next_s/2}).
+%% Advance xoroshiro116+ state one step
+%% [a, b, c] = [24, 2, 35]
+-define(
+   exrop_next_s(S0, S1, S1_a),
+   begin
+       S1_a = S1 bxor S0,
+       [?ROTL(58, S0, 24) bxor S1_a bxor ?BSL(58, S1_a, 2)| % a, b
+        ?ROTL(58, S1_a, 35)] % c
+   end).
+exrop_next_s(S0, S1) ->
+    ?exrop_next_s(S0, S1, S1_a).
+
+-dialyzer({no_improper_lists, exrop_next/1}).
+%% Advance xoroshiro116+ state one step, generate 58 bit unsigned integer,
+%% and waste the lowest bit since it is of lower randomness quality
+exrop_next([S0|S1]) ->
+    {?MASK(58, S0 + S1), ?exrop_next_s(S0, S1, S1_a)}.
+
+exrop_uniform({Alg, R}) ->
+    {V, R1} = exrop_next(R),
+    %% Waste the lowest bit since it is of lower
+    %% randomness quality than the others
+    {(V bsr (58-53)) * ?TWO_POW_MINUS53, {Alg, R1}}.
+
+exrop_uniform(Range, {Alg, R}) ->
+    {V, R1} = exrop_next(R),
+    MaxMinusRange = ?BIT(58) - Range,
+    ?uniform_range(Range, Alg, R1, V, MaxMinusRange, I).
+
+%% Split a 116 bit constant into two 58 bit words,
+%% a top '1' marks the end of the low word.
+-define(
+   JUMP_116(Jump),
+   [?BIT(58) bor ?MASK(58, (Jump)),(Jump) bsr 58]).
+%%
+exrop_jump({Alg,S}) ->
+    [J|Js] = ?JUMP_116(16#9863200f83fcd4a11293241fcb12a),
+    {Alg, exrop_jump(S, 0, 0, J, Js)}.
+%%
+-dialyzer({no_improper_lists, exrop_jump/5}).
+exrop_jump(_S, S0, S1, 0, []) -> % End of jump constant
+    [S0|S1];
+exrop_jump(S, S0, S1, 1, [J|Js]) -> % End of word
+    exrop_jump(S, S0, S1, J, Js);
+exrop_jump([S__0|S__1] = _S, S0, S1, J, Js) ->
+    case ?MASK(1, J) of
+        1 ->
+            NewS = exrop_next_s(S__0, S__1),
+            exrop_jump(NewS, S0 bxor S__0, S1 bxor S__1, J bsr 1, Js);
+        0 ->
+            NewS = exrop_next_s(S__0, S__1),
+            exrop_jump(NewS, S0, S1, J bsr 1, Js)
+    end.
 
 %% =====================================================================
 %% Ziggurat cont
@@ -347,9 +968,13 @@ exs1024_uniform(Max, {Alg, R}) ->
 -define(NOR_INV_R, 1/?NOR_R).
 
 %% return a {sign, Random51bits, State}
+get_52({Alg=#{bits:=Bits, next:=Next}, S0}) ->
+    %% Use the high bits
+    {Int,S1} = Next(S0),
+    {?BIT(Bits - 51 - 1) band Int, Int bsr (Bits - 51), {Alg, S1}};
 get_52({Alg=#{next:=Next}, S0}) ->
     {Int,S1} = Next(S0),
-    {((1 bsl 51) band Int), Int band ((1 bsl 51)-1), {Alg, S1}}.
+    {?BIT(51) band Int, ?MASK(51, Int), {Alg, S1}}.
 
 %% Slow path
 normal_s(0, Sign, X0, State0) ->
@@ -594,3 +1219,42 @@ normal_fi(Indx) ->
 	     1.0214971439701471e-02,8.6165827693987316e-03,7.0508754713732268e-03,
 	     5.5224032992509968e-03,4.0379725933630305e-03,2.6090727461021627e-03,
 	     1.2602859304985975e-03}).
+
+%%%bitcount64(0) -> 0;
+%%%bitcount64(V) -> 1 + bitcount(V, 64).
+%%%
+%%%-define(
+%%%   BITCOUNT(V, N),
+%%%   bitcount(V, N) ->
+%%%       if
+%%%           (1 bsl ((N) bsr 1)) =< (V) ->
+%%%               ((N) bsr 1) + bitcount((V) bsr ((N) bsr 1), ((N) bsr 1));
+%%%           true ->
+%%%               bitcount((V), ((N) bsr 1))
+%%%       end).
+%%%?BITCOUNT(V, 64);
+%%%?BITCOUNT(V, 32);
+%%%?BITCOUNT(V, 16);
+%%%?BITCOUNT(V, 8);
+%%%?BITCOUNT(V, 4);
+%%%?BITCOUNT(V, 2);
+%%%bitcount(_, 1) -> 0.
+
+bc64(V) -> ?BC(V, 64).
+
+%% Linear from high bit - higher probability first gives faster execution
+bc(V, B, N) when B =< V -> N;
+bc(V, B, N) -> bc(V, B bsr 1, N - 1).
+    
+make_float(S, E, M) ->
+    <<F/float>> = <<S:1, E:11, M:52>>,
+    F.
+
+float2str(N) ->
+    <<S:1, E:11, M:52>> = <<(float(N))/float>>,
+    lists:flatten(
+      io_lib:format(
+      "~c~c.~13.16.0bE~b",
+      [case S of 1 -> $-; 0 -> $+ end,
+       case E of 0 -> $0; _ -> $1 end,
+       M, E - 16#3ff])).

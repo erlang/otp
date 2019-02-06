@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,10 +120,10 @@ debug_app(Mod) ->
    
 out(_,{trace_ts,Pid,call,MFA={M,F,A},{W,_,_},TS},_,S) 
   when W==webtool;W==mod_esi-> 
-    io:format("~w: (~p)~ncall ~s~n", [TS,Pid,ffunc(MFA)]),
+    io:format("~w: (~p)~ncall ~ts~n", [TS,Pid,ffunc(MFA)]),
     [{M,F,length(A)}|S];
 out(_,{trace_ts,Pid,return_from,MFA,R,TS},_,[MFA|S]) ->
-    io:format("~w: (~p)~nreturned from ~s -> ~p~n", [TS,Pid,ffunc(MFA),R]),
+    io:format("~w: (~p)~nreturned from ~ts -> ~tp~n", [TS,Pid,ffunc(MFA),R]),
     S;
 out(_,_,_,_) ->
     ok.
@@ -171,7 +171,7 @@ script_start([App,Browser]) ->
 		    IExplore=filename:join(win32reg:expand(Val),"iexplore.exe"),
                     os:cmd("\"" ++ IExplore ++ "\" " ++ Url);
 		_ when OSType == win32 ->
-                    io:format("Starting ~w...\n",[Browser]),
+                    io:format("Starting ~tw...\n",[Browser]),
                     os:cmd("\"" ++ atom_to_list(Browser) ++ "\" " ++ Url);
 		B when B==firefox; B==mozilla ->
 		    io:format("Sending URL to ~w...",[Browser]),
@@ -194,7 +194,7 @@ script_start([App,Browser]) ->
 			    os:cmd(BStr ++ " " ++ Url)
 		    end;
 		_ ->
-		    io:format("Starting ~w...\n",[Browser]),
+		    io:format("Starting ~tw...\n",[Browser]),
 		    os:cmd(atom_to_list(Browser) ++ " " ++ Url)
 	    end,
 	    ok;
@@ -343,6 +343,7 @@ code_change(_,State,_)->
 % Start the gen_server
 %----------------------------------------------------------------------
 init({Path,Config})->
+    ct_util:mark_process(),
     case filelib:is_dir(Path) of
 	true ->
 	    {ok, Table} = get_tool_files_data(),
@@ -379,7 +380,7 @@ print_url(ConfigData)->
     Server=proplists:get_value(server_name,ConfigData,"undefined"),
     Port=proplists:get_value(port,ConfigData,"undefined"),
     {A,B,C,D}=proplists:get_value(bind_address,ConfigData,"undefined"),
-    io:format("WebTool is available at http://~s:~w/~n",[Server,Port]),
+    io:format("WebTool is available at http://~ts:~w/~n",[Server,Port]),
     io:format("Or  http://~w.~w.~w.~w:~w/~n",[A,B,C,D,Port]).
 
 
@@ -770,7 +771,7 @@ fill_out(Nr)->
 %Controls whether the user selected a tool to start
 %----------------------------------------------------------------------
 get_tools(Input)->
-    case httpd:parse_query(Input) of
+    case uri_string:dissect_query(Input) of
 	[]->
 	    no_tools;
 	 Tools->
@@ -859,8 +860,8 @@ handle_app({Name,{start,{func,Start,Stop}}},Data,_Pid,Cmd)->
 		    %%! Here the tool disappears from the webtool interface!!
 		    io:format("\n=======ERROR (webtool, line ~w) =======\n"
 			      "Could not start application \'~p\'\n\n"
-			      "~w:~w(~s) ->\n"
-			      "~p\n\n",
+			      "~w:~tw(~ts) ->\n"
+			      "~tp\n\n",
 			      [?LINE,Name,M,F,format_args(A),Exit]),
 		    ets:delete(Data,Name);
 		_OK->
@@ -883,16 +884,16 @@ handle_app({Name,{start,{child,ChildSpec}}},Data,Pid,Cmd)->
 		    %%! Here the tool disappears from the webtool interface!!
 		    io:format("\n=======ERROR (webtool, line ~w) =======\n"
 			      "Could not start application \'~p\'\n\n"
-			      "supervisor:start_child(~p,~p) ->\n"
-			      "~p\n\n",
+			      "supervisor:start_child(~p,~tp) ->\n"
+			      "~tp\n\n",
 			      [?LINE,Name,Pid,ChildSpec,{error,Reason}]),
 		    ets:delete(Data,Name);
 		Error ->
 		    %%! Here the tool disappears from the webtool interface!!
 		    io:format("\n=======ERROR (webtool, line ~w) =======\n"
 			      "Could not start application \'~p\'\n\n"
-			      "supervisor:start_child(~p,~p) ->\n"
-			      "~p\n\n",
+			      "supervisor:start_child(~p,~tp) ->\n"
+			      "~tp\n\n",
 			      [?LINE,Name,Pid,ChildSpec,Error]),
 		    ets:delete(Data,Name)
 	    end;
@@ -924,7 +925,7 @@ handle_app({Name,{start,{app,Real_name}}},Data,_Pid,Cmd)->
 		    io:format("\n=======ERROR (webtool, line ~w) =======\n"
 			      "Could not start application \'~p\'\n\n"
 			      "application:start(~p,~p) ->\n"
-			      "~p\n\n",
+			      "~tp\n\n",
 			      [?LINE,Name,Real_name,temporary,Error]),
 		    ets:delete(Data,Name)
 	    end;
@@ -940,7 +941,7 @@ handle_app({Name,Incorrect},Data,_Pid,Cmd)->
     %%! Here the tool disappears from the webtool interface!!
     io:format("\n=======ERROR (webtool, line ~w) =======\n"
 	      "Could not ~w application \'~p\'\n\n"
-	      "Incorrect data: ~p\n\n",
+	      "Incorrect data: ~tp\n\n",
 	      [?LINE,Cmd,Name,Incorrect]),
     ets:delete(Data,Name).
 
@@ -1202,12 +1203,12 @@ filter_tool_files(Dir,[File|Rest]) ->
 %%%-----------------------------------------------------------------
 %%% format functions
 ffunc({M,F,A}) when is_list(A) ->
-    io_lib:format("~w:~w(~s)\n",[M,F,format_args(A)]);
+    io_lib:format("~w:~tw(~ts)\n",[M,F,format_args(A)]);
 ffunc({M,F,A}) when is_integer(A) ->
-    io_lib:format("~w:~w/~w\n",[M,F,A]).
+    io_lib:format("~w:~tw/~w\n",[M,F,A]).
 
 format_args([]) ->
     "";
 format_args(Args) ->
-    Str = lists:append(["~p"|lists:duplicate(length(Args)-1,",~p")]),
+    Str = lists:append(["~tp"|lists:duplicate(length(Args)-1,",~tp")]),
     io_lib:format(Str,Args).

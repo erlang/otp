@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,8 +56,8 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
 
 CC        = @CC@
 WFLAGS    = @WFLAGS@
-CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) -I$(EMUDIR) \
-            $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\"
+CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) -I$(EMUDIR) -I. \
+            -I$(COMSYSDIR) $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\"
 LD        = @LD@
 LIBS      = @LIBS@
 LDFLAGS   = @LDFLAGS@
@@ -69,16 +69,20 @@ endif
 
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
-CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) \
-		-I$(EMUDIR) $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
+CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) \
+	-I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
+	-DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
 LDFLAGS += -g
 endif
 endif
+
 BINDIR    = $(ERL_TOP)/bin/$(TARGET)
 OBJDIR    = $(ERL_TOP)/erts/obj$(TYPEMARKER)/$(TARGET)
 EMUDIR    = $(ERL_TOP)/erts/emulator/beam
+COMSYSDIR = $(ERL_TOP)/erts/emulator/sys/common
 EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
-SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
+SYSDIR    = $(ERL_TOP)/erts/emulator/sys/common
+SYSOSDIR  = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
 WINETC	  = ../win32
@@ -238,11 +242,11 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/reclaim.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/ct_run.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl.o
@@ -361,7 +365,7 @@ Install.ini:	../$(TARGET)/Install.src ../../vsn.mk $(TARGET)/Makefile
 
 
 else
-RC_GENERATED =
+RC_GENERATED =  $(ERL_TOP)/erts/$(TARGET)/config.h
 endif
 #---------------------------------------------------------
 # End of windows specific targets.

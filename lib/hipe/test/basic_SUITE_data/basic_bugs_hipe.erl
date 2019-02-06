@@ -18,6 +18,7 @@ test() ->
   ok = test_R12B5_seg_fault(),
   ok = test_switch_neg_int(),
   ok = test_icode_range_anal(),
+  ok = test_icode_range_call(),
   ok.
 
 %%-----------------------------------------------------------------------
@@ -461,3 +462,44 @@ g(X, Z) ->
     test -> non_zero_test;
     other -> other
   end.
+
+%%-----------------------------------------------------------------------
+%% From: Rich Neswold
+%% Date: Oct 5, 2016
+%%
+%% The following was a bug in the HiPE compiler's range analysis. The
+%% function range_client/2 below would would not stop when N reached 0,
+%% but keep recursing into the second clause forever.
+%%
+%% The problem turned out to be in hipe_icode_range:analyse_call/2,
+%% which would note update the argument ranges of the callee if the
+%% result of the call was ignored.
+%% -----------------------------------------------------------------------
+-define(TIMEOUT, 42).
+
+test_icode_range_call() ->
+    Self = self(),
+    Client = spawn_link(fun() -> range_client(Self, 4) end),
+    range_server(4, Client).
+
+range_server(0, _Client) ->
+    receive
+        stopping -> ok;
+        {called_with, 0} -> error(failure)
+    after ?TIMEOUT -> error(timeout)
+    end;
+range_server(N, Client) ->
+    receive
+        {called_with, N} ->
+            Client ! proceed
+    after ?TIMEOUT -> error(timeout)
+    end,
+    range_server(N-1, Client). % tailcall (so the bug does not affect it)
+
+range_client(Server, 0) ->
+    Server ! stopping;
+range_client(Server, N) ->
+    Server ! {called_with, N},
+    receive proceed -> ok end,
+    range_client(Server, N - 1), % non-tailrecursive call with ignored result
+    ok.

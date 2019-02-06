@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 -export([test_father/4, make_ASN1type/1, import/1, makeInternalNode2/2,
 	 is_consistent/1, resolve_defval/1, make_variable_info/1,
 	 check_trap_name/3, make_table_info/5, get_final_mib/2, set_dir/2,
-	 look_at/1, add_cdata/2,
+         fix_table_info_augmentation/1, look_at/1, add_cdata/2,
 	 check_object_group/4, check_notification_group/4, 
 	 check_notification/3, 
 	 register_oid/4,
@@ -99,7 +99,7 @@ make_ASN1type({{type_with_size,Type,{range,Lo,Hi}},Line}) ->
 	    print_error("Undefined type '~w'",[Type],Line),
 	    guess_string_type()
     end;
-make_ASN1type({{integer_with_enum,Type,Enums},Line}) ->
+make_ASN1type({{type_with_enum,Type,Enums},Line}) ->
     case lookup_vartype(Type) of
         {value,ASN1type} ->  ASN1type#asn1_type{assocList = [{enums, Enums}]};
 	false ->
@@ -710,25 +710,34 @@ check_trap_name(EnterpriseName, Line, MEs) ->
 %% functions for tables.
 %%----------------------------------------------------------------------
 
+fix_table_info_augmentation(
+  #table_info{index_types = {augments, SrcTableEntry, Line}} = TableInfo) ->
+    MEs = (get(cdata))#cdata.mes,
+    Aug =
+        case lookup(SrcTableEntry, MEs) of
+            false ->
+                print_error(
+                  "Cannot AUGMENT the non-existing table entry ~p",
+                  [SrcTableEntry], Line),
+                {augments, error};
+            {value, ME} ->
+                {augments,
+                 {SrcTableEntry, translate_type(ME#me.asn1_type)}}
+        end,
+    TableInfo#table_info{index_types = Aug}.
+
+
 make_table_info(Line, TableName, {augments, SrcTableEntry}, _, ColumnMEs) ->
     ColMEs = lists:keysort(#me.oid, ColumnMEs),
-    Nbr_of_Cols = length(ColMEs), 
-    MEs = ColMEs ++ (get(cdata))#cdata.mes,
-    Aug = case lookup(SrcTableEntry, MEs) of
-	      false ->
-		  print_error("Cannot AUGMENT the non-existing table entry ~p",
-			      [SrcTableEntry], Line),
-		  {augments, error};
-	      {value, ME} ->
-		  {augments, {SrcTableEntry, translate_type(ME#me.asn1_type)}}
-	  end,
-    FirstNonIdxCol = augments_first_non_index_column(ColMEs), 
+    Nbr_of_Cols = length(ColMEs),
+    put(augmentations, true),
+    FirstNonIdxCol = augments_first_non_index_column(ColMEs),
     NoAccs         = list_not_accessible(FirstNonIdxCol, ColMEs),
     FirstAcc       = first_accessible(TableName, ColMEs),
     #table_info{nbr_of_cols      = Nbr_of_Cols,
-		first_accessible = FirstAcc, 
-		not_accessible   = NoAccs, 
-		index_types      = Aug}; 
+		first_accessible = FirstAcc,
+		not_accessible   = NoAccs,
+		index_types      = {augments, SrcTableEntry, Line}};
 make_table_info(Line, TableName, {indexes, []}, _, _ColumnMEs) ->
     print_error("Table ~w lacks indexes.", [TableName],Line),
     #table_info{};

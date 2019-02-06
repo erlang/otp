@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -566,7 +566,7 @@
     for the test cases in the group. After execution of the group is finished, function
     <seealso marker="common_test#Module:end_per_group-2"><c>end_per_group(GroupName, Config)</c></seealso> 
     is called. This function is meant to be used for cleaning up after 
-    <c>init_per_group/2</c>.</p>
+    <c>init_per_group/2</c>. If the init function is defined, so must the end function be.</p>
 
     <p>Whenever a group is executed, if <c>init_per_group</c> and
       <c>end_per_group</c> do not exist in the suite, <c>Common Test</c> calls
@@ -986,15 +986,17 @@
     <c>io:put_chars/1</c>, and so on.</p>
 
     <p><c>Importance</c> is compared to a verbosity level set by the
-    <c>verbosity</c> start flag/option. The verbosity level can be set per
-    category or generally, or both. The default verbosity level, 
-    <c>?STD_VERBOSITY</c>, is 50, that is, all standard I/O gets printed. 
-    If a lower verbosity level is set, standard I/O printouts are ignored. 
-    <c>Common Test</c> performs the following test:</p>
+    <c>verbosity</c> start flag/option. The level can be set per
+    category or generally, or both. If <c>verbosity</c> is not set by the user,
+    a level of 100 (<c>?MAX_VERBOSITY</c> = all printouts visible) is used as
+    default value. <c>Common Test</c> performs the following test:</p>
     <pre>
- Importance >= (100-VerbosityLevel)</pre>
-    <p>This also means that verbosity level 0 effectively turns all logging off
-    (except from printouts made by <c>Common Test</c> itself).</p>
+Importance >= (100-VerbosityLevel)</pre>
+    <p>The constant <c>?STD_VERBOSITY</c> has value 50 (see <c>ct.hrl</c>).
+    At this level, all standard I/O gets printed. If a lower verbosity level
+    is set, standard I/O printouts are ignored. Verbosity level 0 effectively
+    turns all logging off (except from printouts made by <c>Common Test</c>
+    itself).</p>
 
     <p>The general verbosity level is not associated with any particular
     category. This level sets the threshold for the standard I/O printouts,
@@ -1003,17 +1005,17 @@
 
     <p><em>Examples:</em></p>
     <p>Some printouts during test case execution:</p>
-    <pre>  
+    <pre>
  io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
  ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
- ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]]),
+ ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]),
  ct:log(info, ?LOW_IMPORTANCE, "4. Categorized info, importance = ~w", [?LOW_IMPORTANCE]),
- ct:log(error, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
- ct:log(error, ?HI_IMPORTANCE, "6. Categorized error, importance = ~w", [?MAX_IMPORTANCE]),</pre>
+ ct:log(error, ?HI_IMPORTANCE, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
+ ct:log(error, ?MAX_IMPORTANCE, "6. Categorized error, importance = ~w", [?MAX_IMPORTANCE]),</pre>
 
-   <p>If starting the test without specifying any verbosity levels as follows:</p>
+   <p>If starting the test with a general verbosity level of 50 (<c>?STD_VERBOSITY</c>):</p>
    <pre>
- $ ct_run ...</pre>
+ $ ct_run -verbosity 50</pre>
    <p>the following is printed:</p>
    <pre>
  1. Standard IO, importance = 50
@@ -1031,10 +1033,22 @@
  4. Categorized info, importance = 25
  6. Categorized error, importance = 99</pre>
 
+    <p>Note that the category argument is not required in order to only specify the
+    importance of a printout. Example:</p>
+    <pre>
+ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</pre>
+    <p>Or perhaps in combination with constants:</p>
+    <pre>
+-define(INFO, ?LOW_IMPORTANCE).
+-define(ERROR, ?HI_IMPORTANCE).
+
+ct:log(?INFO, "Info report: ~p", [Info])
+ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
+ 
     <p>The functions <seealso marker="ct#set_verbosity-2"><c>ct:set_verbosity/2</c></seealso>
     and <seealso marker="ct#get_verbosity-1"><c>ct:get_verbosity/1</c></seealso> may be used
     to modify and read verbosity levels during test execution.</p>
-
+    
     <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
     always passed on to the STDLIB function <c>io:format/3</c> (For details,
     see the <seealso marker="stdlib:io"><c>io</c></seealso> manual page).</p>

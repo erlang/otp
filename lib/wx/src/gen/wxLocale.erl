@@ -92,7 +92,7 @@ init(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 -spec addCatalog(This, SzDomain) -> boolean() when
 	This::wxLocale(), SzDomain::unicode:chardata().
 addCatalog(#wx_ref{type=ThisT,ref=ThisRef},SzDomain)
- when is_list(SzDomain) ->
+ when ?is_chardata(SzDomain) ->
   ?CLASS(ThisT,wxLocale),
   SzDomain_UC = unicode:characters_to_binary([SzDomain,0]),
   wxe_util:call(?wxLocale_AddCatalog_1,
@@ -103,7 +103,7 @@ addCatalog(#wx_ref{type=ThisT,ref=ThisRef},SzDomain)
 -spec addCatalog(This, SzDomain, MsgIdLanguage, MsgIdCharset) -> boolean() when
 	This::wxLocale(), SzDomain::unicode:chardata(), MsgIdLanguage::wx:wx_enum(), MsgIdCharset::unicode:chardata().
 addCatalog(#wx_ref{type=ThisT,ref=ThisRef},SzDomain,MsgIdLanguage,MsgIdCharset)
- when is_list(SzDomain),is_integer(MsgIdLanguage),is_list(MsgIdCharset) ->
+ when ?is_chardata(SzDomain),is_integer(MsgIdLanguage),?is_chardata(MsgIdCharset) ->
   ?CLASS(ThisT,wxLocale),
   SzDomain_UC = unicode:characters_to_binary([SzDomain,0]),
   MsgIdCharset_UC = unicode:characters_to_binary([MsgIdCharset,0]),
@@ -114,7 +114,7 @@ addCatalog(#wx_ref{type=ThisT,ref=ThisRef},SzDomain,MsgIdLanguage,MsgIdCharset)
 -spec addCatalogLookupPathPrefix(Prefix) -> 'ok' when
 	Prefix::unicode:chardata().
 addCatalogLookupPathPrefix(Prefix)
- when is_list(Prefix) ->
+ when ?is_chardata(Prefix) ->
   Prefix_UC = unicode:characters_to_binary([Prefix,0]),
   wxe_util:cast(?wxLocale_AddCatalogLookupPathPrefix,
   <<(byte_size(Prefix_UC)):32/?UI,(Prefix_UC)/binary, 0:(((8- ((4+byte_size(Prefix_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -164,7 +164,7 @@ getName(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxLocale(), SzOrigString::unicode:chardata().
 
 getString(This,SzOrigString)
- when is_record(This, wx_ref),is_list(SzOrigString) ->
+ when is_record(This, wx_ref),?is_chardata(SzOrigString) ->
   getString(This,SzOrigString, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetstring">external documentation</a>.
@@ -172,7 +172,7 @@ getString(This,SzOrigString)
 	This::wxLocale(), SzOrigString::unicode:chardata(),
 	Option :: {'szDomain', unicode:chardata()}.
 getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString, Options)
- when is_list(SzOrigString),is_list(Options) ->
+ when ?is_chardata(SzOrigString),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
   SzOrigString_UC = unicode:characters_to_binary([SzOrigString,0]),
   MOpts = fun({szDomain, SzDomain}, Acc) ->   SzDomain_UC = unicode:characters_to_binary([SzDomain,0]),[<<1:32/?UI,(byte_size(SzDomain_UC)):32/?UI,(SzDomain_UC)/binary, 0:(((8- ((0+byte_size(SzDomain_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -186,7 +186,7 @@ getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString, Options)
 	This::wxLocale(), SzOrigString::unicode:chardata(), SzOrigString2::unicode:chardata(), N::integer().
 
 getString(This,SzOrigString,SzOrigString2,N)
- when is_record(This, wx_ref),is_list(SzOrigString),is_list(SzOrigString2),is_integer(N) ->
+ when is_record(This, wx_ref),?is_chardata(SzOrigString),?is_chardata(SzOrigString2),is_integer(N) ->
   getString(This,SzOrigString,SzOrigString2,N, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetstring">external documentation</a>.
@@ -194,7 +194,7 @@ getString(This,SzOrigString,SzOrigString2,N)
 	This::wxLocale(), SzOrigString::unicode:chardata(), SzOrigString2::unicode:chardata(), N::integer(),
 	Option :: {'szDomain', unicode:chardata()}.
 getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString,SzOrigString2,N, Options)
- when is_list(SzOrigString),is_list(SzOrigString2),is_integer(N),is_list(Options) ->
+ when ?is_chardata(SzOrigString),?is_chardata(SzOrigString2),is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
   SzOrigString_UC = unicode:characters_to_binary([SzOrigString,0]),
   SzOrigString2_UC = unicode:characters_to_binary([SzOrigString2,0]),
@@ -209,7 +209,7 @@ getString(#wx_ref{type=ThisT,ref=ThisRef},SzOrigString,SzOrigString2,N, Options)
 	This::wxLocale(), SzHeader::unicode:chardata().
 
 getHeaderValue(This,SzHeader)
- when is_record(This, wx_ref),is_list(SzHeader) ->
+ when is_record(This, wx_ref),?is_chardata(SzHeader) ->
   getHeaderValue(This,SzHeader, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxlocale.html#wxlocalegetheadervalue">external documentation</a>.
@@ -217,7 +217,7 @@ getHeaderValue(This,SzHeader)
 	This::wxLocale(), SzHeader::unicode:chardata(),
 	Option :: {'szDomain', unicode:chardata()}.
 getHeaderValue(#wx_ref{type=ThisT,ref=ThisRef},SzHeader, Options)
- when is_list(SzHeader),is_list(Options) ->
+ when ?is_chardata(SzHeader),is_list(Options) ->
   ?CLASS(ThisT,wxLocale),
   SzHeader_UC = unicode:characters_to_binary([SzHeader,0]),
   MOpts = fun({szDomain, SzDomain}, Acc) ->   SzDomain_UC = unicode:characters_to_binary([SzDomain,0]),[<<1:32/?UI,(byte_size(SzDomain_UC)):32/?UI,(SzDomain_UC)/binary, 0:(((8- ((0+byte_size(SzDomain_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -257,7 +257,7 @@ getSystemLanguage() ->
 -spec isLoaded(This, SzDomain) -> boolean() when
 	This::wxLocale(), SzDomain::unicode:chardata().
 isLoaded(#wx_ref{type=ThisT,ref=ThisRef},SzDomain)
- when is_list(SzDomain) ->
+ when ?is_chardata(SzDomain) ->
   ?CLASS(ThisT,wxLocale),
   SzDomain_UC = unicode:characters_to_binary([SzDomain,0]),
   wxe_util:call(?wxLocale_IsLoaded,

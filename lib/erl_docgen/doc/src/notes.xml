@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,7 +31,145 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.6</title>
+  <section><title>Erl_Docgen 0.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Indexing for the online search function has been
+	    corrected for CREF documents.</p>
+          <p>
+	    Own Id: OTP-14406</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add a hoverable element to the titles in the html
+	    documentation with a link to github where the
+	    documentation can be edited.</p>
+          <p>
+	    Make the anchors in the html User's Guide and system
+	    documentation use the title of the sections instead of a
+	    generated id.</p>
+          <p>
+	    Own Id: OTP-14979</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Update makefile so db_funcs.xsl is a part of the
+	    installed application. </p>
+          <p>
+	    Own Id: OTP-15091</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The style for code, warning and note tags in the pdf
+	    have been changed so they look like the html version.
+	    <br/> The spacing around code blocks have been changed
+	    for both html and pdf so it's the same regardless if the
+	    user have a newline after the start tag (or before the
+	    end tag) or not. </p>
+          <p>
+	    Own Id: OTP-14674</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Sort index of C functions alphabetically in the sidebar.</p>
+          <p>
+	    Own Id: OTP-14333 Aux Id: ERL-393 </p>
+        </item>
+        <item>
+	    <p> The right side index of functions now handle
+	    functions with same name but different arity. </p>
+          <p>
+	    Own Id: OTP-14431</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improvements in the OTP documentation style.</p>
+          <p>
+	    (Thanks to Mariano Guerra)</p>
+          <p>
+	    Own Id: OTP-14371 Aux Id: PR-1215 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Docgen would previously emit "utf8" as the default
+	    encoding in xml. This has now been remedied by emitting
+	    the correct string "UTF-8" instead.</p>
+          <p>
+	    Own Id: OTP-13971</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.6</title>
 
     <section><title>Improvements and New Features</title>
       <list>

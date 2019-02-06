@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,9 @@
 	 lookup_bad_search_option/1,
 	 getif/1,
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
-	 parse_strict_address/1, simple_netns/1, simple_netns_open/1]).
+	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
+         simple_netns/1, simple_netns_open/1,
+         simple_bind_to_device/1, simple_bind_to_device_open/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0, test_netns/0]).
@@ -58,7 +60,8 @@ all() ->
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
-     getifaddrs, parse_strict_address, simple_netns, simple_netns_open].
+     getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     simple_bind_to_device, simple_bind_to_device_open].
 
 groups() -> 
     [{parse, [], [parse_hosts, parse_address]}].
@@ -445,91 +448,125 @@ parse_hosts(Config) when is_list(Config) ->
     inet_parse:resolv(ResolvErr1).
 
 parse_address(Config) when is_list(Config) ->
-    V4Strict =
+    V4Reversable =
 	[{{0,0,0,0},"0.0.0.0"},
-	 {{1,2,3,4},"1.2.3.4"},
+         {{1,2,3,4},"1.2.3.4"},
 	 {{253,252,251,250},"253.252.251.250"},
 	 {{1,2,255,254},"1.2.255.254"}],
-    V6Strict =
+    V6Reversable =
 	[{{0,0,0,0,0,0,0,0},"::"},
+	 {{0,0,0,0,0,0,0,1},"::1"},
+	 {{0,0,0,0,0,0,0,2},"::0.0.0.2"},
 	 {{15,0,0,0,0,0,0,2},"f::2"},
-	 {{15,16#f11,0,0,0,0,256,2},"f:f11::0100:2"},
-	 {{0,0,0,0,0,0,0,16#17},"::17"},
-	 {{16#700,0,0,0,0,0,0,0},"0700::"},
-	 {{0,0,0,0,0,0,2,1},"::2:1"},
+	 {{15,16#f11,0,0,0,0,256,2},"f:f11::100:2"},
+	 {{16#700,0,0,0,0,0,0,0},"700::"},
+	 {{0,0,0,0,0,0,2,1},"::0.2.0.1"},
 	 {{0,0,0,0,0,3,2,1},"::3:2:1"},
 	 {{0,0,0,0,4,3,2,1},"::4:3:2:1"},
 	 {{0,0,0,5,4,3,2,1},"::5:4:3:2:1"},
 	 {{0,0,6,5,4,3,2,1},"::6:5:4:3:2:1"},
-	 {{0,7,6,5,4,3,2,1},"::7:6:5:4:3:2:1"},
+	 {{0,7,6,5,4,3,2,1},"0:7:6:5:4:3:2:1"},
 	 {{7,0,0,0,0,0,0,0},"7::"},
 	 {{7,6,0,0,0,0,0,0},"7:6::"},
 	 {{7,6,5,0,0,0,0,0},"7:6:5::"},
 	 {{7,6,5,4,0,0,0,0},"7:6:5:4::"},
 	 {{7,6,5,4,3,0,0,0},"7:6:5:4:3::"},
 	 {{7,6,5,4,3,2,0,0},"7:6:5:4:3:2::"},
-	 {{7,6,5,4,3,2,1,0},"7:6:5:4:3:2:1::"},
+	 {{7,6,5,4,3,2,1,0},"7:6:5:4:3:2:1:0"},
+	 {{0,0,6,5,4,3,0,0},"::6:5:4:3:0:0"},
+	 {{0,0,6,5,4,0,0,0},"0:0:6:5:4::"},
+	 {{8,0,0,5,4,0,0,1},"8::5:4:0:0:1"},
+	 {{8,0,0,5,0,0,0,1},"8:0:0:5::1"},
+	 {{0,7,6,5,4,3,2,0},"0:7:6:5:4:3:2:0"},
+	 {{0,0,6,5,4,3,0,0},"::6:5:4:3:0:0"},
+	 {{0,0,0,5,4,0,0,0},"::5:4:0:0:0"},
+	 {{0,0,0,0,4,0,0,0},"::4:0:0:0"},
+	 {{0,0,0,5,0,0,0,0},"0:0:0:5::"},
 	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
-	  "c11:0c22:5c33:c440:55c0:c66c:77:0088"},
+	  "c11:c22:5c33:c440:55c0:c66c:77:88"},
+	 {{0,16#c22,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "0:c22:5c33:c440:55c0:c66c:77:88"},
 	 {{16#c11,0,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
-	  "c11::5c33:c440:55c0:c66c:77:0088"},
+	  "c11:0:5c33:c440:55c0:c66c:77:88"},
 	 {{16#c11,16#c22,0,16#c440,16#55c0,16#c66c,16#77,16#88},
-	  "c11:0c22::c440:55c0:c66c:77:0088"},
+	  "c11:c22:0:c440:55c0:c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,0,16#55c0,16#c66c,16#77,16#88},
-	  "c11:0c22:5c33::55c0:c66c:77:0088"},
+	  "c11:c22:5c33:0:55c0:c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,0,16#c66c,16#77,16#88},
-	  "c11:0c22:5c33:c440::c66c:77:0088"},
+	  "c11:c22:5c33:c440:0:c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,0,16#77,16#88},
-	  "c11:0c22:5c33:c440:55c0::77:0088"},
+	  "c11:c22:5c33:c440:55c0:0:77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,0,16#88},
-	  "c11:0c22:5c33:c440:55c0:c66c::0088"},
+	  "c11:c22:5c33:c440:55c0:c66c:0:88"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,16#77,0},
+	  "c11:c22:5c33:c440:55c0:c66c:77:0"},
+	 {{0,0,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "::5c33:c440:55c0:c66c:77:88"},
 	 {{16#c11,0,0,16#c440,16#55c0,16#c66c,16#77,16#88},
-	  "c11::c440:55c0:c66c:77:0088"},
+	  "c11::c440:55c0:c66c:77:88"},
 	 {{16#c11,16#c22,0,0,16#55c0,16#c66c,16#77,16#88},
-	  "c11:0c22::55c0:c66c:77:0088"},
+	  "c11:c22::55c0:c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,0,0,16#c66c,16#77,16#88},
-	  "c11:0c22:5c33::c66c:77:0088"},
+	  "c11:c22:5c33::c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,0,0,16#77,16#88},
-	  "c11:0c22:5c33:c440::77:0088"},
+	  "c11:c22:5c33:c440::77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,0,0,16#88},
-	  "c11:0c22:5c33:c440:55c0::0088"},
+	  "c11:c22:5c33:c440:55c0::88"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,0,0},
+	  "c11:c22:5c33:c440:55c0:c66c::"},
+	 {{0,0,0,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "::c440:55c0:c66c:77:88"},
 	 {{16#c11,0,0,0,16#55c0,16#c66c,16#77,16#88},
-	  "c11::55c0:c66c:77:0088"},
+	  "c11::55c0:c66c:77:88"},
 	 {{16#c11,16#c22,0,0,0,16#c66c,16#77,16#88},
-	  "c11:0c22::c66c:77:0088"},
+	  "c11:c22::c66c:77:88"},
 	 {{16#c11,16#c22,16#5c33,0,0,0,16#77,16#88},
-	  "c11:0c22:5c33::77:0088"},
+	  "c11:c22:5c33::77:88"},
 	 {{16#c11,16#c22,16#5c33,16#c440,0,0,0,16#88},
-	  "c11:0c22:5c33:c440::0088"},
+	  "c11:c22:5c33:c440::88"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,0,0,0},
+	  "c11:c22:5c33:c440:55c0::"},
+	 {{0,0,0,0,16#55c0,16#c66c,16#77,16#88},
+	  "::55c0:c66c:77:88"},
 	 {{16#c11,0,0,0,0,16#c66c,16#77,16#88},
-	  "c11::c66c:77:0088"},
+	  "c11::c66c:77:88"},
 	 {{16#c11,16#c22,0,0,0,0,16#77,16#88},
-	  "c11:0c22::77:0088"},
+	  "c11:c22::77:88"},
 	 {{16#c11,16#c22,16#5c33,0,0,0,0,16#88},
-	  "c11:0c22:5c33::0088"},
+	  "c11:c22:5c33::88"},
+	 {{16#c11,16#c22,16#5c33,16#c440,0,0,0,0},
+	  "c11:c22:5c33:c440::"},
+	 {{0,0,0,0,0,16#c66c,16#77,16#88},
+	  "::c66c:77:88"},
 	 {{16#c11,0,0,0,0,0,16#77,16#88},
-	  "c11::77:0088"},
+	  "c11::77:88"},
 	 {{16#c11,16#c22,0,0,0,0,0,16#88},
-	  "c11:0c22::0088"},
-	 {{0,0,0,0,0,65535,258,65534},"::FFFF:1.2.255.254"},
+	  "c11:c22::88"},
+	 {{16#c11,16#c22,16#5c33,0,0,0,0,0},
+	  "c11:c22:5c33::"},
+	 {{0,0,0,0,0,65535,258,65534},"::ffff:1.2.255.254"},
+         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%012345"},
 	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
 	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
-	 |[{{D2,0,0,0,0,P,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
-	    erlang:integer_to_list(D2, 16)++"::"++Q++S}
-	   || {{D1,D2,D3,D4},S} <- V4Strict,
-	      {P,Q} <- [{0,""},{16#17,"17:"},{16#ff0,"0ff0:"}]]],
+         |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
+            Q++S}
+           || {{D1,D2,D3,D4},S} <-
+                  tl(V4Reversable),
+              {P,Q} <-
+                  [{[0,0,0,0,0,16#ffff],"::ffff:"},
+                   {[0,0,0,0,0,0],"::"}]]],
     V4Sloppy =
 	[{{10,1,16#98,16#76},"10.0x019876"},
 	 {{8#12,1,8#130,8#321},"012.01.054321"},
-	 {{255,255,255,255},"255.255.255.0377"},
-	 {{255,255,255,255},"0Xff.000000000377.0x0000ff.255"},
-	 {{255,255,255,255},"255.255.65535"},
-	 {{255,255,255,255},"255.0xFF.0177777"},
-	 {{255,255,255,255},"255.16777215"},
-	 {{255,255,255,255},"00377.0XFFFFFF"},
-	 {{255,255,255,255},"4294967295"},
-	 {{255,255,255,255},"0xffffffff"},
-	 {{255,255,255,255},"00000000000037777777777"},
+	 {{252,253,254,255},"252.253.254.0377"},
+	 {{252,253,254,255},"0Xfc.000000000375.0x0000fe.255"},
+	 {{252,253,254,255},"252.253.65279"},
+	 {{252,253,254,255},"252.0xFD.0177377"},
+	 {{252,253,254,255},"252.16645887"},
+	 {{252,253,254,255},"00374.0XFDFEFF"},
+	 {{252,253,254,255},"4244504319"},
+	 {{252,253,254,255},"0xfcfdfeff"},
+	 {{252,253,254,255},"00000000000037477377377"},
 	 {{16#12,16#34,16#56,16#78},"0x12345678"},
 	 {{16#12,16#34,16#56,16#78},"0x12.0x345678"},
 	 {{16#12,16#34,16#56,16#78},"0x12.0X34.0x5678"},
@@ -541,8 +578,14 @@ parse_address(Config) when is_list(Config) ->
 	 {{0,0,0,0},"0.00.0.0"},
 	 {{0,0,0,0},"0.0.000000000000.0"}],
     V6Sloppy =
-	[{{0,0,0,0,0,65535,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},S}
-	 || {{D1,D2,D3,D4},S} <- V4Strict++V4Sloppy],
+        [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"}]
+        ++
+        [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
+          Q++erlang:integer_to_list(D2, 16)++":"++S}
+         || {{D1,D2,D3,D4},S} <- V4Reversable,
+            {P,Q} <-
+                [{16#2001,"2001::"},{16#177,"177::"},{16#ff0,"Ff0::"}]],
     V4Err =
 	["0.256.0.1",
 	 "1.2.3.4.5",
@@ -586,28 +629,36 @@ parse_address(Config) when is_list(Config) ->
 	 "fec0::fFfF:127.0.0.1."],
     t_parse_address
       (parse_ipv6_address,
-       V6Strict++V6Sloppy++V6Err++V4Err),
+       false,
+       V6Reversable++V6Sloppy++V6Err++V4Err),
     t_parse_address
       (parse_ipv6strict_address,
-       V6Strict++V6Err++V4Err++[S || {_,S} <- V6Sloppy]),
+       true,
+       V6Reversable++V6Err++V4Err),
     t_parse_address
       (parse_ipv4_address,
-       V4Strict++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Strict]),
+       false,
+       V4Reversable++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Reversable]),
     t_parse_address
       (parse_ipv4strict_address,
-       V4Strict++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Strict]).
+       true,
+       V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversable]).
 
-t_parse_address(Func, []) ->
+t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
     ok;
-t_parse_address(Func, [{Addr,String}|L]) ->
+t_parse_address(Func, Reversable, [{Addr,String}|L]) ->
     io:format("~p = ~p.~n", [Addr,String]),
     {ok,Addr} = inet:Func(String),
-    t_parse_address(Func, L);
-t_parse_address(Func, [String|L]) ->
+    case Reversable of
+        true ->String = inet:ntoa(Addr);
+        false -> ok
+    end,
+    t_parse_address(Func, Reversable, L);
+t_parse_address(Func, Reversable, [String|L]) ->
     io:format("~p.~n", [String]),
     {error,einval} = inet:Func(String),
-    t_parse_address(Func, L).
+    t_parse_address(Func, Reversable, L).
 
 parse_strict_address(Config) when is_list(Config) ->
     {ok, {127,0,0,1}} =
@@ -616,6 +667,26 @@ parse_strict_address(Config) when is_list(Config) ->
 	inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088"),
     {ok, {3089,3106,23603,50240,0,0,119,136}} =
 	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
+
+ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
+    {D1,D2,D3,D4} = IPv4Address =
+        {rand:uniform(256) - 1,
+         rand:uniform(256) - 1,
+         rand:uniform(256) - 1,
+         rand:uniform(256) - 1},
+    E7 = (D1 bsl 8) bor D2,
+    E8 = (D3 bsl 8) bor D4,
+    io:format("IPv4Address: ~p.~n", [IPv4Address]),
+    {0,0,0,0,0,65535,E7,E8} = inet:ipv4_mapped_ipv6_address(IPv4Address),
+    IPv6Address =
+        {rand:uniform(65536) - 1,
+         rand:uniform(65536) - 1,
+         rand:uniform(65536) - 1,
+         rand:uniform(65536) - 1,
+         rand:uniform(65536) - 1,
+         rand:uniform(65536) - 1, E7, E8},
+    IPv4Address = inet:ipv4_mapped_ipv6_address(IPv6Address),
+    ok.
 
 t_gethostnative(Config) when is_list(Config) ->
     %% this will result in 26 bytes sent which causes problem in Windows
@@ -989,28 +1060,26 @@ getservbyname_overflow(Config) when is_list(Config) ->
 getifaddrs(Config) when is_list (Config) ->
     {ok,IfAddrs} = inet:getifaddrs(),
     io:format("IfAddrs = ~p.~n", [IfAddrs]),
-    case
-	{os:type(),
-	 [If ||
-	     {If,Opts} <- IfAddrs,
-	     lists:keymember(hwaddr, 1, Opts)]} of
-	{{unix,sunos},[]} -> ok;
-	{OT,[]} ->
-	    ct:fail({should_have_hwaddr,OT});
-	_ -> ok
+    case [If || {If,Opts} <- IfAddrs, lists:keymember(hwaddr, 1, Opts)] of
+        [] ->
+            case os:type() of
+                {unix,sunos} -> ok;
+                OT ->
+                    ct:fail({should_have_hwaddr,OT})
+            end;
+        [_|_] -> ok
     end,
-    Addrs =
-	[element(1, A) || A <- ifaddrs(IfAddrs)],
+    Addrs = ifaddrs(IfAddrs),
     io:format("Addrs = ~p.~n", [Addrs]),
     [check_addr(Addr) || Addr <- Addrs],
     ok.
 
-check_addr({addr,Addr})
+check_addr(Addr)
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
     io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
-check_addr({addr,Addr}) ->
+check_addr(Addr) ->
     io:format("Addr: ~p.~n", [Addr]),
     Ping = "ping",
     Pong = "pong",
@@ -1026,80 +1095,86 @@ check_addr({addr,Addr}) ->
     ok = gen_tcp:close(S2),
     ok = gen_tcp:close(L).
 
--record(ifopts, {name,flags,addrs=[],hwaddr}).
+ifaddrs(IfOpts) ->
+    IfMap = collect_ifopts(IfOpts),
+    ChkFun =
+        fun Self({{_,Flags} = Key, Opts}, ok) ->
+                Broadcast = lists:member(broadcast, Flags),
+                P2P = lists:member(pointtopoint, Flags),
+                case Opts of
+                    [{addr,_},{netmask,_},{broadaddr,_}|Os]
+                      when Broadcast ->
+                        Self({Key, Os}, ok);
+                    [{addr,_},{netmask,_},{dstaddr,_}|Os]
+                      when P2P ->
+                        Self({Key, Os}, ok);
+                    [{addr,_},{netmask,_}|Os] ->
+                        Self({Key, Os}, ok);
+                    [{hwaddr,_}|Os] ->
+                        Self({Key, Os}, ok);
+                    [] ->
+                        ok
+                end
+        end,
+    fold_ifopts(ChkFun, ok, IfMap),
+    AddrsFun =
+        fun ({{_,Flags}, Opts}, Acc) ->
+                case
+                    lists:member(running, Flags)
+                    andalso (not lists:member(pointtopoint, Flags))
+                of
+                    true ->
+                        lists:reverse(
+                          [Addr || {addr,Addr} <- Opts],
+                          Acc);
+                    false ->
+                        Acc
+                end
+        end,
+    fold_ifopts(AddrsFun, [], IfMap).
 
-ifaddrs([]) -> [];
-ifaddrs([{If,Opts}|IOs]) ->
-    #ifopts{flags=F} = Ifopts = check_ifopts(Opts, #ifopts{name=If}),
-    case F of
-	{flags,Flags} ->
-	    case lists:member(up, Flags) of
-		true ->
-		  Ifopts#ifopts.addrs;
-		false ->
-		    []
-	    end ++ ifaddrs(IOs);
-	undefined ->
-	    ifaddrs(IOs)
+collect_ifopts(IfOpts) ->
+    collect_ifopts(IfOpts, #{}).
+%%
+collect_ifopts(IfOpts, IfMap) ->
+    case IfOpts of
+        [{If,[{flags,Flags}|Opts]}|IfOs] ->
+            Key = {If,Flags},
+            case maps:is_key(Key, IfMap) of
+                true ->
+                    ct:fail({unexpected_ifopts,IfOpts,IfMap});
+                false ->
+                    collect_ifopts(IfOs, IfMap, Opts, Key, [])
+            end;
+        [] ->
+            IfMap;
+        _ ->
+            ct:fail({unexpected_ifopts,IfOpts,IfMap})
+    end.
+%%
+collect_ifopts(IfOpts, IfMap, Opts, Key, R) ->
+    case Opts of
+        [{flags,_}|_] ->
+            {If,_} = Key,
+            collect_ifopts(
+              [{If,Opts}|IfOpts], maps:put(Key, lists:reverse(R), IfMap));
+        [OptVal|Os] ->
+            collect_ifopts(IfOpts, IfMap, Os, Key, [OptVal|R]);
+        [] ->
+            collect_ifopts(IfOpts, maps:put(Key, lists:reverse(R), IfMap))
     end.
 
-check_ifopts([], #ifopts{flags=F,addrs=Raddrs}=Ifopts) ->
-    Addrs = lists:reverse(Raddrs),
-    R = Ifopts#ifopts{addrs=Addrs},
-    io:format("~p.~n", [R]),
-    %% See how we did...
-    {flags,Flags} = F,
-    case lists:member(broadcast, Flags) of
-	true ->
-	    [case A of
-		 {{addr,_},{netmask,_},{broadaddr,_}} ->
-		     A;
-		 {{addr,T},{netmask,_}} when tuple_size(T) =:= 8 ->
-		     A
-	     end || A <- Addrs];
-	false ->
-	    case lists:member(pointtopoint, Flags) of
-		true ->
-		    [case A of
-			 {{addr,_},{netmask,_},{dstaddr,_}} ->
-			     A
-		     end || A <- Addrs];
-		false ->
-		    [case A of
-			 {{addr,_},{netmask,_}} ->
-			     A
-		     end || A <- Addrs]
-	    end
-    end,
-    R;
-check_ifopts([{flags,_}=F|Opts], #ifopts{flags=undefined}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{flags=F});
-check_ifopts([{flags,_}=F|Opts], #ifopts{flags=Flags}=Ifopts) ->
-    case F of
-	Flags ->
-	    check_ifopts(Opts, Ifopts);
-	_ ->
-	    ct:fail({multiple_flags,F,Ifopts})
-    end;
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N,{dstaddr,_}=D|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,D}|Addrs]});
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N,{broadaddr,_}=B|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N,B}|Addrs]});
-check_ifopts(
-  [{addr,_}=A,{netmask,_}=N|Opts],
-  #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A,N}|Addrs]});
-check_ifopts([{addr,_}=A|Opts], #ifopts{addrs=Addrs}=Ifopts) ->
-    check_ifopts(Opts, Ifopts#ifopts{addrs=[{A}|Addrs]});
-check_ifopts([{hwaddr,Hwaddr}=H|Opts], #ifopts{hwaddr=undefined}=Ifopts)
-  when is_list(Hwaddr) ->
-    check_ifopts(Opts, Ifopts#ifopts{hwaddr=H});
-check_ifopts([{hwaddr,_}=H|_], #ifopts{}=Ifopts) ->
-    ct:fail({multiple_hwaddrs,H,Ifopts}).
+fold_ifopts(Fun, Acc, IfMap) ->
+    fold_ifopts(Fun, Acc, IfMap, maps:keys(IfMap)).
+%%
+fold_ifopts(Fun, Acc, IfMap, Keys) ->
+    case Keys of
+        [Key|Ks] ->
+            Opts = maps:get(Key, IfMap),
+            fold_ifopts(Fun, Fun({Key,Opts}, Acc), IfMap, Ks);
+        [] ->
+            Acc
+    end.
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems
@@ -1246,4 +1321,68 @@ cmd(Cmd, Args) ->
 cmd(CmdString) ->
     io:put_chars(["# ",CmdString,io_lib:nl()]),
     io:put_chars([os:cmd(CmdString++" ; echo '  =>' $?")]),
+    ok.
+
+-define(CAP_NET_RAW, 13).        %% from /usr/include/linux/capability.h
+
+can_bind_to_device({unix, linux}, {Major, _, _})
+  when Major > 2 ->
+    Status = os:cmd("cat /proc/self/status | grep CapEff"),
+    [_, CapEffStr] = string:tokens(Status, [$\n, $\t]),
+    CapEff = list_to_integer(CapEffStr, 16),
+    if CapEff band (1 bsl ?CAP_NET_RAW) =/= 0 ->
+            ok;
+       true ->
+            {skip,"insufficient capabilities, CAP_NET_RAW not granted"}
+    end;
+can_bind_to_device(_OS, _Version) ->
+    {skip,"socket option bind_to_device not supported on this OS or version"}.
+
+simple_bind_to_device(Config) when is_list(Config) ->
+    case can_bind_to_device(os:type(), os:version()) of
+        ok ->
+            {ok,U} = gen_udp:open(0),
+            jog_bind_to_device_opt(U),
+            ok = gen_udp:close(U),
+            %%
+            {ok,L} = gen_tcp:listen(0, []),
+            jog_bind_to_device_opt(L),
+            ok = gen_tcp:close(L),
+            %%
+            case gen_sctp:open() of
+                {ok,S} ->
+                    jog_bind_to_device_opt(S),
+                    ok = gen_sctp:close(S);
+                {error,eprotonosupport} ->
+                    ok
+            end;
+        Other ->
+            Other
+    end.
+
+%% Smoke test bind_to_device support.
+simple_bind_to_device_open(Config) when is_list(Config) ->
+    case can_bind_to_device(os:type(), os:version()) of
+        ok ->
+            {ok,U} = gen_udp:open(0, [binary,{bind_to_device,<<"lo">>},inet]),
+            ok = gen_udp:close(U),
+            {ok,T} = gen_tcp:listen(0, [binary,{bind_to_device,<<"lo">>},inet]),
+            ok = gen_tcp:close(T),
+
+            case gen_sctp:open(0, [binary,{bind_to_device,<<"lo">>},inet]) of
+                {ok,S} ->
+                    ok = gen_sctp:close(S);
+                {error,eprotonosupport} ->
+                    ok
+            end;
+        Other ->
+            Other
+    end.
+
+jog_bind_to_device_opt(S) ->
+    %% This is just jogging the option mechanics
+    ok = inet:setopts(S, [{bind_to_device,<<>>}]),
+    {ok,[{bind_to_device,<<>>}]} = inet:getopts(S, [bind_to_device]),
+    ok = inet:setopts(S, [{bind_to_device,<<"lo">>}]),
+    {ok,[{bind_to_device,<<"lo">>}]} = inet:getopts(S, [bind_to_device]),
     ok.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -466,6 +466,7 @@ void decode_encode_big(struct Type* t)
     send_buffer(arg.buff, arg.index);
     ei_x_free(&arg);
     ei_free_big(p);
+    free_packet(buf);
 }
 
 

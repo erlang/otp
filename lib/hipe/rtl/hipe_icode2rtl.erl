@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,17 +11,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%=======================================================================
 %% File        : hipe_icode2rtl.erl
 %% Author(s)   : Erik Johansson
 %% Description : Translates Icode to RTL
 %%=======================================================================
-%%
-%% $Id$
-%%
 %% TODO: Better handling of switches...
 
 -module(hipe_icode2rtl).
@@ -541,8 +532,12 @@ gen_cond(CondOp, Args, TrueLbl, FalseLbl, Pred) ->
 			  FalseLbl, Pred)];
     '=:=' ->
       [Arg1, Arg2] = Args,
+      TypeTestLbl = hipe_rtl:mk_new_label(),
       [hipe_rtl:mk_branch(Arg1, eq, Arg2, TrueLbl,
-			  hipe_rtl:label_name(GenLbl), Pred),
+			  hipe_rtl:label_name(TypeTestLbl), Pred),
+       TypeTestLbl,
+       hipe_tagscheme:test_either_immed(Arg1, Arg2, FalseLbl,
+					hipe_rtl:label_name(GenLbl)),
        GenLbl,
        hipe_rtl:mk_call([Tmp], op_exact_eqeq_2, Args,
 			TestRetName, [], not_remote),
@@ -555,8 +550,12 @@ gen_cond(CondOp, Args, TrueLbl, FalseLbl, Pred) ->
 			  TrueLbl, 1-Pred)];
     '=/=' ->
       [Arg1, Arg2] = Args,
+      TypeTestLbl = hipe_rtl:mk_new_label(),
       [hipe_rtl:mk_branch(Arg1, eq, Arg2, FalseLbl,
-			  hipe_rtl:label_name(GenLbl), 1-Pred),
+			  hipe_rtl:label_name(TypeTestLbl), 1-Pred),
+       TypeTestLbl,
+       hipe_tagscheme:test_either_immed(Arg1, Arg2, TrueLbl,
+					hipe_rtl:label_name(GenLbl)),
        GenLbl,
        hipe_rtl:mk_call([Tmp], op_exact_eqeq_2, Args,
 			TestRetName, [], not_remote),

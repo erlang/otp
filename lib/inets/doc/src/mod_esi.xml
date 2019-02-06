@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -67,7 +67,7 @@
 	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
 	<item><p>The clients ip address.</p></item>
 
-	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()</c></tag>
+	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()}</c></tag>
 	<item>
 	  <p>For TLS connections where client certificates are used this will
 	  be an ASN.1 DER-encoded X509-certificate as an Erlang binary.
@@ -121,35 +121,60 @@
 
  <funcs>
    <func>
-     <name>Module:Function(SessionID, Env, Input)-> _ </name>
+     <name>Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
      <fsummary>Creates a dynamic web page and returns it chunk by chunk 
      to the server process by calling <c>mod_esi:deliver/2</c>.</fsummary>
      <type>
        <v>SessionID = term()</v>
        <v>Env = env()</v>
-       <v>Input = string()</v>
+       <v>Input = string() | chunked_data()</v>
+       <v>chunked_data() = {first, Data::binary()} |
+       {continue, Data::binary(), State::term()} |
+       {last, Data::binary(), State::term()} </v>
+       <v>State = term()</v>
      </type>
       <desc>
         <p><c>Module</c> must be found in the code path and export
         <c>Function</c> with an arity of three. An <c>erlScriptAlias</c> must
         also be set up in the configuration file for the web server.</p>
-        <p>If the HTTP request is a 'post' request and a body is sent,
-        <c>content_length</c> is the length of the posted
-        data. If 'get' is used, <c>query_string</c> is the data after
-        <em>?</em> in the URL.</p>
-        <p><c>ParsedHeader</c> is the HTTP request as a key-value tuple
-        list. The keys in <c>ParsedHeader</c> are in lower case.</p>
-        <p><c>SessionID</c> is an identifier
-        the server uses when <c>deliver/2</c> is called. Do not
-        assume anything about the datatype.</p>
-        <p>Use this callback function to generate dynamic web
-        content dynamically. When a part of the page is generated, send the
-        data back to the client through <c>deliver/2</c>. Notice
-        that the first chunk of data sent to the client must at
-        least contain all HTTP header fields that the response
-        will generate. If the first chunk does not contain the
-        <em>end of HTTP header</em>, that is, <c>"\r\n\r\n",</c>
-        the server assumes that no HTTP header fields will be generated.</p>
+
+	<p><c>mod_esi:deliver/2</c> shall be used to generate the response
+	to the client and <c>SessionID</c> is an identifier that shall by used when
+	calling this function, do not assume anything about
+	the datatype. This function may be called
+	several times to chunk the response data. Notice that the
+	first chunk of data sent to the client must at least contain
+	all HTTP header fields that the response will generate. If the
+	first chunk does not contain the <em>end of HTTP header</em>,
+	that is, <c>"\r\n\r\n",</c> the server assumes that no HTTP
+	header fields will be generated.</p>
+
+	<p><c>Env</c> environment data of the request see description above.</p>
+		
+	<p><c>Input</c> is query data of a GET request or the body of
+	a PUT or POST request. The default behavior (legacy reasons)
+	for delivering the body, is that the whole body is gathered and
+	converted to a string. But if the httpd config parameter
+	<seealso
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	is set, the body will be delivered as binary chunks
+	instead. The maximum size of the chunks is either <seealso
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	or decide by the client if it uses HTTP chunked encoding
+	to send the body. When using the chunking
+	mechanism this callback must return {continue, State::term()}
+	for all calls where <c>Input</c> is <c>{first,
+	Data::binary()}</c> or <c>{continue, Data::binary(),
+	State::term()}</c>. When <c>Input</c> is <c>{last,
+	Data::binary(), State::term()}</c> the return value will be ignored.</p>
+	<note><p>Note that if the body is
+	small all data may be delivered in only one chunk and then the
+	callback will be called with {last, Data::binary(), undefined}
+	without getting called with <c>{first,
+	Data::binary()}</c>.</p></note><p>The input <c>State</c> is
+	the last returned <c>State</c>, in it the callback can include
+	any data that it needs to keep track of when handling the chunks.
+	</p>
       </desc>
    </func>
 
@@ -159,14 +184,13 @@
      This function is deprecated and is only kept for backwards compatibility.</fsummary>
      <type>
        <v>Env = env()</v>
-       <v>Input = string()</v>
+       <v>Input = string() </v>
        <v>Response = string()</v>
      </type>
       <desc>
         <p>This callback format consumes much memory, as the
         whole response must be generated before it is sent to the
-        user. This function is deprecated and is only kept for backwards
-        compatibility.
+        user. This callback format is deprecated. 
         For new development, use <c>Module:Function/3</c>.</p>
       </desc>
    </func>

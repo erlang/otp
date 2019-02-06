@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,7 +164,7 @@ pre_post_io(Config) ->
       fun(PrePostIoFile) ->
 	      ct:log("Reading Pre/Post Test IO Log file: ~ts", [PrePostIoFile]),
 	      {ok,Bin} = file:read_file(PrePostIoFile),
-	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
 	      PrePostIOEntries =
 		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_],
 				  {pre,PreLogN,PreErrN,0,0}) ->
@@ -203,7 +203,7 @@ pre_post_io(Config) ->
       fun(UnexpIoFile) ->
 	      ct:log("Reading Unexpected IO Log file: ~ts", [UnexpIoFile]),
 	      {ok,Bin} = file:read_file(UnexpIoFile),
-	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
 	      UnexpIOEntries =
 		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_], [LogN,ErrN]) ->
 				      [LogN+1,ErrN];
@@ -241,7 +241,7 @@ try_loop(_Fun, 0) ->
     gave_up;
 try_loop(Fun, N) ->
     try Fun() of
-	{error,_} ->
+	{Error,_} when Error==error; Error==badrpc ->
 	    timer:sleep(10),
 	    try_loop(Fun, N-1);
 	Result ->
@@ -257,7 +257,7 @@ try_loop(M, F, _A, 0) ->
     gave_up;
 try_loop(M, F, A, N) ->
     try apply(M, F, A) of
-	{error,_} ->
+	{Error,_Reason} when Error==error; Error==badrpc ->
 	    timer:sleep(10),
 	    try_loop(M, F, A, N-1);
 	Result ->

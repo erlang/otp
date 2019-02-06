@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,94 +19,17 @@
 
 -module(efile_SUITE).
 -export([all/0, suite/0]).
--export([iter_max_files/1, async_dist/1]).
+-export([iter_max_files/1, proc_zero_sized_files/1]).
 
--export([do_iter_max_files/2, do_async_dist/1]).
+-export([do_iter_max_files/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [iter_max_files, async_dist].
-
-do_async_dist(Dir) ->
-    X = 100,
-    AT = erlang:system_info(thread_pool_size),
-    Keys = file_keys(Dir,AT*X,[],[]),
-    Tab = ets:new(x,[ordered_set]),
-    [ ets:insert(Tab,{N,0}) || N <- lists:seq(0,AT-1) ],
-    [ ets:update_counter(Tab,(N rem AT),1) || N <- Keys ],
-    Res = [ V || {_,V} <- ets:tab2list(Tab) ],
-    ets:delete(Tab),
-    {Res, sdev(Res)/X}.
-
-sdev(List) ->
-    Len = length(List),
-    Mean = lists:sum(List)/Len,
-    math:sqrt(lists:sum([ (X - Mean) * (X - Mean) || X <- List ]) / Len).
-
-file_keys(_,0,FdList,FnList) ->
-    [ file:close(FD) || FD <- FdList ],
-    [ file:delete(FN) || FN <- FnList ],
-    [];
-file_keys(Dir,Num,FdList,FnList) ->
-    Name = "dummy"++integer_to_list(Num),
-    FN = filename:join([Dir,Name]),
-    case file:open(FN,[write,raw]) of
-        {ok,FD} ->
-            {file_descriptor,prim_file,{Port,_}} = FD,
-            <<X:32/integer-big>> = 
-            iolist_to_binary(erlang:port_control(Port,$K,[])),
-            [X | file_keys(Dir,Num-1,[FD|FdList],[FN|FnList])];
-        {error,_} ->
-            % Try freeing up FD's if there are any
-            case FdList of 
-                [] ->
-                    exit({cannot_open_file,FN});
-                _ ->
-                    [ file:close(FD) || FD <- FdList ],
-                    [ file:delete(F) || F <- FnList ],
-                    file_keys(Dir,Num,[],[])
-            end
-    end.
-
-%% Check that the distribution of files over async threads is fair
-async_dist(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir,Config),
-    TestFile = filename:join(DataDir, "existing_file"),
-    Dir = filename:dirname(code:which(?MODULE)),
-    AsyncSizes = [7,10,100,255,256,64,63,65],
-    Max = 0.5,
-
-    lists:foreach(fun(Size) ->
-                          {ok,Node} = 
-                          test_server:start_node
-                          (test_iter_max_files,slave,
-                           [{args,
-                             "+A "++integer_to_list(Size)++
-                             " -pa " ++ Dir}]),
-                          {Distr,SD} = rpc:call(Node,?MODULE,do_async_dist,
-                                                [DataDir]),
-                          test_server:stop_node(Node),
-                          if
-                              SD > Max ->
-                                  io:format("Bad async queue distribution for "
-                                            "~p async threads:~n"
-                                            "    Standard deviation is ~p~n"
-                                            "    Key distribution:~n    ~lp~n",
-                                            [Size,SD,Distr]),
-                                  exit({bad_async_dist,Size,SD,Distr});
-                              true ->
-                                  io:format("OK async queue distribution for "
-                                            "~p async threads:~n"
-                                            "    Standard deviation is ~p~n"
-                                            "    Key distribution:~n    ~lp~n",
-                                            [Size,SD,Distr]),
-                                  ok
-                          end
-                  end, AsyncSizes),
-    ok.
+    [iter_max_files, proc_zero_sized_files].
 
 %%
 %% Open as many files as possible. Do this several times and check 
@@ -114,17 +37,23 @@ async_dist(Config) when is_list(Config) ->
 %%
 
 iter_max_files(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} -> {skip, "Windows lacks a hard limit on file handles"};
+        _ -> iter_max_files_1(Config)
+    end.
+
+iter_max_files_1(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
     N = 10,
-    %% Run on a different node in order to set the max ports
+    %% Run on a different node in order to make the test more stable.
     Dir = filename:dirname(code:which(?MODULE)),
     {ok,Node} = test_server:start_node(test_iter_max_files,slave,
-                                       [{args,"+Q 1524 -pa " ++ Dir}]),
+                                       [{args,"-pa " ++ Dir}]),
     L = rpc:call(Node,?MODULE,do_iter_max_files,[N, TestFile]),
     test_server:stop_node(Node),
     io:format("Number of files opened in each test:~n~w\n", [L]),
-    all_equal(L),
+    verify_max_files(L),
     Head = hd(L),
     if  Head >= 2 -> ok;
         true -> ct:fail(too_few_files)
@@ -136,12 +65,15 @@ do_iter_max_files(N, Name) when N > 0 ->
 do_iter_max_files(_, _) ->
     [].
 
-all_equal([E, E| T]) ->
-    all_equal([E| T]);
-all_equal([_]) ->
-    ok;
-all_equal([]) ->
-    ok.
+%% The attempts shouldn't vary too much; we used to require that they were all
+%% exactly equal, but after we reimplemented the file driver as a NIF we
+%% noticed that the only reason it was stable on Darwin was because the port
+%% limit was hit before ulimit.
+verify_max_files(Attempts) ->
+    N = length(Attempts),
+    Mean = lists:sum(Attempts) / N,
+    Variance = lists:sum([(X - Mean) * (X - Mean) || X <- Attempts]) / N,
+    true = math:sqrt(Variance) =< 1 + (Mean / 1000).
 
 max_files(Name) ->
     Fds = open_files(Name),
@@ -163,3 +95,44 @@ open_files(Name) ->
             %		  io:format("Error reason: ~p", [_Reason]),
             []
     end.
+
+%% @doc If /proc filesystem exists (no way to know if it is real proc or just
+%% a /proc directory), let's read some zero sized files 500 times each, while
+%% ensuring that response isn't empty << >>
+proc_zero_sized_files(Config) when is_list(Config) ->
+    {Type, Flavor} = os:type(),
+    %% Some files which exist on Linux but might be missing on other systems
+    Inputs = ["/proc/cpuinfo",
+              "/proc/meminfo",
+              "/proc/partitions",
+              "/proc/swaps",
+              "/proc/version",
+              "/proc/uptime",
+              %% curproc is present on freebsd
+              "/proc/curproc/cmdline"],
+    case filelib:is_dir("/proc") of
+        false -> {skip, "/proc not found"}; % skip the test if no /proc
+        _ when Type =:= unix andalso Flavor =:= sunos ->
+            %% SunOS has a /proc, but no zero sized special files
+            {skip, "sunos does not have any zero sized special files"};
+        true ->
+            %% Take away files which do not exist in proc
+            Inputs1 = lists:filter(fun filelib:is_file/1, Inputs),
+
+            %% Fail if none of mentioned files exist in /proc, did we just get
+            %% a normal /proc directory without any special files?
+            ?assertNotEqual([], Inputs1),
+
+            %% For 6 inputs and 500 attempts each this do run anywhere
+            %% between 500 and 3000 function calls.
+            lists:foreach(
+                fun(Filename) -> do_proc_zero_sized(Filename, 500) end,
+                Inputs1)
+    end.
+
+%% @doc Test one file N times to also trigger possible leaking fds and memory
+do_proc_zero_sized(_Filename, 0) -> ok;
+do_proc_zero_sized(Filename, N) ->
+    Data = file:read_file(Filename),
+    ?assertNotEqual(<<>>, Data),
+    do_proc_zero_sized(Filename, N-1).

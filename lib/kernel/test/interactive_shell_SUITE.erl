@@ -711,7 +711,7 @@ toerl_loop(Port,Acc) ->
     end.
 
 millistamp() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -815,7 +815,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
         <v>HandlerSpec = {HandlerFun, InitialData}</v>
         <v>HandlerFun = fun() (two arguments)</v>
         <v>ModuleSpec = fun() (no arguments) | {TracerModule, TracerState}</v>
-        <v>ModuleModule = atom()</v>
+        <v>TracerModule = atom()</v>
         <v>InitialData = TracerState = term()</v>
       </type>
       <desc>
@@ -954,7 +954,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           as the tuple <c>{drop, N}</c> where <c>N</c> is the number of consecutive messages
           dropped. In case of heavy tracing, drop's are likely to occur,
           and they surely occur if no client is reading the trace
-          messages.</p>
+          messages. The default value of <c>QueSize</c> is 200.</p>
       </desc>
     </func>
     <func>

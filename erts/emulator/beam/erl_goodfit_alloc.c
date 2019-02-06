@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,8 +168,9 @@ static Block_t *	get_free_block		(Allctr_t *, Uint,
 static void		link_free_block		(Allctr_t *, Block_t *);
 static void		unlink_free_block	(Allctr_t *, Block_t *);
 static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
-static Eterm		info_options		(Allctr_t *, char *, int *,
+static Eterm		info_options		(Allctr_t *, char *, fmtfn_t *,
 						 void *, Uint **, Uint *);
+static int        gfalc_try_set_dyn_param(Allctr_t*, Eterm param, Uint value);
 static void		init_atoms		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -249,6 +250,8 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 
     if (!erts_alcu_start(allctr, init))
 	return NULL;
+
+    allctr->try_set_dyn_param = gfalc_try_set_dyn_param;
 
     if (allctr->min_block_size != MIN_BLK_SZ)
 	return NULL;
@@ -505,7 +508,7 @@ static struct {
 
 static void ERTS_INLINE atom_init(Eterm *atom, char *name)
 {
-    *atom = am_atom_put(name, strlen(name));
+    *atom = am_atom_put(name, sys_strlen(name));
 }
 #define AM_INIT(AM) atom_init(&am.AM, #AM)
 
@@ -551,7 +554,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 static Eterm
 info_options(Allctr_t *allctr,
 	     char *prefix,
-	     int *print_to_p,
+	     fmtfn_t *print_to_p,
 	     void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)
@@ -582,6 +585,15 @@ info_options(Allctr_t *allctr,
     }
 
     return res;
+}
+
+static int gfalc_try_set_dyn_param(Allctr_t* allctr, Eterm param, Uint value)
+{
+    if (param == am_sbct) {
+        /* Cannot change 'sbct' without rearranging buckets */
+        return 0;
+    }
+    return erts_alcu_try_set_dyn_param(allctr, param, value);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

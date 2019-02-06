@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -270,8 +270,8 @@
           <item>
             <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
               <anno>Arguments</anno>)</c> and measures the elapsed real time as 
-              reported by <seealso marker="os:timestamp/0">
-              <c>os:timestamp/0</c></seealso>.</p>
+              reported by <seealso marker="erts:erlang#monotonic_time/0">
+              <c>erlang:monotonic_time/0</c></seealso>.</p>
             <p>Returns <c>{<anno>Time</anno>, <anno>Value</anno>}</c>, where
               <c><anno>Time</anno></c> is the elapsed real time in
               <em>microseconds</em>, and <c><anno>Value</anno></c> is what is

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,26 +35,18 @@
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 newly_started/1, basic_v8/1, basic_v9/1,
-	 open_v8/1, open_v9/1, sets_v8/1, sets_v9/1, bags_v8/1,
-	 bags_v9/1, duplicate_bags_v8/1, duplicate_bags_v9/1,
-	 access_v8/1, access_v9/1, dirty_mark/1, dirty_mark2/1,
-	 bag_next_v8/1, bag_next_v9/1, oldbugs_v8/1, oldbugs_v9/1,
-	 unsafe_assumptions/1, truncated_segment_array_v8/1,
-	 truncated_segment_array_v9/1, open_file_v8/1, open_file_v9/1,
-	 init_table_v8/1, init_table_v9/1, repair_v8/1, repair_v9/1,
-	 hash_v8b_v8c/1, phash/1, fold_v8/1, fold_v9/1, fixtable_v8/1,
-	 fixtable_v9/1, match_v8/1, match_v9/1, select_v8/1,
-	 select_v9/1, update_counter/1, badarg/1, cache_sets_v8/1,
-	 cache_sets_v9/1, cache_bags_v8/1, cache_bags_v9/1,
-	 cache_duplicate_bags_v8/1, cache_duplicate_bags_v9/1,
+	 init_per_group/2,end_per_group/2, newly_started/1, basic/1,
+         open/1, sets/1, bags/1, duplicate_bags/1, access/1, dirty_mark/1,
+         dirty_mark2/1, bag_next/1, oldbugs/1,
+         truncated_segment_array/1, open_file/1, init_table/1, repair/1,
+	 phash/1, fold/1, fixtable/1, match/1, select/1, update_counter/1,
+         badarg/1, cache_sets/1, cache_bags/1, cache_duplicate_bags/1,
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
          otp_8923/1, otp_9282/1, otp_11245/1, otp_11709/1, otp_13229/1,
-         otp_13260/1]).
+         otp_13260/1, otp_13830/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -73,8 +65,7 @@
 
 -define(DETS_SERVER, dets).
 
-%% HEADSZ taken from dets_v8.erl and dets_v9.erl.
--define(HEADSZ_v8, 40).
+%% HEADSZ taken from dets_v9.erl.
 -define(HEADSZ_v9, (56+28*4+16)).
 -define(NO_KEYS_POS_v9, 36).
 -define(CLOSED_PROPERLY_POS, 8).
@@ -94,24 +85,16 @@ suite() ->
 
 all() -> 
     [
-	basic_v8, basic_v9, open_v8, open_v9, sets_v8, sets_v9,
-	bags_v8, bags_v9, duplicate_bags_v8, duplicate_bags_v9,
-	newly_started, open_file_v8, open_file_v9,
-	init_table_v8, init_table_v9, repair_v8, repair_v9,
-	access_v8, access_v9, oldbugs_v8, oldbugs_v9,
-	unsafe_assumptions, truncated_segment_array_v8,
-	truncated_segment_array_v9, dirty_mark, dirty_mark2,
-	bag_next_v8, bag_next_v9, hash_v8b_v8c, phash, fold_v8,
-	fold_v9, fixtable_v8, fixtable_v9, match_v8, match_v9,
-	select_v8, select_v9, update_counter, badarg,
-	cache_sets_v8, cache_sets_v9, cache_bags_v8,
-	cache_bags_v9, cache_duplicate_bags_v8,
-	cache_duplicate_bags_v9, otp_4208, otp_4989,
+	basic, open, sets, bags, duplicate_bags, newly_started, open_file,
+	init_table, repair, access, oldbugs,
+	truncated_segment_array, dirty_mark, dirty_mark2, bag_next,
+        phash, fold, fixtable, match, select, update_counter, badarg,
+	cache_sets, cache_bags, cache_duplicate_bags, otp_4208, otp_4989,
 	many_clients, otp_4906, otp_5402, simultaneous_open,
 	insert_new, repair_continuation, otp_5487, otp_6206,
 	otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
 	otp_8899, otp_8903, otp_8923, otp_9282, otp_11245, otp_11709,
-        otp_13229, otp_13260
+        otp_13229, otp_13260, otp_13830
     ].
 
 groups() -> 
@@ -137,20 +120,12 @@ newly_started(Config) when is_list(Config) ->
     test_server:stop_node(Node),
     ok.
 
-%% Basic test case.
-basic_v8(Config) when is_list(Config) ->
-    basic(Config, 8).
-
-%% Basic test case.
-basic_v9(Config) when is_list(Config) ->
-    basic(Config, 9).
-
-basic(Config, Version) ->
+basic(Config) when is_list(Config) ->
     Tab = dets_basic_test,
     FName = filename(Tab, Config),
 
     P0 = pps(),
-    {ok, _} = dets:open_file(Tab,[{file, FName},{version,Version}]),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
     ok = dets:insert(Tab,{mazda,japan}),
     ok = dets:insert(Tab,{toyota,japan}),
     ok = dets:insert(Tab,{suzuki,japan}),
@@ -174,13 +149,7 @@ basic(Config, Version) ->
     ok.
     
 
-open_v8(Config) when is_list(Config) ->
-    open(Config, 8).
-
-open_v9(Config) when is_list(Config) ->
-    open(Config, 9).
-
-open(Config, Version) ->
+open(Config) when is_list(Config) ->
     %% Running this test twice means that the Dets server is restarted
     %% twice. dets_sup specifies a maximum of 4 restarts in an hour.
     %% If this becomes a problem, one should consider running this
@@ -194,14 +163,14 @@ open(Config, Version) ->
     Data = make_data(1),
 
     P0 = pps(),
-    Tabs = open_files(1, All, Version),
+    Tabs = open_files(1, All),
     initialize(Tabs, Data),
     check(Tabs, Data),
 
     foreach(fun(Tab) -> ok = dets:close(Tab) end, Tabs),
     %% Now reopen the files
     ?format("Reopening closed files \n", []),
-    Tabs = open_files(1, All, Version),
+    Tabs = open_files(1, All),
     ?format("Checking contents of reopened files \n", []),
     check(Tabs, Data),
     %% crash the dets server
@@ -216,7 +185,7 @@ open(Config, Version) ->
 
     %% Now reopen the files again
     ?format("Reopening crashed files \n", []),
-    open_files(1, All, Version),
+    open_files(1, All),
     ?format("Checking contents of repaired files \n", []),
     check(Tabs, Data),
 
@@ -266,20 +235,13 @@ bad(_Tab, _Item) ->
     exit(badtab).
 
 %% Perform traversal and match testing on set type dets tables.
-sets_v8(Config) when is_list(Config) ->
-    sets(Config, 8).
-
-%% Perform traversal and match testing on set type dets tables.
-sets_v9(Config) when is_list(Config) ->
-    sets(Config, 9).
-
-sets(Config, Version) ->
+sets(Config) when is_list(Config) ->
     {Sets, _, _} = args(Config),
 
     Data = make_data(1),
     delete_files(Sets),
     P0 = pps(),
-    Tabs = open_files(1, Sets, Version),
+    Tabs = open_files(1, Sets),
     Bigger = [{17,q,w,w}, {48,q,w,w,w,w,w,w}], % 48 requires a bigger buddy
     initialize(Tabs, Data++Bigger++Data), % overwrite
     Len = length(Data),
@@ -302,19 +264,12 @@ sets(Config, Version) ->
     ok.
 
 %% Perform traversal and match testing on bag type dets tables.
-bags_v8(Config) when is_list(Config) ->
-    bags(Config, 8).
-
-%% Perform traversal and match testing on bag type dets tables.
-bags_v9(Config) when is_list(Config) ->
-    bags(Config, 9).
-
-bags(Config, Version) ->
+bags(Config) when is_list(Config) ->
     {_, Bags, _} = args(Config),
     Data = make_data(1, bag),  %% gives twice as many objects
     delete_files(Bags),
     P0 = pps(),
-    Tabs = open_files(1, Bags, Version),
+    Tabs = open_files(1, Bags),
     initialize(Tabs, Data++Data),
     Len = length(Data),
     foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
@@ -336,19 +291,12 @@ bags(Config, Version) ->
 
 
 %% Perform traversal and match testing on duplicate_bag type dets tables.
-duplicate_bags_v8(Config) when is_list(Config) ->
-    duplicate_bags(Config, 8).
-
-%% Perform traversal and match testing on duplicate_bag type dets tables.
-duplicate_bags_v9(Config) when is_list(Config) ->
-    duplicate_bags(Config, 9).
-
-duplicate_bags(Config, Version) when is_list(Config) ->
+duplicate_bags(Config) when is_list(Config) ->
     {_, _, Dups} = args(Config),
     Data = make_data(1, duplicate_bag), %% gives twice as many objects
     delete_files(Dups),
     P0 = pps(),
-    Tabs = open_files(1, Dups, Version),
+    Tabs = open_files(1, Dups),
     initialize(Tabs, Data),
     Len = length(Data),
     foreach(fun(Tab) -> trav_test(Data, Len, Tab) end, Tabs),
@@ -369,13 +317,7 @@ duplicate_bags(Config, Version) when is_list(Config) ->
     ok.
 
 
-access_v8(Config) when is_list(Config) ->
-    access(Config, 8).
-
-access_v9(Config) when is_list(Config) ->
-    access(Config, 9).
-
-access(Config, Version) ->
+access(Config) when is_list(Config) ->
     Args_acc = [[{ram_file, true}, {access, read}],
 		[{access, read}]],
     Args = [[{ram_file, true}],
@@ -388,9 +330,9 @@ access(Config, Version) ->
     P0 = pps(),
     {error, {file_error,_,enoent}} = dets:open_file('1', hd(Args_acc_1)),
 
-    Tabs = open_files(1, Args_1, Version),
+    Tabs = open_files(1, Args_1),
     close_all(Tabs),
-    Tabs = open_files(1, Args_acc_1, Version),
+    Tabs = open_files(1, Args_acc_1),
 
     foreach(fun(Tab) ->
                     {error, {access_mode,_}} = dets:insert(Tab, {1,2}),
@@ -522,16 +464,12 @@ dets_dirty_loop() ->
 
 
 %% Check that bags and next work as expected.
-bag_next_v8(Config) when is_list(Config) ->
-    bag_next(Config, 8).
-
-%% Check that bags and next work as expected.
-bag_next_v9(Config) when is_list(Config) ->
+bag_next(Config) when is_list(Config) ->
     Tab = dets_bag_next_test,
     FName = filename(Tab, Config),
 
     %% first and next crash upon error
-    dets:open_file(Tab,[{file, FName}, {type, bag},{version,9}]),
+    dets:open_file(Tab,[{file, FName}, {type, bag}]),
     ok = dets:insert(Tab, [{1,1},{2,2},{3,3},{4,4}]),
     FirstKey = dets:first(Tab),
     NextKey = dets:next(Tab, FirstKey),
@@ -548,13 +486,8 @@ bag_next_v9(Config) when is_list(Config) ->
     dets:close(Tab),
     file:delete(FName),
 
-    bag_next(Config, 9).
-
-bag_next(Config, Version) ->
-    Tab = dets_bag_next_test,
-    FName = filename(Tab, Config),
     P0 = pps(),
-    dets:open_file(Tab,[{file, FName}, {type, bag},{version,Version}]),
+    dets:open_file(Tab,[{file, FName}, {type, bag}]),
     dets:insert(Tab,{698,hopp}),
     dets:insert(Tab,{186,hopp}),
     dets:insert(Tab,{hej,hopp}),
@@ -578,17 +511,10 @@ bag_next(Config, Version) ->
     check_pps(P0),
     ok.
 
-oldbugs_v8(Config) when is_list(Config) ->
-    oldbugs(Config, 8).
-
-oldbugs_v9(Config) when is_list(Config) ->
-    oldbugs(Config, 9).
-
-oldbugs(Config, Version) ->
+oldbugs(Config) when is_list(Config) ->
     FName = filename(dets_suite_oldbugs_test, Config),
     P0 = pps(),
-    {ok, ob} = dets:open_file(ob, [{version, Version},
-					 {type, bag}, {file, FName}]),
+    {ok, ob} = dets:open_file(ob, [{type, bag}, {file, FName}]),
     ok = dets:insert(ob, {1, 2}),
     ok = dets:insert(ob, {1,3}),
     ok = dets:insert(ob, {1, 2}),
@@ -598,56 +524,19 @@ oldbugs(Config, Version) ->
     check_pps(P0),
     ok.
 
-%% Test that shrinking an object and then expanding it works.
-unsafe_assumptions(Config) when is_list(Config) ->
-    FName = filename(dets_suite_unsafe_assumptions_test, Config),
-    file:delete(FName),
-    P0 = pps(),
-    {ok, a} = dets:open_file(a, [{version,8},{file, FName}]),
-    O0 = {2,false},
-    O1 = {1, false},
-    O2 = {1, true},
-    O3 = {1, duplicate(20,false)},
-    O4 = {1, duplicate(25,false)}, % same 2-log as O3
-    ok = dets:insert(a, O1),
-    ok = dets:insert(a, O0),
-    true = [O1,O0] =:= sort(get_all_objects(a)),
-    true = [O1,O0] =:= sort(get_all_objects_fast(a)),
-    ok = dets:insert(a, O2),
-    true = [O2,O0] =:= sort(get_all_objects(a)),
-    true = [O2,O0] =:= sort(get_all_objects_fast(a)),
-    ok = dets:insert(a, O3),
-    true = [O3,O0] =:= sort(get_all_objects(a)),
-    true = [O3,O0] =:= sort(get_all_objects_fast(a)),
-    ok = dets:insert(a, O4),
-    true = [O4,O0] =:= sort(get_all_objects(a)),
-    true = [O4,O0] =:= sort(get_all_objects_fast(a)),
-    ok = dets:close(a),
-    file:delete(FName),
-    check_pps(P0),
-    ok.
-
 %% Test that a file where the segment array has been truncated
 %% is possible to repair.
-truncated_segment_array_v8(Config) when is_list(Config) ->
-    trunc_seg_array(Config, 8).
-
-%% Test that a file where the segment array has been truncated
-%% is possible to repair.
-truncated_segment_array_v9(Config) when is_list(Config) ->
-    trunc_seg_array(Config, 9).
-
-trunc_seg_array(Config, V) ->
+truncated_segment_array(Config) when is_list(Config) ->
     TabRef = dets_suite_truncated_segment_array_test,
     Fname = filename(TabRef, Config),
     %% Create file that needs to be repaired
     file:delete(Fname),
     P0 = pps(),
-    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname}]),
     ok = dets:close(TabRef),
     
     %% Truncate the file
-    HeadSize = headsz(V),
+    HeadSize = headsz(),
     truncate(Fname, HeadSize + 10),
     
     %% Open the truncated file
@@ -660,19 +549,13 @@ trunc_seg_array(Config, V) ->
     ok.
 
 %% Test open_file/1.
-open_file_v8(Config) when is_list(Config) ->
-    open_1(Config, 8).
-
-%% Test open_file/1.
-open_file_v9(Config) when is_list(Config) ->
+open_file(Config) when is_list(Config) ->
     T = open_v9,
     Fname = filename(T, Config),
-    {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
-    9 = dets:info(T, version),
+    {ok, _} = dets:open_file(T, [{file,Fname}]),
+    9 = dets:info(T, version), % Backwards compatibility.
     true = [self()] =:= dets:info(T, users),
-    {ok, _} = dets:open_file(T, [{file,Fname},{version,9}]),
-    {error,incompatible_arguments} =
-	dets:open_file(T, [{file,Fname},{version,8}]),
+    {ok, _} = dets:open_file(T, [{file,Fname}]),
     true = [self(),self()] =:= dets:info(T, users),
     ok = dets:close(T),
     true = [self()] =:= dets:info(T, users),
@@ -680,9 +563,9 @@ open_file_v9(Config) when is_list(Config) ->
     undefined = ets:info(T, users),
     file:delete(Fname),
 
-    open_1(Config, 9).
+    open_1(Config).
 
-open_1(Config, V) ->
+open_1(Config) ->
     TabRef = open_file_1_test,
     Fname = filename(TabRef, Config),
     file:delete(Fname),
@@ -694,8 +577,8 @@ open_1(Config, V) ->
     {error,{not_a_dets_file,Fname}} = dets:open_file(Fname),
     file:delete(Fname),
 
-    HeadSize = headsz(V),
-    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    HeadSize = headsz(),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname}]),
     ok = dets:close(TabRef),
     truncate(Fname, HeadSize + 10),
     true = dets:is_dets_file(Fname),
@@ -705,7 +588,7 @@ open_1(Config, V) ->
     file:delete(Fname),
 
     %% truncated file header, invalid type
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = ins(TabRef, 3000),
     ok = dets:close(TabRef),
     TypePos = 12,
@@ -714,7 +597,7 @@ open_1(Config, V) ->
     truncate(Fname, HeadSize - 10),
     {error,{not_a_dets_file,Fname}} = dets:open_file(Fname),
     {error,{not_a_dets_file,Fname}} =
-        dets:open_file(TabRef, [{file,Fname},{version,V}]),
+        dets:open_file(TabRef, [{file,Fname}]),
     file:delete(Fname),
 
     {error,{file_error,{foo,bar},_}} = dets:is_dets_file({foo,bar}),
@@ -722,35 +605,30 @@ open_1(Config, V) ->
     ok.
 
 %% Test initialize_table/2 and from_ets/2.
-init_table_v8(Config) when is_list(Config) ->
-    init_table(Config, 8).
-
-%% Test initialize_table/2 and from_ets/2.
-init_table_v9(Config) when is_list(Config) ->
+init_table(Config) when is_list(Config) ->
     %% Objects are returned in "time order".
     T = init_table_v9,
     Fname = filename(T, Config),
     file:delete(Fname),
     L = [{1,a},{2,b},{1,c},{2,c},{1,c},{2,a},{1,b}],
     Input = init([L]),
-    {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
-				       {type,duplicate_bag}]),
+    {ok, _} = dets:open_file(T, [{file,Fname},{type,duplicate_bag}]),
     ok = dets:init_table(T, Input),
     [{1,a},{1,c},{1,c},{1,b}] = dets:lookup(T, 1),
     [{2,b},{2,c},{2,a}] = dets:lookup(T, 2),
     ok = dets:close(T),
     file:delete(Fname),
 
-    init_table(Config, 9),
+    init_table_1(Config),
     fast_init_table(Config).
 
-init_table(Config, V) ->
+init_table_1(Config) ->
     TabRef = init_table_test,
     Fname = filename(TabRef, Config),
     file:delete(Fname),
     P0 = pps(),
 
-    Args = [{file,Fname},{version,V},{auto_save,120000}],
+    Args = [{file,Fname},{auto_save,120000}],
     {ok, _} = dets:open_file(TabRef, Args),
     {'EXIT', _} =
 	(catch dets:init_table(TabRef, fun(foo) -> bar end)),
@@ -800,13 +678,13 @@ init_table(Config, V) ->
     file:delete(Fname),
 
     L1 = [[{1,a},{2,b}],[],[{3,c}],[{4,d}],[]],
-    bulk_init(L1, set, 4, Config, V),
+    bulk_init(L1, set, 4, Config),
     L2 = [[{1,a},{2,b}],[],[{2,q},{3,c}],[{4,d}],[{4,e},{2,q}]],
-    bulk_init(L2, set, 4, Config, V),
-    bulk_init(L2, bag, 6, Config, V),
-    bulk_init(L2, duplicate_bag, 7, Config, V),
-    bulk_init(L1, set, 4, 512, Config, V),
-    bulk_init([], set, 0, 10000, Config, V),
+    bulk_init(L2, set, 4, Config),
+    bulk_init(L2, bag, 6, Config),
+    bulk_init(L2, duplicate_bag, 7, Config),
+    bulk_init(L1, set, 4, 512, Config),
+    bulk_init([], set, 0, 10000, Config),
     file:delete(Fname),
 
     %% Initiate a file that contains a lot of objects.
@@ -834,16 +712,16 @@ init_table(Config, V) ->
     check_pps(P0),
     ok.
 
-bulk_init(Ls, Type, N, Config, V) ->
-    bulk_init(Ls, Type, N, 256, Config, V).
+bulk_init(Ls, Type, N, Config) ->
+    bulk_init(Ls, Type, N, 256, Config).
 
-bulk_init(Ls, Type, N, Est, Config, V) ->
+bulk_init(Ls, Type, N, Est, Config) ->
     T = init_table_test,
     Fname = filename(T, Config),
     file:delete(Fname),
     Input = init(Ls),
     Args = [{ram_file,false}, {type,Type},{keypos,1},{file,Fname},
-	    {estimated_no_objects, Est},{version,V}],
+	    {estimated_no_objects, Est}],
     {ok, T} = dets:open_file(T, Args),
     ok = dets:init_table(T, Input),
     All = sort(get_all_objects(T)),
@@ -882,18 +760,17 @@ init_fun(I, N) ->
     end.
 
 fast_init_table(Config) ->
-    V = 9,
     TabRef = init_table_test,
     Fname = filename(TabRef, Config),
     file:delete(Fname),
     P0 = pps(),
 
-    Args = [{file,Fname},{version,V},{auto_save,120000}],
+    Args = [{file,Fname},{auto_save,120000}],
 
     Source = init_table_test_source,
     SourceFname = filename(Source, Config),
     file:delete(SourceFname),
-    SourceArgs = [{file,SourceFname},{version,V},{auto_save,120000}],
+    SourceArgs = [{file,SourceFname},{auto_save,120000}],
 
     {ok, Source} = dets:open_file(Source, SourceArgs),
     
@@ -1015,13 +892,13 @@ fast_init_table(Config) ->
     file:delete(SourceFname),
 
     L1 = [{1,a},{2,b},{3,c},{4,d}],
-    fast_bulk_init(L1, set, 4, 4, Config, V),
+    fast_bulk_init(L1, set, 4, 4, Config),
     L2 = [{1,a},{2,b},{2,q},{3,c},{4,d},{4,e},{2,q}],
-    fast_bulk_init(L2, set, 4, 4, Config, V),
-    fast_bulk_init(L2, bag, 6, 4, Config, V),
-    fast_bulk_init(L2, duplicate_bag, 7, 4, Config, V),
-    fast_bulk_init(L1, set, 4, 4, 512, Config, V),
-    fast_bulk_init([], set, 0, 0, 10000, Config, V),
+    fast_bulk_init(L2, set, 4, 4, Config),
+    fast_bulk_init(L2, bag, 6, 4, Config),
+    fast_bulk_init(L2, duplicate_bag, 7, 4, Config),
+    fast_bulk_init(L1, set, 4, 4, 512, Config),
+    fast_bulk_init([], set, 0, 0, 10000, Config),
     file:delete(Fname),
 
     %% Initiate a file that contains a lot of objects.
@@ -1112,16 +989,16 @@ fast_init_table(Config) ->
     check_pps(P0),
     ok.
 
-fast_bulk_init(L, Type, N, NoKeys, Config, V) ->
-    fast_bulk_init(L, Type, N, NoKeys, 256, Config, V).
+fast_bulk_init(L, Type, N, NoKeys, Config) ->
+    fast_bulk_init(L, Type, N, NoKeys, 256, Config).
 
-fast_bulk_init(L, Type, N, NoKeys, Est, Config, V) ->
+fast_bulk_init(L, Type, N, NoKeys, Est, Config) ->
     T = init_table_test,
     Fname = filename(T, Config),
     file:delete(Fname),
 
     Args0 = [{ram_file,false}, {type,Type},{keypos,1},
-	    {estimated_no_objects, Est},{version,V}],
+	    {estimated_no_objects, Est}],
     Args = [{file,Fname} | Args0],
     S = init_table_test_source,
     SFname = filename(S, Config),
@@ -1189,35 +1066,7 @@ items(I, N, C, L) ->
     items(I+1, N, C-1, [{I, item(I)} | L]).
 
 %% Test open_file and repair.
-repair_v8(Config) when is_list(Config) ->
-    repair(Config, 8).
-
-%% Test open_file and repair.
-repair_v9(Config) when is_list(Config) ->
-    %% Convert from format 9 to format 8.
-    T = convert_98,
-    Fname = filename(T, Config),
-    file:delete(Fname),
-    {ok, _} = dets:open_file(T, [{file,Fname},{version,9},
-				       {type,duplicate_bag}]),
-    9 = dets:info(T, version),
-    true = is_binary(dets:info(T, bchunk_format)),
-    ok = dets:insert(T, [{1,a},{2,b},{1,c},{2,c},{1,c},{2,a},{1,b}]),
-    dets:close(T),
-    {error, {version_mismatch, _}} =
-	dets:open_file(T, [{file,Fname},{version,8},{type,duplicate_bag}]),
-    {ok, _} = dets:open_file(T, [{file,Fname},{version,8},
-				       {type,duplicate_bag},{repair,force}]),
-    8 = dets:info(T, version),
-    true = undefined =:= dets:info(T, bchunk_format),
-    [{1,a},{1,b},{1,c},{1,c}] = sort(dets:lookup(T, 1)),
-    [{2,a},{2,b},{2,c}] = sort(dets:lookup(T, 2)),
-    7 = dets:info(T, no_objects),
-    no_keys_test(T),
-    _ = histogram(T, silent),
-    ok = dets:close(T),
-    file:delete(Fname),
-
+repair(Config) when is_list(Config) ->
     %% The short lived format 9(a).
     %% Not very throughly tested here.
     A9 = a9,
@@ -1238,13 +1087,13 @@ repair_v9(Config) when is_list(Config) ->
     ok = dets:close(A9),
     file:delete(Version9aT),
 
-    repair(Config, 9).
+    repair_1(Config).
 
-repair(Config, V) ->
+repair_1(Config) ->
     TabRef = repair_test,
     Fname = filename(TabRef, Config),
     file:delete(Fname),
-    HeadSize = headsz(V),
+    HeadSize = headsz(),
 
     P0 = pps(),
     {'EXIT', {badarg, _}} =
@@ -1255,7 +1104,7 @@ repair(Config, V) ->
 	dets:open_file(TabRef, [{file, Fname}, {access, read}]),
 
     %% compacting, and some kind of test that free lists are saved OK on file
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     0 = dets:info(TabRef, size),
     ok = ins(TabRef, 30000),
     ok = del(TabRef, 30000, 3),
@@ -1268,38 +1117,20 @@ repair(Config, V) ->
     20000 = count_objects_quite_fast(Ref3), % actually a test of match
     no_keys_test(Ref3),
     ok = dets:close(Ref3),
-    if
-        V =:= 8 ->
-            {ok, TabRef} = dets:open_file(TabRef,
-                                   [{file, Fname},{version,V},{access,read}]),
-            ok = dets:close(TabRef),
-            io:format("Expect compacting repair:~n"),
-            {ok, TabRef} = dets:open_file(TabRef,
-                                                [{file, Fname},{version,V}]),
-            20000 = dets:info(TabRef, size),
-	    _ = histogram(TabRef, silent),
-            ok = dets:close(TabRef);
-        true ->
-            ok
-    end,
     {error,{keypos_mismatch,Fname}} =
 	dets:open_file(TabRef, [{file, Fname},{keypos,17}]),
     {error,{type_mismatch,Fname}} =
 	dets:open_file(TabRef, [{file, Fname},{type,duplicate_bag}]),
 
     %% make one of the temporary files unwritable
-    TmpFile = if 
-		  V =:= 8 -> 
-		      Fname ++ ".TMP.10000"; 
-		  true -> Fname ++ ".TMP.1" 
-	      end,
+    TmpFile = Fname ++ ".TMP.1",
     file:delete(TmpFile),
     {ok, TmpFd} = file:open(TmpFile, [read,write]),
     ok = file:close(TmpFd),
     unwritable(TmpFile),
-    {error,{file_error,TmpFile,eacces}} = dets:fsck(Fname, V),
+    {error,{file_error,TmpFile,eacces}} = dets:fsck(Fname),
     {ok, _} = dets:open_file(TabRef,
-                             [{repair,false},{file, Fname},{version,V}]),
+                             [{repair,false},{file, Fname}]),
     20000 = length(get_all_objects(TabRef)),
     _ = histogram(TabRef, silent),
     20000 = length(get_all_objects_fast(TabRef)),
@@ -1318,68 +1149,15 @@ repair(Config, V) ->
     file:delete(Fname),
 
     %% truncated file header
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = ins(TabRef, 100),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
-    %% version bump (v8)
-    Version7S = filename:join(?datadir(Config), "version_r2d.dets"),
-    Version7T = filename('v2.dets', Config),
-    {ok, _} = file:copy(Version7S, Version7T),
-    {error,{version_bump, Version7T}} = dets:open_file(Version7T),
-    {error,{version_bump, Version7T}} =
-	dets:open_file(Version7T, [{file,Version7T},{repair,false}]),
-    {error,{version_bump, Version7T}} =
-	dets:open_file(Version7T, [{file, Version7T}, {access, read}]),
-    io:format("Expect upgrade:~n"),
-    {ok, _} = dets:open_file(Version7T,
-                                   [{file, Version7T},{version, V}]),
-    [{1,a},{2,b}] = sort(get_all_objects(Version7T)),
-    [{1,a},{2,b}] = sort(get_all_objects_fast(Version7T)),
-    Phash = if 
-		V =:= 8 -> phash;
-		true -> phash2
-	    end,
-    Phash = dets:info(Version7T, hash),
-    _ = histogram(Version7T, silent),
-    ok = dets:close(Version7T),
-    {ok, _} = dets:open_file(Version7T, [{file, Version7T}]),
-    Phash = dets:info(Version7T, hash),
-    ok = dets:close(Version7T),
-    file:delete(Version7T),
-
-    %% converting free lists
-    Version8aS = filename:join(?datadir(Config), "version_r3b02.dets"),
-    Version8aT = filename('v3.dets', Config),
-    {ok, _} = file:copy(Version8aS, Version8aT),
-    %% min_no_slots and max_no_slots are ignored - no repair is taking place
-    {ok, _} = dets:open_file(version_8a,
-				   [{file, Version8aT},{min_no_slots,1000},
-				    {max_no_slots,100000}]),
-    [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects(version_8a)),
-    [{1,b},{2,a},{a,1},{b,2}] = sort(get_all_objects_fast(version_8a)),
-    ok = ins(version_8a, 1000),
-    1002 = dets:info(version_8a, size),
-    no_keys_test(version_8a),
-    All8a = sort(get_all_objects(version_8a)),
-    1002 = length(All8a),
-    FAll8a = sort(get_all_objects_fast(version_8a)),
-    true = sort(All8a) =:= sort(FAll8a),
-    ok = del(version_8a, 300, 3),
-    902 = dets:info(version_8a, size),
-    no_keys_test(version_8a),
-    All8a2 = sort(get_all_objects(version_8a)),
-    902 = length(All8a2),
-    FAll8a2 = sort(get_all_objects_fast(version_8a)),
-    true = sort(All8a2) =:= sort(FAll8a2),
-    _ = histogram(version_8a, silent),
-    ok = dets:close(version_8a),
-    file:delete(Version8aT),
-
+    %% FIXME.
     %% will fail unless the slots are properly sorted when repairing (v8)
     BArgs = [{file, Fname},{type,duplicate_bag},
-	     {delayed_write,{3000,10000}},{version,V}],
+	     {delayed_write,{3000,10000}}],
     {ok, TabRef} = dets:open_file(TabRef, BArgs),
     Seq = seq(1, 500),
     Small = map(fun(X) -> {X,X} end, Seq),
@@ -1393,18 +1171,14 @@ repair(Config, V) ->
     io:format("Expect forced repair:~n"),
     {ok, _} =
          dets:open_file(TabRef, [{repair,force},{min_no_slots,2000} | BArgs]),
-    if 
-	V =:= 9 ->
-	    {MinNoSlots,_,MaxNoSlots} = dets:info(TabRef, no_slots),
-	    ok = dets:close(TabRef),
-	    io:format("Expect compaction:~n"),
-	    {ok, _} =
-		dets:open_file(TabRef, [{repair,force},
-					{min_no_slots,MinNoSlots},
-					{max_no_slots,MaxNoSlots} | BArgs]);
-	true ->
-	    ok
-    end,
+
+    {MinNoSlots,_,MaxNoSlots} = dets:info(TabRef, no_slots),
+    ok = dets:close(TabRef),
+    io:format("Expect compaction:~n"),
+    {ok, _} =
+        dets:open_file(TabRef, [{repair,force},
+                                {min_no_slots,MinNoSlots},
+                                {max_no_slots,MaxNoSlots} | BArgs]),
     All2 = get_all_objects(TabRef),
     true = All =:= sort(All2),
     FAll2 = get_all_objects_fast(TabRef),
@@ -1418,35 +1192,15 @@ repair(Config, V) ->
     file:delete(Fname),
 
     %% object bigger than segments, the "hole" is taken care of
-    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file, Fname}]),
     Tuple = erlang:make_tuple(1000, foobar), % > 2 kB
     ok = dets:insert(TabRef, Tuple),
     %% at least one full segment (objects smaller than 2 kB):
     ins(TabRef, 2000),
     ok = dets:close(TabRef),
 
-    if 
-        V =:= 8 ->
-            %% first estimated number of objects is wrong, repair once more
-            {ok, Fd} = file:open(Fname, [read,write]),
-            NoPos = HeadSize - 8,  % no_objects
-            file:pwrite(Fd, NoPos, <<0:32>>), % NoItems
-            ok = file:close(Fd),
-            dets:fsck(Fname, V),
-            {ok, _} =
-                dets:open_file(TabRef, 
-                               [{repair,false},{file, Fname},{version,V}]),
-            2001 = length(get_all_objects(TabRef)),
-            _ = histogram(TabRef, silent),
-            2001 = length(get_all_objects_fast(TabRef)),
-            ok = dets:close(TabRef);
-        true ->
-            ok
-    end,
-
     {ok, _} =
-        dets:open_file(TabRef, 
-                       [{repair,false},{file, Fname},{version,V}]),
+        dets:open_file(TabRef, [{repair,false},{file, Fname}]),
     {ok, ObjPos} = dets:where(TabRef, {66,{item,number,66}}),
     ok = dets:close(TabRef),
     %% Damaged object.
@@ -1454,25 +1208,24 @@ repair(Config, V) ->
     crash(Fname, ObjPos+Pos),
     io:format(
 	    "Expect forced repair (possibly after attempted compaction):~n"),
-    {ok, _} =
-	dets:open_file(TabRef, [{repair,force},{file, Fname},{version,V}]),
+    {ok, _} = dets:open_file(TabRef, [{repair,force},{file, Fname}]),
     true = dets:info(TabRef, size) < 2001,
     ok = dets:close(TabRef),
     file:delete(Fname),
 
     %% The file is smaller than the padded object.
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = dets:insert(TabRef, Tuple),
     ok = dets:close(TabRef),
     io:format("Expect forced repair or compaction:~n"),
     {ok, _} =
-	dets:open_file(TabRef, [{repair,force},{file, Fname},{version,V}]),
+	dets:open_file(TabRef, [{repair,force},{file, Fname}]),
     true = 1 =:= dets:info(TabRef, size),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
     %% Damaged free lists.
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = ins(TabRef, 300),
     ok = dets:sync(TabRef),
     ok = del(TabRef, 300, 3),
@@ -1481,130 +1234,48 @@ repair(Config, V) ->
     ok = dets:close(TabRef),
     crash(Fname, FileSize+20),
     %% Used to return bad_freelists, but that changed in OTP-9622
-    {ok, TabRef} =
-	dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
     %% File not closed, opening with read and read_write access tried.
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = ins(TabRef, 300),
     ok = dets:close(TabRef),
     crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
     {error, {not_closed, Fname}} =
-       dets:open_file(foo, [{file,Fname},{version,V},{repair,force},
+       dets:open_file(foo, [{file,Fname},{repair,force},
                             {access,read}]),
     {error, {not_closed, Fname}} =
-       dets:open_file(foo, [{file,Fname},{version,V},{repair,true},
+       dets:open_file(foo, [{file,Fname},{repair,true},
                             {access,read}]),
     io:format("Expect repair:~n"),
     {ok, TabRef} =
-       dets:open_file(TabRef, [{file,Fname},{version,V},{repair,true},
+       dets:open_file(TabRef, [{file,Fname},{repair,true},
                                {access,read_write}]),
     ok = dets:close(TabRef),
     crash(Fname, ?CLOSED_PROPERLY_POS+3, ?NOT_PROPERLY_CLOSED),
     io:format("Expect forced repair:~n"),
     {ok, TabRef} =
-       dets:open_file(TabRef, [{file,Fname},{version,V},{repair,force},
+       dets:open_file(TabRef, [{file,Fname},{repair,force},
                                {access,read_write}]),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
     %% The size of an object is huge.
-    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{version,V}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname}]),
     ok = dets:insert(TabRef, [{1,2,3},{2,3,4}]),
     {ok, ObjPos2} = dets:where(TabRef, {1,2,3}),
     ok = dets:close(TabRef),
-    ObjPos3 = if
-                  V =:= 8 -> ObjPos2 + 4;
-                  V =:= 9 -> ObjPos2
-              end,
-    crash(Fname, ObjPos3, 255),
+    crash(Fname, ObjPos2, 255),
     io:format("Expect forced repair:~n"),
-    {ok, TabRef} =
-         dets:open_file(TabRef, [{file,Fname},{version,V},{repair,force}]),
+    {ok, TabRef} = dets:open_file(TabRef, [{file,Fname},{repair,force}]),
     ok = dets:close(TabRef),
     file:delete(Fname),
 
     check_pps(P0),
     ok.
 
-
-%% Test the use of different hashing algorithms in v8b and v8c of the
-%% Dets file format.
-hash_v8b_v8c(Config) when is_list(Config) ->
-    Source =
-	filename:join(?datadir(Config), "dets_test_v8b.dets"),
-    %% Little endian version of old file (there is an endianess bug in 
-    %% the old hash). This is all about version 8 of the dets file format.
-
-    P0 = pps(),
-    SourceLE =
-	filename:join(?datadir(Config), 
-		      "dets_test_v8b_little_endian.dets"),
-    Target1 = filename('oldhash1.dets', Config),
-    Target1LE = filename('oldhash1le.dets', Config),
-    Target2 = filename('oldhash2.dets', Config),
-    {ok, Bin} = file:read_file(Source),
-    {ok, BinLE} = file:read_file(SourceLE),
-    ok = file:write_file(Target1,Bin),
-    ok = file:write_file(Target1LE,BinLE),
-    ok = file:write_file(Target2,Bin),
-    {ok, d1} = dets:open_file(d1,[{file,Target1}]),
-    {ok, d1le} = dets:open_file(d1le,[{file,Target1LE}]),
-    {ok, d2} = dets:open_file(d2,[{file,Target2},{repair,force},
-                                        {version,8}]),
-    FF = fun(N,_F,_T) when N > 16#FFFFFFFFFFFFFFFF ->
-                 ok;
-            (N,F,T) ->
-                 V = integer_to_list(N),
-                 case dets:lookup(T,N) of
-                     [{N,V}] ->
-                         F(N*2,F,T);
-                     _Error ->
-                         exit({failed,{lookup,T,N}})
-                 end
-         end,
-    Mess = case (catch FF(1,FF,d1)) of
-               {'EXIT', {failed, {lookup,_,_}}} ->
-                   ok = dets:close(d1),
-                   FF(1,FF,d1le),
-                   hash = dets:info(d1le,hash),
-                   dets:insert(d1le,{33333333333,hejsan}),
-                   [{33333333333,hejsan}] =
-                       dets:lookup(d1le,33333333333),
-                   ok = dets:close(d1le),
-                   {ok, d1le} = dets:open_file(d1le,
-                                                     [{file,Target1LE}]),
-                   [{33333333333,hejsan}] =
-                       dets:lookup(d1le,33333333333),
-                   FF(1,FF,d1le),
-                   ok = dets:close(d1le),
-                   "Seems to be a little endian machine";
-               {'EXIT', Fault} ->
-                   exit(Fault);
-               _ ->
-                   ok = dets:close(d1le),
-                   hash = dets:info(d1,hash),
-                   dets:insert(d1,{33333333333,hejsan}),
-                   [{33333333333,hejsan}] =
-                       dets:lookup(d1,33333333333),
-                   ok = dets:close(d1),
-                   {ok, d1} = dets:open_file(d1,[{file,Target1}]),
-                   [{33333333333,hejsan}] =
-                       dets:lookup(d1,33333333333),
-                   FF(1,FF,d1),
-                   ok = dets:close(d1),
-                   "Seems to be a big endian machine"
-           end,
-    FF(1,FF,d2),
-    phash = dets:info(d2,hash),
-    ok = dets:close(d2),
-    file:delete(Target1),
-    file:delete(Target1LE),
-    file:delete(Target2),
-    check_pps(P0),
-    {comment, Mess}.
 
 %% Test version 9(b) with erlang:phash/2 as hash function.
 phash(Config) when is_list(Config) ->
@@ -1643,9 +1314,10 @@ phash(Config) when is_list(Config) ->
     ok = dets:close(T),
     
     %% One cannot use the bchunk format when copying between a phash
-    %% table and a phash2 table. (There is no test for the case an R9
-    %% (or later) node (using phash2) copies a table to an R8 node
-    %% (using phash).) See also the comment on HASH_PARMS in dets_v9.erl.
+    %% table and a phash2 table. (There is no test for the case an
+    %% Erlang/OTP R9 (or later) node (using phash2) copies a table to
+    %% an Erlang/OTP R8 node (using phash).) See also the comment on
+    %% HASH_PARMS in dets_v9.erl.
     {ok, _} = file:copy(Phash_v9bS, Fname),
     {ok, T} = dets:open_file(T, [{file, Fname}]),
     Type = dets:info(T, type),
@@ -1653,7 +1325,7 @@ phash(Config) when is_list(Config) ->
     Input = init_bchunk(T),    
     T2 = phash_table,
     Fname2 = filename(T2, Config),
-    Args = [{type,Type},{keypos,KeyPos},{version,9},{file,Fname2}],
+    Args = [{type,Type},{keypos,KeyPos},{file,Fname2}],
     {ok, T2} = dets:open_file(T2, Args),
     {error, {init_fun, _}} =
 	dets:init_table(T2, Input, {format,bchunk}),
@@ -1665,21 +1337,14 @@ phash(Config) when is_list(Config) ->
     ok.
 
 %% Test foldl, foldr, to_ets.
-fold_v8(Config) when is_list(Config) ->
-    fold(Config, 8).
-
-%% Test foldl, foldr, to_ets.
-fold_v9(Config) when is_list(Config) ->
-    fold(Config, 9).
-
-fold(Config, Version) ->
+fold(Config) when is_list(Config) ->
     T = test_table,
     N = 100,
     Fname = filename(T, Config),
     file:delete(Fname),
     P0 = pps(),
 
-    Args = [{version, Version}, {file,Fname}, {estimated_no_objects, N}],
+    Args = [{file,Fname}, {estimated_no_objects, N}],
     {ok, _} = dets:open_file(T, Args),
 
     ok = ins(T, N),
@@ -1721,10 +1386,7 @@ fold(Config, Version) ->
     ok = dets:close(T),
 
     %% Damaged object.
-    Pos = if 
-	      Version =:= 8 -> 12;
-	      Version =:= 9 -> 8
-	  end,
+    Pos = 8,
     crash(Fname, ObjPos+Pos),
     {ok, _} = dets:open_file(T, Args),
     io:format("Expect corrupt table:~n"),
@@ -1738,18 +1400,11 @@ fold(Config, Version) ->
     ok.
 
 %% Add objects to a fixed table.
-fixtable_v8(Config) when is_list(Config) ->
-    fixtable(Config, 8).
-
-%% Add objects to a fixed table.
-fixtable_v9(Config) when is_list(Config) ->
-    fixtable(Config, 9).
-
-fixtable(Config, Version) when is_list(Config) ->
+fixtable(Config) when is_list(Config) ->
     T = fixtable,
     Fname = filename(fixtable, Config),
     file:delete(Fname),
-    Args = [{version,Version},{file,Fname}],
+    Args = [{file,Fname}],
     P0 = pps(),
     {ok, _} = dets:open_file(T, Args),
 
@@ -1832,21 +1487,13 @@ fixtable(Config, Version) when is_list(Config) ->
     ok.
 
 %% Matching objects of a fixed table.
-match_v8(Config) when is_list(Config) ->
-    match(Config, 8).
-
-%% Matching objects of a fixed table.
-match_v9(Config) when is_list(Config) ->
-    match(Config, 9).
-
-match(Config, Version) ->
+match(Config) when is_list(Config) ->
     T = match,
     Fname = filename(match, Config),
     file:delete(Fname),
     P0 = pps(),
 
-    Args = [{version, Version}, {file,Fname}, {type, duplicate_bag},
-	    {estimated_no_objects,550}],
+    Args = [{file,Fname}, {type, duplicate_bag}, {estimated_no_objects,550}],
     {ok, _} = dets:open_file(T, Args),
     ok = dets:insert(T, {1, a, b}),
     ok = dets:insert(T, {1, b, a}),
@@ -1901,7 +1548,7 @@ match(Config, Version) ->
     {_, TmpCont} = dets:match_object(T, '_', 200),
     {_, TmpCont1} = dets:match_object(TmpCont),
     {TTL, _} = dets:match_object(TmpCont1),
-    DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
+    DI = hd(TTL),
     dets:safe_fixtable(T, true),
     {L1, C20} = dets:match_object(T, '_', 200),
     true = 200 =< length(L1),
@@ -1957,8 +1604,7 @@ match(Config, Version) ->
     ok = dets:close(T),
 
     %% Damaged size of object.
-    %% In v8, there is a next pointer before the size.
-    CrashPos = if Version =:= 8 -> 5; Version =:= 9 -> 1 end,
+    CrashPos = 1,
     crash(Fname, ObjPos2+CrashPos),
     {ok, _} = dets:open_file(T, Args),
     case dets:insert_new(T, Obj) of % OTP-12024
@@ -1986,7 +1632,7 @@ match(Config, Version) ->
     ok = dets:close(T),
 
     %% match_delete finds an error
-    CrashPos3 = if Version =:= 8 -> 12; Version =:= 9 -> 16 end,
+    CrashPos3 = 16,
     crash(Fname, ObjPos3+CrashPos3),
     {ok, _} = dets:open_file(T, Args),
     bad_object(dets:match_delete(T, Spec), Fname),
@@ -2008,21 +1654,13 @@ match(Config, Version) ->
     ok.
 
 %% Selecting objects of a fixed table.
-select_v8(Config) when is_list(Config) ->
-    select(Config, 8).
-
-%% Selecting objects of a fixed table.
-select_v9(Config) when is_list(Config) ->
-    select(Config, 9).
-
-select(Config, Version) ->
+select(Config) when is_list(Config) ->
     T = select,
     Fname = filename(select, Config),
     file:delete(Fname),
     P0 = pps(),
 
-    Args = [{version,Version}, {file,Fname}, {type, duplicate_bag},
-            {estimated_no_objects,550}],
+    Args = [{file,Fname}, {type, duplicate_bag},{estimated_no_objects,550}],
     {ok, _} = dets:open_file(T, Args),
     ok = dets:insert(T, {1, a, b}),
     ok = dets:insert(T, {1, b, a}),
@@ -2074,7 +1712,7 @@ select(Config, Version) ->
     {_, TmpCont} = dets:match_object(T, '_', 200),
     {_, TmpCont1} = dets:match_object(TmpCont),
     {TTL, _} = dets:match_object(TmpCont1),
-    DI = if Version =:= 8 -> last(TTL); Version =:= 9 -> hd(TTL) end,
+    DI = hd(TTL),
     dets:safe_fixtable(T, true),
     {L1, C20} = dets:select(T, AllSpec, 200),
     true = 200 =< length(L1),
@@ -2281,28 +1919,21 @@ badarg(Config) when is_list(Config) ->
     ok.
 
 %% Test the write cache for sets.
-cache_sets_v8(Config) when is_list(Config) ->
-    cache_sets(Config, 8).
-
-%% Test the write cache for sets.
-cache_sets_v9(Config) when is_list(Config) ->
-    cache_sets(Config, 9).
-
-cache_sets(Config, Version) ->
+cache_sets(Config) when is_list(Config) ->
     Small = 2,
-    cache_sets(Config, {0,0}, false, Small, Version),
-    cache_sets(Config, {0,0}, true, Small, Version),
-    cache_sets(Config, {5000,5000}, false, Small, Version),
-    cache_sets(Config, {5000,5000}, true, Small, Version),
+    cache_sets(Config, {0,0}, false, Small),
+    cache_sets(Config, {0,0}, true, Small),
+    cache_sets(Config, {5000,5000}, false, Small),
+    cache_sets(Config, {5000,5000}, true, Small),
     %% Objects of size greater than 2 kB.
     Big = 1200,
-    cache_sets(Config, {0,0}, false, Big, Version),
-    cache_sets(Config, {0,0}, true, Big, Version),
-    cache_sets(Config, {5000,5000}, false, Big, Version),
-    cache_sets(Config, {5000,5000}, true, Big, Version),
+    cache_sets(Config, {0,0}, false, Big),
+    cache_sets(Config, {0,0}, true, Big),
+    cache_sets(Config, {5000,5000}, false, Big),
+    cache_sets(Config, {5000,5000}, true, Big),
     ok.
     
-cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
+cache_sets(Config, DelayedWrite, Extra, Sz) ->
     %% Extra = bool(). Insert tuples until the tested key is not alone.
     %% Sz = integer(). Size of the inserted tuples.
 
@@ -2311,9 +1942,8 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
     file:delete(Fname),
     P0 = pps(),
 
-    {ok, _} =
-	dets:open_file(T,[{version, Version}, {file,Fname}, {type,set}, 
-			  {delayed_write, DelayedWrite}]),
+    {ok, _} = dets:open_file(T,[{file,Fname}, {type,set},
+                                {delayed_write, DelayedWrite}]),
 
     Dups = 1,
     {Key, OtherKeys} = 
@@ -2430,28 +2060,21 @@ cache_sets(Config, DelayedWrite, Extra, Sz, Version) ->
     ok.
     
 %% Test the write cache for bags.
-cache_bags_v8(Config) when is_list(Config) ->
-    cache_bags(Config, 8).
-
-%% Test the write cache for bags.
-cache_bags_v9(Config) when is_list(Config) ->
-    cache_bags(Config, 9).
-
-cache_bags(Config, Version) ->
+cache_bags(Config) when is_list(Config) ->
     Small = 2,
-    cache_bags(Config, {0,0}, false, Small, Version),
-    cache_bags(Config, {0,0}, true, Small, Version),
-    cache_bags(Config, {5000,5000}, false, Small, Version),
-    cache_bags(Config, {5000,5000}, true, Small, Version),
+    cache_bags(Config, {0,0}, false, Small),
+    cache_bags(Config, {0,0}, true, Small),
+    cache_bags(Config, {5000,5000}, false, Small),
+    cache_bags(Config, {5000,5000}, true, Small),
     %% Objects of size greater than 2 kB.
     Big = 1200,
-    cache_bags(Config, {0,0}, false, Big, Version),
-    cache_bags(Config, {0,0}, true, Big, Version),
-    cache_bags(Config, {5000,5000}, false, Big, Version),
-    cache_bags(Config, {5000,5000}, true, Big, Version),
+    cache_bags(Config, {0,0}, false, Big),
+    cache_bags(Config, {0,0}, true, Big),
+    cache_bags(Config, {5000,5000}, false, Big),
+    cache_bags(Config, {5000,5000}, true, Big),
     ok.
     
-cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
+cache_bags(Config, DelayedWrite, Extra, Sz) ->
     %% Extra = bool(). Insert tuples until the tested key is not alone.
     %% Sz = integer(). Size of the inserted tuples.
 
@@ -2460,9 +2083,8 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     file:delete(Fname),
     P0 = pps(),
 
-    {ok, _} =
-	dets:open_file(T,[{version, Version}, {file,Fname}, {type,bag}, 
-			  {delayed_write, DelayedWrite}]),
+    {ok, _} = dets:open_file(T,[{file,Fname}, {type,bag},
+                                {delayed_write, DelayedWrite}]),
 
     Dups = 1,
     {Key, OtherKeys} = 
@@ -2588,8 +2210,7 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     R1 = {index_test,1,2,3,4},
     R2 = {index_test,2,2,13,14},
     R3 = {index_test,1,12,13,14},
-    {ok, _} = dets:open_file(T,[{version,Version},{type,bag},
-                                {keypos,2},{file,Fname}]),
+    {ok, _} = dets:open_file(T,[{type,bag}, {keypos,2},{file,Fname}]),
     ok = dets:insert(T,R1),
     ok = dets:sync(T),
     ok = dets:insert(T,R2),
@@ -2606,27 +2227,20 @@ cache_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     ok.
     
 %% Test the write cache for duplicate bags.
-cache_duplicate_bags_v8(Config) when is_list(Config) ->
-    cache_duplicate_bags(Config, 8).
-
-%% Test the write cache for duplicate bags.
-cache_duplicate_bags_v9(Config) when is_list(Config) ->
-    cache_duplicate_bags(Config, 9).
-
-cache_duplicate_bags(Config, Version) ->
+cache_duplicate_bags(Config) when is_list(Config) ->
     Small = 2,
-    cache_dup_bags(Config, {0,0}, false, Small, Version),
-    cache_dup_bags(Config, {0,0}, true, Small, Version),
-    cache_dup_bags(Config, {5000,5000}, false, Small, Version),
-    cache_dup_bags(Config, {5000,5000}, true, Small, Version),
+    cache_dup_bags(Config, {0,0}, false, Small),
+    cache_dup_bags(Config, {0,0}, true, Small),
+    cache_dup_bags(Config, {5000,5000}, false, Small),
+    cache_dup_bags(Config, {5000,5000}, true, Small),
     %% Objects of size greater than 2 kB.
     Big = 1200,
-    cache_dup_bags(Config, {0,0}, false, Big, Version),
-    cache_dup_bags(Config, {0,0}, true, Big, Version),
-    cache_dup_bags(Config, {5000,5000}, false, Big, Version),
-    cache_dup_bags(Config, {5000,5000}, true, Big, Version).
+    cache_dup_bags(Config, {0,0}, false, Big),
+    cache_dup_bags(Config, {0,0}, true, Big),
+    cache_dup_bags(Config, {5000,5000}, false, Big),
+    cache_dup_bags(Config, {5000,5000}, true, Big).
 
-cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
+cache_dup_bags(Config, DelayedWrite, Extra, Sz) ->
     %% Extra = bool(). Insert tuples until the tested key is not alone.
     %% Sz = integer(). Size of the inserted tuples.
 
@@ -2635,10 +2249,8 @@ cache_dup_bags(Config, DelayedWrite, Extra, Sz, Version) ->
     file:delete(Fname),
     P0 = pps(),
 
-    {ok, _} =
-	dets:open_file(T,[{version, Version}, {file,Fname}, 
-			  {type,duplicate_bag}, 
-			  {delayed_write, DelayedWrite}]),
+    {ok, _} = dets:open_file(T,[{file,Fname}, {type,duplicate_bag},
+                                {delayed_write, DelayedWrite}]),
 
     Dups = 2,
     {Key, OtherKeys} = 
@@ -2869,7 +2481,7 @@ otp_8899(Config) when is_list(Config) ->
     Server = self(),
 
     file:delete(FName),
-    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
     [P1,P2,P3,P4] = new_clients(4, Tab),
 
     MC = [Tab],
@@ -2895,7 +2507,7 @@ many_clients(Config) when is_list(Config) ->
 
     file:delete(FName),
     P0 = pps(),
-    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
     [P1,P2,P3,P4] = new_clients(4, Tab),
 
     %% dets:init_table/2 is used for making sure that all processes
@@ -2954,14 +2566,14 @@ many_clients(Config) when is_list(Config) ->
     file:delete(FName),
 
     %% Check that errors are handled correctly by the streaming operators.
-    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
     ok = ins(Tab, 100),
     Obj = {66,{item,number,66}},
     {ok, ObjPos} = dets:where(Tab, Obj),
     ok = dets:close(Tab),
     %% Damaged object.
     crash(FName, ObjPos+12),
-    {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    {ok, _} = dets:open_file(Tab,[{file, FName}]),
     BadObject1 = dets:lookup_keys(Tab, [65,66,67,68,69]),
     bad_object(BadObject1, FName),
     _Error = dets:close(Tab),
@@ -3400,8 +3012,13 @@ repair_continuation(Config) ->
 
     MS = [{'_',[],[true]}],
 
-    {[true], C1} = dets:select(Tab, MS, 1),
-    C2 = binary_to_term(term_to_binary(C1)),
+    SRes = term_to_binary(dets:select(Tab, MS, 1)),
+    %% Get rid of compiled match spec
+    lists:foreach(fun (P) ->
+                          garbage_collect(P)
+                  end, processes()),
+    {[true], C2} = binary_to_term(SRes),
+
     {'EXIT', {badarg, _}} = (catch dets:select(C2)),
     C3 = dets:repair_continuation(C2, MS),
     {[true], C4} = dets:select(C3),
@@ -3415,18 +3032,13 @@ repair_continuation(Config) ->
 
 %% OTP-5487. Growth of read-only table (again).
 otp_5487(Config) ->
-    otp_5487(Config, 9),
-    otp_5487(Config, 8),
-    ok.
-
-otp_5487(Config, Version) ->
     Tab = otp_5487,
     Fname = filename(otp_5487, Config),
     file:delete(Fname),
     Ets = ets:new(otp_5487, [public, set]),
     lists:foreach(fun(I) -> ets:insert(Ets, {I,I+1}) end,
                   lists:seq(0,1000)),
-    {ok, _} = dets:open_file(Tab, [{file,Fname},{version,Version}]),
+    {ok, _} = dets:open_file(Tab, [{file,Fname}]),
     ok = dets:from_ets(Tab, Ets),
     ok = dets:sync(Tab),
     ok = dets:close(Tab),
@@ -3470,14 +3082,12 @@ otp_6359(Config) ->
 
 %% OTP-4738. ==/2 and =:=/2.
 otp_4738(Config) ->
-    %% Version 8 has not been corrected.
-    %% (The constant -12857447 is for version 9 only.)
-    otp_4738_set(9, Config),
-    otp_4738_bag(9, Config),
-    otp_4738_dupbag(9, Config),
+    otp_4738_set(Config),
+    otp_4738_bag(Config),
+    otp_4738_dupbag(Config),
     ok.
 
-otp_4738_dupbag(Version, Config) ->
+otp_4738_dupbag(Config) ->
     Tab = otp_4738,
     File = filename(Tab, Config),
     file:delete(File),
@@ -3485,7 +3095,7 @@ otp_4738_dupbag(Version, Config) ->
     F = float(I),
     One = 1,
     FOne = float(One),
-    Args = [{file,File},{type,duplicate_bag},{version,Version}],
+    Args = [{file,File},{type,duplicate_bag}],
     {ok, Tab} = dets:open_file(Tab, Args),
     ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
     ok = dets:sync(Tab),
@@ -3530,7 +3140,7 @@ otp_4738_dupbag(Version, Config) ->
     file:delete(File),
     ok.
 
-otp_4738_bag(Version, Config) ->
+otp_4738_bag(Config) ->
     Tab = otp_4738,
     File = filename(Tab, Config),
     file:delete(File),
@@ -3538,7 +3148,7 @@ otp_4738_bag(Version, Config) ->
     F = float(I),
     One = 1,
     FOne = float(One),
-    Args = [{file,File},{type,bag},{version,Version}],
+    Args = [{file,File},{type,bag}],
     {ok, Tab} = dets:open_file(Tab, Args),
     ok = dets:insert(Tab, [{I,One},{F,One},{I,FOne},{F,FOne}]),
     ok = dets:sync(Tab),
@@ -3561,11 +3171,11 @@ otp_4738_bag(Version, Config) ->
     ok = dets:close(Tab),
     file:delete(File).
 
-otp_4738_set(Version, Config) ->
+otp_4738_set(Config) ->
     Tab = otp_4738,
     File = filename(Tab, Config),
     file:delete(File),
-    Args = [{file,File},{type,set},{version,Version}],
+    Args = [{file,File},{type,set}],
 
     %% I and F share the same slot.
     I = -12857447,
@@ -3665,16 +3275,16 @@ otp_8856(Config) when is_list(Config) ->
     {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
     spawn(fun()-> Me ! {1, dets:insert(Tab, [])} end),
     spawn(fun()-> Me ! {2, dets:insert_new(Tab, [])} end),
-    ok = dets:close(Tab),
     receive {1, ok} -> ok end,
     receive {2, true} -> ok end,
+    ok = dets:close(Tab),
     file:delete(File),
 
     {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
     spawn(fun() -> dets:delete(Tab, 0) end),
     spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
-    ok = dets:close(Tab),
     receive {3, true} -> ok end,
+    ok = dets:close(Tab),
     file:delete(File),
     ok.
 
@@ -3807,11 +3417,26 @@ otp_11709(Config) when is_list(Config) ->
     ok.
 
 %% OTP-13229. open_file() exits with badarg when given binary file name.
+%% Also OTP-15253.
 otp_13229(_Config) ->
     F = <<"binfile.tab">>,
     try dets:open_file(name, [{file, F}]) of
         R ->
             exit({open_succeeded, R})
+    catch
+        error:badarg ->
+            ok
+    end,
+    try dets:open_file(F, []) of % OTP-15253
+        R2 ->
+            exit({open_succeeded, R2})
+    catch
+        error:badarg ->
+            ok
+    end,
+    try dets:open_file(F) of
+        R3 ->
+            exit({open_succeeded, R3})
     catch
         error:badarg ->
             ok
@@ -3863,6 +3488,19 @@ wait_for_close(Tab) ->
             timer:sleep(100),
             wait_for_close(Tab)
     end.
+
+%% OTP-13830. Format 8 is no longer supported.
+otp_13830(Config) ->
+    Tab = otp_13830,
+    File8 = filename:join(?datadir(Config), "version_8.dets"),
+    {error,{format_8_no_longer_supported,_}} =
+        dets:open_file(Tab, [{file, File8}]),
+    File = filename(Tab, Config),
+    %% Check the 'version' option, for backwards compatibility:
+    {ok, Tab} = dets:open_file(Tab, [{file, File}, {version, 9}]),
+    ok = dets:close(Tab),
+    {ok, Tab} = dets:open_file(Tab, [{file, File}, {version, default}]),
+    ok = dets:close(Tab).
 
 %%
 %% Parts common to several test cases
@@ -4000,9 +3638,7 @@ match_test(Data, Tab) ->
 %% Utilities
 %%
 
-headsz(8) ->
-    ?HEADSZ_v8;
-headsz(_) ->
+headsz() ->
     ?HEADSZ_v9.
 
 unwritable(Fname) ->
@@ -4030,13 +3666,13 @@ filename(Name, Config) when is_atom(Name) ->
 filename(Name, _Config) ->
     filename:join(?privdir(_Config), Name).
 
-open_files(_Name, [], _Version) ->
+open_files(_Name, []) ->
     [];
-open_files(Name0, [Args | Tail], Version) ->
+open_files(Name0, [Args | Tail]) ->
     ?format("init ~p~n", [Args]),
     Name = list_to_atom(integer_to_list(Name0)),
-    {ok, Name} = dets:open_file(Name, [{version,Version} | Args]),
-    [Name | open_files(Name0+1, Tail, Version)].
+    {ok, Name} = dets:open_file(Name, Args),
+    [Name | open_files(Name0+1, Tail)].
     
 close_all(Tabs) -> foreach(fun(Tab) -> ok = dets:close(Tab) end, Tabs).
 
@@ -4137,20 +3773,15 @@ no_keys_test([T | Ts]) ->
 no_keys_test([]) ->
     ok;
 no_keys_test(T) ->
-    case dets:info(T, version) of
-	8 ->
-	    ok;
-	9 ->
-	    Kp = dets:info(T, keypos),
-	    All = dets:match_object(T, '_'),
-	    L = lists:map(fun(X) -> element(Kp, X) end, All),
-	    NoKeys = length(lists:usort(L)),
-	    case {dets:info(T, no_keys), NoKeys} of
-                {N, N} ->
-                    ok;
-                {N1, N2} ->
-                    exit({no_keys_test, N1, N2})
-            end
+    Kp = dets:info(T, keypos),
+    All = dets:match_object(T, '_'),
+    L = lists:map(fun(X) -> element(Kp, X) end, All),
+    NoKeys = length(lists:usort(L)),
+    case {dets:info(T, no_keys), NoKeys} of
+        {N, N} ->
+            ok;
+        {N1, N2} ->
+            exit({no_keys_test, N1, N2})
     end.
 
 safe_get_all_objects(Tab) ->
@@ -4182,7 +3813,6 @@ count_objs_1({Ts,C}, N) when is_list(Ts) ->
 get_all_objects_fast(Tab) ->
     dets:match_object(Tab, '_').
 
-%% Relevant for version 8.
 histogram(Tab) ->
     OnePercent = case dets:info(Tab, no_slots) of
 	undefined -> undefined;
@@ -4244,10 +3874,6 @@ ave_histogram([{S,N1} | H], N) ->
 ave_histogram([], N) ->
     N.
 
-bad_object({error,{bad_object,FileName}}, FileName) ->
-    ok; % Version 8, no debug.
-bad_object({error,{{bad_object,_,_},FileName}}, FileName) ->
-    ok; % Version 8, debug...
 bad_object({error,{{bad_object,_}, FileName}}, FileName) ->
     ok; % No debug.
 bad_object({error,{{{bad_object,_,_},_,_,_}, FileName}}, FileName) ->

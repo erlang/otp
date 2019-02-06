@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,331 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 3.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize Dialyzer's handling of left-associative use
+	    of <c>andalso</c> and <c>orelse</c> in guards. </p>
+          <p>
+	    Own Id: OTP-15268 Aux Id: ERL-680 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Changed the default behaviour of <c>.erlang</c>
+	    loading: <c>.erlang</c> is no longer loaded from the
+	    current directory. <c>c:erlangrc(PathList)</c> can be
+	    used to search and load an <c>.erlang</c> file from user
+	    specified directories.</p> <p><c>escript</c>,
+	    <c>erlc</c>, <c>dialyzer</c> and <c>typer</c> no longer
+	    load an <c>.erlang</c> at all.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14439</p>
+        </item>
+        <item>
+	    <p> Dialyzer can no longer read BEAM files created with
+	    OTP 19 or earlier. </p>
+          <p>
+	    Own Id: OTP-14493 Aux Id: PR-1434 </p>
+        </item>
+        <item>
+	    <p> Speed up the computation of MD5 sums. </p>
+          <p>
+	    Own Id: OTP-14937 Aux Id: PR-1719 </p>
+        </item>
+        <item>
+	    <p> Fix a situation where Dialyzer unnecessarily
+	    discarded contract information, resulting in missed
+	    warnings. </p>
+          <p>
+	    Own Id: OTP-14970 Aux Id: PR-1722 </p>
+        </item>
+        <item>
+	    <p> The (not recommended) option <c>-Woverspecs</c> is
+	    somewhat refined, and generates warnings in a few more
+	    cases. </p>
+          <p>
+	    Own Id: OTP-14982 Aux Id: OTP-14970, PR-1722 </p>
+        </item>
+        <item>
+	    <p> Do not emit warnings for fun expressions residing in
+	    code that cannot be run. This is consistent with how
+	    Dialyzer treats other code that cannot be run. </p>
+          <p>
+	    Own Id: OTP-15079 Aux Id: ERL-593 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c> and
+	    <c>erlang:bsl/2</c>. </p>
+          <p>
+	    Own Id: OTP-14858 Aux Id: ERL-551 </p>
+        </item>
+        <item>
+	    <p> Fix a bug that caused Dialyzer to crash instead of
+	    emitting a warning. </p>
+          <p>
+	    Own Id: OTP-14911</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-14925 Aux Id: ERL-565 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The error message returned from Dialyzer when, for
+	    example, a modified record field type is not a subtype of
+	    the declared type, no longer includes a call stack. The
+	    bug was introduced in Erlang/OTP 19.3. </p>
+          <p>
+	    Own Id: OTP-14742</p>
+        </item>
+        <item>
+	    <p> A bug relating to maps and never returning functions
+	    has been fixed. </p>
+          <p>
+	    Own Id: OTP-14743</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding map types that caused Dialyzer to
+	    go into an infinite loop. A consequence of the fix is
+	    that compound map keys such as maps and tuples sometimes
+	    are handled with less precision than before. </p>
+          <p>
+	    Own Id: OTP-14572 Aux Id: seq13319 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+	    <p> The check for unknown remote types is improved. </p>
+          <p>
+	    Own Id: OTP-14606 Aux Id: OTP-14218 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where merging PLT:s could lose info. The
+	    bug was introduced in Erlang/OTP 20.0. </p>
+          <p>
+	    Own Id: OTP-14558 Aux Id: ERIERL-53 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The check of bad type variables in type declarations
+	    was mistakingly removed in Erlang/OTP 18, and is now
+	    re-introduced. </p>
+          <p>
+	    Own Id: OTP-14423 Aux Id: OTP-14323 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Analyzing modules with binary construction with huge
+	    strings is now much faster. The compiler also compiles
+	    such modules slightly faster.</p>
+          <p>
+	    Own Id: OTP-14125 Aux Id: ERL-308 </p>
+        </item>
+        <item>
+	    <p> The peak memory consumption is reduced. </p>
+          <p>
+	    Own Id: OTP-14127</p>
+        </item>
+        <item>
+	    <p> Warnings about unknown types are now also generated
+	    for types not used by any function specification. </p>
+          <p>
+	    Own Id: OTP-14218 Aux Id: OTP-14127 </p>
+        </item>
+        <item>
+	    <p>TypEr has been removed as separate application and is
+	    now a part of the Dialyzer application. Documentation for
+	    TypEr has been added in the Dialyzer application.</p>
+          <p>
+	    Own Id: OTP-14336</p>
+        </item>
+        <item>
+	    <p>The format of debug information that is stored in BEAM
+	    files (when <c>debug_info</c> is used) has been changed.
+	    The purpose of the change is to better support other
+	    BEAM-based languages such as Elixir or LFE.</p>
+	    <p>All tools included in OTP (dialyzer, debugger, cover,
+	    and so on) will handle both the new format and the
+	    previous format. Tools that retrieve the debug
+	    information using <c>beam_lib:chunk(Beam,
+	    [abstract_code])</c> will continue to work with both the
+	    new and old format. Tools that call
+	    <c>beam_lib:chunk(Beam, ["Abst"])</c> will not work with
+	    the new format.</p>
+	    <p>For more information, see the description of
+	    <c>debug_info</c> in the documentation for
+	    <c>beam_lib</c> and the description of the
+	    <c>{debug_info,{Backend,Data}}</c> option in the
+	    documentation for <c>compile</c>.</p>
+          <p>
+	    Own Id: OTP-14369 Aux Id: PR-1367 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Report unknown types properly. A bug was introduced
+	    in Erlang/OTP 19.3, where warnings about unknown types
+	    were simply discarded. </p>
+          <p>
+	    Own Id: OTP-14368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug concerning parameterized opaque types. </p>
+          <p>
+	    Own Id: OTP-14130</p>
+        </item>
+        <item>
+	    <p> Improve a few warnings. One of them could cause a
+	    crash. </p>
+          <p>
+	    Own Id: OTP-14177</p>
+        </item>
+        <item>
+	    <p>The dialyzer and observer applications will now use a
+	    portable way to find the home directory. That means that
+	    there is no longer any need to manually set the HOME
+	    environment variable on Windows.</p>
+          <p>
+	    Own Id: OTP-14249 Aux Id: ERL-161 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The peak memory consumption is reduced. </p><p> The
+	    evaluation of huge SCCs in <c>dialyzer_typesig</c> is
+	    optimized. </p><p> Analyzing modules with binary
+	    construction with huge strings is now much faster. </p>
+          <p>
+	    Own Id: OTP-14126 Aux Id: ERL-308 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Dialyzer 3.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs regarding opaque types. </p>
+          <p>
+	    Own Id: OTP-13693</p>
+        </item>
+        <item>
+	    <p> Fix error handling of bad <c>-dialyzer()</c>
+	    attributes. </p>
+          <p>
+	    Own Id: OTP-13979 Aux Id: ERL-283 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> A few warning messages have been improved. </p>
+          <p>
+	    Own Id: OTP-11403</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 3.0.2</title>
 
@@ -522,7 +847,7 @@
 	    or modifying opaque types within the scope of a module.
 	    </p> <p> Hitherto the shape of terms (tuple, list, etc.)
 	    has been used to determine the opaque terms, but now the
-	    contracts are used for decorating types with opaqueness.
+	    contracts are used for decorating types with opacity.
 	    </p>
           <p>
 	    Own Id: OTP-10397</p>
@@ -1505,7 +1830,7 @@
       <list>
         <item>
 	    <p>The analysis accepts opaque type declarations and
-	    detects violations of opaqueness of terms of such types.
+	    detects violations of opacity of terms of such types.
 	    Starting with R13, many Erlang/OTP standard libraries
 	    (array, dict, digraph, ets, gb_sets, gb_trees, queue, and
 	    sets) contain opaque type declarations of their main data

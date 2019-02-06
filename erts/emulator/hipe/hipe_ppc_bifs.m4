@@ -2,7 +2,7 @@ changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ include(`hipe/hipe_ppc_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	STORE_IA(CSYM(F), P_BIF_CALLEE(P), r29); bl CSYM(hipe_debug_bif_wrapper) 
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
+#  define CALL_BIF(F)	STORE_IA(CSYM(nbif_impl_##F), P_BIF_CALLEE(P), r29); bl CSYM(hipe_debug_bif_wrapper) 
 #else
-#  define CALL_BIF(F)	bl	CSYM(F)
+#  define CALL_BIF(F)	bl	CSYM(nbif_impl_##F)
 #endif'
 
 	.text

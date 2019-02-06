@@ -48,6 +48,17 @@ SeqExt6 ::= SEQUENCE
   [[ i6 [106] INTEGER, i7 [107] INTEGER ]]
 }
 
+SeqExt7 ::= SEQUENCE
+{
+  -- The spaces between the ellipsis and the comma will prevent them
+  -- from being removed.
+  ...     ,
+  [[ a INTEGER (0..65535) OPTIONAL,
+     b OCTET STRING OPTIONAL,
+     c BOOLEAN
+  ]]
+}
+
 SeqExt1X ::= XSeqExt1 
 SeqExt2X ::= XSeqExt2 
 

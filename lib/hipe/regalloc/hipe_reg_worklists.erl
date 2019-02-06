@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%%----------------------------------------------------------------------
 %%% File    : hipe_reg_worklists.erl
@@ -30,8 +24,8 @@
 
 -module(hipe_reg_worklists).
 -author(['Andreas Wallin',  'Thorild Selén']).
--export([new/5,			% only used by optimistic allocator
-         new/6,
+-export([new/6,			% only used by optimistic allocator
+	 new/7,
 	 simplify/1,
 	 spill/1,
 	 freeze/1,
@@ -90,29 +84,32 @@
 %%
 %%%----------------------------------------------------------------------
 
-new(IG, Target, CFG, K, No_temporaries) -> % only used by optimistic allocator
+%% only used by optimistic allocator
+new(IG, TargetMod, TargetCtx, CFG, K, No_temporaries) ->
   CoalescedTo = hipe_bifs:array(No_temporaries, 'none'),
-  init(initial(Target, CFG), K, IG, empty(No_temporaries, CoalescedTo)).
+  init(initial(TargetMod, TargetCtx, CFG), K, IG,
+       empty(No_temporaries, CoalescedTo)).
 
-new(IG, Target, CFG, Move_sets, K, No_temporaries) ->
-  init(initial(Target, CFG), K, IG, Move_sets, empty(No_temporaries, [])).
+new(IG, TargetMod, TargetCtx, CFG, Move_sets, K, No_temporaries) ->
+  init(initial(TargetMod, TargetCtx, CFG), K, IG, Move_sets,
+       empty(No_temporaries, [])).
 
-initial(Target, CFG) ->
-  {Min_temporary, Max_temporary} = Target:var_range(CFG),
-  NonAlloc = Target:non_alloc(CFG),
-  non_precoloured(Target, Min_temporary, Max_temporary, [])
-    -- [Target:reg_nr(X) || X <- NonAlloc].
+initial(TargetMod, TargetCtx, CFG) ->
+  {Min_temporary, Max_temporary} = TargetMod:var_range(CFG, TargetCtx),
+  NonAlloc = TargetMod:non_alloc(CFG, TargetCtx),
+  non_precoloured(TargetMod, TargetCtx, Min_temporary, Max_temporary, [])
+    -- [TargetMod:reg_nr(X, TargetCtx) || X <- NonAlloc].
 
-non_precoloured(Target, Current, Max_temporary, Initial) ->
+non_precoloured(TargetMod, TargetCtx, Current, Max_temporary, Initial) ->
   if Current > Max_temporary ->
       Initial;
      true ->
       NewInitial =
-	case Target:is_precoloured(Current) of
+	case TargetMod:is_precoloured(Current, TargetCtx) of
 	  true -> Initial;
 	  false -> [Current|Initial]
 	end,
-      non_precoloured(Target, Current+1, Max_temporary, NewInitial)
+      non_precoloured(TargetMod, TargetCtx, Current+1, Max_temporary, NewInitial)
   end.
 
 %% construct an empty initialized worklists data structure

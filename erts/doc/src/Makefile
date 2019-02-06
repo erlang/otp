@@ -1,7 +1,7 @@
-# 
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 # %CopyrightEnd%
-# 
+#
 
 SPECS_ESRC = ../../preloaded/src/
 
@@ -52,29 +52,28 @@ XML_REF3_EFILES = \
 	erlang.xml \
 	erl_tracer.xml \
 	init.xml \
+	persistent_term.xml \
+	atomics.xml \
+	counters.xml \
 	zlib.xml
 
 XML_REF3_FILES = \
+	$(XML_REF3_EFILES) \
 	driver_entry.xml \
 	erl_nif.xml \
-	erl_tracer.xml \
 	erl_driver.xml \
-	erl_prim_loader.xml \
-	erlang.xml \
-	erts_alloc.xml  \
-	init.xml \
-	zlib.xml
+	erts_alloc.xml
 
 XML_PART_FILES = \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
+	part.xml
 
 XML_CHAPTER_FILES = \
+	introduction.xml \
 	tty.xml \
 	match_spec.xml \
 	crash_dump.xml \
 	alt_dist.xml \
+	alt_disco.xml \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
@@ -82,8 +81,7 @@ XML_CHAPTER_FILES = \
 	erl_dist_protocol.xml \
 	communication.xml \
 	time_correction.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 TOPDOCDIR=../../../doc
 
@@ -116,9 +114,9 @@ SPECS_FILES = $(XML_REF3_EFILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
@@ -146,23 +144,24 @@ $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
 
-debug opt: 
+debug opt:
 
 clean:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 $(SPECDIR)/specs_%.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module $(patsubst $(SPECDIR)/specs_%.xml,%,$@)
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -172,6 +171,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* \
 		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(ERL_TOP)/erts/example/time_compat.erl \
+		"$(RELSYSDIR)/doc/html"
+	$(INSTALL_DATA) $(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
 		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"

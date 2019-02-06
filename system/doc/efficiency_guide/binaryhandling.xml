@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -32,12 +32,9 @@
     <file>binaryhandling.xml</file>
   </header>
 
-  <p>In R12B, the most natural way to construct and match binaries is
-  significantly faster than in earlier releases.</p>
+  <p>Binaries can be efficiently built in the following way:</p>
 
-  <p>To construct a binary, you can simply write as follows:</p>
-
-  <p><em>DO</em> (in R12B) / <em>REALLY DO NOT</em> (in earlier releases)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_list_to_binary(List) ->
     my_list_to_binary(List, <<>>).
@@ -47,21 +44,13 @@ my_list_to_binary([H|T], Acc) ->
 my_list_to_binary([], Acc) ->
     Acc.]]></code>  
 
-  <p>In releases before R12B, <c>Acc</c> is copied in every iteration.
-  In R12B, <c>Acc</c> is copied only in the first iteration and extra
-  space is allocated at the end of the copied binary. In the next iteration,
-  <c>H</c> is written into the extra space. When the extra space runs out,
-  the binary is reallocated with more extra space. The extra space allocated
-  (or reallocated) is twice the size of the
-  existing binary data, or 256, whichever is larger.</p>
+  <p>Binaries can be efficiently matched like this:</p>
 
-  <p>The most natural way to match binaries is now the fastest:</p>
-
-  <p><em>DO</em> (in R12B)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_binary_to_list(<<H,T/binary>>) ->
     [H|my_binary_to_list(T)];
-my_binary_to_list(<<>>) -> [].]]></code>  
+my_binary_to_list(<<>>) -> [].]]></code>
 
   <section>
     <title>How Binaries are Implemented</title>
@@ -138,10 +127,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
       pointer to the binary data. For each field that is matched out of
       a binary, the position in the match context is incremented.</p>
 
-    <p>In R11B, a match context was only used during a binary matching
-    operation.</p>
-
-    <p>In R12B, the compiler tries to avoid generating code that
+    <p>The compiler tries to avoid generating code that
     creates a sub binary, only to shortly afterwards create a new match
     context and discard the sub binary. Instead of creating a sub binary,
     the match context is kept.</p>
@@ -155,7 +141,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
 
   <section>
     <title>Constructing Binaries</title>
-    <p>In R12B, appending to a binary or bitstring
+    <p>Appending to a binary or bitstring
     is specially optimized by the <em>runtime system</em>:</p>
 
   <code type="erl"><![CDATA[
@@ -292,7 +278,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
 
     <p>Let us revisit the example in the beginning of the previous section:</p>
 
-  <p><em>DO</em> (in R12B)</p>
+  <p><em>DO</em></p>
   <code type="erl"><![CDATA[
 my_binary_to_list(<<H,T/binary>>) ->
     [H|my_binary_to_list(T)];
@@ -304,15 +290,14 @@ my_binary_to_list(<<>>) -> [].]]></code>
   byte of the binary. 1 byte is matched out and the match context
   is updated to point to the second byte in the binary.</p>
 
-  <p>In R11B, at this point a
-  <seealso marker="#sub_binary">sub binary</seealso>
-  would be created. In R12B,
-  the compiler sees that there is no point in creating a sub binary,
-  because there will soon be a call to a function (in this case,
+  <p>At this point it would make sense to create a
+  <seealso marker="#sub_binary">sub binary</seealso>,
+  but in this particular example the compiler sees that
+  there will soon be a call to a function (in this case,
   to <c>my_binary_to_list/1</c> itself) that immediately will
   create a new match context and discard the sub binary.</p>
 
-  <p>Therefore, in R12B, <c>my_binary_to_list/1</c> calls itself
+  <p>Therefore <c>my_binary_to_list/1</c> calls itself
   with the match context instead of with a sub binary. The instruction
   that initializes the matching operation basically does nothing
   when it sees that it was passed a match context instead of a binary.</p>
@@ -321,34 +306,10 @@ my_binary_to_list(<<>>) -> [].]]></code>
   the match context will simply be discarded (removed in the next
   garbage collection, as there is no longer any reference to it).</p>
 
-  <p>To summarize, <c>my_binary_to_list/1</c> in R12B only needs to create
-  <em>one</em> match context and no sub binaries. In R11B, if the binary
-  contains <em>N</em> bytes, <em>N+1</em> match contexts and <em>N</em>
-  sub binaries are created.</p>
+  <p>To summarize, <c>my_binary_to_list/1</c> only needs to create
+  <em>one</em> match context and no sub binaries.</p>
 
-  <p>In R11B, the fastest way to match binaries is as follows:</p>
-
-  <p><em>DO NOT</em> (in R12B)</p>
-  <code type="erl"><![CDATA[
-my_complicated_binary_to_list(Bin) ->
-    my_complicated_binary_to_list(Bin, 0).
-
-my_complicated_binary_to_list(Bin, Skip) ->
-    case Bin of
-	<<_:Skip/binary,Byte,_/binary>> ->
-	    [Byte|my_complicated_binary_to_list(Bin, Skip+1)];
-	<<_:Skip/binary>> ->
-	    []
-    end.]]></code>
-
-  <p>This function cleverly avoids building sub binaries, but it cannot
-  avoid building a match context in each recursion step.
-  Therefore, in both R11B and R12B,
-  <c>my_complicated_binary_to_list/1</c> builds <em>N+1</em> match
-  contexts. (In a future Erlang/OTP release, the compiler might be able
-  to generate code that reuses the match context.)</p>
-
-  <p>Returning to <c>my_binary_to_list/1</c>, notice that the match context
+  <p>Notice that the match context in <c>my_binary_to_list/1</c>
   was discarded when the entire binary had been traversed. What happens if
   the iteration stops before it has reached the end of the binary? Will
   the optimization still work?</p>
@@ -396,25 +357,8 @@ all_but_zeroes_to_list(<<Byte,T/binary>>, Acc, Remaining) ->
   <c>Buffer</c> from a match context to a sub binary (or do nothing if
   <c>Buffer</c> is a binary already).</p>
 
-  <p>Before you begin to think that the compiler can optimize any binary
-  patterns, the following function cannot be optimized by the compiler
-  (currently, at least):</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-  <p>It was mentioned earlier that the compiler can only delay creation of
-  sub binaries if it knows that the binary will not be shared. In this case,
-  the compiler cannot know.</p>
-
-  <p>Soon it is shown how to rewrite <c>non_opt_eq/2</c> so that the delayed
-  sub binary optimization can be applied, and more importantly, it is shown
-  how you can find out whether your code can be optimized.</p>
+  <p>But in more complicated code, how can one know whether the
+  optimization is applied or not?</p>
 
   <section>
     <marker id="bin_opt_info"></marker>
@@ -461,67 +405,6 @@ after_zero(<<>>) ->
     binary cannot be delayed, because it will be returned.
     The warning for the second clause says that a sub binary will not be
     created (yet).</p>
-
-    <p>Let us revisit the earlier example of the code that could not
-    be optimized and find out why:</p>
-
-  <code type="erl"><![CDATA[
-non_opt_eq([H|T1], <<H,T2/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-        %% NOT OPTIMIZED: called function non_opt_eq/2 does not
-	%%    begin with a suitable binary matching instruction
-    non_opt_eq(T1, T2);
-non_opt_eq([_|_], <<_,_/binary>>) ->
-    false;
-non_opt_eq([], <<>>) ->
-    true.]]></code>
-
-    <p>The compiler emitted two warnings. The <c>INFO</c> warning refers
-    to the function <c>non_opt_eq/2</c> as a callee, indicating that any
-    function that call <c>non_opt_eq/2</c> cannot make delayed sub binary
-    optimization. There is also a suggestion to change argument order.
-    The second warning (that happens to refer to the same line) refers to
-    the construction of the sub binary itself.</p>
-    
-    <p>Soon another example will show the difference between the
-    <c>INFO</c> and <c>NOT OPTIMIZED</c> warnings somewhat clearer, but
-    let us first follow the suggestion to change argument order:</p>
-
-  <code type="erl"><![CDATA[
-opt_eq(<<H,T1/binary>>, [H|T2]) ->
-        %% OPTIMIZED: creation of sub binary delayed
-    opt_eq(T1, T2);
-opt_eq(<<_,_/binary>>, [_|_]) ->
-    false;
-opt_eq(<<>>, []) ->
-    true.]]></code>
-
-    <p>The compiler gives a warning for the following code fragment:</p>
-
-  <code type="erl"><![CDATA[
-match_body([0|_], <<H,_/binary>>) ->
-        %% INFO: matching anything else but a plain variable to
-	%%    the left of binary pattern will prevent delayed 
-	%%    sub binary optimization;
-	%%    SUGGEST changing argument order
-    done;
-...]]></code>
-
-    <p>The warning means that <em>if</em> there is a call to <c>match_body/2</c>
-    (from another clause in <c>match_body/2</c> or another function), the
-    delayed sub binary optimization will not be possible. More warnings will
-    occur for any place where a sub binary is matched out at the end of and
-    passed as the second argument to <c>match_body/2</c>, for example:</p>
-
-  <code type="erl"><![CDATA[
-match_head(List, <<_:10,Data/binary>>) ->
-        %% NOT OPTIMIZED: called function match_body/2 does not
-	%%     begin with a suitable binary matching instruction
-    match_body(List, Data).]]></code>
-
   </section>
 
   <section>
@@ -544,5 +427,15 @@ count3(<<>>, Count) -> Count.]]></code>
   not matched out.</p>
   </section>
   </section>
+
+  <section>
+    <title>Historical Note</title>
+
+    <p>Binary handling was significantly improved in R12B. Because
+    code that was efficient in R11B might not be efficient in R12B,
+    and vice versa, earlier revisions of this Efficiency Guide contained
+    some information about binary handling in R11B.</p>
+  </section>
+
 </chapter>
 

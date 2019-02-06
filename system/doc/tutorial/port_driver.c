@@ -51,8 +51,7 @@ ErlDrvEntry example_driver_entry = {
 				   queue */
     NULL,                       /* F_PTR call, much like control, sync call
 				   to driver */
-    NULL,                       /* F_PTR event, called when an event selected 
-				   by driver_event() occurs. */
+    NULL,                       /* unused */
     ERL_DRV_EXTENDED_MARKER,    /* int extended marker, Should always be 
 				   set to indicate driver versioning */
     ERL_DRV_EXTENDED_MAJOR_VERSION, /* int major_version, should always be 

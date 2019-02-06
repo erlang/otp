@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ struct sys_time_internal_state_read_mostly__ {
 
 #ifdef ERTS_SYS_TIME_INTERNAL_STATE_WRITE_FREQ__
 struct sys_time_internal_state_write_freq__ {
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
 #if defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
     ErtsMonotonicTime last_delivered;
 #endif
@@ -304,8 +304,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    erts_sys_time_data__.r.o.os_times =
 		clock_gettime_times_verified;
 #endif
-	    erts_smp_mtx_init(&internal_state.w.f.mtx,
-			      "os_monotonic_time");
+            erts_mtx_init(&internal_state.w.f.mtx, "os_monotonic_time", NIL,
+                ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
 	    internal_state.w.f.last_delivered
 		= clock_gettime_monotonic();
 	    init_resp->os_monotonic_time_info.locked_use = 1;
@@ -525,12 +525,12 @@ static ErtsMonotonicTime clock_gettime_monotonic_verified(void)
     mtime = (ErtsMonotonicTime) posix_clock_gettime(MONOTONIC_CLOCK_ID,
 						    MONOTONIC_CLOCK_ID_STR);
 
-    erts_smp_mtx_lock(&internal_state.w.f.mtx);
+    erts_mtx_lock(&internal_state.w.f.mtx);
     if (mtime < internal_state.w.f.last_delivered)
 	mtime = internal_state.w.f.last_delivered;
     else
 	internal_state.w.f.last_delivered = mtime;
-    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
+    erts_mtx_unlock(&internal_state.w.f.mtx);
 
     return mtime;
 }
@@ -547,12 +547,12 @@ static void clock_gettime_times_verified(ErtsMonotonicTime *mtimep,
 			      WALL_CLOCK_ID_STR,
 			      stimep);
 
-    erts_smp_mtx_lock(&internal_state.w.f.mtx);
+    erts_mtx_lock(&internal_state.w.f.mtx);
     if (*mtimep < internal_state.w.f.last_delivered)
 	*mtimep = internal_state.w.f.last_delivered;
     else
 	internal_state.w.f.last_delivered = *mtimep;
-    erts_smp_mtx_unlock(&internal_state.w.f.mtx);
+    erts_mtx_unlock(&internal_state.w.f.mtx);
 }
 
 #endif /* defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) */
@@ -878,8 +878,6 @@ ErtsMonotonicTime
 erts_os_monotonic_time(void)
 {
     Uint32 ticks = get_tick_count();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     return ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					 ticks) << internal_state.r.o.times_shift;
 }

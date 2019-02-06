@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,13 +61,20 @@ int is_packaged_app() {
 void * wxe_ps_init2() {
    NSAutoreleasePool *pool;
    ProcessSerialNumber psn;
-
+   size_t app_len = 127;
+   char app_title_buf[128];
+   char * app_title;
    // Setup and enable gui
    pool = [[NSAutoreleasePool alloc] init];
-   
+
    if( !is_packaged_app() ) {
       // Undocumented function (but no documented way of doing this exists)
-      char *app_title = getenv("WX_APP_TITLE");
+      int res = erl_drv_getenv("WX_APP_TITLE", app_title_buf, &app_len);
+      if (res >= 0) {
+          app_title = app_title_buf;
+      } else {
+          app_title = NULL;
+      }
       if(!GetCurrentProcess(&psn)) {
       	 CPSSetProcessName(&psn, app_title?app_title:"Erlang");
       }

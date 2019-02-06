@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,8 +82,14 @@ init_port(SilentStart) ->
 %% Initalizes the opengl library
 %%--------------------------------------------------------------------
 init_opengl() ->
-    GLLib = wxe_util:wxgl_dl(),
-    wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>).
+    case get(wx_init_opengl) of
+        true -> {ok, "already  initialized"};
+        _ ->
+            GLLib = wxe_util:wxgl_dl(),
+            Res = wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>),
+            element(1, Res) =:= ok andalso put(wx_init_opengl, true),
+            Res
+    end.
 
 %%--------------------------------------------------------------------
 %% Fetch early messages, hack to get start up args on mac
@@ -116,16 +122,9 @@ init([SilentStart]) ->
 	    erlang:error(not_smp)
     end,
 
-    case os:type() of
-        {win32,_} ->  %% Needed for mingwm10.dll
-            Path = os:getenv("PATH"),
-            os:putenv("PATH", PrivDir ++ ";" ++ Path);
-        _ -> ok
-    end,
-
     case erl_ddll:load_driver(PrivDir,DriverName) of
 	ok -> ok;
-	{error, What} -> 
+	{error, What} ->
 	    wxe_util:opt_error_log(SilentStart,
                                    "WX Failed loading ~p@~p ~n",
                                    [DriverName,PrivDir]),
@@ -133,8 +132,8 @@ init([SilentStart]) ->
 	    erlang:error({load_driver,Str})
     end,
     process_flag(trap_exit, true),
-    DriverWithArgs = DriverName ++ " " ++ code:priv_dir(wx) ++ [0],
-    
+    DriverWithArgs = DriverName ++ " " ++ code:priv_dir(wx),
+
     try
 	Port = open_port({spawn, DriverWithArgs},[binary]),
 	wx_debug_info = ets:new(wx_debug_info, [named_table]),

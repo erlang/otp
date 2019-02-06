@@ -1667,7 +1667,7 @@ bs_function({function,Name,Arity,CLabel,Asm0}=Func) ->
 
 %%%
 %%% Pass 1: Found out which bs_restore's that are needed. For now we assume
-%%% that a bs_restore is needed unless it is directly preceeded by a bs_save.
+%%% that a bs_restore is needed unless it is directly preceded by a bs_save.
 %%%
 
 bs_needed([{bs_save,Name},{bs_restore,Name}|T], N, _BsUsed, Dict) ->

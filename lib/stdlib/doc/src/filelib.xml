@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,6 +45,30 @@
 
     <p>For more information about raw filenames, see the
       <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+
+    <note>
+      <p>
+	Functionality in this module generally assumes valid input and
+	does not necessarily fail on input that does not use a valid
+	encoding, but may instead very likely produce invalid output.
+      </p>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+    </note>
+    <warning><p>
+      Currently null characters at the end of the filename
+      will be accepted by primitive file operations. Such
+      filenames are however still documented as invalid. The
+      implementation will also change in the future and
+      reject such filenames.
+    </p></warning>
   </description>
 
   <datatypes>
@@ -59,6 +83,12 @@
     </datatype>
     <datatype>
       <name name="filename_all"/>
+    </datatype>
+    <datatype>
+      <name name="find_file_rule"/>
+    </datatype>
+    <datatype>
+      <name name="find_source_rule"/>
     </datatype>
   </datatypes>
 
@@ -187,6 +217,11 @@
         <p>Other characters represent themselves. Only filenames that
           have exactly the same character in the same position match.
           Matching is case-sensitive, for example, "a" does not match "A".</p>
+	<p>Directory separators must always be written as <c>/</c>, even on
+	Windows.</p>
+	<p>A character preceded by <c>\</c> loses its special meaning. Note
+	that <c>\</c> must be written as <c>\\</c> in a string literal.
+	For example, "\\?*" will match any filename starting with <c>?</c>.</p>
         <p>Notice that multiple "*" characters are allowed
           (as in Unix wildcards, but opposed to Windows/DOS wildcards).</p>
         <p><em>Examples:</em></p>
@@ -226,7 +261,51 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
           directory.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="find_file" arity="2"/>
+      <name name="find_file" arity="3"/>
+      <fsummary>Find a file relative to a given directory.</fsummary>
+      <desc>
+        <p>Looks for a file of the given name by applying suffix rules to
+        the given directory path. For example, a rule <c>{"ebin", "src"}</c>
+        means that if the directory path ends with <c>"ebin"</c>, the
+        corresponding path ending in <c>"src"</c> should be searched.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="1"/>
+      <fsummary>Find the source file for a given object file.</fsummary>
+      <desc>
+        <p>Equivalent to <c>find_source(Base, Dir)</c>, where <c>Dir</c> is
+        <c>filename:dirname(<anno>FilePath</anno>)</c> and <c>Base</c> is
+        <c>filename:basename(<anno>FilePath</anno>)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="find_source" arity="2"/>
+      <name name="find_source" arity="3"/>
+      <fsummary>Find a source file relative to a given directory.</fsummary>
+      <desc>
+        <p>Applies file extension specific rules to find the source file for
+        a given object file relative to the object directory. For example,
+        for a file with the extension <c>.beam</c>, the default rule is to
+        look for a file with a corresponding extension <c>.erl</c> by
+        replacing the suffix <c>"ebin"</c> of the object directory path with
+        <c>"src"</c> or <c>"src/*"</c>.
+        The file search is done through <seealso
+        marker="#find_file/3"><c>find_file/3</c></seealso>. The directory of
+        the object file is always tried before any other directory specified
+        by the rules.</p>
+        <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
+        default system rules are used. See also the Kernel application
+        parameter <seealso
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+      </desc>
+    </func>
   </funcs>
 </erlref>
-
-

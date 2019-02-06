@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2015. All Rights Reserved.
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,25 +38,25 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = refman.xml
-XML_REF3_FILES = ssl.xml ssl_crl_cache.xml ssl_crl_cache_api.xml ssl_session_cache_api.xml 
+XML_REF3_FILES = ssl.xml ssl_crl_cache.xml ssl_crl_cache_api.xml ssl_session_cache_api.xml
 XML_REF6_FILES = ssl_app.xml
 
-XML_PART_FILES = release_notes.xml usersguide.xml
+XML_PART_FILES = usersguide.xml
 XML_CHAPTER_FILES = \
+	ssl_introduction.xml \
 	ssl_protocol.xml \
 	using_ssl.xml \
-	pkix_certs.xml \
 	ssl_distribution.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) $(XML_REF6_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-GIF_FILES = warning.gif
+GIF_FILES =
 
-PS_FILES = 
+PS_FILES =
 
 XML_FLAGS += -defs cite cite.defs -booksty otpA4
 
@@ -81,10 +81,10 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -102,6 +102,7 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
@@ -110,11 +111,11 @@ man: $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

@@ -2,7 +2,7 @@
 %% %CopyrightBegin%
 %%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line ?t:capture_stop(),
     ?line [StoreString] = ?t:capture_get(),
     ?line UploadDir =
-	lists:last(string:tokens(lists:flatten(StoreString),"$ \n")),
+	lists:last(string:lexemes(lists:flatten(StoreString),"$ \n")),
 
     %% check that files are no longer in original directories...
     ?line ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch"),
@@ -778,37 +778,37 @@ otp_4967_2(suite) ->
 otp_4967_2(doc) ->
     ["OTP-4967: Trace message sent to {Name, Node}"];
 otp_4967_2(Config) when is_list(Config) ->
-    io:format("1: ~p",[now()]),
+    io:format("1: ~p",[erlang:timestamp()]),
     ?line Privdir = priv_dir(Config),
-    io:format("2: ~p",[now()]),
+    io:format("2: ~p",[erlang:timestamp()]),
     ?line File = filename:join(Privdir,"otp_4967"),
-    io:format("3: ~p",[now()]),
+    io:format("3: ~p",[erlang:timestamp()]),
     ?line S = self(),
-    io:format("4: ~p",[now()]),
+    io:format("4: ~p",[erlang:timestamp()]),
     ?line {ok,[Node]} =
 	ttb:tracer(node(),[{file, File},
 			   {handler,{fun myhandler/4, S}}]),
 
-    io:format("5: ~p",[now()]),
+    io:format("5: ~p",[erlang:timestamp()]),
     %% Test that delayed registration of a process works.
     receive after 200 -> ok end,
     ?line register(otp_4967,self()),
-    io:format("6: ~p",[now()]),
+    io:format("6: ~p",[erlang:timestamp()]),
     ?line {ok,[{S,[{matched,Node,1}]}]} =  ttb:p(self(),s),
-    io:format("7: ~p",[now()]),
+    io:format("7: ~p",[erlang:timestamp()]),
     ?line {otp_4967,node()} ! heihopp,
-    io:format("8: ~p",[now()]),
+    io:format("8: ~p",[erlang:timestamp()]),
     ?line stopped = ttb:stop([format]),
-    io:format("9: ~p",[now()]),
+    io:format("9: ~p",[erlang:timestamp()]),
     ?line Msgs = flush(),
-    io:format("10: ~p",[now()]),
+    io:format("10: ~p",[erlang:timestamp()]),
     ?line io:format("Messages received: \n~p\n",[Msgs]),
-    io:format("11: ~p",[now()]),
+    io:format("11: ~p",[erlang:timestamp()]),
     ?line true = lists:member(heihopp,Msgs), % the heihopp message itself
-    io:format("13: ~p",[now()]),
+    io:format("13: ~p",[erlang:timestamp()]),
     ?line {value,{trace_ts,_,send,heihopp,{_,otp_4967,Node},{_,_,_}}} =
 	lists:keysearch(heihopp,4,Msgs), % trace trace of the heihopp message
-    io:format("14: ~p",[now()]),
+    io:format("14: ~p",[erlang:timestamp()]),
     ?line end_of_trace = lists:last(Msgs), % end of the trace
     ok.
     
@@ -1035,8 +1035,8 @@ logfile_name_in_fetch_dir(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
     ?line {_,Dir} = ttb:stop([return_fetch_dir]),
-    ?line P1 = lists:nth(3, string:tokens(filename:basename(Dir), "_")),
-    ?line P2 = hd(string:tokens(P1, "-")),
+    ?line P1 = lists:nth(3, string:lexemes(filename:basename(Dir), "_")),
+    ?line P2 = hd(string:lexemes(P1, "-")),
     ?line _File = P2.
 logfile_name_in_fetch_dir(cleanup,_Config) ->
     ?line stop_client_and_server().

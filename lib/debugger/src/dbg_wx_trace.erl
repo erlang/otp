@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,9 +95,9 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    catch 
 		_:stop ->
 		    exit(stop);
-		E:R ->
+		E:R:S ->
 		    io:format("TraceWin Crashed ~p~n",[E]),
-		    io:format(" ~p in ~p~n",[R, erlang:get_stacktrace()]),
+		    io:format(" ~p in ~p~n",[R, S]),
 		    exit(R)
 	    end;
 	error ->
@@ -345,11 +345,12 @@ gui_cmd('Back Trace', State) ->
     P = p(State),
     lists:foreach(
       fun({Le, {Mod,Func,Args}}) ->
-	      Str = io_lib:format("~p > ~p:~p"++P++"~n",
-				  [Le, Mod, Func, Args]),
+	      Str = io_lib:format("~p > ~w:~tw~ts\n",
+				  [Le, Mod, Func, format_args(Args, P)]),
 	      dbg_wx_trace_win:trace_output(State#state.win,Str);
 	 ({Le, {Fun,Args}}) ->
-	      Str = io_lib:format("~p > ~p"++P++"~n", [Le, Fun, Args]),
+	      Str = io_lib:format("~p > ~p~ts~n",
+                                  [Le, Fun, format_args(Args, P)]),
 	      dbg_wx_trace_win:trace_output(State#state.win,Str);
 	 (_) -> ignore
       end,
@@ -517,14 +518,15 @@ gui_cmd({user_command, Cmd}, State) ->
 gui_cmd({edit, {Var, Value}}, State) ->
     Window = dbg_wx_trace_win:get_window(State#state.win),
     Val = case State#state.strings of
-              []        -> dbg_wx_win:to_string("~999999lp",[Value]);
-              [str_on]  -> dbg_wx_win:to_string("~999999tp",[Value])
+              []        -> dbg_wx_win:to_string("~0lp",[Value]);
+              [str_on]  -> dbg_wx_win:to_string("~0tp",[Value])
           end,
     case dbg_wx_win:entry(Window, "Edit variable", Var, {term, Val}) of
 	cancel ->
 	    State;
 	{Var, Term} ->
-	    Cmd = atom_to_list(Var)++"="++io_lib:format("~w", [Term]),
+            %% The space after "=" is needed for handling "B= <<1>>".
+	    Cmd = atom_to_list(Var)++"= "++io_lib:format("~w", [Term]),
 	    gui_cmd({user_command, lists:flatten(Cmd)}, State)
     end.
 
@@ -537,6 +539,18 @@ add_break(WI, Coords, Type, Mod, undefined) ->
 add_break(WI, Coords, Type, Mod, Line) ->
     Win = dbg_wx_trace_win:get_window(WI),
     dbg_wx_break:start(Win, Coords, Type, Mod, Line).
+
+format_args(As, P) when is_list(As) ->
+    [$(,format_args1(As, P),$)];
+format_args(A, P) ->
+    [$/,io_lib:format(P, [A])].
+
+format_args1([A], P) ->
+    [io_lib:format(P, [A])];
+format_args1([A|As], P) ->
+    [io_lib:format(P, [A]),$,|format_args1(As, P)];
+format_args1([], _) ->
+    [].
 
 %%--Commands from the interpreter-------------------------------------
 

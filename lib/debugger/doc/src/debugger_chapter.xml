@@ -4,7 +4,7 @@
 <chapter>
 <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -652,8 +652,10 @@ c_break(Bindings) ->
       <item><p>The Bindings area, displaying all variables bindings. If you
         click a variable name, the value is displayed in the Evaluator area.
 	Double-click a variable name to open a window where
-        the variable value can be edited. Notice however that pid,
-        reference, binary, or port values cannot be edited.</p>
+        the variable value can be edited. Notice however that pid, port,
+	reference, or fun
+        values cannot be edited unless they can be represented in the
+        running system.</p>
       </item>
 
       <item><p>The Trace area, which displays a trace output for the

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,8 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
             case ms_transform:transform_from_shell(
                    ?MODULE,Clauses,ImportList) of
                 {error,[{_,[{_,_,Code}|_]}|_],_} ->
-                    io:format("Error: ~s~n",
+                    Modifier = modifier(),
+                    io:format("Error: ~"++Modifier++"s~n",
                               [ms_transform:format_error(Code)]),
                     {error,transform_error};
                 Else ->
@@ -233,8 +234,10 @@ ctpe(Event) when Event =:= send;
 %% List saved and built-in trace patterns.
 %%
 ltp() ->
+    Modifier = modifier(),
+    Format = "~p: ~"++Modifier++"p~n",
     pt_doforall(fun({X, El},_Ignore) -> 
-			io:format("~p: ~p~n", [X,El]) 
+			io:format(Format, [X,El])
 		end,[]).
 
 %%
@@ -261,12 +264,13 @@ dtp(_) ->
 %%
 %% Actually write the built-in trace patterns too.
 wtp(FileName) ->
-    case file:open(FileName,[write]) of
+    case file:open(FileName,[write,{encoding,utf8}]) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, File} ->
+            io:format(File, "%% ~s\n", [epp:encoding_to_string(utf8)]),
 	    pt_doforall(fun ({_, Val}, _) when is_list(Val) ->
-				io:format(File, "~p.~n", [Val]);
+				io:format(File, "~tp.~n", [Val]);
 			    ({_, _}, _) ->
 				ok
 			end,
@@ -427,7 +431,7 @@ trace_port(file, Filename) ->
     trace_port1(file, Filename, nowrap);
 
 trace_port(ip, Portno) when is_integer(Portno) -> 
-    trace_port(ip,{Portno,50});
+    trace_port(ip,{Portno,200});
 
 trace_port(ip, {Portno, Qsiz}) when is_integer(Portno), is_integer(Qsiz) -> 
     fun() ->
@@ -667,7 +671,9 @@ init(Parent) ->
 loop({C,T}=SurviveLinks, Table) ->
     receive
 	{From,i} ->
-	    reply(From, display_info(lists:map(fun({N,_}) -> N end,get()))),
+            Modifier = modifier(),
+            Reply = display_info(lists:map(fun({N,_}) -> N end,get()), Modifier),
+	    reply(From, Reply),
 	    loop(SurviveLinks, Table);
 	{From,{p,Pid,Flags}} ->
 	    reply(From, trace_process(Pid, Flags)),
@@ -773,7 +779,10 @@ loop({C,T}=SurviveLinks, Table) ->
 		C ->
 		    case lists:delete(Pid,T) of
 			T ->
-			    io:format(user,"** dbg got EXIT - terminating: ~p~n",
+                            Modifier = modifier(user),
+			    io:format(user,
+                                      "** dbg got EXIT - terminating: ~"++
+                                          Modifier++"p~n",
 				      [Reason]),
 			    exit(done);
 			NewT -> 
@@ -784,7 +793,8 @@ loop({C,T}=SurviveLinks, Table) ->
 		    loop({NewC,T}, Table)
 	    end;
 	Other ->
-	    io:format(user,"** dbg got garbage: ~p~n", 
+            Modifier = modifier(user),
+	    io:format(user,"** dbg got garbage: ~"++Modifier++"p~n",
 		      [{Other,SurviveLinks,Table}]),
 	    loop(SurviveLinks, Table)
     end.
@@ -836,7 +846,9 @@ recv_all_traces(Suspended0, Traces, Timeout) ->
 	    {done, Suspended0, Traces};
 	Other ->
 	    %%% Is this really a good idea?
-	    io:format(user,"** tracer received garbage: ~p~n", [Other]),
+            Modifier = modifier(user),
+	    io:format(user,"** tracer received garbage: ~"++Modifier++"p~n",
+                      [Other]),
 	    recv_all_traces(Suspended0, Traces, Timeout)
     after Timeout ->
 	    {loop, Suspended0, Traces}
@@ -962,165 +974,224 @@ do_relay_1(RelP) ->
 	    RelP ! TraceInfo, 
 	    do_relay_1(RelP);
 	Other ->
-	    io:format(user,"** relay got garbage: ~p~n", [Other]),
+            Modifier = modifier(user),
+	    io:format(user,"** relay got garbage: ~"++Modifier++"p~n", [Other]),
 	    do_relay_1(RelP)
     end.
 
 dhandler(end_of_trace, Out) ->
     Out;
 dhandler(Trace, Out) when element(1, Trace) == trace, tuple_size(Trace) >= 3 ->
-    dhandler1(Trace, tuple_size(Trace), Out);
+    dhandler1(Trace, tuple_size(Trace), out(Out));
 dhandler(Trace, Out) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
-    dhandler1(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace), Out);
+    dhandler1(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace)
+             , out(Out));
 dhandler(Trace, Out) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
-    io:format(Out, "*** Dropped ~p messages.~n", [element(2,Trace)]),
-    Out;
-dhandler(Trace, Out) when element(1, Trace) == seq_trace, tuple_size(Trace) >= 3 ->
+    {Device,Modifier} = out(Out),
+    io:format(Device, "*** Dropped ~p messages.~n", [element(2,Trace)]),
+    {Device,Modifier};
+dhandler(Trace, Out) when element(1, Trace) == seq_trace,
+                          tuple_size(Trace) >= 3 ->
+    {Device,Modifier} = out(Out),
     SeqTraceInfo = case Trace of
 		       {seq_trace, Lbl, STI, TS} ->
-			   io:format(Out, "SeqTrace ~p [~p]: ",
+			   io:format(Device, "SeqTrace ~p [~p]: ",
 				     [TS, Lbl]),
 			   STI;
 		       {seq_trace, Lbl, STI} ->
-			  io:format(Out, "SeqTrace [~p]: ",
+			  io:format(Device, "SeqTrace [~p]: ",
 				     [Lbl]),
 			   STI 
 		   end,
     case SeqTraceInfo of
 	{send, Ser, Fr, To, Mes} ->
-	    io:format(Out, "(~p) ~p ! ~p [Serial: ~p]~n",
+	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p [Serial: ~p]~n",
 		      [Fr, To, Mes, Ser]);
 	{'receive', Ser, Fr, To, Mes} ->
-	    io:format(Out, "(~p) << ~p [Serial: ~p, From: ~p]~n",
+	    io:format(Device, "(~p) << ~"++Modifier++"p [Serial: ~p, From: ~p]~n",
 		      [To, Mes, Ser, Fr]);
 	{print, Ser, Fr, _, Info} ->
-	    io:format(Out, "-> ~p [Serial: ~p, From: ~p]~n",
+	    io:format(Device, "-> ~"++Modifier++"p [Serial: ~p, From: ~p]~n",
 		      [Info, Ser, Fr]);
 	Else ->
-	    io:format(Out, "~p~n", [Else])
+	    io:format(Device, "~"++Modifier++"p~n", [Else])
     end,
-    Out;
+    {Device,Modifier};
 dhandler(_Trace, Out) ->
     Out.
 
-dhandler1(Trace, Size, Out) ->
+dhandler1(Trace, Size, {Device,Modifier}) ->
     From = element(2, Trace),
     case element(3, Trace) of
 	'receive' ->
 	    case element(4, Trace) of
 		{dbg,ok} -> ok;
 		Message ->
-		    io:format(Out, "(~p) << ~p~n", [From,Message])
+		    io:format(Device, "(~p) << ~"++Modifier++"p~n",
+                              [From,Message])
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
 	    To = element(5, Trace),
-	    io:format(Out, "(~p) ~p ! ~p~n", [From,To,Message]);
+	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p~n", [From,To,Message]);
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Message = element(5, Trace),
-		    io:format(Out, "(~p) call ~s (~p)~n", [From,ffunc(MFA),Message]);
+		    io:format(Device,
+                              "(~p) call ~"++Modifier++"s (~"++Modifier++"p)~n",
+                              [From,ffunc(MFA,Modifier),Message]);
 		MFA ->
-		    io:format(Out, "(~p) call ~s~n", [From,ffunc(MFA)])
+		    io:format(Device, "(~p) call ~"++Modifier++"s~n",
+                              [From,ffunc(MFA,Modifier)])
 	    end;
 	return -> %% To be deleted...
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Ret = element(5, Trace),
-		    io:format(Out, "(~p) old_ret ~s -> ~p~n", [From,ffunc(MFA),Ret]);
+		    io:format(Device,
+                              "(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
+                                  "p~n",
+                              [From,ffunc(MFA,Modifier),Ret]);
 		MFA ->
-		    io:format(Out, "(~p) old_ret ~s~n", [From,ffunc(MFA)])
+		    io:format(Device, "(~p) old_ret ~"++Modifier++"s~n",
+                              [From,ffunc(MFA,Modifier)])
 	    end;
 	return_from ->
 	    MFA = element(4, Trace),
 	    Ret = element(5, Trace),
-	    io:format(Out, "(~p) returned from ~s -> ~p~n", [From,ffunc(MFA),Ret]);
+	    io:format(Device,
+                      "(~p) returned from ~"++Modifier++"s -> ~"++Modifier++"p~n",
+                      [From,ffunc(MFA,Modifier),Ret]);
 	return_to ->
 	    MFA = element(4, Trace),
-	    io:format(Out, "(~p) returning to ~s~n", [From,ffunc(MFA)]);
+	    io:format(Device, "(~p) returning to ~"++Modifier++"s~n",
+                      [From,ffunc(MFA,Modifier)]);
 	spawn when Size == 5 ->
 	    Pid = element(4, Trace),
 	    MFA = element(5, Trace),
-	    io:format(Out, "(~p) spawn ~p as ~s~n", [From,Pid,ffunc(MFA)]);
+	    io:format(Device, "(~p) spawn ~p as ~"++Modifier++"s~n",
+                      [From,Pid,ffunc(MFA,Modifier)]);
 	Op ->
-	    io:format(Out, "(~p) ~p ~s~n", [From,Op,ftup(Trace,4,Size)])
+	    io:format(Device, "(~p) ~p ~"++Modifier++"s~n",
+                      [From,Op,ftup(Trace,4,Size,Modifier)])
     end,
-    Out.
+    {Device,Modifier}.
 
-dhandler1(Trace, Size, TS, Out) ->
+dhandler1(Trace, Size, TS, {Device,Modifier}) ->
     From = element(2, Trace),
     case element(3, Trace) of
 	'receive' ->
 	    case element(4, Trace) of
 		{dbg,ok} -> ok;
 		Message ->
-		    io:format(Out, "(~p) << ~p (Timestamp: ~p)~n", [From,Message,TS])
+		    io:format(Device,
+                              "(~p) << ~"++Modifier++"p (Timestamp: ~p)~n",
+                              [From,Message,TS])
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
 	    To = element(5, Trace),
-	    io:format(Out, "(~p) ~p ! ~p (Timestamp: ~p)~n", [From,To,Message,TS]);
+	    io:format(Device, "(~p) ~p ! ~"++Modifier++"p (Timestamp: ~p)~n",
+                      [From,To,Message,TS]);
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Message = element(5, Trace),
-		    io:format(Out, "(~p) call ~s (~p) (Timestamp: ~p)~n", [From,ffunc(MFA),Message,TS]);
+		    io:format(Device,
+                              "(~p) call ~"++Modifier++"s (~"++Modifier++
+                                  "p) (Timestamp: ~p)~n",
+                              [From,ffunc(MFA,Modifier),Message,TS]);
 		MFA ->
-		    io:format(Out, "(~p) call ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS])
+		    io:format(Device,
+                              "(~p) call ~"++Modifier++"s (Timestamp: ~p)~n",
+                              [From,ffunc(MFA,Modifier),TS])
 	    end;
 	return -> %% To be deleted...
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Ret = element(5, Trace),
-		    io:format(Out, "(~p) old_ret ~s -> ~p (Timestamp: ~p)~n", [From,ffunc(MFA),Ret,TS]);
+		    io:format(Device,
+                              "(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
+                                  "p (Timestamp: ~p)~n",
+                              [From,ffunc(MFA,Modifier),Ret,TS]);
 		MFA ->
-		    io:format(Out, "(~p) old_ret ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS])
+		    io:format(Device,
+                              "(~p) old_ret ~"++Modifier++"s (Timestamp: ~p)~n",
+                              [From,ffunc(MFA,Modifier),TS])
 	    end;
 	return_from ->
 	    MFA = element(4, Trace),
 	    Ret = element(5, Trace),
-	    io:format(Out, "(~p) returned from ~s -> ~p (Timestamp: ~p)~n", [From,ffunc(MFA),Ret,TS]);
+	    io:format(Device,
+                      "(~p) returned from ~"++Modifier++"s -> ~"++Modifier++
+                          "p (Timestamp: ~p)~n",
+                      [From,ffunc(MFA,Modifier),Ret,TS]);
 	return_to ->
 	    MFA = element(4, Trace),
-	    io:format(Out, "(~p) returning to ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS]);
+	    io:format(Device,
+                      "(~p) returning to ~"++Modifier++"s (Timestamp: ~p)~n",
+                      [From,ffunc(MFA,Modifier),TS]);
 	spawn when Size == 5 ->
 	    Pid = element(4, Trace),
 	    MFA = element(5, Trace),
-	    io:format(Out, "(~p) spawn ~p as ~s (Timestamp: ~p)~n", [From,Pid,ffunc(MFA),TS]);
+	    io:format(Device,
+                      "(~p) spawn ~p as ~"++Modifier++"s (Timestamp: ~p)~n",
+                      [From,Pid,ffunc(MFA,Modifier),TS]);
 	Op ->
-	    io:format(Out, "(~p) ~p ~s (Timestamp: ~p)~n", [From,Op,ftup(Trace,4,Size),TS])
+	    io:format(Device, "(~p) ~p ~"++Modifier++"s (Timestamp: ~p)~n",
+                      [From,Op,ftup(Trace,4,Size,Modifier),TS])
     end,
-    Out.
-
-
+    {Device,Modifier}.
 
 %%% These f* functions returns non-flat strings
 
 %% {M,F,[A1, A2, ..., AN]} -> "M:F(A1, A2, ..., AN)"
 %% {M,F,A}                 -> "M:F/A"
-ffunc({M,F,Argl}) when is_list(Argl) ->
-    io_lib:format("~p:~p(~s)", [M, F, fargs(Argl)]);
-ffunc({M,F,Arity}) ->
-    io_lib:format("~p:~p/~p", [M,F,Arity]);
-ffunc(X) -> io_lib:format("~p", [X]).
+ffunc({M,F,Argl},Modifier) when is_list(Argl) ->
+    io_lib:format("~p:~"++Modifier++"p(~"++Modifier++"s)",
+                  [M, F, fargs(Argl,Modifier)]);
+ffunc({M,F,Arity},Modifier) ->
+    io_lib:format("~p:~"++Modifier++"p/~p", [M,F,Arity]);
+ffunc(X,Modifier) -> io_lib:format("~"++Modifier++"p", [X]).
 
 %% Integer           -> "Integer"
 %% [A1, A2, ..., AN] -> "A1, A2, ..., AN"
-fargs(Arity) when is_integer(Arity) -> integer_to_list(Arity);
-fargs([]) -> [];
-fargs([A]) -> io_lib:format("~p", [A]);  %% last arg
-fargs([A|Args]) -> [io_lib:format("~p,", [A]) | fargs(Args)];
-fargs(A) -> io_lib:format("~p", [A]). % last or only arg
+fargs(Arity,_) when is_integer(Arity) -> integer_to_list(Arity);
+fargs([],_) -> [];
+fargs([A],Modifier) ->
+    io_lib:format("~"++Modifier++"p", [A]);  %% last arg
+fargs([A|Args],Modifier) ->
+    [io_lib:format("~"++Modifier++"p,", [A]) | fargs(Args,Modifier)];
+fargs(A,Modifier) ->
+    io_lib:format("~"++Modifier++"p", [A]). % last or only arg
 
 %% {A_1, A_2, ..., A_N} -> "A_Index A_Index+1 ... A_Size"
-ftup(Trace, Index, Index) -> 
-    io_lib:format("~p", [element(Index, Trace)]);
-ftup(Trace, Index, Size) -> 
-    [io_lib:format("~p ", [element(Index, Trace)]) 
-     | ftup(Trace, Index+1, Size)].
+ftup(Trace, Index, Index, Modifier) ->
+    io_lib:format("~"++Modifier++"p", [element(Index, Trace)]);
+ftup(Trace, Index, Size, Modifier) ->
+    [io_lib:format("~"++Modifier++"p ", [element(Index, Trace)])
+     | ftup(Trace, Index+1, Size, Modifier)].
 
+out({_,_}=Out) ->
+    Out;
+out(Device) ->
+    {Device,modifier(Device)}.
 
+modifier() ->
+    modifier(group_leader()).
+modifier(Device) ->
+    Encoding =
+        case io:getopts(Device) of
+            List when is_list(List) ->
+                proplists:get_value(encoding,List,latin1);
+            _ ->
+                latin1
+        end,
+    encoding_to_modifier(Encoding).
+
+encoding_to_modifier(latin1) -> "";
+encoding_to_modifier(_) -> "t".
 
 trace_process(Pid, [clear]) ->
     trac(Pid, false, all());
@@ -1157,22 +1228,22 @@ all() ->
      timestamp,monotonic_timestamp,strict_monotonic_timestamp,
      arity,return_to,silent,running_procs,running_ports,exiting].
 
-display_info([Node|Nodes]) ->
+display_info([Node|Nodes],Modifier) ->
     io:format("~nNode ~w:~n",[Node]),
     io:format("~-12s ~-21s Trace ~n", ["Pid", "Initial call"]),
     List = rpc:call(Node,?MODULE,get_info,[]),
-    display_info1(List),
-    display_info(Nodes);
-display_info([]) ->
+    display_info1(List,Modifier),
+    display_info(Nodes,Modifier);
+display_info([],_) ->
     ok.
 
-display_info1([{Pid,Call,Flags}|T]) ->
-    io:format("~-12s ~-21s ~s~n",
+display_info1([{Pid,Call,Flags}|T],Modifier) ->
+    io:format("~-12s ~-21"++Modifier++"s ~s~n",
 	      [io_lib:format("~w",[Pid]),
-	       io_lib:format("~p", [Call]),
+	       io_lib:format("~"++Modifier++"p", [Call]),
 	       format_trace(Flags)]),
-    display_info1(T); 
-display_info1([]) ->
+    display_info1(T,Modifier);
+display_info1([],_) ->
     ok.
 
 get_info() ->
@@ -1304,7 +1375,8 @@ tc_loop([], Handler, HData) ->
 tc_loop(Reader, Handler, HData) when is_function(Reader) ->
     tc_loop(Reader(), Handler, HData);
 tc_loop(Other, _Handler, _HData) ->
-    io:format("~p:tc_loop ~p~n", [?MODULE, Other]),
+    Modifier = modifier(),
+    io:format("~p:tc_loop ~"++Modifier++"p~n", [?MODULE, Other]),
     exit({unknown_term_from_reader, Other}).
 
 

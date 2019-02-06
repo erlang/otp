@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ inline_inline(#ifun{body=B,weight=Iw}=If, Is) ->
 		     case find_inl(F, A, Is) of
 			 #ifun{vars=Vs,body=B2,weight=W} when W < Iw ->
 			     #c_let{vars=Vs,
-				     arg=core_lib:make_values(As),
+				     arg=kill_id_anns(core_lib:make_values(As)),
 				    body=kill_id_anns(B2)};
 			 _Other -> Call
 		     end;
@@ -160,7 +160,7 @@ inline_func(#fstat{def={Name,F0}}=Fstat, Is) ->
 		     case find_inl(F, A, Is) of
 			 #ifun{vars=Vs,body=B} ->
 			     {#c_let{vars=Vs,
-				     arg=core_lib:make_values(As),
+				     arg=kill_id_anns(core_lib:make_values(As)),
 				     body=kill_id_anns(B)},
 			      true};			%Have modified
 			 _Other -> {Call,Mod}

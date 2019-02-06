@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,16 +24,12 @@
 
 -module(random_iolist).
 
--export([run/3, run2/3, standard_seed/0, compare/3, compare2/3, 
+-export([run/3, standard_seed/0, compare/3,
 	 random_iolist/1]).
 
 run(Iter,Fun1,Fun2) ->
     standard_seed(),
     compare(Iter,Fun1,Fun2).
-
-run2(Iter,Fun1,Fun2) ->
-    standard_seed(),
-    compare2(Iter,Fun1,Fun2).
 
 random_byte() ->
      rand:uniform(256) - 1.
@@ -150,16 +146,6 @@ do_comp(List,F1,F2) ->
 	_ ->
 	    true
     end.
-	
-do_comp(List,List2,F1,F2) ->
-    X = F1(List,List2),
-    Y = F2(List,List2),
-    case X =:= Y of
-	false ->
-	    exit({not_matching,List,List2,X,Y});
-	_ ->
-	    true
-    end.
 
 compare(0,Fun1,Fun2) ->
     do_comp(<<>>,Fun1,Fun2),
@@ -172,25 +158,3 @@ compare(N,Fun1,Fun2) ->
     L = random_iolist(N),
     do_comp(L,Fun1,Fun2),
     compare(N-1,Fun1,Fun2).
-
-compare2(0,Fun1,Fun2) ->
-    L = random_iolist(100),
-    do_comp(<<>>,L,Fun1,Fun2),
-    do_comp(L,<<>>,Fun1,Fun2),
-    do_comp(<<>>,<<>>,Fun1,Fun2),
-    do_comp([],L,Fun1,Fun2),
-    do_comp(L,[],Fun1,Fun2),
-    do_comp([],[],Fun1,Fun2),
-    do_comp([[]|<<>>],L,Fun1,Fun2),
-    do_comp(L,[[]|<<>>],Fun1,Fun2),
-    do_comp([[]|<<>>],[[]|<<>>],Fun1,Fun2),
-    do_comp([<<>>,[]|<<>>],L,Fun1,Fun2),
-    do_comp(L,[<<>>,[]|<<>>],Fun1,Fun2),
-    do_comp([<<>>,[]|<<>>],[<<>>,[]|<<>>],Fun1,Fun2),
-    true;
-
-compare2(N,Fun1,Fun2) ->
-    L = random_iolist(N),
-    L2 = random_iolist(N),
-    do_comp(L,L2,Fun1,Fun2),
-    compare2(N-1,Fun1,Fun2).

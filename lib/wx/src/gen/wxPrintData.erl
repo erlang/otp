@@ -205,7 +205,7 @@ setPaperId(#wx_ref{type=ThisT,ref=ThisRef},SizeId)
 -spec setPrinterName(This, Name) -> 'ok' when
 	This::wxPrintData(), Name::unicode:chardata().
 setPrinterName(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxPrintData),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxPrintData_SetPrinterName,

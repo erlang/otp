@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@ groups() ->
        cpd_expl_provided_DTD]},
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
-       pe_ref1, copyright, testXSEIF, export_simple1, export]},
+       pe_ref1, copyright, testXSEIF, export_simple1, export,
+       default_attrs_bug, xml_ns, scan_splits_string_bug]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -222,6 +223,54 @@ syntax_bug3(Config) ->
                 Reason;
             Err -> Err
         end.
+
+default_attrs_bug(Config) ->
+    file:set_cwd(datadir(Config)),
+    Doc = "<!DOCTYPE doc [<!ATTLIST doc b CDATA \"default\">]>\n"
+          "<doc a=\"explicit\"/>",
+    {#xmlElement{attributes = [#xmlAttribute{name = a, value = "explicit"},
+                               #xmlAttribute{name = b, value = "default"}]},
+     []
+    } = xmerl_scan:string(Doc, [{default_attrs, true}]),
+    Doc2 = "<!DOCTYPE doc [<!ATTLIST doc b CDATA \"default\">]>\n"
+           "<doc b=\"also explicit\" a=\"explicit\"/>",
+    {#xmlElement{attributes = [#xmlAttribute{name = b, value = "also explicit"},
+                               #xmlAttribute{name = a, value = "explicit"}]},
+     []
+    } = xmerl_scan:string(Doc2, [{default_attrs, true}]),
+    ok.
+
+
+xml_ns(Config) ->
+    Doc = "<?xml version='1.0'?>\n"
+        "<doc xml:attr1=\"implicit xml ns\"/>",
+    {#xmlElement{namespace=#xmlNamespace{default = [], nodes = []},
+                 attributes = [#xmlAttribute{name = 'xml:attr1',
+                                             expanded_name = {'http://www.w3.org/XML/1998/namespace',attr1},
+                                             nsinfo = {"xml","attr1"},
+                                             namespace = #xmlNamespace{default = [], nodes = []}}]},
+     []
+    } = xmerl_scan:string(Doc, [{namespace_conformant, true}]),
+    Doc2 = "<?xml version='1.0'?>\n"
+        "<doc xmlns:xml=\"http://www.w3.org/XML/1998/namespace\" xml:attr1=\"explicit xml ns\"/>",
+    {#xmlElement{namespace=#xmlNamespace{default = [], nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]},
+                 attributes = [#xmlAttribute{name = 'xmlns:xml',
+                                             expanded_name = {"xmlns","xml"},
+                                             nsinfo = {"xmlns","xml"},
+                                             namespace = #xmlNamespace{default = [], 
+                                                                       nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]}},
+                               #xmlAttribute{name = 'xml:attr1',
+                                             expanded_name = {'http://www.w3.org/XML/1998/namespace',attr1},
+                                             nsinfo = {"xml","attr1"},
+                                             namespace = #xmlNamespace{default = [], 
+                                                                       nodes = [{"xml",'http://www.w3.org/XML/1998/namespace'}]}}]},
+     []
+    } = xmerl_scan:string(Doc2, [{namespace_conformant, true}]),
+    ok.
+
+scan_splits_string_bug(_Config) ->
+    {#xmlElement{ content = [#xmlText{ value = "Jimmy Zöger" }] }, []}
+        = xmerl_scan:string("<name>Jimmy Z&#246;ger</name>").
 
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
@@ -488,8 +537,7 @@ ticket_7430(Config) ->
              {xmlElement,a,a,[],
               {xmlNamespace,[],[]},
               [],1,[],
-              [{xmlText,[{a,1}],1,[],"é",text},
-               {xmlText,[{a,1}],2,[],"\né",text}],
+              [{xmlText,[{a,1}],1,[],"é\né",text}],
               [],_,undeclared} ->
                  ok;
              _ ->

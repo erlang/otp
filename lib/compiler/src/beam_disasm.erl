@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -163,8 +163,8 @@ pp_instr(I) ->
 
 file(File) ->
     try process_chunks(File)
-    catch error:Reason ->
-	    {error,?MODULE,{internal,{Reason,erlang:get_stacktrace()}}}
+    catch error:Reason:Stack ->
+            {error,?MODULE,{internal,{Reason,Stack}}}
     end.
 
 %%-----------------------------------------------------------------------
@@ -719,42 +719,6 @@ resolve_inst({wait,[Lbl]},_,_,_) ->
     {wait,Lbl};
 resolve_inst({wait_timeout,[Lbl,Int]},_,_,_) ->
     {wait_timeout,Lbl,resolve_arg(Int)};
-resolve_inst({m_plus,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'+',W,[SrcR1,SrcR2],DstR};
-resolve_inst({m_minus,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'-',W,[SrcR1,SrcR2],DstR};
-resolve_inst({m_times,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'*',W,[SrcR1,SrcR2],DstR};
-resolve_inst({m_div,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'/',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_div,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'div',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_rem,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'rem',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_band,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'band',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_bor,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'bor',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_bxor,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'bxor',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_bsl,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'bsl',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_bsr,Args},_,_,_) ->
-    [W,SrcR1,SrcR2,DstR] = resolve_args(Args),
-    {arithbif,'bsr',W,[SrcR1,SrcR2],DstR};
-resolve_inst({int_bnot,Args},_,_,_) ->
-    [W,SrcR,DstR] = resolve_args(Args),
-    {arithbif,'bnot',W,[SrcR],DstR};
 resolve_inst({is_lt=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
@@ -800,9 +764,6 @@ resolve_inst({is_nil=I,Args0},_,_,_) ->
 resolve_inst({is_binary=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
-resolve_inst({is_constant=I,Args0},_,_,_) ->
-    [L|Args] = resolve_args(Args0),
-    {test,I,L,Args};
 resolve_inst({is_list=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
@@ -815,6 +776,9 @@ resolve_inst({is_tuple=I,Args0},_,_,_) ->
 resolve_inst({test_arity=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
+resolve_inst({is_tagged_tuple=I,Args0},_,_,_) ->
+    [F|Args] = resolve_args(Args0),
+    {test,I,F,Args};
 resolve_inst({select_val,Args},_,_,_) ->
     [Reg,FLbl,{{z,1},{u,_Len},List0}] = Args,
     List = resolve_args(List0),
@@ -837,11 +801,6 @@ resolve_inst({get_tuple_element,[Src,{u,Off},Dst]},_,_,_) ->
     {get_tuple_element,resolve_arg(Src),Off,resolve_arg(Dst)};
 resolve_inst({set_tuple_element,[Src,Dst,{u,Off}]},_,_,_) ->
     {set_tuple_element,resolve_arg(Src),resolve_arg(Dst),Off};
-resolve_inst({put_string,[{u,Len},{u,Off},Dst]},_,Strings,_) ->
-    String = if Len > 0 -> binary_to_list(Strings, Off+1, Off+Len);
-		true -> ""
-	     end,
-    {put_string,Len,{string,String},Dst};
 resolve_inst({put_list,[Src1,Src2,Dst]},_,_,_) ->
     {put_list,resolve_arg(Src1),resolve_arg(Src2),Dst};
 resolve_inst({put_tuple,[{u,Arity},Dst]},_,_,_) ->
@@ -856,9 +815,6 @@ resolve_inst({case_end,[X]},_,_,_) ->
     {case_end,resolve_arg(X)};
 resolve_inst({call_fun,[{u,N}]},_,_,_) ->
     {call_fun,N};
-resolve_inst({make_fun,Args},_,_,Lbls) ->
-    [{f,L},Magic,FreeVars] = resolve_args(Args),
-    {make_fun,lookup(L,Lbls),Magic,FreeVars};
 resolve_inst({is_function=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
@@ -867,30 +823,6 @@ resolve_inst({call_ext_only,[{u,N},{u,MFAix}]},Imports,_,_) ->
 %%
 %% Instructions for handling binaries added in R7A & R7B
 %%
-resolve_inst({bs_start_match,[F,Reg]},_,_,_) ->
-    {bs_start_match,F,Reg};
-resolve_inst({bs_get_integer=I,[Lbl,Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_float=I,[Lbl,Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_get_binary=I,[Lbl,Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
-    [A2,A5] = resolve_args([Arg2,Arg5]),
-    {test,I,Lbl,[A2,N,decode_field_flags(U),A5]};
-resolve_inst({bs_skip_bits,[Lbl,Arg2,{u,N},{u,U}]},_,_,_) ->
-    A2 = resolve_arg(Arg2),
-    {test,bs_skip_bits,Lbl,[A2,N,decode_field_flags(U)]};
-resolve_inst({bs_test_tail,[F,{u,N}]},_,_,_) ->
-    {test,bs_test_tail,F,[N]};
-resolve_inst({bs_save,[{u,N}]},_,_,_) ->
-    {bs_save,N};
-resolve_inst({bs_restore,[{u,N}]},_,_,_) ->
-    {bs_restore,N};
-resolve_inst({bs_init,[{u,N},{u,U}]},_,_,_) ->
-    {bs_init,N,decode_field_flags(U)};
-resolve_inst({bs_final,[F,X]},_,_,_) ->
-    {bs_final,F,X};
 resolve_inst({bs_put_integer,[Lbl,Arg2,{u,N},{u,U},Arg5]},_,_,_) ->
     [A2,A5] = resolve_args([Arg2,Arg5]),
     {bs_put_integer,Lbl,A2,N,decode_field_flags(U),A5};
@@ -905,8 +837,6 @@ resolve_inst({bs_put_string,[{u,Len},{u,Off}]},_,Strings,_) ->
 		true -> ""
 	     end,
     {bs_put_string,Len,{string,String}};
-resolve_inst({bs_need_buf,[{u,N}]},_,_,_) ->
-    {bs_need_buf,N};
 
 %%
 %% Instructions for handling floating point numbers added in June 2001 (R8).
@@ -958,9 +888,6 @@ resolve_inst({raise,[_Reg1,_Reg2]=Regs},_,_,_) ->
 resolve_inst({bs_init2,[Lbl,Arg2,{u,W},{u,R},{u,F},Arg6]},_,_,_) ->
     [A2,A6] = resolve_args([Arg2,Arg6]),
     {bs_init2,Lbl,A2,W,R,decode_field_flags(F),A6};
-resolve_inst({bs_bits_to_bytes,[Lbl,Arg2,Arg3]},_,_,_) ->
-    [A2,A3] = resolve_args([Arg2,Arg3]),
-    {bs_bits_to_bytes,Lbl,A2,A3};
 resolve_inst({bs_add=I,[Lbl,Arg2,Arg3,Arg4,Arg5]},_,_,_) ->
     [A2,A3,A4,A5] = resolve_args([Arg2,Arg3,Arg4,Arg5]),
     {I,Lbl,[A2,A3,A4],A5};
@@ -1036,12 +963,6 @@ resolve_inst({gc_bif3,Args},Imports,_,_) ->
     [F,Live,Bif,A1,A2,A3,Reg] = resolve_args(Args),
     {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
     {gc_bif,BifName,F,Live,[A1,A2,A3],Reg};
-
-%%
-%% New instructions for creating non-byte aligned binaries.
-%%
-resolve_inst({bs_final2,[X,Y]},_,_,_) ->
-    {bs_final2,X,Y};
 
 %%
 %% R11B-5.
@@ -1160,6 +1081,19 @@ resolve_inst({get_map_elements,Args0},_,_,_) ->
     [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
     List = resolve_args(List0),
     {get_map_elements,FLbl,Src,{list,List}};
+
+%%
+%% OTP 21.
+%%
+
+resolve_inst({build_stacktrace,[]},_,_,_) ->
+    build_stacktrace;
+resolve_inst({raw_raise,[]},_,_,_) ->
+    raw_raise;
+resolve_inst({get_hd,[Src,Dst]},_,_,_) ->
+    {get_hd,Src,Dst};
+resolve_inst({get_tl,[Src,Dst]},_,_,_) ->
+    {get_tl,Src,Dst};
 
 %%
 %% Catches instructions that are not yet handled.

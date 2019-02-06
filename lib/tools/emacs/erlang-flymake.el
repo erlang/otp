@@ -37,8 +37,7 @@
   "Return a list of include directories to add to the compiler options.")
 
 (defvar erlang-flymake-extra-opts
-  (list "+warn_obsolete_guard"
-        "+warn_unused_import"
+  (list "+warn_unused_import"
         "+warn_shadow_vars"
         "+warn_export_vars"
         "+strong_validation"

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -208,9 +208,10 @@
     </func>
 
     <func>
-      <name>Module:pre_init_per_group(GroupName, InitData, CTHState) -&gt; Result</name>
+      <name>Module:pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_group.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>GroupName = atom()</v>
         <v>InitData = Config | SkipOrFail</v>
         <v>Config = NewConfig = [{Key,Value}]</v>
@@ -231,13 +232,19 @@
           but for function
           <seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:pre_init_per_group/4</c> is not exported, common_test
+	  will attempt to call <c>Module:pre_init_per_group(GroupName,
+	  InitData, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:post_init_per_group(GroupName, Config, Return, CTHState) -&gt; Result</name>
+      <name>Module:post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after init_per_group.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>GroupName = atom()</v>
         <v>Config = [{Key,Value}]</v>
         <v>Return = NewReturn = Config | SkipOrFail | term()</v>
@@ -258,13 +265,19 @@
           but for function
           <seealso marker="common_test#Module:init_per_group-2"><c>init_per_group</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:post_init_per_group/5</c> is not exported, common_test
+	  will attempt to call <c>Module:post_init_per_group(GroupName,
+	  Config, Return, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:pre_init_per_testcase(TestcaseName, InitData, CTHState) -&gt; Result</name>
+      <name>Module:pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -&gt; Result</name>
       <fsummary>Called before init_per_testcase.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestcaseName = atom()</v>
         <v>InitData = Config | SkipOrFail</v>
         <v>Config = NewConfig = [{Key,Value}]</v>
@@ -285,6 +298,11 @@
           but for function
           <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:pre_init_per_testcase/4</c> is not exported, common_test
+	  will attempt to call <c>Module:pre_init_per_testcase(TestcaseName,
+	  InitData, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
 
         <p>CTHs cannot be added here right now. That feature may be added in
           a later release, but it would right now break backwards
@@ -293,9 +311,10 @@
     </func>
 
     <func>
-      <name>Module:post_init_per_testcase(TestcaseName, Config, Return, CTHState) -&gt; Result</name>
+      <name>Module:post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after init_per_testcase.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestcaseName = atom()</v>
         <v>Config = [{Key,Value}]</v>
         <v>Return = NewReturn = Config | SkipOrFail | term()</v>
@@ -316,15 +335,21 @@
           but for function
           <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:post_init_per_testcase/5</c> is not exported, common_test
+	  will attempt to call <c>Module:post_init_per_testcase(TestcaseName,
+	  Config, Return, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:pre_end_per_testcase(TestcaseName, InitData, CTHState) -&gt; Result</name>
+      <name>Module:pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -&gt; Result</name>
       <fsummary>Called before end_per_testcase.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestcaseName = atom()</v>
-        <v>InitData = Config</v>
+        <v>EndData = Config</v>
         <v>Config = NewConfig = [{Key,Value}]</v>
         <v>CTHState = NewCTHState = term()</v>
         <v>Result = {NewConfig, NewCTHState}</v>
@@ -345,14 +370,20 @@
 
         <p>This function can not change the result of the test case by returning skip or fail
 	tuples, but it may insert items in <c>Config</c> that can be read in
-	<c>end_per_testcase/2</c> or in <c>post_end_per_testcase/4</c>.</p>
+	<c>end_per_testcase/2</c> or in <c>post_end_per_testcase/5</c>.</p>
+
+	<p>If <c>Module:pre_end_per_testcase/4</c> is not exported, common_test
+	  will attempt to call <c>Module:pre_end_per_testcase(TestcaseName,
+	  EndData, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:post_end_per_testcase(TestcaseName, Config, Return, CTHState) -&gt; Result</name>
+      <name>Module:post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_testcase.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestcaseName = atom()</v>
         <v>Config = [{Key,Value}]</v>
         <v>Return = NewReturn = Config | SkipOrFail | term()</v>
@@ -373,13 +404,19 @@
           but for function
           <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:post_end_per_testcase/5</c> is not exported, common_test
+	  will attempt to call <c>Module:post_end_per_testcase(TestcaseName,
+	  Config, Return, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:pre_end_per_group(GroupName, EndData, CTHState) -&gt; Result</name>
+      <name>Module:pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -&gt; Result</name>
       <fsummary>Called before end_per_group.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>GroupName = atom()</v>
         <v>EndData = Config | SkipOrFail</v>
         <v>Config = NewConfig = [{Key,Value}]</v>
@@ -400,13 +437,19 @@
           but for function
           <seealso marker="common_test#Module:end_per_group-2"><c>end_per_group</c></seealso>
           instead.</p>
+
+	<p>If <c>Module:pre_end_per_group/4</c> is not exported, common_test
+	  will attempt to call <c>Module:pre_end_per_group(GroupName,
+	  EndData, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:post_end_per_group(GroupName, Config, Return, CTHState) -&gt; Result</name>
+      <name>Module:post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -&gt; Result</name>
       <fsummary>Called after end_per_group.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>GroupName = atom()</v>
         <v>Config = [{Key,Value}]</v>
         <v>Return = NewReturn = Config | SkipOrFail | term()</v>
@@ -427,6 +470,11 @@
           but for function
           <seealso marker="common_test#Module:end_per_group-2">end_per_group</seealso>
           instead.</p>
+
+	<p>If <c>Module:post_end_per_group/5</c> is not exported, common_test
+	  will attempt to call <c>Module:post_end_per_group(GroupName,
+	  Config, Return, CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
@@ -485,9 +533,10 @@
     </func>
 
     <func>
-      <name>Module:on_tc_fail(TestName, Reason, CTHState) -&gt; NewCTHState</name>
+      <name>Module:on_tc_fail(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestName = init_per_suite | end_per_suite | {init_per_group,GroupName} | {end_per_group,GroupName} | {FuncName,GroupName} | FuncName</v>
         <v>FuncName = atom()</v>
         <v>GroupName = atom()</v>
@@ -505,7 +554,7 @@
           <item><p>If <c>init_per_suite</c> fails, this function is called after
             <seealso marker="#Module:post_init_per_suite-4"><c>post_init_per_suite</c></seealso>.</p></item>
           <item><p>If a test case fails, this funcion is called after
-          <seealso marker="#Module:post_end_per_testcase-4"><c>post_end_per_testcase</c></seealso>.</p></item>
+          <seealso marker="#Module:post_end_per_testcase-5"><c>post_end_per_testcase</c></seealso>.</p></item>
         </list>
 
          <p>If the failed test case belongs to a test case group, the first
@@ -519,13 +568,19 @@
           For details, see section
           <seealso marker="event_handler_chapter#events">Event Handling</seealso>
           in the User's Guide.</p>
+
+	<p>If <c>Module:on_tc_fail/4</c> is not exported, common_test
+	  will attempt to call <c>Module:on_tc_fail(TestName, Reason,
+	  CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:on_tc_skip(TestName, Reason, CTHState) -&gt; NewCTHState</name>
+      <name>Module:on_tc_skip(SuiteName, TestName, Reason, CTHState) -&gt; NewCTHState</name>
       <fsummary>Called after the CTH scope ends.</fsummary>
       <type>
+        <v>SuiteName = atom()</v>
         <v>TestName = init_per_suite | end_per_suite | {init_per_group,GroupName} | {end_per_group,GroupName} | {FuncName,GroupName} | FuncName</v>
         <v>FuncName = atom()</v>
         <v>GroupName = atom()</v>
@@ -542,9 +597,9 @@
         <list type="bulleted">
           <item><p>If <c>init_per_group</c> is skipped, this function is
             called after 
-            <seealso marker="#Module:post_init_per_group-4"><c>post_init_per_group</c></seealso>.</p></item>
+            <seealso marker="#Module:post_init_per_group-5"><c>post_init_per_group</c></seealso>.</p></item>
           <item><p>If a test case is skipped, this function is called after
-          <seealso marker="#Module:post_end_per_testcase-4"><c>post_end_per_testcase</c></seealso>.</p></item>
+          <seealso marker="#Module:post_end_per_testcase-5"><c>post_end_per_testcase</c></seealso>.</p></item>
         </list>
 
         <p>If the skipped test case belongs to a test case group, the first
@@ -559,6 +614,11 @@
           For details, see section
           <seealso marker="event_handler_chapter#events">Event Handling</seealso>
           in the User's Guide.</p>
+
+	<p>If <c>Module:on_tc_skip/4</c> is not exported, common_test
+	  will attempt to call <c>Module:on_tc_skip(TestName, Reason,
+	  CTHState)</c> instead. This is for backwards
+	  compatibility.</p>
       </desc>
     </func>
 

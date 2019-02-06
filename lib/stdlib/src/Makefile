@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +51,6 @@ MODULES= \
 	dets_server \
 	dets_sup \
 	dets_utils \
-	dets_v8 \
 	dets_v9 \
 	dict \
 	digraph \
@@ -59,9 +58,11 @@ MODULES= \
 	edlin \
 	edlin_expand \
 	epp \
+	erl_abstract_code \
 	erl_anno \
 	erl_bits \
 	erl_compile \
+	erl_error \
 	erl_eval \
 	erl_expand_records \
 	erl_internal \
@@ -91,7 +92,6 @@ MODULES= \
 	io_lib_format \
 	io_lib_fread \
 	io_lib_pretty \
-	lib \
 	lists \
 	log_mf_h \
 	maps \
@@ -120,6 +120,8 @@ MODULES= \
 	sys \
 	timer \
 	unicode \
+	unicode_util \
+	uri_string \
 	win32reg \
 	zip
 
@@ -131,7 +133,7 @@ HRL_FILES= \
 	../include/qlc.hrl \
 	../include/zip.hrl
 
-INTERNAL_HRL_FILES= dets.hrl
+INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -174,6 +176,7 @@ docs:
 primary_bootstrap_compiler: \
   $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_anno.beam \
+  $(BOOTSTRAP_COMPILER)/ebin/erl_error.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
@@ -201,6 +204,9 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
+unicode_util.erl: ../uc_spec/*
+	escript ../uc_spec/gen_unicode_mod.escript
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -225,15 +231,21 @@ $(EBIN)/beam_lib.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets.beam: dets.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets_server.beam: dets.hrl
 $(EBIN)/dets_utils.beam: dets.hrl
-$(EBIN)/dets_v8.beam: dets.hrl
 $(EBIN)/dets_v9.beam: dets.hrl
 $(EBIN)/erl_bits.beam: ../include/erl_bits.hrl
 $(EBIN)/erl_compile.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/erl_lint.beam: ../include/erl_bits.hrl
-$(EBIN)/erl_tar.beam: ../../kernel/include/file.hrl
+$(EBIN)/erl_tar.beam: ../../kernel/include/file.hrl erl_tar.hrl
 $(EBIN)/file_sorter.beam: ../../kernel/include/file.hrl
 $(EBIN)/filelib.beam: ../../kernel/include/file.hrl
 $(EBIN)/filename.beam: ../../kernel/include/file.hrl
+$(EBIN)/gen_event.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_fsm.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_server.beam: ../../kernel/include/logger.hrl
+$(EBIN)/gen_statem.beam: ../../kernel/include/logger.hrl
+$(EBIN)/proc_lib.beam: ../../kernel/include/logger.hrl
 $(EBIN)/qlc_pt.beam: ../include/ms_transform.hrl
 $(EBIN)/shell.beam: ../../kernel/include/file.hrl
+$(EBIN)/supervisor.beam: ../../kernel/include/logger.hrl
+$(EBIN)/supervisor_bridge.beam: ../../kernel/include/logger.hrl
 $(EBIN)/zip.beam: ../include/zip.hrl ../../kernel/include/file.hrl

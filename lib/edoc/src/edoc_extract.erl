@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -483,8 +488,15 @@ find_names([P | Ps], Ns) ->
 	    find_names([P1 | Ps], Ns);
 	record_expr ->
 	    A = erl_syntax:record_expr_type(P),
-	    N = list_to_atom(capitalize(erl_syntax:atom_name(A))),
-	    find_names(Ps, [N | Ns]);
+            AtomName = erl_syntax:atom_name(A),
+            Atom = list_to_atom(AtomName),
+            case AtomName =:= lists:flatten(io_lib:write_atom(Atom)) of
+                true ->
+                    N = list_to_atom(capitalize(AtomName)),
+                    find_names(Ps, [N | Ns]);
+                false ->
+                    find_names(Ps, Ns)
+            end;
 	infix_expr ->
 	    %% this can only be a '++' operation
 	    P1 = erl_syntax:infix_expr_right(P),
@@ -535,6 +547,7 @@ tidy_name_1(Cs) -> [$_ | Cs].
 %% Change initial character from lowercase to uppercase.
 
 capitalize([C | Cs]) when C >= $a, C =< $z -> [C - 32 | Cs];
+capitalize([C | Cs]) when C >= $\340, C =< $\376, C /= $\367 -> [C - 32 | Cs];
 capitalize(Cs) -> Cs.
 
 %% Collects the tags belonging to each entry, checks them, expands

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -52,13 +52,27 @@
     <func>
       <name name="c" arity="1"/>
       <name name="c" arity="2"/>
-      <fsummary>Compile and load code in a file.</fsummary>
+      <name name="c" arity="3"/>
+      <fsummary>Compile and load a file or module.</fsummary>
       <desc>
-        <p>Compiles and then purges and loads the code for a file.
-          <c><anno>Options</anno></c> defaults to <c>[]</c>. Compilation is
-          equivalent to:</p>
-        <code type="none">
-compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_warnings])</code>
+        <p>Compiles and then purges and loads the code for a module.
+          <c><anno>Module</anno></c> can be either a module name or a source
+          file path, with or without <c>.erl</c> extension.
+          <c><anno>Options</anno></c> defaults to <c>[]</c>.</p>
+        <p>If <c><anno>Module</anno></c> is an atom and is not the path of a
+          source file, then the code path is searched to locate the object
+          file for the module and extract its original compiler options and
+          source path. If the source file is not found in the original
+          location, <seealso
+          marker="filelib#find_source/1"><c>filelib:find_source/1</c></seealso>
+          is used to search for it relative to the directory of the object
+          file.</p>
+        <p>The source file is compiled with the the original
+          options appended to the given <c><anno>Options</anno></c>, the
+          output replacing the old object file if and only if compilation
+          succeeds. A function <c><anno>Filter</anno></c> can be specified
+          for removing elements from from the original compiler options
+          before the new options are added.</p>
         <p>Notice that purging the code means that any processes
           lingering in old code for the module are killed without
           warning. For more information, see <c>code/3</c>.</p>
@@ -76,6 +90,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
         <pre>
 2> <input>cd("../erlang").</input>
 /home/ron/erlang</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="erlangrc" arity="1"/>
+      <fsummary>Load an erlang resource file.</fsummary>
+      <desc>
+        <p>Search <c>PathList</c> and load <c>.erlang</c> resource file if
+	found.</p>
       </desc>
     </func>
 
@@ -148,6 +171,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
     </func>
 
     <func>
+      <name name="lm" arity="0"/>
+      <fsummary>Loads all modified modules.</fsummary>
+      <desc>
+        <p>Reloads all currently loaded modules that have changed on disk (see <c>mm()</c>).
+        Returns the list of results from calling <c>l(M)</c> for each such <c>M</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="ls" arity="0"/>
       <fsummary>List files in the current directory.</fsummary>
       <desc>
@@ -178,6 +210,15 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
       <fsummary>Information about a module.</fsummary>
       <desc>
         <p>Displays information about <c><anno>Module</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="mm" arity="0"/>
+      <fsummary>Lists all modified modules.</fsummary>
+      <desc>
+        <p>Lists all modified modules. Shorthand for
+        <seealso marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seealso>.</p>
       </desc>
     </func>
 

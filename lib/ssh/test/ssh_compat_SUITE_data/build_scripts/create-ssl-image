@@ -1,0 +1,71 @@
+#!/bin/sh
+
+# ./create-image openssl 1.0.2m
+
+case "$1" in
+    "openssl")
+	FAM=openssl
+	VER=$2
+	PFX=https://www.openssl.org/source/openssl-
+	SFX=.tar.gz
+	TMP=tmp.tar.gz
+	;;
+    "libressl")
+	FAM=libressl
+	VER=$2
+	PFX=https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-
+	SFX=.tar.gz
+	TMP=tmp.tar.gz
+	;;
+    *)
+	echo No lib type
+	exit
+	;;
+esac
+
+case $1$2 in
+    openssl0.9.8[a-l])
+        CONFIG_FLAGS=no-asm
+	;;
+    *)
+	CONFIG_FLAGS=
+	;;
+esac
+
+
+# This way of fetching the tar-file separate from the docker commands makes
+# http-proxy handling way easier. The wget command handles the $https_proxy
+# variable while the docker command must have /etc/docker/something changed
+# and the docker server restarted. That is not possible without root access.
+
+# Make a Dockerfile. This method simplifies env variable handling considerably:
+cat - > TempDockerFile <<EOF
+
+    FROM ubuntubuildbase
+
+    LABEL version=$FAM-$VER
+
+    WORKDIR /buildroot
+
+    COPY ${TMP} .
+    RUN  tar xf ${TMP}
+
+    WORKDIR ${FAM}-${VER}
+
+    RUN  ./config --prefix=/buildroot/ssl ${CONFIG_FLAGS}
+
+    RUN  make
+    RUN  make install_sw
+
+    RUN  echo Built ${FAM}-${VER}
+EOF
+
+# Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
+# but then we hit the proxy problem...
+wget -O $TMP $PFX$VER$SFX
+
+# Build the image:
+docker build -t ssh_compat_suite-$FAM:$VER -f ./TempDockerFile .
+
+# Cleaning
+rm -fr ./TempDockerFile $TMP

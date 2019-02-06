@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,7 @@
 /*
  * Purpose: Common compiler front-end.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#include "sys.h"
-#ifdef __WIN32__
-#include <winbase.h>
-/* FIXE ME config_win32.h? */
-#define HAVE_STRERROR 1
-#define snprintf _snprintf
-#endif
-
-#include <ctype.h>
+#include "etc_common.h"
 
 #define NO 0
 #define YES 1
@@ -72,6 +60,9 @@ static int pause_after_execution = 0;
 static char* process_opt(int* pArgc, char*** pArgv, int offset);
 static void error(char* format, ...);
 static void* emalloc(size_t size);
+#ifdef HAVE_COPYING_PUTENV
+static void efree(void *p);
+#endif
 static char* strsave(char* string);
 static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
@@ -147,6 +138,28 @@ get_env(char *key)
 }
 
 static void
+set_env(char *key, char *value)
+{
+#ifdef __WIN32__
+    WCHAR wkey[MAXPATHLEN];
+    WCHAR wvalue[MAXPATHLEN];
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wkey, MAXPATHLEN);
+    MultiByteToWideChar(CP_UTF8, 0, value, -1, wvalue, MAXPATHLEN);
+    if (!SetEnvironmentVariableW(wkey, wvalue))
+        error("SetEnvironmentVariable(\"%s\", \"%s\") failed!", key, value);
+#else
+    size_t size = strlen(key) + 1 + strlen(value) + 1;
+    char *str = emalloc(size);
+    sprintf(str, "%s=%s", key, value);
+    if (putenv(str) != 0)
+        error("putenv(\"%s\") failed!", str);
+#ifdef HAVE_COPYING_PUTENV
+    efree(str);
+#endif
+#endif
+}
+
+static void
 free_env_val(char *value)
 {
 #ifdef __WIN32__
@@ -188,6 +201,11 @@ int main(int argc, char** argv)
         error("Value of environment variable ERLC_EMULATOR is too large");
 
     /*
+     * Add scriptname to env
+     */
+    set_env("ESCRIPT_NAME", argv[0]);
+
+    /*
      * Allocate the argv vector to be used for arguments to Erlang.
      * Arrange for starting to pushing information in the middle of
      * the array, to allow easy adding of emulator options (like -pa)
@@ -216,7 +234,7 @@ int main(int argc, char** argv)
     PUSH("+A0");
     PUSH("-noinput");
     PUSH2("-mode", "minimal");
-    PUSH2("-boot", "start_clean");
+    PUSH2("-boot", "no_dot_erlang");
     PUSH3("-s", "erl_compile", "compile_cmdline");
     PUSH("-extra");
 
@@ -499,6 +517,13 @@ erealloc(void *p, size_t size)
 }
 #endif
 
+#ifdef HAVE_COPYING_PUTENV
+static void
+efree(void *p)
+{
+    free(p);
+}
+#endif
 static char*
 strsave(char* string)
 {

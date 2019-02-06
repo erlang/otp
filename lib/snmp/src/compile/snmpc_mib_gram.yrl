@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -387,10 +387,12 @@ syntax -> type : {{type, cat('$1')},line_of('$1')}.
 syntax -> type size : {{type_with_size, cat('$1'), '$2'},line_of('$1')}.
 syntax -> usertype size : {{type_with_size,val('$1'), '$2'},line_of('$1')}.
 syntax -> 'INTEGER' '{' namedbits '}' : 
-          {{integer_with_enum, 'INTEGER', '$3'}, line_of('$1')}.
+          {{type_with_enum, 'INTEGER', '$3'}, line_of('$1')}.
 syntax -> 'BITS' '{' namedbits '}' : 
           ensure_ver(2,'$1'), 
           {{bits, '$3'}, line_of('$1')}.
+syntax -> usertype '{' namedbits '}' :
+          {{type_with_enum, 'INTEGER', '$3'}, line_of('$1')}.
 syntax -> 'SEQUENCE' 'OF' usertype : 
           {{sequence_of,val('$3')},line_of('$1')}.
 

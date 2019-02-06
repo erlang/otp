@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 
 -export([trusted_cert_and_path/4,
 	 certificate_chain/3,
+	 certificate_chain/4,
 	 file_to_certificats/2,
 	 file_to_crls/2,
 	 validate/3,
@@ -40,7 +41,8 @@
 	 is_valid_key_usage/2,
 	 select_extension/2,
 	 extensions_list/1,
-	 public_key_type/1
+	 public_key_type/1,
+	 foldl_db/3
 	]).
  
 %%====================================================================
@@ -79,7 +81,8 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) -
 		    %% Trusted must be selfsigned or it is an incomplete chain
 		    handle_path(Trusted, Path, PartialChainHandler);
 		_ ->
-		    %% Root CA could not be verified
+		    %% Root CA could not be verified, but partial
+                    %% chain handler may trusted a cert that we got
 		    handle_incomplete_chain(Path, PartialChainHandler)
 	    end
     end.
@@ -94,10 +97,23 @@ certificate_chain(undefined, _, _) ->
     {error, no_cert};
 certificate_chain(OwnCert, CertDbHandle, CertsDbRef) when is_binary(OwnCert) ->
     ErlCert = public_key:pkix_decode_cert(OwnCert, otp),
-    certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert]);
+    certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert], []);
 certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
     DerCert = public_key:pkix_encode('OTPCertificate', OwnCert, otp),
-    certificate_chain(OwnCert, DerCert, CertDbHandle, CertsDbRef, [DerCert]).
+    certificate_chain(OwnCert, DerCert, CertDbHandle, CertsDbRef, [DerCert], []).
+
+%%--------------------------------------------------------------------
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref(), [der_cert()]) ->
+			  {error, no_cert} | {ok, #'OTPCertificate'{} | undefined, [der_cert()]}.
+%%
+%% Description: Create certificate chain with certs from 
+%%--------------------------------------------------------------------
+certificate_chain(Cert, CertDbHandle, CertsDbRef, Candidates) when is_binary(Cert) ->
+    ErlCert = public_key:pkix_decode_cert(Cert, otp),
+    certificate_chain(ErlCert, Cert, CertDbHandle, CertsDbRef, [Cert], Candidates);
+certificate_chain(Cert, CertDbHandle, CertsDbRef, Candidates) ->
+    DerCert = public_key:pkix_encode('OTPCertificate', Cert, otp),
+    certificate_chain(Cert, DerCert, CertDbHandle, CertsDbRef, [DerCert], Candidates).
 %%--------------------------------------------------------------------
 -spec file_to_certificats(binary(), term()) -> [der_cert()].
 %%
@@ -125,21 +141,23 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, {Role, _,_, _, _}) ->
+				    extnValue = KeyUse}}, UserState = {Role, _,_, _, _, _}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
-	    {valid, Role};
+	    {valid, UserState};
 	false ->
 	    {fail, {bad_cert, invalid_ext_key_usage}}
     end;
-validate(_, {extension, _}, Role) ->
-    {unknown, Role};
+validate(_, {extension, _}, UserState) ->
+    {unknown, UserState};
 validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
-validate(_, valid, Role) ->
-    {valid, Role};
-validate(_, valid_peer, Role) ->
-    {valid, Role}.
+validate(_, valid, UserState) ->
+    {valid, UserState};
+validate(Cert, valid_peer, UserState = {client, _,_, {Hostname, Customize}, _, _}) when Hostname =/= disable ->
+    verify_hostname(Hostname, Customize, Cert, UserState);  
+validate(_, valid_peer, UserState) ->    
+   {valid, UserState}.
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
@@ -185,9 +203,20 @@ public_key_type(?'id-ecPublicKey') ->
     ec.
 
 %%--------------------------------------------------------------------
+-spec foldl_db(fun(), db_handle() | {extracted, list()}, list()) ->
+ {ok, term()} | issuer_not_found.
+%%
+%% Description:
+%%--------------------------------------------------------------------
+foldl_db(IsIssuerFun, CertDbHandle, []) ->
+    ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle);
+foldl_db(IsIssuerFun, _, [_|_] = ListDb) ->
+    lists:foldl(IsIssuerFun, issuer_not_found, ListDb).
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain) ->
+certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain, ListDb) ->
     IssuerAndSelfSigned = 
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
@@ -198,12 +227,12 @@ certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain) ->
     
     case IssuerAndSelfSigned of 
 	{_, true = SelfSigned} ->
-	    certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned);
+	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned, ListDb);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef, ListDb) of
 		{ok, {SerialNr, Issuer}} ->
-		    certificate_chain(CertDbHandle, CertsDbRef, Chain,
-				      SerialNr, Issuer, SelfSigned);
+		    do_certificate_chain(CertDbHandle, CertsDbRef, Chain,
+					 SerialNr, Issuer, SelfSigned, ListDb);
 		_ ->
 		    %% Guess the the issuer must be the root
 		    %% certificate. The verification of the
@@ -212,19 +241,19 @@ certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain) ->
 		    {ok, undefined, lists:reverse(Chain)}
 	    end;
 	{{ok, {SerialNr, Issuer}}, SelfSigned} -> 
-	    certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, SelfSigned)
+	    do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, SelfSigned, ListDb)
     end.
   
-certificate_chain(_, _, [RootCert | _] = Chain, _, _, true) ->	  
+do_certificate_chain(_, _, [RootCert | _] = Chain, _, _, true, _) ->	  
     {ok, RootCert, lists:reverse(Chain)};		      
 
-certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
+do_certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _, ListDb) ->
     case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
 						SerialNr, Issuer) of
 	{ok, {IssuerCert, ErlCert}} ->
 	    ErlCert = public_key:pkix_decode_cert(IssuerCert, otp),
 	    certificate_chain(ErlCert, IssuerCert, 
-			      CertDbHandle, CertsDbRef, [IssuerCert | Chain]);
+			      CertDbHandle, CertsDbRef, [IssuerCert | Chain], ListDb);
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
@@ -232,7 +261,8 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	    {ok, undefined, lists:reverse(Chain)}		      
     end.
 
-find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef) ->
+
+find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef, ListDb) ->
     IsIssuerFun =
 	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
@@ -250,26 +280,29 @@ find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef) ->
 		Acc
 	end,
 
-    if is_reference(CertsDbRef) -> % actual DB exists
-	try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
-	    issuer_not_found ->
-		{error, issuer_not_found}
-	catch
-	    {ok, _IssuerId} = Return ->
-		Return
-	end;
-       is_tuple(CertsDbRef), element(1,CertsDbRef) =:= extracted -> % cache bypass byproduct
-	{extracted, CertsData} = CertsDbRef,
-	DB = [Entry || {decoded, Entry} <- CertsData],
-	try lists:foldl(IsIssuerFun, issuer_not_found, DB) of
-	    issuer_not_found ->
-		{error, issuer_not_found}
-	catch
-	    {ok, _IssuerId} = Return ->
-		Return
-	end
+    Result = case is_reference(CertsDbRef) of
+		 true ->
+		     do_find_issuer(IsIssuerFun, CertDbHandle, ListDb); 
+		 false ->
+		     {extracted, CertsData} = CertsDbRef,
+		     DB = [Entry || {decoded, Entry} <- CertsData],
+		     do_find_issuer(IsIssuerFun, CertDbHandle, DB)
+	     end,
+    case Result of
+        issuer_not_found ->
+	    {error, issuer_not_found};
+	Result ->
+	    Result
     end.
 
+do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
+    try 
+	foldl_db(IssuerFun, CertDbHandle, CertDb)
+    catch
+	throw:{ok, _} = Return ->
+	    Return
+    end.
+	
 is_valid_extkey_usage(KeyUse, client) ->
     %% Client wants to verify server
     is_valid_key_usage(KeyUse,?'id-kp-serverAuth');
@@ -298,7 +331,7 @@ other_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef) ->
 	{ok, IssuerId} ->
 	    {other, IssuerId};
 	{error, issuer_not_found} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef, []) of
 		{ok, IssuerId} ->
 		    {other, IssuerId};
 		Other ->
@@ -330,3 +363,32 @@ new_trusteded_chain(DerCert, [_ | Rest]) ->
     new_trusteded_chain(DerCert, Rest);
 new_trusteded_chain(_, []) ->
     unknown_ca.
+
+verify_hostname({fallback, Hostname}, Customize, Cert, UserState) when is_list(Hostname) ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of
+        true ->
+            {valid, UserState};
+        false ->
+            case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}], Customize) of
+                true ->
+                    {valid, UserState};
+                false ->
+                    {fail, {bad_cert, hostname_check_failed}}
+            end
+    end;
+
+verify_hostname({fallback, Hostname}, Customize, Cert, UserState) ->
+    case public_key:pkix_verify_hostname(Cert, [{ip, Hostname}], Customize) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end;
+
+verify_hostname(Hostname, Customize, Cert, UserState) ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end.

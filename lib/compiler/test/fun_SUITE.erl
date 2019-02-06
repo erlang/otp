@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
@@ -41,6 +40,7 @@ groups() ->
        eep37_dup,badarity,badfun]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -193,6 +193,17 @@ external(Config) when is_list(Config) ->
     ?APPLY2(ListsMod, map, ListsArity),
     ?APPLY2(ListsMod, ListsMap, 2),
     ?APPLY2(ListsMod, ListsMap, ListsArity),
+
+    42 = (fun erlang:abs/1)(-42),
+    42 = (id(fun erlang:abs/1))(-42),
+    42 = apply(fun erlang:abs/1, [-42]),
+    42 = apply(id(fun erlang:abs/1), [-42]),
+    6 = (fun lists:sum/1)([1,2,3]),
+    6 = (id(fun lists:sum/1))([1,2,3]),
+
+    {'EXIT',{{badarity,_},_}} = (catch (fun lists:sum/1)(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch (id(fun lists:sum/1))(1, 2, 3)),
+    {'EXIT',{{badarity,_},_}} = (catch apply(fun lists:sum/1, [1,2,3])),
 
     ok.
 

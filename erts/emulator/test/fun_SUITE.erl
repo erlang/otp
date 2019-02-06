@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@
 %%
 
 -module(fun_SUITE).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 -export([all/0, suite/0,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
+         bad_arglist/1,
 	 equality/1,ordering/1,
-	 fun_to_port/1,t_hash/1,t_phash/1,t_phash2/1,md5/1,
+	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
 	 t_fun_info/1,t_fun_info_mfa/1]).
@@ -38,9 +38,10 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 
-all() -> 
+all() ->
     [bad_apply, bad_fun_call, badarity, ext_badarity,
-     equality, ordering, fun_to_port, t_hash, t_phash,
+     bad_arglist,
+     equality, ordering, fun_to_port, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa].
@@ -107,6 +108,18 @@ bad_call_fc(Fun) ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]),
 	    ct:fail({bad_result,Other})
     end.
+
+% Test erlang:apply with non-proper arg-list
+bad_arglist(Config) when is_list(Config) ->
+    Fun = fun(A,B) -> A+B end,
+    {'EXIT', {badarg,_}} = (catch apply(Fun, 17)),
+    {'EXIT', {badarg,_}} = (catch apply(Fun, [17|18])),
+    {'EXIT', {badarg,_}} = (catch apply(Fun, [17,18|19])),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, 17)),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17|18])),
+    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17,18|19])),
+    ok.
+
 
 %% Call and apply valid funs with wrong number of arguments.
 
@@ -412,33 +425,6 @@ build_io_list(N) ->
 	1 -> [7,L|L]
     end.
 
-%% Test the hash/2 BIF on funs.
-t_hash(Config) when is_list(Config) ->
-    F1 = fun(_X) -> 1 end,
-    F2 = fun(_X) -> 2 end,
-    true = hash(F1) /= hash(F2),
-
-    G1 = make_fun(1, 2, 3),
-    G2 = make_fun(1, 2, 3),
-    G3 = make_fun(1, 2, 4),
-    true = hash(G1) == hash(G2),
-    true = hash(G2) /= hash(G3),
-
-    FF0 = fun erlang:abs/1,
-    FF1 = fun erlang:exit/1,
-    FF2 = fun erlang:exit/2,
-    FF3 = fun blurf:exit/2,
-    true = hash(FF0) =/= hash(FF1),
-    true = hash(FF0) =/= hash(FF2),
-    true = hash(FF0) =/= hash(FF3),
-    true = hash(FF1) =/= hash(FF2),
-    true = hash(FF1) =/= hash(FF3),
-    true = hash(FF2) =/= hash(FF3),
-    ok.
-
-hash(Term) ->
-    erlang:hash(Term, 16#7ffffff).
-
 %% Test the phash/2 BIF on funs.
 t_phash(Config) when is_list(Config) ->
     F1 = fun(_X) -> 1 end,
@@ -461,7 +447,6 @@ t_phash(Config) when is_list(Config) ->
     true = phash(FF1) =/= phash(FF2),
     true = phash(FF1) =/= phash(FF3),
     true = phash(FF2) =/= phash(FF3),
-    
     ok.
 
 phash(Term) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("erl_connect_SUITE_data/erl_connect_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          erl_send/1, erl_reg_send/1,
          erl_send_cookie_file/1]).
 
@@ -38,8 +39,11 @@ all() ->
     [erl_send, erl_reg_send, erl_send_cookie_file].
 
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 erl_send(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     1 = erl_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = erl_connect(P, node()),
 
@@ -56,7 +60,7 @@ erl_send_cookie_file(Config) when is_list(Config) ->
         vxworks ->
             {skip,"Skipped on VxWorks"};
         _ ->
-            P = runner:start(?interpret),
+            P = runner:start(Config, ?interpret),
             1 = erl_connect_init(P, 42, '', 0),
             {ok,Fd} = erl_connect(P, node()),
 
@@ -70,7 +74,7 @@ erl_send_cookie_file(Config) when is_list(Config) ->
     end.
 
 erl_reg_send(Config) when is_list(Config) ->
-    P = runner:start(?interpret),
+    P = runner:start(Config, ?interpret),
     1 = erl_connect_init(P, 42, erlang:get_cookie(), 0),
     {ok,Fd} = erl_connect(P, node()),
 

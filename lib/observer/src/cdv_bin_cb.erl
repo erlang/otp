@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ init_bin_page(Parent,{Type,Bin}) ->
       [{"Format \~p",cdv_html_wx,{Type,format_bin_fun("~p",Bin)}},
        {"Format \~tp",cdv_html_wx,{Type,format_bin_fun("~tp",Bin)}},
        {"Format \~w",cdv_html_wx,{Type,format_bin_fun("~w",Bin)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_bin_fun("~tw",Bin)}},
        {"Format \~s",cdv_html_wx,{Type,format_bin_fun("~s",Bin)}},
        {"Format \~ts",cdv_html_wx,{Type,format_bin_fun("~ts",Bin)}},
        {"Hex",cdv_html_wx,{Type,hex_binary_fun(Bin)}},
@@ -56,9 +57,9 @@ format_bin_fun(Format,Bin) ->
 binary_to_term_fun(Bin) ->
     fun() ->
 	    try binary_to_term(Bin) of
-		Term -> plain_html(io_lib:format("~p",[Term]))
+		Term -> plain_html(io_lib:format("~tp",[Term]))
 	    catch error:badarg ->
-		    Warning = "This binary can not be coverted to an Erlang term",
+		    Warning = "This binary can not be converted to an Erlang term",
 		    observer_html_lib:warning(Warning)
 	    end
     end.
@@ -70,6 +71,8 @@ hex_binary_fun(Bin) ->
 	    plain_html(io_lib:format("~s",[S]))
     end.
 
+format_hex(<<>>,_) ->
+    [];
 format_hex(<<B1:4,B2:4>>,_) ->
     [integer_to_list(B1,16),integer_to_list(B2,16)];
 format_hex(<<B1:4,B2:4,Bin/binary>>,0) ->

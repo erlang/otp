@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ run(per)     -> run();
 run(_Rules)  -> ok.
 
 run() ->
+    roundtrip('EndpointType', endpoint()),
+    roundtrip('Alerting-UUIE', alerting_uuie()),
     roundtrip('H323-UserInformation', alerting_val(), alerting_enc()),
     roundtrip('H323-UserInformation', connect_val(), connect_enc()),
     general_string(),
@@ -36,17 +38,23 @@ alerting_val() ->
     {'H323-UserInformation',
      {'H323-UU-PDU',
       {alerting,
-       {'Alerting-UUIE',
-	{0,0,8,2250,0,2},
-	{'EndpointType',asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
-	 asn1_NOVALUE,asn1_NOVALUE,
-	 {'TerminalInfo',asn1_NOVALUE},
-	 false,false},
-	asn1_NOVALUE,
-	{'CallIdentifier',<<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>},
-	asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}},
+       alerting_uuie()},
       asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE},
      asn1_NOVALUE}.
+
+endpoint() ->
+    {'EndpointType',asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,
+     asn1_NOVALUE,asn1_NOVALUE,
+     {'TerminalInfo',asn1_NOVALUE},
+     false,false}.
+
+alerting_uuie() ->
+    {'Alerting-UUIE',
+     {0,0,8,2250,0,2},
+     endpoint(),
+     asn1_NOVALUE,
+     {'CallIdentifier',<<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>},
+     asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE}.
 
 alerting_enc() ->
     "0380060008914a0002020120110000000000000000000000000000000000".
@@ -81,6 +89,9 @@ general_string() ->
     Type = 'MultimediaSystemControlMessage',
     UI = <<109,64,1,57>>,
     {ok, _V} = 'MULTIMEDIA-SYSTEM-CONTROL':decode(Type, UI).
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('H323-MESSAGES', T, V).
 
 roundtrip(T, V, HexString) ->
     Enc = asn1_test_lib:hex_to_bin(HexString),

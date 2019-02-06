@@ -228,10 +228,14 @@ os_process_size() ->
     case os:type() of
 	{unix, sunos} ->
 	    Size = os:cmd("ps -o vsz -p " ++ os:getpid() ++ " | tail -1"),
-	    list_to_integer(lib:nonl(Size));
+	    list_to_integer(nonl(Size));
 	_ ->
 	    0
     end.
+
+nonl([$\n]) -> [];
+nonl([]) -> [];
+nonl([H|T]) -> [H|nonl(T)].
 
 run_tc({Name,Fun}, St) ->
     Before0 = statistics(runtime),

@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% compute def/use sets for x86 insns
 %%%
@@ -35,7 +29,7 @@
 -endif.
 
 -module(?HIPE_X86_DEFUSE).
--export([insn_def/1, insn_use/1]). %% src_use/1]).
+-export([insn_def/1, insn_defs_all/1, insn_use/1]). %% src_use/1]).
 -include("../x86/hipe_x86.hrl").
 
 %%%
@@ -57,11 +51,23 @@ insn_def(I) ->
     #movzx{dst=Dst} -> dst_def(Dst);
     #pseudo_call{} -> call_clobbered();
     #pseudo_spill{} -> [];
+    #pseudo_spill_fmove{temp=Temp, dst=Dst} -> [Temp, Dst];
+    #pseudo_spill_move{temp=Temp, dst=Dst} -> [Temp, Dst];
     #pseudo_tailcall_prepare{} -> tailcall_clobbered();
     #shift{dst=Dst} -> dst_def(Dst);
     %% call, cmp, comment, jcc, jmp_fun, jmp_label, jmp_switch, label
-    %% pseudo_jcc, pseudo_tailcall, push, ret
+    %% pseudo_jcc, pseudo_tailcall, push, ret, test
     _ -> []
+  end.
+
+
+%% @doc Answers whether instruction I defines all allocatable registers. Used by
+%% hipe_regalloc_prepass.
+-spec insn_defs_all(_) -> boolean().
+insn_defs_all(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 dst_def(Dst) ->
@@ -104,12 +110,15 @@ insn_use(I) ->
     #pseudo_call{'fun'=Fun,sdesc=#x86_sdesc{arity=Arity}} ->
       addtemp(Fun, arity_use(Arity));
     #pseudo_spill{args=Args} -> Args;
+    #pseudo_spill_fmove{src=Src} -> [Src];
+    #pseudo_spill_move{src=Src} -> [Src];
     #pseudo_tailcall{'fun'=Fun,arity=Arity,stkargs=StkArgs} ->
       addtemp(Fun, addtemps(StkArgs, addtemps(tailcall_clobbered(),
 					      arity_use(Arity))));
     #push{src=Src} -> addtemp(Src, []);
     #ret{} -> [hipe_x86:mk_temp(?HIPE_X86_REGISTERS:?RV(), 'tagged')];
     #shift{src=Src,dst=Dst} -> addtemp(Src, addtemp(Dst, []));
+    #test{src=Src, dst=Dst} -> addtemp(Src, addtemp(Dst, []));
     %% comment, jcc, jmp_label, label, pseudo_jcc, pseudo_tailcall_prepare
     _ -> []
   end.

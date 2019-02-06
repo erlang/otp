@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%%
-%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +10,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
+%% Copyright (C) 2004-2016 Richard Carlsson, Mickaël Rémond
 
 -ifndef(ASSERT_HRL).
 -define(ASSERT_HRL, true).
@@ -56,7 +50,8 @@
 %% It is not possible to nest assert macros.
 
 -ifdef(NOASSERT).
--define(assert(BoolExpr),ok).
+-define(assert(BoolExpr), ok).
+-define(assert(BoolExpr, Comment), ok).
 -else.
 %% The assert macro is written the way it is so as not to cause warnings
 %% for clauses that cannot match, even if the expression is a constant or
@@ -79,11 +74,31 @@
             end
           end)())
         end).
+-define(assert(BoolExpr, Comment),
+        begin
+        ((fun () ->
+            __T = is_process_alive(self()),  % cheap source of truth
+            case (BoolExpr) of
+                __T -> ok;
+                __V -> erlang:error({assert,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {comment, (Comment)},
+                                      {expression, (??BoolExpr)},
+                                      {expected, true},
+                                      case not __T of
+                                          __V -> {value, false};
+                                          _ -> {not_boolean, __V}
+                                      end]})
+            end
+          end)())
+        end).
 -endif.
 
 %% This is the inverse case of assert, for convenience.
 -ifdef(NOASSERT).
 -define(assertNot(BoolExpr),ok).
+-define(assertNot(BoolExpr, Comment), ok).
 -else.
 -define(assertNot(BoolExpr),
         begin
@@ -103,12 +118,32 @@
             end
           end)())
         end).
+-define(assertNot(BoolExpr, Comment),
+        begin
+        ((fun () ->
+            __F = not is_process_alive(self()),
+            case (BoolExpr) of
+                __F -> ok;
+                __V -> erlang:error({assert,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {comment, (Comment)},
+                                      {expression, (??BoolExpr)},
+                                      {expected, false},
+                                      case not __F of
+                                          __V -> {value, true};
+                                          _ -> {not_boolean, __V}
+                                      end]})
+            end
+          end)())
+        end).
 -endif.
 
 %% This is mostly a convenience which gives more detailed reports.
 %% Note: Guard is a guarded pattern, and can not be used for value.
 -ifdef(NOASSERT).
 -define(assertMatch(Guard, Expr), ok).
+-define(assertMatch(Guard, Expr, Comment), ok).
 -else.
 -define(assertMatch(Guard, Expr),
         begin
@@ -124,11 +159,27 @@
             end
           end)())
         end).
+-define(assertMatch(Guard, Expr, Comment),
+        begin
+        ((fun () ->
+            case (Expr) of
+                Guard -> ok;
+                __V -> erlang:error({assertMatch,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {comment, (Comment)},
+                                      {expression, (??Expr)},
+                                      {pattern, (??Guard)},
+                                      {value, __V}]})
+            end
+          end)())
+        end).
 -endif.
 
 %% This is the inverse case of assertMatch, for convenience.
 -ifdef(NOASSERT).
 -define(assertNotMatch(Guard, Expr), ok).
+-define(assertNotMatch(Guard, Expr, Comment), ok).
 -else.
 -define(assertNotMatch(Guard, Expr),
         begin
@@ -145,12 +196,29 @@
             end
           end)())
         end).
+-define(assertNotMatch(Guard, Expr, Comment),
+        begin
+        ((fun () ->
+            __V = (Expr),
+            case __V of
+                Guard -> erlang:error({assertNotMatch,
+                                       [{module, ?MODULE},
+                                        {line, ?LINE},
+                                        {comment, (Comment)},
+                                        {expression, (??Expr)},
+                                        {pattern, (??Guard)},
+                                        {value, __V}]});
+                _ -> ok
+            end
+          end)())
+        end).
 -endif.
 
 %% This is a convenience macro which gives more detailed reports when
 %% the expected LHS value is not a pattern, but a computed value
 -ifdef(NOASSERT).
 -define(assertEqual(Expect, Expr), ok).
+-define(assertEqual(Expect, Expr, Comment), ok).
 -else.
 -define(assertEqual(Expect, Expr),
         begin
@@ -167,11 +235,28 @@
             end
           end)())
         end).
+-define(assertEqual(Expect, Expr, Comment),
+        begin
+        ((fun () ->
+            __X = (Expect),
+            case (Expr) of
+                __X -> ok;
+                __V -> erlang:error({assertEqual,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {comment, (Comment)},
+                                      {expression, (??Expr)},
+                                      {expected, __X},
+                                      {value, __V}]})
+            end
+          end)())
+        end).
 -endif.
 
 %% This is the inverse case of assertEqual, for convenience.
 -ifdef(NOASSERT).
 -define(assertNotEqual(Unexpected, Expr), ok).
+-define(assertNotEqual(Unexpected, Expr, Comment), ok).
 -else.
 -define(assertNotEqual(Unexpected, Expr),
         begin
@@ -187,12 +272,28 @@
             end
           end)())
         end).
+-define(assertNotEqual(Unexpected, Expr, Comment),
+        begin
+        ((fun () ->
+            __X = (Unexpected),
+            case (Expr) of
+                __X -> erlang:error({assertNotEqual,
+                                     [{module, ?MODULE},
+                                      {line, ?LINE},
+                                      {comment, (Comment)},
+                                      {expression, (??Expr)},
+                                      {value, __X}]});
+                _ -> ok
+            end
+          end)())
+        end).
 -endif.
 
 %% Note: Class and Term are patterns, and can not be used for value.
 %% Term can be a guarded pattern, but Class cannot.
 -ifdef(NOASSERT).
 -define(assertException(Class, Term, Expr), ok).
+-define(assertException(Class, Term, Expr, Comment), ok).
 -else.
 -define(assertException(Class, Term, Expr),
         begin
@@ -208,7 +309,7 @@
                                        {unexpected_success, __V}]})
             catch
                 Class:Term -> ok;
-                __C:__T ->
+                __C:__T:__S ->
                     erlang:error({assertException,
                                   [{module, ?MODULE},
                                    {line, ?LINE},
@@ -217,22 +318,57 @@
                                     "{ "++(??Class)++" , "++(??Term)
                                     ++" , [...] }"},
                                    {unexpected_exception,
-                                    {__C, __T,
-                                     erlang:get_stacktrace()}}]})
+                                    {__C, __T, __S}}]})
+            end
+          end)())
+        end).
+-define(assertException(Class, Term, Expr, Comment),
+        begin
+        ((fun () ->
+            try (Expr) of
+                __V -> erlang:error({assertException,
+                                      [{module, ?MODULE},
+                                       {line, ?LINE},
+                                       {comment, (Comment)},
+                                       {expression, (??Expr)},
+                                       {pattern,
+                                        "{ "++(??Class)++" , "++(??Term)
+                                        ++" , [...] }"},
+                                       {unexpected_success, __V}]})
+            catch
+                Class:Term -> ok;
+                __C:__T:__S ->
+                    erlang:error({assertException,
+                                  [{module, ?MODULE},
+                                   {line, ?LINE},
+                                   {comment, (Comment)},
+                                   {expression, (??Expr)},
+                                   {pattern,
+                                    "{ "++(??Class)++" , "++(??Term)
+                                    ++" , [...] }"},
+                                   {unexpected_exception,
+                                    {__C, __T, __S}}]})
             end
           end)())
         end).
 -endif.
 
 -define(assertError(Term, Expr), ?assertException(error, Term, Expr)).
+-define(assertError(Term, Expr, Comment),
+        ?assertException(error, Term, Expr, Comment)).
 -define(assertExit(Term, Expr), ?assertException(exit, Term, Expr)).
+-define(assertExit(Term, Expr, Comment),
+        ?assertException(exit, Term, Expr, Comment)).
 -define(assertThrow(Term, Expr), ?assertException(throw, Term, Expr)).
+-define(assertThrow(Term, Expr, Comment),
+        ?assertException(throw, Term, Expr, Comment)).
 
 %% This is the inverse case of assertException, for convenience.
 %% Note: Class and Term are patterns, and can not be used for value.
 %% Both Class and Term can be guarded patterns.
 -ifdef(NOASSERT).
 -define(assertNotException(Class, Term, Expr), ok).
+-define(assertNotException(Class, Term, Expr, Comment), ok).
 -else.
 -define(assertNotException(Class, Term, Expr),
         begin
@@ -240,7 +376,7 @@
             try (Expr) of
                 _ -> ok
             catch
-                __C:__T ->
+                __C:__T:__S ->
                     case __C of
                         Class ->
                             case __T of
@@ -253,9 +389,35 @@
                                                     "{ "++(??Class)++" , "
                                                     ++(??Term)++" , [...] }"},
                                                    {unexpected_exception,
-                                                    {__C, __T,
-                                                     erlang:get_stacktrace()
-                                                    }}]});
+                                                    {__C, __T, __S}}]});
+                                _ -> ok
+                            end;
+                        _ -> ok
+                    end
+            end
+          end)())
+        end).
+-define(assertNotException(Class, Term, Expr, Comment),
+        begin
+        ((fun () ->
+            try (Expr) of
+                _ -> ok
+            catch
+                __C:__T:__S ->
+                    case __C of
+                        Class ->
+                            case __T of
+                                Term ->
+                                    erlang:error({assertNotException,
+                                                  [{module, ?MODULE},
+                                                   {line, ?LINE},
+                                                   {comment, (Comment)},
+                                                   {expression, (??Expr)},
+                                                   {pattern,
+                                                    "{ "++(??Class)++" , "
+                                                    ++(??Term)++" , [...] }"},
+                                                   {unexpected_exception,
+                                                    {__C, __T, __S}}]});
                                 _ -> ok
                             end;
                         _ -> ok

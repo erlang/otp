@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -47,22 +47,29 @@
     runs on. The reason the C code is not made portable, is simply
     readability.</p>
 
-  <note>
-    <p>This section was written a long time ago. Most of it is still
-      valid, but some things have changed since then.
-      Most notably is the driver interface. Some updates have been made
-      to the documentation of the driver presented here,
-      but more can be done and is planned for the future.
-      The reader is encouraged to read the
-      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
-      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
-      documentation also.</p>
-  </note>
-
   <section>
     <title>Introduction</title>
     <p>To implement a new carrier for the Erlang distribution, the main
       steps are as follows.</p>
+
+      <note><p>
+	As of ERTS version 10.0 support for distribution controller
+	processes has been introduced. That is, the traffic over a
+	distribution channel can be managed by a process instead of
+	only by a port. This makes it possible to implement large
+	parts of the logic in Erlang code, and you perhaps do not
+	even need a new driver for the protocol. One example could
+	be Erlang distribution over UDP using <c>gen_udp</c> (your
+	Erlang code will of course have to take care of retranspissions,
+	etc in this example). That is, depending on what you want
+	to do you perhaps do not need to implement a driver at all
+	and can then skip the driver related sections below.
+	The <c>gen_tcp_dist</c> example described in the
+	<seealso marker="#distribution_module">Distribution
+	Module</seealso> section utilize distribution controller
+	processes and can be worth having a look at if you want to
+	use distribution controller processes.
+      </p></note>
 
     <section>
       <title>Writing an Erlang Driver</title>
@@ -152,7 +159,711 @@
   </section>
 
   <section>
+    <marker id="distribution_module"/>
+    <title>Distribution Module</title>
+    <p>
+      The distribution module expose an API that <c>net_kernel</c> call
+      in order to manage connections to other nodes. The module name
+      should have the suffix <c>_dist</c>.
+    </p>
+    <p>
+      The module needs to create some kind of listening entity (process
+      or port) and an acceptor process that accepts incoming connections
+      using the listening entity. For each connection, the module at least
+      needs to create one connection supervisor process, which also is
+      responsible for the handshake when setting up the connection, and
+      a distribution controller (process or port) responsible for
+      transport of data over the connection. The distribution controller
+      and the connection supervisor process should be linked together
+      so both of them are cleaned up when the connection is taken down.
+    </p>
+    <p>
+      Note that there need to be exactly one distribution controller
+      per connection. A process or port can only be distribution
+      controller for one connection. The registration as distribution
+      controller cannot be undone. It will stick until the distribution
+      controller terminates. The distribution controller should not
+      ignore exit signals. It is allowed to trap exits, but it should
+      then voluntarily terminate when an exit signal is received.
+    </p>
+    <p>
+      An example implementation of a distribution module can be found
+      in
+      <url href="gen_tcp_dist.erl">$ERL_TOP/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl</url>.
+      It implements the distribution over TCP/IP using the <c>gen_tcp</c>
+      API with distribution controllers implemented by processes. This
+      instead of using port distribution controllers as the ordinary TCP/IP
+      distribution uses.
+    </p>
+
+    <section>
+      <marker id="distribution_module_exported_callback_functions"/>
+      <title>Exported Callback Functions</title>
+
+      <p>
+	The following functions are mandatory:
+      </p>
+      <taglist>
+	<tag><marker id="listen"/><c>listen(Name) -></c><br/>&nbsp;&nbsp;<c>{ok, {Listen, Address, Creation}} | {error, Error} </c></tag>
+	<item>
+	  <p>
+	    <c>listen/1</c> is called once in order to listen for incoming
+	    connection requests. The call is made when the distribution is brought
+	    up. The argument <c>Name</c> is the part of the node name before
+	    the <c>@</c> sign in the full node name. It can be either an atom or a
+	    string.
+	  </p>
+	  <p>
+	    The return value consists of a <c>Listen</c> handle (which is
+	    later passed to the <seealso marker="#accept"><c>accept/1</c></seealso>
+	    callback), <c>Address</c> which is a <c>#net_address{}</c> record
+	    with information about the address for the node (the
+	    <c>#net_address{}</c> record is defined in
+	    <c>kernel/include/net_address.hrl</c>), and <c>Creation</c> which
+	    (currently) is an integer <c>1</c>, <c>2</c>, or <c>3</c>.
+	  </p>
+	  <p>
+	    If <seealso marker="erts:epmd"><c>epmd</c></seealso> is to be used 
+	    for node discovery, you typically want to use the (unfortunately
+	    undocumented) <c>erl_epmd</c> module (part of the <c>kernel</c>
+	    application) in order to register the listen port with <c>epmd</c>
+	    and retrieve <c>Creation</c> to use.
+	  </p>
+	</item>
+
+	<tag><marker id="accept"/><c>accept(Listen) -></c><br/>&nbsp;&nbsp;<c>AcceptorPid</c></tag>
+	<item>
+	  <p>
+	    <c>accept/1</c> should spawn a process that accepts connections. This
+	    process should preferably execute on <c>max</c> priority. The process
+	    identifier of this process should be returned.
+	  </p>
+	  <p>
+	    The <c>Listen</c> argument will be the same as the <c>Listen</c> handle
+	    part of the return value of the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback above.
+	    <c>accept/1</c> is called only once when the distribution protocol is
+	    started.
+	  </p>
+	  <p>
+	    The caller of this function is a representative for <c>net_kernel</c>
+	    (this may or may not be the process registered as <c>net_kernel</c>)
+	    and is in this document identified as <c>Kernel</c>.
+	    When a connection has been accepted by the acceptor process, it needs
+	    to inform <c>Kernel</c> about the accepted connection. This is done by
+	    passing a message on the form:
+	  </p>
+	  <code type="none"><![CDATA[Kernel ! {accept, AcceptorPid, DistController, Family, Proto}]]></code>
+	  <p>
+	    <c>DistController</c> is either the process or port identifier
+	    of the distribution controller for the connection. The
+	    distribution controller should be created by the acceptor
+	    processes when a new connection is accepted. Its job is to
+	    dispatch traffic on the connection.
+	  </p>
+	  <c>Kernel</c> responds with one of the following messages:
+	  <taglist>
+	    <tag><c>{Kernel, controller, SupervisorPid}</c></tag>
+	    <item>
+	      <p>
+		The request was accepted and <c>SupervisorPid</c> is the
+		process identifier of the connection supervisor process
+		(which is created in the
+		<seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>
+		callback).
+	      </p>
+	    </item>
+	    <tag><c>{Kernel, unsupported_protocol}</c></tag>
+	    <item>
+	      <p>
+		The request was rejected. This is a fatal error. The acceptor
+		process should terminate.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    When an accept sequence has been completed the acceptor process
+	    is expected to continue accepting further requests.
+	  </p>
+	</item>
+
+	<tag><marker id="accept_connection"/><c>accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) -></c><br/>&nbsp;&nbsp;<c>ConnectionSupervisorPid</c></tag>
+	<item>
+	  <p>
+	    <c>accept_connection/5</c> should spawn a process that will
+	    perform the Erlang distribution handshake for the connection.
+	    If the handshake successfully completes it should continue to
+	    function as a connection supervisor. This process
+	    should preferably execute on <c>max</c> priority.
+	  </p>
+	  <p>The arguments:</p>
+	  <taglist>
+	    <tag><c>AcceptorPid</c></tag>
+	    <item>
+	      <p>
+		Process identifier of the process created by the
+		<seealso marker="#accept"><c>accept/1</c></seealso>
+		callback.
+	      </p>
+	    </item>
+	    <tag><c>DistCtrl</c></tag>
+	    <item>
+	      <p>The identifier of the distribution controller identifier
+	      created by the acceptor process. To be passed along to
+	      <c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>MyNode</c></tag>
+	    <item>
+	      <p>
+		Node name of this node. To be passed along to
+	      <c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>Allowed</c></tag>
+	    <item>
+	      <p>
+		To be passed along to
+		<c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>SetupTime</c></tag>
+	    <item>
+	      <p>
+		Time used for creating a setup timer by a
+		call to <c>dist_util:start_timer(SetupTime)</c>.
+		The timer should be passed along to
+		<c>dist_util:handshake_other_started(HsData)</c>.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    The created process should provide callbacks and other
+	    information needed for the handshake in a
+	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    record and call <c>dist_util:handshake_other_started(HsData)</c>
+	    with this record.
+	  </p>
+	  <p>
+	    <c>dist_util:handshake_other_started(HsData)</c> will perform
+	    the handshake and if the handshake successfully completes this
+	    process will then continue in a connection supervisor loop
+	    as long as the connection is up.
+	  </p>
+	</item>
+	
+	<tag><marker id="setup"/><c>setup(Node, Type, MyNode, LongOrShortNames, SetupTime) -></c><br/>&nbsp;&nbsp;<c>ConnectionSupervisorPid</c></tag>
+	<item>
+	  <p>
+	    <c>setup/5</c> should spawn a process that connects to
+	    <c>Node</c>. When connection has been established it should
+	    perform the Erlang distribution handshake for the connection.
+	    If the handshake successfully completes it should continue to
+	    function as a connection supervisor. This process
+	    should preferably execute on <c>max</c> priority.
+	  </p>
+	  <p>The arguments:</p>
+	  <taglist>
+	    <tag><c>Node</c></tag>
+	    <item>
+	      <p>
+		Node name of remote node. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>Type</c></tag>
+	    <item>
+	      <p>
+		Connection type. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>MyNode</c></tag>
+	    <item>
+	      <p>
+		Node name of this node. To be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	    <tag><c>LongOrShortNames</c></tag>
+	    <item>
+	      <p>
+		Either the atom <c>longnames</c> or
+		the atom <c>shortnames</c> indicating
+		whether long or short names is used.
+	      </p>
+	    </item>
+	    <tag><c>SetupTime</c></tag>
+	    <item>
+	      <p>
+		Time used for creating a setup timer by a
+		call to <c>dist_util:start_timer(SetupTime)</c>.
+		The timer should be passed along to
+		<c>dist_util:handshake_we_started(HsData)</c>.
+	      </p>
+	    </item>
+	  </taglist>
+	  <p>
+	    The caller of this function is a representative for <c>net_kernel</c>
+	    (this may or may not be the process registered as <c>net_kernel</c>)
+	    and is in this document identified as <c>Kernel</c>. 
+	  </p>
+	  <p>
+	    This function should, besides spawning the connection supervisor,
+	    also create a distribution controller. The distribution
+	    controller is either a process or a port which is responsible
+	    for dispatching traffic.
+	  </p>
+	  <p>
+	    The created process should provide callbacks and other
+	    information needed for the handshake in a
+	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    record and call <c>dist_util:handshake_we_started(HsData)</c>
+	    with this record.
+	  </p>
+	  <p>
+	    <c>dist_util:handshake_we_started(HsData)</c> will perform
+	    the handshake and the handshake successfully completes this
+	    process will then continue in a connection supervisor loop
+	    as long as the connection is up.
+	  </p>
+	</item>
+	
+	<tag><marker id="close"/><c>close(Listen) -></c><br/>&nbsp;&nbsp;<c>void()</c></tag>
+	
+	<item><p>
+	  Called in order to close the <c>Listen</c> handle
+	  that originally was passed from the
+	  <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	</p></item>
+	
+	<tag><marker id="select"/><c>select(NodeName) -></c><br/>&nbsp;&nbsp;<c>boolean()</c></tag>
+	<item>
+	  <p>Return <c>true</c> if the host name part
+	  of the <c>NodeName</c> is valid for use
+	  with this protocol; otherwise, <c>false</c>.
+	  </p>
+	</item>
+	
+      </taglist>
+
+      <p>
+	There are also two optional functions that may be
+	exported:
+      </p>
+      <taglist>
+	<tag><marker id="select"/><c>setopts(Listen, Opts) -></c><br/>&nbsp;&nbsp;<c>ok | {error, Error}</c></tag>
+	<item>
+	  <p>
+	    The argument <c>Listen</c> is the handle originally passed
+	    from the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    The argument <c>Opts</c> is a list of options to set on future
+	    connections.
+	  </p>
+	</item>
+
+	<tag><marker id="select"/><c>getopts(Listen, Opts) -></c><br/>&nbsp;&nbsp;<c>{ok, OptionValues} | {error, Error}</c></tag>
+	<item>
+	  <p>
+	    The argument <c>Listen</c> is the handle originally passed
+	    from the
+	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    The argument <c>Opts</c> is a list of options to read for future
+	    connections.
+	  </p>
+	</item>
+      </taglist>
+      
+    </section>
+    <section>
+      <marker id="hs_data_record"/>
+      <title>The #hs_data{} Record</title>
+      <p>
+	The <c>dist_util:handshake_we_started/1</c> and
+	<c>dist_util:handshake_other_started/1</c> functions
+	takes a <c>#hs_data{}</c> record as argument. There
+	are quite a lot of fields in this record that you
+	need to set. The record is defined in
+	<c>kernel/include/dist_util.hrl</c>. Not documented
+	fields should not be set, i.e., should be left as
+	<c>undefined</c>.
+      </p>
+      <p>
+	The following <c>#hs_data{}</c> record fields need
+	to be set unless otherwise stated:</p>
+      <taglist>
+	<tag><marker id="hs_data_kernel_pid"/><c>kernel_pid</c></tag>
+	<item>
+	  <p>
+	    Process identifier of the <c>Kernel</c> process. That is,
+	    the process that called either
+	    <seealso marker="#setup"><c>setup/5</c></seealso> or
+	    <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_other_node"/><c>other_node</c></tag>
+	<item>
+	  <p>Name of the other node. This field is only
+	  mandatory when this node initiates the connection.
+	  That is, when connection is set up via
+	  <seealso marker="#setup"><c>setup/5</c></seealso>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_this_node"/><c>this_node</c></tag>
+	<item>
+	  <p>
+	    The node name of this node.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_socket"/><c>socket</c></tag>
+	<item>
+	  <p>
+	    The identifier of the distribution controller.
+	  </p>
+	</item>
+	
+	<tag><marker id="hs_data_timer"/><c>timer</c></tag>
+	<item>
+	  <p>
+	    The timer created using <c>dist_util:start_timer/1</c>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_allowed"/><c>allowed</c></tag>
+	<item>
+	  <p>Information passed as <c>Allowed</c> to
+	  <c>accept_connection/5</c>. This field is only
+	  mandatory when the remote node initiated the
+	  connection. That is, when the connection is set
+	  up via
+	  <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	  </p>
+	</item>
+      
+	<tag><marker id="hs_data_f_send"/><c>f_send</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Data) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller and <c>Data</c>
+	    is io data to pass to the other side.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+	
+	<tag><marker id="hs_data_f_recv"/><c>f_recv</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Length) -> {ok, Packet} | {error, Reason}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of the distribution
+	    controller.
+	    If <c>Length</c> is <c>0</c>, all available bytes should be
+	    returned. If <c>Length > 0</c>, exactly <c>Length</c> bytes
+	    should be returned, or an error; possibly discarding less
+	    than <c>Length</c> bytes of data when the connection is
+	    closed from the other side.
+	    It is used for passive receive of data from the
+	    other end.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_setopts_pre_nodeup"/><c>f_setopts_pre_nodeup</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller. Called just
+	    before the distribution channel is taken up
+	    for normal traffic.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_setopts_post_nodeup"/><c>f_setopts_post_nodeup</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller. Called just
+	    after distribution channel has been taken
+	    up for normal traffic.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_getll"/><c>f_getll</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> ID]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller and <c>ID</c> is
+	    the identifier of the low level entity that
+	    handles the connection (often <c>DistCtrlr</c>
+	    itself).
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_address"/><c>f_address</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Node) -> NetAddress]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier of
+	    the distribution controller, <c>Node</c>
+	    is the node name of the node on the other end,
+	    and <c>NetAddress</c> is a <c>#net_address{}</c>
+	    record with information about the address
+	    for the <c>Node</c> on the other end of the
+	    connection. The <c>#net_address{}</c> record
+	    is defined in
+	    <c>kernel/include/net_address.hrl</c>.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+
+	<tag><marker id="hs_data_mf_tick"/><c>mf_tick</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> void()]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller. This
+	    function should send information over
+	    the connection that is not interpreted
+	    by the other end while increasing the
+	    statistics of received packets on the
+	    other end. This is usually implemented by
+	    sending an empty packet.
+	  </p>
+	  <note><p>
+	    It is of vital importance that this operation
+	    does not block the caller for a long time.
+	    This since it is called from the connection
+	    supervisor.
+	  </p></note>
+	  <p>Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_mf_getstat"/><c>mf_getstat</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr) -> {ok, Received, Sent, PendSend}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller, <c>Received</c>
+	    is received packets, <c>Sent</c> is
+	    sent packets, and <c>PendSend</c> is
+	    amount of packets in queue to be sent
+	    or a <c>boolean()</c> indicating whether
+	    there are packets in queue to be sent.
+	  </p>
+	  <note><p>
+	    It is of vital importance that this operation
+	    does not block the caller for a long time.
+	    This since it is called from the connection
+	    supervisor.
+	  </p></note>
+	  <p>Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_request_type"/><c>request_type</c></tag>
+	<item>
+	  <p>
+	    The request <c>Type</c> as passed to
+	    <seealso marker="#setup"><c>setup/5</c></seealso>.
+	    This is only mandatory when the connection has
+	    been initiated by this node. That is, the connection
+	    is set up via <c>setup/5</c>.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_mf_setopts"/><c>mf_setopts</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> ok | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller and <c>Opts</c>
+	    is a list of options to set on the connection.
+	  </p>
+	  <p>This function is optional. Used when connection is up.</p>
+	</item>
+	
+	<tag><marker id="hs_data_mf_getopts"/><c>mf_getopts</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrl, Opts) -> {ok, OptionValues} | {error, Error}]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller and <c>Opts</c>
+	    is a list of options to read for the connection.
+	  </p>
+	  <p>This function is optional. Used when connection is up.</p>
+	</item>
+
+	<tag><marker id="hs_data_f_handshake_complete"/><c>f_handshake_complete</c></tag>
+	<item>
+	  <p>
+	    A fun with the following signature:
+	  </p>
+	  <code type="none"><![CDATA[fun (DistCtrlr, Node, DHandle) -> void()]]></code>
+	  <p>
+	    where <c>DistCtrlr</c> is the identifier
+	    of the distribution controller, <c>Node</c> is
+	    the node name of the node connected at the other
+	    end, and <c>DHandle</c> is a distribution handle
+	    needed by a distribution controller process when
+	    calling the following BIFs:
+	  </p>
+	  <list>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data/1</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification/1</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_input_handler/2"><c>erlang:dist_ctrl_input_handler/2</c></seealso></p></item>
+	    <item><p><seealso marker="erts:erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data/2</c></seealso></p></item>
+	  </list>
+	  <p>
+	    This function is called when the handshake has
+	    completed and the distribution channel is up.
+	    The distribution controller can begin dispatching
+	    traffic over the channel. This function is optional.
+	  </p>
+	  <p>Only used during handshake phase.</p>
+	</item>
+	
+	<tag><marker id="hs_data_add_flags"/><c>add_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to add to the connection. Currently all (non obsolete) flags will
+	    automatically be enabled.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_reject_flags"/><c>reject_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to reject. Currently the following distribution flags can be rejected:
+	  </p>
+	  <taglist>
+	    <tag><c>DFLAG_DIST_HDR_ATOM_CACHE</c></tag>
+	    <item>Do not use atom cache over this connection.</item>
+	  </taglist>
+	  <p>Use function <c>dist_util:strict_order_flags/0</c> to get all flags
+	    for features that require strict order delivery.</p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_require_flags"/><c>require_flags</c></tag>
+	<item>
+	  <p>
+	    Require these <seealso marker="erl_dist_protocol#dflags">distribution
+	    flags</seealso> to be used. The connection will be aborted during the
+	    handshake if the other end does not use them.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+      </taglist>
+    </section>
+
+    <section>
+      <marker id="distribution_data_delivery"/>
+      <title>Distribution Data Delivery</title>
+      <p>
+	When using the default configuration, the data to pass
+	over a connection needs to be delivered as is
+	to the node on the receiving end in the <em>exact same
+	order</em>, with no loss of data what so ever, as sent
+	from the sending node.
+      </p>
+      <p>
+	The data delivery order can be relaxed by disabling
+	features that require strict ordering. This is done by
+	passing the
+	<seealso marker="erl_dist_protocol#dflags">distribution	flags</seealso>
+	returned by <c>dist_util:strict_order_flags/0</c> in the
+	<seealso marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seealso>
+	field of the <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	record used when setting up the connection. When relaxed
+	ordering is used, only the order of signals with the same
+	sender/receiver pair has to be preserved.
+	However, note that disabling the features that require
+	strict ordering may have a negative impact on performance,
+	throughput, and/or latency. 
+      </p>
+    </section>
+
+    <section>
+      <marker id="enable_your_distribution_module"/>
+      <title>Enable Your Distribution Module</title>
+
+      <p>For <c>net_kernel</c> to find out which distribution module to use,
+      the <c>erl</c> command-line argument <c>-proto_dist</c> is used. It
+      is followed by one or more distribution module names, with suffix
+      "_dist" removed. That is, <c>gen_tcp_dist</c> as a distribution module
+      is specified as <c>-proto_dist gen_tcp</c>.</p>
+
+      <p>If no <c>epmd</c> (TCP port mapper daemon) is used, also command-line
+      option <c>-no_epmd</c> is to be specified, which makes
+      Erlang skip the <c>epmd</c> startup, both as an OS process and as an
+      Erlang ditto.</p>
+    </section>
+
+  </section>
+
+  <section>
     <title>The Driver</title>
+
+    <note>
+      <p>This section was written a long time ago. Most of it is still
+      valid, but some things have changed since then. Some updates have
+      been made to the documentation of the driver presented here,
+      but more can be done and is planned for the future.
+      The reader is encouraged to read the
+      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
+      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      documentation also.</p>
+    </note>
+
     <p>Although Erlang drivers in general can be beyond the scope of this
       section, a brief introduction seems to be in place.</p>
 

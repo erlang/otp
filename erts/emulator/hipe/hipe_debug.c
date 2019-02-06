@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,11 +62,14 @@ static void print_beam_pc(BeamInstr *pc)
     } else if (pc == &beam_apply[1]) {
 	printf("normal-process-exit");
     } else {
-	BeamInstr *mfa = find_function_from_pc(pc);
-	if (mfa)
+	ErtsCodeMFA *cmfa = find_function_from_pc(pc);
+	if (cmfa) {
+	    fflush(stdout);
 	    erts_printf("%T:%T/%bpu + 0x%bpx",
-			mfa[0], mfa[1], mfa[2], pc - &mfa[3]);
-	else
+			cmfa->module, cmfa->function,
+                        cmfa->arity,
+                        pc - erts_codemfa_to_code(cmfa));
+	} else
 	    printf("?");
     }
 }
@@ -114,6 +117,7 @@ static void print_stack(Eterm *sp, Eterm *end)
 	    printf(" | 0x%0*lx | 0x%0*lx | ",
 		   2*(int)sizeof(long), (unsigned long)sp,
 		   2*(int)sizeof(long), (unsigned long)val);
+	    fflush(stdout);
 	    erts_printf("%.30T", val);
 	    printf("\r\n");
 	}
@@ -124,7 +128,9 @@ static void print_stack(Eterm *sp, Eterm *end)
 
 void hipe_print_estack(Process *p)
 {
-    printf(" |       BEAM  STACK       |\r\n");
+    printf(" | %*s BEAM   STACK %*s |\r\n",
+	   2*(int)sizeof(long)-3, "",
+	   2*(int)sizeof(long)-4, "");
     print_stack(p->stop, STACK_START(p));
 }
 
@@ -133,7 +139,9 @@ static void print_heap(Eterm *pos, Eterm *end)
     printf("From: 0x%0*lx to 0x%0*lx\n\r",
 	   2*(int)sizeof(long), (unsigned long)pos,
 	   2*(int)sizeof(long), (unsigned long)end);
-    printf(" |         H E A P         |\r\n");
+    printf(" | %*s H E A P %*s |\r\n",
+	   2*(int)sizeof(long)-1, "",
+	   2*(int)sizeof(long)-1, "");
     printf(" | %*s | %*s |\r\n",
 	   2+2*(int)sizeof(long), "Address",
 	   2+2*(int)sizeof(long), "Contents");
@@ -156,8 +164,10 @@ static void print_heap(Eterm *pos, Eterm *end)
 		++pos;
 		--ari;
 	    }
-	} else
+	} else {
+	    fflush(stdout);
 	    erts_printf("%.30T", val);
+	}
 	printf("\r\n");
     }
     printf(" |%s|%s|\r\n", dashes, dashes);
@@ -171,11 +181,15 @@ void hipe_print_heap(Process *p)
 void hipe_print_pcb(Process *p)
 {
     printf("P: 0x%0*lx\r\n", 2*(int)sizeof(long), (unsigned long)p);
-    printf("-----------------------------------------------\r\n");
-    printf("Offset| Name        | Value      | *Value     |\r\n");
+    printf("%.*s\r\n",
+           6+1+13+1+2*(int)sizeof(long)+4+1+2*(int)sizeof(long)+4+1,
+           "---------------------------------------------------------------");
+    printf("Offset| Name        | Value %*s | *Value %*s |\r\n",
+           2*(int)sizeof(long)-4, "",
+           2*(int)sizeof(long)-5, "");
 #undef U
 #define U(n,x) \
-    printf(" % 4d | %s | 0x%0*lx |            |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x)
+    printf(" % 4d | %s | 0x%0*lx | %*s |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long)+2, "")
 #undef P
 #define P(n,x) \
     printf(" % 4d | %s | 0x%0*lx | 0x%0*lx |\r\n", (int)offsetof(Process,x), n, 2*(int)sizeof(long), (unsigned long)p->x, 2*(int)sizeof(long), p->x ? (unsigned long)*(p->x) : -1UL)
@@ -214,10 +228,10 @@ void hipe_print_pcb(Process *p)
     U("seq..clock ", seq_trace_clock);
     U("seq..astcnt", seq_trace_lastcnt);
     U("seq..token ", seq_trace_token);
-    U("intial[0]  ", u.initial[0]);
-    U("intial[1]  ", u.initial[1]);
-    U("intial[2]  ", u.initial[2]);
-    P("current    ", current);
+    U("intial.mod ", u.initial.module);
+    U("intial.fun ", u.initial.function);
+    U("intial.ari ", u.initial.arity);
+    U("current    ", current);
     P("cp         ", cp);
     P("i          ", i);
     U("catches    ", catches);
@@ -239,5 +253,7 @@ void hipe_print_pcb(Process *p)
 #endif	/* HIPE */
 #undef U
 #undef P
-    printf("-----------------------------------------------\r\n");
+    printf("%.*s\r\n",
+           6+1+14+1+2*(int)sizeof(long)+4+1+2*(int)sizeof(long)+4+1,
+           "---------------------------------------------------------------");
 }

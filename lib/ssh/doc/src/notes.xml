@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,1074 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Ssh 4.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Incompatibility with newer OpenSSH fixed. Previously
+	    versions 7.8 and later could cause Erlang SSH to exit.</p>
+          <p>
+	    Own Id: OTP-15413</p>
+        </item>
+        <item>
+          <p>
+	    The '<c>exec</c>' option for ssh daemons had wrong format
+	    in the documentation.</p>
+          <p>
+	    Own Id: OTP-15416</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added public key methods ssh-ed25519 and ssh-ed448.</p>
+          <p>
+	    Requires OpenSSL 1.1.1 or higher as cryptolib under the
+	    OTP application <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-15094 Aux Id: OTP-15419 </p>
+        </item>
+        <item>
+          <p>
+	    The SSH property tests are now adapted to the PropEr
+	    testing tool.</p>
+          <p>
+	    Own Id: OTP-15312</p>
+        </item>
+        <item>
+          <p>
+	    The term "user" was not documented in the SSH app. A new
+	    chapter with terminology is added to the User's Manual
+	    where the term "user" is defined.</p>
+          <p>
+	    A reference manual page about the module <c>ssh_file</c>
+	    is also added. This is the default callback module for
+	    user's keys, host keys etc.</p>
+          <p>
+	    Own Id: OTP-15314</p>
+        </item>
+        <item>
+          <p>
+	    Host and user key checking is made more robust.</p>
+          <p>
+	    Own Id: OTP-15424</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extended the undocumented <c>ssh_dbg</c> debug module
+	    with an api for a circular trace buffer. This makes it
+	    easy to record the last low-level events before an error
+	    is detected. It is intended for solving difficult errors.</p>
+          <p>
+	    Own Id: OTP-15020</p>
+        </item>
+        <item>
+          <p>
+	    The key exchange methods
+	    <c>'curve25519-sha256@libssh.org'</c>,
+	    <c>'curve25519-sha256'</c> and <c>'curve448-sha512'</c>
+	    are implemented. The last two are defined in
+	    https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves</p>
+          <p>
+	    They all depends on that OpenSSL 1.1.1 or higher is used
+	    as cryptolib.</p>
+          <p>
+	    Own Id: OTP-15133 Aux Id: OTP-15240 </p>
+        </item>
+        <item>
+          <p>
+	    The cipher '<c>chacha20-poly1305@openssh.com</c>' is now
+	    supported if OpenSSL 1.1.1 or higher is used as
+	    cryptolib.</p>
+          <p>
+	    Own Id: OTP-15209 Aux Id: OTP-15164 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.7</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If the daemon port listener is restarted, it could
+	    potentially fail with <c>eaddrinuse</c> if the timing is
+	    unlucky. It will now retry and exponentially back off the
+	    listener restart a few times before failing.</p>
+          <p>
+	    Own Id: OTP-14955</p>
+        </item>
+        <item>
+          <p>
+	    A channel callback module always got the module name as
+	    reason in a call to terminate. Now it will get the proper
+	    Reason, usually 'normal'.</p>
+          <p>
+	    Own Id: OTP-15084</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The option <c>exec</c> has new option values defined to
+	    make it much more easy to implement an own <c>exec</c>
+	    server.</p>
+          <p>
+	    An option called <c>exec</c> for daemons implementing the
+	    handling of 'exec' requests has existed a long time but
+	    has been undocumented. The old undocumented value - as
+	    well as its behavior - is kept for compatibility EXCEPT
+	    that error messages are changed and are sent as
+	    "stderror" text.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14851</p>
+        </item>
+        <item>
+          <p>
+	    Updated ssh_connection:shell/2 documentation.</p>
+          <p>
+	    Own Id: OTP-14880</p>
+        </item>
+        <item>
+          <p>
+	    The experimental <c>ssh_dbg</c> module is completely
+	    re-written. Its purpose is to make tracing and debugging
+	    easier on deployed systems.</p>
+          <p>
+	    Own Id: OTP-14896</p>
+        </item>
+        <item>
+          <p>
+	    The SSH supervisor structure has been slightly changed.
+	    This makes stopping the ssh application considerably
+	    faster if there are open connections. This is important
+	    in for example restarts.</p>
+          <p>
+	    Own Id: OTP-14988</p>
+        </item>
+        <item>
+          <p>
+	    The type specifications in SSH are completly reworked and
+	    the following types are renamed:</p>
+          <p>
+	    <c>ssh:ssh_connection_ref()</c> is changed to
+	    <c>ssh:connection_ref()</c>, </p>
+          <p>
+	    <c>ssh:ssh_daemon_ref()</c> is changed to
+	    <c>ssh:daemon_ref()</c>,</p>
+          <p>
+	    <c>ssh:ssh_channel_id()</c> is changed to
+	    <c>ssh:channel_id()</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-15002 Aux Id: OTP-15030 </p>
+        </item>
+        <item>
+          <p>
+	    The internal timer handling in SSH is now based on the
+	    gen_statem timers.</p>
+          <p>
+	    Own Id: OTP-15019</p>
+        </item>
+        <item>
+          <p>
+	    Removed the undocumented and unused modules
+	    <c>ssh_client_key.erl</c> and <c>ssh_server_key.erl</c>.</p>
+          <p>
+	    Own Id: OTP-15028</p>
+        </item>
+        <item>
+          <p>
+	    The Reference Manual pages are partly updated.</p>
+          <p>
+	    The ssh page is now generated from specs and types, is
+	    restructured and is partly rephrased.</p>
+          <p>
+	    The ssh_channel, ssh_connection, ssh_client_key_api,
+	    ssh_server_key_api and ssh_sftp pages are updated with
+	    links, correct type names and some minor changes.</p>
+          <p>
+	    Own Id: OTP-15030 Aux Id: OTP-15002 </p>
+        </item>
+        <item>
+          <p>
+	    The behaviors <c>ssh_channel</c> and
+	    <c>ssh_daemon_channel</c> are renamed to
+	    <c>ssh_client_channel</c> and <c>ssh_server_channel</c>
+	    respectively.</p>
+          <p>
+	    The old modules are kept for compatibility but should
+	    preferably be replaced when updating callback modules
+	    referring them.</p>
+          <p>
+	    Own Id: OTP-15041</p>
+        </item>
+        <item>
+          <p>
+	    New test suite for channels.</p>
+          <p>
+	    Own Id: OTP-15051</p>
+        </item>
+        <item>
+          <p>
+	    The <c>rekey_limit</c> option could now set the max time
+	    as well as the previously max data amount.</p>
+          <p>
+	    Own Id: OTP-15069 Aux Id: ERL-617 </p>
+        </item>
+        <item>
+          <p>
+	    Changed process exit supervision from links to monitors.</p>
+          <p>
+	    Own Id: OTP-15082</p>
+        </item>
+        <item>
+          <p>
+	    Better handling of misbehaving channel callback modules.</p>
+          <p>
+	    Own Id: OTP-15083</p>
+        </item>
+        <item>
+          <p>
+	    A new moduli file is generated. This file is used for the
+	    recommended <c>diffie-hellman-group-exchange-sha256</c>
+	    key exchange algorithm in SSH.</p>
+          <p>
+	    Own Id: OTP-15113</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 4.6.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Incompatibility with newer OpenSSH fixed. Previously
+	    versions 7.8 and later could cause Erlang SSH to exit.</p>
+          <p>
+	    Own Id: OTP-15413</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.9.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SFTP clients reported the error reason <c>""</c> if a
+	    non-OTP sftp server was killed during a long file
+	    transmission.</p>
+          <p>
+	    Now the signal name (for example <c>"KILL"</c>) will be
+	    the error reason if the server's reason is empty.</p>
+          <p>
+	    The documentation also lacked type information about this
+	    class of errors.</p>
+          <p>
+	    Own Id: OTP-15148 Aux Id: ERIERL-194 </p>
+        </item>
+        <item>
+          <p>
+	    Fix ssh_sftp decode error for sftp protocol version 4</p>
+          <p>
+	    Own Id: OTP-15149 Aux Id: ERIERL-199 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Host key hash erroneously calculated for clients
+	    following draft-00 of RFC 4419, for example PuTTY</p>
+          <p>
+	    Own Id: OTP-15064</p>
+        </item>
+        <item>
+          <p>
+	    Renegotiation could fail in some states</p>
+          <p>
+	    Own Id: OTP-15066</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.8</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ssh_sftp server (running version 6) could fail if it
+	    is told to remove a file which in fact is a directory.</p>
+          <p>
+	    Own Id: OTP-15004</p>
+        </item>
+        <item>
+          <p>
+	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    <c>{'EXIT',_,normal}</c> messages.</p>
+          <p>
+	    Own Id: OTP-15018</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bad spec in ssh.hrl: <c>double_algs()</c>.</p>
+          <p>
+	    Own Id: OTP-14990</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove a blocking risk when a channel is closed and an
+	    operation is tried on that channel after at least a
+	    second's time gap.</p>
+          <p>
+	    Own Id: OTP-14939</p>
+        </item>
+      </list>
+    </section>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added ssh_compat_SUITE.</p>
+          <p>
+	    This suite contains a number of interoperability tests
+	    mainly with OpenSSH. The tests start docker containers
+	    with different OpenSSH and OpenSSL/LibreSSLcryptolib
+	    versions and performs a number of tests of supported
+	    algorithms.</p>
+          <p>
+	    All login methods and all user's public key types are
+	    tested both for the client and the server.</p>
+          <p>
+	    All algorithms for kex, cipher, host key, mac and
+	    compressions are tested with a number of exec and sftp
+	    tests, both for the client and the server.</p>
+          <p>
+	    Own Id: OTP-14194 Aux Id: OTP-12487 </p>
+        </item>
+        <item>
+          <p>
+	    Default exec is disabled when a user-defined shell is
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-14881</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Adjusted supervisor timeouts</p>
+          <p>
+	    Own Id: OTP-14907</p>
+        </item>
+        <item>
+          <p>
+	    Remove ERROR messages for slow process exits</p>
+          <p>
+	    Own Id: OTP-14930</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>save_accepted_host</c> to
+	    <c>ssh:connection</c>. This option, if set to false,
+	    inhibits saving host keys to e.g the file
+	    <c>known_hosts</c>.</p>
+          <p>
+	    Own Id: OTP-14935</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix problem with OpenSSH 7.2 (and later) clients that has
+	    used sha1 instead of sha2 for rsa-sha-256/512 user's
+	    public keys.</p>
+          <p>
+	    Own Id: OTP-14827 Aux Id: ERL-531 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Passphrase option for ecdsa public keys was missing.</p>
+          <p>
+	    Own Id: OTP-14602</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The host and user public key handling is hardened so that
+	    a faulty plugin can't deliver a key of wrong type.</p>
+          <p>
+	    Better checks in the server of the available hostkey's
+	    types at start and at each accept.</p>
+          <p>
+	    Better checks in the client of the available user public
+	    key types at connect.</p>
+          <p>
+	    Own Id: OTP-14676 Aux Id: ERIERL-52, OTP-14570 </p>
+        </item>
+        <item>
+          <p>
+	    SSH can now fetch the host key from the private keys
+	    stored in an Engine. See the crypto application for
+	    details about Engines.</p>
+          <p>
+	    Own Id: OTP-14757</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.2</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+        <item>
+          <p>
+	    Fixes that tcp connections that was immediately closed
+	    (SYN, SYNACK, ACK, RST) by a client could be left in a
+	    zombie state.</p>
+          <p>
+	    Own Id: OTP-14778 Aux Id: ERIERL-104 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed broken printout</p>
+          <p>
+	    Own Id: OTP-14645</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Disable aes_gcm ciphers if peer is OpenSSH 6.2 which is
+	    known to have trouble with them in some cases.</p>
+          <p>
+	    Own Id: OTP-14638</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enables the <c>ssh_io module</c> to also accept binary
+	    values when reading standard_io instead of getting stuck
+	    in the receive clause.</p>
+          <p>
+	    Own Id: OTP-14506 Aux Id: PR1503 </p>
+        </item>
+        <item>
+          <p>
+	    Previously, the file owner access permission in response
+	    to ssh_sftp:read_file_info/2 function was always
+	    <c>read_write</c>. With this fix, the actual value of
+	    file owner access permission is added to the returning
+	    record. That value is calculated from file mode value.</p>
+          <p>
+	    Own Id: OTP-14550 Aux Id: PR1533 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option <c>modify_algorithms</c> is implemented. It
+	    enables specifying changes on the default algorithms
+	    list. See the reference manual and the SSH User's Guide
+	    chapter "Configuring algorithms in SSH".</p>
+          <p>
+	    Own Id: OTP-14568</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    All unknown options are sent to the transport handler
+	    regardless of type.</p>
+          <p>
+	    Own Id: OTP-14541 Aux Id: EIRERL-63 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The internal handling of SSH options is re-written.</p>
+          <p>
+	    Previously there were no checks if a client option was
+	    given to a daemon or vice versa. This is corrected now.
+	    If your code has e.g. a client-only option in a call to
+	    start a daemon, the call will fail.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12872</p>
+        </item>
+        <item>
+          <p>
+	    Modernization of key exchange algorithms. See
+	    draft-ietf-curdle-ssh-kex-sha2 for a discussion.</p>
+          <p>
+	    Removed an outdated weak algorithm and added stronger
+	    replacements to keep interoperability with other modern
+	    ssh clients and servers. The default ordering of the
+	    algorithms is also adjusted.</p>
+          <p>
+	    Retired: The nowadays unsecure key-exchange
+	    <c>diffie-hellman-group1-sha1</c> is not enabled by
+	    default, but can be enabled with the option
+	    <c>preferred-algorithms</c>.</p>
+          <p>
+	    Added: The new stronger key-exchange
+	    <c>diffie-hellman-group16-sha512</c>,
+	    <c>diffie-hellman-group18-sha512</c> and
+	    <c>diffie-hellman-group14-sha256</c> are added and
+	    enabled by default.</p>
+          <p>
+	    The questionable [RFC 6194] sha1-based algorithms
+	    <c>diffie-hellman-group-exchange-sha1</c> and
+	    <c>diffie-hellman-group14-sha1</c> are however still kept
+	    enabled by default for compatibility with ancient clients
+	    and servers that lack modern key-exchange alternatives.
+	    When the draft-ietf-curdle-ssh-kex-sha2 becomes an rfc,
+	    those sha1-based algorithms and
+	    <c>diffie-hellman-group1-sha1</c> will be deprecated by
+	    IETF. They might then be removed from the default list in
+	    Erlang/OTP.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14110</p>
+        </item>
+        <item>
+          <p>
+	    Modernized internal representation of sftp by use of
+	    maps.</p>
+          <p>
+	    Own Id: OTP-14117</p>
+        </item>
+        <item>
+          <p>
+	    The Extension Negotiation Mechanism and the extension
+	    <c>server-sig-algs</c> in
+	    draft-ietf-curdle-ssh-ext-info-05 are implemented.</p>
+          <p>
+	    The related draft-ietf-curdle-rsa-sha2-05 is implemented
+	    and introduces the signature algorithms
+	    <c>rsa-sha2-256</c> and <c>rsa-sha2-512</c>.</p>
+          <p>
+	    Own Id: OTP-14193</p>
+        </item>
+        <item>
+          <p>
+	    The 'timeout' and 'connect_timeout' handling in
+	    ssh_sftp:start_channel documentation is clarified.</p>
+          <p>
+	    Own Id: OTP-14216</p>
+        </item>
+        <item>
+          <p>
+	    The functions <c>ssh:connect</c>, <c>ssh:shell</c> and
+	    <c>ssh:start_channel</c> now accept an IP-tuple as Host
+	    destination argument.</p>
+          <p>
+	    Own Id: OTP-14243</p>
+        </item>
+        <item>
+          <p>
+	    The function <c>ssh:daemon_info/1</c> now returns Host
+	    and Profile as well as the Port info in the property
+	    list.</p>
+          <p>
+	    Own Id: OTP-14259</p>
+        </item>
+        <item>
+          <p>
+	    Removed the option <c>public_key_alg</c> which was
+	    deprecated in 18.2. Use <c>pref_public_key_algs</c>
+	    instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14263</p>
+        </item>
+        <item>
+          <p>
+	    The SSH application is refactored regarding daemon
+	    starting. The resolution of contradicting <c>Host</c>
+	    argument and <c>ip</c> option were not described. There
+	    were also strange corner cases when the <c>'any'</c>
+	    value was used in <c>Host</c> argument or <c>ip</c>
+	    option. This is (hopefully) resolved now, but it may
+	    cause incompatibilities for code using both <c>Host</c>
+	    and the <c>ip</c> option. The value 'loopback' has been
+	    added for a correct way of naming those addresses.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-14264</p>
+        </item>
+        <item>
+          <p>
+	    The supervisor code is refactored. The naming of
+	    listening IP-Port-Profile triples are slightly changed to
+	    improve consistency in strange corner cases as resolved
+	    by OTP-14264</p>
+          <p>
+	    Own Id: OTP-14267 Aux Id: OTP-14266 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>idle_time</c> option can now be used in daemons.</p>
+          <p>
+	    Own Id: OTP-14312</p>
+        </item>
+        <item>
+          <p>
+	    Added test cases for IETF-CURDLE Extension Negotiation
+	    (ext-info)</p>
+          <p>
+	    Own Id: OTP-14361</p>
+        </item>
+        <item>
+          <p>
+	    Testcases for IETF-CURDLE extension
+	    <c>server-sig-algs</c> including <c>rsa-sha2-*</c></p>
+          <p>
+	    Own Id: OTP-14362 Aux Id: OTP-14361 </p>
+        </item>
+        <item>
+          <p>
+	    The option <c>auth_methods</c> can now also be used in
+	    clients to select which authentication options that are
+	    used and in which order.</p>
+          <p>
+	    Own Id: OTP-14399</p>
+        </item>
+        <item>
+          <p>
+	    Checks that a ECDSA public key (<c>ecdsa-sha2-nistp*</c>)
+	    stored in a file has the correct size.</p>
+          <p>
+	    Own Id: OTP-14410</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.4.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    <c>{'EXIT',_,normal}</c> messages.</p>
+          <p>
+	    Own Id: OTP-15018</p>
+        </item>
+        <item>
+          <p>
+	    Host key hash erroneously calculated for clients
+	    following draft-00 of RFC 4419, for example PuTTY</p>
+          <p>
+	    Own Id: OTP-15064</p>
+        </item>
+        <item>
+          <p>
+	    Renegotiation could fail in some states</p>
+          <p>
+	    Own Id: OTP-15066</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.4.2.3</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An ssh_sftp server (running version 6) could fail if it
+	    is told to remove a file which in fact is a directory.</p>
+          <p>
+	    Own Id: OTP-15004</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 4.4.2.2</title>
+    <section><title>Improvements and New Features</title>
+    <list>
+        <item>
+          <p>
+	    Default exec is disabled when a user-defined shell is
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-14881</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+
+<section><title>Ssh 4.4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssh:daemon_info/1 crashed if the listening IP was not
+	    'any'</p>
+          <p>
+	    Own Id: OTP-14298 Aux Id: seq13294 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug when opening connections. If the tcp setup
+	    failed, that would in some cases not result in an error
+	    return value.</p>
+          <p>
+	    Own Id: OTP-14108</p>
+        </item>
+        <item>
+          <p>
+	    Reduce information leakage in case of decryption errors.</p>
+          <p>
+	    Own Id: OTP-14109</p>
+        </item>
+        <item>
+          <p>
+	    The key exchange algorithm
+	    diffie-hellman-group-exchange-sha* has a server-option
+	    <c>{dh_gex_limits,{Min,Max}}</c>. There was a hostkey
+	    signature validation error on the client side if the
+	    option was used and the <c>Min</c> or the <c>Max</c>
+	    differed from the corresponding values obtained from the
+	    client.</p>
+          <p>
+	    This bug is now corrected.</p>
+          <p>
+	    Own Id: OTP-14166</p>
+        </item>
+        <item>
+          <p>
+	    The sftpd server now correctly uses <c>root_dir</c> and
+	    <c>cwd</c> when resolving file paths if both are
+	    provided. The <c>cwd</c> handling is also corrected.</p>
+          <p>
+	    Thanks to kape1395!</p>
+          <p>
+	    Own Id: OTP-14225 Aux Id: PR-1331, PR-1335 </p>
+        </item>
+        <item>
+          <p>
+	    Ssh_cli used a function that does not handle non-utf8
+	    unicode correctly.</p>
+          <p>
+	    Own Id: OTP-14230 Aux Id: ERL-364 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The implementation of the key exchange algorithms
+	    diffie-hellman-group-exchange-sha* are optimized, up to a
+	    factor of 11 for the slowest ( = biggest and safest)
+	    group size.</p>
+          <p>
+	    Own Id: OTP-14169 Aux Id: seq-13261 </p>
+        </item>
+        <item>
+          <p>
+	    The ssh host key fingerprint generation now also takes a
+	    list of algorithms and returns a list of corresponding
+	    fingerprints. See
+	    <c>public_key:ssh_hostkey_fingerprint/2</c> and the
+	    option <c>silently_accept_hosts</c> in
+	    <c>ssh:connect</c>.</p>
+          <p>
+	    Own Id: OTP-14223</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A file read with an sftp client could loose data if the
+	    packet_size is set to larger than 64k. This is corrected
+	    now in such a way that the packet_size is silently
+	    lowered if there is a risk for data loss.</p>
+          <p>
+	    Own Id: OTP-13857 Aux Id: ERL-238, OTP-13858 </p>
+        </item>
+        <item>
+          <p>
+	    When user defined SSH shell REPL process exits with
+	    reason normal, the SSH channel callback module should
+	    report successful exit status to the SSH client. This
+	    provides simple way for SSH clients to check for
+	    successful completion of executed commands. (Thanks to
+	    isvilen)</p>
+          <p>
+	    Own Id: OTP-13905 Aux Id: PR-1173 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extended the option <c>silently_accept_hosts</c> for
+	    <c>ssh:connect</c> to make it possible for the client to
+	    check the SSH host key fingerprint string. Se the
+	    reference manual for SSH.</p>
+          <p>
+	    Own Id: OTP-13887 Aux Id: OTP-13888 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Re-negotiation problems with OpenSSH client solved.</p>
+          <p>
+	    Own Id: OTP-13972</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a client illegaly sends an info-line and then
+	    immediatly closes the TCP-connection, a badmatch
+	    exception was raised.</p>
+          <p>
+	    Own Id: OTP-13966</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Intermittent ssh ERROR REPORT mentioning
+	    nonblocking_sender</p>
+          <p>
+	    Own Id: OTP-13953 Aux Id: seq13199 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle all possible exit values that should be
+	    interpreted as {error, closed}. Failing to do so could
+	    lead to unexpected crashes for users of the ssh
+	    application.</p>
+          <p>
+	    Own Id: OTP-13932 Aux Id: seq13189 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Ssh 4.3.2</title>
 
@@ -188,6 +1256,108 @@
 	    details.</p>
           <p>
 	    Own Id: OTP-13527</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.2.2.6</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix rare spurios shutdowns of ssh servers when receiveing
+	    <c>{'EXIT',_,normal}</c> messages.</p>
+          <p>
+	    Own Id: OTP-15018</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+
+<section><title>Ssh 4.2.2.5</title>
+    <section><title>Improvements and New Features</title>
+    <list>
+        <item>
+          <p>
+	    Default exec is disabled when a user-defined shell is
+	    enabled.</p>
+          <p>
+	    Own Id: OTP-14881</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+
+<section><title>Ssh 4.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Trailing white space was removed at end of the
+	    hello-string. This caused interoperability problems with
+	    some other ssh-implementations (e.g OpenSSH 7.3p1 on
+	    Solaris 11)</p>
+          <p>
+	    Own Id: OTP-14763 Aux Id: ERIERL-74 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The key exchange algorithm
+	    diffie-hellman-group-exchange-sha* has a server-option
+	    <c>{dh_gex_limits,{Min,Max}}</c>. There was a hostkey
+	    signature validation error on the client side if the
+	    option was used and the <c>Min</c> or the <c>Max</c>
+	    differed from the corresponding values obtained from the
+	    client.</p>
+          <p>
+	    This bug is now corrected.</p>
+          <p>
+	    Own Id: OTP-14166</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Key exchange algorithms
+	    diffie-hellman-group-exchange-sha* optimized, up to a
+	    factor of 11 for the slowest ( = biggest and safest) one.</p>
+          <p>
+	    Own Id: OTP-14169 Aux Id: seq-13261 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 4.2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Upgrade of an established client connection could crash
+	    because the ssh client supervisors children had wrong
+	    type. This is fixed now.</p>
+          <p>
+	    Own Id: OTP-13782 Aux Id: seq13158 </p>
         </item>
       </list>
     </section>
@@ -2778,4 +3948,3 @@
 
   </section>
 </chapter>
-

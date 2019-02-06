@@ -60,7 +60,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += +warn_obsolete_guard -I$(INCLUDE) -Werror
+ERL_COMPILE_FLAGS += -I$(INCLUDE) -Werror
 
 # ----------------------------------------------------
 # Targets

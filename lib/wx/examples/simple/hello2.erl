@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,8 +29,9 @@
 -module(hello2).
 -include_lib("wx/include/wx.hrl").
 
--export([start/0]).
--compile(export_all).
+-export([start/0,
+         init/1, handle_info/2, handle_event/2, handle_call/3,
+         code_change/3, terminate/2]).
 
 -behavoiur(wx_object).
 

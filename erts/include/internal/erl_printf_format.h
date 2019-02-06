@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include "erl_int_sizes_config.h"
+#include "erl_printf.h"
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long ErlPfUWord;
@@ -43,8 +44,6 @@ typedef long long          ErlPfSWord;
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
-
-typedef int (*fmtfn_t)(void*, char*, size_t);
 
 extern int erts_printf_format(fmtfn_t, void*, char*, va_list);
 

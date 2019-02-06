@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,9 @@
 %% Supervisor callback
 -export([init/1]).
 
+%% Debug
+-export([consult/1]).
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
@@ -37,58 +40,94 @@
 -spec start_link() -> {ok, pid()} | ignore | {error, term()}.
 			
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    case init:get_argument(ssl_dist_optfile) of
+        {ok, [File]} ->
+            DistOpts = consult(File),
+            TabOpts = [set, protected, named_table],
+            Tab = ets:new(ssl_dist_opts, TabOpts),
+            true = ets:insert(Tab, DistOpts),
+            supervisor:start_link({local, ?MODULE}, ?MODULE, []);
+        {ok, BadArg} ->
+            error({bad_ssl_dist_optfile, BadArg});
+        error ->
+            supervisor:start_link({local, ?MODULE}, ?MODULE, [])
+    end.
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 
 init([]) ->    
-    SessionCertManager = session_and_cert_manager_child_spec(),
-    ConnetionManager = connection_manager_child_spec(),
-    ListenOptionsTracker = listen_options_tracker_child_spec(), 
-    ProxyServer = proxy_server_child_spec(),
-
-    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager, 
-				    ListenOptionsTracker,
-				    ProxyServer]}}.
+    AdminSup = ssl_admin_child_spec(),
+    ConnectionSup = ssl_connection_sup(),
+    {ok, {{one_for_all, 10, 3600}, [AdminSup, ConnectionSup]}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-session_and_cert_manager_child_spec() ->
-    Opts = ssl_sup:manager_opts(),
-    Name = ssl_manager_dist,  
-    StartFunc = {ssl_manager, start_link_dist, [Opts]},
+ssl_admin_child_spec() ->
+    Name = ssl_dist_admin_sup,  
+    StartFunc = {ssl_dist_admin_sup, start_link , []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [ssl_manager],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-connection_manager_child_spec() ->
-    Name = ssl_connection_dist,  
-    StartFunc = {tls_connection_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [tls_connection_sup],
+    Modules = [ssl_admin_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-proxy_server_child_spec() ->
-    Name = ssl_tls_dist_proxy,  
-    StartFunc = {ssl_tls_dist_proxy, start_link, []},
-    Restart = permanent, 
+ssl_connection_sup() ->
+    Name = ssl_dist_connection_sup,
+    StartFunc = {ssl_dist_connection_sup, start_link, []},
+    Restart = permanent,
     Shutdown = 4000,
-    Modules = [ssl_tls_dist_proxy],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-listen_options_tracker_child_spec() ->
-    Name = ssl_socket_dist,  
-    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_socket],
+    Modules = [ssl_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+consult(File) ->
+    case erl_prim_loader:get_file(File) of
+        {ok, Binary, _FullName} ->
+            Encoding =
+                case epp:read_encoding_from_binary(Binary) of
+                    none -> latin1;
+                    Enc -> Enc
+                end,
+            case unicode:characters_to_list(Binary, Encoding) of
+                {error, _String, Rest} ->
+                    error(
+                      {bad_ssl_dist_optfile, {encoding_error, Rest}});
+                {incomplete, _String, Rest} ->
+                    error(
+                      {bad_ssl_dist_optfile, {encoding_incomplete, Rest}});
+                String when is_list(String) ->
+                    consult_string(String)
+            end;
+        error ->
+            error({bad_ssl_dist_optfile, File})
+    end.
+
+consult_string(String) ->
+    case erl_scan:string(String) of
+        {error, Info, Location} ->
+            error({bad_ssl_dist_optfile, {scan_error, Info, Location}});
+        {ok, Tokens, _EndLocation} ->
+            consult_tokens(Tokens)
+    end.
+
+consult_tokens(Tokens) ->
+    case erl_parse:parse_exprs(Tokens) of
+        {error, Info} ->
+            error({bad_ssl_dist_optfile, {parse_error, Info}});
+        {ok, [Expr]} ->
+            consult_expr(Expr);
+        {ok, Other} ->
+            error({bad_ssl_dist_optfile, {parse_error, Other}})
+    end.
+
+consult_expr(Expr) ->
+    {value, Value, Bs} = erl_eval:expr(Expr, erl_eval:new_bindings()),
+    case erl_eval:bindings(Bs) of
+        [] ->
+            Value;
+        Other ->
+            error({bad_ssl_dist_optfile, {bindings, Other}})
+    end.

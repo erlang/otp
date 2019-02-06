@@ -1,7 +1,7 @@
 %%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,9 +58,7 @@
 
 -include("mnesia.hrl").
 
--define(OLD_HASH_MOD, mnesia_frag_old_hash).
 -define(DEFAULT_HASH_MOD, mnesia_frag_hash).
-%%-define(DEFAULT_HASH_MOD, ?OLD_HASH_MOD). %%  BUGBUG: New should be default
 
 -record(frag_state,
 	{foreign_key,
@@ -80,7 +78,7 @@
 lock(ActivityId, Opaque, {table , Tab}, LockKind) ->
     case frag_names(Tab) of
 	[Tab] ->
-	    mnesia:lock(ActivityId, Opaque, {table, Tab}, LockKind);	    
+	    mnesia:lock(ActivityId, Opaque, {table, Tab}, LockKind);
 	Frags ->
 	    DeepNs = [mnesia:lock(ActivityId, Opaque, {table, F}, LockKind) ||
 			 F <- Frags],
@@ -321,7 +319,7 @@ init_select(Tid,Opaque,Tab,Pat,Limit,LockKind) ->
 	{'EXIT', _} ->
 	    mnesia:select(Tid, Opaque, Tab, Pat, Limit,LockKind);
 	FH ->
-	    FragNumbers = verify_numbers(FH,Pat), 
+	    FragNumbers = verify_numbers(FH,Pat),
 	    Fun = fun(Num) ->
 			  Name = n_to_frag_name(Tab, Num),
 			  Node = val({Name, where_to_read}),
@@ -336,19 +334,19 @@ init_select(Tid,Opaque,Tab,Pat,Limit,LockKind) ->
     end.
 
 select_cont(_Tid,_,{frag_cont, '$end_of_table', [],_}) -> '$end_of_table';
-select_cont(Tid,Ts,{frag_cont, '$end_of_table', [{Tab,Node,Type}|Rest],Args}) -> 
+select_cont(Tid,Ts,{frag_cont, '$end_of_table', [{Tab,Node,Type}|Rest],Args}) ->
     {Spec,LockKind,Limit} = Args,
     InitFun = fun(FixedSpec) -> mnesia:dirty_sel_init(Node,Tab,FixedSpec,Limit,Type) end,
     Res = mnesia:fun_select(Tid,Ts,Tab,Spec,LockKind,Tab,InitFun,Limit,Node,Type),
     frag_sel_cont(Res, Rest, Args);
-select_cont(Tid,Ts,{frag_cont, Cont, TabL, Args}) -> 
+select_cont(Tid,Ts,{frag_cont, Cont, TabL, Args}) ->
     frag_sel_cont(mnesia:select_cont(Tid,Ts,Cont),TabL,Args);
 select_cont(Tid,Ts,Else) ->  %% Not a fragmented table
     mnesia:select_cont(Tid,Ts,Else).
 
 frag_sel_cont('$end_of_table', [],_) ->
     '$end_of_table';
-frag_sel_cont('$end_of_table', TabL,Args) -> 
+frag_sel_cont('$end_of_table', TabL,Args) ->
     {[], {frag_cont, '$end_of_table', TabL,Args}};
 frag_sel_cont({Recs,Cont}, TabL,Args) ->
     {Recs, {frag_cont, Cont, TabL,Args}}.
@@ -358,9 +356,9 @@ do_select(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
 	{'EXIT', _} ->
 	    mnesia:select(ActivityId, Opaque, Tab, MatchSpec, LockKind);
 	FH ->
-	    FragNumbers = verify_numbers(FH,MatchSpec), 
+	    FragNumbers = verify_numbers(FH,MatchSpec),
 	    Fun = fun(Num) ->
-			  Name = n_to_frag_name(Tab, Num),
+                          Name = n_to_frag_name(Tab, Num),
 			  Node = val({Name, where_to_read}),
 			  mnesia:lock(ActivityId, Opaque, {table, Name}, LockKind),
 			  {Name, Node}
@@ -398,7 +396,7 @@ do_select(ActivityId, Opaque, Tab, MatchSpec, LockKind) ->
 
 verify_numbers(FH,MatchSpec) ->
     HashState = FH#frag_state.hash_state,
-    FragNumbers = 
+    FragNumbers =
 	case FH#frag_state.hash_module of
 	    HashMod when HashMod == ?DEFAULT_HASH_MOD ->
 		?DEFAULT_HASH_MOD:match_spec_to_frag_numbers(HashState, MatchSpec);
@@ -434,7 +432,7 @@ local_select(ReplyTo, Ref, RemoteNameNodes, MatchSpec) ->
     end,
     unlink(ReplyTo),
     exit(normal).
-    
+
 remote_select(ReplyTo, Ref, NameNodes, MatchSpec) ->
     do_remote_select(ReplyTo, Ref, NameNodes, MatchSpec).
 
@@ -805,22 +803,22 @@ make_deactivate(Tab) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add a fragment to a fragmented table  and fill it with half of
 %% the records from one of the old fragments
-    
+
 make_multi_add_frag(Tab, SortedNs) when is_list(SortedNs) ->
     verify_multi(Tab),
     Ops = make_add_frag(Tab, SortedNs),
 
     %% Propagate to foreigners
     MoreOps = [make_add_frag(T, SortedNs) || T <- lookup_foreigners(Tab)],
-    [Ops | MoreOps]; 
+    [Ops | MoreOps];
 make_multi_add_frag(Tab, SortedNs) ->
     mnesia:abort({bad_type, Tab, SortedNs}).
 
 verify_multi(Tab) ->
     FH = lookup_frag_hash(Tab),
     ForeignKey = FH#frag_state.foreign_key,
-    mnesia_schema:verify(undefined, ForeignKey, 
-			 {combine_error, Tab, 
+    mnesia_schema:verify(undefined, ForeignKey,
+			 {combine_error, Tab,
 			  "Op only allowed via foreign table",
 			  {foreign_key, ForeignKey}}).
 
@@ -839,7 +837,7 @@ make_frag_names_and_acquire_locks(Tab, N, FragIndecies, DoNotLockN) ->
 	  end,
     FragNames = erlang:make_tuple(N, undefined),
     lists:foldl(Fun, FragNames, FragIndecies).
-    
+
 make_add_frag(Tab, SortedNs) ->
     Cs = mnesia_schema:incr_version(val({Tab, cstruct})),
     mnesia_schema:ensure_active(Cs),
@@ -849,8 +847,8 @@ make_add_frag(Tab, SortedNs) ->
     FragNames = make_frag_names_and_acquire_locks(Tab, N, WriteIndecies, true),
     NewFrag = element(N, FragNames),
 
-    NR = length(Cs#cstruct.ram_copies), 
-    ND = length(Cs#cstruct.disc_copies), 
+    NR = length(Cs#cstruct.ram_copies),
+    ND = length(Cs#cstruct.disc_copies),
     NDO = length(Cs#cstruct.disc_only_copies),
     NExt = length(Cs#cstruct.external_copies),
     NewCs = Cs#cstruct{name = NewFrag,
@@ -859,7 +857,7 @@ make_add_frag(Tab, SortedNs) ->
 		       disc_copies = [],
 		       disc_only_copies = [],
                        external_copies = []},
-    
+
     {NewCs2, _, _} = set_frag_nodes(NR, ND, NDO, NExt, NewCs, SortedNs, []),
     [NewOp] = mnesia_schema:make_create_table(NewCs2),
 
@@ -944,7 +942,7 @@ do_split(FH, OldN, FragNames, [Rec | Recs], Ops) ->
 		    Key = element(2, Rec),
 		    NewOid = {NewFrag, Key},
 		    OldOid = {OldFrag, Key},
-		    Ops2 = [{op, rec, unknown, {NewOid, [Rec], write}}, 
+		    Ops2 = [{op, rec, unknown, {NewOid, [Rec], write}},
 			    {op, rec, unknown, {OldOid, [OldOid], delete}} | Ops],
 		    do_split(FH, OldN, FragNames, Recs, Ops2);
 		_NewFrag ->
@@ -958,7 +956,7 @@ do_split(_FH, _OldN, _FragNames, [], Ops) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Delete a fragment from a fragmented table
 %% and merge its records with another fragment
-    
+
 make_multi_del_frag(Tab) ->
     verify_multi(Tab),
     Ops = make_del_frag(Tab),
@@ -1064,7 +1062,7 @@ do_merge(FH, OldN, FragNames, [Rec | Recs], Ops) ->
 		    Key = element(2, Rec),
 		    NewOid = {NewFrag, Key},
 		    OldOid = {OldFrag, Key},
-		    Ops2 = [{op, rec, unknown, {NewOid, [Rec], write}}, 
+		    Ops2 = [{op, rec, unknown, {NewOid, [Rec], write}},
 			    {op, rec, unknown, {OldOid, [OldOid], delete}} | Ops],
 		    do_merge(FH, OldN, FragNames, Recs, Ops2);
 		_NewFrag ->
@@ -1077,7 +1075,7 @@ do_merge(FH, OldN, FragNames, [Rec | Recs], Ops) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add a node to the node pool of a fragmented table
-    
+
 make_multi_add_node(Tab, Node)  ->
     verify_multi(Tab),
     Ops = make_add_node(Tab, Node),
@@ -1085,7 +1083,7 @@ make_multi_add_node(Tab, Node)  ->
     %% Propagate to foreigners
     MoreOps = [make_add_node(T, Node) || T <- lookup_foreigners(Tab)],
     [Ops | MoreOps].
-    
+
 make_add_node(Tab, Node) when is_atom(Node)  ->
     Pool = lookup_prop(Tab, node_pool),
     case lists:member(Node, Pool) of
@@ -1114,7 +1112,7 @@ make_multi_del_node(Tab, Node)  ->
     %% Propagate to foreigners
     MoreOps = [make_del_node(T, Node) || T <- lookup_foreigners(Tab)],
     [Ops | MoreOps].
-    
+
 make_del_node(Tab, Node) when is_atom(Node) ->
     Cs = mnesia_schema:incr_version(val({Tab, cstruct})),
     mnesia_schema:ensure_active(Cs),
@@ -1147,8 +1145,8 @@ remove_node(Node, Cs) ->
 	    case lists:member(Node, Pool) of
 		true ->
 		    Pool2 = Pool -- [Node],
-		    Props = lists:keyreplace(node_pool, 1, 
-					     Cs#cstruct.frag_properties, 
+		    Props = lists:keyreplace(node_pool, 1,
+					     Cs#cstruct.frag_properties,
 					     {node_pool, Pool2}),
 		    {Cs#cstruct{frag_properties = Props}, true};
 		false ->
@@ -1159,9 +1157,10 @@ remove_node(Node, Cs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Helpers
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.
 
@@ -1180,18 +1179,10 @@ props_to_frag_hash(Tab, Props) ->
 	T when T == Tab ->
 	    Foreign = mnesia_schema:pick(Tab, foreign_key, Props, must),
 	    N = mnesia_schema:pick(Tab, n_fragments, Props, must),
-	    
 	    case mnesia_schema:pick(Tab, hash_module, Props, undefined) of
 		undefined ->
-		    Split = mnesia_schema:pick(Tab, next_n_to_split, Props, must),
-		    Doubles = mnesia_schema:pick(Tab, n_doubles, Props, must),
-		    FH = {frag_hash, Foreign, N, Split, Doubles},
-		    HashState = ?OLD_HASH_MOD:init_state(Tab, FH),
-    		    #frag_state{foreign_key = Foreign,
-				n_fragments = N,
-				hash_module = ?OLD_HASH_MOD,
-				hash_state  = HashState};
-		HashMod ->
+                    no_hash;
+                HashMod ->
 		    HashState = mnesia_schema:pick(Tab, hash_state, Props, must),
 		    #frag_state{foreign_key = Foreign,
 				n_fragments = N,
@@ -1216,13 +1207,9 @@ lookup_frag_hash(Tab) ->
     case ?catch_val({Tab, frag_hash}) of
 	FH when is_record(FH, frag_state) ->
 	    FH;
-	{frag_hash, K, N, _S, _D} = FH ->
+	{frag_hash, _K, _N, _S, _D} ->
 	    %% Old style. Kept for backwards compatibility.
-	    HashState = ?OLD_HASH_MOD:init_state(Tab, FH),
-	    #frag_state{foreign_key = K, 
-			n_fragments = N, 
-			hash_module = ?OLD_HASH_MOD,
-			hash_state  = HashState};    
+	    mnesia:abort({no_hash, Tab, frag_properties, frag_hash});
 	{'EXIT', _} ->
 	    mnesia:abort({no_exists, Tab, frag_properties, frag_hash})
     end.
@@ -1249,10 +1236,10 @@ key_pos(FH) ->
     case FH#frag_state.foreign_key of
 	undefined ->
 	    2;
-	{_ForeignTab, Pos} -> 
+	{_ForeignTab, Pos} ->
 	    Pos
     end.
-    
+
 %% Returns name of fragment table
 key_to_frag_name({BaseTab, _} = Tab, Key) ->
     N = key_to_frag_number(Tab, Key),

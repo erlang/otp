@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,63 +31,19 @@
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([]) ->
-    SupFlags = {one_for_one, 10, 3600},
-    Children = children(), 
-    {ok, {SupFlags, Children}}.
-
-%%%=========================================================================
-%%%  Internal functions
-%%%=========================================================================
-get_services() ->
-    case (catch application:get_env(ssh, services)) of
-	{ok, Services} ->
-	    Services;
-	_ ->
-	    []
-    end. 
-
-children() ->
-    Services = get_services(),
-    Clients = [Service || Service <- Services, is_client(Service)],
-    Servers =  [Service || Service <- Services, is_server(Service)],
-
-    [server_child_spec(Servers), client_child_spec(Clients)].
-
-server_child_spec(Servers) ->
-    Name = sshd_sup,
-    StartFunc = {sshd_sup, start_link, [Servers]},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [sshd_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-client_child_spec(Clients) ->
-    Name = sshc_sup,
-    StartFunc = {sshc_sup, start_link, [Clients]},
-    Restart = permanent, 
-    Shutdown = infinity,
-    Modules = [sshc_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-is_server({sftpd, _}) ->
-    true;
-is_server({shelld, _}) ->
-    true;
-is_server(_) ->
-    false.
-
-is_client({sftpc, _}) ->
-    true;
-is_client({shellc, _}) ->
-    true;
-is_client(_) ->
-    false.
-
-
-
+init(_) ->
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [#{id       => sshd_sup,
+                    start    => {sshd_sup, start_link, []},
+                    type     => supervisor
+                   },
+                  #{id       => sshc_sup,
+                    start    => {sshc_sup, start_link, []},
+                    type     => supervisor
+                   }
+                 ],
+    {ok, {SupFlags,ChildSpecs}}.
 

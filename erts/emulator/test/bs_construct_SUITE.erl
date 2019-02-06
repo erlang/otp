@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [test1, test2, test3, test4, test5, testf, not_used,
@@ -537,6 +537,8 @@ huge_binary(Config) when is_list(Config) ->
     ct:timetrap({seconds, 60}),
     16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
     garbage_collect(),
+    FreeMem = free_mem(),
+    io:format("Free memory (Mb): ~p\n", [FreeMem]),
     {Shift,Return} = case free_mem() of
 			 undefined ->
 			     %% This test has to be inlined inside the case to
@@ -552,10 +554,14 @@ huge_binary(Config) when is_list(Config) ->
 			     garbage_collect(),
 			     id(<<0:((1 bsl 31)-1)>>),
 			     {31,"Limit huge binaries to 256 Mb"};
-			 _ ->
+			 Mb when Mb > 200 ->
 			     garbage_collect(),
 			     id(<<0:((1 bsl 30)-1)>>),
-			     {30,"Limit huge binary to 128 Mb"}
+			     {30,"Limit huge binary to 128 Mb"};
+			 _ ->
+			     garbage_collect(),
+			     id(<<0:((1 bsl 29)-1)>>),
+                             {29,"Limit huge binary to 64 Mb"}
 		     end,
     garbage_collect(),
     id(<<0:((1 bsl Shift)-1)>>),
@@ -567,13 +573,14 @@ huge_binary(Config) when is_list(Config) ->
 	Comment -> {comment, Comment}
     end.
 
+%% Return the amount of free memory in Mb.
 free_mem() ->
     {ok,Apps} = application:ensure_all_started(os_mon),
     Mem = memsup:get_system_memory_data(),
     [ok = application:stop(App)||App <- Apps],
     case proplists:get_value(free_memory,Mem) of
         undefined -> undefined;
-        Val -> Val div 1024
+        Val -> Val div (1024*1024)
     end.
 
 system_limit(Config) when is_list(Config) ->
@@ -898,13 +905,27 @@ bs_add_overflow(_Config) ->
         _ when Memsize < (2 bsl 30) ->
 	    {skip, "Less then 2 GB of memory"};
 	4 ->
-	    Large = <<0:((1 bsl 30)-1)>>,
-	    {'EXIT',{system_limit,_}} =
-		(catch <<Large/bits, Large/bits, Large/bits, Large/bits,
-                         Large/bits, Large/bits, Large/bits, Large/bits,
-                         Large/bits>>),
+            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_signed()),
+            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_unsigned()),
 	    ok
     end.
+
+bs_add_overflow_signed() ->
+    %% Produce a large result of bs_add that, if cast to signed int, would
+    %% overflow into a negative number that fits a smallnum.
+    Large = <<0:((1 bsl 30)-1)>>,
+    <<Large/bits, Large/bits, Large/bits, Large/bits,
+      Large/bits, Large/bits, Large/bits, Large/bits,
+      Large/bits>>.
+
+bs_add_overflow_unsigned() ->
+    %% Produce a large result of bs_add that goes beyond the limit of an
+    %% unsigned word. This used to succeed but produced an incorrect result
+    %% where B =:= C!
+    A = <<0:((1 bsl 32)-8)>>,
+    B = <<2, 3>>,
+    C = <<A/binary,1,B/binary>>,
+    true = byte_size(B) < byte_size(C).
 
 id(I) -> I.
 

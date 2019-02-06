@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,9 +191,8 @@ do_perform_dump(Cont, InPlace, InitBy, Regulator, OldVersion) ->
 	    try insert_recs(Recs, InPlace, InitBy, Regulator, OldVersion) of
 		Version ->
 		    do_perform_dump(C2, InPlace, InitBy, Regulator, Version)
-	    catch _:R when R =/= fatal ->
-		    ST = erlang:get_stacktrace(),
-		    Reason = {"Transaction log dump error: ~p~n", [{R, ST}]},
+	    catch _:R:ST when R =/= fatal ->
+		    Reason = {"Transaction log dump error: ~tp~n", [{R, ST}]},
 		    close_files(InPlace, {error, Reason}, InitBy),
 		    exit(Reason)
 	    end;
@@ -325,11 +324,10 @@ perform_update(Tid, SchemaOps, _DumperMode, _UseDir) ->
 	 ?eval_debug_fun({?MODULE, post_dump}, [InitBy]),
 	 close_files(InPlace, ok, InitBy),
 	 ok
-    catch _:Reason when Reason =/= fatal ->
-	    ST = erlang:get_stacktrace(),
+    catch _:Reason:ST when Reason =/= fatal ->
 	    Error = {error, {"Schema update error", {Reason, ST}}},
 	    close_files(InPlace, Error, InitBy),
-            fatal("Schema update error ~p ~p", [{Reason,ST}, SchemaOps])
+            fatal("Schema update error ~tp ~tp", [{Reason,ST}, SchemaOps])
     end.
 
 insert_ops(_Tid, _Storage, [], _InPlace, _InitBy, _) ->    ok;
@@ -1166,7 +1164,7 @@ needs_dump_ets(Tab) ->
             DcdF =  mnesia_lib:tab2dcd(Tab),
             case file:read_file_info(DcdF) of
                 {error, Reason} ->
-                    mnesia_lib:dbg_out("File ~p info_error ~p ~n",
+                    mnesia_lib:dbg_out("File ~tp info_error ~tp ~n",
                                        [DcdF, Reason]),
                     true;
                 {ok, DcdInfo} ->
@@ -1205,7 +1203,7 @@ prepare_open(Tab, UpdateInPlace) ->
 	    Tmp = mnesia_lib:tab2tmp(Tab),
 	    try ok = mnesia_lib:copy_file(Dat, Tmp)
 	    catch error:Error ->
-		    fatal("Cannot copy dets file ~p to ~p: ~p~n",
+		    fatal("Cannot copy dets file ~tp to ~tp: ~tp~n",
 			  [Dat, Tmp, Error])
 	    end,
 	    Tmp
@@ -1441,7 +1439,7 @@ start_regulator() ->
 		{ok, Pid} ->
 		    Pid;
 		{error, Reason} ->
-		    fatal("Failed to start ~n: ~p~n", [N, Reason])
+		    fatal("Failed to start ~n: ~tp~n", [N, Reason])
 	    end
     end.
 
@@ -1471,8 +1469,9 @@ regulate(RegulatorPid) ->
 	{regulated, RegulatorPid} -> ok
     end.
 
+%% Local function in order to avoid external function call
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> mnesia_lib:other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> mnesia_lib:other_val(Var, Stacktrace);
 	Value -> Value
     end.

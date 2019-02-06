@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Copyright (c) 2003 by Erik Stenman.  
@@ -26,10 +20,6 @@
 %%  Purpose  :  Pretty-printer for Icode.
 %%  Notes    : 
 %%  History  :	* 2003-04-16 (stenman@epfl.ch): Created.
-%%  CVS      :
-%%              $Author$
-%%              $Date$
-%%              $Revision$
 %% ====================================================================
 %% 
 %% @doc
@@ -240,7 +230,10 @@ pp_arg(Dev, Arg) ->
 	  case hipe_icode:is_reg(Arg) of
 	    true ->
 	      N = hipe_icode:reg_name(Arg),
-	      io:format(Dev, "r~p", [N]);
+	      case hipe_icode:reg_is_gcsafe(Arg) of
+		true  -> io:format(Dev, "rs~p", [N]);
+		false -> io:format(Dev, "r~p", [N])
+	      end;
 	    false ->
 	      N = hipe_icode:fvar_name(Arg),
 	      io:format(Dev, "fv~p", [N])

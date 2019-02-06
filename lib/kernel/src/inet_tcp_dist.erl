@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,73 +283,22 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     ?trace("~p~n",[{inet_tcp_dist,self(),setup,Node}]),
     [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
     AddressFamily = Driver:family(),
-    case inet:getaddr(Address, AddressFamily) of
+    ErlEpmd = net_kernel:epmd_module(),
+    {ARMod, ARFun} = get_address_resolver(ErlEpmd),
+    Timer = dist_util:start_timer(SetupTime),
+    case ARMod:ARFun(Name, Address, AddressFamily) of
+	{ok, Ip, TcpPort, Version} ->
+		?trace("address_please(~p) -> version ~p~n",
+			[Node,Version]),
+		do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
+		                 Ip, TcpPort, Version, Type, MyNode, Timer);
 	{ok, Ip} ->
-	    Timer = dist_util:start_timer(SetupTime),
-	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
 		    ?trace("port_please(~p) -> version ~p~n", 
 			   [Node,Version]),
-		    dist_util:reset_timer(Timer),
-		    case
-			Driver:connect(
-			  Ip, TcpPort,
-			  connect_options([{active, false}, {packet, 2}]))
-		    of
-			{ok, Socket} ->
-			    HSData = #hs_data{
-			      kernel_pid = Kernel,
-			      other_node = Node,
-			      this_node = MyNode,
-			      socket = Socket,
-			      timer = Timer,
-			      this_flags = 0,
-			      other_version = Version,
-			      f_send = fun Driver:send/2,
-			      f_recv = fun Driver:recv/3,
-			      f_setopts_pre_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, false},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-			      f_setopts_post_nodeup = 
-			      fun(S) ->
-				      inet:setopts
-					(S, 
-					 [{active, true},
-					  {deliver, port},
-					  {packet, 4},
-					  nodelay()])
-			      end,
-
-			      f_getll = fun inet:getll/1,
-			      f_address = 
-			      fun(_,_) ->
-				      #net_address{
-				   address = {Ip,TcpPort},
-				   host = Address,
-				   protocol = tcp,
-				   family = AddressFamily}
-			      end,
-			      mf_tick = fun(S) -> ?MODULE:tick(Driver, S) end,
-			      mf_getstat = fun ?MODULE:getstat/1,
-			      request_type = Type,
-			      mf_setopts = fun ?MODULE:setopts/2,
-			      mf_getopts = fun ?MODULE:getopts/2
-			     },
-			    dist_util:handshake_we_started(HSData);
-			_ ->
-			    %% Other Node may have closed since 
-			    %% port_please !
-			    ?trace("other node (~p) "
-				   "closed since port_please.~n", 
-				   [Node]),
-			    ?shutdown(Node)
-		    end;
+			do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
+			                 Ip, TcpPort, Version, Type, MyNode, Timer);
 		_ ->
 		    ?trace("port_please (~p) "
 			   "failed.~n", [Node]),
@@ -360,6 +309,71 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 		   "failed (~p).~n", [Node,_Other]),
 	    ?shutdown(Node)
     end.
+
+%%
+%% Actual setup of connection
+%%
+do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
+                 Ip, TcpPort, Version, Type, MyNode, Timer) ->
+	dist_util:reset_timer(Timer),
+	case
+	Driver:connect(
+	  Ip, TcpPort,
+	  connect_options([{active, false}, {packet, 2}]))
+	of
+	{ok, Socket} ->
+		HSData = #hs_data{
+		  kernel_pid = Kernel,
+		  other_node = Node,
+		  this_node = MyNode,
+		  socket = Socket,
+		  timer = Timer,
+		  this_flags = 0,
+		  other_version = Version,
+		  f_send = fun Driver:send/2,
+		  f_recv = fun Driver:recv/3,
+		  f_setopts_pre_nodeup =
+		  fun(S) ->
+			  inet:setopts
+			(S,
+			 [{active, false},
+			  {packet, 4},
+			  nodelay()])
+		  end,
+		  f_setopts_post_nodeup =
+		  fun(S) ->
+			  inet:setopts
+			(S,
+			 [{active, true},
+			  {deliver, port},
+			  {packet, 4},
+			  nodelay()])
+		  end,
+
+		  f_getll = fun inet:getll/1,
+		  f_address =
+		  fun(_,_) ->
+			  #net_address{
+		   address = {Ip,TcpPort},
+		   host = Address,
+		   protocol = tcp,
+		   family = AddressFamily}
+		  end,
+		  mf_tick = fun(S) -> ?MODULE:tick(Driver, S) end,
+		  mf_getstat = fun ?MODULE:getstat/1,
+		  request_type = Type,
+		  mf_setopts = fun ?MODULE:setopts/2,
+		  mf_getopts = fun ?MODULE:getopts/2
+		 },
+		dist_util:handshake_we_started(HSData);
+	_ ->
+		%% Other Node may have closed since
+		%% discovery !
+		?trace("other node (~p) "
+		   "closed since discovery (port_please).~n",
+		   [Node]),
+		?shutdown(Node)
+	end.
 
 connect_options(Opts) ->
     case application:get_env(kernel, inet_dist_connect_options) of
@@ -390,14 +404,14 @@ splitnode(Driver, Node, LongOrShortNames) ->
                             error_msg("** System running to use "
                                       "fully qualified "
                                       "hostnames **~n"
-                                      "** Hostname ~s is illegal **~n",
+                                      "** Hostname ~ts is illegal **~n",
                                       [Host]),
                             ?shutdown(Node)
                     end;
 		L when length(L) > 1, LongOrShortNames =:= shortnames ->
 		    error_msg("** System NOT running to use fully qualified "
 			      "hostnames **~n"
-			      "** Hostname ~s is illegal **~n",
+			      "** Hostname ~ts is illegal **~n",
 			      [Host]),
 		    ?shutdown(Node);
 		_ ->
@@ -428,6 +442,16 @@ get_tcp_address(Driver, Socket) ->
 		  protocol = tcp,
 		  family = Driver:family()
 		 }.
+
+%% ------------------------------------------------------------
+%% Determine if EPMD module supports address resolving. Default
+%% is to use inet:getaddr/2.
+%% ------------------------------------------------------------
+get_address_resolver(EpmdModule) ->
+    case erlang:function_exported(EpmdModule, address_please, 3) of
+        true -> {EpmdModule, address_please};
+        _    -> {erl_epmd, address_please}
+    end.
 
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our

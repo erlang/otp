@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,80 @@
 %%
 -module(mnesia_recovery_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([coord_dies/1, after_full_disc_partition/1,
+         disc_less/1, garb_decision/1,
+         system_upgrade/1,
+         delete_during_start/1,
+         no_master_2/1, no_master_3/1, one_master_2/1, one_master_3/1,
+         two_master_2/1, two_master_3/1, all_master_2/1,
+         all_master_3/1,
+         dirty_read_during_down/1, trans_read_during_down/1,
+         mnesia_down_during_startup_disk_ram/1,
+         mnesia_down_during_startup_init_ram/1,
+         mnesia_down_during_startup_init_disc/1,
+         mnesia_down_during_startup_init_disc_only/1,
+         mnesia_down_during_startup_tm_ram/1,
+         mnesia_down_during_startup_tm_disc/1,
+         mnesia_down_during_startup_tm_disc_only/1,
+         with_checkpoint_same/1, with_checkpoint_other/1,
+         explicit_stop_during_snmp/1,
+         sym_trans_before_commit_kill_coord_node/1,
+         sym_trans_before_commit_kill_coord_pid/1,
+         sym_trans_before_commit_kill_part_after_ask/1,
+         sym_trans_before_commit_kill_part_before_ask/1,
+         sym_trans_after_commit_kill_coord_node/1,
+         sym_trans_after_commit_kill_coord_pid/1,
+         sym_trans_after_commit_kill_part_after_ask/1,
+         sym_trans_after_commit_kill_part_do_commit_pre/1,
+         sym_trans_after_commit_kill_part_do_commit_post/1,
+         sync_dirty_pre_kill_part/1,
+         sync_dirty_pre_kill_coord_node/1,
+         sync_dirty_pre_kill_coord_pid/1,
+         sync_dirty_post_kill_part/1,
+         sync_dirty_post_kill_coord_node/1,
+         sync_dirty_post_kill_coord_pid/1,
+         async_dirty_pre_kill_part/1,
+         async_dirty_pre_kill_coord_node/1,
+         async_dirty_pre_kill_coord_pid/1,
+         async_dirty_post_kill_part/1,
+         async_dirty_post_kill_coord_node/1,
+         async_dirty_post_kill_coord_pid/1,
+         asymtrans_part_ask/1,
+         asymtrans_part_commit_vote/1,
+         asymtrans_part_pre_commit/1,
+         asymtrans_part_log_commit/1,
+         asymtrans_part_do_commit/1,
+         asymtrans_coord_got_votes/1,
+         asymtrans_coord_pid_got_votes/1,
+         asymtrans_coord_log_commit_rec/1,
+         asymtrans_coord_pid_log_commit_rec/1,
+         asymtrans_coord_log_commit_dec/1,
+         asymtrans_coord_pid_log_commit_dec/1,
+         asymtrans_coord_rec_acc_pre_commit_log_commit/1,
+         asymtrans_coord_pid_rec_acc_pre_commit_log_commit/1,
+         asymtrans_coord_rec_acc_pre_commit_done_commit/1,
+         asymtrans_coord_pid_rec_acc_pre_commit_done_commit/1,
+         after_corrupt_files_decision_log_head/1,
+         after_corrupt_files_decision_log_tail/1,
+         after_corrupt_files_latest_log_head/1,
+         after_corrupt_files_latest_log_tail/1,
+         after_corrupt_files_table_dat_head/1,
+         after_corrupt_files_table_dat_tail/1,
+         after_corrupt_files_schema_dat_head/1,
+         after_corrupt_files_schema_dat_tail/1]).
+
+-export([reader/2, check/0, get_all_retainers/1,
+         verify_data/2, verify_where2read/1,
+         do_trans_loop/2,
+         start_stop/3, do_sym_trans/2, do_sync_dirty/2, do_async_dirty/2,
+         do_asym_trans/2, garb_handler/1, mymnesia_start/1
+        ]).
+
 
 -include("mnesia_test_lib.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -657,6 +730,7 @@ do_trans_loop2(Tab, Father) ->
 	    do_trans_loop2(Tab, Father);
 	Else ->
 	    ?error("Transaction failed: ~p ~n", [Else]),
+            io:format("INFO: ~p~n",[erlang:process_info(self())]),
 	    Father ! test_done,
 	    exit(shutdown)
     end.

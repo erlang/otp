@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -363,14 +363,17 @@ skip_first_tc1(Suite) ->
      {?eh,tc_start,{Suite,tc1}},
      {?eh,tc_done,{Suite,tc1,ok}},
      {?eh,test_stats,{'_',0,{0,0}}},
+     {?eh,tc_start,{Suite,tc2}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
      {?eh,test_stats,{'_',0,{0,1}}},
+     {?eh,tc_start,{Suite,{init_per_group,g,[]}}},
      {?eh,tc_done,{Suite,{init_per_group,g,[]},?skipped}},
      {?eh,tc_auto_skip,{Suite,{tc1,g},?skip_reason}},
      {?eh,test_stats,{'_',0,{0,2}}},
      {?eh,tc_auto_skip,{Suite,{tc2,g},?skip_reason}},
      {?eh,test_stats,{'_',0,{0,3}}},
      {?eh,tc_auto_skip,{Suite,{end_per_group,g},?skip_reason}},
+     {?eh,tc_start,{Suite,tc2}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
      {?eh,test_stats,{'_',0,{0,4}}},
      {?eh,tc_start,{Suite,end_per_suite}},
@@ -390,10 +393,12 @@ skip_tc1_in_group(Suite) ->
       {?eh,tc_start,{Suite,tc1}},
       {?eh,tc_done,{Suite,tc1,ok}},
       {?eh,test_stats,{'_',0,{0,0}}},
+      {?eh,tc_start,{Suite,tc2}},
       {?eh,tc_done,{Suite,tc2,?skipped}},
       {?eh,test_stats,{'_',0,{0,1}}},
       {?eh,tc_start,{Suite,{end_per_group,g,[]}}},
       {?eh,tc_done,{Suite,{end_per_group,g,[]},ok}}],
+     {?eh,tc_start,{Suite,tc2}},
      {?eh,tc_done,{Suite,tc2,?skipped}},
      {?eh,test_stats,{'_',0,{0,2}}},
      {?eh,tc_start,{Suite,end_per_suite}},

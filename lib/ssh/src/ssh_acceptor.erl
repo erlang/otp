@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,55 +25,94 @@
 -include("ssh.hrl").
 
 %% Internal application API
--export([start_link/5,
+-export([start_link/4,
 	 number_of_connections/1,
-	 callback_listen/3,
-	 handle_connection/5]).
+	 listen/2,
+	 handle_established_connection/4]).
 
 %% spawn export  
--export([acceptor_init/6, acceptor_loop/6]).
+-export([acceptor_init/5, acceptor_loop/6]).
+
+-export([dbg_trace/3]).
 
 -define(SLEEP_TIME, 200).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
-start_link(Port, Address, SockOpts, Opts, AcceptTimeout) ->
-    Args = [self(), Port, Address, SockOpts, Opts, AcceptTimeout],
+start_link(Port, Address, Options, AcceptTimeout) ->
+    Args = [self(), Port, Address, Options, AcceptTimeout],
     proc_lib:start_link(?MODULE, acceptor_init, Args).
+
+%%%----------------------------------------------------------------
+number_of_connections(SystemSup) ->
+    length([X || 
+	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
+	       is_pid(X),
+	       is_reference(R)
+	  ]).
+
+%%%----------------------------------------------------------------
+listen(Port, Options) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    SockOpts = [{active, false}, {reuseaddr,true} | ?GET_OPT(socket_options, Options)],
+    case Callback:listen(Port, SockOpts) of
+	{error, nxdomain} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	{error, enetunreach} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	{error, eafnosupport} ->
+	    Callback:listen(Port, lists:delete(inet6, SockOpts));
+	Other ->
+	    Other
+    end.
+
+%%%----------------------------------------------------------------
+handle_established_connection(Address, Port, Options, Socket) ->
+    {_, Callback, _} = ?GET_OPT(transport, Options),
+    handle_connection(Callback, Address, Port, Options, Socket).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
-    {_, Callback, _} =  
-	proplists:get_value(transport, Opts, {tcp, gen_tcp, tcp_closed}),
+acceptor_init(Parent, Port, Address, Opts, AcceptTimeout) ->
+    try
+        ?GET_INTERNAL_OPT(lsocket, Opts)
+    of
+        {LSock, SockOwner} ->
+            case inet:sockname(LSock) of
+                {ok,{_,Port}} -> % A usable, open LSock
+                    proc_lib:init_ack(Parent, {ok, self()}),
+                    request_ownership(LSock, SockOwner),
+                    {_, Callback, _} =  ?GET_OPT(transport, Opts),
+                    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
 
-    SockOwner = proplists:get_value(lsock_owner, Opts),
-    LSock = proplists:get_value(lsocket, Opts),
-    UseExistingSocket =
-	case catch inet:sockname(LSock) of
-	    {ok,{_,Port}} -> is_pid(SockOwner);
-	    _ -> false
-	end,
-
-    case UseExistingSocket of
-	true ->
-	    proc_lib:init_ack(Parent, {ok, self()}),
-	    request_ownership(LSock, SockOwner),
-	    acceptor_loop(Callback, Port, Address, Opts, LSock, AcceptTimeout);
-
-	false -> 
-	    case (catch do_socket_listen(Callback, Port, SockOpts)) of
-		{ok, ListenSocket} ->
-		    proc_lib:init_ack(Parent, {ok, self()}),
-		    acceptor_loop(Callback, 
-				  Port, Address, Opts, ListenSocket, AcceptTimeout);
-		Error ->
-		    proc_lib:init_ack(Parent, Error),
-		    error
-	    end
+                {error,_} -> % Not open, a restart
+                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse:
+                    {ok,NewLSock} = try_listen(Port, Opts, 4),
+                    proc_lib:init_ack(Parent, {ok, self()}),
+                    Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
+                    {_, Callback, _} =  ?GET_OPT(transport, Opts1),
+                    acceptor_loop(Callback, Port, Address, Opts1, NewLSock, AcceptTimeout)
+            end
+    catch
+        _:_ ->
+            {error,use_existing_socket_failed}
     end.
+
+
+try_listen(Port, Opts, NtriesLeft) ->
+    try_listen(Port, Opts, 1, NtriesLeft).
+
+try_listen(Port, Opts, N, Nmax) ->
+    case listen(Port, Opts) of
+        {error,eaddrinuse} when N<Nmax ->
+            timer:sleep(10*N), % Sleep 10, 20, 30,... ms
+            try_listen(Port, Opts, N+1, Nmax);
+        Other ->
+            Other
+    end.
+
 
 request_ownership(LSock, SockOwner) ->
     SockOwner ! {request_control,LSock,self()},
@@ -81,28 +120,7 @@ request_ownership(LSock, SockOwner) ->
 	{its_yours,LSock} -> ok
     end.
     
-   
-do_socket_listen(Callback, Port0, Opts) ->
-    Port =
-	case proplists:get_value(fd, Opts) of
-	    undefined -> Port0;
-	    _ -> 0
-	end,
-    callback_listen(Callback, Port, Opts).
-
-callback_listen(Callback, Port, Opts0) ->
-    Opts = [{active, false}, {reuseaddr,true} | Opts0],
-    case Callback:listen(Port, Opts) of
-	{error, nxdomain} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
-	{error, enetunreach} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
-	{error, eafnosupport} ->
-	    Callback:listen(Port, lists:delete(inet6, Opts));
-	Other ->
-	    Other
-    end.
-    
+%%%----------------------------------------------------------------    
 acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
     case (catch Callback:accept(ListenSocket, AcceptTimeout)) of
 	{ok, Socket} ->
@@ -119,22 +137,24 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
 				  ListenSocket, AcceptTimeout)
     end.
 
+%%%----------------------------------------------------------------
 handle_connection(Callback, Address, Port, Options, Socket) ->
-    SSHopts = proplists:get_value(ssh_opts, Options, []),
-    Profile =  proplists:get_value(profile, SSHopts, ?DEFAULT_PROFILE),
+    Profile =  ?GET_OPT(profile, Options),
     SystemSup = ssh_system_sup:system_supervisor(Address, Port, Profile),
 
-    MaxSessions = proplists:get_value(max_sessions,SSHopts,infinity),
+    MaxSessions = ?GET_OPT(max_sessions, Options),
     case number_of_connections(SystemSup) < MaxSessions of
 	true ->
-	    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
+	    {ok, SubSysSup} = 
+                ssh_system_sup:start_subsystem(SystemSup, server, Address, Port, Profile, Options),
 	    ConnectionSup = ssh_subsystem_sup:connection_supervisor(SubSysSup),
-	    Timeout = proplists:get_value(negotiation_timeout, SSHopts, 2*60*1000),
+	    NegTimeout = ?GET_OPT(negotiation_timeout, Options),
 	    ssh_connection_handler:start_connection(server, Socket,
-						    [{supervisors, [{system_sup, SystemSup},
-								    {subsystem_sup, SubSysSup},
-								    {connection_sup, ConnectionSup}]}
-						     | Options], Timeout);
+                                                    ?PUT_INTERNAL_OPT(
+                                                       {supervisors, [{system_sup, SystemSup},
+                                                                      {subsystem_sup, SubSysSup},
+                                                                      {connection_sup, ConnectionSup}]},
+                                                       Options), NegTimeout);
 	false ->
 	    Callback:close(Socket),
 	    IPstr = if is_tuple(Address) -> inet:ntoa(Address);
@@ -150,7 +170,7 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
 	    {error,max_sessions}
     end.
 
-
+%%%----------------------------------------------------------------
 handle_error(timeout) ->
     ok;
 
@@ -177,10 +197,33 @@ handle_error(Reason) ->
     error_logger:error_report(String),
     exit({accept_failed, String}).    
 
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
 
-number_of_connections(SystemSup) ->
-    length([X || 
-	       {R,X,supervisor,[ssh_subsystem_sup]} <- supervisor:which_children(SystemSup),
-	       is_pid(X),
-	       is_reference(R)
-	  ]).
+dbg_trace(points,         _,  _) -> [connections];
+
+dbg_trace(flags,  connections,  _) -> [c];
+dbg_trace(on,     connections,  _) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
+                                      dbg:tpl(?MODULE, handle_connection, 5, x);
+dbg_trace(off,    connections,  _) -> dbg:ctp(?MODULE, acceptor_init, 5),
+                                      dbg:ctp(?MODULE, handle_connection, 5);
+dbg_trace(format, connections, {call, {?MODULE,acceptor_init,
+                                       [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
+    [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
+    ];
+dbg_trace(format, connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
+    ["Starting connection to server failed:\n",
+     io_lib:format("Error = ~p", [Error])
+    ].
+
+
+
+ntoa(A) ->
+    try inet:ntoa(A)
+    catch
+        _:_ when is_list(A) -> A;
+        _:_ -> io_lib:format('~p',[A])
+    end.
+            

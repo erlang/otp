@@ -29,6 +29,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-warning("Ignore me -- testing that the debugger can handle warnings").
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].

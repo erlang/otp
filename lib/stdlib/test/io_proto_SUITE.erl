@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 %% %CopyrightEnd%
 %%
 -module(io_proto_SUITE).
--compile(r12).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -26,15 +25,14 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
-	 binary_options/1, bc_with_r12/1,
-	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, 
+	 binary_options/1, read_modes_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
 	 proxy_setnext/2, proxy_quit/1]).
 %% For spawn
--export([toerl_server/3,hold_the_line/3,answering_machine1/3,
+-export([toerl_server/3,answering_machine1/3,
 	 answering_machine2/3]).
 
 -export([uprompt/1]).
@@ -79,8 +77,7 @@ suite() ->
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
-     binary_options, bc_with_r12, bc_with_r12_gl,
-     bc_with_r12_ogl, read_modes_gl, read_modes_ogl,
+     binary_options, read_modes_gl, read_modes_ogl,
      broken_unicode, eof_on_pipe, unicode_prompt].
 
 groups() -> 
@@ -742,263 +739,7 @@ binary_options(Config) when is_list(Config) ->
 	   ],[],[],"-oldshell"),
     ok.
 
-%% Test io protocol compatibility with R12 nodes.
-bc_with_r12(Config) when is_list(Config) ->
-    case test_server:is_release_available("r12b") of
-	true -> bc_with_r12_1(Config);
-	false -> {skip,"No R12B found"}
-    end.
 
-bc_with_r12_1(Config) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    Name1 = io_proto_r12_1,
-    N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
-					 {erl,[{release,"r12b"}]}]),
-    DataDir = proplists:get_value(data_dir,Config),
-    FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
-    TestDataLine1 = [229,228,246],
-    TestDataLine2 = [197,196,214],
-    SPid1 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
-    {ok,F1} = receive
-		  {SPid1,Res1} ->
-		      Res1
-	      after 5000 ->
-		      exit(timeout)
-	      end,
-    TestDataLine1 = chomp(io:get_line(F1,'')),
-    SPid1 ! die,
-    receive after 1000 -> ok end,
-    SPid2 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read,binary]]]),
-    {ok,F2} = receive
-		  {SPid2,Res2} ->
-		      Res2
-	      after 5000 ->
-		      exit(timeout)
-	      end,
-    TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
-    TestDataLine1BinLatin = list_to_binary(TestDataLine1),
-    TestDataLine2BinUtf = unicode:characters_to_binary(TestDataLine2),
-    TestDataLine2BinLatin = list_to_binary(TestDataLine2),
-    TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
-    TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
-    %%io:format(standard_error,"Exec:~s\r\n",[rpc:call(N1,os,find_executable,["erl"])]),
-    %%io:format(standard_error,"Io:~s\r\n",[rpc:call(N1,code,which,[io])]),
-    %%io:format(standard_error,"File_io_server:~s\r\n",[rpc:call(N1,code,which,[file_io_server])]),
-    file:position(F2,0),
-    TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
-    file:position(F2,0),
-    TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
-    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    eof =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    file:position(F2,0),
-    TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F2,'',3]),
-    io:get_chars(F2,'',1),
-    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    file:position(F2,0),
-    {ok,[TestDataLine1]} = io:fread(F2,'',"~s"),
-    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F2,'',"~s"]),
-
-    DataLen1 = length(TestDataLine1),
-    DataLen2 = length(TestDataLine2),
-
-    file:position(F2,0),
-    {ok,TestDataLine1BinLatin} = file:read(F2,DataLen1),
-    {ok,_} = file:read(F2,1),
-    {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F2,DataLen2]),
-    {ok,_} = file:read(F2,1),
-    eof = rpc:call(N1,file,read,[F2,1]),
-    %% As r12 has a bug when setting options with setopts, we need
-    %% to reopen the file...
-    SPid2 ! die,
-    receive after 1000 -> ok end,
-    SPid3 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
-    {ok,F3} = receive
-		  {SPid3,Res3} ->
-		      Res3
-	      after 5000 ->
-		      exit(timeout)
-	      end,
-
-    file:position(F3,0),
-    {ok,[TestDataLine1]} = io:fread(F3,'',"~s"),
-    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F3,'',"~s"]),
-
-
-    file:position(F3,0),
-    {ok,TestDataLine1} = file:read(F3,DataLen1),
-    {ok,_} = file:read(F3,1),
-    {ok,TestDataLine2} = rpc:call(N1,file,read,[F3,DataLen2]),
-    {ok,_} = file:read(F3,1),
-    eof = rpc:call(N1,file,read,[F3,1]),
-
-
-    %% So, lets do it all again, but the other way around
-    {ok,F4} = file:open(FileName1,[read]),
-    TestDataLine1 = chomp(io:get_line(F4,'')),
-    file:position(F4,0),
-    io:setopts(F4,[binary]),
-    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    file:position(F4,0),
-    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    file:position(F4,0),
-    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    file:position(F4,0),
-    TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    eof =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    file:position(F4,0),
-    TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F4,'',3]),
-    io:get_chars(F4,'',1),
-    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    file:position(F4,0),
-    {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
-    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
-    file:position(F4,0),
-    {ok,TestDataLine1BinLatin} = file:read(F4,DataLen1),
-    {ok,_} = file:read(F4,1),
-    {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F4,DataLen2]),
-    {ok,_} = file:read(F4,1),
-    eof = rpc:call(N1,file,read,[F4,1]),
-    io:setopts(F4,[list]),
-
-    file:position(F4,0),
-    {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
-    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
-
-
-    file:position(F4,0),
-    {ok,TestDataLine1} = file:read(F4,DataLen1),
-    {ok,_} = file:read(F4,1),
-    {ok,TestDataLine2} = rpc:call(N1,file,read,[F4,DataLen2]),
-    {ok,_} = file:read(F4,1),
-    eof = rpc:call(N1,file,read,[F4,1]),
-
-    file:close(F4),
-    test_server:stop_node(N1),
-    ok.
-
-hold_the_line(Parent,Filename,Options) ->
-    Parent ! {self(), file:open(Filename,Options)},
-    receive
-	die ->
-	    ok
-    end.
-
-
-%% Test io protocol compatibility with R12 nodes (terminals).
-bc_with_r12_gl(Config) when is_list(Config) ->
-    case test_server:is_release_available("r12b") of
-	true -> 
-	    case  get_progs() of
-		{error,Reason} ->
-		    {skip, Reason};
-		_ ->
-		    bc_with_r12_gl_1(Config,answering_machine1)
-	    end;
-	false -> 
-	    {skip,"No R12B found"}
-    end.
-
-%% Test io protocol compatibility with R12 nodes (oldshell).
-bc_with_r12_ogl(Config) when is_list(Config) ->
-    case test_server:is_release_available("r12b") of
-	true -> 
-	    case  get_progs() of
-		{error,Reason} ->
-		    {skip, Reason};
-		_ ->
-		    bc_with_r12_gl_1(Config,answering_machine2)
-	    end;
-	false -> 
-	    {skip,"No R12B found"}
-    end.
-
-bc_with_r12_gl_1(_Config,Machine) ->
-    PA = filename:dirname(code:which(?MODULE)),
-    Name1 = io_proto_r12_gl_1,
-    N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
-					 {erl,[{release,"r12b"}]}]),
-    TestDataLine1 = [229,228,246],
-    TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
-    TestDataLine1BinLatin = list_to_binary(TestDataLine1),
-
-    {ok,N2List} = create_nodename(),
-    MyNodeList = atom2list(node()),
-    register(io_proto_suite,self()),
-    AM1 = spawn(?MODULE,Machine,
-		[MyNodeList, "io_proto_suite", N2List]),
-
-    GL = receive X when is_pid(X) -> X end,
-    %% get_line
-    "Hej\n" = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
-    io:setopts(GL,[binary]),
-    io:format(GL,"Okej~n",[]),
-    <<"Hej\n">> = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
-    io:setopts(GL,[{encoding,latin1}]),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    io:setopts(GL,[{encoding,unicode}]),
-
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    io:setopts(GL,[list]),
-    io:format(GL,"Okej~n",[]),
-
-    %%get_chars
-    "Hej" = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    io:setopts(GL,[binary]),
-    io:format(GL,"Okej~n",[]),
-    <<"Hej">> = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    io:setopts(GL,[{encoding,latin1}]),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    io:setopts(GL,[{encoding,unicode}]),
-
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    io:format(GL,"Okej~n",[]),
-    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    io:setopts(GL,[list]),
-    io:format(GL,"Okej~n",[]),
-    %%fread
-    {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    io:setopts(GL,[binary]),
-    io:format(GL,"Okej~n",[]),
-    {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    io:setopts(GL,[{encoding,latin1}]),
-    io:format(GL,"Okej~n",[]),
-    {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    io:format(GL,"Okej~n",[]),
-    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    io:setopts(GL,[{encoding,unicode}]),
-    io:format(GL,"Okej~n",[]),
-    {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    io:format(GL,"Okej~n",[]),
-    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    io:setopts(GL,[list]),
-    io:format(GL,"Okej~n",[]),
-
-
-    receive
-	{AM1,done} ->
-	    ok
-    after 5000 ->
-	    exit(timeout)
-    end,
-    test_server:stop_node(N1),
-    ok.
 
 
 answering_machine1(OthNode,OthReg,Me) ->
@@ -1715,7 +1456,7 @@ toerl_loop(Port,Acc) ->
     end.
 
 millistamp() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),
@@ -1899,13 +1640,6 @@ convert(Data, latin1, binary) ->
 	_ ->
 	    {error, {cannot_convert, unicode, latin1}}
     end.
-
-hostname() ->
-    from($@, atom_to_list(node())).
-
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_, []) -> [].
 
 atom2list(A) ->
     lists:flatten(io_lib:format("~w", [A])).

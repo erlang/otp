@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,623 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3.3</title>
+  <section><title>Inets 7.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed http client to not send 'content-length' header in
+	    chunked encoded requests.</p>
+          <p>
+	    Own Id: OTP-15338 Aux Id: ERL-733 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed http client to not drop explicit 'Content-Type'
+	    header in requests without a body such as requests with
+	    the 'Content-Type' of application/x-www-form-urlencoded.</p>
+          <p>
+	    Own Id: OTP-15339 Aux Id: ERL-736 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling, that is mod_get will return 403
+	    if a path is a directory and not a file.</p>
+          <p>
+	    Own Id: OTP-15192</p>
+        </item>
+        <item>
+          <p>
+	    Do not use chunked-encoding with 1xx, 204 and 304
+	    responses when using mod_esi. Old behavior was not
+	    compliant with HTTP/1.1 RFC and could cause clients to
+	    hang when they received 1xx, 204 or 304 responses that
+	    included an empty chunked-encoded body.</p>
+          <p>
+	    Own Id: OTP-15241</p>
+        </item>
+        <item>
+          <p>
+	    Add robust handling of chunked-encoded HTTP responses
+	    with an empty body (1xx, 204, 304). Old behavior could
+	    cause the client to hang when connecting to a faulty
+	    server implementation.</p>
+          <p>
+	    Own Id: OTP-15242</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.1</title>
+
+  <section><title>Fixed Bugs and Malfunctions</title>
+  <list>
+    <item>
+      <p>
+	Change status code for no mod found to handle request to
+      501</p>
+      <p>
+      Own Id: OTP-15215</p>
+        </item>
+  </list>
+  </section>
+
+  </section>
+
+  <section><title>Inets 7.0</title>
+
+  <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed HTTP content injection bug in httpc (ERL-456).</p>
+          <p>
+	    Own Id: OTP-14726</p>
+        </item>
+        <item>
+          <p>
+	    Fixed support for URI-references in HTTP 'Location'
+	    header (ERL-333).</p>
+          <p>
+	    Own Id: OTP-14729</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken 'Content-Type' handling in httpc (ERL-536).</p>
+          <p>
+	    Own Id: OTP-15006</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of relative paths in the script_alias
+	    property of httpd (ERL-574).</p>
+          <p>
+	    Own Id: OTP-15021</p>
+        </item>
+        <item>
+          <p>
+	    Fix httpd:reload_config/2 with path() as the first
+	    argument (ERL-578).</p>
+          <p>
+	    Own Id: OTP-15025</p>
+        </item>
+        <item>
+          <p>
+	    Improved gracefulness.</p>
+          <p>
+	    Own Id: OTP-15042</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Split inets and create separate ftp and tftp apps.</p>
+          <p>
+	    Own Id: OTP-14113</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Inets 6.5.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not use chunked-encoding with 1xx, 204 and 304
+	    responses when using mod_esi. Old behavior was not
+	    compliant with HTTP/1.1 RFC and could cause clients to
+	    hang when they received 1xx, 204 or 304 responses that
+	    included an empty chunked-encoded body.</p>
+          <p>
+	    Own Id: OTP-15241</p>
+        </item>
+        <item>
+          <p>
+	    Add robust handling of chunked-encoded HTTP responses
+	    with an empty body (1xx, 204, 304). Old behavior could
+	    cause the client to hang when connecting to a faulty
+	    server implementation.</p>
+          <p>
+	    Own Id: OTP-15242</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  
+  <section><title>Inets 6.5.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change status code for no mod found to handle request to
+	    501</p>
+          <p>
+	    Own Id: OTP-15215</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.5.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling, that is mod_get will return 403
+	    if a path is a directory and not a file.</p>
+          <p>
+	    Own Id: OTP-15192</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Inets 6.5.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Options added for setting low-level properties on the
+	    underlying TCP connections. The options are:
+	    <c>sock_ctrl</c>, <c>sock_data_act</c> and
+	    <c>sock_data_pass</c>. See the manual for details.</p>
+          <p>
+	    Own Id: OTP-15120 Aux Id: ERIERL-192 </p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+<section><title>Inets 6.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inets: httpd - Gracefully handle bad headers</p>
+          <p>
+	    The option max_headers operated on the individual header
+	    length instead of the total length of all headers. Also
+	    headers with empty keys are now discarded.</p>
+          <p>
+	    Own Id: OTP-15092</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken options handling in httpc (ERL-441).</p>
+          <p>
+	    Own Id: OTP-15007</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpc_manager crashes when a long running request is sent
+	    on a persistent HTTP connection (keep-alive). Fixed
+	    httpc_manager to use proper timeouts on keep-alive
+	    connections.</p>
+          <p>
+	    Own Id: OTP-14908</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for unix domain sockets in the http client.</p>
+          <p>
+	    Own Id: OTP-14854</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    CGI environment variable CONTENT_LENGTH shall be a string</p>
+          <p>
+	    Own Id: OTP-14679</p>
+        </item>
+        <item>
+          <p>
+	    In relaxed mode disregard Content-Length header if there
+	    is also a Transfer-Encoding header.</p>
+          <p>
+	    Own Id: OTP-14727</p>
+        </item>
+        <item>
+          <p>
+	    Eliminated race condition, that could cause http request
+	    to sporadically fail to complete successfully, when
+	    keep-alive connections are used.</p>
+          <p>
+	    Own Id: OTP-14783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct the handling of location headers so that the
+	    status code is not hard coded. This should have been
+	    fixed by commit 2cc5ba70cbbc6b3ace81a2a0324417c3b65265bb
+	    but unfortunately was broken during a code refactoring
+	    and unnoticed due to a faulty placed test case.</p>
+          <p>
+	    Own Id: OTP-14761</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken handling of POST requests</p>
+          <p>
+	    New chunk mechanism of body data in POST requests added
+	    in 5d01c70ca399edf28e99dc760506329689fab6ba broke
+	    handling of POST body data not using the new mechanism.</p>
+          <p>
+	    Own Id: OTP-14656</p>
+        </item>
+        <item>
+          <p>
+	    Make sure ints:stop/2 of the service httpd is synchronous</p>
+          <p>
+	    Own Id: OTP-14696</p>
+        </item>
+        <item>
+          <p>
+	    Honor status code returned by ESI script and modernize
+	    "location" header handling.</p>
+          <p>
+	    Own Id: OTP-14716</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure mod_log uses the correct status code</p>
+          <p>
+	    Own Id: OTP-14510</p>
+        </item>
+        <item>
+          <p>
+	    Correct behaviour of mod_disk_log to proparly handle
+	    repair options</p>
+          <p>
+	    Own Id: OTP-14530</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    http_uri aligned to follow RFC 3986 and not convert "+"
+	    to space when decoding URIs.</p>
+          <p>
+	    Own Id: OTP-14573</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added new option max_client_body_chunk to httpd server to
+	    allow chunked delivery of PUT and POST data to mod_esi
+	    callback. Note, new mod_esi callback implementation is
+	    required.</p>
+          <p>
+	    Also correct value provided by server_name environment
+	    variable</p>
+          <p>
+	    Own Id: OTP-14450</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpd_util:rfc1123_date/1 gracefully handle invalid DST
+	    dates by returning the original time in the expected
+	    rfc1123 format.</p>
+          <p>
+	    Own Id: OTP-14394</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add unicode binary support to http_uri functions</p>
+          <p>
+	    Own Id: OTP-14404</p>
+        </item>
+        <item>
+          <p>
+	    httpc - Change timeout handling so the redirects cause a
+	    new timer to be set. This means that a simple redirected
+	    request could return after 2*timeout milliseconds.</p>
+          <p>
+	    Own Id: OTP-14429</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The close of a chunked file reception crashed in a
+	    certain timing sequence.</p>
+          <p>
+	    Own Id: OTP-14391 Aux Id: seq13306 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added missing release note for inets-6.3.7</p>
+          <p>
+	    Own Id: OTP-14383</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in ftp that made further operations after a
+	    recv_chunk operation impossible.</p>
+          <p>
+	    Own Id: OTP-14242</p>
+        </item>
+
+        <item>
+          <p>Make default port, 80 and 443, implicit in automatic redirection.
+	  </p>
+          <p> Own Id: OTP-14301
+	  </p>
+        </item>        
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Chunk size decoding could fail. The symptom was that
+	    chunk decoding sometimes failed depending on timing of
+	    the received stream. If chunk size was split into two
+	    different packets decoding would fail.</p>
+          <p>
+	    Own Id: OTP-13571 Aux Id: ERL-116 </p>
+        </item>
+        <item>
+          <p>
+	    Prevent httpc user process to hang if httpc_handler
+	    process terminates unexpectedly</p>
+          <p>
+	    Own Id: OTP-14091</p>
+        </item>
+        <item>
+          <p>
+	    Correct Host header, to include port number, when
+	    redirecting requests.</p>
+          <p>
+	    Own Id: OTP-14097</p>
+        </item>
+        <item>
+          <p>
+	    Shutdown gracefully on connection or TLS handshake errors</p>
+          <p>
+	    Own Id: OTP-14173 Aux Id: seq13262 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct misstakes in ftp client introduced in inets-6.3.4</p>
+          <p>
+	    Own Id: OTP-14203 Aux Id: OTP-13982 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes a bug that makes the ftp client end up in bad state
+	    if there is a multi line response from the server and the
+	    response number is in the message being sent.</p>
+          <p>
+	    Own Id: OTP-13960 Aux Id: PR1196 </p>
+        </item>
+        <item>
+          <p>
+	    The ftp client could stop consuming messages when the
+	    multiline response handling was corrected.</p>
+          <p>
+	    Own Id: OTP-13967</p>
+        </item>
+        <item>
+          <p>
+	    Fix keep-alive https through proxy connections so that
+	    all requests, following the first one, will run as
+	    expected instead of failing.</p>
+          <p>
+	    Own Id: OTP-14041</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug from commit
+	    fdfda2fab0921d409789174556582db28141448e that could make
+	    listing of group members in mod_auth callbacks fail.</p>
+          <p>
+	    Own Id: OTP-14082</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update behavior of httpc:request to match RFC-7231</p>
+          <p>
+	    Own Id: OTP-13902</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dialyzer warnings as well as some white-space
+	    issues. Thanks to Kostis.</p>
+          <p>
+	    Own Id: OTP-13982 Aux Id: PR-1207 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -233,6 +849,21 @@
 
 </section>
 
+  <section><title>Inets 6.1.1.1</title>
+  
+   <section><title>Fixed Bugs and Malfunctions</title>
+     <list>
+       <item>
+         <p>
+         Mend ipv6_host_with_brackets option in httpc</p>
+         <p>
+         Own Id: OTP-13417</p>
+       </item>
+     </list>
+   </section>
+  
+  </section>
+  
 <section><title>Inets 6.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -639,7 +1270,7 @@
       <list>
         <item>
           <p>
-	    Gracefully handle invalid content-lenght headers instead
+	    Gracefully handle invalid content-length headers instead
 	    of crashing in list_to_integer.</p>
           <p>
 	    Own Id: OTP-12429</p>
@@ -1381,7 +2012,7 @@
       <list>
         <item>
           <p>[ftpc] Add a config option to specify a 
-	  <seealso marker="ftp#dtimeout">data connect timeout</seealso>.
+	  <seealso marker="ftp:ftp#dtimeout">data connect timeout</seealso>.
 	  That is how long the ftp client will wait for the server to connect
 	  to the data socket. If this timeout occurs, an error will be 
 	  returned to the caller and the ftp client process will be 
@@ -2264,10 +2895,10 @@
 		<item>
 		  <p>It is now also possible to start a standalone FTP client 
 		    process using the re-introduced  
-                    <seealso marker="ftp#open">ftp:open</seealso> 
+                    <seealso marker="ftp:ftp#open">ftp:open</seealso> 
                     function. </p>
                   <p>This is an alternative to starting the client using the 
-		    <seealso marker="ftp#service_start">inets service framework</seealso>. </p>
+		    <seealso marker="ftp:ftp#service_start">inets service framework</seealso>. </p>
 		  <p>The old <c>ftp:open/1</c>, undocumented, function, 
                     caused the client to be hooken into the inets service
                     supervision framework. This is <em>no</em> longer the
@@ -2280,10 +2911,10 @@
                     flag), and only used IPv4 if this did not work. 
                     This has now been <em>changed</em>. </p>
                   <p>A new option, 
-                    <seealso marker="ftp#ipfamily">ipfamily</seealso>, 
+                    <seealso marker="ftp:ftp#ipfamily">ipfamily</seealso>, 
                     has been introduced, with the default value 
                     <c>inet</c> (IPv4). </p>
-                  <p>See <seealso marker="ftp#open">ftp:open</seealso> 
+                  <p>See <seealso marker="ftp:ftp#open">ftp:open</seealso> 
                     for more info.</p>
                   <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 		</item>
@@ -2317,9 +2948,9 @@
 
         <item>
 	  <p>[ftpc] - The 
-            <seealso marker="ftp#ls2">ls/2</seealso> function (LIST command) 
+            <seealso marker="ftp:ftp#ls2">ls/2</seealso> function (LIST command) 
             and the 
-            <seealso marker="ftp#nlist2">nlist/2</seealso> function 
+            <seealso marker="ftp:ftp#nlist2">nlist/2</seealso> function 
             (NLST command) 
             with wildcards did 
             not work properly. </p>

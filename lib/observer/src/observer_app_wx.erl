@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 -module(observer_app_wx).
 
--export([start_link/2]).
+-export([start_link/3]).
 
 %% wx_object callbacks
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
@@ -73,10 +73,10 @@
 
 -define(wxGC, wxGraphicsContext).
 
-start_link(Notebook, Parent) ->
-    wx_object:start_link(?MODULE, [Notebook, Parent], []).
+start_link(Notebook, Parent, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, Parent, Config], []).
 
-init([Notebook, Parent]) ->
+init([Notebook, Parent, _Config]) ->
     Panel = wxPanel:new(Notebook, [{size, wxWindow:getClientSize(Notebook)},
 				   {winid, 1}
 				  ]),
@@ -191,8 +191,8 @@ handle_event(#wx{event=#wxMouse{type=Type, x=X0, y=Y0}},
     end;
 
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
-	     State = #state{sel=undefined}) ->
-    observer_lib:display_info_dialog("Select process first"),
+	     State = #state{panel=Panel,sel=undefined}) ->
+    observer_lib:display_info_dialog(Panel,"Select process first"),
     {noreply, State};
 
 handle_event(#wx{id=?ID_PROC_INFO, event=#wxCommand{type=command_menu_selected}},
@@ -205,7 +205,7 @@ handle_event(#wx{id=?ID_PROC_MSG, event=#wxCommand{type=command_menu_selected}},
     case observer_lib:user_term(Panel, "Enter message", "") of
 	cancel ->         ok;
 	{ok, Term} ->     Pid ! Term;
-	{error, Error} -> observer_lib:display_info_dialog(Error)
+	{error, Error} -> observer_lib:display_info_dialog(Panel,Error)
     end,
     {noreply, State};
 
@@ -214,7 +214,7 @@ handle_event(#wx{id=?ID_PROC_KILL, event=#wxCommand{type=command_menu_selected}}
     case observer_lib:user_term(Panel, "Enter Exit Reason", "kill") of
 	cancel ->         ok;
 	{ok, Term} ->     exit(Pid, Term);
-	{error, Error} -> observer_lib:display_info_dialog(Error)
+	{error, Error} -> observer_lib:display_info_dialog(Panel,Error)
     end,
     {noreply, State};
 
@@ -258,6 +258,8 @@ handle_sync_event(#wx{event = #wxPaint{}},_,
     destroy_gc(GC),
     ok.
 %%%%%%%%%%
+handle_call(get_config, _, State) ->
+    {reply, #{}, State};
 handle_call(Event, From, _State) ->
     error({unhandled_call, Event, From}).
 
@@ -318,7 +320,7 @@ handle_info({'EXIT', _, noconnection}, State) ->
 handle_info({'EXIT', _, normal}, State) ->
     {noreply, State};
 handle_info(_Event, State) ->
-    %% io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
+    %% io:format("~p:~p: ~tp~n",[?MODULE,?LINE,_Event]),
     {noreply, State}.
 
 %%%%%%%%%%

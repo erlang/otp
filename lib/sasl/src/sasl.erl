@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,45 +31,52 @@
 %%%-----------------------------------------------------------------
 -behaviour(application).
 
--record(state, {sasl_error_logger, error_logger_mf}).
+-record(state, {sasl_logger, error_logger_mf}).
 
 start(_, []) ->
-    Handler = get_sasl_error_logger(),
-    Type = get_sasl_error_logger_type(),
+    {Dest,Level} = get_logger_info(),
     Mf = get_error_logger_mf(),
-    add_sasl_error_logger(Handler, Type),
+    add_sasl_logger(Dest, Level),
     add_error_logger_mf(Mf),
-    State = #state{sasl_error_logger = Handler, error_logger_mf = Mf}, 
+    State = #state{sasl_logger = Dest, error_logger_mf = Mf},
     case supervisor:start_link({local, sasl_sup}, sasl, []) of
 	{ok, Pid} -> {ok, Pid, State};
 	Error -> Error
     end.
 
 stop(State) ->
-    delete_sasl_error_logger(State#state.sasl_error_logger),
+    delete_sasl_logger(State#state.sasl_logger),
     delete_error_logger_mf(State#state.error_logger_mf).
 
 %%-----------------------------------------------------------------
 %% Internal functions
 %%-----------------------------------------------------------------
-get_sasl_error_logger() ->
-    case application:get_env(sasl, sasl_error_logger) of
-	{ok, false} -> undefined;
-	{ok, tty} -> tty;
-	{ok, {file, File}} when is_list(File) -> {file, File, [write]};
-	{ok, {file, File, Modes}} when is_list(File), is_list(Modes) ->
-        {file, File, Modes};
-	{ok, Bad} -> exit({bad_config, {sasl, {sasl_error_logger, Bad}}});
-	_ -> undefined
+get_logger_info() ->
+    case application:get_env(kernel, logger_sasl_compatible) of
+        {ok,true} ->
+            {get_logger_dest(),get_logger_level()};
+        _ ->
+            {std,undefined}
     end.
 
-get_sasl_error_logger_type() ->
+get_logger_dest() ->
+    case application:get_env(sasl, sasl_error_logger) of
+        {ok, false} -> undefined;
+        {ok, tty} -> standard_io;
+        {ok, {file, File}} when is_list(File) -> {file, File};
+        {ok, {file, File, Modes}} when is_list(File), is_list(Modes) ->
+            {file, File, Modes};
+        {ok, Bad} -> exit({bad_config, {sasl, {sasl_logger_dest, Bad}}});
+        undefined -> standard_io
+    end.
+
+get_logger_level() ->
     case application:get_env(sasl, errlog_type) of
-	{ok, error} -> error;
-	{ok, progress} -> progress;
-	{ok, all} -> all;
-	{ok, Bad} -> exit({bad_config, {sasl, {errlog_type, Bad}}});
-	_ -> all
+        {ok, error} -> error;
+        {ok, progress} -> info;
+        {ok, all} -> info;
+        {ok, Bad} -> exit({bad_config, {sasl, {errlog_type, Bad}}});
+        _ -> info
     end.
 
 get_error_logger_mf() ->
@@ -119,26 +126,36 @@ get_mf_maxf() ->
 	{ok, Bad} -> exit({bad_config, {sasl, {error_logger_mf_maxfiles, Bad}}})
     end.
 
-add_sasl_error_logger(undefined, _Type) -> ok;
-add_sasl_error_logger(Handler, Type) ->
-    error_logger:add_report_handler(mod(Handler), args(Handler, Type)).
+add_sasl_logger(undefined, _Level) -> ok;
+add_sasl_logger(std, undefined) -> ok;
+add_sasl_logger(Dest, Level) ->
+    FC = #{legacy_header=>true,
+           single_line=>false},
+    case Level of
+        info -> allow_progress();
+        _ -> ok
+    end,
+    ok = logger:add_handler(sasl,logger_std_h,
+                            #{level=>Level,
+                              filter_default=>stop,
+                              filters=>
+                                  [{remote_gl,
+                                    {fun logger_filters:remote_gl/2,stop}},
+                                   {sasl_domain,
+                                    {fun logger_filters:domain/2,
+                                     {log,equal,[otp,sasl]}}}],
+                              config=>#{type=>Dest},
+                              formatter=>{logger_formatter,FC}}).
 
-delete_sasl_error_logger(undefined) -> ok;
-delete_sasl_error_logger(Type) ->
-    error_logger:delete_report_handler(mod(Type)).
-
-mod(tty) -> sasl_report_tty_h;
-mod({file, _File, _Modes}) -> sasl_report_file_h.
-
-args({file, File, Modes}, Type) -> {File, Modes, type(Type)};
-args(_, Type) -> type(Type).
-
-type(error) -> error;
-type(progress) -> progress;
-type(_) -> all.
+delete_sasl_logger(undefined) -> ok;
+delete_sasl_logger(std) -> ok;
+delete_sasl_logger(_Type) ->
+    _ = logger:remove_handler(sasl),
+    ok.
 
 add_error_logger_mf(undefined) -> ok;
 add_error_logger_mf({Dir, MaxB, MaxF}) ->
+    allow_progress(),
     error_logger:add_report_handler(
       log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, fun pred/1)).
 
@@ -148,6 +165,13 @@ delete_error_logger_mf(_) ->
 
 pred({_Type, GL, _Msg}) when node(GL) =/= node() -> false;
 pred(_) -> true.
+
+allow_progress() ->
+    #{level:=PL} = logger:get_primary_config(),
+    case logger:compare_levels(info,PL) of
+        lt -> ok = logger:set_primary_config(level,info);
+        _ -> ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% supervisor functionality

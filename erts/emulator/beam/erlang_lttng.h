@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,21 +145,6 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
     org_erlang_otp,
     driver_ready_output,
-    TP_ARGS(
-        char*, pid,
-        char*, port,
-        char*, driver
-    ),
-    TP_FIELDS(
-        ctf_string(pid, pid)
-        ctf_string(port, port)
-        ctf_string(driver, driver)
-    )
-)
-
-TRACEPOINT_EVENT(
-    org_erlang_otp,
-    driver_event,
     TP_ARGS(
         char*, pid,
         char*, port,

@@ -224,7 +224,7 @@ is_blocked(ServerRef) ->
 
 
 %%
-%% Module API. Theese functions are intended for use from modules only.
+%% Module API. These functions are intended for use from modules only.
 %%
 
 config_lookup(Port, Query) ->

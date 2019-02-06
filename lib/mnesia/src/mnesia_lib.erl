@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@
 	 lock_table/1,
 	 mkcore/1,
 	 not_active_here/1,
-         other_val/1,
+         other_val/2,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -435,8 +435,8 @@ validate_record(Tab, Obj) ->
 %%
 
 val(Var) ->
-    case ?catch_val(Var) of
-	{'EXIT', _} -> other_val(Var);
+    case ?catch_val_and_stack(Var) of
+	{'EXIT', Stacktrace} -> other_val(Var, Stacktrace);
 	_VaLuE_ -> _VaLuE_
     end.
 
@@ -446,9 +446,9 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
-other_val(Var) ->
+other_val(Var, Stacktrace) ->
     case other_val_1(Var) of
-        error -> pr_other(Var);
+        error -> pr_other(Var, Stacktrace);
         Val -> Val
     end.
 
@@ -460,16 +460,16 @@ other_val_1(Var) ->
 	_ -> error
     end.
 
--spec pr_other(_) -> no_return().
-pr_other(Var) ->
+-spec pr_other(_, _) -> no_return().
+pr_other(Var, Stacktrace) ->
     Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
 	end,
-    verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~p ~n",
+    verbose("~p (~tp) val(mnesia_gvar, ~tw) -> ~p ~tp ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Why, erlang:get_stacktrace()]),
+	     Var, Why, Stacktrace]),
     mnesia:abort(Why).
 
 %% Some functions for list valued variables
@@ -654,7 +654,7 @@ coredump() ->
 coredump(CrashInfo) ->
     Core = mkcore(CrashInfo),
     Out = core_file(),
-    important("Writing Mnesia core to file: ~p...~p~n", [Out, CrashInfo]),
+    important("Writing Mnesia core to file: ~tp...~tp~n", [Out, CrashInfo]),
     _ = file:write_file(Out, Core),
     Out.
 
@@ -844,7 +844,7 @@ vcore() ->
     case file:list_dir(Cwd) of
 	{ok, Files}->
 	    CoreFiles = lists:sort(lists:zf(Filter, Files)),
-	    show("Mnesia core files: ~p~n", [CoreFiles]),
+	    show("Mnesia core files: ~tp~n", [CoreFiles]),
 	    vcore(lists:last(CoreFiles));
 	Error ->
 	    Error
@@ -853,17 +853,17 @@ vcore() ->
 vcore(Bin) when is_binary(Bin) ->
     Core = binary_to_term(Bin),
     Fun = fun({Item, Info}) ->
-		  show("***** ~p *****~n", [Item]),
+		  show("***** ~tp *****~n", [Item]),
 		  case catch vcore_elem({Item, Info}) of
 		      {'EXIT', Reason} ->
-			  show("{'EXIT', ~p}~n", [Reason]);
+			  show("{'EXIT', ~tp}~n", [Reason]);
 		      _ -> ok
 		  end
 	  end,
     lists:foreach(Fun, Core);
     
 vcore(File) ->
-    show("~n***** Mnesia core: ~p *****~n", [File]),
+    show("~n***** Mnesia core: ~tp *****~n", [File]),
     case file:read_file(File) of
 	{ok, Bin} ->
 	    vcore(Bin);
@@ -879,7 +879,7 @@ vcore_elem({schema_file, {ok, B}}) ->
 
 vcore_elem({logfile, {ok, BinList}}) ->
     Fun = fun({F, Info}) ->
-		  show("----- logfile: ~p -----~n", [F]),
+		  show("----- logfile: ~tp -----~n", [F]),
 		  case Info of
 		      {ok, B} ->
 			  Fname = "/tmp/mnesia_vcore_elem.TMP",
@@ -887,7 +887,7 @@ vcore_elem({logfile, {ok, BinList}}) ->
 			  mnesia_log:view(Fname),
 			  file:delete(Fname);
 		      _ ->
-			  show("~p~n", [Info])
+			  show("~tp~n", [Info])
 		  end
 	  end,
     lists:foreach(Fun, BinList);
@@ -895,12 +895,12 @@ vcore_elem({logfile, {ok, BinList}}) ->
 vcore_elem({crashinfo, {Format, Args}}) ->
     show(Format, Args);
 vcore_elem({gvar, L}) ->
-    show("~p~n", [lists:sort(L)]);
+    show("~tp~n", [lists:sort(L)]);
 vcore_elem({transactions, Info}) ->
     mnesia_tm:display_info(user, Info);
 
 vcore_elem({_Item, Info}) ->
-    show("~p~n", [Info]).
+    show("~tp~n", [Info]).
 
 fix_error(X) ->
     set(last_error, X), %% for debugabililty
@@ -1018,7 +1018,7 @@ report_system_event({'EXIT', Reason}, Event) ->
             end;
 
 	Error ->
-	    Msg = "Mnesia(~p): Cannot report event ~p: ~p (~p)~n",
+	    Msg = "Mnesia(~tp): Cannot report event ~tp: ~tp (~tp)~n",
 	    error_logger:format(Msg, [node(), Event, Reason, Error])
     end,
     ok;
@@ -1192,25 +1192,15 @@ db_select(Storage, Tab, Pat) ->
     end.
 
 db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
-    case Mod:select(Alias, Tab, Pat, Limit) of
-	{Matches, Continuation} when is_list(Matches) ->
-	    {Matches, {Alias, Continuation}};
-	R ->
-	    R
-    end;
+    Mod:select(Alias, Tab, Pat, Limit);
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
 db_select_init(_, Tab, Pat, Limit) ->
     ets:select(Tab, Pat, Limit).
 
-db_select_cont({ext, Alias, Mod}, Cont0, Ms) ->
+db_select_cont({ext, _Alias, Mod}, Cont0, Ms) ->
     Cont = Mod:repair_continuation(Cont0, Ms),
-    case Mod:select(Cont) of
-	{Matches, Continuation} when is_list(Matches) ->
-	    {Matches, {Alias, Continuation}};
-	R ->
-	    R
-    end;
+    Mod:select(Cont);
 db_select_cont(disc_only_copies, Cont0, Ms) ->
     Cont = dets:repair_continuation(Cont0, Ms),
     dets:select(Cont);

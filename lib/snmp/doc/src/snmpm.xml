@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1216,13 +1216,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     <func>
       <name>log_to_txt(LogDir)</name>
       <name>log_to_txt(LogDir, Block | Mibs)</name>
-      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -1233,6 +1233,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -1254,15 +1257,15 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name>log_to_io(LogDir) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Block | Mibs) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Block | Mibs) -> ok | {ok, Cnt} | {error, Reason}</name>
       <name>log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
@@ -1272,6 +1275,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
         <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
+        <v>Cnt = {NumOK, NumERR}</v>
+        <v>NumOK = non_neg_integer()</v>
+        <v>NumERR = pos_integer()</v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>

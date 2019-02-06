@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,6 +206,7 @@ volatile int *__erl_errno_place(void)
 	use_fallback = 1;
 	return &fallback_errno;
     }
+    *erl_errno_p = 0;
 
     if (pthread_setspecific(erl_errno_key, erl_errno_p) != 0 ||
 	(erl_errno_p = pthread_getspecific(erl_errno_key)) == NULL) {

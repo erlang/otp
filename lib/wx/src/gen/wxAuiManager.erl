@@ -177,7 +177,7 @@ getManager(#wx_ref{type=WindowT,ref=WindowRef}) ->
       (This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow().
 getPane(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxAuiManager),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxAuiManager_GetPane_1_0,
@@ -223,7 +223,7 @@ insertPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#
 -spec loadPaneInfo(This, Pane_part, Pane) -> 'ok' when
 	This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 loadPaneInfo(#wx_ref{type=ThisT,ref=ThisRef},Pane_part,#wx_ref{type=PaneT,ref=PaneRef})
- when is_list(Pane_part) ->
+ when ?is_chardata(Pane_part) ->
   ?CLASS(ThisT,wxAuiManager),
   Pane_part_UC = unicode:characters_to_binary([Pane_part,0]),
   ?CLASS(PaneT,wxAuiPaneInfo),
@@ -235,7 +235,7 @@ loadPaneInfo(#wx_ref{type=ThisT,ref=ThisRef},Pane_part,#wx_ref{type=PaneT,ref=Pa
 	This::wxAuiManager(), Perspective::unicode:chardata().
 
 loadPerspective(This,Perspective)
- when is_record(This, wx_ref),is_list(Perspective) ->
+ when is_record(This, wx_ref),?is_chardata(Perspective) ->
   loadPerspective(This,Perspective, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxauimanager.html#wxauimanagerloadperspective">external documentation</a>.
@@ -243,7 +243,7 @@ loadPerspective(This,Perspective)
 	This::wxAuiManager(), Perspective::unicode:chardata(),
 	Option :: {'update', boolean()}.
 loadPerspective(#wx_ref{type=ThisT,ref=ThisRef},Perspective, Options)
- when is_list(Perspective),is_list(Options) ->
+ when ?is_chardata(Perspective),is_list(Options) ->
   ?CLASS(ThisT,wxAuiManager),
   Perspective_UC = unicode:characters_to_binary([Perspective,0]),
   MOpts = fun({update, Update}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Update)):32/?UI>>|Acc];

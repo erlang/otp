@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@
 #include "erl_drv_nif.h"
 
 #include <stdlib.h>
-#include <sys/types.h>	/* ssize_t */
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
 #ifndef STATIC_ERLANG_DRIVER
@@ -48,24 +47,6 @@
 #define ERL_DRIVER_TYPES_ONLY
 #define WIN32_DYNAMIC_ERL_DRIVER
 #endif
-/*
- * This structure can be cast to a WSABUF structure.
- */
-typedef struct _SysIOVec {
-    unsigned long iov_len;
-    char* iov_base;
-} SysIOVec;
-#else  /* Unix */
-#  ifdef HAVE_SYS_UIO_H
-#    include <sys/types.h>
-#    include <sys/uio.h>
-typedef struct iovec SysIOVec;
-#  else
-typedef struct {
-    char* iov_base;
-    size_t iov_len;
-} SysIOVec;
-#  endif
 #endif
 
 #ifndef EXTERN
@@ -76,11 +57,10 @@ typedef struct {
 #  endif
 #endif
 
-/* Values for mode arg to driver_select() */
-#define ERL_DRV_READ  (1 << 0)
-#define ERL_DRV_WRITE (1 << 1)
-#define ERL_DRV_USE   (1 << 2)
-#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (1 << 3))
+#define ERL_DRV_READ  ((int)ERL_NIF_SELECT_READ)
+#define ERL_DRV_WRITE ((int)ERL_NIF_SELECT_WRITE)
+#define ERL_DRV_USE   ((int)ERL_NIF_SELECT_STOP)
+#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (ERL_DRV_USE  << 1))
 
 /* Old deprecated */
 #define DO_READ  ERL_DRV_READ
@@ -167,21 +147,6 @@ typedef struct _erl_drv_event* ErlDrvEvent; /* An event to be selected on. */
 #endif
 typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 typedef struct _erl_drv_port* ErlDrvThreadData; /* Thread data. */
-
-#if !defined(__WIN32__) && !defined(_WIN32) && !defined(_WIN32_) && !defined(USE_SELECT)
-struct erl_drv_event_data {
-    short events;
-    short revents;
-};
-#endif
-typedef struct erl_drv_event_data *ErlDrvEventData; /* Event data */
-
-/*
- * A driver monitor
- */
-typedef struct {
-    unsigned char data[sizeof(void *)*4];
-} ErlDrvMonitor;
 
 typedef struct {
     unsigned long megasecs;
@@ -297,10 +262,7 @@ typedef struct erl_drv_entry {
 			 unsigned int *flags); /* Works mostly like 'control',
 						  a synchronous
 						  call into the driver. */
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
-                                /* Called when an event selected by 
-				   driver_event() has occurred */
+    void (*unused_event_callback)(void);
     int extended_marker;	/* ERL_DRV_EXTENDED_MARKER */
     int major_version;		/* ERL_DRV_EXTENDED_MAJOR_VERSION */
     int minor_version;		/* ERL_DRV_EXTENDED_MINOR_VERSION */
@@ -367,8 +329,6 @@ EXTERN void erl_drv_busy_msgq_limits(ErlDrvPort port,
 				     ErlDrvSizeT *high);
 
 EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
-EXTERN int driver_event(ErlDrvPort port, ErlDrvEvent event, 
-			ErlDrvEventData event_data);
 
 EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
 EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,

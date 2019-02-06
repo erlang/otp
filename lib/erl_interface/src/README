@@ -11,7 +11,7 @@ Also, assertions are enabled, meaning that the code will be a
 little bit slower.  In the final release, there will be two
 alternative libraries shipped, with and without assertions.
 
-If an assertion triggers, there will be a printout similiar to this
+If an assertion triggers, there will be a printout similar to this
 one:
 
 	Assertion failed: ep != NULL in erl_eterm.c, line 694

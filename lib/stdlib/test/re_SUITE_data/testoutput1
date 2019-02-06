@@ -1,6 +1,8 @@
 /-- This set of tests is for features that are compatible with all versions of
-    Perl >= 5.10, in non-UTF-8 mode. It should run clean for both the 8-bit and
-    16-bit PCRE libraries. --/
+    Perl >= 5.10, in non-UTF-8 mode. It should run clean for the 8-bit, 16-bit,
+    and 32-bit PCRE libraries. --/
+    
+< forbid 89?=ABCDEFfGILMNPTUWXZ<
 
 /the quick brown fox/
     the quick brown fox
@@ -221,7 +223,7 @@ No match
     babababc
 No match
 
-/^\ca\cA\c[\c{\c:/
+/^\ca\cA\c[;\c:/
     \x01\x01\e;z
  0: \x01\x01\x1b;z
 
@@ -2149,18 +2151,35 @@ No match
     abc\100\60
  0: abc@0
  1: abc
+    
+/^A\8B\9C$/
+    A8B9C
+ 0: A8B9C
+    *** Failers
+No match
+    A\08B\09C  
+No match
+    
+/^(A)(B)(C)(D)(E)(F)(G)(H)(I)\8\9$/
+    ABCDEFGHIHI 
+ 0: ABCDEFGHIHI
+ 1: A
+ 2: B
+ 3: C
+ 4: D
+ 5: E
+ 6: F
+ 7: G
+ 8: H
+ 9: I
 
-/abc\81/
-    abc\081
- 0: abc\x0081
-    abc\0\x38\x31
- 0: abc\x0081
-
-/abc\91/
-    abc\091
- 0: abc\x0091
-    abc\0\x39\x31
- 0: abc\x0091
+/^[A\8B\9C]+$/
+    A8B9C
+ 0: A8B9C
+    *** Failers 
+No match
+    A8B9C\x00
+No match
 
 /(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)\12\123/
     abcdefghijkllS
@@ -5972,18 +5991,6 @@ No match
  0: 
  0: 
 
-/^[a-\d]/
-    abcde
- 0: a
-    -things
- 0: -
-    0digit
- 0: 0
-    *** Failers
-No match
-    bcdef    
-No match
-
 /^[\d-a]/
     abcde
  0: a
@@ -6006,15 +6013,15 @@ No match
      
 /[\s]+/
     > \x09\x0a\x0c\x0d\x0b<
- 0:  \x09\x0a\x0c\x0d
+ 0:  \x09\x0a\x0c\x0d\x0b
      
 /\s+/
     > \x09\x0a\x0c\x0d\x0b<
- 0:  \x09\x0a\x0c\x0d
+ 0:  \x09\x0a\x0c\x0d\x0b
      
 /ab/x
     ab
-No match
+ 0: ab
 
 /(?!\A)x/m
   a\nxb\n
@@ -6903,10 +6910,6 @@ No match
  0: a
     bc
  0: b
-
-/^(?=(a)){0}b(?1)/
-    backgammon
- 0: ba
 
 /^(?=(?1))?[az]([abc])d/
     abd 
@@ -8231,6 +8234,16 @@ MK: M
     aaaabcde
  0: aaaab
  1: aaaab
+    
+/((?(R)a|(?1)))*/
+    aaa
+ 0: aaa
+ 1: a
+
+/((?(R)a|(?1)))+/
+    aaa
+ 0: aaa
+ 1: a
 
 /a(*:any 
 name)/K
@@ -9199,5 +9212,238 @@ No match
  0: aaaa
     aaa     
 No match
+
+/(?(?=ab)ab)/+
+    ca
+ 0: 
+ 0+ ca
+    cd 
+ 0: 
+ 0+ cd
+
+/(?:(?<n>foo)|(?<n>bar))\k<n>/J
+    foofoo
+ 0: foofoo
+ 1: foo
+    barbar
+ 0: barbar
+ 1: <unset>
+ 2: bar
+
+/(?<n>A)(?:(?<n>foo)|(?<n>bar))\k<n>/J
+    AfooA
+ 0: AfooA
+ 1: A
+ 2: foo
+    AbarA  
+ 0: AbarA
+ 1: A
+ 2: <unset>
+ 3: bar
+    ** Failers 
+No match
+    Afoofoo
+No match
+    Abarbar
+No match
+
+/^(\d+)\s+IN\s+SOA\s+(\S+)\s+(\S+)\s*\(\s*$/
+    1 IN SOA non-sp1 non-sp2(
+ 0: 1 IN SOA non-sp1 non-sp2(
+ 1: 1
+ 2: non-sp1
+ 3: non-sp2
+
+/^ (?:(?<A>A)|(?'B'B)(?<A>A)) (?('A')x) (?(<B>)y)$/xJ
+    Ax
+ 0: Ax
+ 1: A
+    BAxy 
+ 0: BAxy
+ 1: <unset>
+ 2: B
+ 3: A
+    
+/^A\xZ/
+    A\0Z 
+ 0: A\x00Z
+
+/^A\o{123}B/
+    A\123B
+ 0: ASB
+
+/ ^ a + + b $ /x
+    aaaab
+ 0: aaaab
+    
+/ ^ a + #comment
+  + b $ /x
+    aaaab
+ 0: aaaab
+    
+/ ^ a + #comment
+  #comment
+  + b $ /x
+    aaaab
+ 0: aaaab
+    
+/ ^ (?> a + ) b $ /x
+    aaaab 
+ 0: aaaab
+
+/ ^ ( a + ) + + \w $ /x
+    aaaab 
+ 0: aaaab
+ 1: aaaa
+
+/(?:a\Kb)*+/+
+    ababc
+ 0: b
+ 0+ c
+
+/(?>a\Kb)*/+
+    ababc
+ 0: b
+ 0+ c
+
+/(?:a\Kb)*/+
+    ababc
+ 0: b
+ 0+ c
+
+/(a\Kb)*+/+
+    ababc
+ 0: b
+ 0+ c
+ 1: ab
+
+/(a\Kb)*/+
+    ababc
+ 0: b
+ 0+ c
+ 1: ab
+
+/(?:x|(?:(xx|yy)+|x|x|x|x|x)|a|a|a)bc/
+    acb
+No match
+
+'\A(?:[^\"]++|\"(?:[^\"]*+|\"\")*+\")++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+
+'\A(?:[^\"]++|\"(?:[^\"]++|\"\")*+\")++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+
+'\A(?:[^\"]++|\"(?:[^\"]++|\"\")++\")++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+
+'\A([^\"1]++|[\"2]([^\"3]*+|[\"4][\"5])*+[\"6])++'
+    NON QUOTED \"QUOT\"\"ED\" AFTER \"NOT MATCHED
+ 0: NON QUOTED "QUOT""ED" AFTER 
+ 1:  AFTER 
+ 2: 
+
+/^\w+(?>\s*)(?<=\w)/
+  test test
+ 0: tes
+
+/(?P<same>a)(?P<same>b)/gJ
+    abbaba
+ 0: ab
+ 1: a
+ 2: b
+ 0: ab
+ 1: a
+ 2: b
+
+/(?P<same>a)(?P<same>b)(?P=same)/gJ
+    abbaba
+ 0: aba
+ 1: a
+ 2: b
+
+/(?P=same)?(?P<same>a)(?P<same>b)/gJ
+    abbaba
+ 0: ab
+ 1: a
+ 2: b
+ 0: ab
+ 1: a
+ 2: b
+
+/(?:(?P=same)?(?:(?P<same>a)|(?P<same>b))(?P=same))+/gJ
+    bbbaaabaabb
+ 0: bbbaaaba
+ 1: a
+ 2: b
+ 0: bb
+ 1: <unset>
+ 2: b
+
+/(?:(?P=same)?(?:(?P=same)(?P<same>a)(?P=same)|(?P=same)?(?P<same>b)(?P=same)){2}(?P=same)(?P<same>c)(?P=same)){2}(?P<same>z)?/gJ
+    bbbaaaccccaaabbbcc
+No match
+
+/(?P<Name>a)?(?P<Name2>b)?(?(<Name>)c|d)*l/
+    acl
+ 0: acl
+ 1: a
+    bdl
+ 0: bdl
+ 1: <unset>
+ 2: b
+    adl
+ 0: dl
+    bcl    
+ 0: l
+
+/\sabc/
+    \x{0b}abc
+ 0: \x0babc
+
+/[\Qa]\E]+/
+    aa]]
+ 0: aa]]
+
+/[\Q]a\E]+/
+    aa]]
+ 0: aa]]
+
+/(?:((abcd))|(((?:(?:(?:(?:abc|(?:abcdef))))b)abcdefghi)abc)|((*ACCEPT)))/
+    1234abcd
+ 0: 
+ 1: <unset>
+ 2: <unset>
+ 3: <unset>
+ 4: <unset>
+ 5: 
+
+/(\2)(\1)/
+
+"Z*(|d*){216}"
+
+"(?1)(?#?'){8}(a)"
+    baaaaaaaaac
+ 0: aaaaaaaaa
+ 1: a
+
+"(?|(\k'Pm')|(?'Pm'))"
+    abcd
+ 0: 
+ 1: 
+
+/(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[,;:])(?=.{8,16})(?!.*[\s])/
+    \  Fred:099
+ 0: 
+
+/(?=.*X)X$/ 
+    \  X
+ 0: X
+     
+/X+(?#comment)?/
+    >XXX<
+ 0: X
 
 /-- End of testinput1 --/

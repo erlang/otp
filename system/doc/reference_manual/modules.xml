@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -143,7 +143,6 @@ fact(0) ->           %  |
         standard behaviours:</p>
 	<list type="bulleted">
 	  <item><c>gen_server</c></item>
-	  <item><c>gen_fsm</c></item>
 	  <item><c>gen_statem</c></item>
 	  <item><c>gen_event</c></item>
 	  <item><c>supervisor</c></item>
@@ -306,6 +305,12 @@ behaviour_info(callbacks) -> Callbacks.</pre>
 	  <item>
 	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
 	  all functions in the module.</p>
+	  </item>
+
+        <tag><c>nifs</c></tag>
+	  <item>
+	  <p>Returns a list of <c>{Name,Arity}</c> tuples with
+	  all NIF functions in the module.</p>
 	  </item>
 
         <tag><c>native</c></tag>

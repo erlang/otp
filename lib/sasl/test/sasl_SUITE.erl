@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
+-export([init_per_suite/1,end_per_suite/1]).
 -export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -36,6 +37,19 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    S = application:get_env(kernel,logger_sasl_compatible),
+    application:set_env(kernel,logger_sasl_compatible,true),
+    [{sasl_compatible,S}|Config].
+
+end_per_suite(Config) ->
+    case ?config(sasl_compatible,Config) of
+        {ok,X} ->
+            application:set_env(kernel,logger_sasl_compatible,X);
+        undefined ->
+            application:unset_env(kernel,logger_sasl_compatible)
+    end.
 
 init_per_group(_GroupName, Config) ->
     Config.

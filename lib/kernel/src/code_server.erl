@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -340,8 +340,7 @@ handle_call(all_loaded, _From, S) ->
     {reply,all_loaded(Db),S};
 
 handle_call({get_object_code,Mod}, _From, St) when is_atom(Mod) ->
-    Path = St#state.path,
-    case mod_to_bin(Path, Mod) of
+    case get_object_code(St, Mod) of
 	{_,Bin,FName} -> {reply,{Mod,Bin,FName},St};
 	Error -> {reply,Error,St}
     end;
@@ -1130,19 +1129,18 @@ try_load_module_2(File, Mod, Bin, From, Architecture,
                   #state{moddb=Db}=St) ->
     case catch hipe_unified_loader:load_native_code(Mod, Bin, Architecture) of
         {module,Mod} = Module ->
-	    ets:insert(Db, [{{native,Mod},true},{Mod,File}]),
+	    ets:insert(Db, {Mod,File}),
             {reply,Module,St};
         no_native ->
             try_load_module_3(File, Mod, Bin, From, Architecture, St);
         Error ->
             error_msg("Native loading of ~ts failed: ~p\n", [File,Error]),
-            {reply,ok,St}
+            {reply,{error,Error},St}
     end.
 
-try_load_module_3(File, Mod, Bin, From, Architecture, St0) ->
+try_load_module_3(File, Mod, Bin, From, _Architecture, St0) ->
     Action = fun({module,_}=Module, #state{moddb=Db}=S) ->
 		     ets:insert(Db, {Mod,File}),
-		     post_beam_load([Mod], Architecture, S),
 		     {reply,Module,S};
 		({error,on_load_failure}=Error, S) ->
 		     {reply,Error,S};
@@ -1153,24 +1151,14 @@ try_load_module_3(File, Mod, Bin, From, Architecture, St0) ->
     Res = erlang:load_module(Mod, Bin),
     handle_on_load(Res, Action, Mod, From, St0).
 
-hipe_result_to_status(Result, #state{moddb=Db}) ->
+hipe_result_to_status(Result, #state{}) ->
     case Result of
-	{module,Mod} ->
-	    ets:insert(Db, [{{native,Mod},true}]),
+	{module,_} ->
 	    Result;
 	_ ->
 	    {error,Result}
     end.
 
-post_beam_load(_, undefined, _) ->
-    %% HiPE is disabled.
-    ok;
-post_beam_load(Mods0, _Architecture, #state{moddb=Db}) ->
-    %% post_beam_load/2 can potentially be very expensive because it
-    %% blocks multi-scheduling. Therefore, we only want to call
-    %% it with modules that are known to have native code loaded.
-    Mods = [M || M <- Mods0, ets:member(Db, {native,M})],
-    hipe_unified_loader:post_beam_load(Mods).
 
 int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
@@ -1193,19 +1181,28 @@ load_file(Mod, From, St0) ->
 	     end,
     handle_pending_on_load(Action, Mod, From, St0).
 
-load_file_1(Mod, From, #state{path=Path}=St) ->
-    case mod_to_bin(Path, Mod) of
+load_file_1(Mod, From, St) ->
+    case get_object_code(St, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
 	    try_load_module_1(File, Mod, Binary, From, St)
     end.
 
-mod_to_bin([Dir|Tail], Mod) ->
-    File = filename:append(Dir, atom_to_list(Mod) ++ objfile_extension()),
+get_object_code(#state{path=Path}, Mod) when is_atom(Mod) ->
+    ModStr = atom_to_list(Mod),
+    case erl_prim_loader:is_basename(ModStr) of
+        true ->
+            mod_to_bin(Path, Mod, ModStr ++ objfile_extension());
+        false ->
+            error
+    end.
+
+mod_to_bin([Dir|Tail], Mod, ModFile) ->
+    File = filename:append(Dir, ModFile),
     case erl_prim_loader:get_file(File) of
 	error -> 
-	    mod_to_bin(Tail, Mod);
+	    mod_to_bin(Tail, Mod, ModFile);
 	{ok,Bin,_} ->
 	    case filename:pathtype(File) of
 		absolute ->
@@ -1214,10 +1211,9 @@ mod_to_bin([Dir|Tail], Mod) ->
 		    {Mod,Bin,absname(File)}
 	    end
     end;
-mod_to_bin([], Mod) ->
+mod_to_bin([], Mod, ModFile) ->
     %% At last, try also erl_prim_loader's own method
-    File = to_list(Mod) ++ objfile_extension(),
-    case erl_prim_loader:get_file(File) of
+    case erl_prim_loader:get_file(ModFile) of
 	error -> 
 	    error;     % No more alternatives !
 	{ok,Bin,FName} ->
@@ -1313,15 +1309,12 @@ abort_if_sticky(L, Db) ->
 	[_|_] -> {error,Sticky}
     end.
 
-do_finish_loading(Prepared, #state{moddb=Db}=St) ->
+do_finish_loading(Prepared, #state{moddb=Db}) ->
     MagicBins = [B || {_,{B,_}} <- Prepared],
     case erlang:finish_loading(MagicBins) of
 	ok ->
 	    MFs = [{M,F} || {M,{_,F}} <- Prepared],
 	    true = ets:insert(Db, MFs),
-	    Ms = [M || {M,_} <- MFs],
-	    Architecture = erlang:system_info(hipe_architecture),
-	    post_beam_load(Ms, Architecture, St),
 	    ok;
 	{Reason,Ms} ->
 	    {error,[{M,Reason} || M <- Ms]}
@@ -1423,7 +1416,7 @@ finish_on_load_report(Mod, Term) ->
     %% from the code_server process.
     spawn(fun() ->
 		  F = "The on_load function for module "
-		      "~s returned ~P\n",
+		      "~s returned:~n~P\n",
 
 		  %% Express the call as an apply to simplify
 		  %% the ext_mod_dep/1 test case.
@@ -1441,14 +1434,20 @@ all_loaded(Db) ->
 
 -spec error_msg(io:format(), [term()]) -> 'ok'.
 error_msg(Format, Args) ->
-    Msg = {notify,{error, group_leader(), {self(), Format, Args}}},
-    error_logger ! Msg,
+    logger ! {log,error,Format,Args,
+              #{pid=>self(),
+                gl=>group_leader(),
+                time=>erlang:system_time(microsecond),
+                error_logger=>#{tag=>error}}},
     ok.
 
 -spec info_msg(io:format(), [term()]) -> 'ok'.
 info_msg(Format, Args) ->
-    Msg = {notify,{info_msg, group_leader(), {self(), Format, Args}}},
-    error_logger ! Msg,
+    logger ! {log,info,Format,Args,
+              #{pid=>self(),
+                gl=>group_leader(),
+                time=>erlang:system_time(microsecond),
+                error_logger=>#{tag=>info_msg}}},
     ok.
 
 objfile_extension() ->

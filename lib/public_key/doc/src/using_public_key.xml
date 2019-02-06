@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2011</year><year>2016</year>
+      <year>2011</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -417,6 +417,261 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
     
   </section>
   
+ <section>
+   <marker id="verify_hostname"></marker>
+   <title>Verifying a certificate hostname</title>
+   <section>
+     <title>Background</title>
+     <p>When a client checks a server certificate there are a number of checks available like
+     checks that the certificate is not revoked, not forged or not out-of-date.
+     </p>
+     <p>There are however attacks that are not detected by those checks. Suppose a bad guy has
+     succeded with a DNS infection. Then the client could belive it is connecting to one host but
+     ends up at another but evil one. Though it is evil, it could have a perfectly legal
+     certificate! The certificate has a valid signature, it is not revoked, the certificate chain
+     is not faked and has a trusted root and so on.
+     </p>
+     <p>To detect that the server is not the intended one, the client must additionaly perform
+     a <i>hostname verification</i>. This procedure is described in
+     <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>. The idea is that the certificate
+     lists the hostnames it could be fetched from. This is checked by the certificate issuer when
+     the certificate is signed. So if the certificate is issued by a trusted root the client 
+     could trust the host names signed in it.
+     </p>
+     <p>There is a default hostname matching procedure defined in
+     <url href="https://tools.ietf.org/html/rfc6125#section-6">RFC 6125, section 6</url>
+     as well as protocol dependent variations defined in
+     <url href="https://tools.ietf.org/html/rfc6125#appendix-B">RFC 6125 appendix B</url>.
+     The default procedure is implemented in
+     <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2,3</seealso>.
+     It is possible for a client to hook in modified rules using the options list.
+     </p>
+     <p>Some terminology is needed: the certificate presents hostname(s) on which it is valid.
+     Those are called <i>Presented IDs</i>. The hostname(s) the client belives it connects to
+     are called <i>Reference IDs</i>. The matching rules aims to verify that there is at least
+     one of the Reference IDs that matches one of the Presented IDs. If not, the verification fails.
+     </p>
+     <p>The IDs contains normal fully qualified domain names like e.g <c>foo.example.com</c>,
+     but IP addresses are not recommended. The rfc describes why this is not recommended as well
+     as security considerations about how to aquire the Reference IDs.
+     </p>
+     <p>Internationalized domain names are not supported.
+     </p>
+   </section>
+   <section>
+     <title>The verification process</title>
+     <p>Traditionally the Presented IDs were found in the <c>Subject</c> certificate field as <c>CN</c>
+     names. This is still quite common. When printing a certificate they show up as:
+     </p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+     </code>
+     <p>The example <c>Subject</c> field has one C, two CN and one O part. It is only the
+     CN (Common Name) that is used by hostname verification. The two other (C and O) is not used
+     here even when they contain a domain name like the O part. The C and O parts are defined
+     elsewhere and meaningful only for other functions.
+     </p>
+     <p>In the example the Presented IDs are <c>example.com</c> as well as hostnames matching
+     <c>*.example.com</c>. For example <c>foo.example.com</c> and <c>bar.example.com</c> both
+     matches but not <c>foo.bar.example.com</c>. The name <c>erlang.org</c> matches neither
+     since it is not a CN.
+     </p>
+     <p>In case where the Presented IDs are fetched from the <c>Subject</c> certificate field, the
+     names may contain wildcard characters. The function handles this as defined in
+     <url href="https://tools.ietf.org/html/rfc6125#section-6.4.3">chapter 6.4.3 in RFC 6125</url>.
+     </p>
+     <p>There may only be one wildcard character and that is in the first label, for example:
+     <c>*.example.com</c>. This matches <c>foo.example.com</c> but neither <c>example.com</c> nor
+     <c>foo.bar.example.com</c>.
+     </p>
+     <p>There may be label characters before or/and after the wildcard. For example:
+     <c>a*d.example.com</c> matches <c>abcd.example.com</c> and <c>ad.example.com</c>,
+     but not <c>ab.cd.example.com</c>.
+     </p>
+     <p>In the previous example there is no indication of which protocols are expected. So a client
+     has no indication of whether it is a web server, an ldap server or maybe a sip server it is
+     connected to.
+     There are fields in the certificate that can indicate this. To be more exact, the rfc
+     introduces the usage of the <c>X509v3 Subject Alternative Name</c> in the <c>X509v3 extensions</c>
+     field:
+     </p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code>
+     <p>Here <c>kb.example.org</c> serves any protocol while <c>www.example.org</c> presents a secure
+     web server.
+     </p>
+
+     <p>The next example has both <c>Subject</c> and <c>Subject Alternate Name</c> present:</p>
+     <code>
+ $ openssl x509 -text &lt; cert.pem
+ ...
+ Subject: C=SE, CN=example.com, CN=*.example.com, O=erlang.org
+ ...
+ X509v3 extensions:
+     X509v3 Subject Alternative Name:
+         DNS:kb.example.org, URI:https://www.example.org
+ ...
+     </code>
+     <p>The RFC states that if a certificate defines Reference IDs in a <c>Subject Alternate Name</c>
+     field, the <c>Subject</c> field MUST NOT be used for host name checking, even if it contains
+     valid CN names.
+     Therefore only <c>kb.example.org</c> and <c>https://www.example.org</c> matches. The match fails
+     both for <c>example.com</c> and <c>foo.example.com</c> becuase they are in the <c>Subject</c>
+     field which is not checked because the <c>Subject Alternate Name</c> field is present.
+     </p>
+   </section>
+
+   <section>
+    <marker id="verify_hostname_examples"></marker>
+     <title>Function call examples</title>
+     <note>
+       <p>Other applications like ssl/tls or https might have options that are passed
+       down to the <c>public_key:pkix_verify_hostname</c>. You will probably not
+       have to call it directly</p>
+     </note>
+     <p>Suppose our client expects to connect to the web server https://www.example.net. This
+     URI is therefore the Reference IDs of the client.
+     The call will be:
+     </p>
+     <code>
+ public_key:pkix_verify_hostname(CertFromHost,
+                                 [{uri_id, "https://www.example.net"}
+                                 ]).
+     </code>
+     <p>The call will return <c>true</c> or <c>false</c> depending on the check. The caller
+     do not need to handle the matching rules in the rfc. The matching will proceed as:
+     </p>
+     <list>
+       <item>If there is a <c>Subject Alternate Name</c> field, the <c>{uri_id,string()}</c> in the
+       function call will be compared to any
+       <c>{uniformResourceIdentifier,string()}</c> in the Certificate field.
+       If the two <c>strings()</c> are equal (case insensitive), there is a match.
+       The same applies for any <c>{dns_id,string()}</c> in the call which is compared
+       with all <c>{dNSName,string()}</c> in the Certificate field.
+       </item>
+       <item>If there is NO <c>Subject Alternate Name</c> field, the <c>Subject</c> field will be
+       checked. All <c>CN</c> names will be compared to all hostnames <i>extracted</i> from 
+       <c>{uri_id,string()}</c> and from <c>{dns_id,string()}</c>.
+       </item>
+     </list>
+   </section>
+   <section>
+     <title>Extending the search mechanism</title>
+     <p>The caller can use own extraction and matching rules. This is done with the two options
+     <c>fqdn_fun</c> and <c>match_fun</c>.
+     </p>
+     <section>
+       <marker id="hostname_extraction"></marker>
+       <title>Hostname extraction</title>
+       <p>The <c>fqdn_fun</c> extracts hostnames (Fully Qualified Domain Names) from uri_id
+       or other ReferenceIDs that are not pre-defined in the public_key function.
+       Suppose you have some URI with a very special protocol-part:
+       <c>myspecial://example.com"</c>. Since this a non-standard URI there will be no hostname 
+       extracted for matching CN-names in the <c>Subject</c>.</p>
+       <p>To "teach" the function how to extract, you can give a fun which replaces the default
+       extraction function.
+       The  <c>fqdn_fun</c> takes one argument and returns
+       either a <c>string()</c> to be matched to each CN-name or the atom <c>default</c> which will invoke
+       the default fqdn extraction function. The return value <c>undefined</c> removes the current
+       URI from the fqdn extraction.
+       </p>
+       <code>
+ ...
+ Extract = fun({uri_id, "myspecial://"++HostName}) -> HostName;
+              (_Else) -> default
+           end,
+ ...	 
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fqdn_fun, Extract}])
+ ...
+       </code>
+     </section>
+     <section>
+       <marker id="redefining_match_op"></marker>
+       <title>Re-defining the match operation</title>
+       <p>The default matching handles dns_id and uri_id. In an uri_id the value is tested for
+       equality with a value from the <c>Subject Alternate Name</c>. If som other kind of matching
+       is needed, use the  <c>match_fun</c> option.
+       </p>
+       <p>The  <c>match_fun</c> takes two arguments and returns either <c>true</c>,
+       <c>false</c> or <c>default</c>. The value  <c>default</c> will invoke the default
+       match function.
+       </p>
+       <code>
+ ...
+ Match = fun({uri_id,"myspecial://"++A},
+             {uniformResourceIdentifier,"myspecial://"++B}) ->
+                                                    my_match(A,B);
+            (_RefID, _PresentedID) ->
+                                default
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{match_fun, Match}]),
+ ...
+       </code>
+       <p>In case of a match operation between a ReferenceID and a CN value from the <c>Subject</c>
+       field, the first argument to the fun is the extracted hostname from the ReferenceID, and the
+       second argument is the tuple <c>{cn, string()}</c> taken from the <c>Subject</c> field. That
+       makes it possible to have separate matching rules for Presented IDs from the  <c>Subject</c>
+       field and from the <c>Subject Alternate Name</c> field.
+       </p>
+       <p>The default matching transformes the ascii values in strings to lowercase before comparing.
+       The  <c>match_fun</c> is however called without any transfomation applied to the strings.  The
+       reason is to enable the user to do unforseen handling of the strings where the original format
+       is needed.
+       </p>
+     </section>
+   </section>
+   <section>
+     <title>"Pinning" a Certificate</title>
+     <p>The <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url> defines <i>pinning</i>
+     as:</p>
+     <quote>
+       <p>"The act of establishing a cached name association between
+       the application service's certificate and one of the client's
+       reference identifiers, despite the fact that none of the presented
+       identifiers matches the given reference identifier. ..."
+       </p>
+     </quote>
+     <p>The purpose is to have a mechanism for a human to accept an otherwise faulty Certificate.
+     In for example a web browser, you could get a question like </p>
+     <quote>
+       <p>Warning: you wanted to visit the site www.example.com,
+       but the certificate is for shop.example.com. Accept anyway (yes/no)?"
+       </p>
+     </quote>
+     <p>This could be accomplished with the option <c>fail_callback</c> which will
+     be called if the hostname verification fails:
+     </p>
+     <code>
+ -include_lib("public_key/include/public_key.hrl"). % Record def
+ ...
+ Fail = fun(#'OTPCertificate'{}=C) ->
+              case in_my_cache(C) orelse my_accept(C) of
+                  true ->
+                       enter_my_cache(C),
+                       true;
+                  false ->
+                       false
+         end,
+ ...
+ public_key:pkix_verify_hostname(CertFromHost, RefIDs,
+                                 [{fail_callback, Fail}]),
+ ...
+     </code>
+   </section>
+ </section>
+
   <section>
     <title>SSH Files</title>
     

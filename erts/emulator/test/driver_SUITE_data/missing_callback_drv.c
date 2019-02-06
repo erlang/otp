@@ -41,10 +41,6 @@
 typedef struct {
     int ofd;
     int ifd;
-    int efd;
-#ifdef HAVE_POLL_H
-    struct erl_drv_event_data edata;
-#endif
 } mcd_data_t;
 
 static ErlDrvData start(ErlDrvPort port, char *command);
@@ -90,7 +86,6 @@ start(ErlDrvPort port, char *command)
 
     mcd->ofd = -1;
     mcd->ifd = -1;
-    mcd->efd = -1;
 
 #ifdef UNIX
 
@@ -105,15 +100,6 @@ start(ErlDrvPort port, char *command)
 	goto error;
     if (driver_select(port, (ErlDrvEvent) (long) mcd->ifd, DO_READ, 1) != 0)
 	goto error;
-
-#ifdef HAVE_POLL_H
-    mcd->efd = open("/dev/null", O_WRONLY);
-    if (mcd->efd < 0)
-	goto error;
-    mcd->edata.events = POLLOUT;
-    mcd->edata.revents = 0;
-    driver_event(port, (ErlDrvEvent) (long) mcd->efd, &mcd->edata);
-#endif
 #endif
 
     driver_set_timer(port, 0);
@@ -135,10 +121,6 @@ stop(ErlDrvData data)
 	    close(mcd->ofd);
 	if (mcd->ifd >= 0)
 	    close(mcd->ifd);
-#ifdef HAVE_POLL_H
-	if (mcd->efd >= 0)
-	    close(mcd->efd);
-#endif
 #endif
 	driver_free(mcd);
     }

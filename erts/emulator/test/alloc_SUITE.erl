@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 	 mseg_clear_cache/1,
 	 erts_mmap/1,
 	 cpool/1,
+         set_dyn_param/1,
 	 migration/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -41,6 +42,7 @@ suite() ->
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,
+     set_dyn_param,
      bucket_mask, rbtree, mseg_clear_cache, erts_mmap, cpool, migration].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
@@ -65,12 +67,11 @@ mseg_clear_cache(Cfg) -> drv_case(Cfg).
 cpool(Cfg) -> drv_case(Cfg).
 
 migration(Cfg) ->
-    case erlang:system_info(smp_support) of
-	true ->
-	    drv_case(Cfg, concurrent, "+MZe true");
-	false ->
-	    {skipped, "No smp"}
-    end.
+    %% Enable test_alloc.
+    %% Disable driver_alloc to avoid recursive alloc_util calls
+    %% through enif_mutex_create() in my_creating_mbc().
+    drv_case(Cfg, concurrent, "+MZe true +MRe false"),
+    drv_case(Cfg, concurrent, "+MZe true +MRe false +MZas ageffcbf").
 
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of
@@ -94,10 +95,11 @@ mmsc_flags() ->
 mmsc_flags(Env) ->
     case os:getenv(Env) of
 	false -> false;
-	V -> case string:str(V, "+MMsc") of
-		 0 -> false;
-		 P -> Env ++ "=" ++ string:substr(V, P)
-	     end
+	V ->
+            case string:find(V, "+MMsc") of
+                nomatch -> false;
+                SubStr -> Env ++ "=" ++ SubStr
+            end
     end.
 
 erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
@@ -114,7 +116,7 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
 	       0 -> O1;
 	       _ -> O1 ++ " +MMscrfsd"++integer_to_list(SCRFSD)
 	   end,
-    {ok, Node} = start_node(Config, Opts),
+    {ok, Node} = start_node(Config, Opts, []),
     Self = self(),
     Ref = make_ref(),
     F = fun() ->
@@ -144,6 +146,82 @@ erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->
     Result.
 
 
+%% Test erlang:system_flag(erts_alloc, ...)
+set_dyn_param(_Config) ->
+    {_, _, _, AlcList} = erlang:system_info(allocator),
+
+    {Enabled, Disabled, Others} =
+        lists:foldl(fun({sys_alloc,_}, {Es, Ds, Os}) ->
+                            {Es, [sys_alloc | Ds], Os};
+
+                       ({AT, Opts}, {Es, Ds, Os}) when is_list(Opts) ->
+                            case lists:keyfind(e, 1, Opts) of
+                                {e, true} ->
+                                    {[AT | Es], Ds, Os};
+                                {e, false} ->
+                                    {Es, [AT | Ds], Os};
+                                false ->
+                                    {Es, Ds, [AT | Os]}
+                            end;
+
+                       (_, Acc) -> Acc
+                    end,
+                    {[], [], []},
+                    AlcList),
+
+    Param = sbct,
+    lists:foreach(fun(AT) -> set_dyn_param_enabled(AT, Param) end,
+                  Enabled),
+
+    lists:foreach(fun(AT) ->
+                          Tpl = {AT, Param, 12345},
+                          io:format("~p\n", [Tpl]),
+                          notsup = erlang:system_flag(erts_alloc, Tpl)
+                  end,
+                  Disabled),
+
+    lists:foreach(fun(AT) ->
+                          Tpl = {AT, Param, 12345},
+                          io:format("~p\n", [Tpl]),
+                          {'EXIT',{badarg,_}} =
+                              (catch erlang:system_flag(erts_alloc, Tpl))
+                  end,
+                  Others),
+    ok.
+
+set_dyn_param_enabled(AT, Param) ->
+    OldVal = get_alc_param(AT, Param),
+
+    Val1 = OldVal div 2,
+    Tuple = {AT, Param, Val1},
+    io:format("~p\n", [Tuple]),
+    ok = erlang:system_flag(erts_alloc, Tuple),
+    Val1 = get_alc_param(AT, Param),
+
+    ok = erlang:system_flag(erts_alloc, {AT, Param, OldVal}),
+    OldVal = get_alc_param(AT, Param),
+    ok.
+
+get_alc_param(AT, Param) ->
+    lists:foldl(fun({instance,_,Istats}, Acc) ->
+                        {options,Opts} = lists:keyfind(options, 1, Istats),
+                        {Param,Val} = lists:keyfind(Param, 1, Opts),
+                        {as,Strategy} = lists:keyfind(as, 1, Opts),
+
+                        case {param_for_strat(Param, Strategy), Acc} of
+                            {false, _} -> Acc;
+                            {true, undefined} -> Val;
+                            {true, _} ->
+                                Val = Acc
+                        end
+                end,
+                undefined,
+                erlang:system_info({allocator, AT})).
+
+param_for_strat(sbct, gf) -> false;
+param_for_strat(_, _) -> true.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                        %%
 %% Internal functions                                                     %%
@@ -155,7 +233,9 @@ drv_case(Config) ->
 drv_case(Config, Mode, NodeOpts) when is_list(Config) ->
     case os:type() of
 	{Family, _} when Family == unix; Family == win32 ->
-	    {ok, Node} = start_node(Config, NodeOpts),
+            %%Prog = {prog,"/my/own/otp/bin/cerl -debug"},
+            Prog = [],
+	    {ok, Node} = start_node(Config, NodeOpts, Prog),
 	    Self = self(),
 	    Ref = make_ref(),
 	    spawn_link(Node,
@@ -221,19 +301,35 @@ wait_for_memory_deallocations() ->
     end.
 
 print_stats(migration) ->
-    {Btot,Ctot} = lists:foldl(fun({instance,Inr,Istats}, {Bacc,Cacc}) ->
-				      {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
-				      Btup = lists:keyfind(blocks, 1, MBCS),
-				      Ctup = lists:keyfind(carriers, 1, MBCS),
-				      io:format("{instance,~p,~p,~p}\n", [Inr, Btup, Ctup]),
-				      {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup)};
-				 (_, Acc) -> Acc
-			      end,
-			      {{blocks,0,0,0},{carriers,0,0,0}},
-			      erlang:system_info({allocator,test_alloc})),
+    IFun = fun({instance,Inr,Istats}, {Bacc,Cacc,Pacc}) ->
+                   {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
+                   Btup = lists:keyfind(blocks, 1, MBCS),
+                   Ctup = lists:keyfind(carriers, 1, MBCS),
 
+                   Ptup = case lists:keyfind(mbcs_pool, 1, Istats) of
+                              {mbcs_pool,POOL} ->
+                                  {blocks, Bpool} = lists:keyfind(blocks, 1, POOL),
+                                  {carriers, Cpool} = lists:keyfind(carriers, 1, POOL),
+                                  {pool, Bpool, Cpool};
+                              false ->
+                                  {pool, 0, 0}
+                          end,
+                   io:format("{instance,~p,~p,~p,~p}}\n",
+                             [Inr, Btup, Ctup, Ptup]),
+                   {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup),
+                    tuple_add(Pacc,Ptup)};
+              (_, Acc) -> Acc
+           end,
+
+    {Btot,Ctot,Ptot} = lists:foldl(IFun,
+                                   {{blocks,0,0,0},{carriers,0,0,0},{pool,0,0}},
+                                   erlang:system_info({allocator,test_alloc})),
+
+    {pool, PBtot, PCtot} = Ptot,
     io:format("Number of blocks  : ~p\n", [Btot]),
-    io:format("Number of carriers: ~p\n", [Ctot]);
+    io:format("Number of carriers: ~p\n", [Ctot]),
+    io:format("Number of pooled blocks  : ~p\n", [PBtot]),
+    io:format("Number of pooled carriers: ~p\n", [PCtot]);
 print_stats(_) -> ok.
 
 tuple_add(T1, T2) ->
@@ -330,13 +426,13 @@ handle_result(_State, Result0) ->
 	    continue
     end.
 
-start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
+start_node(Config, Opts, Prog) when is_list(Config), is_list(Opts) ->
     case proplists:get_value(debug,Config) of
 	true -> {ok, node()};
-	_ -> start_node_1(Config, Opts)
+	_ -> start_node_1(Config, Opts, Prog)
     end.
 
-start_node_1(Config, Opts) ->
+start_node_1(Config, Opts, Prog) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-"
@@ -345,7 +441,11 @@ start_node_1(Config, Opts) ->
 			++ integer_to_list(erlang:system_time(second))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa}]).
+    ErlArg = case Prog of
+                 [] -> [];
+                 _ -> [{erl,[Prog]}]
+             end,
+    test_server:start_node(Name, slave, [{args, Opts++" -pa "++Pa} | ErlArg]).
 
 stop_node(Node) when Node =:= node() -> ok;
 stop_node(Node) ->

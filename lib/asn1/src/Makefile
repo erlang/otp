@@ -68,7 +68,6 @@ CT_MODULES= \
 	$(EVAL_CT_MODULES)
 
 RT_MODULES= \
-	asn1rt \
 	asn1rt_nif
 
 MODULES= $(CT_MODULES) $(RT_MODULES) 

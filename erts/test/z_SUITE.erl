@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
     
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {minutes, 5}}].
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [core_files].
@@ -132,22 +132,9 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 
 file_inspect(#core_search_conf{file = File}, Core) ->
     FRes0 = os:cmd(File ++ " " ++ Core),
-    FRes = case string:str(FRes0, Core) of
-	       0 ->
-		   FRes0;
-	       S ->
-		   L = length(FRes0),
-		   E = length(Core),
-		   case S of
-		       1 ->
-			   lists:sublist(FRes0, E+1, L+1);
-		       _ ->
-			   lists:sublist(FRes0, 1, S-1)
-			       ++
-			       " "
-			       ++
-			       lists:sublist(FRes0, E+1, L+1)
-		   end
+    FRes = case string:split(FRes0, Core) of
+	       [S1] -> S1;
+	       [S1,S2] -> lists:flatten(S1 ++ " " ++ S2)
 	   end,
     case re:run(FRes, "text|ascii", [caseless,{capture,none}]) of
 	match ->
@@ -194,9 +181,6 @@ mod_time_list(F) ->
 	    [0,0,0,0,0,0]
     end.
 
-str_strip(S) ->
-    string:strip(string:strip(string:strip(S), both, $\n), both, $\r).
-
 dump_core(#core_search_conf{ cerl = false }, _) ->
     ok;
 dump_core(_, {ignore, _Core}) ->
@@ -232,7 +216,7 @@ format_core(#core_search_conf{file = false}, Core, Ignore) ->
     io:format("  ~s~s " ++ time_fstr() ++ "~s~n",
 	      [Ignore, Core] ++ mod_time_list(Core));
 format_core(#core_search_conf{file = File}, Core, Ignore) ->
-    FRes = str_strip(os:cmd(File ++ " " ++ Core)),
+    FRes = string:trim(os:cmd(File ++ " " ++ Core)),
     case catch re:run(FRes, Core, [caseless,{capture,none}]) of
 	match ->
 	    io:format("  ~s~s " ++ time_fstr() ++ "~n",
@@ -270,6 +254,8 @@ core_file_search(#core_search_conf{search_dir = Base,
 				 "core" ->
 				     core_cand(Conf, Core, Cores);
 				 "core." ++ _ ->
+				     core_cand(Conf, Core, Cores);
+				 "vgcore." ++ _ -> % valgrind
 				     core_cand(Conf, Core, Cores);
 				 Bin when is_binary(Bin) -> %Icky filename; ignore
 				     Cores;

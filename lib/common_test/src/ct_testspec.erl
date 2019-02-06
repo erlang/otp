@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,15 +18,12 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework functions handling test specifications.
-%%%
-%%% <p>This module exports functions that are used within CT to
-%%% scan and parse test specifikations.</p>
 -module(ct_testspec).
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
-	 collect_tests_from_file/2, collect_tests_from_file/3]).
+	 collect_tests_from_file/2, collect_tests_from_file/3,
+         get_tests/1]).
 
 -export([testspec_rec2list/1, testspec_rec2list/2]).
 
@@ -343,7 +340,7 @@ create_spec_tree([Spec|Specs],TS,JoinWithNext,Known) ->
 		     create_spec_tree(Specs,TS,JoinWithNext,Known)};	
 		{error,Reason} ->
 		    ReasonStr =
-			lists:flatten(io_lib:format("~s",
+			lists:flatten(io_lib:format("~ts",
 						    [file:format_error(Reason)])),
 		    throw({error,{SpecAbsName,ReasonStr}})
 	    end
@@ -536,7 +533,7 @@ replace_names_in_elems([],Modified,_Defs) ->
 replace_names_in_string(Term,Defs=[{Name,Replacement=[Ch|_]}|Ds])
   when is_integer(Ch) ->
     try re:replace(Term,[$'|atom_to_list(Name)]++"'",
-		   Replacement,[{return,list}]) of
+		   Replacement,[{return,list},unicode]) of
 	Term ->					% no match, proceed
 	    replace_names_in_string(Term,Ds);
 	Term1 ->
@@ -568,7 +565,7 @@ replace_names_in_node1(NodeStr,Defs=[{Name,Replacement}|Ds]) ->
 	    replace_names_in_node1(NodeStr,Ds);
        true ->
 	    case re:replace(NodeStr,atom_to_list(Name),
-			    ReplStr,[{return,list}]) of
+			    ReplStr,[{return,list},unicode]) of
 		NodeStr ->			% no match, proceed
 		    replace_names_in_node1(NodeStr,Ds);
 		NodeStr1 ->
@@ -802,6 +799,31 @@ save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
 list_nodes(#testspec{nodes=NodeRefs}) ->
     lists:map(fun({_Ref,Node}) -> Node end, NodeRefs).		      
 
+
+%%%-----------------------------------------------------------------
+%%% Parse the given test specs and return the complete set of specs
+%%% and tests to run/skip.
+%%% [Spec1,Spec2,...] means create separate tests per spec
+%%% [[Spec1,Spec2,...]] means merge all specs into one
+-spec get_tests(Specs) -> {ok,[{Specs,Tests}]} | {error,Reason} when
+      Specs :: [string()] | [[string()]],
+      Tests :: {Node,Run,Skip},
+      Node :: atom(),
+      Run :: {Dir,Suites,Cases},
+      Skip :: {Dir,Suites,Comment} | {Dir,Suites,Cases,Comment},
+      Dir :: string(),
+      Suites :: atom | [atom()] | all,
+      Cases :: atom | [atom()] | all,
+      Comment :: string(),
+      Reason :: term().
+
+get_tests(Specs) ->
+    case collect_tests_from_file(Specs,true) of
+        Tests when is_list(Tests) ->
+            {ok,[{S,prepare_tests(R)} || {S,R} <- Tests]};
+        Error ->
+            Error
+    end.
 
 %%     -----------------------------------------------------
 %%   /                                                       \
@@ -1075,7 +1097,7 @@ check_term(Term) when is_tuple(Term) ->
 				true ->
 				    io:format("~nSuspicious term, "
 					      "please check:~n"
-					      "~p~n", [Term]),
+					      "~tp~n", [Term]),
 				    invalid;
 				false ->
 				    invalid
@@ -1132,6 +1154,11 @@ handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
     VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
 			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
     [{Node,VLvls1}];
+handle_data(multiply_timetraps,Node,Mult,_Spec) when is_integer(Mult) ->
+    [{Node,Mult}];
+handle_data(scale_timetraps,Node,Scale,_Spec) when Scale == true;
+                                                   Scale == false ->
+    [{Node,Scale}];
 handle_data(silent_connections,Node,all,_Spec) ->
     [{Node,[all]}];
 handle_data(silent_connections,Node,Conn,_Spec) when is_atom(Conn) ->
@@ -1150,6 +1177,8 @@ should_be_added(Tag,Node,_Data,Spec) ->
 	Tag == label;        Tag == auto_compile;
 	Tag == abort_if_missing_suites;
 	Tag == stylesheet;   Tag == verbosity;
+        Tag == multiply_timetraps;
+        Tag == scale_timetraps;
 	Tag == silent_connections ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;
@@ -1392,7 +1421,12 @@ skip_groups1(Suite,Groups,Cmt,Suites0) ->
 	    GrAndCases1 = GrAndCases0 ++ SkipGroups,
 	    insert_in_order({Suite,GrAndCases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipGroups},Suites0,replace)
+	    case Suites0 of
+		[{all,_}=All|Skips]->
+		    [All|Skips++[{Suite,SkipGroups}]];
+                _ ->
+                    insert_in_order({Suite,SkipGroups},Suites0,replace)
+            end
     end.
 
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->

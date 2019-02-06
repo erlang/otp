@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ read_config_terms1({done,{eof,EL},_}, L, _, _) ->
 read_config_terms1({done,{error,Info,EL},_}, L, _, _) ->
     {error,{Info,{L,EL}}};
 read_config_terms1({more,_}, L, Terms, Rest) ->
-    case string:tokens(Rest, [$\n,$\r,$\t]) of
+    case string:lexemes(Rest, [$\n,[$\r,$\n],$\t]) of
 	[] ->
 	    lists:reverse(Terms);
 	_ ->

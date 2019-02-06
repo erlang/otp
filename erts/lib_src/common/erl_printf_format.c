@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -326,12 +326,12 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 {
     int res;
     int fi = 0;
-    char format_str[7];
+    char format_str[8];
     char sbuf[32];
     char *bufp = sbuf;
     double dexp;
     int exp;
-    size_t max_size = 1;
+    size_t max_size = 2;  /* including possible sign */
     int size;
     int new_fmt = fmt;
     int fpe_was_unmasked;

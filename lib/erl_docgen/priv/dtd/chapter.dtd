@@ -31,7 +31,8 @@
 <!-- Structure -->
 
 <!ELEMENT chapter             (header,(%block;|quote|warning|note|dont|do|br|
-                               image|marker|table)*,section+) >
+                               image|marker|table)*,section*) >
 <!ELEMENT section             (marker*,title,
                                (%block;|quote|warning|note|dont|do|br|image|marker|
                                 table|section)*) >
+<!ATTLIST section              ghlink CDATA #IMPLIED>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ struct hipe_process_state {
 #ifdef NO_FPE_SIGNALS
     double float_result;        /* to be checked for inf/NaN by hipe_emulate_fpe */ 
 #endif
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
     void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
 #endif
 #ifdef DEBUG
@@ -79,18 +79,7 @@ static __inline__ void hipe_init_process(struct hipe_process_state *p)
 static __inline__ void hipe_delete_process(struct hipe_process_state *p)
 {
     if (p->nstack)
-	erts_free(ERTS_ALC_T_HIPE, (void*)p->nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, (void*)p->nstack);
 }
-
-#ifdef ERTS_SMP
-struct hipe_process_state_smp {
-    int have_receive_locks;
-};
-
-static __inline__ void hipe_init_process_smp(struct hipe_process_state_smp *p)
-{
-    p->have_receive_locks = 0;
-}
-#endif
 
 #endif /* HIPE_PROCESS_H */

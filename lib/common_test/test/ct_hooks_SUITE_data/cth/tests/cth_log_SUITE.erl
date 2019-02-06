@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -124,6 +124,6 @@ gen() ->
 gen_loop(N) ->
     ct:log("Logger iteration: ~p", [N]),
     error_logger:error_report(N),
-    error_logger:info_report(progress, N),
+    error_logger:info_report(N),
     ct:sleep(150),
     gen_loop(N+1).

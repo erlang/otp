@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import java.util.Random;
  * received from the peer.
  *
  * <p>
- * This abstract class provides the neccesary methods to maintain the actual
+ * This abstract class provides the necessary methods to maintain the actual
  * connection and encode the messages and headers in the proper format according
  * to the Erlang distribution protocol. Subclasses can use these methods to
  * provide a more or less transparent communication channel as desired.

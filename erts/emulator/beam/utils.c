@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 #include "dist.h"
 #include "erl_printf.h"
 #include "erl_threads.h"
-#include "erl_smp.h"
+#include "erl_lock_count.h"
 #include "erl_time.h"
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
@@ -51,11 +51,15 @@
 #include "erl_ptab.h"
 #include "erl_check_io.h"
 #include "erl_bif_unique.h"
+#include "erl_io_queue.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #ifdef HIPE
 #  include "hipe_mode_switch.h"
 #endif
+#define ERTS_WANT_NFUNC_SCHED_INTERNALS__
+#include "erl_nfunc_sched.h"
+#include "erl_proc_sig_queue.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -136,7 +140,7 @@ Eterm*
 erts_set_hole_marker(Eterm* ptr, Uint sz)
 {
     Eterm* p = ptr;
-    int i;
+    Uint i;
 
     for (i = 0; i < sz; i++) {
 	*p++ = ERTS_HOLE_MARKER;
@@ -204,9 +208,8 @@ erl_grow_wstack(ErtsWStack* s, Uint need)
 void
 erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 {
-    Uint old_size = s->pend - s->pstart;
+    Uint old_size = s->size;
     Uint new_size;
-    Uint sp_offs = s->psp - s->pstart;
 
     if (need_bytes < old_size)
 	new_size = 2 * old_size;
@@ -220,8 +223,7 @@ erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes)
 	sys_memcpy(new_ptr, s->pstart, old_size);
 	s->pstart = new_ptr;
     }
-    s->pend = s->pstart + new_size;
-    s->psp = s->pstart + sp_offs;
+    s->size = new_size;
 }
 
 /*
@@ -348,40 +350,41 @@ int erts_fit_in_bits_uint(Uint value)
 }
 
 int
-erts_print(int to, void *arg, char *format, ...)
+erts_print(fmtfn_t to, void *arg, char *format, ...)
 {
     int res;
     va_list arg_list;
     va_start(arg_list, format);
 
-    if (to < ERTS_PRINT_MIN)
-	res = -EINVAL;
-    else {
-	switch (to) {
-	case ERTS_PRINT_STDOUT:
+    {
+	switch ((UWord)to) {
+	case (UWord)ERTS_PRINT_STDOUT:
 	    res = erts_vprintf(format, arg_list);
 	    break;
-	case ERTS_PRINT_STDERR:
+	case (UWord)ERTS_PRINT_STDERR:
 	    res = erts_vfprintf(stderr, format, arg_list);
 	    break;
-	case ERTS_PRINT_FILE:
+	case (UWord)ERTS_PRINT_FILE:
 	    res = erts_vfprintf((FILE *) arg, format, arg_list);
 	    break;
-	case ERTS_PRINT_SBUF:
+	case (UWord)ERTS_PRINT_SBUF:
 	    res = erts_vsprintf((char *) arg, format, arg_list);
 	    break;
-	case ERTS_PRINT_SNBUF:
+	case (UWord)ERTS_PRINT_SNBUF:
 	    res = erts_vsnprintf(((erts_print_sn_buf *) arg)->buf,
 				 ((erts_print_sn_buf *) arg)->size,
 				 format,
 				 arg_list);
 	    break;
-	case ERTS_PRINT_DSBUF:
+	case (UWord)ERTS_PRINT_DSBUF:
 	    res = erts_vdsprintf((erts_dsprintf_buf_t *) arg, format, arg_list);
 	    break;
-	default:
-	    res = erts_vfdprintf((int) to, format, arg_list);
+        case (UWord)ERTS_PRINT_FD:
+	    res = erts_vfdprintf((int)(SWord) arg, format, arg_list);
 	    break;
+        default:
+            res = erts_vcbprintf(to, arg, format, arg_list);
+            break;
 	}
     }
 
@@ -390,7 +393,7 @@ erts_print(int to, void *arg, char *format, ...)
 }
 
 int
-erts_putc(int to, void *arg, char c)
+erts_putc(fmtfn_t to, void *arg, char c)
 {
     return erts_print(to, arg, "%c", c);
 }
@@ -699,12 +702,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 /* make a hash index from an erlang term */
 
 /*
-** There are three hash functions.
-** make_broken_hash: the one used for backward compatibility
-** is called from the bif erlang:hash/2. Should never be used
-** as it a) hashes only a part of binaries, b) hashes bignums really poorly,
-** c) hashes bignums differently on different endian processors and d) hashes 
-** small integers with different weights on different bytes.
+** There are two hash functions.
 **
 ** make_hash: A hash function that will give the same values for the same
 ** terms regardless of the internal representation. Small integers are 
@@ -893,11 +891,11 @@ tail_recur:
 	{
 	    Export* ep = *((Export **) (export_val(term) + 1));
 
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
+	    hash = hash * FUNNY_NUMBER11 + ep->info.mfa.arity;
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue);
 	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
+		(atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue);
 	    break;
 	}
 
@@ -1044,6 +1042,10 @@ tail_recur:
     DESTROY_WSTACK(stack);
     return hash;
 
+#undef MAKE_HASH_TUPLE_OP
+#undef MAKE_HASH_TERM_ARRAY_OP
+#undef MAKE_HASH_CDR_PRE_OP
+#undef MAKE_HASH_CDR_POST_OP
 #undef UINT32_HASH_STEP
 #undef UINT32_HASH_RET
 }
@@ -1330,11 +1332,11 @@ make_hash2(Eterm term)
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
 		UINT32_HASH_2
-		    (ep->code[2],
-		     atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue,
+		    (ep->info.mfa.arity,
+		     atom_tab(atom_val(ep->info.mfa.module))->slot.bucket.hvalue,
 		     HCONST);
 		UINT32_HASH
-		    (atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue,
+		    (atom_tab(atom_val(ep->info.mfa.function))->slot.bucket.hvalue,
 		     HCONST_14);
 		goto hash2_common;
 	    }
@@ -1578,16 +1580,13 @@ do {  /* Lightweight mixing of constant (type info) */  \
 } while (0)
 
 Uint32
-make_internal_hash(Eterm term)
+make_internal_hash(Eterm term, Uint32 salt)
 {
     Uint32 hash;
-    Uint32 hash_xor_pairs;
-
-    ERTS_UNDEF(hash_xor_pairs, 0);
 
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
-        hash = 0;
+        hash = salt;
     #if ERTS_SIZEOF_ETERM == 8
         UINT32_HASH_2((Uint32)term, (Uint32)(term >> 32), HCONST);
     #elif ERTS_SIZEOF_ETERM == 4
@@ -1601,7 +1600,7 @@ make_internal_hash(Eterm term)
     Eterm tmp;
     DECLARE_ESTACK(s);
 
-    hash = 0;
+    hash = salt;
     for (;;) {
 	switch (primary_tag(term)) {
 	case TAG_PRIMARY_LIST:
@@ -1664,6 +1663,11 @@ make_internal_hash(Eterm term)
                 Eterm* ptr = boxed_val(term) + 1;
                 Uint size;
                 int i;
+
+                /*
+                 * We rely on key-value iteration order being constant
+                 * for identical maps (in this VM instance).
+                 */
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_FLATMAP:
                 {
@@ -1675,26 +1679,10 @@ make_internal_hash(Eterm term)
                     if (size == 0)
                         goto pop_next;
 
-                    /* We want a hash function that is *independent* of
-                     * the order in which keys and values are encountered.
-                     * We therefore calculate context independent hashes for all    				      .
-                     * key-value pairs and then xor them together.
-                     *
-                     * We *do* need to use an initial seed for each pair, i.e. the
-                     * hash value, so the hash value is reset for each pair with 'hash'.
-                     * If we don't, no additional entropy is given to the system and the
-                     * hash collision resolution in maps:from_list/1 would fail.
-                     */
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
                     for (i = size - 1; i >= 0; i--) {
-                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, vs[i]);
                         ESTACK_PUSH(s, ks[i]);
                     }
-                    hash_xor_pairs = 0;
                     goto pop_next;
                 }
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1703,10 +1691,6 @@ make_internal_hash(Eterm term)
                     UINT32_HASH(size, HCONST_16);
                     if (size == 0)
                         goto pop_next;
-                    ESTACK_PUSH(s, hash_xor_pairs);
-                    ESTACK_PUSH(s, hash);
-                    ESTACK_PUSH(s, HASH_MAP_TAIL);
-                    hash_xor_pairs = 0;
                 }
                 switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
                 case HAMT_SUBTAG_HEAD_ARRAY:
@@ -1722,8 +1706,6 @@ make_internal_hash(Eterm term)
                 while (i) {
                     if (is_list(*ptr)) {
                         Eterm* cons = list_val(*ptr);
-                        ESTACK_PUSH(s, hash); /* initial seed for all pairs */
-                        ESTACK_PUSH(s, HASH_MAP_PAIR);
                         ESTACK_PUSH(s, CDR(cons));
                         ESTACK_PUSH(s, CAR(cons));
                     }
@@ -1739,7 +1721,7 @@ make_internal_hash(Eterm term)
 	    case EXPORT_SUBTAG:
 	    {
 		Export* ep = *((Export **) (export_val(term) + 1));
-                /* Assumes Export entries never moves */
+                /* Assumes Export entries never move */
                 POINTER_HASH(ep, HCONST_14);
 		goto pop_next;
 	    }
@@ -1838,7 +1820,7 @@ make_internal_hash(Eterm term)
 	    break;
 	    case REF_SUBTAG:
 		UINT32_HASH(internal_ref_numbers(term)[0], HCONST_7);
-                ASSERT(internal_ref_no_of_numbers(term) == 3);
+                ASSERT(internal_ref_no_numbers(term) == 3);
                 UINT32_HASH_2(internal_ref_numbers(term)[1],
                               internal_ref_numbers(term)[2], HCONST_8);
                 goto pop_next;
@@ -1847,7 +1829,7 @@ make_internal_hash(Eterm term)
             {
                 ExternalThing* thing = external_thing_ptr(term);
 
-                ASSERT(external_thing_ref_no_of_numbers(thing) == 3);
+                ASSERT(external_thing_ref_no_numbers(thing) == 3);
                 /* See limitation #2 */
             #ifdef ARCH_64
                 POINTER_HASH(thing->node, HCONST_7);
@@ -1894,7 +1876,7 @@ make_internal_hash(Eterm term)
 		goto pop_next;
 	    }
 	    default:
-		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
+		erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
 	    }
 	}
 	break;
@@ -1907,7 +1889,7 @@ make_internal_hash(Eterm term)
             goto pop_next;
 
 	default:
-	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_hash2(0x%X)\n", term);
+	    erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_internal_hash(0x%X, %lu)\n", term, salt);
 
 	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
@@ -1919,17 +1901,6 @@ make_internal_hash(Eterm term)
 	    term = ESTACK_POP(s);
 
 	    switch (term) {
-		case HASH_MAP_TAIL: {
-		    hash = (Uint32) ESTACK_POP(s);
-                    UINT32_HASH(hash_xor_pairs, HCONST_19);
-		    hash_xor_pairs = (Uint32) ESTACK_POP(s);
-		    goto pop_next;
-		}
-		case HASH_MAP_PAIR:
-		    hash_xor_pairs ^= hash;
-		    hash = (Uint32) ESTACK_POP(s); /* initial seed for all pairs */
-		    goto pop_next;
-
 	        case HASH_CDR:
 		    CONST_HASH(HCONST_18);   /* Hash CDR i cons cell */
 		    goto pop_next;
@@ -1953,437 +1924,164 @@ make_internal_hash(Eterm term)
 #undef HCONST
 #undef MIX
 
-
-Uint32 make_broken_hash(Eterm term)
-{
-    Uint32 hash = 0;
-    DECLARE_WSTACK(stack);
-    unsigned op;
-tail_recur:
-    op = tag_val_def(term);
-    for (;;) {
-    switch (op) {
-    case NIL_DEF:
-	hash = hash*FUNNY_NUMBER3 + 1;
-	break;
-    case ATOM_DEF:
-	hash = hash*FUNNY_NUMBER1 +
-	    (atom_tab(atom_val(term))->slot.bucket.hvalue);
-	break;
-    case SMALL_DEF:
-#if defined(ARCH_64)
-    {
-	Sint y1 = signed_val(term);
-	Uint y2 = y1 < 0 ? -(Uint)y1 : y1;
-	Uint32 y3 = (Uint32) (y2 >> 32);
-	int arity = 1;
-
-#if defined(WORDS_BIGENDIAN)
-	if (!IS_SSMALL28(y1))
-	{   /* like a bignum */
-	    Uint32 y4 = (Uint32) y2;
-	    hash = hash*FUNNY_NUMBER2 + ((y4 << 16) | (y4 >> 16));
-	    if (y3) {
-		hash = hash*FUNNY_NUMBER2 + ((y3 << 16) | (y3 >> 16));
-		arity++;
-	    }
-	    hash = hash * (y1 < 0 ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	} else {
-	    hash = hash*FUNNY_NUMBER2 + (((Uint) y1) & 0xfffffff);
-	}
-#else
-	if  (!IS_SSMALL28(y1))
-	{   /* like a bignum */
-	    hash = hash*FUNNY_NUMBER2 + ((Uint32) y2);
-	    if (y3)
-	    {
-		hash = hash*FUNNY_NUMBER2 + y3;
-		arity++;
-	    }
-	    hash = hash * (y1 < 0 ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	} else {
-	    hash = hash*FUNNY_NUMBER2 + (((Uint) y1) & 0xfffffff);
-	}
-#endif
-    }
-#else
-	hash = hash*FUNNY_NUMBER2 + unsigned_val(term);
-#endif
-	break;
-
-    case BINARY_DEF:
-	{
-	    size_t sz = binary_size(term);
-	    size_t i = (sz < 15) ? sz : 15;
-
-	    hash = hash_binary_bytes(term, i, hash);
-	    hash = hash*FUNNY_NUMBER4 + sz;
-	    break;
-	}
-
-    case EXPORT_DEF:
-	{
-	    Export* ep = *((Export **) (export_val(term) + 1));
-
-	    hash = hash * FUNNY_NUMBER11 + ep->code[2];
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[0]))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(ep->code[1]))->slot.bucket.hvalue);
-	    break;
-	}
-
-    case FUN_DEF:
-	{
-	    ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	    Uint num_free = funp->num_free;
-
-	    hash = hash * FUNNY_NUMBER10 + num_free;
-	    hash = hash*FUNNY_NUMBER1 +
-		(atom_tab(atom_val(funp->fe->module))->slot.bucket.hvalue);
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_index;
-	    hash = hash*FUNNY_NUMBER2 + funp->fe->old_uniq;
-	    if (num_free > 0) {
-		if (num_free > 1) {
-		    WSTACK_PUSH3(stack, (UWord) &funp->env[1], (num_free-1), MAKE_HASH_TERM_ARRAY_OP);
-		}
-		term = funp->env[0];
-		goto tail_recur;
-	    }
-	    break;
-	}
-
-    case PID_DEF:
-	hash = hash*FUNNY_NUMBER5 + internal_pid_number(term);
-	break;
-    case EXTERNAL_PID_DEF:
-	hash = hash*FUNNY_NUMBER5 + external_pid_number(term);
-        break;
-    case PORT_DEF:
-	hash = hash*FUNNY_NUMBER9 + internal_port_number(term);
-	break;
-    case EXTERNAL_PORT_DEF:
-	hash = hash*FUNNY_NUMBER9 + external_port_number(term);
-	break;
-    case REF_DEF:
-	hash = hash*FUNNY_NUMBER9 + internal_ref_numbers(term)[0];
-	break;
-    case EXTERNAL_REF_DEF:
-	hash = hash*FUNNY_NUMBER9 + external_ref_numbers(term)[0];
-	break;
-    case FLOAT_DEF:
-	{
-            FloatDef ff;
-            GET_DOUBLE(term, ff);
-            if (ff.fd == 0.0f) {
-                /* ensure positive 0.0 */
-                ff.fd = erts_get_positive_zero_float();
-            }
-            hash = hash*FUNNY_NUMBER6 + (ff.fw[0] ^ ff.fw[1]);
-	}
-	break;
-    case MAKE_HASH_CDR_PRE_OP:
-	term = (Eterm) WSTACK_POP(stack);
-	if (is_not_list(term)) {
-	    WSTACK_PUSH(stack, (UWord) MAKE_HASH_CDR_POST_OP);
-	    goto tail_recur;
-	}
-	/*fall through*/
-    case LIST_DEF:
-	{
-	    Eterm* list = list_val(term);
-	    WSTACK_PUSH2(stack, (UWord) CDR(list),
-			 (UWord) MAKE_HASH_CDR_PRE_OP);
-	    term = CAR(list);
-	    goto tail_recur;
-	}
-
-    case MAKE_HASH_CDR_POST_OP:
-	hash *= FUNNY_NUMBER8;
-	break;
-
-     case BIG_DEF:
-	{
-	    Eterm* ptr  = big_val(term);
-	    int is_neg = BIG_SIGN(ptr);
-	    Uint arity = BIG_ARITY(ptr);
-	    Uint i = arity;
-	    ptr++;
-#if D_EXP == 16
-	    /* hash over 32 bit LE */
-
-	    while(i--) {
-		hash = hash*FUNNY_NUMBER2 + *ptr++;
-	    }
-#elif D_EXP == 32
-
-#if defined(WORDS_BIGENDIAN)
-	    while(i--) {
-		Uint d = *ptr++;
-		hash = hash*FUNNY_NUMBER2 + ((d << 16) | (d >> 16));
-	    }
-#else
-	    while(i--) {
-		hash = hash*FUNNY_NUMBER2 + *ptr++;
-	    }
-#endif
-
-#elif D_EXP == 64
-	    {
-	      Uint32 h = 0, l;
-#if defined(WORDS_BIGENDIAN)
-	      while(i--) {
-		  Uint d = *ptr++;
-		  l = d & 0xffffffff;
-		  h = d >> 32;
-		  hash = hash*FUNNY_NUMBER2 + ((l << 16) | (l >> 16));
-		  if (h || i)
-		      hash = hash*FUNNY_NUMBER2 + ((h << 16) | (h >> 16));
-	      }
-#else
-	      while(i--) {
-		  Uint d = *ptr++;
-		  l = d & 0xffffffff;
-		  h = d >> 32;
-		  hash = hash*FUNNY_NUMBER2 + l;
-		  if (h || i)
-		      hash = hash*FUNNY_NUMBER2 + h;
-	      }
-#endif
-	      /* adjust arity to match 32 bit mode */
-	      arity = (arity << 1) - (h == 0);
-	    }
-
-#else
-#error "unsupported D_EXP size"
-#endif
-	    hash = hash * (is_neg ? FUNNY_NUMBER3 : FUNNY_NUMBER2) + arity;
-	}
-	break;
-
-    case MAP_DEF:
-        hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
-        break;
-    case TUPLE_DEF:
-	{
-	    Eterm* ptr = tuple_val(term);
-	    Uint arity = arityval(*ptr);
-
-	    WSTACK_PUSH3(stack, (UWord) arity, (UWord) (ptr+1), (UWord) arity);
-	    op = MAKE_HASH_TUPLE_OP;
-	}/*fall through*/
-    case MAKE_HASH_TUPLE_OP:
-    case MAKE_HASH_TERM_ARRAY_OP:
-	{
-	    Uint i = (Uint) WSTACK_POP(stack);
-	    Eterm* ptr = (Eterm*) WSTACK_POP(stack);
-	    if (i != 0) {
-		term = *ptr;
-		WSTACK_PUSH3(stack, (UWord)(ptr+1), (UWord) i-1, (UWord) op);
-		goto tail_recur;
-	    }
-	    if (op == MAKE_HASH_TUPLE_OP) {
-		Uint32 arity = (UWord) WSTACK_POP(stack);
-		hash = hash*FUNNY_NUMBER9 + arity;
-	    }
-	    break;
-	}
-
-    default:
-	erts_exit(ERTS_ERROR_EXIT, "Invalid tag in make_broken_hash\n");
-	return 0;
-      }
-      if (WSTACK_ISEMPTY(stack)) break;
-      op = (Uint) WSTACK_POP(stack);
-    }
-
-    DESTROY_WSTACK(stack);
-    return hash;
-
-#undef MAKE_HASH_TUPLE_OP
-#undef MAKE_HASH_TERM_ARRAY_OP
-#undef MAKE_HASH_CDR_PRE_OP
-#undef MAKE_HASH_CDR_POST_OP
-}
-
+/* error_logger !
+   {log, Level, format, [args], #{ gl, pid, time, error_logger => #{tag, emulator => true} }}
+*/
 static Eterm
-do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
-			   ErlHeapFragment **bp, Process **p, Uint sz)
+do_allocate_logger_message(Eterm gleader, ErtsMonotonicTime *ts, Eterm *pid,
+                           Eterm **hp, ErlOffHeap **ohp,
+			   ErlHeapFragment **bp, Uint sz)
 {
     Uint gl_sz;
     gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
-    sz = sz + gl_sz;
+    sz = sz + gl_sz + 6 /*outer 5-tuple*/
+        + MAP2_SZ /* error_logger map */;
 
-#ifndef ERTS_SMP
-#ifdef USE_THREADS
-    if (!erts_get_scheduler_data()) /* Must be scheduler thread */
-	*p = NULL;
+    *pid = erts_get_current_pid();
+
+    if (is_nil(gleader) && is_non_value(*pid)) {
+        sz += MAP2_SZ /* metadata map no gl, no pid */;
+    } else if (is_nil(gleader) || is_non_value(*pid))
+        sz += MAP3_SZ /* metadata map no gl or no pid*/;
     else
-#endif
-    {
-	*p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
-	if (*p) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&(*p)->state);
-	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
-		*p = NULL;
-	}
-    }
+        sz += MAP4_SZ /* metadata map w gl w pid*/;
 
-    if (!*p) {
-	return NIL;
-    }
+    *ts = ERTS_MONOTONIC_TO_USEC(erts_get_monotonic_time(NULL) + erts_get_time_offset());
+    erts_bld_sint64(NULL, &sz, *ts);
 
-    /* So we have an error logger, lets build the message */
-#endif
     *bp = new_message_buffer(sz);
     *ohp = &(*bp)->off_heap;
     *hp = (*bp)->mem;
 
-    return (is_nil(gleader)
-	  ? am_noproc
-	  : (IS_CONST(gleader)
-	     ? gleader
-	     : copy_struct(gleader,gl_sz,hp,*ohp)));
+    return copy_struct(gleader,gl_sz,hp,*ohp);
 }
 
-static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *bp,
-				   Process *p, Eterm message)
+static void do_send_logger_message(Eterm gl, Eterm tag, Eterm format, Eterm args,
+                                   ErtsMonotonicTime ts, Eterm pid,
+                                   Eterm *hp, ErlHeapFragment *bp)
 {
-#ifdef HARDDEBUG
-    erts_fprintf(stderr, "%T\n", message);
-#endif
-#ifdef ERTS_SMP
-    {
-	Eterm from = erts_get_current_pid();
-	if (is_not_internal_pid(from))
-	    from = NIL;
-	erts_queue_error_logger_message(from, message, bp);
+    Eterm message, md, el_tag = tag;
+    Eterm time = erts_bld_sint64(&hp, NULL, ts);
+
+    /* This mapping is needed for the backwards compatible error_logger */
+    switch (tag) {
+    case am_info: el_tag = am_info_msg; break;
+    case am_warning: el_tag = am_warning_msg; break;
+    default:
+        ASSERT(am_error);
+        break;
     }
-#else
-    {
-	ErtsMessage *mp = erts_alloc_message(0, NULL);
-	mp->data.heap_frag = bp;
-	erts_queue_message(p, 0, mp, message, am_system);
+
+    md = MAP2(hp, am_emulator, am_true, ERTS_MAKE_AM("tag"), el_tag);
+    hp += MAP2_SZ;
+
+    if (is_nil(gl) && is_non_value(pid)) {
+        /* no gl and no pid, probably from a port */
+        md = MAP2(hp,
+                  am_error_logger, md,
+                  am_time, time);
+        hp += MAP2_SZ;
+        pid = NIL;
+    } else if (is_nil(gl)) {
+        /* no gl */
+        md = MAP3(hp,
+                  am_error_logger, md,
+                  am_pid, pid,
+                  am_time, time);
+        hp += MAP3_SZ;
+    } else if (is_non_value(pid)) {
+        /* no gl */
+        md = MAP3(hp,
+                  am_error_logger, md,
+                  ERTS_MAKE_AM("gl"), gl,
+                  am_time, time);
+        hp += MAP3_SZ;
+        pid = NIL;
+    } else {
+        md = MAP4(hp,
+                  am_error_logger, md,
+                  ERTS_MAKE_AM("gl"), gl,
+                  am_pid, pid,
+                  am_time, time);
+        hp += MAP4_SZ;
     }
-#endif
+
+    message = TUPLE5(hp, am_log, tag, format, args, md);
+    erts_queue_error_logger_message(pid, message, bp);
 }
 
-/* error_logger !
-   {notify,{info_msg,gleader,{emulator,format,[args]}}} |
-   {notify,{error,gleader,{emulator,format,[args]}}} |
-   {notify,{warning_msg,gleader,{emulator,format,[args}]}} */
-static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
+static int do_send_to_logger(Eterm tag, Eterm gl, char *buf, size_t len)
 {
     Uint sz;
-    Eterm gl;
-    Eterm list,args,format,tuple1,tuple2,tuple3;
+    Eterm list, args, format, pid;
+    ErtsMonotonicTime ts;
 
     Eterm *hp = NULL;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
-    Process *p = NULL;
-
-    ASSERT(is_atom(tag));
-
-    if (len <= 0) {
-	return -1;
-    }
 
     sz = len * 2 /* message list */ + 2 /* cons surrounding message list */
-	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */
 	+ 8 /* "~s~n" */;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
-
-    if(is_nil(gl)) {
-       /* buf *always* points to a null terminated string */
-       erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
-                    tag, buf);
-       return 0;
-    }
+    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
 
     list = buf_to_intlist(&hp, buf, len, NIL);
     args = CONS(hp,list,NIL);
     hp += 2;
     format = buf_to_intlist(&hp, "~s~n", 4, NIL);
-    tuple1 = TUPLE3(hp, am_emulator, format, args);
-    hp += 4;
-    tuple2 = TUPLE3(hp, tag, gl, tuple1);
-    hp += 4;
-    tuple3 = TUPLE2(hp, am_notify, tuple2);
 
-    do_send_logger_message(hp, ohp, bp, p, tuple3);
+    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
     return 0;
 }
 
-static int do_send_term_to_logger(Eterm tag, Eterm gleader,
-				  char *buf, int len, Eterm args)
+static int do_send_term_to_logger(Eterm tag, Eterm gl,
+				  char *buf, size_t len, Eterm args)
 {
     Uint sz;
-    Eterm gl;
     Uint args_sz;
-    Eterm format,tuple1,tuple2,tuple3;
+    Eterm format, pid;
+    ErtsMonotonicTime ts;
 
     Eterm *hp = NULL;
     ErlOffHeap *ohp = NULL;
     ErlHeapFragment *bp = NULL;
-    Process *p = NULL;
 
-    ASSERT(is_atom(tag));
+    ASSERT(len > 0);
 
     args_sz = size_object(args);
-    sz = len * 2 /* format */ + args_sz
-	+ 3 /*outer 2-tuple*/ + 4 /* middle 3-tuple */ + 4 /*inner 3-tuple */;
+    sz = len * 2 /* format */ + args_sz;
 
     /* gleader size is accounted and allocated next */
-    gl = do_allocate_logger_message(gleader, &hp, &ohp, &bp, &p, sz);
-
-    if(is_nil(gl)) {
-       /* buf *always* points to a null terminated string */
-       erts_fprintf(stderr, "(no error logger present) %T: \"%s\" %T\n",
-                    tag, buf, args);
-       return 0;
-    }
+    gl = do_allocate_logger_message(gl, &ts, &pid, &hp, &ohp, &bp, sz);
 
     format = buf_to_intlist(&hp, buf, len, NIL);
     args = copy_struct(args, args_sz, &hp, ohp);
-    tuple1 = TUPLE3(hp, am_emulator, format, args);
-    hp += 4;
-    tuple2 = TUPLE3(hp, tag, gl, tuple1);
-    hp += 4;
-    tuple3 = TUPLE2(hp, am_notify, tuple2);
 
-    do_send_logger_message(hp, ohp, bp, p, tuple3);
+    do_send_logger_message(gl, tag, format, args, ts, pid, hp, bp);
     return 0;
 }
 
 static ERTS_INLINE int
-send_info_to_logger(Eterm gleader, char *buf, int len)
+send_info_to_logger(Eterm gleader, char *buf, size_t len)
 {
-    return do_send_to_logger(am_info_msg, gleader, buf, len);
+    return do_send_to_logger(am_info, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_warning_to_logger(Eterm gleader, char *buf, int len)
+send_warning_to_logger(Eterm gleader, char *buf, size_t len)
 {
-    Eterm tag;
-    switch (erts_error_logger_warnings) {
-    case am_info:	tag = am_info_msg;	break;
-    case am_warning:	tag = am_warning_msg;	break;
-    default:		tag = am_error;		break;
-    }
-    return do_send_to_logger(tag, gleader, buf, len);
+    return do_send_to_logger(erts_error_logger_warnings, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_error_to_logger(Eterm gleader, char *buf, int len)
+send_error_to_logger(Eterm gleader, char *buf, size_t len)
 {
     return do_send_to_logger(am_error, gleader, buf, len);
 }
 
 static ERTS_INLINE int
-send_error_term_to_logger(Eterm gleader, char *buf, int len, Eterm args)
+send_error_term_to_logger(Eterm gleader, char *buf, size_t len, Eterm args)
 {
     return do_send_term_to_logger(am_error, gleader, buf, len, args);
 }
@@ -2739,22 +2437,20 @@ tailrecur_ne:
 
 		anum = external_thing_ref_numbers(athing);
 		bnum = external_thing_ref_numbers(bthing);
-		alen = external_thing_ref_no_of_numbers(athing);
-		blen = external_thing_ref_no_of_numbers(bthing);
+		alen = external_thing_ref_no_numbers(athing);
+		blen = external_thing_ref_no_numbers(bthing);
 
 		goto ref_common;
-	    case REF_SUBTAG:
-		    if (!is_internal_ref(b))
-			goto not_equal;
 
-		    {
-			RefThing* athing = ref_thing_ptr(a);
-			RefThing* bthing = ref_thing_ptr(b);
-			alen = internal_thing_ref_no_of_numbers(athing);
-			blen = internal_thing_ref_no_of_numbers(bthing);
-			anum = internal_thing_ref_numbers(athing);
-			bnum = internal_thing_ref_numbers(bthing);
-		    }
+	    case REF_SUBTAG:
+
+		if (!is_internal_ref(b))
+		    goto not_equal;
+
+		alen = internal_ref_no_numbers(a);
+		anum = internal_ref_numbers(a);
+		blen = internal_ref_no_numbers(b);
+		bnum = internal_ref_numbers(b);
 
 	    ref_common:
 		    ASSERT(alen > 0 && blen > 0);
@@ -2919,27 +2615,6 @@ not_equal:
 }
 
 
-/* 
- * Lexically compare two strings of bytes (string s1 length l1 and s2 l2).
- *
- *	s1 < s2	return -1
- *	s1 = s2	return  0
- *	s1 > s2 return +1
- */
-static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
-{
-    int i;
-    i = 0;
-    while((i < l1) && (i < l2)) {
-	if (s1[i] < s2[i]) return(-1);
-	if (s1[i] > s2[i]) return(1);
-	i++;
-    }
-    if (l1 < l2) return(-1);
-    if (l1 > l2) return(1);
-    return(0);
-}
-
 
 /*
  * Compare objects.
@@ -2953,20 +2628,6 @@ static int cmpbytes(byte *s1, int l1, byte *s2, int l2)
  *
  */
 
-
-#define float_comp(x,y)    (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
-
-int erts_cmp_atoms(Eterm a, Eterm b)
-{
-    Atom *aa = atom_tab(atom_val(a));
-    Atom *bb = atom_tab(atom_val(b));
-    int diff = aa->ord0 - bb->ord0;
-    if (diff)
-	return diff;
-    return cmpbytes(aa->name+3, aa->len-3,
-		    bb->name+3, bb->len-3);
-}
-
 /* cmp(Eterm a, Eterm b)
  *  For compatibility with HiPE - arith-based compare.
  */
@@ -2976,22 +2637,6 @@ Sint cmp(Eterm a, Eterm b)
 }
 
 Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only);
-
-Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only)
-{
-    if (is_atom(a) && is_atom(b)) {
-        return erts_cmp_atoms(a, b);
-    } else if (is_both_small(a, b)) {
-        return (signed_val(a) - signed_val(b));
-    } else if (is_float(a) && is_float(b)) {
-        FloatDef af, bf;
-        GET_DOUBLE(a, af);
-        GET_DOUBLE(b, bf);
-        return float_comp(af.fd, bf.fd);
-    }
-    return erts_cmp_compound(a,b,exact,eq_only);
-}
-
 
 /* erts_cmp(Eterm a, Eterm b, int exact)
  * exact = 1 -> term-based compare
@@ -3289,7 +2934,7 @@ tailrecur_ne:
 
 		    GET_DOUBLE(a, af);
 		    GET_DOUBLE(b, bf);
-		    ON_CMP_GOTO(float_comp(af.fd, bf.fd));
+		    ON_CMP_GOTO(erts_float_comp(af.fd, bf.fd));
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
@@ -3306,13 +2951,15 @@ tailrecur_ne:
 		    Export* a_exp = *((Export **) (export_val(a) + 1));
 		    Export* b_exp = *((Export **) (export_val(b) + 1));
 
-		    if ((j = erts_cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
+                                            b_exp->info.mfa.module)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    if ((j = erts_cmp_atoms(a_exp->code[1], b_exp->code[1])) != 0) {
+		    if ((j = erts_cmp_atoms(a_exp->info.mfa.function,
+                                            b_exp->info.mfa.function)) != 0) {
 			RETURN_NEQ(j);
 		    }
-		    ON_CMP_GOTO((Sint) a_exp->code[2] - (Sint) b_exp->code[2]);
+		    ON_CMP_GOTO((Sint) a_exp->info.mfa.arity - (Sint) b_exp->info.mfa.arity);
 		}
 		break;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
@@ -3324,10 +2971,7 @@ tailrecur_ne:
 		    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 		    Sint diff;
 
-		    diff = cmpbytes(atom_tab(atom_val(f1->fe->module))->name,
-				    atom_tab(atom_val(f1->fe->module))->len,
-				    atom_tab(atom_val(f2->fe->module))->name,
-				    atom_tab(atom_val(f2->fe->module))->len);
+                    diff = erts_cmp_atoms((f1->fe)->module, (f2->fe)->module);
 		    if (diff != 0) {
 			RETURN_NEQ(diff);
 		    }
@@ -3384,25 +3028,21 @@ tailrecur_ne:
 		 */
 
 		if (is_internal_ref(b)) {
-		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
-		    bnum = internal_thing_ref_numbers(bthing);
-		    blen = internal_thing_ref_no_of_numbers(bthing);
+		    blen = internal_ref_no_numbers(b);
+		    bnum = internal_ref_numbers(b);
 		} else if(is_external_ref(b)) {
 		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
-		    blen = external_thing_ref_no_of_numbers(bthing);
+		    blen = external_thing_ref_no_numbers(bthing);
 		} else {
 		    a_tag = REF_DEF;
 		    goto mixed_types;
 		}
-		{
-		    RefThing* athing = ref_thing_ptr(a);
-		    anode = erts_this_node;
-		    anum = internal_thing_ref_numbers(athing);
-		    alen = internal_thing_ref_no_of_numbers(athing);
-		}
+		anode = erts_this_node;
+		alen = internal_ref_no_numbers(a);
+		anum = internal_ref_numbers(a);
 
 	    ref_common:
 		CMP_NODES(anode, bnode);
@@ -3428,19 +3068,18 @@ tailrecur_ne:
 		ASSERT(alen == blen);
 		for (i = (Sint) alen - 1; i >= 0; i--)
 		    if (anum[i] != bnum[i])
-			RETURN_NEQ((Sint32) (anum[i] - bnum[i]));
+			RETURN_NEQ(anum[i] < bnum[i] ? -1 : 1);
 		goto pop_next;
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
 		if (is_internal_ref(b)) {
-		    RefThing* bthing = ref_thing_ptr(b);
 		    bnode = erts_this_node;
-		    bnum = internal_thing_ref_numbers(bthing);
-		    blen = internal_thing_ref_no_of_numbers(bthing);
+		    blen = internal_ref_no_numbers(b);
+		    bnum = internal_ref_numbers(b);
 		} else if (is_external_ref(b)) {
 		    ExternalThing* bthing = external_thing_ptr(b);
 		    bnode = bthing->node;
 		    bnum = external_thing_ref_numbers(bthing);
-		    blen = external_thing_ref_no_of_numbers(bthing);
+		    blen = external_thing_ref_no_numbers(bthing);
 		} else {
 		    a_tag = EXTERNAL_REF_DEF;
 		    goto mixed_types;
@@ -3449,7 +3088,7 @@ tailrecur_ne:
 		    ExternalThing* athing = external_thing_ptr(a);
 		    anode = athing->node;
 		    anum = external_thing_ref_numbers(athing);
-		    alen = external_thing_ref_no_of_numbers(athing);
+		    alen = external_thing_ref_no_numbers(athing);
 		}
 		goto ref_common;
 	    default:
@@ -3469,6 +3108,9 @@ tailrecur_ne:
 		    int cmp;
 		    byte* a_ptr;
 		    byte* b_ptr;
+		    if (eq_only && a_size != b_size) {
+		        RETURN_NEQ(a_size - b_size);
+		    }
 		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
 		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
@@ -3523,7 +3165,7 @@ tailrecur_ne:
 	    if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
 		f1.fd = signed_val(aw);
-		j = float_comp(f1.fd, f2.fd);
+		j = erts_float_comp(f1.fd, f2.fd);
 	    }
 #if ERTS_SIZEOF_ETERM == 8
 	    else if (f2.fd > (double) (MAX_SMALL + 1)) {
@@ -3570,7 +3212,7 @@ tailrecur_ne:
 		if (big_to_double(aw, &f1.fd) < 0) {
 		    j = big_sign(aw) ? -1 : 1;
 		} else {
-		    j = float_comp(f1.fd, f2.fd);
+		    j = erts_float_comp(f1.fd, f2.fd);
 		}
 	    } else {
 		big = double_to_big(f2.fd, big_buf, sizeof(big_buf)/sizeof(Eterm));
@@ -3586,7 +3228,7 @@ tailrecur_ne:
 	    if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
 		/* Float is within the no loss limit */
 		f2.fd = signed_val(bw);
-		j = float_comp(f1.fd, f2.fd);
+		j = erts_float_comp(f1.fd, f2.fd);
 	    }
 #if ERTS_SIZEOF_ETERM == 8
 	    else if (f1.fd > (double) (MAX_SMALL + 1)) {
@@ -3826,40 +3468,41 @@ not_equal:
 Eterm
 store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
 {
+    struct erl_off_heap_header *ohhp;
     Uint i;
     Uint size;
-    Uint *from_hp;
-    Uint *to_hp = *hpp;
+    Eterm *from_hp;
+    Eterm *to_hp = *hpp;
 
     ASSERT(is_external(ns) || is_internal_ref(ns));
 
-    if(is_external(ns)) {
-	from_hp = external_val(ns);
-	size = thing_arityval(*from_hp) + 1;
-	*hpp += size;
-
-	for(i = 0; i < size; i++)
-	    to_hp[i] = from_hp[i];
-
-	erts_refc_inc(&((ExternalThing *) to_hp)->node->refc, 2);
-
-	((struct erl_off_heap_header*) to_hp)->next = oh->first;
-	oh->first = (struct erl_off_heap_header*) to_hp;
-
-	return make_external(to_hp);
-    }
-
-    /* Internal ref */
-    from_hp = internal_ref_val(ns);
-
+    from_hp = boxed_val(ns);
     size = thing_arityval(*from_hp) + 1;
-
     *hpp += size;
 
     for(i = 0; i < size; i++)
 	to_hp[i] = from_hp[i];
 
-    return make_internal_ref(to_hp);
+    if (is_external_header(*from_hp)) {
+	ExternalThing *etp = (ExternalThing *) from_hp;
+	ASSERT(is_external(ns));
+	erts_refc_inc(&etp->node->refc, 2);
+    }
+    else if (is_ordinary_ref_thing(from_hp))
+	return make_internal_ref(to_hp);
+    else {
+	ErtsMRefThing *mreft = (ErtsMRefThing *) from_hp;
+        ErtsMagicBinary *mb = mreft->mb;
+	ASSERT(is_magic_ref_thing(from_hp));
+	erts_refc_inc(&mb->intern.refc, 2);
+        OH_OVERHEAD(oh, mb->orig_size / sizeof(Eterm));
+    }
+
+    ohhp = (struct erl_off_heap_header*) to_hp;
+    ohhp->next = oh->first;
+    oh->first = ohhp;
+
+    return make_boxed(to_hp);
 }
 
 Eterm
@@ -3876,7 +3519,7 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
-void bin_write(int to, void *to_arg, byte* buf, size_t sz)
+void bin_write(fmtfn_t to, void *to_arg, byte* buf, size_t sz)
 {
     size_t i;
 
@@ -3920,6 +3563,122 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
 	listptr = list_val(*(listptr + 1));
     }
     return -2;			/* not enough space */
+}
+
+/** @brief Fill buf with the UTF8 contents of the unicode list
+ * @param len Max number of characters to write.
+ * @param written NULL or bytes written.
+ * @return 0 ok,
+ *        -1 type error,
+ *        -2 list too long, only \c len characters written
+ */
+int
+erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
+{
+    Eterm* listptr;
+    Sint sz = 0;
+    Sint val;
+    int res;
+
+    while (1) {
+        if (is_nil(list)) {
+            res = 0;
+            break;
+        }
+        if (is_not_list(list)) {
+            res = -1;
+            break;
+        }
+        listptr = list_val(list);
+
+        if (len-- <= 0) {
+            res = -2;
+            break;
+        }
+
+	if (is_not_small(CAR(listptr))) {
+	    res = -1;
+            break;
+	}
+	val = signed_val(CAR(listptr));
+	if (0 <= val && val < 0x80) {
+	    buf[sz] = val;
+	    sz++;
+	} else if (val < 0x800) {
+	    buf[sz+0] = 0xC0 | (val >> 6);
+	    buf[sz+1] = 0x80 | (val & 0x3F);
+	    sz += 2;
+	} else if (val < 0x10000UL) {
+	    if (0xD800 <= val && val <= 0xDFFF) {
+		res = -1;
+                break;
+	    }
+	    buf[sz+0] = 0xE0 | (val >> 12);
+	    buf[sz+1] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+2] = 0x80 | (val & 0x3F);
+	    sz += 3;
+	} else if (val < 0x110000) {
+	    buf[sz+0] = 0xF0 | (val >> 18);
+	    buf[sz+1] = 0x80 | ((val >> 12) & 0x3F);
+	    buf[sz+2] = 0x80 | ((val >> 6) & 0x3F);
+	    buf[sz+3] = 0x80 | (val & 0x3F);
+	    sz += 4;
+	} else {
+            res = -1;
+            break;
+	}
+	list = CDR(listptr);
+    }
+
+    if (written)
+        *written = sz;
+    return res;
+}
+
+Sint
+erts_unicode_list_to_buf_len(Eterm list)
+{
+    Eterm* listptr;
+    Sint sz = 0;
+
+    if (is_nil(list)) {
+	return 0;
+    }
+    if (is_not_list(list)) {
+	return -1;
+    }
+    listptr = list_val(list);
+
+    while (1) {
+	Sint val;
+
+	if (is_not_small(CAR(listptr))) {
+	    return -1;
+	}
+	val = signed_val(CAR(listptr));
+	if (0 <= val && val < 0x80) {
+	    sz++;
+	} else if (val < 0x800) {
+	    sz += 2;
+	} else if (val < 0x10000UL) {
+	    if (0xD800 <= val && val <= 0xDFFF) {
+		return -1;
+	    }
+	    sz += 3;
+	} else if (val < 0x110000) {
+	    sz += 4;
+	} else {
+	    return -1;
+	}
+	list = CDR(listptr);
+	if (is_nil(list)) {
+	    return sz;
+	}
+	if (is_not_list(list)) {
+	    return -1;
+	}
+	listptr = list_val(list);
+    }
 }
 
 /*
@@ -4560,15 +4319,20 @@ erts_read_env(char *key)
     char *value = erts_alloc(ERTS_ALC_T_TMP, value_len);
     int res;
     while (1) {
-	res = erts_sys_getenv_raw(key, value, &value_len);
-	if (res <= 0)
-	    break;
-	value = erts_realloc(ERTS_ALC_T_TMP, value, value_len);
+        res = erts_sys_explicit_8bit_getenv(key, value, &value_len);
+
+        if (res >= 0) {
+            break;
+        }
+
+        value = erts_realloc(ERTS_ALC_T_TMP, value, value_len);
     }
-    if (res != 0) {
-	erts_free(ERTS_ALC_T_TMP, value);
-	return NULL;
+
+    if (res != 1) {
+        erts_free(ERTS_ALC_T_TMP, value);
+        return NULL;
     }
+
     return value;
 }
 
@@ -4882,22 +4646,6 @@ void
 erts_interval_init(erts_interval_t *icp)
 {
     erts_atomic64_init_nob(&icp->counter.atomic, 0);
-#ifdef DEBUG
-    icp->smp_api = 0;
-#endif
-}
-
-void
-erts_smp_interval_init(erts_interval_t *icp)
-{
-#ifdef ERTS_SMP
-    erts_interval_init(icp);
-#else
-    icp->counter.not_atomic = 0;
-#endif
-#ifdef DEBUG
-    icp->smp_api = 1;
-#endif
 }
 
 static ERTS_INLINE Uint64
@@ -4937,79 +4685,25 @@ ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 Uint64
 erts_step_interval_nob(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
     return step_interval_nob(icp);
 }
 
 Uint64
 erts_step_interval_relb(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
     return step_interval_relb(icp);
-}
-
-Uint64
-erts_smp_step_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return step_interval_nob(icp);
-#else
-    return ++icp->counter.not_atomic;
-#endif
-}
-
-Uint64
-erts_smp_step_interval_relb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return step_interval_relb(icp);
-#else
-    return ++icp->counter.not_atomic;
-#endif
 }
 
 Uint64
 erts_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
     return ensure_later_interval_nob(icp, ic);
 }
 
 Uint64
 erts_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
     return ensure_later_interval_acqb(icp, ic);
-}
-
-Uint64
-erts_smp_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return ensure_later_interval_nob(icp, ic);
-#else
-    if (icp->counter.not_atomic > ic)
-	return icp->counter.not_atomic;
-    else
-	return ++icp->counter.not_atomic;
-#endif
-}
-
-Uint64
-erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return ensure_later_interval_acqb(icp, ic);
-#else
-    if (icp->counter.not_atomic > ic)
-	return icp->counter.not_atomic;
-    else
-	return ++icp->counter.not_atomic;
-#endif
 }
 
 /*
@@ -5028,6 +4722,53 @@ Uint64 erts_timestamp_millis(void)
     res += (Uint64) tv.tv_usec;
     return (res / 1000);
 #endif
+}
+
+void *
+erts_calc_stacklimit(char *prev_c, UWord stacksize)
+{
+    /*
+     * We *don't* want this function inlined, i.e., it is
+     * risky to call this function from another function
+     * in utils.c
+     */
+
+    UWord pagesize = erts_sys_get_page_size();
+    char c;
+    char *start;
+    if (&c > prev_c) {
+        start = (char *) ((((UWord) prev_c) / pagesize) * pagesize);
+        return (void *) (start + stacksize);
+    }
+    else {
+        start = (char *) (((((UWord) prev_c) - 1) / pagesize + 1) * pagesize);
+        return (void *) (start - stacksize);
+    }
+}
+
+/*
+ * erts_check_below_limit() and
+ * erts_check_above_limit() are put
+ * in utils.c in order to prevent
+ * inlining.
+ */
+
+int
+erts_check_below_limit(char *ptr, char *limit)
+{
+    return ptr < limit;
+}
+
+int
+erts_check_above_limit(char *ptr, char *limit)
+{
+    return ptr > limit;
+}
+
+void *
+erts_ptr_id(void *ptr)
+{
+    return ptr;
 }
 
 #ifdef DEBUG

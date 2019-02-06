@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% simple local x86 regalloc
 
@@ -33,15 +27,14 @@
 -endif.
 
 -module(?HIPE_X86_RA_NAIVE).
--export([ra/3]).
+-export([ra/4]).
 
 -include("../x86/hipe_x86.hrl").
 -define(HIPE_INSTRUMENT_COMPILER, true). % enable instrumentation
 -include("../main/hipe.hrl").
 
-ra(X86Defun, Coloring_fp, Options) ->
-  #defun{code=Code0} = X86Defun,
-  Code1 = do_insns(Code0),
+ra(CFG0, Liveness, Coloring_fp, Options) ->
+  CFG = hipe_x86_cfg:map_bbs(fun do_bb/2, CFG0),
   NofSpilledFloats = count_non_float_spills(Coloring_fp),
   NofFloats = length(Coloring_fp),
   ?add_spills(Options, hipe_gensym:get_var(x86) -
@@ -49,15 +42,17 @@ ra(X86Defun, Coloring_fp, Options) ->
 	      NofSpilledFloats -
 	      NofFloats),
   TempMap = [],
-  {X86Defun#defun{code=Code1,
-		  var_range={0, hipe_gensym:get_var(x86)}},
+  {CFG, Liveness,
    TempMap}.
+
+do_bb(_Lbl, BB) ->
+  hipe_bb:code_update(BB, do_insns(hipe_bb:code(BB))).
 
 count_non_float_spills(Coloring_fp) ->
   count_non_float_spills(Coloring_fp, 0).
 
 count_non_float_spills([{_,To}|Tail], Num) ->
-  case ?HIPE_X86_SPECIFIC_FP:is_precoloured(To) of
+  case ?HIPE_X86_SPECIFIC_FP:is_precoloured(To, no_context) of
     true ->
       count_non_float_spills(Tail, Num);
     false ->
@@ -99,6 +94,8 @@ do_insn(I) ->	% Insn -> Insn list
       do_fp_binop(I);
     #shift{} ->
       do_shift(I);
+    #test{} ->
+      do_test(I);
     #label{} ->
       [I];
     #pseudo_jcc{} ->
@@ -308,6 +305,11 @@ do_shift(I) ->
     #x86_temp{reg=Reg}  ->
       FixDst ++ [I#shift{dst=Dst}]
   end.
+
+do_test(I) ->
+  #test{src=Src0,dst=Dst0} = I,
+  {FixSrc, Src, FixDst, Dst} = do_binary(Src0, Dst0),
+  FixSrc ++ FixDst ++ [I#test{src=Src,dst=Dst}].
 
 %%% Fix the operands of a binary op.
 %%% 1. remove pseudos from any explicit memory operands

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
-	 suffix/1, subtract/1, droplast/1, hof/1]).
+	 suffix/1, subtract/1, droplast/1, search/1, hof/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -121,7 +121,7 @@ groups() ->
      {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof]}
+			 hof, droplast, search]}
     ].
 
 init_per_suite(Config) ->
@@ -2597,6 +2597,20 @@ subtract(Config) when is_list(Config) ->
     {'EXIT',_} = (catch sub([a|b], [])),
     {'EXIT',_} = (catch sub([a|b], [a])),
 
+    %% Trapping, both crashing and otherwise.
+    [sub_trapping(N) || N <- lists:seq(0, 18)],
+
+    %% The current implementation chooses which algorithm to use based on
+    %% certain thresholds, and we need proper coverage for all corner cases.
+    [sub_thresholds(N) || N <- lists:seq(0, 32)],
+
+    %% Trapping, both crashing and otherwise.
+    [sub_trapping(N) || N <- lists:seq(0, 18)],
+
+    %% The current implementation chooses which algorithm to use based on
+    %% certain thresholds, and we need proper coverage for all corner cases.
+    [sub_thresholds(N) || N <- lists:seq(0, 32)],
+
     ok.
 
 sub_non_matching(A, B) ->
@@ -2606,6 +2620,41 @@ sub(A, B) ->
     Res = A -- B,
     Res = lists:subtract(A, B).
 
+sub_trapping(N) ->
+    List = lists:duplicate(N + (1 bsl N), gurka),
+    ImproperList = List ++ crash,
+
+    {'EXIT',_} = (catch sub_trapping_1(ImproperList, [])),
+    {'EXIT',_} = (catch sub_trapping_1(List, ImproperList)),
+
+    List = List -- lists:duplicate(N + (1 bsl N), gaffel),
+    ok = sub_trapping_1(List, []).
+
+sub_trapping_1([], _) -> ok;
+sub_trapping_1(L, R) -> sub_trapping_1(L -- R, [gurka | R]).
+
+sub_thresholds(N) ->
+    %% This needs to be long enough to cause trapping.
+    OtherLen = 1 bsl 18,
+    Other = lists:seq(0, OtherLen - 1),
+
+    Disjoint = lists:seq(-N, -1),
+    Subset = lists:seq(1, N),
+
+    %% LHS is disjoint from RHS, so all elements must be retained.
+    Disjoint = Disjoint -- Other,
+
+    %% LHS is covered by RHS, so all elements must be removed.
+    [] = Subset -- Other,
+
+    %% RHS is disjoint from LHS, so all elements must be retained.
+    Other = Other -- Disjoint,
+
+    %% RHS is covered by LHS, so N elements must be removed.
+    N = OtherLen - length(Other -- Subset),
+
+    ok.
+
 %% Test lists:droplast/1
 droplast(Config) when is_list(Config) ->
     [] = lists:droplast([x]),
@@ -2613,6 +2662,20 @@ droplast(Config) when is_list(Config) ->
     {'EXIT', {function_clause, _}} = (catch lists:droplast([])),
     {'EXIT', {function_clause, _}} = (catch lists:droplast(x)),
 
+    ok.
+
+%% Test lists:search/2
+search(Config) when is_list(Config) ->
+    F = fun(I) -> I rem 2 =:= 0 end,
+    F2 = fun(A, B) -> A > B end,
+
+    {value, 2} = lists:search(F, [1,2,3,4]),
+    false = lists:search(F, [1,3,5,7]),
+    false = lists:search(F, []),
+
+    %% Error cases.
+    {'EXIT',{function_clause,_}} = (catch lists:search(badfun, [])),
+    {'EXIT',{function_clause,_}} = (catch lists:search(F2, [])),
     ok.
 
 %% Briefly test the common high-order functions to ensure they

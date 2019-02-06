@@ -9,6 +9,16 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
 %% Note: EDoc uses @@ and @} as escape sequences, so in the doc text below,
 %% `@@' must be written `@@@@' and `@}' must be written `@@}'.
 %%
@@ -555,13 +565,13 @@ parse_5(Ts, Es) ->
 -dialyzer({nowarn_function, parse_error/1}). % no local return
 
 parse_error({L, M, R}) when is_atom(M), is_integer(L) ->
-    fail("~w: ~s", [L, M:format_error(R)]);
+    fail("~w: ~ts", [L, M:format_error(R)]);
 parse_error({{L,C}, M, R}) when is_atom(M), is_integer(L), is_integer(C) ->
-    fail("~w:~w: ~s", [L,C,M:format_error(R)]);
+    fail("~w:~w: ~ts", [L,C,M:format_error(R)]);
 parse_error({_, M, R}) when is_atom(M) ->
     fail(M:format_error(R));
 parse_error(R) ->
-    fail("unknown parse error: ~p", [R]).
+    fail("unknown parse error: ~tp", [R]).
 
 %% ------------------------------------------------------------------------
 %% Templates, substitution and matching

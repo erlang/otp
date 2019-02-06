@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,12 +21,28 @@
 -module(regressions_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,suite/0]).
+-export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,
+         init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+         suite/0]).
 -export([maps/1]).
 
-groups() -> 
+groups() ->
     [{p,test_lib:parallel(),
       [maps]}].
+
+init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -38,8 +54,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,2}}].
 
-all() -> 
-    test_lib:recompile(?MODULE),
+all() ->
     [{group,p}].
 
 %%% test cases
@@ -48,7 +63,18 @@ maps(Config) when is_list(Config) ->
     Ts = [{beam_bool_get_elements,
            <<"century(#{ron := operator}, _century) ->
                   if 0.0; _century, _century, _century -> _century end.
-           ">>}],
+           ">>},
+          {empty_map_clauses,
+           <<"politics(#{}, researchers) -> concerned;
+              politics(#{[] := _}, workers) -> dot;
+              politics(#{[] := ct}, counsel) -> calls.
+             ">>},
+          {empty_map_clauses_variable,
+           <<"georgia(#{a := effectively}, ratio, is, eventually) -> teens;
+              georgia(#{a := government}, knowledge, poker, partly) -> signed;
+              georgia(#{}, recording, bring, vital) -> divided;
+              georgia(#{0 := 0}, articles, brought, #{true := true, a := There}) -> There.
+             ">>}],
     ok = run(Config, Ts),
     ok.
 
@@ -58,7 +84,7 @@ run(Config, Tests) ->
     F = fun({N,P}) ->
                 io:format("Compiling test for: ~w~n", [N]),
                 case catch run_test(Config, P) of
-                    {'EXIT', Reason} -> 
+                    {'EXIT', Reason} ->
                         io:format("~nTest ~p failed.~nReason: ~p~n",
 				  [N, Reason]),
                         fail();

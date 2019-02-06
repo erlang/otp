@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -72,9 +72,6 @@ gethostbyname(Name, Type, Byname, Byaddr) ->
 
 gethostbyaddr({A,B,C,D}=IP) when ?ip(A,B,C,D) ->
     gethostbyaddr(IP, inet);
-%% ipv4  only ipv6 address
-gethostbyaddr({0,0,0,0,0,16#ffff=F,G,H}) when ?ip6(0,0,0,0,0,F,G,H) ->
-    gethostbyaddr({G bsr 8, G band 255, H bsr 8, H band 255});
 gethostbyaddr({A,B,C,D,E,F,G,H}=IP) when ?ip6(A,B,C,D,E,F,G,H) ->
     gethostbyaddr(IP, inet6);
 gethostbyaddr(Addr) when is_list(Addr) ->

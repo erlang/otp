@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -178,19 +178,6 @@
 			 internal_attr,
 			 external_attr,
 			 local_header_offset}).
-
-%% Unix extra fields (not yet supported)
--define(UNIX_EXTRA_FIELD_TAG, 16#000d).
--record(unix_extra_field, {atime,
-			   mtime,
-			   uid,
-			   gid}).
-
-%% extended timestamps (not yet supported)
--define(EXTENDED_TIMESTAMP_TAG, 16#5455).
-%% -record(extended_timestamp, {mtime,
-%% 			     atime,
-%% 			     ctime}).
 
 -define(END_OF_CENTRAL_DIR_MAGIC, 16#06054b50).
 -define(END_OF_CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
@@ -381,9 +368,12 @@ do_unzip(F, Options) ->
     {Info, In1} = get_central_dir(In0, RawIterator, Input),
     %% get rid of zip-comment
     Z = zlib:open(),
-    Files = get_z_files(Info, Z, In1, Opts, []),
-    zlib:close(Z),
-    Input(close, In1),
+    Files = try
+                get_z_files(Info, Z, In1, Opts, [])
+            after
+                zlib:close(Z),
+                Input(close, In1)
+            end,
     {ok, Files}.
 
 %% Iterate over all files in a zip archive
@@ -460,11 +450,19 @@ do_zip(F, Files, Options) ->
     #zip_opts{output = Output, open_opts = OpO} = Opts,
     Out0 = Output({open, F, OpO}, []),
     Z = zlib:open(),
-    {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
-    zlib:close(Z),
-    Out2 = put_central_dir(LHS, Pos, Out1, Opts),
-    Out3 = Output({close, F}, Out2),
-    {ok, Out3}.
+    try
+        {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
+        zlib:close(Z),
+        Out2 = put_central_dir(LHS, Pos, Out1, Opts),
+        Out3 = Output({close, F}, Out2),
+        {ok, Out3}
+    catch
+        C:R:Stk ->
+            zlib:close(Z),
+            Output({close, F}, Out0),
+            erlang:raise(C, R, Stk)
+    end.
+
 
 %% List zip directory contents
 %%
@@ -1379,12 +1377,7 @@ cd_file_header_to_file_info(FileName,
 		    gid = 0},
     add_extra_info(FI, ExtraField).
 
-%% add extra info to file (some day when we implement it)
-add_extra_info(FI, <<?EXTENDED_TIMESTAMP_TAG:16/little, _Rest/binary>>) ->
-    FI;     % not yet supported, some other day...
-add_extra_info(FI, <<?UNIX_EXTRA_FIELD_TAG:16/little, Rest/binary>>) ->
-    _UnixExtra = unix_extra_field_and_var_from_bin(Rest),
-    FI;     % not yet supported, and not widely used
+%% Currently, we ignore all the extra fields.
 add_extra_info(FI, _) ->
     FI.
 
@@ -1571,20 +1564,6 @@ dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     <<DosTime:16>> = <<Hour:5, Min:6, Sec:5>>,
     <<DosDate:16>> = <<YearFrom1980:7, Month:4, Day:5>>,
     {DosDate, DosTime}.
-
-unix_extra_field_and_var_from_bin(<<TSize:16/little,
-				   ATime:32/little,
-				   MTime:32/little,
-				   UID:16/little,
-				   GID:16/little,
-				   Var:TSize/binary>>) ->
-    {#unix_extra_field{atime = ATime,
-		       mtime = MTime,
-		       uid = UID,
-		       gid = GID},
-     Var};
-unix_extra_field_and_var_from_bin(_) ->
-    throw(bad_unix_extra_field).
 
 %% A pwrite-like function for iolists (used by memory-option)
 

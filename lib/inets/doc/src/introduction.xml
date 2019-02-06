@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,12 +22,12 @@
     </legalnotice>
 
     <title>Introduction</title>
-    <prepared>Ingela Anderton Andin</prepared>
+    <prepared>Péter Dimitrov</prepared>
     <responsible></responsible>
     <docno></docno>
     <approved></approved>
     <checked></checked>
-    <date>2004-09-28</date>
+    <date>2018-02-28</date>
     <rev>A</rev>
     <file>introduction.xml</file>
   </header>
@@ -37,8 +37,6 @@
     <p><c>Inets</c> is a container for Internet clients and servers
       including the following:</p>
       <list type="bulleted">
-       <item>An FTP client</item>
-       <item>A TFTP client and server</item>
        <item>An <term id="HTTP"></term> client and server</item>
      </list>
      <p>The HTTP client and server are HTTP 1.1 compliant as
@@ -50,7 +48,7 @@
     <title>Prerequisites</title>
     <p>It is assumed that the reader is familiar with the Erlang
       programming language, concepts of OTP, and has a basic
-      understanding of the FTP, TFTP, and HTTP protocols.</p>
+      understanding of and HTTP protocol.</p>
   </section>
 </chapter>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,37 +60,37 @@ post_end_per_suite(Suite,Config,Return,State) ->
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     empty_cth:post_end_per_suite(Suite,Config,Return,State).
 
-pre_init_per_group(Group,Config,State) ->
+pre_init_per_group(Suite,Group,Config,State) ->
     true = ?val(post_init_per_suite, Config),
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     test_group = ct:get_config(group_cfg),
-    empty_cth:pre_init_per_group(Group,
+    empty_cth:pre_init_per_group(Suite,Group,
 				 [{pre_init_per_group,true} | Config],
 				 State).
 
-post_init_per_group(Group,Config,Return,State) ->
+post_init_per_group(Suite,Group,Config,Return,State) ->
     true = ?val(pre_init_per_group, Return),
     test_group = ct:get_config(group_cfg),
-    empty_cth:post_init_per_group(Group,
+    empty_cth:post_init_per_group(Suite,Group,
 				  Config,
 				  [{post_init_per_group,true} | Return],
 				  State).
 
-pre_end_per_group(Group,Config,State) ->
+pre_end_per_group(Suite,Group,Config,State) ->
     true = ?val(post_init_per_group, Config),
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     test_group = ct:get_config(group_cfg),
-    empty_cth:pre_end_per_group(Group,
+    empty_cth:pre_end_per_group(Suite,Group,
 				[{pre_end_per_group,true} | Config],
 				State).
 
-post_end_per_group(Group,Config,Return,State) ->
+post_end_per_group(Suite,Group,Config,Return,State) ->
     true = ?val(pre_end_per_group, Config),
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     test_group = ct:get_config(group_cfg),
-    empty_cth:post_end_per_group(Group,Config,Return,State).
+    empty_cth:post_end_per_group(Suite,Group,Config,Return,State).
 
-pre_init_per_testcase(TC,Config,State) ->
+pre_init_per_testcase(Suite,TC,Config,State) ->
     true = ?val(post_init_per_suite, Config),
     case ?val(name, ?val(tc_group_properties, Config)) of
 	undefined -> 
@@ -102,19 +102,19 @@ pre_init_per_testcase(TC,Config,State) ->
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     CfgKey = list_to_atom(atom_to_list(TC) ++ "_cfg"),
     TC = ct:get_config(CfgKey),
-    empty_cth:pre_init_per_testcase(TC,
+    empty_cth:pre_init_per_testcase(Suite,TC,
 				    [{pre_init_per_testcase,true} | Config],
 				    State).
 
 %%! TODO: Verify Config also in post_init and pre_end!
 
-post_init_per_testcase(TC,Config,Return,State) ->
-    empty_cth:post_init_per_testcase(TC,Config,Return,State).
+post_init_per_testcase(Suite,TC,Config,Return,State) ->
+    empty_cth:post_init_per_testcase(Suite,TC,Config,Return,State).
 
-pre_end_per_testcase(TC,Config,State) ->
-    empty_cth:pre_end_per_testcase(TC,Config,State).
+pre_end_per_testcase(Suite,TC,Config,State) ->
+    empty_cth:pre_end_per_testcase(Suite,TC,Config,State).
 
-post_end_per_testcase(TC,Config,Return,State) ->
+post_end_per_testcase(Suite,TC,Config,Return,State) ->
     true = ?val(post_init_per_suite, Config),
     true = ?val(pre_init_per_testcase, Config),
     case ?val(name, ?val(tc_group_properties, Config)) of
@@ -127,13 +127,13 @@ post_end_per_testcase(TC,Config,Return,State) ->
     ct_no_config_SUITE = ct:get_config(suite_cfg),
     CfgKey = list_to_atom(atom_to_list(TC) ++ "_cfg"),
     TC = ct:get_config(CfgKey),
-    empty_cth:post_end_per_testcase(TC,Config,Return,State).
+    empty_cth:post_end_per_testcase(Suite,TC,Config,Return,State).
 
-on_tc_fail(TC, Reason, State) ->
-    empty_cth:on_tc_fail(TC,Reason,State).
+on_tc_fail(Suite,TC, Reason, State) ->
+    empty_cth:on_tc_fail(Suite,TC,Reason,State).
 
-on_tc_skip(TC, Reason, State) ->
-    empty_cth:on_tc_skip(TC,Reason,State).
+on_tc_skip(Suite,TC, Reason, State) ->
+    empty_cth:on_tc_skip(Suite,TC,Reason,State).
 
 terminate(State) ->
     empty_cth:terminate(State).

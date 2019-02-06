@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@
 	 hex_to_bin/1,
 	 match_value/2,
 	 parallel/0,
-	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4]).
+	 roundtrip/3,roundtrip/4,roundtrip_enc/3,roundtrip_enc/4,
+         map_roundtrip/3]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -94,14 +95,57 @@ module(F0) ->
     list_to_atom(F).
 %%    filename:join(CaseDir, F ++ ".beam").
 
-compile_file(File, Options) ->
+compile_file(File, Options0) ->
+    Options = [warnings_as_errors|Options0],
     try
-        ok = asn1ct:compile(File, [warnings_as_errors|Options])
+        ok = asn1ct:compile(File, Options),
+        ok = compile_maps(File, Options)
     catch
         _:Reason ->
 	    ct:print("Failed to compile ~s\n~p", [File,Reason]),
             error
     end.
+
+compile_maps(File, Options) ->
+    unload_map_mod(File),
+    Incompat = [abs,compact_bit_string,legacy_bit_string,
+                legacy_erlang_types,maps,asn1_test_lib_no_maps],
+    case lists:any(fun(E) -> lists:member(E, Incompat) end, Options) of
+        true ->
+            ok;
+        false ->
+            compile_maps_1(File, Options)
+    end.
+
+compile_maps_1(File, Options) ->
+    ok = asn1ct:compile(File, [maps,no_ok_wrapper,noobj|Options]),
+    OutDir = proplists:get_value(outdir, Options),
+    Base0 = filename:rootname(filename:basename(File)),
+    Base = case filename:extension(Base0) of
+               ".set" ->
+                   filename:rootname(Base0);
+               _ ->
+                   Base0
+           end,
+    ErlBase = Base ++ ".erl",
+    ErlFile = filename:join(OutDir, ErlBase),
+    {ok,Erl0} = file:read_file(ErlFile),
+    Erl = re:replace(Erl0, <<"-module\\('">>, "&maps_"),
+    MapsErlFile = filename:join(OutDir, "maps_" ++ ErlBase),
+    ok = file:write_file(MapsErlFile, Erl),
+    {ok,_} = compile:file(MapsErlFile, [report,{outdir,OutDir},{i,OutDir}]),
+    ok.
+
+unload_map_mod(File0) ->
+    File1 = filename:basename(File0),
+    File2 = filename:rootname(File1, ".asn"),
+    File3 = filename:rootname(File2, ".asn1"),
+    File4 = filename:rootname(File3, ".py"),
+    File = filename:rootname(File4, ".set"),
+    MapMod = list_to_atom("maps_"++File),
+    code:delete(MapMod),
+    code:purge(MapMod),
+    ok.
 
 compile_erlang(Mod, Config, Options) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -147,23 +191,59 @@ roundtrip(Mod, Type, Value) ->
     roundtrip(Mod, Type, Value, Value).
 
 roundtrip(Mod, Type, Value, ExpectedValue) ->
-    {ok,Encoded} = Mod:encode(Type, Value),
-    {ok,ExpectedValue} = Mod:decode(Type, Encoded),
-    test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
-    ok.
+    roundtrip_enc(Mod, Type, Value, ExpectedValue).
 
 roundtrip_enc(Mod, Type, Value) ->
     roundtrip_enc(Mod, Type, Value, Value).
 
 roundtrip_enc(Mod, Type, Value, ExpectedValue) ->
-    {ok,Encoded} = Mod:encode(Type, Value),
-    {ok,ExpectedValue} = Mod:decode(Type, Encoded),
+    case Mod:encode(Type, Value) of
+        {ok,Encoded} ->
+            {ok,ExpectedValue} = Mod:decode(Type, Encoded);
+        Encoded when is_binary(Encoded) ->
+            ExpectedValue = Mod:decode(Type, Encoded)
+    end,
+    map_roundtrip(Mod, Type, Encoded),
     test_ber_indefinite(Mod, Type, Encoded, ExpectedValue),
     Encoded.
+
+map_roundtrip(Mod, Type, Encoded) ->
+    MapMod = list_to_atom("maps_"++atom_to_list(Mod)),
+    try MapMod:maps() of
+        true ->
+            map_roundtrip_1(MapMod, Type, Encoded)
+    catch
+        error:undef ->
+            ok
+    end.
 
 %%%
 %%% Internal functions.
 %%%
+
+map_roundtrip_1(Mod, Type, Encoded) ->
+    Decoded = Mod:decode(Type, Encoded),
+    case Mod:encode(Type, Decoded) of
+        Encoded ->
+            ok;
+        OtherEncoding ->
+            case is_named_bitstring(Decoded) of
+                true ->
+                    %% In BER, named BIT STRINGs with different number of
+                    %% trailing zeroes decode to the same value.
+                    ok;
+                false ->
+                    error({encode_mismatch,Decoded,Encoded,OtherEncoding})
+            end
+    end,
+    ok.
+
+is_named_bitstring([H|T]) ->
+    is_atom(H) andalso is_named_bitstring(T);
+is_named_bitstring([]) ->
+    true;
+is_named_bitstring(_) ->
+    false.
 
 hex2num(C) when $0 =< C, C =< $9 -> C - $0;
 hex2num(C) when $A =< C, C =< $F -> C - $A + 10;
@@ -179,7 +259,12 @@ test_ber_indefinite(Mod, Type, Encoded, ExpectedValue) ->
     case Mod:encoding_rule() of
 	ber ->
 	    Indefinite = iolist_to_binary(ber_indefinite(Encoded)),
-	    {ok,ExpectedValue} = Mod:decode(Type, Indefinite);
+            case Mod:decode(Type, Indefinite) of
+                {ok,ExpectedValue} ->
+                    ok;
+                ExpectedValue ->
+                    ok
+            end;
 	_ ->
 	    ok
     end.

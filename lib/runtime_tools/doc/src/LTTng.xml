@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="utf8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 <chapter>
     <header>
         <copyright>
-            <year>2016</year><year>2016</year>
+            <year>2016</year><year>2018</year>
             <holder>Ericsson AB. All Rights Reserved.</holder>
         </copyright>
         <legalnotice>
@@ -111,7 +111,7 @@ $ make </code>
         <p><em>process_register</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
-            <item><c>name : string</c> :: Registered name. Ex. <c>"error_logger"</c></item>
+            <item><c>name : string</c> :: Registered name. Ex. <c>"logger"</c></item>
             <item><c>type : string</c> :: <c>"register" | "unregister"</c></item>
         </list>
         <p>Example:</p>
@@ -134,7 +134,7 @@ $ make </code>
         <p><em>port_open</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
         </list>
         <p>
@@ -323,7 +323,7 @@ $ make </code>
 
         <p><em>driver_init</em></p>
         <list type="bulleted">
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>major : integer</c> :: Major version. Ex. <c>3</c></item>
             <item><c>minor : integer</c> :: Minor version. Ex. <c>1</c></item>
             <item><c>flags : integer</c> :: Flags. Ex. <c>1</c></item>
@@ -334,7 +334,7 @@ $ make </code>
         <p><em>driver_start</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
         </list>
         <p>Example:</p>
@@ -344,7 +344,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
@@ -354,7 +354,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
         <p>Example:</p>
@@ -364,7 +364,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
         <code type="none">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code>
@@ -373,7 +373,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
         <code type="none">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code>
@@ -382,14 +382,14 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
         <code type="none">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_stop_select</em></p>
         <list type="bulleted">
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
         <code type="none">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code>
@@ -398,7 +398,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
         <code type="none">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code>
@@ -407,32 +407,32 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
-        <code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "efile" }</code>
+        <code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_process_exit</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
 
         <p><em>driver_ready_async</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
         </list>
         <p>Example:</p>
-        <code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "efile" }</code>
+        <code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "tcp_inet" }</code>
 
         <p><em>driver_call</em></p>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>
@@ -443,7 +443,7 @@ $ make </code>
         <list type="bulleted">
             <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
             <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
-            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"tcp_inet"</c></item>
             <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
             <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
         </list>

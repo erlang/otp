@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,20 +34,18 @@
 
 IndexTable erts_atom_table;	/* The index table */
 
-#include "erl_smp.h"
+static erts_rwmtx_t atom_table_lock;
 
-static erts_smp_rwmtx_t atom_table_lock;
-
-#define atom_read_lock()	erts_smp_rwmtx_rlock(&atom_table_lock)
-#define atom_read_unlock()	erts_smp_rwmtx_runlock(&atom_table_lock)
-#define atom_write_lock()	erts_smp_rwmtx_rwlock(&atom_table_lock)
-#define atom_write_unlock()	erts_smp_rwmtx_rwunlock(&atom_table_lock)
+#define atom_read_lock()	erts_rwmtx_rlock(&atom_table_lock)
+#define atom_read_unlock()	erts_rwmtx_runlock(&atom_table_lock)
+#define atom_write_lock()	erts_rwmtx_rwlock(&atom_table_lock)
+#define atom_write_unlock()	erts_rwmtx_rwunlock(&atom_table_lock)
 
 #if 0
 #define ERTS_ATOM_PUT_OPS_STAT
 #endif
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-static erts_smp_atomic_t atom_put_ops;
+static erts_atomic_t atom_put_ops;
 #endif
 
 /* Functions for allocating space for the ext of atoms. We do not
@@ -68,7 +66,7 @@ static Uint atom_space;		/* Amount of atom text space used */
 /*
  * Print info about atom tables
  */
-void atom_info(int to, void *to_arg)
+void atom_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -76,7 +74,7 @@ void atom_info(int to, void *to_arg)
     index_info(to, to_arg, &erts_atom_table);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
-	       erts_smp_atomic_read_nob(&atom_put_ops));
+	       erts_atomic_read_nob(&atom_put_ops));
 #endif
 
     if (lock)
@@ -138,7 +136,7 @@ atom_hash(Atom* obj)
     while(len--) {
 	v = *p++;
 	/* latin1 clutch for r16 */
-	if ((v & 0xFE) == 0xC2 && (*p & 0xC0) == 0x80) {
+	if (len && (v & 0xFE) == 0xC2 && (*p & 0xC0) == 0x80) {
 	    v = (v << 6) | (*p & 0x3F);
 	    p++; len--;
 	}
@@ -176,7 +174,7 @@ atom_alloc(Atom* tmpl)
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
-     * This is used by utils.c:erts_cmp_atoms().
+     * This is used by erl_utils.h:erts_cmp_atoms().
      * We cannot use the full 32 bits of the first 4 bytes,
      * since we use the sign of the difference between two
      * ordinal values to represent their relative order.
@@ -199,7 +197,7 @@ atom_alloc(Atom* tmpl)
 static void
 atom_free(Atom* obj)
 {
-    erts_free(ERTS_ALC_T_ATOM, (void*) obj);
+    ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, const byte** srcp, int* lenp)
@@ -233,10 +231,10 @@ need_convertion:
 }
 
 /*
- * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
+ * erts_atom_put_index() may fail. Returns negative indexes for errors.
  */
-Eterm
-erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+int
+erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 {
     byte utf8_copy[MAX_ATOM_SZ_FROM_LATIN1];
     const byte *text = name;
@@ -246,14 +244,14 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     int aix;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_inc_nob(&atom_put_ops);
+    erts_atomic_inc_nob(&atom_put_ops);
 #endif
 
     if (tlen < 0) {
 	if (trunc)
 	    tlen = 0;
 	else
-	    return THE_NON_VALUE;
+	    return ATOM_MAX_CHARS_ERROR;
     }
 
     switch (enc) {
@@ -262,7 +260,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	    if (trunc)
 		tlen = MAX_ATOM_CHARACTERS;
 	    else
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	}
 #ifdef DEBUG
 	for (aix = 0; aix < len; aix++) {
@@ -276,7 +274,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	    if (trunc)
 		tlen = MAX_ATOM_CHARACTERS;
 	    else
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	}
 	no_latin1_chars = tlen;
 	latin1_to_utf8(utf8_copy, &text, &tlen);
@@ -284,7 +282,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     case ERTS_ATOM_ENC_UTF8:
 	/* First sanity check; need to verify later */
 	if (tlen > MAX_ATOM_SZ_LIMIT && !trunc)
-	    return THE_NON_VALUE;
+	    return ATOM_MAX_CHARS_ERROR;
 	break;
     }
 
@@ -295,7 +293,7 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_read_unlock();
     if (aix >= 0) {
 	/* Already in table no need to verify it */
-	return make_atom(aix);
+	return aix;
     }
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
@@ -314,13 +312,13 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
 	case ERTS_UTF8_OK_MAX_CHARS:
 	    /* Truncated... */
 	    if (!trunc)
-		return THE_NON_VALUE;
+		return ATOM_MAX_CHARS_ERROR;
 	    ASSERT(no_chars == MAX_ATOM_CHARACTERS);
 	    tlen = err_pos - text;
 	    break;
 	default:
 	    /* Bad utf8... */
-	    return THE_NON_VALUE;
+	    return ATOM_BAD_ENCODING_ERROR;
 	}
     }
 
@@ -333,7 +331,20 @@ erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
-    return make_atom(aix);
+    return aix;
+}
+
+/*
+ * erts_atom_put() may fail. If it fails THE_NON_VALUE is returned!
+ */
+Eterm
+erts_atom_put(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
+{
+    int aix = erts_atom_put_index(name, len, enc, trunc);
+    if (aix >= 0)
+	return make_atom(aix);
+    else
+	return THE_NON_VALUE;
 }
 
 Eterm
@@ -346,32 +357,24 @@ am_atom_put(const char* name, int len)
 int atom_table_size(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = erts_atom_table.entries;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
 int atom_table_sz(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = index_table_sz(&erts_atom_table);
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
@@ -399,19 +402,15 @@ erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
 void
 erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 {
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     if (reserved)
 	*reserved = reserved_atom_space;
     if (used)
 	*used = atom_space;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
 }
 
 void
@@ -420,16 +419,17 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_init_nob(&atom_put_ops, 0);
+    erts_atomic_init_nob(&atom_put_ops, 0);
 #endif
 
-    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab");
+    erts_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     f.hash = (H_FUN) atom_hash;
     f.cmp  = (HCMP_FUN) atom_cmp;
@@ -452,7 +452,7 @@ init_atom_table(void)
     /* Ordinary atoms */
     for (i = 0; erl_atom_names[i] != 0; i++) {
 	int ix;
-	a.len = strlen(erl_atom_names[i]);
+	a.len = sys_strlen(erl_atom_names[i]);
 	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
@@ -467,10 +467,13 @@ init_atom_table(void)
 	atom_space -= a.len;
 	atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
+
+    /* Hide am_ErtsSecretAtom */
+    hash_erase(&erts_atom_table.htable, atom_tab(atom_val(am_ErtsSecretAtom)));
 }
 
 void
-dump_atoms(int to, void *to_arg)
+dump_atoms(fmtfn_t to, void *to_arg)
 {
     int i = erts_atom_table.entries;
 
@@ -482,4 +485,10 @@ dump_atoms(int to, void *to_arg)
 	    erts_print(to, to_arg, "%T\n", make_atom(i));
 	}
     }
+}
+
+Uint
+erts_get_atom_limit(void)
+{
+    return erts_atom_table.limit;
 }

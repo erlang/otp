@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -327,7 +327,7 @@
     <section>
       <title>Initial Database Content</title>
       <p>After the insertion of the  employee named <c>klacke</c>,
-        the databse has the following records:</p>
+        the database has the following records:</p>
       <marker id="table2_1"></marker>
       <table>
         <row>

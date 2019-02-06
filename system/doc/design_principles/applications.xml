@@ -4,14 +4,14 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>Applications</title>
@@ -172,31 +172,136 @@ ch_app:stop([])</code>
   </section>
 
   <section>
-    <marker id="app_dir"></marker>
-    <title>Directory Structure</title>
-    <p>When packaging code using <c>systools</c>, the code for each
-      application is placed in a separate directory,
-      <c>lib/Application-Vsn</c>, where <c>Vsn</c> is the version number.</p>
-    <p>This can be useful to know, even if <c>systools</c> is not used,
-      since Erlang/OTP is packaged according to the OTP principles
-      and thus comes with this directory structure. The code server
-      (see the <c>code(3)</c> manual page in Kernel) automatically
-      uses code from
-      the directory with the highest version number, if more than one
-      version of an application is present.</p>
-    <p>The application directory structure can also be used in the
-      development environment. The version number can then
-      be omitted from the name.</p>
-    <p>The application directory has the following sub-directories:</p>
-    <list type="bulleted">
-      <item><c>src</c> - Contains the Erlang source code.</item>
-      <item><c>ebin</c> - Contains the Erlang object code, the
-      <c>beam</c> files. The <c>.app</c> file is also placed here.</item>
-      <item><c>priv</c> - Used for application specific files. For
-      example, C executables are placed here. The function
-      <c>code:priv_dir/1</c> is to be used to access this directory.</item>
-      <item><c>include</c> - Used for include files.</item>
-    </list>
+      <marker id="app_dir"></marker>
+      <title>Directory Structure</title>
+      <p>When packaging code using <c>systools</c>, the code for each
+          application is placed in a separate directory,
+          <c>lib/Application-Vsn</c>, where <c>Vsn</c> is the version number.</p>
+      <p>This can be useful to know, even if <c>systools</c> is not used,
+          since Erlang/OTP is packaged according to the OTP principles
+          and thus comes with a specific directory structure. The code server
+          (see the  <seealso marker="kernel:code"><c>code(3)</c></seealso> manual
+          page in Kernel) automatically uses code from
+          the directory with the highest version number, if more than one
+          version of an application is present.</p>
+      <section>
+          <title>Directory Structure guidelines for a Development Environment</title>
+          <p>Any directory structure for development will suffice as long as the released directory structure
+              adhere to the <seealso marker="#app_dir_released">description below</seealso>,
+              but it is encouraged that the same directory structure
+              also be used in a development environment. The version number should be omitted from the
+              application directory name since this is an artifact of the release step.
+          </p>
+          <p> Some sub-directories are <em>required</em>. Some sub-directories are <em>optional</em>, meaning that it should
+              only be used if the application itself requires it. Finally, some sub-directories are <em>recommended</em>,
+              meaning it is encouraged that it is used and used as described here. For example, both documentation
+              and tests are encouraged to exist in an application for it to be deemed a proper OTP application.</p>
+<code type="none">
+    ─ ${application}
+      ├── doc
+      │   ├── internal
+      │   ├── examples
+      │   └── src
+      ├── include
+      ├── priv
+      ├── src
+      │   └── ${application}.app.src
+      └── test
+</code>
+          <list type="bulleted">
+              <item><c>src</c> - Required. Contains the Erlang source code, the source of the <c>.app</c> file
+                  and internal include files used by the application itself. Additional sub-directories within
+                  <c>src</c> can be used as namespaces to organize source files. These directories should never
+                be deeper than one level.</item>
+              <item><c>priv</c> - Optional. Used for application specific files. </item>
+              <item><c>include</c> - Optional. Used for public include files that must be reachable from
+                  other applications.</item>
+              <item><c>doc</c> - Recommended. Any source documentation should be placed in sub-directories here.</item>
+              <item><c>doc/internal</c> - Recommended. Any documentation that describes implementation details about
+                  this application, not intended for publication, should be placed here.</item>
+              <item><c>doc/examples</c> - Recommended. Source code for examples on how to use this application should
+                  be placed here. It is encouraged that examples are sourced to the public documentation from
+                  this directory.</item>
+              <item><c>doc/src</c> - Recommended. All source files for documentation, such as Markdown, AsciiDoc or
+                  XML-files, should be placed here.</item>
+              <item><c>test</c> - Recommended. All files regarding tests, such as test suites and test specifications,
+                  should be placed here. </item>
+          </list>
+
+          <p>Other directories in the development environment may be needed. If source code from languages other
+              than Erlang is used, for instance C-code for NIFs, that code should be placed in a separate directory.
+              By convention it is recommended to prefix such directories with the language name, for example
+              <c>c_src</c> for C, <c>java_src</c> for Java or <c>go_src</c> for Go. Directories with <c>_src</c>
+              suffix indicates that it is a part of the application and the compilation step. The final build artifacts
+              should target the <c>priv/lib</c> or <c>priv/bin</c> directories.</p>
+          <p>The <c>priv</c> directory holds assets that the application needs during runtime. Executables should
+              reside in <c>priv/bin</c> and dynamically-linked libraries should reside in <c>priv/lib</c>. Other assets
+              are free to reside within the <c>priv</c> directory but it is recommended it does so in a structured manner.</p>
+          <p>Source files from other languages that generate Erlang code, such as ASN.1 or Mibs, should be placed
+              in directories, at the top level or in <c>src</c>, with the same name as the source language, for example
+              <c>asn1</c> and <c>mibs</c>. Build artifacts should be placed in their respective language directory,
+              such as <c>src</c> for Erlang code or <c>java_src</c> for Java code.</p>
+          <p>The <c>.app</c> file for release may reside in the <c>ebin</c>-directory in a development environment
+              but it is encouraged that this is an artifact of the build step. By convention a <c>.app.src</c> file
+              is used, which resides in the <c>src</c> directory. This file is nearly identical as the
+              <c>.app</c> file but certain fields may be replaced during the build step, such as the application version.</p>
+          <p>Directory names should not be capitalized.</p>
+          <p>It is encouraged to omit empty directories.</p>
+
+      </section>
+
+      <section>
+          <marker id="app_dir_released"></marker>
+          <title>Directory Structure for a Released System</title>
+          <p>A released application must follow a certain structure.
+              </p>
+<code type="none">
+    ─ ${application}-${version}
+      ├── bin
+      ├── doc
+      │   ├── html
+      │   ├── man[1-9]
+      │   ├── pdf
+      │   ├── internal
+      │   └── examples
+      ├── ebin
+      │   └── ${application}.app
+      ├── include
+      ├── priv
+      │   ├── lib
+      │   └── bin
+      └── src
+</code>
+          <list type="bulleted">
+              <item><c>src</c> - Optional. Contains the Erlang source code and internal include files
+                  used by the application itself. This directory is no longer required in a released application.</item>
+              <item><c>ebin</c> - Required. Contains the Erlang object code, the <c>beam</c> files.
+                  The <c>.app</c> file must also be placed here.</item>
+              <item><c>priv</c> - Optional. Used for application specific files. <c>code:priv_dir/1</c>
+                  is to be used to access this directory.</item>
+              <item><c>priv/lib</c> - Recommended. Any shared-object files that are used by the application,
+                  such as NIFs or linked-in-drivers, should be placed here.</item>
+              <item><c>priv/bin</c> - Recommended. Any executable that is used by the application,
+                  such as port-programs, should be placed here.</item>
+              <item><c>include</c> - Optional. Used for public include files that must be reachable from
+                  other applications.</item>
+              <item><c>bin</c> - Optional. Any executable that is a product of the application,
+                  such as escripts or shell-scripts, should be placed here.</item>
+              <item><c>doc</c> - Optional. Any released documentation should be placed in
+                  sub-directories here.</item>
+              <item><c>doc/man1</c> - Recommended. Man pages for Application executables.</item>
+              <item><c>doc/man3</c> - Recommended. Man pages for module APIs.</item>
+              <item><c>doc/man6</c> - Recommended. Man pages for Application overview.</item>
+              <item><c>doc/html</c> - Optional. HTML pages for the entire Application.</item>
+              <item><c>doc/pdf</c> - Optional. PDF documentation for the entire Application.</item>
+          </list>
+
+          <p>The <c>src</c> directory could be useful to release for debugging purposes but is not required.
+              The <c>include</c> directory should only be released if the applications has public include files.</p>
+          <p>The only documentation that is recommended to be released in this way are the man pages. HTML and PDF
+              will normally be distributed in some other manner.</p>
+          <p>It is encouraged to omit empty directories.</p>
+      </section>
   </section>
 
   <section>
@@ -258,9 +363,13 @@ ok
       application are running.</p>
     <marker id="application_master"></marker>
     <p>The application controller then creates an
-    <em>application master</em> for the application. The application master
-      is the group leader of all the processes in the application.
-      The application master starts the application by calling
+      <em>application master</em> for the application. The application
+      master becomes the group leader of all the processes in the
+      application. I/O is forwarded to the previous group leader,
+      though, this is just a way to identify processes that belong to
+      the application. Used for example to find itself from any process,
+      or, reciprocally, to kill them all when it terminates.</p>
+    <p>The application master starts the application by calling
       the application callback function <c>start/2</c> in the module,
       and with the start argument, defined by the <c>mod</c> key in
       the <c>.app</c> file.</p>
@@ -381,4 +490,3 @@ application:start(Application, Type)</code>
       <c>shutdown</c>, not <c>normal</c>.</p>
   </section>
 </chapter>
-

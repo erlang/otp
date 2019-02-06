@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_ra_postconditions_fp).
 
@@ -25,13 +18,17 @@
 
 -include("hipe_sparc.hrl").
 
-check_and_rewrite(Defun, Coloring) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific_fp),
-  #defun{code=Code0} = Defun,
-  {Code1,DidSpill} = do_insns(Code0, TempMap, [], false),
-  VarRange = {0, hipe_gensym:get_var(sparc)},
-  {Defun#defun{code=Code1, var_range=VarRange},
-   DidSpill}.
+check_and_rewrite(CFG, Coloring) ->
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_sparc_specific_fp,
+				     no_context),
+  do_bbs(hipe_sparc_cfg:labels(CFG), TempMap, CFG, false).
+
+do_bbs([], _TempMap, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_sparc_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, [], DidSpill0),
+  CFG = hipe_sparc_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap),
@@ -46,6 +43,7 @@ do_insn(I, TempMap) ->
     #pseudo_fload{} -> do_pseudo_fload(I, TempMap);
     #pseudo_fmove{} -> do_pseudo_fmove(I, TempMap);
     #pseudo_fstore{} -> do_pseudo_fstore(I, TempMap);
+    #pseudo_spill_fmove{} -> do_pseudo_spill_fmove(I, TempMap);
     _ -> {[I], false}
   end.
 
@@ -70,11 +68,13 @@ do_pseudo_fload(I=#pseudo_fload{dst=Dst}, TempMap) ->
   {[NewI | FixDst], DidSpill}.
 
 do_pseudo_fmove(I=#pseudo_fmove{src=Src,dst=Dst}, TempMap) ->
-  case temp_is_spilled(Dst, TempMap) of
-    true ->
-      {FixSrc,NewSrc,DidSpill} = fix_src(Src, TempMap),
-      NewI = I#pseudo_fmove{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_fmove
+      Temp = clone(Src),
+      NewI = #pseudo_spill_fmove{src=Src,temp=Temp,dst=Dst},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
@@ -83,6 +83,11 @@ do_pseudo_fstore(I=#pseudo_fstore{src=Src}, TempMap) ->
   {FixSrc,NewSrc,DidSpill} = fix_src(Src, TempMap),
   NewI = I#pseudo_fstore{src=NewSrc},
   {FixSrc ++ [NewI], DidSpill}.
+
+do_pseudo_spill_fmove(I=#pseudo_spill_fmove{temp=Temp}, TempMap) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 %%% Fix Dst and Src operands.
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,7 +56,7 @@ $ <input>erl -sname foobar</input></pre>
     <p>Normally, connections are established automatically when
       another node is referenced. This functionality can be disabled
       by setting Kernel configuration parameter
-      <c>dist_auto_connect</c> to <c>false</c>, see
+      <c>dist_auto_connect</c> to <c>never</c>, see
       <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
       connections must be established explicitly by calling
       <seealso marker="#connect_node/1"><c>connect_node/1</c></seealso>.</p>
@@ -64,6 +64,19 @@ $ <input>erl -sname foobar</input></pre>
       by the magic cookie system, see section
       <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso>
       in the Erlang Reference Manual.</p>
+    <warning>
+      <p>
+        Starting a distributed node without also specifying
+        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        will expose the node to attacks that may give the attacker
+        complete access to the node and in extension the cluster.
+        When using un-secure distributed nodes, make sure that the
+        network is configured to keep potential attackers out.
+        See the <seealso marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seealso> User's Guide
+        for details on how to setup a secure distributed node.
+      </p>
+    </warning>
   </description>
 
   <funcs>
@@ -89,8 +102,10 @@ $ <input>erl -sname foobar</input></pre>
       <fsummary>Establish a connection to a node.</fsummary>
       <desc>
         <p>Establishes a connection to <c><anno>Node</anno></c>. Returns
-          <c>true</c> if successful, <c>false</c> if not, and <c>ignored</c>
-          if the local node is not alive.</p>
+          <c>true</c> if a connection was established or was already
+	  established or if <c><anno>Node</anno></c> is the local node
+	  itself. Returns <c>false</c> if the connection attempt failed, and
+	  <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
 
@@ -217,7 +232,12 @@ $ <input>erl -sname foobar</input></pre>
           <item>
             <p>The tuple <c>{nodedown_reason, Reason}</c> is included in
               <c>InfoList</c> in <c>nodedown</c> messages.</p>
-            <p><c>Reason</c> can be any of the following:</p>
+            <p>
+	      <c>Reason</c> can, depending on which
+	      distribution module or process that is used be any term,
+	      but for the standard TCP distribution module it is
+	      any of the following:
+	    </p>
             <taglist>
               <tag><c>connection_setup_failed</c></tag>
               <item><p>The connection setup failed (after <c>nodeup</c>

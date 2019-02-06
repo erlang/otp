@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,11 @@
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
+            catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
+            catch ct:log("crypto:info_lib() -> ~p~n"
+                         "crypto:supports() -> ~p~n"
+                         "crypto:version()  -> ~p~n"
+                        ,[crypto:info_lib(), crypto:supports(), crypto:version()]),
 	    Config;
 	_Else ->
 	    {skip,"Could not start crypto!"}
@@ -107,11 +112,37 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-[ecb, cbc, cfb64, ofb64].
+[{group, fips},
+ {group, non_fips}].
 
 groups() -> 
-    [].
+    [{fips,     [], [no_ecb, no_cbc, no_cfb64, no_ofb64]},
+     {non_fips, [], [ecb, cbc, cfb64, ofb64]}].
 
+init_per_group(fips, Config) ->
+    case crypto:info_fips() of
+        enabled ->
+            Config;
+        not_enabled ->
+            case crypto:enable_fips_mode(true) of
+		true ->
+		    enabled = crypto:info_fips(),
+		    Config;
+		false ->
+		    {skip, "Failed to enable FIPS mode"}
+	    end;
+        not_supported ->
+            {skip, "FIPS mode not supported"}
+    end;
+init_per_group(non_fips, Config) ->
+    case crypto:info_fips() of
+        enabled ->
+            true = crypto:enable_fips_mode(false),
+            not_enabled = crypto:info_fips(),
+            Config;
+        _NotEnabled ->
+            Config
+    end;
 init_per_group(_GroupName, Config) ->
 	Config.
 
@@ -125,7 +156,7 @@ end_per_group(_GroupName, Config) ->
 ecb_test(KeyBytes, ClearBytes, CipherBytes) ->
     {Key, Clear, Cipher} =
 	{to_bin(KeyBytes), to_bin(ClearBytes), to_bin(CipherBytes)},
-    ?line m(crypto:blowfish_ecb_encrypt(Key, Clear), Cipher),
+    ?line m(crypto:block_encrypt(blowfish_ecb, Key, Clear), Cipher),
     true.
 
 ecb(doc) ->
@@ -174,7 +205,7 @@ cbc(doc) ->
 cbc(suite) ->
     [];
 cbc(Config) when is_list(Config) ->
-	true = crypto:blowfish_cbc_encrypt(?KEY, ?IVEC, ?DATA_PADDED) =:=
+	true = crypto:block_encrypt(blowfish_cbc, ?KEY, ?IVEC, ?DATA_PADDED) =:=
 		to_bin("6B77B4D63006DEE605B156E27403979358DEB9E7154616D959F1652BD5FF92CC"),
 	ok.
 
@@ -183,7 +214,7 @@ cfb64(doc) ->
 cfb64(suite) ->
     [];
 cfb64(Config) when is_list(Config) ->
-	true = crypto:blowfish_cfb64_encrypt(?KEY, ?IVEC, ?DATA) =:=
+	true = crypto:block_encrypt(blowfish_cfb64, ?KEY, ?IVEC, ?DATA) =:=
 		to_bin("E73214A2822139CAF26ECF6D2EB9E76E3DA3DE04D1517200519D57A6C3"),
 	ok.
 
@@ -192,11 +223,58 @@ ofb64(doc) ->
 ofb64(suite) ->
     [];
 ofb64(Config) when is_list(Config) ->
-	true = crypto:blowfish_ofb64_encrypt(?KEY, ?IVEC, ?DATA) =:=
+	true = crypto:block_encrypt(blowfish_ofb64, ?KEY, ?IVEC, ?DATA) =:=
 		to_bin("E73214A2822139CA62B343CC5B65587310DD908D0C241B2263C2CF80DA"),
 	ok.
 
+no_ecb(doc) ->
+    "Test that ECB mode is disabled";
+no_ecb(suite) ->
+    [];
+no_ecb(Config) when is_list(Config) ->
+	notsup(fun crypto:block_encrypt/3,
+               [blowfish_ecb,
+		to_bin("0000000000000000"),
+                to_bin("FFFFFFFFFFFFFFFF")]).
+
+no_cbc(doc) ->
+    "Test that CBC mode is disabled";
+no_cbc(suite) ->
+    [];
+no_cbc(Config) when is_list(Config) ->
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_cbc, ?KEY, ?IVEC, ?DATA_PADDED]).
+
+no_cfb64(doc) ->
+    "Test that CFB64 mode is disabled";
+no_cfb64(suite) ->
+    [];
+no_cfb64(Config) when is_list(Config) ->
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_cfb64, ?KEY, ?IVEC, ?DATA]),
+	ok.
+
+no_ofb64(doc) ->
+    "Test that OFB64 mode is disabled";
+no_ofb64(suite) ->
+    [];
+no_ofb64(Config) when is_list(Config) ->
+	notsup(fun crypto:block_encrypt/4,
+               [blowfish_ofb64, ?KEY, ?IVEC, ?DATA]).
+
 %% Helper functions
+
+%% Assert function fails with notsup error
+notsup(Fun, Args) ->
+    ok = try
+             {error, {return, apply(Fun, Args)}}
+         catch
+             error:notsup ->
+                 ok;
+             Class:Error ->
+                 {error, {Class, Error}}
+         end.
+
 
 %% Convert a hexadecimal string to a binary.
 -spec(to_bin(L::string()) -> binary()).

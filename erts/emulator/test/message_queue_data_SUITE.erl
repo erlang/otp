@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ total_heap_size(_Config) ->
     Fun = fun F() -> receive Pid when is_pid(Pid) -> Pid ! ok,F() end end,
 
     %% Test that on_heap messages grow the heap even if they are not received
-    OnPid = spawn_opt(Fun, [{message_queue_data, on_heap}]),
+    OnPid = spawn_opt(Fun, [{message_queue_data, on_heap},link]),
     {total_heap_size, OnSize} = erlang:process_info(OnPid, total_heap_size),
     [OnPid ! lists:duplicate(N,N) || N <- lists:seq(1,100)],
     OnPid ! self(), receive ok -> ok end,
@@ -178,7 +178,7 @@ total_heap_size(_Config) ->
     true = OnSize < OnSizeAfter,
 
     %% Test that off_heap messages do not grow the heap if they are not received
-    OffPid = spawn_opt(Fun, [{message_queue_data, off_heap}]),
+    OffPid = spawn_opt(Fun, [{message_queue_data, off_heap},link]),
     {total_heap_size, OffSize} = erlang:process_info(OffPid, total_heap_size),
     [OffPid ! lists:duplicate(N,N) || N <- lists:seq(1,100)],
     OffPid ! self(), receive ok -> ok end,
@@ -192,8 +192,6 @@ total_heap_size(_Config) ->
 %%
 %%
 
-start_node(Config) ->
-    start_node(Config, []).
 start_node(Config, Opts) when is_list(Config), is_list(Opts) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)

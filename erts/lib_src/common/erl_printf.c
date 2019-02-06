@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 #undef FWRITE
 #undef PUTC_ON_SMALL_WRITES
 
-#if defined(USE_THREADS) && defined(HAVE_FLOCKFILE)
+#if defined(HAVE_FLOCKFILE)
 #	define FLOCKFILE(FP)	flockfile(FP)
 #	define FUNLOCKFILE(FP)	funlockfile(FP)
 #	ifdef HAVE_PUTC_UNLOCKED
@@ -73,11 +73,7 @@ void (*erts_printf_unblock_fpe)(int) = NULL;
 #	ifdef HAVE_FWRITE_UNLOCKED
 #		define FWRITE	fwrite_unlocked
 #	endif
-#endif
-#if !defined(USE_THREADS) && defined(putc) && !defined(fwrite)
-#	define PUTC_ON_SMALL_WRITES
-#endif
-#if !defined(FLOCKFILE) || !defined(FUNLOCKFILE)
+#else
 #	define FLOCKFILE(FP)
 #	define FUNLOCKFILE(FP)
 #endif
@@ -147,8 +143,8 @@ write_f_add_cr(void *vfp, char* buf, size_t len)
     return len;
 }
 
-static int
-write_f(void *vfp, char* buf, size_t len)
+int
+erts_write_fp(void *vfp, char* buf, size_t len)
 {
     ASSERT(vfp);
 #ifdef PUTC_ON_SMALL_WRITES
@@ -165,8 +161,8 @@ write_f(void *vfp, char* buf, size_t len)
     return len;
 }
 
-static int
-write_fd(void *vfdp, char* buf, size_t len)
+int
+erts_write_fd(void *vfdp, char* buf, size_t len)
 {
     ssize_t size;
     size_t res = len;
@@ -226,8 +222,8 @@ write_sn(void *vwsnap, char* buf, size_t len)
     return rv;
 }
 
-static int
-write_ds(void *vdsbufp, char* buf, size_t len)
+int
+erts_write_ds(void *vdsbufp, char* buf, size_t len)
 {
     erts_dsprintf_buf_t *dsbufp = (erts_dsprintf_buf_t *) vdsbufp;
     size_t need_len = len + 1; /* Also trailing '\0' */
@@ -257,7 +253,7 @@ erts_printf(const char *format, ...)
 	FLOCKFILE(stdout);
 	res = erts_printf_format(erts_printf_add_cr_to_stdout
 				 ? write_f_add_cr
-				 : write_f,
+				 : erts_write_fp,
 				 (void *) stdout,
 				 (char *) format,
 				 arglist);
@@ -285,7 +281,7 @@ erts_fprintf(FILE *filep, const char *format, ...)
 	else if (erts_printf_add_cr_to_stderr && filep == stderr)
 	    fmt_f = write_f_add_cr;
 	else
-	    fmt_f = write_f;
+	    fmt_f = erts_write_fp;
 	FLOCKFILE(filep);
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
 	FUNLOCKFILE(filep);
@@ -301,7 +297,7 @@ erts_fdprintf(int fd, const char *format, ...)
     va_list arglist;
     va_start(arglist, format);
     errno = 0;
-    res = erts_printf_format(write_fd,(void *)&fd,(char *)format,arglist);
+    res = erts_printf_format(erts_write_fd,(void *)&fd,(char *)format,arglist);
     va_end(arglist);
     return res;
 }
@@ -355,13 +351,27 @@ erts_dsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, ...)
 	return -EINVAL;
     va_start(arglist, format);
     errno = 0;
-    res = erts_printf_format(write_ds, (void *)dsbufp, (char *)format, arglist);
+    res = erts_printf_format(erts_write_ds, (void *)dsbufp, (char *)format, arglist);
     if (dsbufp->str) {
 	if (res < 0)
 	    dsbufp->str[0] = '\0';
 	else
 	    dsbufp->str[dsbufp->str_len] = '\0';
     }
+    va_end(arglist);
+    return res;
+}
+
+/*
+ * Callback printf
+ */
+int erts_cbprintf(fmtfn_t cb_fn, void* cb_arg, const char* format, ...)
+{
+    int res;
+    va_list arglist;
+    va_start(arglist, format);
+    errno = 0;
+    res = erts_printf_format(cb_fn, cb_arg, (char *)format, arglist);
     va_end(arglist);
     return res;
 }
@@ -376,7 +386,7 @@ erts_vprintf(const char *format, va_list arglist)
 	errno = 0;
 	res = erts_printf_format(erts_printf_add_cr_to_stdout
 				 ? write_f_add_cr
-				 : write_f,
+				 : erts_write_fp,
 				 (void *) stdout,
 				 (char *) format,
 				 arglist);
@@ -400,7 +410,7 @@ erts_vfprintf(FILE *filep, const char *format, va_list arglist)
 	else if (erts_printf_add_cr_to_stderr && filep == stderr)
 	    fmt_f = write_f_add_cr;
 	else
-	    fmt_f = write_f;
+	    fmt_f = erts_write_fp;
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
     }
     return res;
@@ -411,7 +421,7 @@ erts_vfdprintf(int fd, const char *format, va_list arglist)
 {
     int res;
     errno = 0;
-    res = erts_printf_format(write_fd,(void *)&fd,(char *)format,arglist);
+    res = erts_printf_format(erts_write_fd,(void *)&fd,(char *)format,arglist);
     return res;
 }
 
@@ -456,7 +466,7 @@ erts_vdsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, va_list arglist)
     if (!dsbufp)
 	return -EINVAL;
     errno = 0;
-    res = erts_printf_format(write_ds, (void *)dsbufp, (char *)format, arglist);
+    res = erts_printf_format(erts_write_ds, (void *)dsbufp, (char *)format, arglist);
     if (dsbufp->str) {
 	if (res < 0)
 	    dsbufp->str[0] = '\0';
@@ -464,4 +474,11 @@ erts_vdsprintf(erts_dsprintf_buf_t *dsbufp, const char *format, va_list arglist)
 	    dsbufp->str[dsbufp->str_len] = '\0';
     }
     return res;
+}
+
+int
+erts_vcbprintf(fmtfn_t cb_fn, void* cb_arg, const char *format, va_list arglist)
+{
+    errno = 0;
+    return erts_printf_format(cb_fn, cb_arg, (char *)format, arglist);
 }

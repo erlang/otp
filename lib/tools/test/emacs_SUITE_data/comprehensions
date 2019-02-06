@@ -1,0 +1,47 @@
+%% -*- Mode: erlang; indent-tabs-mode: nil -*-
+%% Copyright Ericsson AB 2017. All Rights Reserved.
+
+%%% indentation of comprehensions
+
+%%% Not everything in these test are set in stone
+%%% better indentation rules can be added but by having
+%%% these tests we can see what changes in new implementations
+%%% and notice when doing unintentional changes
+
+list() ->
+    %% I don't have a good idea how we want to handle this
+    %% but they are here to show how they are indented today.
+    Result1 = [X ||
+                  #record{a=X} <- lists:seq(1, 10),
+                  true = (X rem 2)
+              ],
+    Result2 = [X || <<X:32,_:32>> <= <<0:512>>,
+                    true = (X rem 2)
+              ],
+    Res = [ func(X,
+                 arg2)
+            ||
+              #record{a=X} <- lists:seq(1, 10),
+              true = (X rem 2)
+          ],
+    Result1.
+
+binary(B) ->
+    Binary1 = << <<X:8>> ||
+                  #record{a=X} <- lists:seq(1, 10),
+                  true = (X rem 2)
+              >>,
+
+    Binary2 = << <<X:8>> || <<X:32,_:32>> <= <<0:512>>,
+                            true = (X rem 2)
+              >>,
+
+    Bin3 = <<
+             <<
+               X:8,
+               34:8
+             >>
+             || <<X:32,_:32>> <= <<0:512>>,
+                true = (X rem 2)
+           >>,
+    ok.

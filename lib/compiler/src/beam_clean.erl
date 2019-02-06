@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,10 @@
 -export([module/2]).
 -export([bs_clean_saves/1]).
 -export([clean_labels/1]).
--import(lists, [map/2,foldl/3,reverse/1,filter/2]).
+-import(lists, [foldl/3,reverse/1]).
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
@@ -39,6 +42,10 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Remove all bs_save2/2 instructions not referenced by a bs_restore2/2.
+
+-spec bs_clean_saves([beam_utils:instruction()]) ->
+                            [beam_utils:instruction()].
+
 bs_clean_saves(Is) ->
     Needed = bs_restores(Is, []),
     bs_clean_saves_1(Is, gb_sets:from_list(Needed), []).
@@ -98,15 +105,20 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 %%% want to see the expanded code in a .S file.
 %%%
 
--record(st, {lmap,				%Translation tables for labels.
-	     entry,				%Number of entry label.
-	     lc					%Label counter
+-type label() :: beam_asm:label().
+
+-record(st, {lmap :: [{label(),label()}], %Translation tables for labels.
+	     entry :: beam_asm:label(),   %Number of entry label.
+	     lc :: non_neg_integer()      %Label counter
 	     }).
 
+-spec clean_labels([beam_utils:instruction()]) ->
+                          {[beam_utils:instruction()],pos_integer()}.
+
 clean_labels(Fs0) ->
-    St0 = #st{lmap=[],lc=1},
+    St0 = #st{lmap=[],entry=1,lc=1},
     {Fs1,#st{lmap=Lmap0,lc=Lc}} = function_renumber(Fs0, St0, []),
-    Lmap = gb_trees:from_orddict(ordsets:from_list(Lmap0)),
+    Lmap = maps:from_list(Lmap0),
     Fs = function_replace(Fs1, Lmap, []),
     {Fs,Lc}.
 
@@ -175,7 +187,8 @@ is_record_tuple(_, _, _) -> no.
 
 function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
     Asm = try
-	      replace(Asm0, [], Dict)
+              Fb = fun(Old) -> throw({error,{undefined_label,Old}}) end,
+              beam_utils:replace_labels(Asm0, [], Dict, Fb)
 	  catch
 	      throw:{error,{undefined_label,Lbl}=Reason} ->
 		  io:format("Function ~s/~w refers to undefined label ~w\n",
@@ -184,57 +197,6 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
 	  end,
     function_replace(Fs, Dict, [{function,Name,Arity,Entry,Asm}|Acc]);
 function_replace([], _, Acc) -> Acc.
-
-replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
-    replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
-replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
-    replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
-replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
-    Vls = map(fun ({f,L}) -> {f,label(L, D)};
-		   (Other) -> Other
-	      end, Vls0),
-    Fail = label(Fail0, D),
-    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D);
-replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
-replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{'catch',R,{f,label(Lbl, D)}}|Acc], D);
-replace([{jump,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{jump,{f,label(Lbl, D)}}|Acc], D);
-replace([{loop_rec,{f,Lbl},R}|Is], Acc, D) ->
-    replace(Is, [{loop_rec,{f,label(Lbl, D)},R}|Acc], D);
-replace([{loop_rec_end,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{loop_rec_end,{f,label(Lbl, D)}}|Acc], D);
-replace([{wait,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{wait,{f,label(Lbl, D)}}|Acc], D);
-replace([{wait_timeout,{f,Lbl},To}|Is], Acc, D) ->
-    replace(Is, [{wait_timeout,{f,label(Lbl, D)},To}|Acc], D);
-replace([{bif,Name,{f,Lbl},As,R}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bif,Name,{f,label(Lbl, D)},As,R}|Acc], D);
-replace([{gc_bif,Name,{f,Lbl},Live,As,R}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{gc_bif,Name,{f,label(Lbl, D)},Live,As,R}|Acc], D);
-replace([{call,Ar,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{call,Ar,{f,label(Lbl,D)}}|Acc], D);
-replace([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D) ->
-    replace(Is, [{make_fun2,{f,label(Lbl, D)},U1,U2,U3}|Acc], D);
-replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
-replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
-replace([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D)
-  when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Op,Src,Dst,Live,List}|Acc], D);
-replace([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,List}|Acc], D);
-replace([I|Is], Acc, D) ->
-    replace(Is, [I|Acc], D);
-replace([], Acc, _) -> Acc.
-
-label(Old, D) ->
-    case gb_trees:lookup(Old, D) of
-	{value,Val} -> Val;
-	none -> throw({error,{undefined_label,Old}})
-    end.
 
 %%%
 %%% Final fixup of bs_start_match2/5,bs_save2/bs_restore2 instructions for
@@ -292,7 +254,7 @@ bs_restores([_|Is], Dict) ->
 bs_restores([], Dict) -> Dict.
     
 %% Pass 2.
-bs_replace([{test,bs_start_match2,F,Live,[Src,Ctx],CtxR}|T], Dict, Acc) when is_atom(Ctx) ->
+bs_replace([{test,bs_start_match2,F,Live,[Src,{context,Ctx}],CtxR}|T], Dict, Acc) ->
     Slots = case gb_trees:lookup(Ctx, Dict) of
 		{value,Slots0} -> Slots0;
 		none -> 0
@@ -341,8 +303,21 @@ maybe_remove_lines(Fs, Opts) ->
     end.
 
 remove_lines([{function,N,A,Lbl,Is0}|T]) ->
-    Is = filter(fun({line,_}) -> false;
-		   (_)  -> true
-		end, Is0),
+    Is = remove_lines_fun(Is0),
     [{function,N,A,Lbl,Is}|remove_lines(T)];
 remove_lines([]) -> [].
+
+remove_lines_fun([{line,_}|Is]) ->
+    remove_lines_fun(Is);
+remove_lines_fun([{block,Bl0}|Is]) ->
+    Bl = remove_lines_block(Bl0),
+    [{block,Bl}|remove_lines_fun(Is)];
+remove_lines_fun([I|Is]) ->
+    [I|remove_lines_fun(Is)];
+remove_lines_fun([]) -> [].
+
+remove_lines_block([{set,_,_,{line,_}}|Is]) ->
+    remove_lines_block(Is);
+remove_lines_block([I|Is]) ->
+    [I|remove_lines_block(Is)];
+remove_lines_block([]) -> [].

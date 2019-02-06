@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,15 +54,18 @@
 -endif.
 -endif.
 
+%% Public key records:
+-include_lib("public_key/include/public_key.hrl").
 
 %%% Properties:
 
 prop_ssh_decode() ->
-    ?FORALL(Msg, ssh_msg(),
-	    try ssh_message:decode(Msg)
+    ?FORALL({Msg,KexFam}, ?LET(KF, kex_family(), {ssh_msg(KF),KF} ),
+	    try ssh_message:decode(decode_state(Msg,KexFam))
 	    of
 		_ -> true
 	    catch
+
 		C:E -> io:format('~p:~p~n',[C,E]),
 		       false
 	    end
@@ -71,122 +74,101 @@ prop_ssh_decode() ->
 
 %%% This fails because ssh_message is not symmetric in encode and decode regarding data types
 prop_ssh_decode_encode() ->
-    ?FORALL(Msg, ssh_msg(),
-	    Msg == ssh_message:encode(ssh_message:decode(Msg))
+    ?FORALL({Msg,KexFam}, ?LET(KF, kex_family(), {ssh_msg(KF),KF} ),
+	    Msg == ssh_message:encode(
+		     fix_asym(
+		       ssh_message:decode(decode_state(Msg,KexFam))))
 	   ).
 
-
-%%%================================================================
-%%%
-%%% Scripts to generate message generators
-%%%
-
-%% awk '/^( |\t)+byte( |\t)+SSH/,/^( |\t)*$/{print}' rfc425?.txt | sed 's/^\( \|\\t\)*//' > msgs.txt
-
-%% awk '/^byte( |\t)+SSH/{print $2","}' < msgs.txt
-
-%% awk 'BEGIN{print "%%%---- BEGIN GENERATED";prev=0} END{print "    >>.\n%%%---- END GENERATED"}  /^byte( |\t)+SSH/{if (prev==1) print "    >>.\n"; prev=1; printf "%c%s%c",39,$2,39; print "()->\n   <<?"$2;next}  /^string( |\t)+\"/{print "    ,"$2;next} /^string( |\t)+.*address/{print "    ,(ssh_string_address())/binary %%",$2,$3,$4,$5,$6;next}/^string( |\t)+.*US-ASCII/{print "    ,(ssh_string_US_ASCII())/binary %%",$2,$3,$4,$5,$6;next} /^string( |\t)+.*UTF-8/{print "    ,(ssh_string_UTF_8())/binary %% ",$2,$3,$4,$5,$6;next}    /^[a-z0-9]+( |\t)/{print "    ,(ssh_"$1"())/binary %%",$2,$3,$4,$5,$6;next}  /^byte\[16\]( |\t)+/{print"    ,(ssh_byte_16())/binary %%",$2,$3,$4,$5,$6;next} /^name-list( |\t)+/{print"    ,(ssh_name_list())/binary %%",$2,$3,$4,$5,$6;next} /./{print "?? %%",$0}' < msgs.txt > gen.txt
 
 %%%================================================================
 %%%
 %%% Generators
 %%% 
 
-ssh_msg() -> ?LET(M,oneof(
-[[msg_code('SSH_MSG_CHANNEL_CLOSE'),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_DATA'),gen_uint32(),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_EOF'),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_EXTENDED_DATA'),gen_uint32(),gen_uint32(),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_FAILURE'),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("direct-tcpip"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32(),gen_string( ),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("forwarded-tcpip"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32(),gen_string( ),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("session"),gen_uint32(),gen_uint32(),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("x11"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string( ),gen_uint32(),gen_uint32(),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN_CONFIRMATION'),gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_OPEN_FAILURE'),gen_uint32(),gen_uint32(),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("env"),gen_boolean(),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exec"),gen_boolean(),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exit-signal"),0,gen_string( ),gen_boolean(),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exit-status"),0,gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("pty-req"),gen_boolean(),gen_string( ),gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("shell"),gen_boolean()],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("signal"),0,gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("subsystem"),gen_boolean(),gen_string( )],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("window-change"),0,gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("x11-req"),gen_boolean(),gen_boolean(),gen_string( ),gen_string( ),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("xon-xoff"),0,gen_boolean()],
-    [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string( ),gen_boolean()],
-    [msg_code('SSH_MSG_CHANNEL_SUCCESS'),gen_uint32()],
-    [msg_code('SSH_MSG_CHANNEL_WINDOW_ADJUST'),gen_uint32(),gen_uint32()],
-%%Assym    [msg_code('SSH_MSG_DEBUG'),gen_boolean(),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_DISCONNECT'),gen_uint32(),gen_string( ),gen_string( )],
-%%Assym    [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string("cancel-tcpip-forward"),gen_boolean(),gen_string( ),gen_uint32()],
-%%Assym    [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string("tcpip-forward"),gen_boolean(),gen_string( ),gen_uint32()],
-%%Assym    [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string( ),gen_boolean()],
-    [msg_code('SSH_MSG_IGNORE'),gen_string( )],
-    %% [msg_code('SSH_MSG_KEXDH_INIT'),gen_mpint()],
-    %% [msg_code('SSH_MSG_KEXDH_REPLY'),gen_string( ),gen_mpint(),gen_string( )],
-    %% [msg_code('SSH_MSG_KEXINIT'),gen_byte(16),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_boolean(),gen_uint32()],
-    [msg_code('SSH_MSG_KEX_DH_GEX_GROUP'),gen_mpint(),gen_mpint()],
-    [msg_code('SSH_MSG_NEWKEYS')],
-    [msg_code('SSH_MSG_REQUEST_FAILURE')],
-    [msg_code('SSH_MSG_REQUEST_SUCCESS')],
-    [msg_code('SSH_MSG_REQUEST_SUCCESS'),gen_uint32()],
-    [msg_code('SSH_MSG_SERVICE_ACCEPT'),gen_string( )],
-    [msg_code('SSH_MSG_SERVICE_REQUEST'),gen_string( )],
-    [msg_code('SSH_MSG_UNIMPLEMENTED'),gen_uint32()],
-    [msg_code('SSH_MSG_USERAUTH_BANNER'),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_USERAUTH_FAILURE'),gen_name_list(),gen_boolean()],
-    [msg_code('SSH_MSG_USERAUTH_PASSWD_CHANGEREQ'),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_USERAUTH_PK_OK'),gen_string( ),gen_string( )],
-    [msg_code('SSH_MSG_USERAUTH_SUCCESS')]
-]
+ssh_msg(<<"dh">>) ->
+    ?LET(M,oneof(
+	     [
+	      [msg_code('SSH_MSG_KEXDH_INIT'),gen_mpint()],  % 30
+	      [msg_code('SSH_MSG_KEXDH_REPLY'),gen_pubkey_string(rsa),gen_mpint(),gen_signature_string(rsa)] % 31
+	      | rest_ssh_msgs()
+	     ]),
+	 list_to_binary(M));
 
-), list_to_binary(M)).
+ssh_msg(<<"dh_gex">>) ->
+    ?LET(M,oneof(
+	     [
+	      [msg_code('SSH_MSG_KEX_DH_GEX_REQUEST_OLD'),gen_uint32()],  % 30
+	      [msg_code('SSH_MSG_KEX_DH_GEX_GROUP'),gen_mpint(),gen_mpint()]  % 31
+	      | rest_ssh_msgs()
+	     ]),
+	 list_to_binary(M));
+
+ ssh_msg(<<"ecdh">>) ->
+     ?LET(M,oneof(
+ 	     [
+ 	      [msg_code('SSH_MSG_KEX_ECDH_INIT'),gen_mpint()],   % 30
+	      [msg_code('SSH_MSG_KEX_ECDH_REPLY'),gen_pubkey_string(ecdsa),gen_mpint(),gen_signature_string(ecdsa)] % 31
+	      | rest_ssh_msgs()
+ 	     ]),
+	 list_to_binary(M)).
 
 
-%%%================================================================
-%%%
-%%% Generator
-%%% 
+rest_ssh_msgs() -> 
+    [%%                    SSH_MSG_USERAUTH_INFO_RESPONSE
+     %% hard args          SSH_MSG_USERAUTH_INFO_REQUEST
+     %% rfc4252 p12 error  SSH_MSG_USERAUTH_REQUEST
+     [msg_code('SSH_MSG_KEX_DH_GEX_REQUEST'),gen_uint32(),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_KEX_DH_GEX_INIT'),gen_mpint()],
+     [msg_code('SSH_MSG_KEX_DH_GEX_REPLY'),gen_pubkey_string(rsa),gen_mpint(),gen_signature_string(rsa)],
+     [msg_code('SSH_MSG_CHANNEL_CLOSE'),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_DATA'),gen_uint32(),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_EOF'),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_EXTENDED_DATA'),gen_uint32(),gen_uint32(),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_FAILURE'),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("direct-tcpip"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32(),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("forwarded-tcpip"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32(),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("session"),gen_uint32(),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string("x11"),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN'),gen_string( ),gen_uint32(),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN_CONFIRMATION'),gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_OPEN_FAILURE'),gen_uint32(),gen_uint32(),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("env"),gen_boolean(),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exec"),gen_boolean(),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exit-signal"),0,gen_string( ),gen_boolean(),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("exit-status"),0,gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("pty-req"),gen_boolean(),gen_string( ),gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32(),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("shell"),gen_boolean()],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("signal"),0,gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("subsystem"),gen_boolean(),gen_string( )],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("window-change"),0,gen_uint32(),gen_uint32(),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("x11-req"),gen_boolean(),gen_boolean(),gen_string( ),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string("xon-xoff"),0,gen_boolean()],
+     [msg_code('SSH_MSG_CHANNEL_REQUEST'),gen_uint32(),gen_string( ),gen_boolean()],
+     [msg_code('SSH_MSG_CHANNEL_SUCCESS'),gen_uint32()],
+     [msg_code('SSH_MSG_CHANNEL_WINDOW_ADJUST'),gen_uint32(),gen_uint32()],
+     [msg_code('SSH_MSG_DEBUG'),gen_boolean(),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_DISCONNECT'),gen_uint32(),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string("cancel-tcpip-forward"),gen_boolean(),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string("tcpip-forward"),gen_boolean(),gen_string( ),gen_uint32()],
+     [msg_code('SSH_MSG_GLOBAL_REQUEST'),gen_string( ),gen_boolean()],
+     [msg_code('SSH_MSG_IGNORE'),gen_string( )],
+     [msg_code('SSH_MSG_KEXINIT'),gen_byte(16),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_name_list(),gen_boolean(),gen_uint32()],
+     [msg_code('SSH_MSG_NEWKEYS')],
+     [msg_code('SSH_MSG_REQUEST_FAILURE')],
+     [msg_code('SSH_MSG_REQUEST_SUCCESS')],
+     [msg_code('SSH_MSG_REQUEST_SUCCESS'),gen_uint32()],
+     [msg_code('SSH_MSG_SERVICE_ACCEPT'),gen_string( )],
+     [msg_code('SSH_MSG_SERVICE_REQUEST'),gen_string( )],
+     [msg_code('SSH_MSG_UNIMPLEMENTED'),gen_uint32()],
+     [msg_code('SSH_MSG_USERAUTH_BANNER'),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_USERAUTH_FAILURE'),gen_name_list(),gen_boolean()],
+     [msg_code('SSH_MSG_USERAUTH_PASSWD_CHANGEREQ'),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_USERAUTH_PK_OK'),gen_string( ),gen_string( )],
+     [msg_code('SSH_MSG_USERAUTH_SUCCESS')]
+    ].
 
-do() -> 
-    io_lib:format('[~s~n]',
-		  [write_gen(
-		     files(["rfc4254.txt", 
-			    "rfc4253.txt", 
-			    "rfc4419.txt",
-			    "rfc4252.txt",
-			    "rfc4256.txt"]))]).
-    
-
-write_gen(L) when is_list(L) -> 
-    string:join(lists:map(fun write_gen/1, L), ",\n    ");
-write_gen({MsgName,Args}) -> 
-    lists:flatten(["[",generate_args([MsgName|Args]),"]"]).
-     
-generate_args(As) -> string:join([generate_arg(A) || A <- As], ",").
-
-generate_arg({<<"string">>, <<"\"",B/binary>>}) -> 
-    S = get_string($",B),
-    ["gen_string(\"",S,"\")"];
-generate_arg({<<"string">>, _}) -> "gen_string( )";
-generate_arg({<<"byte[",B/binary>>, _}) -> 
-    io_lib:format("gen_byte(~p)",[list_to_integer(get_string($],B))]);
-generate_arg({<<"byte">>  ,_}) ->    "gen_byte()";
-generate_arg({<<"uint16">>,_}) ->    "gen_uint16()";
-generate_arg({<<"uint32">>,_}) ->    "gen_uint32()";
-generate_arg({<<"uint64">>,_}) ->    "gen_uint64()";
-generate_arg({<<"mpint">>,_}) ->     "gen_mpint()";
-generate_arg({<<"name-list">>,_}) -> "gen_name_list()";
-generate_arg({<<"boolean">>,<<"FALSE">>}) -> "0";
-generate_arg({<<"boolean">>,<<"TRUE">>}) ->  "1";
-generate_arg({<<"boolean">>,_}) -> "gen_boolean()";
-generate_arg({<<"....">>,_}) -> "";  %% FIXME
-generate_arg(Name) when is_binary(Name) -> 
-    lists:flatten(["msg_code('",binary_to_list(Name),"')"]).
-
+kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>]).
 
 gen_boolean() -> choose(0,1).
 
@@ -202,10 +184,7 @@ gen_byte(N) when N>0 -> [gen_byte() || _ <- lists:seq(1,N)].
     
 gen_char() -> choose($a,$z).
 
-gen_mpint() -> ?LET(Size, choose(1,20), 
-	       ?LET(Str, vector(Size, gen_byte()),
-		    gen_string( strip_0s(Str) )
-		   )).
+gen_mpint() -> ?LET(I, largeint(), ssh_bits:mpint(I)).
 
 strip_0s([0|T]) -> strip_0s(T);
 strip_0s(X) -> X.
@@ -230,13 +209,22 @@ gen_name() -> gen_string().
 
 uint32_to_list(I) ->  binary_to_list(<<I:32/unsigned-big-integer>>).
     
-%%%----
-get_string(Delim, B) -> 
-    binary_to_list( element(1, split_binary(B, count_string_chars(Delim,B,0))) ).
+gen_pubkey_string(Type) ->
+    PubKey = case Type of
+		 rsa -> #'RSAPublicKey'{modulus = 12345,publicExponent = 2};
+		 ecdsa -> {#'ECPoint'{point=[1,2,3,4,5]},
+			   {namedCurve,{1,2,840,10045,3,1,7}}} % 'secp256r1' nistp256
+	     end,
+    gen_string(public_key:ssh_encode(PubKey, ssh2_pubkey)).
 
-count_string_chars(Delim, <<Delim,_/binary>>, Acc) -> Acc;
-count_string_chars(Delim, <<_,B/binary>>, Acc) -> count_string_chars(Delim, B, Acc+1).
-
+    
+gen_signature_string(Type) ->
+    Signature = <<"hejhopp">>,
+    Id = case Type of
+	     rsa -> "ssh-rsa";
+	     ecdsa -> "ecdsa-sha2-nistp256"
+	 end,
+    gen_string(gen_string(Id) ++ gen_string(Signature)).
 
 -define(MSG_CODE(Name,Num),
 msg_code(Name) -> Num;
@@ -273,124 +261,44 @@ msg_code(Num) -> Name
 ?MSG_CODE('SSH_MSG_CHANNEL_FAILURE',   100);
 ?MSG_CODE('SSH_MSG_USERAUTH_INFO_REQUEST',   60);
 ?MSG_CODE('SSH_MSG_USERAUTH_INFO_RESPONSE',   61);
+?MSG_CODE('SSH_MSG_KEXDH_INIT', 30);
+?MSG_CODE('SSH_MSG_KEXDH_REPLY', 31);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REQUEST_OLD',   30);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_REQUEST',   34);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_GROUP',   31);
 ?MSG_CODE('SSH_MSG_KEX_DH_GEX_INIT',   32);
-?MSG_CODE('SSH_MSG_KEX_DH_GEX_REPLY', 33).
+?MSG_CODE('SSH_MSG_KEX_DH_GEX_REPLY', 33);
+?MSG_CODE('SSH_MSG_KEX_ECDH_INIT', 30);
+?MSG_CODE('SSH_MSG_KEX_ECDH_REPLY', 31).
 
-%%%=============================================================================
-%%%=============================================================================
-%%%=============================================================================
+%%%====================================================
+%%%=== WARNING: Knowledge of the test object ahead! ===
+%%%====================================================
 
-files(Fs) ->
-    Defs = lists:usort(lists:flatten(lists:map(fun file/1, Fs))),
-    DefinedIDs = lists:usort([binary_to_list(element(1,D)) || D <- Defs]),
-    WantedIDs = lists:usort(wanted_messages()),
-    Missing = WantedIDs -- DefinedIDs,
-    case Missing of
-	[] -> ok;
-	_ -> io:format('%% Warning: missing ~p~n', [Missing])
-    end,
-    Defs.
-	    
+%% SSH message records:
+-include_lib("ssh/src/ssh_connect.hrl").
+-include_lib("ssh/src/ssh_transport.hrl").
 
-file(F) ->
-    {ok,B} = file:read_file(F),
-    hunt_msg_def(B).
+%%% Encoding and decodeing is asymetric so out=binary in=string. Sometimes. :(
+-define(fix_asym_Xdh_reply(S),
+ fix_asym(#S{public_host_key = Key, h_sig = {Alg,Sig}} = M) ->
+      M#S{public_host_key = {Key, list_to_atom(Alg)}, h_sig = Sig}
+).
 
 
-hunt_msg_def(<<"\n",B/binary>>) -> some_hope(skip_blanks(B));
-hunt_msg_def(<<_, B/binary>>) -> hunt_msg_def(B);
-hunt_msg_def(<<>>) -> [].
-    
-some_hope(<<"byte ", B/binary>>) -> try_message(skip_blanks(B));
-some_hope(B) -> hunt_msg_def(B).
-    
-try_message(B = <<"SSH_MSG_",_/binary>>) ->
-    {ID,Rest} = get_id(B),
-    case lists:member(binary_to_list(ID), wanted_messages()) of
-	true ->
-	    {Lines,More} = get_def_lines(skip_blanks(Rest), []),
-	    [{ID,lists:reverse(Lines)} | hunt_msg_def(More)];
-	false ->
-	    hunt_msg_def(Rest)
-    end;
-try_message(B) -> hunt_msg_def(B).
-    
+fix_asym(#ssh_msg_global_request{name=N} = M) -> M#ssh_msg_global_request{name = binary_to_list(N)};
+fix_asym(#ssh_msg_debug{message=D,language=L} = M) -> M#ssh_msg_debug{message = binary_to_list(D),
+								      language = binary_to_list(L)};
+fix_asym(#ssh_msg_kexinit{cookie=C} = M) -> M#ssh_msg_kexinit{cookie = <<C:128>>};
+?fix_asym_Xdh_reply(ssh_msg_kexdh_reply);
+?fix_asym_Xdh_reply(ssh_msg_kex_dh_gex_reply);
+?fix_asym_Xdh_reply(ssh_msg_kex_ecdh_reply);
+fix_asym(M) -> M.
 
-skip_blanks(<<32, B/binary>>) -> skip_blanks(B);
-skip_blanks(<< 9, B/binary>>) -> skip_blanks(B);
-skip_blanks(B) -> B.
 
-get_def_lines(B0 = <<"\n",B/binary>>, Acc) ->
-    {ID,Rest} = get_id(skip_blanks(B)),
-    case {size(ID), skip_blanks(Rest)} of
-	{0,<<"....",More/binary>>} ->
-	    {Text,LineEnd} = get_to_eol(skip_blanks(More)),
-	    get_def_lines(LineEnd, [{<<"....">>,Text}|Acc]);
-	{0,_} ->
-	    {Acc,B0};
-	{_,Rest1} -> 
-	    {Text,LineEnd} = get_to_eol(Rest1),
-	    get_def_lines(LineEnd, [{ID,Text}|Acc])
-    end;
-get_def_lines(B, Acc) -> 
-    {Acc,B}.
-    
-
-get_to_eol(B) -> split_binary(B, count_to_eol(B,0)).
-
-count_to_eol(<<"\n",_/binary>>, Acc) -> Acc;
-count_to_eol(<<>>, Acc) -> Acc;
-count_to_eol(<<_,B/binary>>, Acc) -> count_to_eol(B,Acc+1).
-    
-
-get_id(B) -> split_binary(B, count_id_chars(B,0)).
-    
-count_id_chars(<<C,B/binary>>, Acc) when $A=<C,C=<$Z -> count_id_chars(B,Acc+1);
-count_id_chars(<<C,B/binary>>, Acc) when $a=<C,C=<$z -> count_id_chars(B,Acc+1);
-count_id_chars(<<C,B/binary>>, Acc) when $0=<C,C=<$9 -> count_id_chars(B,Acc+1);
-count_id_chars(<<"_",B/binary>>, Acc)  ->  count_id_chars(B,Acc+1);
-count_id_chars(<<"-",B/binary>>, Acc)  ->  count_id_chars(B,Acc+1); %% e.g name-list
-count_id_chars(<<"[",B/binary>>, Acc)  ->  count_id_chars(B,Acc+1); %% e.g byte[16]
-count_id_chars(<<"]",B/binary>>, Acc)  ->  count_id_chars(B,Acc+1); %% e.g byte[16]
-count_id_chars(_, Acc) -> Acc.
-
-wanted_messages() ->
-    ["SSH_MSG_CHANNEL_CLOSE",
-     "SSH_MSG_CHANNEL_DATA",
-     "SSH_MSG_CHANNEL_EOF",
-     "SSH_MSG_CHANNEL_EXTENDED_DATA",
-     "SSH_MSG_CHANNEL_FAILURE",
-     "SSH_MSG_CHANNEL_OPEN",
-     "SSH_MSG_CHANNEL_OPEN_CONFIRMATION",
-     "SSH_MSG_CHANNEL_OPEN_FAILURE",
-     "SSH_MSG_CHANNEL_REQUEST",
-     "SSH_MSG_CHANNEL_SUCCESS",
-     "SSH_MSG_CHANNEL_WINDOW_ADJUST",
-     "SSH_MSG_DEBUG",
-     "SSH_MSG_DISCONNECT",
-     "SSH_MSG_GLOBAL_REQUEST",
-     "SSH_MSG_IGNORE",
-     "SSH_MSG_KEXDH_INIT",
-     "SSH_MSG_KEXDH_REPLY",
-     "SSH_MSG_KEXINIT",
-     "SSH_MSG_KEX_DH_GEX_GROUP",
-     "SSH_MSG_KEX_DH_GEX_REQUEST",
-     "SSH_MSG_KEX_DH_GEX_REQUEST_OLD",
-     "SSH_MSG_NEWKEYS",
-     "SSH_MSG_REQUEST_FAILURE",
-     "SSH_MSG_REQUEST_SUCCESS",
-     "SSH_MSG_SERVICE_ACCEPT",
-     "SSH_MSG_SERVICE_REQUEST",
-     "SSH_MSG_UNIMPLEMENTED",
-     "SSH_MSG_USERAUTH_BANNER",
-     "SSH_MSG_USERAUTH_FAILURE",
-%% hard args    "SSH_MSG_USERAUTH_INFO_REQUEST",
-%%     "SSH_MSG_USERAUTH_INFO_RESPONSE",
-     "SSH_MSG_USERAUTH_PASSWD_CHANGEREQ",
-     "SSH_MSG_USERAUTH_PK_OK",
-%%rfc4252 p12 error      "SSH_MSG_USERAUTH_REQUEST",
-     "SSH_MSG_USERAUTH_SUCCESS"].
+%%% Message codes 30 and 31 are overloaded depending on kex family so arrange the decoder
+%%% input as the test object does
+decode_state(<<30,_/binary>>=Msg, KexFam) -> <<KexFam/binary, Msg/binary>>;
+decode_state(<<31,_/binary>>=Msg, KexFam) -> <<KexFam/binary, Msg/binary>>;
+decode_state(Msg, _) -> Msg.
 

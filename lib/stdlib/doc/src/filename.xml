@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,7 +46,10 @@
       filename by removing redundant directory separators, use
       <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
 
-    <p>The module supports raw filenames in the way that if a binary is
+    <p>
+      The module supports
+      <seealso marker="unicode_usage#notes-about-raw-filenames">raw
+      filenames</seealso> in the way that if a binary is
       present, or the filename cannot be interpreted according to the return
       value of <seealso marker="kernel:file#native_name_encoding/0">
       <c>file:native_name_encoding/0</c></seealso>, a raw filename is also
@@ -56,12 +59,31 @@
       (the join operation is performed of course). For more information
       about raw filenames, see the
       <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+
+    <note>
+      <p>
+	Functionality in this module generally assumes valid input and
+	does not necessarily fail on input that does not use a valid
+	encoding, but may instead very likely produce invalid output.
+      </p>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+    </note>
+    <warning><p>
+      Currently null characters at the end of the filename
+      will be accepted by primitive file operations. Such
+      filenames are however still documented as invalid. The
+      implementation will also change in the future and
+      reject such filenames.
+    </p></warning>
   </description>
-  <datatypes>
-      <datatype>
-          <name name="basedir_type"/>
-      </datatype>
-  </datatypes>
  
   <funcs>
     <func>
@@ -122,18 +144,37 @@
     </func>
 
     <func>
-      <name name="basedir" arity="2"/>
-      <fsummary>Equivalent to <c>basedir(<anno>Type</anno>,<anno>Application</anno>,#{})</c>.</fsummary>
+      <name name="basedir" arity="2" clause_i="1"/>
+      <name name="basedir" arity="2" clause_i="2"/>
+      <fsummary>Equivalent to <c>basedir(<anno>PathType</anno>,
+           <anno>Application</anno>,#{})</c> or
+	   <c>basedir(<anno>PathsType</anno>, <anno>Application</anno>,#{})</c>.
+	 </fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
       <desc>
           <p>
-              Equivalent to <seealso marker="#basedir-3">
-                  basedir(<anno>Type</anno>, <anno>Application</anno>, #{})</seealso>.
+              Equivalent to <seealso marker="#basedir_3_1">
+              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seealso>
+	      or <seealso marker="#basedir_3_2">
+basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
           </p>
       </desc>
     </func>
     <func>
-      <name name="basedir" arity="3"/>
+      <name name="basedir" arity="3" clause_i="1" anchor="basedir_3_1"/>
+      <name name="basedir" arity="3" clause_i="2" anchor="basedir_3_2"/>
       <fsummary></fsummary>
+      <type variable="PathType" name_i="1"/>
+      <type name="basedir_path_type"/>
+      <type variable="PathsType" name_i="2"/>
+      <type name="basedir_paths_type"/>
+      <type variable="Application"/>
+      <type variable="Opts"/>
+      <type name="basedir_opts"/>
       <desc><marker id="basedir-3"/>
           <p>
               Returns a suitable path, or paths, for a given type.  If
@@ -356,10 +397,12 @@ true
         <p>Finds the source filename and compiler options for a module.
           The result can be fed to <seealso marker="compiler:compile#file/2">
           <c>compile:file/2</c></seealso> to compile the file again.</p>
-        <warning><p>It is not recommended to use this function. If possible,
-          use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
-          module to extract the abstract code format from the Beam file and
-          compile that instead.</p></warning>
+        <warning>
+          <p>This function is deprecated. Use <seealso marker="filelib#find_source/1">
+            <c>filelib:find_source/1</c></seealso> instead for finding source files.</p>
+          <p>If possible, use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
+          module to extract the compiler options and the abstract code
+          format from the Beam file and compile that instead.</p></warning>
         <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
           specifies either the module name or the path to the source
           code, with or without extension <c>".erl"</c>. In either
@@ -370,15 +413,18 @@ true
           tuples <c>{<anno>BinSuffix</anno>, <anno>SourceSuffix</anno>}</c> and
           is interpreted as follows: if the end of the directory name where the
           object is located matches <c><anno>BinSuffix</anno></c>, then the
-          source code directory has the same name, but with
-          <c><anno>BinSuffix</anno></c> replaced by
-          <c><anno>SourceSuffix</anno></c>. <c><anno>Rules</anno></c> defaults
+	  name created by replacing <c><anno>BinSuffix</anno></c> with
+          <c><anno>SourceSuffix</anno></c> is expanded by calling
+	  <seealso marker="filelib#wildcard/1">
+	  <c>filelib:wildcard/1</c></seealso>.
+	  If a regular file is found among the matches, the function
+	  returns that location together with <c><anno>Options</anno></c>.
+          Otherwise the next rule is tried, and so on.</p>
+        <p><c><anno>Rules</anno></c> defaults
           to:</p>
         <code type="none">
-[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}]</code>
-        <p>If the source file is found in the resulting directory, the function
-          returns that location together with <c><anno>Options</anno></c>.
-          Otherwise the next rule is tried, and so on.</p>
+[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"},
+ {"ebin", "src/*"}, {"ebin", "esrc/*"}]</code>
         <p>The function returns <c>{<anno>SourceFile</anno>,
           <anno>Options</anno>}</c> if it succeeds.
           <c><anno>SourceFile</anno></c> is the absolute path to the source
@@ -511,6 +557,33 @@ true
     </func>
 
     <func>
+      <name name="safe_relative_path" arity="1"/>
+      <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
+      <desc>
+        <p>Sanitizes the relative path by eliminating ".." and "."
+        components to protect against directory traversal attacks.
+        Either returns the sanitized path name, or the atom
+        <c>unsafe</c> if the path is unsafe.
+        The path is considered unsafe in the following circumstances:</p>
+        <list type="bulleted">
+          <item><p>The path is not relative.</p></item>
+          <item><p>A ".." component would climb up above the root of
+          the relative path.</p></item>
+        </list>
+        <p><em>Examples:</em></p>
+        <pre>
+1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>
+"dir"
+2> <input>filename:safe_relative_path("dir/..").</input>
+[]
+3> <input>filename:safe_relative_path("dir/../..").</input>
+unsafe
+4> <input>filename:safe_relative_path("/abs/path").</input>
+unsafe</pre>
+       </desc>
+    </func>
+
+    <func>
       <name name="split" arity="1"/>
       <fsummary>Split a filename into its path components.</fsummary>
       <desc>
@@ -526,6 +599,7 @@ true
 ["a:/","msdev","include"]</pre>
       </desc>
     </func>
+
   </funcs>
 </erlref>
 

@@ -33,7 +33,7 @@ s0() -> #{}.
 s1() -> #{3 => a}.
 
 -spec s2() -> s(atom() | 3).
-s2() -> #{3 => a}. %% Contract breakage (not found)
+s2() -> #{3 => a}. %% Contract breakage
 
 -spec s3() -> s(atom() | 3).
 s3() -> #{3 => 5, a => 6, 7 => 8}.

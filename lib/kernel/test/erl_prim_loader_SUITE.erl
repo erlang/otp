@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 	 primary_archive/1, virtual_dir_in_archive/1,
 	 get_modules/1]).
 
+-define(PRIM_FILE, prim_file).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_prim_loader. (Most code is run during system start/stop.)
@@ -461,7 +462,7 @@ primary_archive(Config) when is_list(Config) ->
     %% Set primary archive 
     ExpectedEbins = [Archive, DictDir ++ "/ebin", DummyDir ++ "/ebin"],
     io:format("ExpectedEbins: ~p\n", [ExpectedEbins]),
-    {ok, FileInfo} = prim_file:read_file_info(Archive),
+    {ok, FileInfo} = ?PRIM_FILE:read_file_info(Archive),
     {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive,
 			   [Archive, ArchiveBin, FileInfo,
 			    fun escript:parse_file/1]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 	 comprehensions/1,maps/1,maps_bin_opt_info/1,
          redundant_boolean_clauses/1,
 	 latin1_fallback/1,underscore/1,no_warnings/1,
-	 bit_syntax/1]).
+	 bit_syntax/1,inlining/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -55,7 +55,6 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -65,9 +64,10 @@ groups() ->
        bin_opt_info,bin_construction,comprehensions,maps,
        maps_bin_opt_info,
        redundant_boolean_clauses,latin1_fallback,
-       underscore,no_warnings,bit_syntax]}].
+       underscore,no_warnings,bit_syntax,inlining]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -281,7 +281,6 @@ bad_arith(Config) when is_list(Config) ->
 	     {3,sys_core_fold,{eval_failure,badarith}},
 	     {9,sys_core_fold,nomatch_guard},
 	     {9,sys_core_fold,{eval_failure,badarith}},
-	     {9,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
 	     {10,sys_core_fold,nomatch_guard},
 	     {10,sys_core_fold,{eval_failure,badarith}},
 	     {15,sys_core_fold,{eval_failure,badarith}}
@@ -530,7 +529,7 @@ bin_opt_info(Config) when is_list(Config) ->
 	    Code,
 	    [bin_opt_info],
 	    {warnings,
-	     [{4,sys_core_fold,orig_bin_var_used_in_guard},
+	     [{4,sys_core_bsm,orig_bin_var_used_in_guard},
 	      {5,beam_bsm,{no_bin_opt,{{t1,1},no_suitable_bs_start_match}}},
 	      {9,beam_bsm,{no_bin_opt,
 			   {binary_used_in,{extfunc,erlang,split_binary,2}}}} ]}}],
@@ -629,7 +628,112 @@ maps(Config) when is_list(Config) ->
 	     id(I) -> I.
            ">>,
            [],
-	   []}],
+	   []},
+           {repeated_keys1,
+           <<"
+             foo1() ->
+                 #{a=>1,
+                   b=> 2,
+                   a=>3}.
+             
+             bar1(M) ->
+                 M#{a=>1, b=> 2, a:=3}.
+             
+             baz1(M) ->
+                 M#{a=>1, b=> 2, a:=3}.
+             
+             foo2() ->
+                 #{\"a\"=>1, \"b\"=> 2, \"a\"=>3}.
+             
+             bar2(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             baz2(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             foo3() ->
+                 #{\"a\"=>1,
+                   \"b\"=> 2,
+                   \"a\"=>3}.
+             
+             bar3(M) ->
+                 M#{\"a\"=>1, \"b\"=> 2, \"a\":=3}.
+             
+             baz3(M) ->
+                 M#{<<\"a\">>=>1, <<\"b\">>=> 2, <<\"a\">>:=3}.
+           ">>,
+           [],
+           {warnings,[{3,v3_core,{map_key_repeated,a}},
+                      {8,v3_core,{map_key_repeated,a}},
+                      {11,v3_core,{map_key_repeated,a}},
+                      {14,v3_core,{map_key_repeated,"a"}},
+                      {17,v3_core,{map_key_repeated,"a"}},
+                      {20,v3_core,{map_key_repeated,"a"}},
+                      {23,v3_core,{map_key_repeated,"a"}},
+                      {28,v3_core,{map_key_repeated,"a"}},
+                      {31,v3_core,{map_key_repeated,<<"a">>}}]}},
+           {repeated_keys2,
+           <<"
+             foo4(K) ->
+                 #{\"a\"=>1, K => 1, \"b\"=> 2, \"a\"=>3, K=>2}.
+             
+             bar4(M,K) ->
+                 M#{a=>1, K =>1, b=> 2, a:=3, K=>2}.
+             
+             baz4(M,K) ->
+                 M#{<<\"a\">>=>1,
+                     K => 1, <<\"b\">>=> 2,
+                     <<\"a\">>:=3, K=>2}.
+             
+             foo5(K) ->
+                 #{{\"a\",1}=>1, K => 1, \"b\"=> 2, {\"a\",1}=>3, K=>2}.
+             
+             bar5(M,K) ->
+                 M#{{\"a\",<<\"b\">>}=>1, K =>1,
+                    \"b\"=> 2, {\"a\",<<\"b\">>}:=3, K=>2}.
+             
+             baz5(M,K) ->
+                 M#{{<<\"a\">>,1}=>1, K => 1,
+                    <<\"b\">>=> 2, {<<\"a\">>,1}:=3,K=>2}.
+             
+             foo6(K) ->
+                 #{#{\"a\"=>1}=>1, K => 1, \"b\"=> 2, #{\"a\"=>1}=>3, K=>2}.
+             
+             bar6(M,K) ->
+                 M#{#{\"a\"=><<\"b\">>}=>1, K =>1,
+                    \"b\"=> 2, #{\"a\"=><<\"b\">>}:=3, K=>2}.
+             
+             baz6(M,K) ->
+                 M#{#{<<\"a\">>=>1}=>1,
+                    K => 1,
+                    <<\"b\">>=> 2,
+                    #{<<\"a\">>=>1}:=3,K=>2}.
+             
+             foo7(K) ->
+                 M1 = #{#{\"a\"=>1}=>1, K => 1, \"b\"=> 2},
+                 M1#{#{\"a\"=>1}=>3, K=>2}.
+             
+             bar7(M,K) ->
+                 M1 = M#{#{\"a\"=><<\"b\">>}=>1, K =>1, \"b\"=> 2},
+                 M1#{#{\"a\"=><<\"b\">>}:=3, K=>2}.
+             
+             baz7(M,K) ->
+                 M1 = M#{#{<<\"a\">>=>1}=>1,
+                    K => 1,
+                    <<\"b\">>=> 2},
+                 M1#{#{<<\"a\">>=>1}:=3,K=>2}.
+          ">>,
+           [],
+           {warnings,[{3,v3_core,{map_key_repeated,"a"}},
+                      {6,v3_core,{map_key_repeated,a}},
+                      {9,v3_core,{map_key_repeated,<<"a">>}},
+                      {14,v3_core,{map_key_repeated,{"a",1}}},
+                      {17,v3_core,{map_key_repeated,{"a",<<"b">>}}},
+                      {21,v3_core,{map_key_repeated,{<<"a">>,1}}},
+                      {25,v3_core,{map_key_repeated,#{"a" => 1}}},
+                      {28,v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
+                      {32,v3_core,{map_key_repeated,#{<<"a">> => 1}}}]}}
+         ],
     run(Config, Ts),
     ok.
 
@@ -823,6 +927,30 @@ bit_syntax(Config) ->
     run(Config, Ts),
     ok.
 
+inlining(Config) ->
+    %% Make sure that no spurious warnings are generated
+    %% when inlining.
+    Ts = [{inlining_1,
+           <<"-compile(inline).
+              compute1(X) -> add(X, 0).
+              add(1, 0) -> 1;
+              add(1, Y) -> 1 + Y;
+              add(X, Y) -> X + Y.
+           ">>,
+           [],
+           []},
+	  {inlining_2,
+           <<"-compile({inline,[add/2]}).
+              compute1(X) -> add(X, 0).
+              add(1, 0) -> 1;
+              add(1, Y) -> 1 + Y;
+              add(X, Y) -> X + Y.
+           ">>,
+           [],
+           []}
+	 ],
+    run(Config, Ts),
+    ok.
 
 %%%
 %%% End of test cases.

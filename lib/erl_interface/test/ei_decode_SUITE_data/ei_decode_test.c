@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,9 +102,10 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
     } \
 \
     if (size1 != SIZE) { \
-      fail("size of encoded data is incorrect"); \
+        fail1("size of encoded data (%d) is incorrect", size1);    \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_2_FAIL(FUNC,SIZE,TYPE,VAL) \
@@ -148,6 +149,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define dump(arr, num) {	    \
@@ -205,6 +207,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data is incorrect"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 #define EI_DECODE_STRING(FUNC,SIZE,VAL) \
@@ -248,6 +251,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data should be 0"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 //#define EI_DECODE_UTF8_STRING(FUNC,SIZE,VAL) 
@@ -310,6 +314,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
       fail("size of encoded data is incorrect"); \
       return; \
     } \
+    free_packet(buf); \
   } \
 
 /* ******************************************************************** */

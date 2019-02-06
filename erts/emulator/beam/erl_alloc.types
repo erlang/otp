@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,19 +53,10 @@
 #
 # IMPORTANT! Only use 7-bit ascii text in this file!
 
-+if smp
-+disable threads_no_smp
-+else
-+if threads
-+enable threads_no_smp
-+else
-+disable threads_no_smp
-+endif
-+endif
 
 # --- Allocator declarations -------------------------------------------------
 #
-# If, and only if, the same thread performes *all* allocations,
+# If, and only if, the same thread performs *all* allocations,
 # reallocations and deallocations of all memory types that are handled
 # by a specific allocator (<ALLOCATOR> in type declaration), set 
 # <MULTI_THREAD> for this specific allocator to false; otherwise, set
@@ -77,8 +68,6 @@
 
 allocator	SYSTEM		true		sys_alloc
 
-+if smp
-
 allocator	TEMPORARY	true		temp_alloc
 allocator	SHORT_LIVED	true		sl_alloc
 allocator	STANDARD	true		std_alloc
@@ -89,22 +78,6 @@ allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
 +if exec_alloc
 allocator	EXEC     	true	        exec_alloc
-+endif
-
-+else # Non smp build
-
-allocator	TEMPORARY	false		temp_alloc
-allocator	SHORT_LIVED	false		sl_alloc
-allocator	STANDARD	false		std_alloc
-allocator	LONG_LIVED	false		ll_alloc
-allocator	EHEAP		false		eheap_alloc
-allocator	ETS		false		ets_alloc
-allocator	FIXED_SIZE	false		fix_alloc
-allocator	LITERAL 	false		literal_alloc
-+if exec_alloc
-allocator	EXEC     	false	        exec_alloc
-+endif
-
 +endif
 
 allocator	BINARY		true		binary_alloc
@@ -145,9 +118,6 @@ type	PORT		DRIVER		SYSTEM		port
 type	ATOM		LONG_LIVED	ATOM		atom_entry
 type	MODULE		LONG_LIVED	CODE		module_entry
 type	REG_PROC	STANDARD	PROCESSES	reg_proc
-type	LINK_LH		STANDARD	PROCESSES	link_lh
-type	SUSPEND_MON	STANDARD	PROCESSES	suspend_monitor
-type	PEND_SUSPEND	SHORT_LIVED	PROCESSES	pending_suspend
 type	PROC_LIST	SHORT_LIVED	PROCESSES	proc_list
 type	SAVED_ESTACK	SHORT_LIVED	PROCESSES	saved_estack
 type	FUN_ENTRY	LONG_LIVED	CODE		fun_entry
@@ -160,7 +130,6 @@ type	TMP_HEAP	TEMPORARY	PROCESSES	tmp_heap
 type	MSG_REF		FIXED_SIZE	PROCESSES	msg_ref
 type	MSG		EHEAP		PROCESSES	message
 type	MSGQ_CHNG	SHORT_LIVED	PROCESSES	messages_queue_change
-type	MSG_ROOTS	TEMPORARY	PROCESSES	msg_roots
 type	ROOTSET		TEMPORARY	PROCESSES	root_set
 type	LOADER_TMP	TEMPORARY	CODE		loader_tmp
 type	PREPARED_CODE	SHORT_LIVED	CODE		prepared_code
@@ -168,7 +137,6 @@ type	TIMER_SERVICE	LONG_LIVED	SYSTEM		timer_service
 type    LL_PTIMER	FIXED_SIZE	PROCESSES	ll_ptimer
 type    HL_PTIMER	FIXED_SIZE	PROCESSES	hl_ptimer
 type    BIF_TIMER	FIXED_SIZE	PROCESSES	bif_timer
-# type    ABIF_TIMER	FIXED_SIZE	PROCESSES	accessor_bif_timer
 type    TIMER_REQUEST	SHORT_LIVED	PROCESSES	timer_request
 type    BTM_YIELD_STATE	SHORT_LIVED	PROCESSES	btm_yield_state
 type	REG_TABLE	STANDARD	SYSTEM		reg_tab
@@ -206,7 +174,6 @@ type	BPD		STANDARD	SYSTEM		bpd
 type	LINEBUF		STANDARD	SYSTEM		line_buf
 type	IOQ		STANDARD	SYSTEM		io_queue
 type	BITS_BUF	STANDARD	SYSTEM		bits_buf
-type	TMP_DIST_BUF	TEMPORARY	SYSTEM		tmp_dist_buf
 type	ASYNC_DATA	LONG_LIVED	SYSTEM		internal_async_data
 type	ESTACK		TEMPORARY	SYSTEM		estack
 type	DB_TABLE	ETS		ETS		db_tab
@@ -219,7 +186,6 @@ type	DB_MC_STK	TEMPORARY	ETS		db_mc_stack
 type	DB_MS_RUN_HEAP	SHORT_LIVED	ETS		db_match_spec_run_heap
 type	DB_MS_CMPL_HEAP	TEMPORARY	ETS		db_match_spec_cmpl_heap
 type	DB_SEG		ETS		ETS		db_segment
-type	DB_SEG_TAB	ETS		ETS		db_segment_tab
 type	DB_STK		ETS		ETS		db_stack
 type	DB_TRANS_TAB	ETS		ETS		db_trans_tab
 type	DB_SEL_LIST	ETS		ETS		db_select_list
@@ -227,7 +193,7 @@ type	DB_DMC_ERROR	ETS		ETS		db_dmc_error
 type	DB_DMC_ERR_INFO	ETS		ETS		db_dmc_error_info
 type	DB_TERM		ETS		ETS		db_term
 type	DB_PROC_CLEANUP SHORT_LIVED	ETS		db_proc_cleanup_state
-type	INSTR_INFO	LONG_LIVED	SYSTEM		instr_info
+type	ETS_ALL_REQ	SHORT_LIVED	ETS		ets_all_request
 type	LOGGER_DSBUF	TEMPORARY	SYSTEM		logger_dsbuf
 type	TMP_DSBUF	TEMPORARY	SYSTEM		tmp_dsbuf
 type	INFO_DSBUF	SYSTEM		SYSTEM		info_dsbuf
@@ -242,7 +208,6 @@ type	PT_HNDL_LIST	SHORT_LIVED	SYSTEM		port_task_handle_list
 type	MISC_OP_LIST	SHORT_LIVED	SYSTEM		misc_op_list
 type	PORT_NAMES	SHORT_LIVED	SYSTEM		port_names
 type	PORT_DATA_LOCK	DRIVER		SYSTEM		port_data_lock
-type	NODES_MON	STANDARD	PROCESSES	nodes_monitor
 type	PTAB_LIST_DEL	SHORT_LIVED	PROCESSES	ptab_list_deleted_el
 type	PTAB_LIST_CNKI	SHORT_LIVED	PROCESSES	ptab_list_chunk_info
 type	PTAB_LIST_PIDS	SHORT_LIVED	PROCESSES	ptab_list_pids
@@ -265,10 +230,8 @@ type	CPUDATA		LONG_LIVED	SYSTEM		cpu_data
 type	TMP_CPU_IDS	SHORT_LIVED	SYSTEM		tmp_cpu_ids
 type	EXT_TERM_DATA	SHORT_LIVED	PROCESSES	external_term_data
 type	CPU_GRPS_MAP	LONG_LIVED	SYSTEM		cpu_groups_map
-type	AUX_WORK_TMO	LONG_LIVED	SYSTEM		aux_work_timeouts
 type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
 type	CODE_IX_LOCK_Q  SHORT_LIVED	SYSTEM		code_ix_lock_q
-type	PROC_INTERVAL	LONG_LIVED	SYSTEM		process_interval
 type    BUSY_CALLER_TAB	SHORT_LIVED	SYSTEM		busy_caller_table
 type    BUSY_CALLER	SHORT_LIVED	SYSTEM		busy_caller
 type	PROC_SYS_TSK	SHORT_LIVED	PROCESSES	proc_sys_task
@@ -277,76 +240,65 @@ type    NEW_TIME_OFFSET	SHORT_LIVED	SYSTEM		new_time_offset
 type	IOB_REQ		SHORT_LIVED	SYSTEM		io_bytes_request
 type    TRACER_NIF      LONG_LIVED      SYSTEM          tracer_nif
 type    TRACE_MSG_QUEUE SHORT_LIVED     SYSTEM          trace_message_queue
-type    SCHED_ASYNC_JOB SHORT_LIVED     SYSTEM          async_calls
-type    DIRTY_START     STANDARD	PROCESSES       dirty_start
 type    DIRTY_SL	SHORT_LIVED	SYSTEM		dirty_short_lived
+type    MREF_NSCHED_ENT	FIXED_SIZE	SYSTEM		nsched_magic_ref_entry
+type    MREF_ENT	STANDARD	SYSTEM		magic_ref_entry
+type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
+type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
+type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
+type	BINARY_FIND	SHORT_LIVED	PROCESSES	binary_find
+type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
+type	DIST_TRANSCODE  SHORT_LIVED	SYSTEM		dist_transcode_context
 
-+if threads_no_smp
-# Need thread safe allocs, but std_alloc and fix_alloc are not;
-# use driver_alloc which is...
-type	THR_Q_EL	DRIVER 	   	SYSTEM		thr_q_element
-type	THR_Q_EL_SL	DRIVER		SYSTEM		sl_thr_q_element
-type	MISC_AUX_WORK	DRIVER		SYSTEM		misc_aux_work
-+else
 type	THR_Q_EL	STANDARD   	SYSTEM		thr_q_element
 type	THR_Q_EL_SL	FIXED_SIZE	SYSTEM		sl_thr_q_element
 type	MISC_AUX_WORK	SHORT_LIVED	SYSTEM		misc_aux_work
-+endif
 type	THR_Q		STANDARD	SYSTEM		thr_queue
 type	THR_Q_SL	SHORT_LIVED	SYSTEM		short_lived_thr_queue
 type	THR_Q_LL	LONG_LIVED	SYSTEM		long_lived_thr_queue
 
-+if smp
 type	ASYNC		SHORT_LIVED	SYSTEM		async
 type	ZLIB		STANDARD	SYSTEM		zlib
-+else
-# sl/std_alloc is not thread safe in non smp build; therefore, we use driver_alloc
-type	ZLIB		DRIVER   	SYSTEM		zlib
-type	ASYNC		DRIVER		SYSTEM		async
-+endif
 
-+if smp
-type	PORT_LOCK	STANDARD	SYSTEM		port_lock
 type	DRIVER_LOCK	STANDARD	SYSTEM		driver_lock
 type	XPORTS_LIST	SHORT_LIVED	SYSTEM		extra_port_list
-type	PROC_LCK_WTR	LONG_LIVED	SYSTEM		proc_lock_waiter
 type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
 type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
-+endif
+type	SIG_DATA	SHORT_LIVED	PROCESSES	signal_data
+type	DIST_DEMONITOR	SHORT_LIVED	PROCESSES	dist_demonitor
+type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
+type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
+type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
+type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
+type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
+type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
+
+type	ENVIRONMENT	SYSTEM		SYSTEM		environment
+
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 
 #
 # Types used for special emulators
 #
 
-+if threads
-
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
 type	ETHR_LL		LONG_LIVED	SYSTEM		ethread_long_lived
 
-+endif
-
-+if shared_heap
-
-type	STACK		STANDARD	PROCESSES	stack
-type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
-
-+endif
-
-+if smp
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
-+endif
 
 +if hipe
 
-# Currently most hipe code use this type.
-type	HIPE		SYSTEM		SYSTEM		hipe_data
+type	HIPE_LL		LONG_LIVED	SYSTEM		hipe_long_lived
+type	HIPE_SL		SHORT_LIVED	SYSTEM		hipe_short_lived
+type	HIPE_STK	STANDARD	SYSTEM		hipe_nstack
 
 +if exec_alloc
 type	HIPE_EXEC	EXEC            CODE		hipe_code
@@ -354,19 +306,18 @@ type	HIPE_EXEC	EXEC            CODE		hipe_code
 
 +endif
 
++if lcnt
 
-
-+if heap_frag_elim_test
-
-type	SSB		SHORT_LIVED	PROCESSES	ssb
+type    LCNT_CARRIER   STANDARD    SYSTEM  lcnt_lock_info_carrier
+type    LCNT_VECTOR SHORT_LIVED SYSTEM lcnt_sample_vector
 
 +endif
 
 type	DEBUG	        SHORT_LIVED	SYSTEM          debugging
 
 type	DDLL_PROCESS	STANDARD	SYSTEM		ddll_processes
-type	MONITOR_LH	STANDARD	PROCESSES	monitor_lh
-type	NLINK_LH	STANDARD	PROCESSES	nlink_lh
+type	MONITOR_EXT	STANDARD	PROCESSES	monitor_extended
+type	LINK_EXT	STANDARD	PROCESSES	link_extended
 type	CODE		LONG_LIVED	CODE		code
 type	LITERAL		LITERAL 	CODE		literal
 type	LITERAL_REF	SHORT_LIVED	CODE		literal_area_ref
@@ -374,18 +325,21 @@ type	PURGE_DATA	SHORT_LIVED	CODE		purge_data
 type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
 type	SCHDLR_DATA	LONG_LIVED	SYSTEM		scheduler_data
-type  	LL_TEMP_TERM 	LONG_LIVED	SYSTEM		ll_temp_term
 
-type	NIF_TRAP_EXPORT	STANDARD	CODE		nif_trap_export_entry
+type	NIF_TRAP_EXPORT	STANDARD	PROCESSES	nif_trap_export_entry
+type	NIF_EXP_TRACE	FIXED_SIZE	PROCESSES	nif_export_trace
 type	EXPORT		LONG_LIVED	CODE		export_entry
-type	MONITOR_SH	FIXED_SIZE	PROCESSES	monitor_sh
-type	NLINK_SH	FIXED_SIZE	PROCESSES	nlink_sh
+type	MONITOR		FIXED_SIZE	PROCESSES	monitor
+type	MONITOR_SUSPEND	STANDARD	PROCESSES	monitor_suspend
+type	LINK		FIXED_SIZE	PROCESSES	link
 type	AINFO_REQ	SHORT_LIVED	SYSTEM		alloc_info_request
 type	SCHED_WTIME_REQ	SHORT_LIVED	SYSTEM		sched_wall_time_request
 type	GC_INFO_REQ	SHORT_LIVED	SYSTEM		gc_info_request
 type	PORT_DATA_HEAP	STANDARD	SYSTEM		port_data_heap
 type    MSACC           DRIVER          SYSTEM          microstate_accounting
 type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
+type	ATOMICS		STANDARD	SYSTEM		erl_bif_atomics
+type	COUNTERS	STANDARD	SYSTEM		erl_bif_counters
 
 #
 # Types used by system specific code
@@ -394,33 +348,22 @@ type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
 type  	TEMP_TERM 	TEMPORARY	SYSTEM		temp_term
 type	DRV_TAB		LONG_LIVED	SYSTEM		drv_tab
 type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state
-type	DRV_EV_D_STATE	FIXED_SIZE	SYSTEM		driver_event_data_state
 type	DRV_SEL_D_STATE	FIXED_SIZE	SYSTEM		driver_select_data_state
-type	FD_LIST		SHORT_LIVED	SYSTEM		fd_list
-type	ACTIVE_FD_ARR	SHORT_LIVED	SYSTEM		active_fd_array
+type	NIF_SEL_D_STATE	FIXED_SIZE	SYSTEM		enif_select_data_state
 type	POLLSET		LONG_LIVED	SYSTEM		pollset
 type	POLLSET_UPDREQ	SHORT_LIVED	SYSTEM		pollset_update_req
 type	POLL_FDS	LONG_LIVED	SYSTEM		poll_fds
-type	POLL_RES_EVS	LONG_LIVED	SYSTEM		poll_result_events
 type	FD_STATUS	LONG_LIVED	SYSTEM		fd_status
 type	SELECT_FDS	LONG_LIVED	SYSTEM		select_fds
 
 +if unix
 
 type	SYS_READ_BUF	TEMPORARY	SYSTEM		sys_read_buf
-type	FD_TAB		LONG_LIVED	SYSTEM		fd_tab
 type	FD_ENTRY_BUF	STANDARD	SYSTEM		fd_entry_buf
 type	CS_PROG_PATH	LONG_LIVED	SYSTEM		cs_prog_path
-type	ENVIRONMENT	TEMPORARY	SYSTEM		environment
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
-type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
 type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
 
-+if smp
 type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
-+else
-type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
-+endif
 
 +endif
 
@@ -428,10 +371,7 @@ type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
 
 type	DRV_DATA_BUF	SYSTEM		SYSTEM		drv_data_buf
 type	PRELOADED	LONG_LIVED	SYSTEM		preloaded
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	WAITER_OBJ	LONG_LIVED	SYSTEM		waiter_object
-type	ENVIRONMENT	SYSTEM		SYSTEM		environment
-type	CON_VPRINTF_BUF	TEMPORARY	SYSTEM		con_vprintf_buf
 
 +endif
 

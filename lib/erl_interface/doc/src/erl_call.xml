@@ -4,14 +4,14 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -28,135 +28,146 @@
     <docno></docno>
     <approved>Bjarne D&auml;cker</approved>
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
-    <date>97-05-16</date>
+    <date>1997-05-16</date>
     <rev>B</rev>
-    <file>erl_call.sgml</file>
+    <file>erl_call.xml</file>
   </header>
   <com>erl_call</com>
-  <comsummary>Call/Start a Distributed Erlang Node</comsummary>
+  <comsummary>Call/start a distributed Erlang node.</comsummary>
   <description>
-    <p><c><![CDATA[erl_call]]></c> makes it possible to start and/or communicate with 
-      a distributed Erlang node. It is built upon the <c><![CDATA[erl_interface]]></c> 
-      library as an example application. Its purpose is to use an Unix shell script to interact with a distributed Erlang node. It performs all 
-      communication with the Erlang <em>rex server</em>, using the standard Erlang RPC facility. It does not require any special
-      software to be run at the Erlang target node.</p>
+    <p><c>erl_call</c> makes it possible to start and/or
+      communicate with a distributed Erlang node. It is built upon the
+      <c>Erl_Interface</c> library as an example application.
+      Its purpose is to use a Unix shell script to interact with a distributed
+      Erlang node. It performs all communication with the Erlang
+      <em>rex server</em>, using the standard Erlang RPC facility. It does not
+      require any special software to be run at the Erlang target node.</p>
+
     <p>The main use is to either start a distributed Erlang node
       or to make an ordinary function call. However, it is also
-      possible to pipe an Erlang module to <c><![CDATA[erl_call]]></c> and have it
-      compiled, or to pipe a sequence of Erlang expressions to be evaluated
+      possible to pipe an Erlang module to <c>erl_call</c> and have
+      it compiled, or to pipe a sequence of Erlang expressions to be evaluated
       (similar to the Erlang shell).</p>
-    <p>Options, which cause <c><![CDATA[stdin]]></c> to be read, can be used with
-      advantage 
-      as scripts from within (Unix) shell scripts. Another 
-      nice use of <c><![CDATA[erl_call]]></c> could be from (http) CGI-bin scripts.</p>
+
+    <p>Options, which cause <c>stdin</c> to be read, can be used
+      with advantage,
+      as scripts from within (Unix) shell scripts. Another nice use
+      of <c>erl_call</c> could be from (HTTP) CGI-bin scripts.</p>
   </description>
+
   <funcs>
     <func>
       <name>erl_call &lt;options></name>
-      <fsummary>Start/Call Erlang</fsummary>
+      <fsummary>Start/call Erlang.</fsummary>
       <desc>
-        <p>Each option flag is described below with its name, type and
-          meaning. </p>
+        <p>Starts/calls Erlang.</p>
+        <p>Each option flag is described below with its name, type, and
+          meaning.</p>
         <taglist>
-          <tag>-a [Mod [Fun [Args]]]]</tag>
+          <tag><c>-a [Mod [Fun [Args]]]]</c></tag>
           <item>
-            <p>(<em>optional</em>): Applies the specified function
-              and returns the result. <c><![CDATA[Mod]]></c> must be specified, however
-              <c>start</c> and <c>[]</c> are assumed for unspecified <c><![CDATA[Fun]]></c> and <c><![CDATA[Args]]></c>, respectively. <c><![CDATA[Args]]></c> should
-              be in the same format as for <c><![CDATA[erlang:apply/3]]></c>. Note
-              that this flag takes exactly one argument, so quoting
-              may be necessary in order to group <c><![CDATA[Mod]]></c>, <c><![CDATA[Fun]]></c>
-              and <c><![CDATA[Args]]></c>, in a manner dependent on the behavior
-              of your command shell.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Applies the specified function
+              and returns the result. <c>Mod</c> must be specified.
+              However, <c>start</c> and <c>[]</c> are assumed for unspecified
+              <c>Fun</c> and <c>Args</c>, respectively.
+              <c>Args</c> is to be in the same format as for
+              <seealso marker="erts:erlang#apply/3">
+              <c>erlang:apply/3</c></seealso> in <c>ERTS</c>.</p>
+            <p>Notice that this flag takes exactly one argument, so quoting
+              can be necessary to group <c>Mod</c>,
+              <c>Fun</c>, and <c>Args</c> in a manner
+              dependent on the behavior of your command shell.</p>
           </item>
-          <tag>-c Cookie</tag>
+          <tag><c>-c Cookie</c></tag>
           <item>
-            <p>(<em>optional</em>): Use this option to specify a certain cookie. If no cookie is specified, the <c><![CDATA[~/.erlang.cookie]]></c> file is read and its content are used as cookie. The Erlang node we want to communicate with must have the same cookie.</p>
+            <p>(<em>Optional.</em>) Use this option to specify a certain cookie.
+              If no cookie is specified, the <c>~/.erlang.cookie</c>
+              file is read and its content is used as cookie. The Erlang node
+              we want to communicate with must have the same cookie.</p>
           </item>
-          <tag>-d</tag>
+          <tag><c>-d</c></tag>
           <item>
-            <p>(<em>optional</em>): Debug mode. This causes all IO to be output
-              to the file <c><![CDATA[~/.erl_call.out.Nodename]]></c>, where <c><![CDATA[Nodename]]></c>
+            <p>(<em>Optional.</em>) Debug mode. This causes all I/O to be output
+              to the <c>~/.erl_call.out.Nodename</c> file, where
+              <c>Nodename</c>
               is the node name of the Erlang node in question.</p>
-            <p></p>
           </item>
-          <tag>-e</tag>
+          <tag><c>-e</c></tag>
           <item>
-            <p>(<em>optional</em>): Reads a sequence of Erlang expressions, separated
-              by '<em>,</em>' and ended with a '<em>.</em>', from <c><![CDATA[stdin]]></c> until
-              EOF (Control-D). Evaluates the expressions and returns the result from 
-              the last expression. Returns <c><![CDATA[{ok,Result}]]></c> if successful.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Reads a sequence of Erlang expressions,
+              separated by comma (,) and ended with a full stop (.), from
+              <c>stdin</c> until EOF (Control-D). Evaluates the
+              expressions and returns the result from the last expression.
+              Returns <c>{ok,Result}</c> on success.</p>
           </item>
-          <tag>-h HiddenName</tag>
+          <tag><c>-h HiddenName</c></tag>
           <item>
-            <p>(<em>optional</em>): Specifies the name of the hidden node
-              that <c><![CDATA[erl_call]]></c> represents.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Specifies the name of the hidden node
+              that <c>erl_call</c> represents.</p>
           </item>
-          <tag>-m</tag>
+          <tag><c>-m</c></tag>
           <item>
-            <p>(<em>optional</em>): Reads an Erlang module from <c><![CDATA[stdin]]></c> and
-              compiles it.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Reads an Erlang module from
+              <c>stdin</c> and compiles it.</p>
           </item>
-          <tag>-n Node</tag>
+          <tag><c>-n Node</c></tag>
           <item>
-            <p>(one of <c><![CDATA[-n, -name, -sname]]></c> is required): 
-              Has the same meaning as <c><![CDATA[-name]]></c> and can still be used for 
-              backwards compatibility reasons.</p>
-            <p></p>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              Has the same meaning as <c>-name</c> and can still be
+              used for backward compatibility reasons.</p>
           </item>
-          <tag>-name Node</tag>
+          <tag><c>-name Node</c></tag>
           <item>
-            <p>(one of <c><![CDATA[-n, -name, -sname]]></c> is required): <c><![CDATA[Node]]></c> is the name of the node to be
-              started or communicated with. It is assumed that 
-              <c><![CDATA[Node]]></c> is started with <c><![CDATA[erl -name]]></c>, which means that fully 
-              qualified long node names are used. 
-              If the <c><![CDATA[-s]]></c> option is given, an Erlang node will (if necessary) 
-              be started with <c><![CDATA[erl -name]]></c>.</p>
-            <p></p>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              <c>Node</c> is the name of the node to be
+              started or communicated with. It is assumed that
+              <c>Node</c> is started with
+              <c>erl -name</c>, which means that fully
+              qualified long node names are used. If option
+              <c>-s</c> is specified, an Erlang node will (if
+              necessary) be started with <c>erl -name</c>.</p>
           </item>
-          <tag>-q</tag>
+          <tag><c>-q</c></tag>
           <item>
-            <p>(<em>optional</em>): Halts the Erlang node specified
-              with the -n switch. This switch overrides the -s switch.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Halts the Erlang node specified
+              with switch <c>-n</c>. This switch overrides switch <c>-s</c>.</p>
           </item>
-          <tag>-r</tag>
+          <tag><c>-r</c></tag>
           <item>
-            <p>(<em>optional</em>): Generates a random name of the hidden node
-              that <c><![CDATA[erl_call]]></c> represents.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Generates a random name of the hidden node
+              that <c>erl_call</c> represents.</p>
           </item>
-          <tag>-s</tag>
+          <tag><c>-s</c></tag>
           <item>
-            <p>(<em>optional</em>): Starts a distributed Erlang node if necessary.
-              This means that in a sequence of calls, where the '<c><![CDATA[-s]]></c>'
-              and '<c><![CDATA[-n Node]]></c>' are constant, only the first call will start
-              the Erlang node. This makes the rest of the communication 
-              very fast. This flag is currently only available on the Unix platform.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Starts a distributed Erlang node if
+              necessary. This means that in a sequence of calls, where
+              '<c>-s</c>' and '<c>-n Node</c>' are
+              constant, only the first call starts the Erlang node. This makes
+              the rest of the communication very fast. This flag is currently
+              only available on Unix-like platforms (Linux, Mac OS X, Solaris,
+              and so on).</p>
           </item>
-          <tag>-sname Node</tag>
+          <tag><c>-sname Node</c></tag>
           <item>
-            <p>(one of <c><![CDATA[-n, -name, -sname]]></c> is required): <c><![CDATA[Node]]></c> is the name of the node to
-              be started or communicated with. It is assumed that <c><![CDATA[Node]]></c> is started with <c><![CDATA[erl -sname]]></c> which means that short node names are used.
-              If <c><![CDATA[-s]]></c> option is given, an Erlang node will be started (if necessary) with <c><![CDATA[erl -sname]]></c>.</p>
-            <p></p>
+            <p>(One of <c>-n, -name, -sname</c> is required.)
+              <c>Node</c> is the name of the node to be started
+              or communicated with. It is assumed that <c>Node</c>
+              is started with <c>erl -sname</c>, which means that
+              short node names are used. If option <c>-s</c> is
+              specified, an Erlang node is started (if necessary) with
+              <c>erl -sname</c>.</p>
           </item>
-          <tag>-v</tag>
+          <tag><c>-v</c></tag>
           <item>
-            <p>(<em>optional</em>): Prints a lot of <c><![CDATA[verbose]]></c> information.
-              This is only useful for the developer and maintainer of <c><![CDATA[erl_call]]></c>.</p>
-            <p></p>
+            <p>(<em>Optional.</em>) Prints a lot of <c>verbose</c>
+              information. This is only useful for the developer and maintainer
+              of <c>erl_call</c>.</p>
           </item>
-          <tag>-x ErlScript</tag>
+          <tag><c>-x ErlScript</c></tag>
           <item>
-            <p>(<em>optional</em>): Specifies another name of the Erlang start-up script
-              to be used. If not specified, the standard <c><![CDATA[erl]]></c> start-up script
-              is used.</p>
+            <p>(<em>Optional.</em>) Specifies another name of the Erlang
+              startup script to be used. If not specified, the standard
+              <c>erl</c> startup script is used.</p>
           </item>
         </taglist>
       </desc>
@@ -165,20 +176,29 @@
 
   <section>
     <title>Examples</title>
-    <p>Starts an Erlang node and calls <c><![CDATA[erlang:time/0]]></c>.</p>
+    <p>To start an Erlang node and call <c>erlang:time/0</c>:</p>
+
     <code type="none"><![CDATA[
 erl_call -s -a 'erlang time' -n madonna
 {18,27,34}
     ]]></code>
-    <p>Terminates an Erlang node by calling <c><![CDATA[erlang:halt/0]]></c>.</p>
+
+    <p>To terminate an Erlang node by calling
+      <c>erlang:halt/0</c>:</p>
+
     <code type="none"><![CDATA[
 erl_call -s -a 'erlang halt' -n madonna
     ]]></code>
-    <p>An apply with several arguments.</p>
+
+    <p>To apply with many arguments:</p>
+
     <code type="none"><![CDATA[
-erl_call -s -a 'lists map [{math,sqrt},[1,4,9,16,25]]' -n madonna
+erl_call -s -a 'lists seq [1,10]' -n madonna
     ]]></code>
-    <p>Evaluates a couple of expressions. <em>The input ends with EOF (Control-D)</em>.</p>
+
+    <p>To evaluate some expressions
+      (<em>the input ends with EOF (Control-D)</em>):</p>
+
     <code type="none"><![CDATA[
 erl_call -s -e -n madonna
 statistics(runtime),
@@ -189,10 +209,14 @@ Y=2,
 ^D
 {ok,{3,0}}
     ]]></code>
-    <p>Compiles a module and runs it. <em>Again, the input ends with EOF (Control-D)</em>. (In the example shown, the output has been formatted afterwards).</p>
+
+    <p>To compile a module and run it (<em>again, the input ends with EOF
+      (Control-D)</em>):</p>
+    <p>(In the example, the output has been formatted afterwards.)</p>
+
     <code type="none"><![CDATA[
-erl_call -s -m -a lolita -n madonna
--module(lolita).
+erl_call -s -m -a procnames -n madonna
+-module(procnames).
 -compile(export_all).
 start() ->
         P = processes(),
@@ -238,4 +262,3 @@ start() ->
     ]]></code>
   </section>
 </comref>
-

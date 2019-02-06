@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 #define ERL_MSACC_H__
 
 /* Can be enabled/disabled via configure */
-#if ERTS_ENABLE_MSACC == 2
+#if defined(ERTS_ENABLE_MSACC) && ERTS_ENABLE_MSACC == 2
 #define ERTS_MSACC_EXTENDED_STATES 1
 #endif
 
@@ -66,7 +66,7 @@
 
 #define ERTS_MSACC_STATE_COUNT 7
 
-#if ERTS_MSACC_STATE_STRINGS && ERTS_ENABLE_MSACC
+#if defined(ERTS_MSACC_STATE_STRINGS) && defined(ERTS_ENABLE_MSACC)
 static char *erts_msacc_states[] = {
     "aux",
     "check_io",
@@ -104,7 +104,7 @@ static char *erts_msacc_states[] = {
 #define ERTS_MSACC_STATE_COUNT ERTS_MSACC_STATIC_STATE_COUNT
 #endif
 
-#if ERTS_MSACC_STATE_STRINGS
+#ifdef ERTS_MSACC_STATE_STRINGS
 static char *erts_msacc_states[] = {
     "alloc",
     "aux",
@@ -122,7 +122,7 @@ static char *erts_msacc_states[] = {
     "sleep",
     "timers"
 #ifdef ERTS_MSACC_EXTENDED_BIFS
-#define BIF_LIST(Mod,Func,Arity,FuncAddr,Num)   \
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	\
         ,"bif_" #Mod "_" #Func "_" #Arity
 #include "erl_bif_list.h"
 #undef BIF_LIST
@@ -157,27 +157,18 @@ struct erl_msacc_t_ {
 
 };
 
-#if ERTS_ENABLE_MSACC
+#ifdef ERTS_ENABLE_MSACC
 
-#ifdef USE_THREADS
-extern erts_tsd_key_t erts_msacc_key;
-#else
-extern ErtsMsAcc *erts_msacc;
-#endif
+extern erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 
 #ifdef ERTS_MSACC_ALWAYS_ON
 #define erts_msacc_enabled 1
 #else
-extern int erts_msacc_enabled;
+extern int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
 #endif
 
-#ifdef USE_THREADS
 #define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
 #define ERTS_MSACC_TSD_SET(tsd) erts_tsd_set(erts_msacc_key,tsd)
-#else
-#define ERTS_MSACC_TSD_GET() erts_msacc
-#define ERTS_MSACC_TSD_SET(tsd) erts_msacc = tsd
-#endif
 
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);
@@ -279,18 +270,32 @@ void erts_msacc_init_thread(char *type, int id, int liberty);
 #define ERTS_MSACC_PUSH_STATE_M()                         \
     ERTS_MSACC_DECLARE_CACHE();                           \
     ERTS_MSACC_PUSH_STATE_CACHED_M()
-#define ERTS_MSACC_PUSH_STATE_CACHED_M()                                \
-    __erts_msacc_state = ERTS_MSACC_IS_ENABLED_CACHED() ?    \
-        erts_msacc_get_state_m__(__erts_msacc_cache) : ERTS_MSACC_STATE_OTHER
+#define ERTS_MSACC_PUSH_STATE_CACHED_M() \
+    do { \
+        if (ERTS_MSACC_IS_ENABLED_CACHED()) { \
+            ASSERT(!__erts_msacc_cache->unmanaged); \
+            __erts_msacc_state = erts_msacc_get_state_m__(__erts_msacc_cache); \
+        } else { \
+            __erts_msacc_state = ERTS_MSACC_STATE_OTHER; \
+        } \
+    } while(0)
 #define ERTS_MSACC_SET_STATE_M(state)                   \
     ERTS_MSACC_DECLARE_CACHE();                         \
     ERTS_MSACC_SET_STATE_CACHED_M(state)
-#define ERTS_MSACC_SET_STATE_CACHED_M(state)            \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())      \
-        erts_msacc_set_state_m__(__erts_msacc_cache, state, 1)
-#define ERTS_MSACC_POP_STATE_M()                                  \
-    if (ERTS_MSACC_IS_ENABLED_CACHED())                      \
-        erts_msacc_set_state_m__(__erts_msacc_cache, __erts_msacc_state, 0)
+#define ERTS_MSACC_SET_STATE_CACHED_M(state) \
+    do { \
+        if (ERTS_MSACC_IS_ENABLED_CACHED()) { \
+            ASSERT(!__erts_msacc_cache->unmanaged); \
+            erts_msacc_set_state_m__(__erts_msacc_cache, state, 1); \
+        } \
+    } while(0)
+#define ERTS_MSACC_POP_STATE_M() \
+    do { \
+        if (ERTS_MSACC_IS_ENABLED_CACHED()) { \
+            ASSERT(!__erts_msacc_cache->unmanaged); \
+            erts_msacc_set_state_m__(__erts_msacc_cache, __erts_msacc_state, 0); \
+        } \
+    } while(0)
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)                    \
     ERTS_MSACC_PUSH_STATE_M(); ERTS_MSACC_SET_STATE_CACHED_M(state)
 
@@ -327,8 +332,8 @@ ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     if (ERTS_UNLIKELY(msacc->unmanaged)) {
         erts_mtx_lock(&msacc->mtx);
-        msacc->state = new_state;
         if (ERTS_LIKELY(!msacc->perf_counter)) {
+            msacc->state = new_state;
             erts_mtx_unlock(&msacc->mtx);
             return;
         }

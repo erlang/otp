@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -69,6 +69,17 @@
     1 second).</p>
 
   <p>The integers in all multibyte fields are in big-endian order.</p>
+
+  <warning>
+    <p>
+      The Erlang Distribution protocol is not by itself secure and does not
+      aim to be so. In order to get secure distribution the distributed nodes
+      should be configured to use distribution over tls.
+      See the <seealso marker="ssl:ssl_distribution">
+      Using SSL for Erlang Distribution</seealso> User's Guide
+      for details on how to setup a secure distributed node.
+    </p>
+  </warning>
 
   <section>
     <title>EPMD Protocol</title>
@@ -818,7 +829,30 @@ DiB == gen_digest(ChA, ICA)?
         <item>
           <p>The node understand UTF-8 encoded atoms.</p>
         </item>
+        <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
+        <item>
+          <p>The node understand the map tag.</p>
+        </item>
+        <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
+        <item>
+          <p>The node understand big node creation.</p>
+        </item>
+        <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
+        <item>
+          <p>
+	    Use the <c>SEND_SENDER</c>
+	    <seealso marker="#control_message">control message</seealso>
+	    instead of the <c>SEND</c> control message and use the
+	    <c>SEND_SENDER_TT</c> control message instead
+	    of the <c>SEND_TT</c> control message.
+	  </p>
+        </item>
       </taglist>
+      <p>
+	There is also function <c>dist_util:strict_order_flags/0</c>
+	returning all flags (bitwise or:ed together) corresponding to features
+	that require strict ordering of data over distribution channels.
+      </p>
     </section>
   </section>
 
@@ -911,6 +945,7 @@ DiB == gen_digest(ChA, ICA)?
       </item>
     </taglist>
 
+    <marker id="control_message"/>
     <p>The <c>ControlMessage</c> is a tuple, where the first element indicates
       which distributed operation it encodes:</p>
 
@@ -1017,4 +1052,49 @@ DiB == gen_digest(ChA, ICA)?
       </item>
     </taglist>
   </section>
+
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 21</title>
+    <taglist>
+      <tag><c>SEND_SENDER</c></tag>
+      <item>
+        <p><c>{22, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control messages replace the <c>SEND</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+      <tag><c>SEND_SENDER_TT</c></tag>
+      <item>
+        <p><c>{23, FromPid, ToPid, TraceToken}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control messages replace the <c>SEND_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND_TT</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND_TT</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+    </taglist>
+  </section>
+
 </chapter>

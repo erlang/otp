@@ -1,9 +1,5 @@
-%% -*- erlang-indent-level: 2 -*-
+%% -*- mode: erlang; erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
 %% File    : hipe_ssa.inc
@@ -469,20 +463,20 @@ updateStatementDefs([], Statement, Current, Acc) ->
 %%----------------------------------------------------------------------
 
 updateIndices(Current, Variable) ->
-  case ?CODE:is_var(Variable) of
-    true ->
-      NewVar = ?CODE:mk_new_var(),
-      {NewVar,gb_trees:enter(Variable, NewVar, Current)};
-    false ->
-      case is_fp_temp(Variable) of
-	true ->
-	  NewFVar = mk_new_fp_temp(),
-	  {NewFVar,gb_trees:enter(Variable, NewFVar, Current)};
-	false ->
-	  NewReg = ?CODE:mk_new_reg(),
-	  {NewReg,gb_trees:enter(Variable, NewReg, Current)}
-      end
-  end.
+  New =
+    case ?CODE:is_var(Variable) of
+      true -> ?CODE:mk_new_var();
+      false ->
+        case is_fp_temp(Variable) of
+          true -> mk_new_fp_temp();
+          false ->
+            case ?CODE:reg_is_gcsafe(Variable) of
+              true -> ?CODE:mk_new_reg_gcsafe();
+              false -> ?CODE:mk_new_reg()
+            end
+        end
+    end,
+  {New, gb_trees:enter(Variable, New, Current)}.
 
 %%----------------------------------------------------------------------
 %% Procedure : updateSuccPhi/4
@@ -943,9 +937,9 @@ do_code([Instr|Instrs], LiveOut, Changed, Acc) ->
     false ->
       do_code(Instrs, LiveIn, Changed, [Instr|Acc]);
     true ->
-      case ?CODE:is_safe(Instr) of
+      case ?CODE:is_call(Instr) of
 	true ->
-	  case ?CODE:is_call(Instr) of
+	  case ?CODE:is_safe(Instr) of
 	    true ->
 	      case ?CODE:call_continuation(Instr) of
 		[] ->
@@ -955,11 +949,6 @@ do_code([Instr|Instrs], LiveOut, Changed, Acc) ->
 		  do_code(Instrs, LiveOut, true, [NewInstr|Acc])
 	      end;
 	    false ->
-	      do_code(Instrs, LiveOut, true, Acc)
-	  end;
-	false -> %% not a safe instruction - cannot be removed
-	  case ?CODE:is_call(Instr) of
-	    true ->
 	      case ?CODE:call_dstlist(Instr) of
 	        [] ->  %% result was not used anyway; no change
 		  do_code(Instrs, LiveIn, Changed, [Instr|Acc]);
@@ -968,9 +957,14 @@ do_code([Instr|Instrs], LiveOut, Changed, Acc) ->
 		  do_code(Instrs, LiveIn, true, [NewInstr|Acc]);
 		[_|_] ->  %% calls with multiple dests are left untouched
 		  do_code(Instrs, LiveIn, Changed, [Instr|Acc])
-	      end;
-	    false ->
-	      do_code(Instrs, LiveIn, Changed, [Instr|Acc])
+	      end
+	  end;
+	false ->
+	  case ?CODE:reduce_unused(Instr) of
+	    false -> % not a safe instruction - cannot be removed
+	      do_code(Instrs, LiveIn, Changed, [Instr|Acc]);
+	    Replacement ->
+	      do_code(lists:reverse(Replacement, Instrs), LiveOut, true, Acc)
 	  end
       end
   end;

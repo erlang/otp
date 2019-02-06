@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,10 +37,7 @@
       the <c>heart</c> port program is to check that the Erlang runtime system
       it is supervising is still running. If the port program has not
       received any heartbeats within <c>HEART_BEAT_TIMEOUT</c> seconds
-      (defaults to 60 seconds), the system can be rebooted. Also, if
-      the system is equipped with a hardware watchdog timer and is
-      running Solaris, the watchdog can be used to supervise the entire
-      system.</p>
+      (defaults to 60 seconds), the system can be rebooted.</p>
     <p>An Erlang runtime system to be monitored by a heart program
       is to be started with command-line flag <c>-heart</c> (see
       also <seealso marker="erts:erl"><c>erl(1)</c></seealso>).
@@ -51,23 +48,20 @@
       or a terminated Erlang runtime system, environment variable
       <c>HEART_COMMAND</c> must be set before the system is started.
       If this variable is not set, a warning text is printed but
-      the system does not reboot. However, if the hardware watchdog is
-      used, it still triggers a reboot <c>HEART_BEAT_BOOT_DELAY</c>
-      seconds later (defaults to 60 seconds).</p>
+      the system does not reboot.</p>
     <p>To reboot on Windows, <c>HEART_COMMAND</c> can be
       set to <c>heart -shutdown</c> (included in the Erlang delivery)
       or to any other suitable program that can activate a reboot.</p>
-    <p>The hardware watchdog is not started under Solaris if
-      environment variable <c>HW_WD_DISABLE</c> is set.</p>
-    <p>The environment variables <c>HEART_BEAT_TIMEOUT</c> and
-      <c>HEART_BEAT_BOOT_DELAY</c> can be used to configure the heart
-      time-outs; they can be set in the operating system shell before Erlang
+    <p>The environment variable <c>HEART_BEAT_TIMEOUT</c>
+      can be used to configure the heart
+      time-outs; it can be set in the operating system shell before Erlang
       is started or be specified at the command line:</p>
     <pre>
 % <input>erl -heart -env HEART_BEAT_TIMEOUT 30 ...</input></pre>
     <p>The value (in seconds) must be in the range 10 &lt; X &lt;= 65535.</p>
-    <p>Notice that if the system clock is adjusted with
-      more than <c>HEART_BEAT_TIMEOUT</c> seconds, <c>heart</c>
+    <p>When running on OSs lacking support for monotonic time,
+      <c>heart</c> is susceptible to system clock adjustments of more than
+      <c>HEART_BEAT_TIMEOUT</c> seconds. When  this happens, <c>heart</c>
       times out and tries to reboot the system. This can occur, for
       example, if the system clock is adjusted automatically by use of the
       Network Time Protocol (NTP).</p>

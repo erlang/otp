@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1]).
+          otp_13662/1, otp_14285/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -80,7 +80,8 @@ groups() ->
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
-       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662]}].
+       otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
+       otp_14285]}].
 
 init_per_suite(Config) ->
     Config.
@@ -627,11 +628,6 @@ do_hook(HookFun) ->
     true =
         "{some,value}" =:= lists:flatten(erl_pp:expr({value,A0,{some,value}})),
 
-    %% Silly...
-    true =
-        "if true -> 0 end" =:=
-              flat_expr({'if',0,[{clause,0,[],[],[{atom,0,0}]}]}),
-
     %% More compatibility: before R6
     OldIf = {'if',A0,[{clause,A0,[],[{atom,A0,true}],[{atom,A0,b}]}]},
     NewIf = {'if',A0,[{clause,A0,[],[[{atom,A0,true}]],[{atom,A0,b}]}]},
@@ -825,12 +821,13 @@ type_examples() ->
      %% is_subtype(V, T) syntax, we need a few examples of the syntax.
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
 	     "(t2()) -> t2();"
-	     "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
-	     "(t23()) -> t23() when is_subtype(t23(), atom()),"
-	     "                      is_subtype(t23(), t14());"
-	     "(t24()) -> t24() when is_subtype(t24(), atom()),"
-	     "                      is_subtype(t24(), t14()),"
-	     "                      is_subtype(t24(), '\\'t::4'()).">>},
+	     "('\\'t::4'()) -> {'\\'t::4'(), B}"
+             "             when is_subtype(B, '\\'t::4'());"
+	     "(t23()) -> C when is_subtype(C, atom()),"
+	     "                      is_subtype(C, t14());"
+	     "(t24()) -> D when is_subtype(D, atom()),"
+	     "                      is_subtype(D, t14()),"
+	     "                      is_subtype(D, '\\'t::4'()).">>},
      {ex32,<<"-spec mod:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
@@ -1067,9 +1064,6 @@ otp_11100(Config) when is_list(Config) ->
     %% There are a few places where the added code ("options(none)")
     %% doesn't make a difference (pp:bit_elem_type/1 is an example).
 
-    %% Cannot trigger the use of the hook function with export/import.
-    "-export([{fy,a}/b]).\n" =
-        pf({attribute,1,export,[{{fy,a},b}]}),
     A1 = erl_anno:new(1),
     "-type foo() :: integer(INVALID-FORM:{foo,bar}:).\n" =
         pf({attribute,A1,type,{foo,{type,A1,integer,[{foo,bar}]},[]}}),
@@ -1099,10 +1093,11 @@ otp_11100(Config) when is_list(Config) ->
 
 %% OTP-11861. behaviour_info() and -callback.
 otp_11861(Config) when is_list(Config) ->
+    A3 = erl_anno:new(3),
     "-optional_callbacks([bar/0]).\n" =
-        pf({attribute,3,optional_callbacks,[{bar,0}]}),
+        pf({attribute,A3,optional_callbacks,[{bar,0}]}),
     "-optional_callbacks([{bar,1,bad}]).\n" =
-        pf({attribute,4,optional_callbacks,[{bar,1,bad}]}),
+        pf({attribute,A3,optional_callbacks,[{bar,1,bad}]}),
     ok.
 
 pf(Form) ->
@@ -1144,6 +1139,34 @@ otp_13662(Config) ->
           ],
     compile(Config, Ts).
 
+otp_14285(_Config) ->
+    pp_forms(<<"-export([t/0, '\\x{400}\\''/0]).">>),
+    pp_forms(<<"-import(lists, [append/2]).">>),
+    pp_forms(<<"-optional_callbacks([]).">>),
+    pp_forms(<<"-optional_callbacks(['\\x{400}\\''/1]).">>),
+    pp_forms(<<"-'\\x{400}\\''('\\x{400}\\'').">>),
+    pp_forms(<<"-type '\\x{400}\\''() :: '\\x{400}\\''.">>),
+    pp_forms(<<"-record('\\x{400}\\'', {'\\x{400}\\''}).">>),
+    pp_forms(<<"-callback '\\x{400}\\''(_) -> '\\x{400}\\''.">>),
+    pp_forms(<<"t() -> '\\x{400}\\''('\\x{400}\\'').">>),
+    pp_forms(<<"'\\x{400}\\''(_) -> '\\x{400}\\''.">>),
+    pp_forms(<<"-spec '\\x{400}'() -> "
+               "#'\\x{400}'{'\\x{400}' :: '\\x{400}'}.">>),
+    pp_forms(<<"'\\x{400}\\''() ->"
+               "R = #'\\x{400}\\''{},"
+               "#'\\x{400}\\''{'\\x{400}\\'' ="
+               "{'\\x{400}\\'',"
+               "fun '\\x{400}\\''/0,"
+               "R#'\\x{400}\\''.'\\x{400}\\'',"
+               "#'\\x{400}\\''.'\\x{400}\\''}}.">>),
+
+    %% Special...
+    true =
+        "{some,'\\x{400}\\''}" =:=
+        lists:flatten(erl_pp:expr({value,erl_anno:new(0),{some,'\x{400}\''}},
+                                  [{encoding,latin1}])),
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1166,19 +1189,21 @@ compile(Config, Tests) ->
     lists:foldl(F, [], Tests).
 
 compile_file(Config, Test0) ->
-    case compile_file(Config, Test0, ['E']) of
+    Test = ["-module(erl_pp_test).\n",
+	    "-compile(export_all).\n",
+	    Test0],
+    case compile_file(Config, Test, ['E']) of
         {ok, RootFile} ->
             File = RootFile ++ ".E",
             {ok, Bin0} = file:read_file(File),
-            Bin = strip_module_info(Bin0),
             %% A very simple check: just try to compile the output.
-            case compile_file(Config, Bin, []) of
+            case compile_file(Config, Bin0, []) of
                 {ok, RootFile2} ->
                     File2 = RootFile2 ++ ".E",
                     {ok, Bin1} = file:read_file(File2),
                     case Bin0 =:= Bin1 of
                         true ->
-                            test_max_line(binary_to_list(Bin));
+                            test_max_line(binary_to_list(Bin0));
                         false ->
                             {error, file_contents_modified, {Bin0, Bin1}}
                     end;
@@ -1189,11 +1214,8 @@ compile_file(Config, Test0) ->
             Error
     end.
 
-compile_file(Config, Test0, Opts0) ->
+compile_file(Config, Test, Opts0) ->
     FileName = filename('erl_pp_test.erl', Config),
-    Test = list_to_binary(["-module(erl_pp_test). "
-                           "-compile(export_all). ",
-                           Test0]),
     Opts = [export_all,return,nowarn_unused_record,{outdir,?privdir} | Opts0],
     ok = file:write_file(FileName, Test),
     case compile:file(FileName, Opts) of
@@ -1201,11 +1223,6 @@ compile_file(Config, Test0, Opts0) ->
             {ok, filename:rootname(FileName)};
         Error -> Error
     end.
-
-strip_module_info(Bin) ->
-    {match, [{Start,_Len}|_]} = re:run(Bin, "module_info"),
-    <<R:Start/binary,_/binary>> = Bin,
-    R.
 
 flat_expr1(Expr0) ->
     Expr = erl_parse:new_anno(Expr0),
@@ -1245,7 +1262,7 @@ parse_forms(Chars) ->
 parse_forms2([], _Cont, _Line, Forms) ->
     lists:reverse(Forms);
 parse_forms2(String, Cont0, Line, Forms) ->
-    case erl_scan:tokens(Cont0, String, Line, [unicode]) of
+    case erl_scan:tokens(Cont0, String, Line) of
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);
@@ -1286,7 +1303,7 @@ parse_and_pp_expr(String, Indent, Options) ->
     erl_pp:expr(parse_expr(StringDot), Indent, Options).
 
 parse_expr(Chars) ->
-    {ok, Tokens, _} = erl_scan:string(Chars, 1, [unicode]),
+    {ok, Tokens, _} = erl_scan:string(Chars, 1),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
     Expr.
 

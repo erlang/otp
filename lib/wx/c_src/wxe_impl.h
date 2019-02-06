@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public:
   void wxe_dispatch(wxeCommand& event);
 
   void idle(wxIdleEvent& event);
-  void dispatch_cmds();
+  int dispatch_cmds();
 
   void dummy_close(wxEvent& Ev);
   bool sendevent(wxEvent *event);
@@ -84,7 +84,7 @@ public:
   wxeMemEnv * getMemEnv(ErlDrvTermData port);
 
   int  newPtr(void * ptr, int type, wxeMemEnv *memenv);
-  int  getRef(void * ptr, wxeMemEnv *memenv);
+  int  getRef(void * ptr, wxeMemEnv *memenv, int type = 0);
   void * getPtr(char * bp, wxeMemEnv *memenv);
   void clearPtr(void *ptr);
   wxeRefData * getRefData(void *ptr);

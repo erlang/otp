@@ -1,12 +1,7 @@
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
-{
-    return 0;
-}
-
-static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     return 0;
 }
@@ -34,4 +29,4 @@ static ErlNifFunc nif_funcs[] =
     {"nif_dec", 1, nif_dec_1}
 };
 
-ERL_NIF_INIT(trace_call_time_SUITE,nif_funcs,load,reload,upgrade,unload)
+ERL_NIF_INIT(trace_call_time_SUITE,nif_funcs,load,NULL,upgrade,unload)

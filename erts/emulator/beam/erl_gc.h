@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,52 +25,74 @@
 
 /* GC declarations shared by beam/erl_gc.c and hipe/hipe_gc.c */
 
-#include "erl_map.h"
+#define ERTS_POTENTIALLY_LONG_GC_HSIZE (128*1024) /* Words */
 
-#if defined(DEBUG) && !ERTS_GLB_INLINE_INCL_FUNC_DEF
-#  define HARDDEBUG 1
-#endif
+#include "erl_map.h"
+#include "erl_fun.h"
+#include "erl_bits.h"
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
+Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig);
 
-#define MOVE_CONS(PTR,CAR,HTOP,ORIG)					\
-do {									\
-    Eterm gval;								\
-									\
-    HTOP[0] = CAR;		/* copy car */				\
-    HTOP[1] = PTR[1];		/* copy cdr */				\
-    gval = make_list(HTOP);	/* new location */			\
-    *ORIG = gval;		/* redirect original reference */	\
-    PTR[0] = THE_NON_VALUE;	/* store forwarding indicator */	\
-    PTR[1] = gval;		/* store forwarding address */		\
-    HTOP += 2;			/* update tospace htop */		\
-} while(0)
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
+                               Eterm *orig)
+{
+    Eterm *ERTS_RESTRICT htop = *hpp;
+    Eterm gval;
 
-#define MOVE_BOXED(PTR,HDR,HTOP,ORIG)                                   \
-do {                                                                    \
-    Eterm gval;                                                         \
-    Sint nelts;                                                         \
-                                                                        \
-    ASSERT(is_header(HDR));                                             \
-    nelts = header_arity(HDR);                                          \
-    switch ((HDR) & _HEADER_SUBTAG_MASK) {                              \
-    case SUB_BINARY_SUBTAG: nelts++; break;                             \
-    case MAP_SUBTAG:                                                    \
-        if (is_flatmap_header(HDR)) nelts+=flatmap_get_size(PTR) + 1;   \
-        else nelts += hashmap_bitcount(MAP_HEADER_VAL(HDR));            \
-    break;                                                              \
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(PTR))->num_free+1; break;   \
-    }                                                                   \
-    gval    = make_boxed(HTOP);                                         \
-    *ORIG   = gval;                                                     \
-    *HTOP++ = HDR;                                                      \
-    *PTR++  = gval;                                                     \
-    while (nelts--) *HTOP++ = *PTR++;                                   \
-} while(0)
+    htop[0] = car;               /* copy car */
+    htop[1] = ptr[1];            /* copy cdr */
+    gval    = make_list(htop);   /* new location */
+    *orig   = gval;              /* redirect original reference */
+    ptr[0]  = THE_NON_VALUE;     /* store forwarding indicator */
+    ptr[1]  = gval;              /* store forwarding address */
+    *hpp   += 2;                 /* update tospace htop */
+}
+#endif
 
-#if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
-int within(Eterm *ptr, Process *p);
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **hpp,
+                                  Eterm *orig)
+{
+    Eterm gval;
+    Sint nelts;
+    Eterm *ERTS_RESTRICT htop = *hpp;
+
+    ASSERT(is_header(hdr));
+    nelts = header_arity(hdr);
+    switch ((hdr) & _HEADER_SUBTAG_MASK) {
+    case SUB_BINARY_SUBTAG:
+        {
+            ErlSubBin *sb = (ErlSubBin *)ptr;
+            /* convert sub-binary to heap-binary if applicable */
+            if (sb->bitsize == 0 && sb->bitoffs == 0 &&
+                sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
+                return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
+            }
+        }
+        nelts++;
+        break;
+    case MAP_SUBTAG:
+        if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
+        else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
+    break;
+    case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free+1; break;
+    }
+    gval    = make_boxed(htop);
+    *orig   = gval;
+    *htop++ = hdr;
+    *ptr++  = gval;
+    while (nelts--) *htop++ = *ptr++;
+
+    *hpp = htop;
+    return ptr;
+}
 #endif
 
 #define ErtsInYoungGen(TPtr, Ptr, OldHeap, OldHeapSz)			\
@@ -132,6 +154,8 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
     (ERTS_PROCESS_GC_INFO_MAX_TERMS * (2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE))
@@ -145,9 +169,10 @@ void erts_garbage_collect_hibernate(struct process* p);
 Eterm erts_gc_after_bif_call_lhf(struct process* p, ErlHeapFragment *live_hf_end,
 				 Eterm result, Eterm* regs, Uint arity);
 Eterm erts_gc_after_bif_call(struct process* p, Eterm result, Eterm* regs, Uint arity);
-void erts_garbage_collect_literals(struct process* p, Eterm* literals,
-				   Uint lit_size,
-				   struct erl_off_heap_header* oh);
+int erts_garbage_collect_literals(struct process* p, Eterm* literals,
+				  Uint lit_size,
+				  struct erl_off_heap_header* oh,
+				  int fcalls);
 Uint erts_next_heap_size(Uint, Uint);
 Eterm erts_heap_sizes(struct process* p);
 
@@ -157,5 +182,11 @@ void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
 Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
+void erts_deallocate_young_generation(Process *c_p);
+void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
+                        ErlHeapFragment *bp, Eterm *refs, int nrefs);
+#if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
+int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
+#endif
 
 #endif /* __ERL_GC_H__ */

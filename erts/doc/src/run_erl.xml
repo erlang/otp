@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,7 +49,7 @@
   <funcs>
     <func>
       <name>run_erl [-daemon] pipe_dir/ log_dir "exec command
-        [command_arguments]"</name>
+        arg1 arg2 ..."</name>
       <fsummary>Start the Erlang emulator without attached terminal.</fsummary>
       <desc>
         <p>Arguments:</p>
@@ -92,11 +92,10 @@
               </item>
             </list>
           </item>
-          <tag><c>"exec command [command_arguments]"</c></tag>
+          <tag><c>"exec command arg1 arg2 ..."</c></tag>
           <item>
-            <p>In the third argument, <c><![CDATA[command]]></c> is the
-              executable to execute where everything written to <c>stdin</c>
-              and <c>stdout</c> is logged to <c><![CDATA[log_dir]]></c>.</p>
+	    <p>A space-separated string specifying the program to be executed.
+	      The second field is typically a command name such as <c>erl</c>.</p>
           </item>
         </taglist>
       </desc>
@@ -105,7 +104,7 @@
 
   <section>
     <title>Notes concerning the Log Files</title>
-    <p>While running, <c>run_erl</c> (as stated earlier) sends all output,
+    <p>While running, <c>run_erl</c> sends all output,
       uninterpreted, to a log file. The file is named
       <c><![CDATA[erlang.log.N]]></c>, where <c>N</c> is an integer. When the
       log is "full" (default log size is 100 KB), <c>run_erl</c> starts to log
@@ -182,6 +181,12 @@
       <item>
         <p>Controls the number of log files written before older
           files are reused. Defaults to 5, minimum is 2, maximum is 1000.</p>
+	<p>Note that, as a way to indicate the newest file, <c>run_erl</c> will
+	delete the oldest log file to maintain a "hole" in the file
+	sequences. For example, if log files #1, #2, #4 and #5 exists, that
+	means #2 is the latest and #4 is the oldest. You will therefore at most
+	get one less log file than the value set by
+	<c>RUN_ERL_LOG_GENERATIONS</c>.</p>
       </item>
       <tag><c>RUN_ERL_LOG_MAXSIZE</c></tag>
       <item>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,8 @@
 			 {verify, verify_type()} |
 			 {verify_fun, {fun(), InitialUserState::term()}} |
                          {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
-                         {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
+                         {cert, Der::binary()} | {certfile, path()} |
+                         {key, {private_key_type(), Der::binary()}} |
                          {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
                          {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
                          {user_lookup_fun, {fun(), InitialUserState::term()}} |
@@ -57,12 +58,19 @@
 
 -type verify_type()  :: verify_none | verify_peer.
 -type path()         :: string().
--type ciphers()      :: [ssl_cipher:erl_cipher_suite()] |
+-type ciphers()      :: [ssl_cipher_format:erl_cipher_suite()] |
 			string(). % (according to old API)
 -type ssl_imp()      :: new | old.
 
 -type transport_option() :: {cb_info, {CallbackModule::atom(), DataTag::atom(),
 				       ClosedTag::atom(), ErrTag::atom()}}.
 -type prf_random() :: client_random | server_random.
+
+-type private_key_type() :: rsa | %% Backwards compatibility
+                            dsa | %% Backwards compatibility
+                            'RSAPrivateKey' |
+                            'DSAPrivateKey' |
+                            'ECPrivateKey' |
+                            'PrivateKeyInfo'.
 
 -endif. % -ifdef(ssl_api).

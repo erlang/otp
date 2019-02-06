@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -273,7 +273,7 @@ code_change(_OldVsn, State, _Extra) ->
 open_log_file(standard_io) -> standard_io;
 open_log_file(Fd) when is_atom(Fd),Fd=/=standard_error -> 
     case whereis(Fd) of
-	undefined -> io:format("rb: Registered name not found '~s'.~n",
+	undefined -> io:format("rb: Registered name not found '~ts'.~n",
 		      [Fd]),
 	             io:format("rb: Using standard_io~n"),
                      open_log_file(standard_io);
@@ -281,10 +281,10 @@ open_log_file(Fd) when is_atom(Fd),Fd=/=standard_error ->
     end;
 open_log_file(Fd) when is_pid(Fd)-> Fd;
 open_log_file(FileName) when is_list(FileName) ->
-    case file:open(FileName, [write,append]) of
+    case file:open(FileName, [write,append,{encoding,utf8}]) of
 	{ok, Fd} -> Fd;
 	Error -> 
-	    io:format("rb: Cannot open file '~s' (~w).~n",
+	    io:format("rb: Cannot open file '~ts' (~w).~n",
 		      [FileName, Error]),
 	    io:format("rb: Using standard_io~n"),
 	    standard_io
@@ -419,8 +419,8 @@ read_reports(No, Fd, Fname, Max, Type) ->
 	    add_report_data(NewRes, No, Fname);
 	{error, [Problem | Res]} ->
 	    _ = file:close(Fd),
-	    io:format("Error: ~p~n",[Problem]),
-	    io:format("Salvaged ~p entries from corrupt report file ~s...~n",
+	    io:format("Error: ~tp~n",[Problem]),
+	    io:format("Salvaged ~p entries from corrupt report file ~ts...~n",
 		      [length(Res),Fname]),
 	    NewRes = 
 		if
@@ -431,7 +431,7 @@ read_reports(No, Fd, Fname, Max, Type) ->
 		end,
 	    add_report_data(NewRes, No, Fname);
 	Else ->
-	    io:format("err ~p~n", [Else]),
+	    io:format("err ~tp~n", [Else]),
 	    [{No, unknown, "Can't read reports from file " ++ Fname,
 		  "???", Fname, 0}]
     end.
@@ -530,21 +530,18 @@ get_short_descr({{Date, Time}, {error_report, Pid, {_, crash_report, Rep}}}) ->
 	    {value, {_Key, N}} -> N;
 	    _ -> Pid
 	end,
-    NameStr = lists:flatten(io_lib:format("~w", [Name])),
-    {NameStr, date_str(Date, Time)};
+    {Name, date_str(Date, Time)};
 get_short_descr({{Date, Time}, {error_report, Pid, {_, supervisor_report,Rep}}}) ->
     Name =
 	case lists:keysearch(supervisor, 1, Rep) of
 	    {value, {_Key, N}} when is_atom(N) -> N;
 	    _ -> Pid
 	end,
-    NameStr = lists:flatten(io_lib:format("~w", [Name])),
-    {NameStr, date_str(Date,Time)};
+    {Name, date_str(Date,Time)};
 get_short_descr({{Date, Time}, {_Type, Pid, _}}) ->
-    NameStr = lists:flatten(io_lib:format("~w", [Pid])),
-    {NameStr, date_str(Date,Time)};
+    {Pid, date_str(Date,Time)};
 get_short_descr(_) ->
-    {"???", "???"}.
+    {'???', "???"}.
     
 date_str({Y,Mo,D}=Date,{H,Mi,S}=Time) ->
     case application:get_env(sasl,utc_log) of 
@@ -571,53 +568,57 @@ local_time_to_universal_time({Date,Time}) ->
     end.
 
 
-print_list(Fd, Data, Type) ->
+print_list(Fd, Data0, Type) ->
+    Modifier = misc_supp:modifier(Fd),
     Header = {"No", "Type", "Process", "Date     Time"},
-    Width = find_width([Header | Data], 0)+1,
-    DateWidth = find_date_width([Header | Data], 0) +1,
-    Format = lists:concat(["~4s~20s ~", Width, "s~20s~n"]),
+    {DescrWidth,DateWidth,Data} = find_widths(Data0, Modifier, 7, 13, []),
+    Format = lists:concat(["~4s~20s ~", DescrWidth, "s~20s~n"]),
     io:format(Fd, Format, tuple_to_list(Header)),
     io:format(Fd, Format, ["==", "====", "=======", "====     ===="]),
-    print_list(Fd, Data, Type, Width, DateWidth).
-print_list(_, [], _, _, _) -> true;
-print_list(Fd, [H|T], Type, Width, DateWidth) ->
-    print_one_report(Fd, H, Type, Width, DateWidth),
-    print_list(Fd, T, Type, Width, DateWidth).
+    print_list(Fd, Data, Type, DescrWidth, DateWidth, Modifier).
+print_list(_, [], _, _, _, _) -> true;
+print_list(Fd, [H|T], Type, Width, DateWidth, Modifier) ->
+    print_one_report(Fd, H, Type, Width, DateWidth, Modifier),
+    print_list(Fd, T, Type, Width, DateWidth, Modifier).
 
-find_width([], Width) -> Width;
-find_width([H|T], Width) ->
-    Try = length(element(3, H)),
-    if
-	Try > Width -> find_width(T, Try);
-	true -> find_width(T, Width)
-    end.
-find_date_width([], Width) -> Width;
-find_date_width([H|T], Width) ->
-    Try = length(element(4, H)),
-    if
-	Try > Width -> find_date_width(T, Try);
-	true -> find_date_width(T, Width)
-    end.
+
+find_widths([], _Modifier, DescrWidth, DateWidth, Data) ->
+    {DescrWidth+1, DateWidth+1, lists:reverse(Data)};
+find_widths([H|T], Modifier, DescrWidth, DateWidth, Data) ->
+    DescrTerm = element(3,H),
+    Descr = io_lib:format("~"++Modifier++"w", [DescrTerm]),
+    DescrTry = string:length(Descr),
+    NewDescrWidth =
+        if
+            DescrTry > DescrWidth -> DescrTry;
+            true -> DescrWidth
+        end,
+    DateTry = string:length(element(4, H)),
+    NewDateWitdh =
+        if
+            DateTry > DateWidth -> DateTry;
+            true -> DateWidth
+        end,
+    NewH = setelement(3,H,Descr),
+    find_widths(T, Modifier, NewDescrWidth, NewDateWitdh, [NewH|Data]).
 
 print_one_report(Fd, {No, RealType, ShortDescr, Date, _Fname, _FilePos},
 		 WantedType,
-		 Width, DateWidth) ->
+		 Width, DateWidth, Modifier) ->
     if
 	WantedType == all ->
 	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
-			      DateWidth);
+			      DateWidth, Modifier);
 	WantedType == RealType ->
 	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
-			      DateWidth);
+			      DateWidth, Modifier);
 	true -> ok
     end.
 
-print_short_descr(Fd, No, Type, ShortDescr, Date, Width, DateWidth) ->
-    Format = lists:concat(["~4w~20w ~", Width, "s~", DateWidth,"s~n"]),
-    io:format(Fd, Format, [No,
-		       Type, 
-		       io_lib:format("~s", [ShortDescr]),
-		       Date]).
+print_short_descr(Fd, No, Type, ShortDescr, Date, Width, DateWidth, Modifier) ->
+    Format = lists:concat(["~4w~20", Modifier, "w ~", Width, Modifier, "s~",
+                           DateWidth, "s~n"]),
+    io:format(Fd, Format, [No, Type,  ShortDescr, Date]).
 
 print_report_by_num(Dir, Data, Number, Device, Abort, Log) ->
     {_,Device1} = print_report(Dir, Data, Number, Device, Abort, Log),
@@ -658,7 +659,7 @@ print_report(Dir, Data, Number, Device, Abort, Log) ->
 		{ok, Fd} -> 
 		    read_rep(Fd, FilePosition, Device, Abort, Log);
 		_ -> 
-		    io:format("rb: can't open file ~p~n", [Fname]),
+		    io:format("rb: can't open file ~tp~n", [Fname]),
 		    {proceed,Device}
 	    end;
 	no_report ->
@@ -691,14 +692,14 @@ print_grep_report(Dir, Data, Number, Device, RegExp, Abort, Log) ->
 	{ok, Fd} when is_pid(Fd) -> 
 	    check_rep(Fd, FilePosition, Device, RegExp, Number, Abort, Log);
 	_ -> 
-	    io:format("rb: can't open file ~p~n", [Fname]),
+	    io:format("rb: can't open file ~tp~n", [Fname]),
 	    {proceed,Device}
     end.
 
 check_rep(Fd, FilePosition, Device, RegExp, Number, Abort, Log) ->
     case read_rep_msg(Fd, FilePosition) of
 	{Date, Msg} ->
-	    MsgStr = lists:flatten(io_lib:format("~p",[Msg])),
+	    MsgStr = lists:flatten(io_lib:format("~tp",[Msg])),
 	    case run_re(MsgStr, RegExp) of
 		match ->
 		    io:format("Found match in report number ~w~n", [Number]),
@@ -722,7 +723,7 @@ run_re(Subject, Regexp) ->
     run_re(Subject, Regexp, []).
 
 run_re(Subject, Regexp, Options) ->
-    case re:run(Subject, Regexp, Options) of
+    case re:run(Subject, Regexp, [unicode|Options--[unicode]]) of
         nomatch ->
             nomatch;
 	_ ->
@@ -748,7 +749,7 @@ filter_report(Dir, Data, Filters, Number, Device, Abort, Log) ->
 		{ok, Fd} ->
 		    filter_rep(Filters, Fd, FilePosition, Device, Abort, Log);
 		_ ->
-		    io:format("rb: can't open file ~p~n", [Fname]),
+		    io:format("rb: can't open file ~tp~n", [Fname]),
 		    {proceed,Device}
 	    end;
 	no_report ->
@@ -800,7 +801,7 @@ filter_report([{Key, RegExp, re}|T], Msg) ->
 	undefined ->
 	    false;
 	Value ->
-	    Subject = lists:flatten(io_lib:format("~p",[Value])),
+	    Subject = lists:flatten(io_lib:format("~tp",[Value])),
 	    case run_re(Subject, RegExp) of
 		match ->
 		    filter_report(T, Msg);
@@ -812,7 +813,7 @@ filter_report([{Key, RegExp, re, no}|T], Msg) ->
 	undefined ->
 	    true;
 	Value ->
-	    Subject = lists:flatten(io_lib:format("~p",[Value])),
+	    Subject = lists:flatten(io_lib:format("~tp",[Value])),
 	    case run_re(Subject, RegExp) of
 		match -> false;
 		_ -> filter_report(T, Msg)
@@ -890,7 +891,7 @@ read_rep(Fd, FilePosition, Device, Abort, Log) ->
 handle_bad_form(Date, Msg, Device, Abort, Log) ->
     io:format("rb: ERROR! A report on bad form was encountered. " ++
 	      "It can not be printed to the log.~n~n"),
-    io:format("Details:~n~p ~p~n~n", [Date,Msg]),
+    io:format("Details:~n~p ~tp~n~n", [Date,Msg]),
     case {Abort,Device,open_log_file(Log)} of
 	{true,standard_io,standard_io} ->
 	    io:format("rb: Logging aborted.~n"),
@@ -899,7 +900,7 @@ handle_bad_form(Date, Msg, Device, Abort, Log) ->
 	    io:format("rb: Logging resumed...~n~n"),
 	    {proceed,Device};
 	{_,_,standard_io} ->
-	    io:format("rb: Can not reopen ~p. Logging aborted.~n", [Log]),
+	    io:format("rb: Can not reopen ~tp. Logging aborted.~n", [Log]),
 	    {abort,Device};
 	{true,_,NewDevice} ->
 	    io:format(NewDevice,

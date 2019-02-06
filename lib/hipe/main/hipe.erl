@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
 %%
 %% ====================================================================
 %% Copyright (c) 1998 by Erik Johansson.  All Rights Reserved 
@@ -447,7 +441,7 @@ compile(Name, File, Opts0) when is_atom(Name) ->
       ?error_msg("Cannot get Core Erlang code from BEAM binary.",[]),
       ?EXIT({cant_compile_core_from_binary});
     true ->
-      case filename:find_src(filename:rootname(File, ".beam")) of
+      case filelib:find_source(filename:rootname(File,".beam") ++ ".beam") of
 	{error, _} ->
 	  ?error_msg("Cannot find source code for ~p.", [File]),
 	  ?EXIT({cant_find_source_code});
@@ -548,7 +542,7 @@ file(File) ->
 				|  {'error', term()}
 				     when Mod :: mod().
 file(File, Options) when is_atom(File) ->
-  case beam_lib:info(File) of
+  case beam_lib:info(atom_to_list(File)) of
     L when is_list(L) ->
       {module, Mod} = lists:keyfind(module, 1, L),
       case compile(Mod, File, Options) of
@@ -635,44 +629,51 @@ run_compiler(Name, DisasmFun, IcodeFun, Opts0) ->
   Opts = expand_basic_options(Opts0 ++ ?COMPILE_DEFAULTS),
   ?when_option(verbose, Opts, ?debug_msg("Compiling: ~p\n",[Name])),
   ?option_start_time("Compile", Opts),
-  Res = run_compiler_1(DisasmFun, IcodeFun, Opts),
+  Res = run_compiler_1(Name, DisasmFun, IcodeFun, Opts),
   ?option_stop_time("Compile", Opts),
   Res.
 
-run_compiler_1(DisasmFun, IcodeFun, Options) ->
+run_compiler_1(Name, DisasmFun, IcodeFun, Options) ->
   Parent = self(),
   {trap_exit,TrapExit} = process_info(Parent, trap_exit),
   %% Spawn a compilation process CompProc. In case this process gets
   %% killed, the trap_exit flag is restored to that of the Parent process.
   process_flag(trap_exit, true),
-  CompProc = spawn_link(fun () ->
-			    %% Compiler process
-			    set_architecture(Options),
-			    pre_init(Options),
-			    %% The full option expansion is not done
-			    %% until the DisasmFun returns.
-			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts0 = expand_options(Options ++ CompOpts,
-                                                   get(hipe_target_arch)),
-                            Opts =
-                             case proplists:get_bool(to_llvm, Opts0) andalso
-                                 not llvm_support_available() of
-                               true ->
-                                 ?error_msg("No LLVM version 3.4 or greater "
-                                            "found in $PATH; aborting "
-                                            "native code compilation.\n", []),
-                                 ?EXIT(cant_find_required_llvm_version);
-                               false ->
-                                 Opts0
-                             end,
-			    check_options(Opts),
-			    ?when_option(verbose, Options,
-					 ?debug_msg("Options: ~p.\n",[Opts])),
-			    init(Opts),
-			    {Icode, WholeModule} = IcodeFun(Code, Opts),
-			    CompRes = compile_finish(Icode, WholeModule, Opts),
-			    compiler_return(CompRes, Parent)
-			end),
+  CompProc =
+    spawn_link(
+      fun () ->
+	  try
+	    %% Compiler process
+	    set_architecture(Options),
+	    pre_init(Options),
+	    %% The full option expansion is not done
+	    %% until the DisasmFun returns.
+	    {Code, CompOpts} = DisasmFun(Options),
+	    Opts0 = expand_options(Options ++ CompOpts,
+				   get(hipe_target_arch)),
+	    Opts =
+	      case proplists:get_bool(to_llvm, Opts0) andalso
+		not llvm_support_available() of
+		true ->
+		  ?error_msg("No LLVM version 3.9 or greater "
+			     "found in $PATH; aborting "
+			     "native code compilation.\n", []),
+		  ?EXIT(cant_find_required_llvm_version);
+		false ->
+		  Opts0
+	      end,
+	    check_options(Opts),
+	    ?when_option(verbose, Options,
+			 ?debug_msg("Options: ~p.\n",[Opts])),
+	    init(Opts),
+	    {Icode, WholeModule} = IcodeFun(Code, Opts),
+	    CompRes = compile_finish(Icode, WholeModule, Opts),
+	    compiler_return(CompRes, Parent)
+	  catch error:Error:StackTrace ->
+	      print_crash_message(Name, Error, StackTrace),
+	      exit(Error)
+	  end
+      end),
   Timeout = case proplists:get_value(timeout, Options) of
 	      N when is_integer(N), N >= 0 -> N;
 	      undefined -> ?DEFAULT_TIMEOUT;
@@ -691,7 +692,7 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
       exit(CompProc, kill),
       receive {'EXIT', CompProc, _} -> ok end,
       flush(),
-      ?error_msg("ERROR: Compilation timed out.\n",[]),
+      ?error_msg("ERROR: Compilation of ~w timed out.\n",[Name]),
       exit(timed_out)
   end,
   Result = receive {CompProc, Res} -> Res end,
@@ -756,8 +757,8 @@ finalize(OrigList, Mod, Exports, WholeModule, Opts) ->
 	  TargetArch = get(hipe_target_arch),
 	  {ok, {TargetArch,Bin}}
       catch
-	error:Error ->
-	  {error,Error,erlang:get_stacktrace()}
+	error:Error:StackTrace ->
+	  {error,Error,StackTrace}
       end
   end.
 
@@ -842,12 +843,26 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
     {llvm_binary, Binary} ->
       {MFA, Binary}
   catch
-    error:Error ->
+    error:Error:StackTrace ->
       ?when_option(verbose, Opts, ?debug_untagged_msg("\n", [])),
-      ErrorInfo = {Error, erlang:get_stacktrace()},
-      ?error_msg("ERROR: ~p~n", [ErrorInfo]),
-      ?EXIT(ErrorInfo)
+      print_crash_message(MFA, Error, StackTrace),
+      exit(Error)
   end.
+
+print_crash_message(What, Error, StackTrace) ->
+  StackFun = fun(_,_,_) -> false end,
+  FormatFun = fun (Term, _) -> io_lib:format("~p", [Term]) end,
+  StackTraceS = erl_error:format_stacktrace(1, StackTrace,
+                                            StackFun, FormatFun),
+  WhatS = case What of
+	    {M,F,A} -> io_lib:format("~w:~w/~w", [M,F,A]);
+	    Mod -> io_lib:format("~w", [Mod])
+	  end,
+  ?error_msg("INTERNAL ERROR~n"
+	     "while compiling ~s~n"
+	     "crash reason: ~p~n"
+	     "~s~n",
+	     [WhatS, Error, StackTraceS]).
 
 pp_server_start(Opts) ->
   set_architecture(Opts),
@@ -1118,9 +1133,10 @@ help_hiper() ->
 
 help_options() ->
   HostArch = erlang:system_info(hipe_architecture),
-  O1 = expand_options([o1], HostArch),
-  O2 = expand_options([o2], HostArch),
-  O3 = expand_options([o3], HostArch),
+  O0 = expand_options([o0] ++ ?COMPILE_DEFAULTS, HostArch),
+  O1 = expand_options([o1] ++ ?COMPILE_DEFAULTS, HostArch),
+  O2 = expand_options([o2] ++ ?COMPILE_DEFAULTS, HostArch),
+  O3 = expand_options([o3] ++ ?COMPILE_DEFAULTS, HostArch),
   io:format("HiPE Compiler Options\n" ++
 	    " Boolean-valued options generally have corresponding " ++
 	    "aliases `no_...',\n" ++
@@ -1139,15 +1155,16 @@ help_options() ->
 	    "   pp_x86 = pp_native,\n" ++
 	    "   pp_amd64 = pp_native,\n" ++
 	    "   pp_ppc = pp_native,\n" ++
-	    "   o0,\n" ++
-	    "   o1 = ~p,\n" ++
+	    "   o0 = ~p,\n" ++
+	    "   o1 = ~p ++ o0,\n" ++
 	    "   o2 = ~p ++ o1,\n" ++
 	    "   o3 = ~p ++ o2.\n",
 	    [ordsets:from_list([verbose, debug, time, load, pp_beam,
 				pp_icode, pp_rtl, pp_native, pp_asm,
 				timeout]),
 	     expand_options([pp_all], HostArch),
-	     O1 -- [o1],
+	     O0 -- [o0],
+	     (O1 -- O0) -- [o1],
 	     (O2 -- O1) -- [o2],
 	     (O3 -- O2) -- [o3]]),
   ok.
@@ -1213,6 +1230,18 @@ option_text(regalloc) ->
   "    optimistic - another variant of a coalescing allocator";
 option_text(remove_comments) ->
   "Strip comments from intermediate code";
+option_text(ra_range_split) ->
+  "Split live ranges of temporaries live over call instructions\n"
+  "before performing register allocation.\n"
+  "Heuristically tries to move stack accesses to the cold path of function.\n"
+  "This range splitter is more sophisticated than 'ra_restore_reuse', but has\n"
+  "a significantly larger impact on compile time.\n"
+  "Should only be used with move coalescing register allocators.";
+option_text(ra_restore_reuse) ->
+  "Split live ranges of temporaries such that straight-line\n"
+  "code will not need to contain multiple restores from the same stack\n"
+  "location.\n"
+  "Should only be used with move coalescing register allocators.";
 option_text(rtl_ssa) ->
   "Perform SSA conversion on the RTL level -- default starting at O2";
 option_text(rtl_ssa_const_prop) ->
@@ -1352,6 +1381,14 @@ opt_keys() ->
      pp_rtl_lcm,
      pp_rtl_ssapre,
      pp_rtl_linear,
+     ra_partitioned,
+     ra_prespill,
+     ra_range_split,
+     ra_restore_reuse,
+     range_split_min_gain,
+     range_split_mode1_fudge,
+     range_split_weight_power,
+     range_split_weights,
      regalloc,
      remove_comments,
      rtl_ssa,
@@ -1377,13 +1414,22 @@ opt_keys() ->
      use_clusters,
      use_jumptable,
      verbose,
+     verify_gcsafe,
      %% verbose_spills,
      x87].
 
 %% Definitions:
 
+o0_opts(_TargetArch) ->
+  [concurrent_comp, {regalloc,linear_scan}].
+
 o1_opts(TargetArch) ->
-  Common = [inline_fp, pmatch, peephole],
+  Common = [inline_fp, pmatch, peephole, ra_prespill, ra_partitioned,
+	    icode_ssa_const_prop, icode_ssa_copy_prop, icode_inline_bifs,
+	    rtl_ssa, rtl_ssa_const_prop, rtl_ssapre,
+	    spillmin_color, use_indexing, remove_comments,
+	    binary_opt, {regalloc,coalescing}, ra_restore_reuse
+	    | o0_opts(TargetArch)],
   case TargetArch of
     ultrasparc ->
       Common;
@@ -1402,11 +1448,9 @@ o1_opts(TargetArch) ->
   end.
 
 o2_opts(TargetArch) ->
-  Common = [icode_ssa_const_prop, icode_ssa_copy_prop, % icode_ssa_struct_reuse,
-	    icode_type, icode_inline_bifs, icode_call_elim, rtl_lcm,
-	    rtl_ssa, rtl_ssa_const_prop,
-	    spillmin_color, use_indexing, remove_comments,
-	    concurrent_comp, binary_opt | o1_opts(TargetArch)],
+  Common = [icode_type, icode_call_elim, % icode_ssa_struct_reuse,
+	    ra_range_split, range_split_weights, % XXX: Having defaults here is ugly
+	    rtl_lcm | (o1_opts(TargetArch) -- [rtl_ssapre, ra_restore_reuse])],
   case TargetArch of
     T when T =:= amd64 orelse T =:= ppc64 -> % 64-bit targets
       [icode_range | Common];
@@ -1416,7 +1460,7 @@ o2_opts(TargetArch) ->
 
 o3_opts(TargetArch) ->
   %% no point checking for target architecture since this is checked in 'o1'
-  [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)].
+  [icode_range | o2_opts(TargetArch)].
 
 %% Note that in general, the normal form for options should be positive.
 %% This is a good programming convention, so that tests in the code say
@@ -1452,6 +1496,11 @@ opt_negations() ->
    {no_pp_native, pp_native},
    {no_pp_rtl_lcm, pp_rtl_lcm},
    {no_pp_rtl_ssapre, pp_rtl_ssapre},
+   {no_ra_partitioned, ra_partitioned},
+   {no_ra_prespill, ra_prespill},
+   {no_ra_range_split, ra_range_split},
+   {no_ra_restore_reuse, ra_restore_reuse},
+   {no_range_split_weights, range_split_weights},
    {no_remove_comments, remove_comments},
    {no_rtl_ssa, rtl_ssa},
    {no_rtl_ssa_const_prop, rtl_ssa_const_prop},
@@ -1462,7 +1511,8 @@ opt_negations() ->
    {no_use_callgraph, use_callgraph},
    {no_use_clusters, use_clusters},
    {no_use_inline_atom_search, use_inline_atom_search},
-   {no_use_indexing, use_indexing}].
+   {no_use_indexing, use_indexing},
+   {no_verify_gcsafe, verify_gcsafe}].
 
 %% Don't use negative forms in right-hand sides of aliases and expansions!
 %% We only expand negations once, before the other expansions are done.
@@ -1481,7 +1531,8 @@ opt_basic_expansions() ->
   [{pp_all, [pp_beam, pp_icode, pp_rtl, pp_native]}].
 
 opt_expansions(TargetArch) ->
-  [{o1, o1_opts(TargetArch)},
+  [{o0, o0_opts(TargetArch)},
+   {o1, o1_opts(TargetArch)},
    {o2, o2_opts(TargetArch)},
    {o3, o3_opts(TargetArch)},
    {to_llvm, llvm_opts(o3, TargetArch)},
@@ -1528,12 +1579,20 @@ expand_kt2(Opts) ->
 
 -spec expand_options(comp_options(), hipe_architecture()) -> comp_options().
 
-expand_options(Opts, TargetArch) ->
+expand_options(Opts0, TargetArch) ->
+  Opts1 = proplists:normalize(Opts0, [{aliases, opt_aliases()}]),
+  Opts = normalise_opt_options(Opts1),
   proplists:normalize(Opts, [{negations, opt_negations()},
-			     {aliases, opt_aliases()},
 			     {expand, opt_basic_expansions()},
 			     {expand, opt_expansions(TargetArch)},
 			     {negations, opt_negations()}]).
+
+normalise_opt_options([o0|Opts]) -> [o0] ++ (Opts -- [o0, o1, o2, o3]);
+normalise_opt_options([o1|Opts]) -> [o1] ++ (Opts -- [o0, o1, o2, o3]);
+normalise_opt_options([o2|Opts]) -> [o2] ++ (Opts -- [o0, o1, o2, o3]);
+normalise_opt_options([o3|Opts]) -> [o3] ++ (Opts -- [o0, o1, o2, o3]);
+normalise_opt_options([O|Opts]) -> [O|normalise_opt_options(Opts)];
+normalise_opt_options([]) -> [].
 
 -spec check_options(comp_options()) -> 'ok'.
 
@@ -1551,7 +1610,7 @@ check_options(Opts) ->
 -spec llvm_support_available() -> boolean().
 
 llvm_support_available() ->
-  get_llvm_version() >= {3,4}.
+  get_llvm_version() >= {3,9}.
 
 -type llvm_version() :: {Major :: integer(), Minor :: integer()}.
 
@@ -1559,11 +1618,11 @@ llvm_support_available() ->
 get_llvm_version() ->
   OptStr = os:cmd("opt -version"),
   SubStr = "LLVM version ", N = length(SubStr),
-  case string:str(OptStr, SubStr) of
-     0 -> % No opt available
+  case string:find(OptStr, SubStr) of
+     nomatch -> % No opt available
        {0, 0};
      S ->
-       case string:tokens(string:sub_string(OptStr, S + N), ".") of
+       case string:lexemes(string:slice(S, N), ".") of
 	 [MajorS, MinorS | _] ->
 	   case {string:to_integer(MajorS), string:to_integer(MinorS)} of
 	     {{Major, ""}, {Minor, _}}

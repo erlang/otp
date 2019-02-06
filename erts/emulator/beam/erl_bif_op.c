@@ -260,7 +260,7 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2)
     } else if (is_export(arg1)) {
 	Export* exp = (Export *) (export_val(arg1)[1]);
 
-	if (exp->code[2] == (Uint) arity) {
+	if (exp->info.mfa.arity == (Uint) arity) {
 	    BIF_RET(am_true);
 	}
     }

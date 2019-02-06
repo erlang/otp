@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,18 +95,20 @@ do_runnable_procs({TsType, TsTypeFlag}) ->
     % FIXME: Set #laps and #nodes in config file
     Nodes = 10,
     Laps = 10,
-    Master = ring(Nodes),
+    All = ring(Nodes, [link,monitor]),
+    [Master | _] = All,
     undefined = erlang:system_profile(Pid, [runnable_procs]++TsTypeFlag),
     % loop a message
     ok = ring_message(Master, message, Laps),
+    ok = kill_ring(Master),
+    [receive {'DOWN', _, process, P, _} -> ok end || P <- All],
     Events = get_profiler_events(),
-    kill_em_all = kill_ring(Master),
     erlang:system_profile(undefined, []),
     put(master, Master),
     put(laps, Laps),
     true = has_runnable_event(TsType, Events),
     Pids = sort_events_by_pid(Events),
-    ok = check_events(TsType, Pids),
+    ok = check_events(TsType, Pids, (Laps+1)*2+2, (Laps+1)*2),
     erase(),
     exit(Pid,kill),
     ok.
@@ -139,16 +141,15 @@ do_runnable_ports({TsType, TsTypeFlag}, Config) ->
     erlang:system_profile(undefined, []),
     true = has_runnable_event(TsType, Events),
     Pids = sort_events_by_pid(Events),
-    ok = check_events(TsType, Pids),
+    ok = check_events(TsType, Pids, Laps*2+2, Laps*2),
     erase(),
     exit(Pid,kill),
     ok.
 
 %% Tests system_profiling with scheduler.
 scheduler(Config) when is_list(Config) ->
-    case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
-	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
-	{_,    1} -> {skipped, "No need for scheduler test when only one scheduler online."};
+    case erlang:system_info(schedulers_online) of
+	1 -> {skipped, "No need for scheduler test when only one scheduler online."};
 	_ ->
 	    Nodes = 10,
 	    lists:foreach(fun (TsType) ->
@@ -172,12 +173,12 @@ dont_profile_profiler(Config) when is_list(Config) ->
 
     Nodes = 10,
     Laps = 10,
-    Master = ring(Nodes),
+    [Master|_] = ring(Nodes, [link]),
     undefined = erlang:system_profile(Pid, [runnable_procs]),
     % loop a message
     ok = ring_message(Master, message, Laps),
     erlang:system_profile(undefined, []),
-    kill_em_all = kill_ring(Master),
+    ok = kill_ring(Master),
     Events = get_profiler_events(),
     false  = has_profiler_pid_event(Events, Pid),
 
@@ -249,27 +250,28 @@ check_block_system({TsType, TsTypeFlag}, Nodes) ->
 
 %%% Check events
 
-check_events(_TsType, []) -> ok;
-check_events(TsType, [Pid | Pids]) ->
+check_events(_TsType, [], _, _) -> ok;
+check_events(TsType, [Pid | Pids], ExpMaster, ExpMember) ->
     Master = get(master),
-    Laps = get(laps),
     CheckPids = get(pids),
     {Events, N} = get_pid_events(Pid),
     ok = check_event_flow(Events),
     ok = check_event_ts(TsType, Events),
     IsMember = lists:member(Pid, CheckPids),
-    case Pid of
-    	Master ->
-	    io:format("Expected ~p and got ~p profile events from ~p: ok~n", [Laps*2+2, N, Pid]),
-	    N = Laps*2 + 2,
-    	    check_events(TsType, Pids);
-	Pid when IsMember == true ->
-	    io:format("Expected ~p and got ~p profile events from ~p: ok~n", [Laps*2, N, Pid]),
-	    N = Laps*2,
-    	    check_events(TsType, Pids);
-	Pid ->
-	    check_events(TsType, Pids)
-    end.
+    {Title,Exp} = case Pid of
+                      Master -> {master,ExpMaster};
+                      Pid when IsMember == true -> {member,ExpMember};
+                      _ -> {other,N}
+                  end,
+    ok = case N of
+             Exp -> ok;
+             _ ->
+                 io:format("Expected ~p and got ~p profile events from ~p ~p:~n~p~n",
+                           [Exp, N, Title, Pid, Events]),
+                 error
+         end,
+    check_events(TsType, Pids, ExpMaster, ExpMember).
+
 
 %% timestamp consistency check for descending timestamps
 
@@ -297,7 +299,13 @@ check_event_ts(TsType, [{Pid, _, _, TS1}=Event | Events], {Pid,_,_,TS0}) ->
 %% consistency check for active vs. inactive activity (runnable)
 
 check_event_flow(Events) ->
-    check_event_flow(Events, undefined).
+    case check_event_flow(Events, undefined) of
+        ok -> ok;
+        Error ->
+            io:format("Events = ~p\n", [Events]),
+            Error
+    end.
+
 check_event_flow([], _) -> ok;
 check_event_flow([Event | PidEvents], undefined) ->
     check_event_flow(PidEvents, Event);
@@ -337,10 +345,11 @@ sort_events_by_pid([Event | Events],Pids) ->
 %% API
 
 % Returns master pid
-ring(N) -> 
-    Pids = build_ring(N, []),
+ring(N, SpawnOpt) -> 
+    Pids = build_ring(N, [], SpawnOpt),
     put(pids, Pids),
-    setup_ring(Pids).
+    setup_ring(Pids),
+    Pids.
 
 ring_message(Master, Message, Laps) ->
     Master ! {message, Master, Laps, Message},
@@ -348,13 +357,19 @@ ring_message(Master, Message, Laps) ->
     	{laps_complete, Master} -> ok
     end.
 
-kill_ring(Master) -> Master ! kill_em_all.
+kill_ring(Master) ->
+    Master ! kill_em_all,
+    ok.
 
 %% Process ring helpers
 
-build_ring(0, Pids) -> Pids;
-build_ring(N, Pids) ->
-    build_ring(N - 1, [spawn_link(?MODULE, ring_loop, [undefined]) | Pids]).
+build_ring(0, Pids, _) -> Pids;
+build_ring(N, Pids, SpawnOpt) ->
+    Pid = case spawn_opt(?MODULE, ring_loop, [undefined], SpawnOpt) of
+              {P,_} -> P;
+              P -> P
+          end,
+    build_ring(N-1, [Pid | Pids], SpawnOpt).
 
 setup_ring([Master | Relayers]) ->
     % Relayers may not include the master pid
@@ -383,15 +398,13 @@ ring_loop(RelayTo) ->
         {message, Master, Lap, Msg}=Message ->
             case {self(), Lap} of
                 {Master, 0} ->
-                    get(supervisor) ! {laps_complete, self()},
-                    ring_loop(RelayTo);
+                    get(supervisor) ! {laps_complete, self()};
                 {Master, Lap} ->
-                    RelayTo ! {message, Master, Lap - 1, Msg},
-                    ring_loop(RelayTo);
+                    RelayTo ! {message, Master, Lap - 1, Msg};
                 _ ->
-                    RelayTo ! Message,
-                    ring_loop(RelayTo)
-            end
+                    RelayTo ! Message
+            end,
+            ring_loop(RelayTo)
     end.
 
 %%%
@@ -542,8 +555,10 @@ has_runnable_event(TsType, Events) ->
 	    end
         end, Events).
 
-has_profiler_pid_event([], _) -> false;
-has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|Events], Pid) -> true;
+has_profiler_pid_event([], _) ->
+    false;
+has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|_Events], Pid) ->
+    true;
 has_profiler_pid_event([_|Events], Pid) ->
     has_profiler_pid_event(Events, Pid).
 

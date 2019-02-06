@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 %%
 
 -module(binary_SUITE).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
@@ -49,6 +48,7 @@
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, float_middle_endian/1,
+         b2t_used_big/1,
 	 external_size/1, t_iolist_size/1,
 	 t_hash/1,
 	 bad_size/1,
@@ -58,7 +58,9 @@
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
-	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
+	 otp_6817/1,deep/1,
+         term2bin_tuple_fallbacks/1,
+         robustness/1,otp_8117/1,
 	 otp_8180/1, trapping/1, large/1,
 	 error_after_yield/1, cmp_old_impl/1]).
 
@@ -73,12 +75,14 @@ all() ->
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
      terms_float, float_middle_endian, external_size, t_iolist_size,
+     b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, trapping, large,
+     term2bin_tuple_fallbacks,
+     robustness, otp_8180, trapping, large,
      error_after_yield, cmp_old_impl].
 
 groups() -> 
@@ -258,6 +262,7 @@ test_deep_bitstr(List) ->
     {Bin,bitstring_to_list(Bin)}.
 
 bad_list_to_binary(Config) when is_list(Config) ->
+    test_bad_bin(<<1:1>>),
     test_bad_bin(atom),
     test_bad_bin(42),
     test_bad_bin([1|2]),
@@ -392,7 +397,6 @@ test_hash(List) ->
     Bin = list_to_binary(List),
     Sbin = make_sub_binary(List),
     Unaligned = make_unaligned_sub_binary(Sbin),
-    test_hash_1(Bin, Sbin, Unaligned, fun erlang:hash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash2/2).
 
@@ -427,39 +431,76 @@ bad_term_to_binary(Config) when is_list(Config) ->
 
 terms(Config) when is_list(Config) ->
     TestFun = fun(Term) ->
-		      try
-			  S = io_lib:format("~p", [Term]),
-			  io:put_chars(S)
-		      catch
-			  error:badarg ->
-			      io:put_chars("bit sized binary")
-		      end,
+                      S = io_lib:format("~p", [Term]),
+                      io:put_chars(S),
 		      Bin = term_to_binary(Term),
 		      case erlang:external_size(Bin) of
 			  Sz when is_integer(Sz), size(Bin) =< Sz ->
 			      ok
 		      end,
-              Bin1 = term_to_binary(Term, [{minor_version, 1}]),
-              case erlang:external_size(Bin1, [{minor_version, 1}]) of
-              Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
-                  ok
-              end,
+                      Bin1 = term_to_binary(Term, [{minor_version, 1}]),
+                      case erlang:external_size(Bin1, [{minor_version, 1}]) of
+                          Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
+                              ok
+                      end,
 		      Term = binary_to_term_stress(Bin),
 		      Term = binary_to_term_stress(Bin, [safe]),
-		      Unaligned = make_unaligned_sub_binary(Bin),
-		      Term = binary_to_term_stress(Unaligned),
-		      Term = binary_to_term_stress(Unaligned, []),
-		      Term = binary_to_term_stress(Bin, [safe]),
+                      Bin_sz = byte_size(Bin),
+		      {Term,Bin_sz} = binary_to_term_stress(Bin, [used]),
+
+                      BinE = <<Bin/binary, 1, 2, 3>>,
+		      {Term,Bin_sz} = binary_to_term_stress(BinE, [used]),
+
+		      BinU = make_unaligned_sub_binary(Bin),
+		      Term = binary_to_term_stress(BinU),
+		      Term = binary_to_term_stress(BinU, []),
+		      Term = binary_to_term_stress(BinU, [safe]),
+		      {Term,Bin_sz} = binary_to_term_stress(BinU, [used]),
+
+                      BinUE = make_unaligned_sub_binary(BinE),
+		      {Term,Bin_sz} = binary_to_term_stress(BinUE, [used]),
+
 		      BinC = erlang:term_to_binary(Term, [compressed]),
+                      BinC_sz = byte_size(BinC),
+		      true = BinC_sz =< size(Bin),
 		      Term = binary_to_term_stress(BinC),
-		      true = size(BinC) =< size(Bin),
+		      {Term, BinC_sz} = binary_to_term_stress(BinC, [used]),
+
 		      Bin = term_to_binary(Term, [{compressed,0}]),
 		      terms_compression_levels(Term, size(Bin), 1),
-		      UnalignedC = make_unaligned_sub_binary(BinC),
-		      Term = binary_to_term_stress(UnalignedC)
+
+		      BinUC = make_unaligned_sub_binary(BinC),
+		      Term = binary_to_term_stress(BinUC),
+                      {Term,BinC_sz} = binary_to_term_stress(BinUC, [used]),
+
+                      BinCE = <<BinC/binary, 1, 2, 3>>,
+		      {Term,BinC_sz} = binary_to_term_stress(BinCE, [used]),
+
+		      BinUCE = make_unaligned_sub_binary(BinCE),
+		      Term = binary_to_term_stress(BinUCE),
+                      {Term,BinC_sz} = binary_to_term_stress(BinUCE, [used])
 	      end,
     test_terms(TestFun),
     ok.
+
+%% Test binary_to_term(_, [used]) returning a big Used integer.
+b2t_used_big(_Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            {skipped, "This is not a 32-bit machine"};
+        4 ->
+            %% Use a long utf8 atom for large external format but compact on heap.
+            BigAtom = binary_to_atom(<< <<16#F0908D88:32>> || _ <- lists:seq(1,255) >>,
+                                     utf8),
+            Atoms = (1 bsl 17) + (1 bsl 9),
+            BigAtomList = lists:duplicate(Atoms, BigAtom),
+            BigBin = term_to_binary(BigAtomList),
+            {BigAtomList, Used} = binary_to_term(BigBin, [used]),
+            2 = erts_debug:size(Used),
+            Used = byte_size(BigBin),
+            Used = 1 + 1 + 4 + Atoms*(1+2+4*255) + 1,
+            ok
+    end.
 
 terms_compression_levels(Term, UncompressedSz, Level) when Level < 10 ->
     BinC = erlang:term_to_binary(Term, [{compressed,Level}]),
@@ -601,6 +642,9 @@ bad_binary_to_term(Config) when is_list(Config) ->
 
     %% Bad float.
     bad_bin_to_term(<<131,70,-1:64>>),
+
+    %% Truncated UTF8 character (ERL-474)
+    bad_bin_to_term(<<131,119,1,194,163>>),
     ok.
 
 bad_bin_to_term(BadBin) ->
@@ -1010,7 +1054,7 @@ ordering(Config) when is_list(Config) ->
 
     ok.
 
-%% Test that comparisions between binaries with different alignment work.
+%% Test that comparison between binaries with different alignment work.
 unaligned_order(Config) when is_list(Config) ->
     L = lists:seq(0, 7),
     [test_unaligned_order(I, J) || I <- L, J <- L], 
@@ -1159,7 +1203,7 @@ very_big_num(0, Result) ->
     Result.
 
 make_port() ->
-    open_port({spawn, efile}, [eof]).
+    hd(erlang:ports()).
 
 make_pid() ->
     spawn_link(?MODULE, sleeper, []).
@@ -1260,40 +1304,28 @@ deep_roundtrip(T) ->
     B = term_to_binary(T),
     T = binary_to_term(B).
 
-obsolete_funs(Config) when is_list(Config) ->
+term2bin_tuple_fallbacks(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
 
-    X = id({1,2,3}),
-    Y = id([a,b,c,d]),
-    Z = id({x,y,z}),
-    obsolete_fun(fun() -> ok end),
-    obsolete_fun(fun() -> X end),
-    obsolete_fun(fun(A) -> {A,X} end),
-    obsolete_fun(fun() -> {X,Y} end),
-    obsolete_fun(fun() -> {X,Y,Z} end),
-
-    obsolete_fun(fun ?MODULE:all/1),
+    term2bin_tf(fun ?MODULE:all/1),
+    term2bin_tf(<<1:1>>),
+    term2bin_tf(<<90,80:7>>),
 
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
-obsolete_fun(Fun) ->
-    Tuple = case erlang:fun_info(Fun, type) of
-		{type,external} ->
-		    {module,M} = erlang:fun_info(Fun, module),
-		    {name,F} = erlang:fun_info(Fun, name),
-		    {M,F};
-		{type,local} ->
-		    {module,M} = erlang:fun_info(Fun, module),
-		    {index,I} = erlang:fun_info(Fun, index),
-		    {uniq,U} = erlang:fun_info(Fun, uniq),
-		    {env,E} = erlang:fun_info(Fun, env),
-		    {'fun',M,I,U,list_to_tuple(E)}
-	    end,
-    Tuple = no_fun_roundtrip(Fun).
-
-no_fun_roundtrip(Term) ->
-    binary_to_term_stress(erts_debug:get_internal_state({term_to_binary_no_funs,Term})).
+term2bin_tf(Term) ->
+    Tuple = case Term of
+                Fun when is_function(Fun) ->
+                    {type, external} = erlang:fun_info(Fun, type),
+                    {module,M} = erlang:fun_info(Fun, module),
+                    {name,F} = erlang:fun_info(Fun, name),
+                    {M,F};
+                BS when bit_size(BS) rem 8 =/= 0 ->
+                    Bits = bit_size(BS) rem 8,
+                    {<<BS/bitstring, 0:(8-Bits)>>, Bits}
+            end,
+    Tuple = binary_to_term_stress(erts_debug:get_internal_state({term_to_binary_tuple_fallbacks,Term})).
 
 %% Test non-standard encodings never generated by term_to_binary/1
 %% but recognized by binary_to_term/1.
@@ -1360,17 +1392,19 @@ do_trapping(N, Bif, ArgFun) ->
     io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
     Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
-    receive after 100 -> ok end,
     Ref = make_ref(),
     case N rem 2 of
-	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
-	     receive after 100 -> ok end;
+	0 ->
+            erlang:garbage_collect(Pid, [{async,Ref}]),
+            receive after 1 -> ok end;
 	1 -> void
     end,
-    exit(Pid,kill),
+    exit(Pid, kill),
     case N rem 2 of
-	0 -> receive {garbage_collect, Ref, _} -> ok end;
-	1 -> void
+	0 ->
+            receive {garbage_collect, Ref, _} -> ok end;
+	1 ->
+            void
     end,
     receive after 1 -> ok end,
     do_trapping(N-1, Bif, ArgFun).
@@ -1439,13 +1473,13 @@ error_after_yield(Type, M, F, AN, AFun, TrapFunc) ->
 					   apply(M, F, A),
 					   exit({unexpected_success, {M, F, A}})
 				       catch
-					   error:Type ->
+					   error:Type:Stk ->
 					       erlang:trace(self(),false,[running,{tracer,Tracer}]),
 					       %% We threw the exception from the native
 					       %% function we trapped to, but we want
 					       %% the BIF that originally was called
 					       %% to appear in the stack trace.
-					       [{M, F, A, _} | _] = erlang:get_stacktrace()
+					       [{M, F, A, _} | _] = Stk
 				       end
 			       end),
     receive

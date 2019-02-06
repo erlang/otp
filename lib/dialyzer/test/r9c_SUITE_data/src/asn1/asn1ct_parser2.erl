@@ -2721,7 +2721,7 @@ prioritize_error(ErrList) ->
 				end,
 				NewErrList),
 	    case SplitErrs of
-		{[],UndefPosErrs} -> % if no error with Positon exists
+		{[],UndefPosErrs} -> % if no error with Position exists
 		    lists:last(UndefPosErrs);
 		{IntPosErrs,_} ->
 		    IntPosReasons = lists:map(fun(X)->element(2,X) end,IntPosErrs),

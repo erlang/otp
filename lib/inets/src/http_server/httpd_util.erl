@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -333,7 +333,9 @@ rfc1123_date(LocalTime) ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = 
 	case calendar:local_time_to_universal_time_dst(LocalTime) of
 	    [Gmt]   -> Gmt;
-	    [_,Gmt] -> Gmt
+	    [_,Gmt] -> Gmt;
+        % Should not happen, but handle the empty list to prevent an error.
+        [] -> LocalTime
 	end,
     DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
     lists:flatten(

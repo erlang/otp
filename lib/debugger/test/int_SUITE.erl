@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,7 +241,8 @@ interpretable(Config) when is_list(Config) ->
     true = code:del_path(PrivDir),
 
     %% {error, no_src}
-    {ok, lists2, Binary} = compile:forms([{attribute,1,module,lists2}], []),
+    A1 = erl_anno:new(1),
+    {ok, lists2, Binary} = compile:forms([{attribute,A1,module,lists2}], []),
     code:load_binary(lists2, "unknown", Binary),
     {error, no_src} = int:interpretable(lists2),
 

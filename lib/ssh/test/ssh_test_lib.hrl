@@ -1,4 +1,9 @@
 %%-------------------------------------------------------------------------
+%% Timeout time in ms
+%%-------------------------------------------------------------------------
+-define(TIMEOUT, 27000).
+
+%%-------------------------------------------------------------------------
 %% Check for usable crypt 
 %%-------------------------------------------------------------------------
 -define(CHECK_CRYPTO(Available),
@@ -11,12 +16,12 @@
 %%-------------------------------------------------------------------------
 %% Help macro
 %%-------------------------------------------------------------------------
--define(wait_match(Pattern, FunctionCall, Bind, Timeout, Ntries),
+-define(wait_match(Pattern, Guard, FunctionCall, Bind, Timeout, Ntries),
 	Bind =
 	    (fun() -> 
 		     F = fun(N, F1) ->
 				 case FunctionCall of
-				     Pattern -> Bind;
+				     Pattern when Guard -> Bind;
 				     _ when N>0 ->
 					 ct:pal("Must sleep ~p ms at ~p:~p",[Timeout,?MODULE,?LINE]),
 					 timer:sleep(Timeout),
@@ -28,6 +33,9 @@
 		     F(Ntries, F)
 	     end)()
        ).
+
+-define(wait_match(Pattern, FunctionCall, Bind, Timeout, Ntries),
+        ?wait_match(Pattern, true, FunctionCall, Bind, Timeout, Ntries)).
 
 -define(wait_match(Pattern, FunctionCall, Timeout, Ntries),  ?wait_match(Pattern, FunctionCall, ok, Timeout, Ntries)).
 

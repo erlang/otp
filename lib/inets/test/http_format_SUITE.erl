@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -535,8 +535,11 @@ esi_parse_headers(Config) when is_list(Config) ->
 	 {"location","http://foo.bar.se"}], 302} =
 	httpd_esi:handle_headers(Headers2),
     
-    {proceed,"/foo/bar.html"} = 
-	httpd_esi:handle_headers("location:/foo/bar.html\r\n").
+   {ok,[{"location","/foo/bar.html"}], 302} = 
+	httpd_esi:handle_headers("location:/foo/bar.html\r\n"),
+    
+    {ok,[{"location","http://foo/bar.html"}],201} =
+        httpd_esi:handle_headers("status:201 Created\r\nlocation:http://foo/bar.html\r\n").
 
 %%--------------------------------------------------------------------
 cgi_parse_headers() ->

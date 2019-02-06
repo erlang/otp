@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -297,7 +297,7 @@ indent(L) ->
 app_fix(L) ->
     try
         {"//" ++ R1,L2} = app_fix(L, 1),
-        [App, Mod] = string:tokens(R1, "/"),
+        [App, Mod] = string:lexemes(R1, "/"),
         "//" ++ atom(App) ++ "/" ++ atom(Mod) ++ L2
     catch _:_ -> L
     end.
@@ -406,7 +406,7 @@ t_var(E) ->
     [get_attrval(name, E)].
 
 t_atom(E) ->
-    [get_attrval(value, E)].
+    [io_lib:write(list_to_atom(get_attrval(value, E)))].
 
 t_integer(E) ->
     [get_attrval(value, E)].
@@ -578,20 +578,20 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {ok, [{atom,A,Name}], _} = erl_scan:string(lists:flatten(t_atom(E)), 0),
     {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
 
 ot_range(E) ->
-    [I1, I2] = string:tokens(get_attrval(value, E), "."),
+    [I1, I2] = string:lexemes(get_attrval(value, E), "."),
     {type,0,range,[{integer,0,list_to_integer(I1)},
                    {integer,0,list_to_integer(I2)}]}.
 
 ot_binary(E) ->
     {Base, Unit} =
-        case string:tokens(get_attrval(value, E), ",:*><") of
+        case string:lexemes(get_attrval(value, E), ",:*><") of
             [] ->
                 {0, 0};
             ["_",B] ->
@@ -658,6 +658,8 @@ ot_name(Es, T) ->
                             {atom,0,list_to_atom(Atom)},T]};
         "tuple" when T =:= [] ->
             {type,0,tuple,any};
+        "map" when T =:= [] ->
+            {type,0,map,any};
         Atom ->
             {type,0,list_to_atom(Atom),T}
     end.

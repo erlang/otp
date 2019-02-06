@@ -52,7 +52,7 @@ new() ->
 -spec isTrueValue(Value) -> boolean() when
 	Value::unicode:chardata().
 isTrueValue(Value)
- when is_list(Value) ->
+ when ?is_chardata(Value) ->
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:call(?wxGridCellBoolEditor_IsTrueValue,
   <<(byte_size(Value_UC)):32/?UI,(Value_UC)/binary, 0:(((8- ((4+byte_size(Value_UC)) band 16#7)) band 16#7))/unit:8>>).

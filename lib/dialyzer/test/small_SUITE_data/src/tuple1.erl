@@ -2,7 +2,7 @@
 %%% File    : tuple1.erl
 %%% Author  : Tobias Lindahl <tobiasl@csd.uu.se>
 %%% Description : Exposed two bugs in the analysis;
-%%%               one supressed warning and one crash.
+%%%               one suppressed warning and one crash.
 %%%
 %%% Created : 13 Nov 2006 by Tobias Lindahl <tobiasl@csd.uu.se>
 %%%-------------------------------------------------------------------

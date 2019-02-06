@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,6 +105,8 @@
 %%%
 %%% ---------------------------------------------------
 
+-include("logger.hrl").
+
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
@@ -113,7 +115,7 @@
 	 sync_send_all_state_event/2, sync_send_all_state_event/3,
 	 reply/2,
 	 start_timer/2,send_event_after/2,cancel_timer/1,
-	 enter_loop/4, enter_loop/5, enter_loop/6, wake_hib/6]).
+	 enter_loop/4, enter_loop/5, enter_loop/6, wake_hib/7]).
 
 %% Internal exports
 -export([init_it/6,
@@ -124,7 +126,28 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
--import(error_logger, [format/2]).
+%% logger callback
+-export([format_log/1]).
+
+-deprecated({start, 3, eventually}).
+-deprecated({start, 4, eventually}).
+-deprecated({start_link, 3, eventually}).
+-deprecated({start_link, 4, eventually}).
+-deprecated({stop, 1, eventually}).
+-deprecated({stop, 3, eventually}).
+-deprecated({send_event, 2, eventually}).
+-deprecated({sync_send_event, 2, eventually}).
+-deprecated({sync_send_event, 3, eventually}).
+-deprecated({send_all_state_event, 2, eventually}).
+-deprecated({sync_send_all_state_event, 2, eventually}).
+-deprecated({sync_send_all_state_event, 3, eventually}).
+-deprecated({reply, 2, eventually}).
+-deprecated({start_timer, 2, eventually}).
+-deprecated({send_event_after, 2, eventually}).
+-deprecated({cancel_timer, 1, eventually}).
+-deprecated({enter_loop, 4, eventually}).
+-deprecated({enter_loop, 5, eventually}).
+-deprecated({enter_loop, 6, eventually}).
 
 %%% ---------------------------------------------------
 %%% Interface functions.
@@ -169,7 +192,8 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_info/3, terminate/3, code_change/4, format_status/2]).
 
 %%% ---------------------------------------------------
 %%% Starts a generic state machine.
@@ -177,7 +201,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
+%%%    Name ::= {local, atom()} | {global, term()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' fsm
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{debug, [Flag]}]
@@ -273,7 +297,7 @@ start_timer(Time, Msg) ->
 send_event_after(Time, Event) ->
     erlang:start_timer(Time, self(), {'$gen_event', Event}).
 
-%% Returns the remaing time for the timer if Ref referred to 
+%% Returns the remaining time for the timer if Ref referred to
 %% an active timer/send_event_after, false otherwise.
 cancel_timer(Ref) ->
     case erlang:cancel_timer(Ref) of
@@ -308,7 +332,8 @@ enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
-    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
+	HibernateAfterTimeout = gen:hibernate_after(Options),
+    loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug).
 
 %%% ---------------------------------------------------
 %%% Initiate the new process.
@@ -322,13 +347,14 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
-    case catch Mod:init(Args) of
+	HibernateAfterTimeout = gen:hibernate_after(Options),
+	case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, StateName, StateData, Mod, infinity, Debug);
+	    loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, Debug);
 	{ok, StateName, StateData, Timeout} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
-	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
+	    loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug);
 	{stop, Reason} ->
 	    gen:unregister_name(Name0),
 	    proc_lib:init_ack(Starter, {error, Reason}),
@@ -350,68 +376,77 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 %%-----------------------------------------------------------------
 %% The MAIN loop
 %%-----------------------------------------------------------------
-loop(Parent, Name, StateName, StateData, Mod, hibernate, Debug) ->
+loop(Parent, Name, StateName, StateData, Mod, hibernate, HibernateAfterTimeout, Debug) ->
     proc_lib:hibernate(?MODULE,wake_hib,
-		       [Parent, Name, StateName, StateData, Mod, 
+		       [Parent, Name, StateName, StateData, Mod, HibernateAfterTimeout,
 			Debug]);
-loop(Parent, Name, StateName, StateData, Mod, Time, Debug) ->
+
+loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, Debug) ->
+	receive
+		Msg ->
+			decode_msg(Msg,Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, Debug, false)
+	after HibernateAfterTimeout ->
+		loop(Parent, Name, StateName, StateData, Mod, hibernate, HibernateAfterTimeout, Debug)
+	end;
+
+loop(Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug) ->
     Msg = receive
 	      Input ->
 		    Input
 	  after Time ->
 		  {'$gen_event', timeout}
 	  end,
-    decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, false).
+    decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug, false).
 
-wake_hib(Parent, Name, StateName, StateData, Mod, Debug) ->
+wake_hib(Parent, Name, StateName, StateData, Mod, HibernateAfterTimeout, Debug) ->
     Msg = receive
 	      Input ->
 		  Input
 	  end,
-    decode_msg(Msg, Parent, Name, StateName, StateData, Mod, hibernate, Debug, true).
+    decode_msg(Msg, Parent, Name, StateName, StateData, Mod, hibernate, HibernateAfterTimeout, Debug, true).
 
-decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, Hib) ->
+decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug, Hib) ->
     case Msg of
         {system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-				  [Name, StateName, StateData, Mod, Time], Hib);
+				  [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout], Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug);
 	_Msg when Debug =:= [] ->
-	    handle_msg(Msg, Parent, Name, StateName, StateData, Mod, Time);
+	    handle_msg(Msg, Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout);
 	_Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, StateName}, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, StateName, StateData,
-		       Mod, Time, Debug1)
+		       Mod, Time, HibernateAfterTimeout, Debug1)
     end.
 
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
-system_continue(Parent, Debug, [Name, StateName, StateData, Mod, Time]) ->
-    loop(Parent, Name, StateName, StateData, Mod, Time, Debug).
+system_continue(Parent, Debug, [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout]) ->
+    loop(Parent, Name, StateName, StateData, Mod, Time, HibernateAfterTimeout, Debug).
 
 -spec system_terminate(term(), _, _, [term(),...]) -> no_return().
 
 system_terminate(Reason, _Parent, Debug,
-		 [Name, StateName, StateData, Mod, _Time]) ->
+		 [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]) ->
     terminate(Reason, Name, [], Mod, StateName, StateData, Debug).
 
-system_code_change([Name, StateName, StateData, Mod, Time],
+system_code_change([Name, StateName, StateData, Mod, Time, HibernateAfterTimeout],
 		   _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
 	{ok, NewStateName, NewStateData} ->
-	    {ok, [Name, NewStateName, NewStateData, Mod, Time]};
+	    {ok, [Name, NewStateName, NewStateData, Mod, Time, HibernateAfterTimeout]};
 	Else -> Else
     end.
 
-system_get_state([_Name, StateName, StateData, _Mod, _Time]) ->
+system_get_state([_Name, StateName, StateData, _Mod, _Time, _HibernateAfterTimeout]) ->
     {ok, {StateName, StateData}}.
 
-system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time]) ->
+system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time, HibernateAfterTimeout]) ->
     Result = {NStateName, NStateData} = StateFun({StateName, StateData}),
-    {ok, Result, [Name, NStateName, NStateData, Mod, Time]}.
+    {ok, Result, [Name, NStateName, NStateData, Mod, Time, HibernateAfterTimeout]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees
@@ -420,45 +455,45 @@ system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time]) ->
 print_event(Dev, {in, Msg}, {Name, StateName}) ->
     case Msg of
 	{'$gen_event', Event} ->
-	    io:format(Dev, "*DBG* ~p got event ~p in state ~w~n",
+	    io:format(Dev, "*DBG* ~tp got event ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	{'$gen_all_state_event', Event} ->
 	    io:format(Dev,
-		      "*DBG* ~p got all_state_event ~p in state ~w~n",
+		      "*DBG* ~tp got all_state_event ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	{timeout, Ref, {'$gen_timer', Message}} ->
 	    io:format(Dev,
-		      "*DBG* ~p got timer ~p in state ~w~n",
+		      "*DBG* ~tp got timer ~tp in state ~tw~n",
 		      [Name, {timeout, Ref, Message}, StateName]);
 	{timeout, _Ref, {'$gen_event', Event}} ->
 	    io:format(Dev,
-		      "*DBG* ~p got timer ~p in state ~w~n",
+		      "*DBG* ~tp got timer ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p in state ~w~n",
+	    io:format(Dev, "*DBG* ~tp got ~tp in state ~tw~n",
 		      [Name, Msg, StateName])
     end;
 print_event(Dev, {out, Msg, To, StateName}, Name) ->
-    io:format(Dev, "*DBG* ~p sent ~p to ~w~n"
-	           "      and switched to state ~w~n",
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~tw~n"
+	           "      and switched to state ~tw~n",
 	      [Name, Msg, To, StateName]);
 print_event(Dev, return, {Name, StateName}) ->
-    io:format(Dev, "*DBG* ~p switched to state ~w~n",
+    io:format(Dev, "*DBG* ~tp switched to state ~tw~n",
 	      [Name, StateName]).
 
-handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug here
+handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout) -> %No debug here
     From = from(Msg),
     case catch dispatch(Msg, Mod, StateName, StateData) of
 	{next_state, NStateName, NStateData} ->	    
-	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, []);
+	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, []);
 	{next_state, NStateName, NStateData, Time1} ->
-	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, []);
+	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, []);
         {reply, Reply, NStateName, NStateData} when From =/= undefined ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, []);
+	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, []);
         {reply, Reply, NStateName, NStateData, Time1} when From =/= undefined ->
 	    reply(From, Reply),
-	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, []);
+	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, []);
 	{stop, Reason, NStateData} ->
 	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, []);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
@@ -466,6 +501,14 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug her
 					   StateName, NStateData, [])),
 	    reply(From, Reply),
 	    exit(R);
+        {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
+            ?LOG_WARNING(#{label=>{gen_fsm,no_handle_info},
+                           module=>Mod,
+                           message=>Msg},
+                         #{domain=>[otp],
+                           report_cb=>fun gen_fsm:format_log/1,
+                           error_logger=>#{tag=>warning_msg}}),
+            loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
 	Reply ->
@@ -473,23 +516,23 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time) -> %No debug her
 		      Name, Msg, Mod, StateName, StateData, [])
     end.
 
-handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, Debug) ->
+handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout, Debug) ->
     From = from(Msg),
     case catch dispatch(Msg, Mod, StateName, StateData) of
 	{next_state, NStateName, NStateData} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, NStateName}, return),
-	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, Debug1);
+	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, Debug1);
 	{next_state, NStateName, NStateData, Time1} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, NStateName}, return),
-	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, Debug1);
+	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, Debug1);
         {reply, Reply, NStateName, NStateData} when From =/= undefined ->
 	    Debug1 = reply(Name, From, Reply, Debug, NStateName),
-	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, Debug1);
+	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, Debug1);
         {reply, Reply, NStateName, NStateData, Time1} when From =/= undefined ->
 	    Debug1 = reply(Name, From, Reply, Debug, NStateName),
-	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, Debug1);
+	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, HibernateAfterTimeout, Debug1);
 	{stop, Reason, NStateData} ->
 	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, Debug);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
@@ -540,27 +583,51 @@ reply(Name, {To, Tag}, Reply, Debug, StateName) ->
 -spec terminate(term(), _, _, atom(), _, _, _) -> no_return().
 
 terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) ->
-    case catch Mod:terminate(Reason, StateName, StateData) of
-	{'EXIT', R} ->
-	    FmtStateData = format_status(terminate, Mod, get(), StateData),
-	    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
-	    exit(R);
-	_ ->
-	    case Reason of
-		normal ->
-		    exit(normal);
-		shutdown ->
-		    exit(shutdown);
- 		{shutdown,_}=Shutdown ->
- 		    exit(Shutdown);
+    case erlang:function_exported(Mod, terminate, 3) of
+	true ->
+	    case catch Mod:terminate(Reason, StateName, StateData) of
+		{'EXIT', R} ->
+		    FmtStateData = format_status(terminate, Mod, get(), StateData),
+		    error_info(R, Name, Msg, StateName, FmtStateData, Debug),
+		    exit(R);
 		_ ->
-                    FmtStateData = format_status(terminate, Mod, get(), StateData),
-		    error_info(Reason,Name,Msg,StateName,FmtStateData,Debug),
-		    exit(Reason)
-	    end
+		    ok
+	    end;
+	false ->
+	    ok
+    end,
+    case Reason of
+	normal ->
+	    exit(normal);
+	shutdown ->
+	    exit(shutdown);
+ 	{shutdown,_}=Shutdown ->
+ 	    exit(Shutdown);
+	_ ->
+	    FmtStateData1 = format_status(terminate, Mod, get(), StateData),
+	    error_info(Reason,Name,Msg,StateName,FmtStateData1,Debug),
+	    exit(Reason)
     end.
 
 error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
+    ?LOG_ERROR(#{label=>{gen_fsm,terminate},
+                 name=>Name,
+                 last_message=>Msg,
+                 state_name=>StateName,
+                 state_data=>StateData,
+                 reason=>Reason},
+               #{domain=>[otp],
+                 report_cb=>fun gen_fsm:format_log/1,
+                 error_logger=>#{tag=>error}}),
+    sys:print_log(Debug),
+    ok.
+
+format_log(#{label:={gen_fsm,terminate},
+             name:=Name,
+             last_message:=Msg,
+             state_name:=StateName,
+             state_data:=StateData,
+             reason:=Reason}) ->
     Reason1 = 
 	case Reason of
 	    {undef,[{M,F,A,L}|MFAs]} ->
@@ -578,29 +645,33 @@ error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
 	    _ ->
 		Reason
 	end,
-    Str = "** State machine ~p terminating \n" ++
-	get_msg_str(Msg) ++
-	"** When State == ~p~n"
-        "**      Data  == ~p~n"
-        "** Reason for termination = ~n** ~p~n",
-    format(Str, [Name, get_msg(Msg), StateName, StateData, Reason1]),
-    sys:print_log(Debug),
-    ok.
+    {"** State machine ~tp terminating \n" ++
+         get_msg_str(Msg) ++
+     "** When State == ~tp~n"
+     "**      Data  == ~tp~n"
+     "** Reason for termination = ~n** ~tp~n",
+     [Name, get_msg(Msg), StateName, StateData, Reason1]};
+format_log(#{label:={gen_fsm,no_handle_info},
+             module:=Mod,
+             message:=Msg}) ->
+    {"** Undefined handle_info in ~p~n"
+     "** Unhandled message: ~tp~n",
+     [Mod, Msg]}.
 
 get_msg_str({'$gen_event', _Event}) ->
-    "** Last event in was ~p~n";
+    "** Last event in was ~tp~n";
 get_msg_str({'$gen_sync_event', _Event}) ->
-    "** Last sync event in was ~p~n";
+    "** Last sync event in was ~tp~n";
 get_msg_str({'$gen_all_state_event', _Event}) ->
-    "** Last event in was ~p (for all states)~n";
+    "** Last event in was ~tp (for all states)~n";
 get_msg_str({'$gen_sync_all_state_event', _Event}) ->
-    "** Last sync event in was ~p (for all states)~n";
+    "** Last sync event in was ~tp (for all states)~n";
 get_msg_str({timeout, _Ref, {'$gen_timer', _Msg}}) ->
-    "** Last timer event in was ~p~n";
+    "** Last timer event in was ~tp~n";
 get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) ->
-    "** Last timer event in was ~p~n";
+    "** Last timer event in was ~tp~n";
 get_msg_str(_Msg) ->
-    "** Last message in was ~p~n".
+    "** Last message in was ~tp~n".
 
 get_msg({'$gen_event', Event}) -> Event;
 get_msg({'$gen_sync_event', Event}) -> Event;
@@ -614,7 +685,7 @@ get_msg(Msg) -> Msg.
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time]] =
+    [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]] =
 	StatusData,
     Header = gen:format_status_header("Status for state machine",
                                       Name),

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -88,6 +88,12 @@
           to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c> on node
           <c><anno>Node</anno></c>.</p>
+        <note>
+          <p><seealso marker="#yield/1"><c>yield/1</c></seealso> and
+            <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+            must be called by the same process from which this function
+            was made otherwise they will never yield correctly.</p>
+        </note>
       </desc>
     </func>
 
@@ -211,7 +217,7 @@
         <list type="bulleted">
           <item>A list of the nodes that do not exist</item>
           <item>A list of the nodes where the server does not exist</item>
-          <item>A list of the nodes where the server terminatd before sending
+          <item>A list of the nodes where the server terminated before sending
           any reply.</item>
         </list>
       </desc>
@@ -262,8 +268,9 @@
           on the specified nodes and collects the answers. It returns
           <c>{<anno>ResL</anno>, <anno>BadNodes</anno>}</c>, where
           <c><anno>BadNodes</anno></c> is a list
-          of the nodes that terminated or timed out during computation,
-          and <c><anno>ResL</anno></c> is a list of the return values.
+          of the nodes that do not exist,
+          and <c><anno>ResL</anno></c> is a list of the return values,
+	  or <c>{badrpc, <anno>Reason</anno>}</c> for failing calls.
           <c><anno>Timeout</anno></c> is a time (integer) in milliseconds, or
           <c>infinity</c>.</p>
         <p>The following example is useful when new object code is to
@@ -299,6 +306,11 @@
           the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
           finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
           milliseconds has elapsed.</p>
+        <note>
+          <p>This function must be called by the same process from which
+            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            was made otherwise it will only return <c>timeout</c>.</p>
+        </note>
       </desc>
     </func>
 
@@ -336,7 +348,7 @@
 
     <func>
       <name name="pmap" arity="3"/>
-      <fsummary>Parallell evaluation of mapping a function over a
+      <fsummary>Parallel evaluation of mapping a function over a
         list.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
@@ -407,6 +419,11 @@
           If the answer is available, it is
           returned immediately. Otherwise, the calling process is
           suspended until the answer arrives from <c>Node</c>.</p>
+        <note>
+          <p>This function must be called by the same process from which
+            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            was made otherwise it will never return.</p>
+        </note>
       </desc>
     </func>
   </funcs>

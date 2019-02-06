@@ -1,0 +1,95 @@
+#!/bin/bash
+
+UBUNTU_VERSION=16.04
+
+SSH_SSL_VERSIONS=(\
+        openssh 4.4p1  openssl  0.9.8c  \
+        openssh 4.5p1  openssl  0.9.8m  \
+        openssh 5.0p1  openssl  0.9.8za \
+        openssh 6.2p2  openssl  0.9.8c  \
+        openssh 6.3p1  openssl  0.9.8zh \
+                                        \
+        openssh 7.1p1  openssl  1.0.0a  \
+                                        \
+        openssh 7.1p1  openssl  1.0.1p  \
+                                        \
+        openssh 6.6p1  openssl  1.0.2n  \
+        openssh 7.1p1  openssl  1.0.2n  \
+        openssh 7.6p1  openssl  1.0.2n  \
+                                        \
+        openssh 7.6p1  libressl 2.6.4   \
+                                        \
+        openssh 7.7p1  openssl  1.0.2p  \
+        openssh 7.8p1  openssl  1.0.2p  \
+        openssh 7.9p1  openssl  1.0.2p  \
+                                        \
+        openssh 7.9p1  libressl 2.6.4   \
+	)
+
+if [ "x$1" == "x-b" ]
+then
+    shift
+    SKIP_CREATE_BASE=true
+fi
+
+WHAT_TO_DO=$1
+
+function create_one_image ()
+{
+    SSH_FAM=$1
+    SSH_VER=$2
+    SSL_FAM=$3
+    SSL_VER=$4
+
+    [ "x$SKIP_CREATE_BASE" == "xtrue" ] || ./create-base-image || (echo "Create base failed." >&2; exit 1)
+    ./create-ssl-image $SSL_FAM $SSL_VER  \
+	|| (echo "Create $SSL_FAM $SSL_VER failed." >&2; exit 2)
+
+    ./create-ssh-image $SSH_FAM $SSH_VER $SSL_FAM $SSL_VER  \
+	|| (echo "Create $SSH_FAM $SSH_VER on $SSL_FAM $SSL_VER failed." >&2; exit 3)
+}
+
+
+case ${WHAT_TO_DO} in
+    list)
+	;;
+    listatoms)
+	PRE="["
+	POST="]"
+	C=\'
+	COMMA=,
+	;;
+    build_one)
+	if [ $# != 5 ]
+	then
+	    echo "$0 build_one openssh SSH_ver  openssl SSL_ver " && exit 
+	else
+	    create_one_image $2 $3 $4 $5
+	    exit
+	fi
+	;;
+    build_all)
+	;;
+    *)
+	echo "$0 [-b] list | listatoms | build_one openssh SSH_ver openssl SSL_ver | build_all" && exit
+	;;
+esac
+ 
+
+echo -n $PRE
+i=0
+while [ "x${SSH_SSL_VERSIONS[i]}" != "x" ]
+do
+   case ${WHAT_TO_DO} in
+       list*)
+	   [ $i -eq  0 ] || echo $COMMA
+	   echo -n $C${SSH_SSL_VERSIONS[$i]}${SSH_SSL_VERSIONS[$(( $i + 1 ))]}-${SSH_SSL_VERSIONS[$(( $i + 2 ))]}${SSH_SSL_VERSIONS[$(( $i + 3 ))]}$C
+	   ;;
+       build_all)
+	   create_one_image ${SSH_SSL_VERSIONS[$i]} ${SSH_SSL_VERSIONS[$(( $i + 1 ))]} ${SSH_SSL_VERSIONS[$(( $i + 2 ))]} ${SSH_SSL_VERSIONS[$(( $i + 3 ))]}
+	   ;;
+   esac
+
+   i=$(( $i + 4 ))
+done
+echo $POST

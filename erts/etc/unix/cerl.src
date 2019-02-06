@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2016. All Rights Reserved.
+# Copyright Ericsson AB 2003-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +45,8 @@
 #   -valgrind   Run emulator compiled for valgrind
 #   -lcnt	Run emulator compiled for lock counting
 #   -icount	Run emulator compiled for instruction counting
+#   -rr         Run emulator under "rr record"
+#               Can be combined with compile targets (like -debug) except valgrind.
 #   -nox        Unset the DISPLAY variable to disable us of X Windows
 #
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
@@ -67,15 +69,6 @@ cxargs_add() {
     done
 }
 
-eeargs=
-eeargs_add() {
-    while [ $# -gt 0 ]; do
-	cargs="$cargs $1"
-	eeargs="$eeargs $1"
-	shift
-    done
-}
-
 core=
 
 GDB=
@@ -84,6 +77,8 @@ GDBARGS=
 TYPE=
 debug=
 run_valgrind=no
+run_rr=no
+skip_erlexec=no
 
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
@@ -92,8 +87,6 @@ TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
-
-PRELOADED=$ROOTDIR/erts/preloaded/ebin
 
 
 while [ $# -gt 0 ]; do
@@ -138,29 +131,6 @@ while [ $# -gt 0 ]; do
 	"-nox")
 	    shift
 	    unset DISPLAY
-	    ;;
-	"-smp")
-	    shift
-	    if [ $# -le 0 ]; then
-		eeargs_add -smp
-	    else
-		case $1 in
-		    disable)
-			shift
-			eeargs_add -smpdisable
-			;;
-		    enable)
-			shift
-			eeargs_add -smp
-			;;
-		    *)
-			eeargs_add -smp
-		esac
-	    fi
-	    ;;
-	"-smpdisable")
-	    shift
-	    eeargs_add -smpdisable
 	    ;;
 	"-lcnt")
 	    shift
@@ -248,6 +218,13 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -valgrind"
 	    TYPE=.valgrind
 	    run_valgrind=yes
+	    skip_erlexec=yes
+	    ;;
+	"-rr")
+	    shift
+	    cargs="$cargs -rr"
+	    run_rr=yes
+	    skip_erlexec=yes
 	    ;;
 	*)
 	    break
@@ -267,24 +244,34 @@ EXEC=$BINDIR/erlexec
 
 PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
-EMU_NAME=`$EXEC -emu_name_exit $eeargs`
+EMU_NAME=`$EXEC -emu_name_exit`
 
-if [ $run_valgrind != yes ]; then
-    xargs="$xargs -pz $PRELOADED --"
+if [ $skip_erlexec = yes ]; then
+    emu_xargs=`echo $xargs | sed "s|+|-|g"`
+    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+
+    # Prepare for some argument passing voodoo:
+    # $beam_args is a list of command line arguments separated by newlines.
+    # Make "$@" represent those arguments verbatim (including spaces and quotes).
+    SAVE_IFS="$IFS"
+    IFS='
+'
+    set -- $beam_args
+    IFS="$SAVE_IFS"
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
 	valversion=`valgrind --version`
 	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
         valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
-	emu_xargs=`echo $xargs | sed "s|+|-|g"`
+	valint=`echo "$valmajor * 1000 + $valminor" | bc`
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
 	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		log_file_prefix="--xml-file="
 	    else
 		log_file_prefix="--log-file="
@@ -293,7 +280,7 @@ if [ "x$GDB" = "x" ]; then
 	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
 	    valgrind_log=
 	else
-	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+	    if [ $valint -gt 3004 ]; then
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log.$$"
 	    else
 		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU_NAME.log"
@@ -317,19 +304,12 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
 
-	# Time for some argument passing voodoo:
-	# $beam_args is a list of command line arguments separated by newlines.
-	# Make "$@" represent those arguments verbatim (including spaces and quotes).
-	SAVE_IFS="$IFS"
-	IFS='
-'
-	set -- $beam_args
-	IFS="$SAVE_IFS"
-	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+    elif [ $run_rr = yes ]; then
+	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@"
     else
-	exec $EXEC $eeargs $xargs ${1+"$@"}
+	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in
@@ -399,19 +379,29 @@ elif [ "x$GDB" = "xdump" ]; then
     cmdfile="/tmp/.cerlgdb.$$"
     case "x$core" in
 	x/*)
-	    gdbcmd="$EMU_NAME ${core}"
 	    ;;
 	*)
 	    dir=`pwd`
-	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    core="${dir}/${core}"
 	    ;;
     esac
-    echo "set width 0
+    case `uname` in
+        Darwin)
+            echo "
+thread backtrace all
+quit
+" > $cmdfile
+            exec lldb -s $cmdfile -c ${core} $EMU_NAME
+            ;;
+        *)
+	    echo "set width 0
 set height 0
 set verbose off
 
 source $ROOTDIR/erts/etc/unix/etp-commands
 thread apply all bt
 " > $cmdfile
-    exec gdb --batch --command=$cmdfile $gdbcmd
+	    exec gdb --batch --command=$cmdfile $EMU_NAME $core
+	    ;;
+    esac
 fi

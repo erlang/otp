@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2015</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -41,7 +41,7 @@
     see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
   </description>
 
-  <section>
+  <!-- section>
     <title>DATA TYPES</title>
 
     <p>Type definitions that are used more than once in this module,
@@ -57,27 +57,52 @@
       <tag><c>string() =</c></tag>
       <item><p><c>[byte()]</c></p></item>
       <tag><c>public_key() =</c></tag>
-      <item><p><c>#'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term()</c></p></item>
+      <item><p><c>#'RSAPublicKey'{} 
+      | {integer(),#'Dss-Parms'{}} 
+      | {#'ECPoint'{},{namedCurve,Curve::string()}}</c></p></item>
       <tag><c>private_key() =</c></tag>
-      <item><p><c>#'RSAPrivateKey'{} | #'DSAPrivateKey'{} | term()</c></p></item>
+      <item><p><c>#'RSAPrivateKey'{} 
+      | #'DSAPrivateKey'{} 
+      | #'ECPrivateKey'{}</c></p></item>      
       <tag><c>public_key_algorithm() =</c></tag>
-      <item><p><c>'ssh-rsa'| 'ssh-dss' | atom()</c></p></item>
+      <item><p><c>'ssh-rsa' | 'ssh-dss' 
+      | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512'
+      | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
     </taglist>
-  </section>
+  </section -->
   
+  <datatypes>
+    <datatype>
+      <name name="daemon_key_cb_options"/>
+      <desc>
+	<p>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>.
+	</p>
+	<p>The option list given in the
+	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+	option is available with the key <c>key_cb_private</c>.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name>Module:host_key(Algorithm, DaemonOptions) ->
       {ok, Key} | {error, Reason}</name>
       <fsummary>Fetches the host’s private key.</fsummary>
       <type>
-	<v>Algorithm = public_key_algorithm()</v>
-	<d>Host key algorithm. Is to support <c>'ssh-rsa' | 'ssh-dss'</c>, but more algorithms
-	can be handled.</d>
-	<v>DaemonOptions = proplists:proplist()</v>
-	<d>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</d>
-	<v>Key = private_key()</v>
-	<d>Private key of the host matching the <c>Algorithm</c>.</d>
+	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<d>Host key algorithm.</d>
+
+	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+
+	<v>PrivateKey = <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso>
+	   | <seealso marker="crypto:crypto#type-engine_key_ref">crypto:engine_key_ref()</seealso>
+	</v>
+
+	<d>Private key of the host matching the <c>Algorithm</c>.
+	It may be a reference to a 'ssh-rsa', rsa-sha2-* or 'ssh-dss' (NOT ecdsa) key stored in a loaded Engine.</d>
+
 	<v>Reason = term()</v>
       </type>
       <desc>
@@ -86,15 +111,17 @@
     </func>
 
     <func>
-      <name>Module:is_auth_key(Key, User, DaemonOptions) -> Result</name>
+      <name>Module:is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
       <fsummary>Checks if the user key is authorized.</fsummary>
       <type>
-	<v>Key = public_key()</v>
-	<d>Normally an RSA or DSA public key, but handling of other public keys can be added</d>
+	<v>PublicUserKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added</d>
+
 	<v>User = string()</v>
 	<d>User owning the public key.</d>
-	<v>DaemonOptions = proplists:proplist()</v>
-	<d>Options provided to  <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</d>
+
+	<v>DaemonOptions =  <seealso marker="#type-daemon_key_cb_options">daemon_key_cb_options()</seealso></v>
+
 	<v>Result = boolean()</v>
       </type>
       <desc>

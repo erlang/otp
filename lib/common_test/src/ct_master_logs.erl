@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Logging functionality for Common Test Master.
+%%% Logging functionality for Common Test Master.
 %%%
-%%% <p>This module implements a logger for the master
-%%% node.</p>
+%%% This module implements a logger for the master
+%%% node.
 -module(ct_master_logs).
 
 -export([start/2, make_all_runs_index/0, log/3, nodedir/2,
@@ -88,6 +88,7 @@ stop() ->
 
 init(Parent,LogDir,Nodes) ->
     register(?MODULE,self()),
+    ct_util:mark_process(),
     Time = calendar:local_time(),
     RunDir = make_dirname(Time),
     RunDirAbs = filename:join(LogDir,RunDir),
@@ -110,16 +111,16 @@ init(Parent,LogDir,Nodes) ->
 	    case copy_priv_files(PrivFilesSrc, PrivFilesDestTop) of
 		{error,Src1,Dest1,Reason1} ->
 		    io:format(user, "ERROR! "++
-			      "Priv file ~p could not be copied to ~p. "++
-			      "Reason: ~p~n",
+			      "Priv file ~tp could not be copied to ~tp. "++
+			      "Reason: ~tp~n",
 			      [Src1,Dest1,Reason1]),
 		    exit({priv_file_error,Dest1});
 		ok ->
 		    case copy_priv_files(PrivFilesSrc, PrivFilesDestRun) of
 			{error,Src2,Dest2,Reason2} ->
 			    io:format(user, "ERROR! "++
-				      "Priv file ~p could not be copied to ~p. "++
-				      "Reason: ~p~n",
+				      "Priv file ~tp could not be copied to ~tp. "++
+				      "Reason: ~tp~n",
 				      [Src2,Dest2,Reason2]),
 			    exit({priv_file_error,Dest2});
 			ok ->
@@ -170,7 +171,7 @@ loop(State) ->
 			case catch io:format(Fd,Str++"\n",Args) of
 			    {'EXIT',Reason} ->
 				io:format(Fd, 
-					  "Logging fails! Str: ~p, Args: ~p~n",
+					  "Logging fails! Str: ~tp, Args: ~tp~n",
 					  [Str,Args]),
 				exit({logging_failed,Reason}),
 				ok;
@@ -297,7 +298,7 @@ sort_all_runs(Dirs) ->
     %% "YYYY-MM-DD_HH.MM.SS"
     KeyList =
 	lists:map(fun(Dir) ->
-			  case lists:reverse(string:tokens(Dir,[$.,$_])) of
+			  case lists:reverse(string:lexemes(Dir,[$.,$_])) of
 			      [SS,MM,HH,Date|_] ->
 				  {{Date,HH,MM,SS},Dir};
 			      _Other ->
@@ -312,18 +313,8 @@ runentry(Dir) ->
     {MasterStr,NodesStr} = 
 	case read_details_file(Dir) of
 	    {Master,Nodes} when is_list(Nodes) ->
-		[_,Host] = string:tokens(atom_to_list(Master),"@"),
-		NodesList = 
-		    lists:reverse(lists:map(fun(N) ->
-						    atom_to_list(N) ++ ", "
-					    end,Nodes)),
-		case NodesList of
-		    [N|NListR] ->
-			N1 = string:sub_string(N,1,length(N)-2),
-			{Host,lists:flatten(lists:reverse([N1|NListR]))};
-		    [] ->
-			{Host,""}
-		end;
+		[_,Host] = string:lexemes(atom_to_list(Master),"@"),
+                {Host,lists:concat(lists:join(", ",Nodes))};
 	    _Error ->
 		{"unknown",""}
 	end,
@@ -348,7 +339,7 @@ all_runs_header() ->
       xhtml("", "</tr></thead>\n<tbody>\n")]].
 
 timestamp(Dir) ->
-    [S,Min,H,D,M,Y|_] = lists:reverse(string:tokens(Dir,".-_")),
+    [S,Min,H,D,M,Y|_] = lists:reverse(string:lexemes(Dir,".-_")),
     [S1,Min1,H1,D1,M1,Y1] = [list_to_integer(N) || N <- [S,Min,H,D,M,Y]],
     format_time({{Y1,M1,D1},{H1,Min1,S1}}).
 

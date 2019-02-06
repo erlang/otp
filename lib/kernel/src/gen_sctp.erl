@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,7 +66,12 @@
         {sctp_set_peer_primary_addr, #sctp_setpeerprim{}} |
         {sctp_status, #sctp_status{}} |
         {sndbuf, non_neg_integer()} |
-        {tos, non_neg_integer()}.
+        {tos, non_neg_integer()} |
+        {tclass, non_neg_integer()} |
+        {ttl, non_neg_integer()} |
+        {recvtos, boolean()} |
+        {recvtclass, boolean()} |
+        {recvttl, boolean()}.
 -type option_name() ::
         active |
         buffer |
@@ -97,7 +102,12 @@
         sctp_set_peer_primary_addr |
         sctp_status |
         sndbuf |
-        tos.
+        tos |
+        tclass |
+        ttl |
+        recvtos |
+        recvtclass |
+        recvttl.
 -type sctp_socket() :: port().
 
 -export_type([assoc_id/0, option/0, option_name/0, sctp_socket/0]).
@@ -118,6 +128,8 @@ open() ->
                    | inet:address_family()
                    | {port,Port}
 		   | {type,SockType}
+                   | {netns, file:filename_all()}
+                   | {bind_to_device, binary()}
                    | option(),
               IP :: inet:ip_address() | any | loopback,
               Port :: inet:port_number(),
@@ -363,7 +375,7 @@ send(S, AssocChange, Stream, Data) ->
       Socket :: sctp_socket(),
       FromIP   :: inet:ip_address(),
       FromPort :: inet:port_number(),
-      AncData  :: [#sctp_sndrcvinfo{}],
+      AncData  :: [#sctp_sndrcvinfo{} | inet:ancillary_data()],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},
@@ -380,7 +392,7 @@ recv(S) ->
       Timeout :: timeout(),
       FromIP   :: inet:ip_address(),
       FromPort :: inet:port_number(),
-      AncData  :: [#sctp_sndrcvinfo{}],
+      AncData  :: [#sctp_sndrcvinfo{} | inet:ancillary_data()],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},
@@ -439,7 +451,7 @@ error_string(X) ->
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       Pid :: pid(),
-      Reason :: closed | not_owner | inet:posix().
+      Reason :: closed | not_owner | badarg | inet:posix().
 
 controlling_process(S, Pid) when is_port(S), is_pid(Pid) ->
     inet:udp_controlling_process(S, Pid);

@@ -36,8 +36,10 @@ string(Ics0, L0, Tcs, Ts) ->
             string_cont(Ics1, L1, yyaction(A, Alen, Tcs, L0), Ts);
         {reject,_Alen,Tlen,_Ics1,L1,_S1} ->  % After a non-accepting state
             {error,{L0,?MODULE,{illegal,yypre(Tcs, Tlen+1)}},L1};
-        {A,Alen,_Tlen,_Ics1,_L1,_S1} ->
-            string_cont(yysuf(Tcs, Alen), L0, yyaction(A, Alen, Tcs, L0), Ts)
+        {A,Alen,Tlen,_Ics1,L1,_S1} ->
+            Tcs1 = yysuf(Tcs, Alen),
+            L2 = adjust_line(Tlen, Alen, Tcs1, L1),
+            string_cont(Tcs1, L2, yyaction(A, Alen, Tcs, L0), Ts)
     end.
 
 %% string_cont(RestChars, Line, Token, Tokens)
@@ -107,8 +109,10 @@ token(S0, Ics0, L0, Tcs, Tlen0, Tline, A0, Alen0) ->
         {reject,_Alen1,Tlen1,Ics1,L1,_S1} ->    % No token match
             Error = {Tline,?MODULE,{illegal,yypre(Tcs, Tlen1+1)}},
             {done,{error,Error,L1},Ics1};
-        {A1,Alen1,_Tlen1,_Ics1,_L1,_S1} ->       % Use last accept match
-            token_cont(yysuf(Tcs, Alen1), L0, yyaction(A1, Alen1, Tcs, Tline))
+        {A1,Alen1,Tlen1,_Ics1,L1,_S1} ->       % Use last accept match
+            Tcs1 = yysuf(Tcs, Alen1),
+            L2 = adjust_line(Tlen1, Alen1, Tcs1, L1),
+            token_cont(Tcs1, L2, yyaction(A1, Alen1, Tcs, Tline))
     end.
 
 %% token_cont(RestChars, Line, Token)
@@ -181,9 +185,11 @@ tokens(S0, Ics0, L0, Tcs, Tlen0, Tline, Ts, A0, Alen0) ->
             %% Skip rest of tokens.
             Error = {L1,?MODULE,{illegal,yypre(Tcs, Tlen1+1)}},
             skip_tokens(yysuf(Tcs, Tlen1+1), L1, Error);
-        {A1,Alen1,_Tlen1,_Ics1,_L1,_S1} ->
+        {A1,Alen1,Tlen1,_Ics1,L1,_S1} ->
             Token = yyaction(A1, Alen1, Tcs, Tline),
-            tokens_cont(yysuf(Tcs, Alen1), L0, Token, Ts)
+            Tcs1 = yysuf(Tcs, Alen1),
+            L2 = adjust_line(Tlen1, Alen1, Tcs1, L1),
+            tokens_cont(Tcs1, L2, Token, Ts)
     end.
 
 %% tokens_cont(RestChars, Line, Token, Tokens)
@@ -235,9 +241,11 @@ skip_tokens(S0, Ics0, L0, Tcs, Tlen0, Tline, Error, A0, Alen0) ->
             {done,{error,Error,L1},eof};
         {reject,_Alen1,Tlen1,_Ics1,L1,_S1} ->
             skip_tokens(yysuf(Tcs, Tlen1+1), L1, Error);
-        {A1,Alen1,_Tlen1,_Ics1,L1,_S1} ->
+        {A1,Alen1,Tlen1,_Ics1,L1,_S1} ->
             Token = yyaction(A1, Alen1, Tcs, Tline),
-            skip_cont(yysuf(Tcs, Alen1), L1, Token, Error)
+            Tcs1 = yysuf(Tcs, Alen1),
+            L2 = adjust_line(Tlen1, Alen1, Tcs1, L1),
+            skip_cont(Tcs1, L2, Token, Error)
     end.
 
 %% skip_cont(RestChars, Line, Token, Error)
@@ -264,10 +272,25 @@ skip_cont(Rest, Line, {skip_token,Push}, Error) ->
 skip_cont(Rest, Line, {error,_S}, Error) ->
     skip_tokens(yystate(), Rest, Line, Rest, 0, Line, Error, reject, 0).
 
+-compile({nowarn_unused_function, [yyrev/1, yyrev/2, yypre/2, yysuf/2]}).
+
 yyrev(List) -> lists:reverse(List).
 yyrev(List, Tail) -> lists:reverse(List, Tail).
 yypre(List, N) -> lists:sublist(List, N).
 yysuf(List, N) -> lists:nthtail(N, List).
+
+%% adjust_line(TokenLength, AcceptLength, Chars, Line) -> NewLine
+%% Make sure that newlines in Chars are not counted twice.
+%% Line has been updated with respect to newlines in the prefix of
+%% Chars consisting of (TokenLength - AcceptLength) characters.
+
+-compile({nowarn_unused_function, adjust_line/4}).
+
+adjust_line(N, N, _Cs, L) -> L;
+adjust_line(T, A, [$\n|Cs], L) ->
+    adjust_line(T-1, A, Cs, L-1);
+adjust_line(T, A, [_|Cs], L) ->
+    adjust_line(T-1, A, Cs, L).
 
 %% yystate() -> InitialState.
 %% yystate(State, InChars, Line, CurrTokLen, AcceptAction, AcceptLen) ->

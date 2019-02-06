@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -271,11 +271,12 @@ convert(N, centimeter) ->
 {'EXIT',{function_clause,[{tut2,convert,
                                 [3,miles],
                                 [{file,"tut2.erl"},{line,4}]},
-                          {erl_eval,do_apply,5,[{file,"erl_eval.erl"},{line,482}]},
-                          {shell,exprs,7,[{file,"shell.erl"},{line,666}]},
-                          {shell,eval_exprs,7,[{file,"shell.erl"},{line,621}]},
-                          {shell,eval_loop,3,[{file,"shell.erl"},{line,606}]}]}}</pre>
-
+                          {erl_eval,do_apply,6,
+                                    [{file,"erl_eval.erl"},{line,677}]},
+                          {shell,exprs,7,[{file,"shell.erl"},{line,687}]},
+                          {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
+                          {shell,eval_loop,3,
+                                 [{file,"shell.erl"},{line,627}]}]}}</pre>
   </section>
 
   <section>

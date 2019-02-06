@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -66,7 +66,6 @@
   <xi:include href="gen_statem.xml"/>
   <xi:include href="io.xml"/>
   <xi:include href="io_lib.xml"/>
-  <xi:include href="lib.xml"/>
   <xi:include href="lists.xml"/>
   <xi:include href="log_mf_h.xml"/>
   <xi:include href="maps.xml"/>
@@ -93,6 +92,7 @@
   <xi:include href="sys.xml"/>
   <xi:include href="timer.xml"/>
   <xi:include href="unicode.xml"/>
+  <xi:include href="uri_string.xml"/>
   <xi:include href="win32reg.xml"/>
   <xi:include href="zip.xml"/>
 </application>

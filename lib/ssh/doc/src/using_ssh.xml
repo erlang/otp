@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -74,16 +74,17 @@
     <marker id="Running an Erlang ssh Daemon"></marker>
     <title>Running an Erlang ssh Daemon</title>
 
-    <p>The <c>system_dir</c> option must be a directory containing a host
-    key file and it defaults to <c>/etc/ssh</c>. For details, see Section
-    Configuration Files in <seealso
-    marker="SSH_app">ssh(6)</seealso>.
+    <p>The
+    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>
+    option must be a directory containing a host key file and it defaults to <c>/etc/ssh</c>.
+    For details, see Section Configuration Files in <seealso marker="SSH_app">ssh(6)</seealso>.
     </p>
 
     <note><p>Normally, the <c>/etc/ssh</c> directory is only readable by root.</p>
     </note>
 
-    <p>The option <c>user_dir</c> defaults to directory <c>users ~/.ssh</c>.</p>
+    <p>The option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+    defaults to directory <c>users ~/.ssh</c>.</p>
 
     <p><em>Step 1.</em> To run the example without root privileges,
     generate new keys and host keys:</p>
@@ -298,6 +299,7 @@ ok = erl_tar:close(HandleRead),
   </section>
 
   <section>
+    <marker id="usersguide_creating_a_subsystem"/>
     <title>Creating a Subsystem</title>
 
     <p>A small <c>ssh</c> subsystem that echoes N bytes can be implemented as shown
@@ -305,7 +307,7 @@ ok = erl_tar:close(HandleRead),
 
     <code type="erl" >
 -module(ssh_echo_server).
--behaviour(ssh_subsystem).
+-behaviour(ssh_server_channel). % replaces ssh_daemon_channel
 -record(state, {
 	  n,
 	  id,
@@ -383,7 +385,7 @@ terminate(_Reason, _State) ->
    {ssh_msg, &lt;0.57.0>, {closed, 0}}
    7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
  </code>
-<p>See also <seealso marker="ssh_channel"> ssh_channel(3)</seealso>.</p>
+<p>See also <seealso marker="ssh_client_channel">ssh_client_channel(3)</seealso> (replaces ssh_channel(3)).</p>
 
 </section>
 

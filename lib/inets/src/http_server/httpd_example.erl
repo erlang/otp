@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 %%
 -module(httpd_example).
 -export([print/1]).
--export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2]).
+-export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2,new_status_and_location/2]).
 
--export([newformat/3]).
+-export([newformat/3, post_chunked/3, post_204/3]).
 %% These are used by the inets test-suite
 -export([delay/1, chunk_timeout/3]).
 
@@ -90,6 +90,9 @@ post(Env,Input) ->
 yahoo(_Env,_Input) ->
   "Location: http://www.yahoo.com\r\n\r\n".
 
+new_status_and_location(_Env,_Input) ->
+  "status:201 Created\r\n Location: http://www.yahoo.com\r\n\r\n".
+
 default(Env,Input) ->
   [header(),
    top("Default Example"),
@@ -131,15 +134,37 @@ footer() ->
   "</BODY>
 </HTML>\n".
 
-    
-newformat(SessionID, _Env, _Input)->
+post_chunked(_SessionID, _Env, {first, _Body} = _Bodychunk) ->
+    {continue, {state, 1}};
+post_chunked(_SessionID, _Env, {continue, _Body, {state, N}} = _Bodychunk) ->
+    {continue, {state, N+1}};
+post_chunked(SessionID, _Env, {last, _Body, {state, N}} = _Bodychunk) ->
+    mod_esi:deliver(SessionID, "Content-Type:text/html\r\n\r\n"),
+    mod_esi:deliver(SessionID, top("Received chunked body")),
+    mod_esi:deliver(SessionID, "Received" ++ integer_to_list(N) ++ "chunks"),
+    mod_esi:deliver(SessionID, footer());
+post_chunked(SessionID, _Env, {last, _Body, undefined} = _Bodychunk) ->
+    mod_esi:deliver(SessionID, "Content-Type:text/html\r\n\r\n"),
+    mod_esi:deliver(SessionID, top("Received chunked body")),
+    mod_esi:deliver(SessionID, "Received 1 chunk"),
+    mod_esi:deliver(SessionID, footer());
+post_chunked(_, _, _Body) ->
+    exit(body_not_chunked).
+
+post_204(SessionID, _Env, _Input) ->
+    mod_esi:deliver(SessionID,
+                    ["Status: 204 No Content" ++ "\r\n\r\n"]),
+    mod_esi:deliver(SessionID, []).
+
+
+newformat(SessionID,_,_) ->
     mod_esi:deliver(SessionID, "Content-Type:text/html\r\n\r\n"),
     mod_esi:deliver(SessionID, top("new esi format test")),
     mod_esi:deliver(SessionID, "This new format is nice<BR>"),
     mod_esi:deliver(SessionID, "This new format is nice<BR>"),
     mod_esi:deliver(SessionID, "This new format is nice<BR>"),
     mod_esi:deliver(SessionID, footer()).
-    
+ 
 %% ------------------------------------------------------
 
 delay(Time) when is_integer(Time) ->

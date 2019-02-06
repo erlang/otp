@@ -22,13 +22,13 @@
 # Author: Tuncer Ayaz
 #
 
-if [ $# -lt 6 ]
+if [ $# -lt 8 ]
 then
-  echo "Usage: fakefop -c IGNORED -fo IGNORED -pdf OUTFILE"
+  echo "Usage: fakefop -c IGNORED -cache IGNORED -fo IGNORED -pdf OUTFILE"
   exit 1
 fi
 
-OUTFILE=$6
+OUTFILE=$8
 
 echo -n -e '%PDF-1.4\n%\0342\0343\0317\0323\n\n' > $OUTFILE
 
@@ -87,12 +87,12 @@ endobj
 
 xref
 0 6
-0000000000 65536 f 
-0000000016 00000 n 
-0000000070 00000 n 
-0000000136 00000 n 
-0000000291 00000 n 
-0000000410 00000 n 
+0000000000 65536 f
+0000000016 00000 n
+0000000070 00000 n
+0000000136 00000 n
+0000000291 00000 n
+0000000410 00000 n
 
 trailer
 <<

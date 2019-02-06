@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,18 +20,19 @@
 
 -module(busy_port_SUITE).
 
--export([all/0, suite/0, end_per_testcase/2,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
-	 hard_busy_driver/1, soft_busy_driver/1]).
-
--compile(export_all).
+	 hard_busy_driver/1, soft_busy_driver/1,
+         scheduling_delay_busy/1,
+         scheduling_delay_busy_nosuspend/1,
+         scheduling_busy_link/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 %% Internal exports.
--export([init/2]).
+-export([init/2,process_init/2,ack/2,call/2,cast/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -43,6 +44,11 @@ all() ->
      multiple_writers, hard_busy_driver, soft_busy_driver,
      scheduling_delay_busy,scheduling_delay_busy_nosuspend,
      scheduling_busy_link].
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Killer = spawn(fun() -> killer_loop([]) end),
+    register(killer_process, Killer),
+    Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     case whereis(busy_drv_server) of
@@ -57,7 +63,37 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 		    ok
 	    end
     end,
+    kill_processes(),
     Config.
+
+kill_processes() ->
+    killer_process ! {get_pids,self()},
+    receive
+        {pids_to_kill,Pids} -> ok
+    end,
+    _ = [begin
+             case erlang:is_process_alive(P) of
+                 true ->
+                     io:format("Killing ~p\n", [P]);
+                 false ->
+                     ok
+             end,
+             unlink(P),
+             exit(P, kill)
+         end || P <- Pids],
+    ok.
+
+killer_loop(Pids) ->
+    receive
+        {add_pid,Pid} ->
+            killer_loop([Pid|Pids]);
+        {get_pids,To} ->
+            To ! {pids_to_kill,Pids}
+    end.
+
+kill_me(Pid) ->
+    killer_process ! {add_pid,Pid},
+    Pid.
 
 %% Tests I/O operations to a busy port, to make sure a suspended send
 %% operation is correctly restarted.  This used to crash Beam.
@@ -134,7 +170,7 @@ message_order(Config) when is_list(Config) ->
     ok.
 
 send_to_busy_1(Parent) ->
-    {Owner, Slave} = get_slave(),
+    {_Owner, Slave} = get_slave(),
     (catch port_command(Slave, "set_me_busy")),
     (catch port_command(Slave, "hello")),
     (catch port_command(Slave, "hello again")),
@@ -343,7 +379,7 @@ multiple_writers(Config) when is_list(Config) ->
     ok.
 
 quick_writer() ->
-    {Owner, Port} = get_slave(),
+    {_Owner, Port} = get_slave(),
     (catch port_command(Port, "port to busy")),
     (catch port_command(Port, "lock me")),
     ok.
@@ -712,6 +748,7 @@ run_scenario([],Vars) ->
 
 run_command(_M,spawn,{Args,Opts}) ->
     Pid = spawn_opt(fun() -> apply(?MODULE,process_init,Args) end,[link|Opts]),
+    kill_me(Pid),
     pal("spawn(~p): ~p",[Args,Pid]),
     Pid;
 run_command(M,spawn,Args) ->
@@ -807,7 +844,9 @@ fun_spawn(Fun) ->
     fun_spawn(Fun, []).
 
 fun_spawn(Fun, Args) ->
-    spawn_link(erlang, apply, [Fun, Args]).
+    Pid = spawn_link(erlang, apply, [Fun, Args]),
+    kill_me(Pid),
+    Pid.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% These routines provide a port which will become busy when the

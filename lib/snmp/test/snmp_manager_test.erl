@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -156,16 +156,25 @@ init_per_suite(Config0) when is_list(Config0) ->
     ?DBG("init_per_suite -> entry with"
 	 "~n   Config0: ~p", [Config0]),
 
-    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
-    Config2   = snmp_test_lib:fix_data_dir(Config1),
-
-    %% Mib-dirs
-    %% data_dir is trashed by the test-server / common-test
-    %% so there is no point in fixing it...
-    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-
-    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+    %% Preferably this test SUITE should be divided into groups
+    %% so that if crypto does not work only v3 tests that
+    %% need crypto will be skipped, but as this is only a
+    %% problem with one legacy test machine, we will procrastinate
+    %% until we have a more important reason to fix this. 
+    case snmp_test_lib:crypto_start() of
+        ok ->
+            Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+            Config2   = snmp_test_lib:fix_data_dir(Config1),
+            %% Mib-dirs
+            %% data_dir is trashed by the test-server / common-test
+            %% so there is no point in fixing it...
+            MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+            StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+            
+            [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2];
+        _ ->
+            {skip, "Crypto did not start"}
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
 
@@ -1760,7 +1769,7 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysObjectID_instance,
 					  value = SysObjectID}, 
@@ -2709,7 +2718,7 @@ do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     %% The value we get should be exactly the same as we sent
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysName_instance,
@@ -5118,10 +5127,10 @@ inform_swarm_collector(N) ->
 
 %% Note that we need to deal with re-transmissions!
 %% That is, the agent did not receive the ack in time,
-%% and therefor did a re-transmit. This means that we 
-%% expect to receive more inform's then we actually 
-%% sent. So for sucess we assume: 
-%% 
+%% and therefor did a re-transmit. This means that we
+%% expect to receive more inform's then we actually
+%% sent. So for success we assume:
+%%
 %%     SentAckCnt =  N
 %%     RespCnt    =  N
 %%     RecvCnt    >= N

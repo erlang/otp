@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 -module(observer_trace_wx).
 
--export([start_link/2, add_processes/1, add_ports/1]).
+-export([start_link/3, add_processes/1, add_ports/1]).
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_cast/2]).
 
@@ -88,8 +88,8 @@
 
 -record(titem, {id, opts}).
 
-start_link(Notebook, ParentPid) ->
-    wx_object:start_link(?MODULE, [Notebook, ParentPid], []).
+start_link(Notebook, ParentPid, Config) ->
+    wx_object:start_link(?MODULE, [Notebook, ParentPid, Config], []).
 
 add_processes(Pids) when is_list(Pids) ->
     wx_object:cast(observer_wx:get_tracer(), {add_processes, Pids}).
@@ -99,10 +99,10 @@ add_ports(Ports) when is_list(Ports) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init([Notebook, ParentPid]) ->
-    wx:batch(fun() -> create_window(Notebook, ParentPid) end).
+init([Notebook, ParentPid, Config]) ->
+    wx:batch(fun() -> create_window(Notebook, ParentPid, Config) end).
 
-create_window(Notebook, ParentPid) ->
+create_window(Notebook, ParentPid, Config) ->
     %% Create the window
     Panel = wxPanel:new(Notebook, [{size, wxWindow:getClientSize(Notebook)}]),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
@@ -130,11 +130,16 @@ create_window(Notebook, ParentPid) ->
     wxSizer:add(Sizer, Buttons, [{flag, ?wxLEFT bor ?wxRIGHT bor ?wxDOWN},
 				 {border, 5}, {proportion,0}]),
     wxWindow:setSizer(Panel, Sizer),
+    MS = parse_ms(maps:get(match_specs, Config, []), default_matchspecs()),
     {Panel, #state{parent=ParentPid, panel=Panel,
 		   n_view=NodeView, proc_view=ProcessView, port_view=PortView,
 		   m_view=ModView, f_view=FuncView,
 		   toggle_button = ToggleButton,
-		   match_specs=default_matchspecs()}}.
+                   output=maps:get(output, Config, []),
+                   def_proc_flags=maps:get(procflags, Config, []),
+                   def_port_flags=maps:get(portflags, Config, []),
+                   match_specs=MS
+                  }}.
 
 default_matchspecs() ->
     [{Key,default_matchspecs(Key)} || Key <- [funcs,send,'receive']].
@@ -397,26 +402,18 @@ handle_event(#wx{id=?LOG_SAVE, userData=TCtrl}, #state{panel=Panel} = State) ->
     {noreply, State};
 
 handle_event(#wx{id = ?SAVE_TRACEOPTS},
-	     #state{panel = Panel,
-		    def_proc_flags = ProcFlags,
-		    def_port_flags = PortFlags,
-		    match_specs = MatchSpecs,
-		    tpatterns = TracePatterns,
-		    output = Output
-		   } = State) ->
+	     #state{panel = Panel} = State) ->
     Dialog = wxFileDialog:new(Panel, [{style, ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT}]),
     case wxFileDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    Path = wxFileDialog:getPath(Dialog),
-	    write_file(Panel, Path,
-		       ProcFlags, PortFlags, MatchSpecs, Output,
-		       dict:to_list(TracePatterns)
-		      );
+	    write_file(Panel, Path, get_config(State));
 	_ ->
 	    ok
     end,
     wxDialog:destroy(Dialog),
     {noreply, State};
+
 
 handle_event(#wx{id = ?LOAD_TRACEOPTS}, #state{panel = Panel} = State) ->
     Dialog = wxFileDialog:new(Panel, [{style, ?wxFD_FILE_MUST_EXIST}]),
@@ -686,10 +683,14 @@ handle_event(#wx{id=?REMOVE_NODES}, #state{n_view=Nview, nodes=Ns0} = State) ->
     {noreply, State#state{nodes = Ns}};
 
 handle_event(#wx{id=ID, event = What}, State) ->
-    io:format("~p:~p: Unhandled event: ~p, ~p ~n", [?MODULE, ?LINE, ID, What]),
+    io:format("~p:~p: Unhandled event: ~p, ~tp ~n", [?MODULE, ?LINE, ID, What]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_call(get_config, _, State) ->
+    Config0 = get_config(State),
+    Config = lists:keydelete(trace_p, 1, Config0),
+    {reply, maps:from_list(Config), State};
 handle_call(Msg, From, _State) ->
     error({unhandled_call, Msg, From}).
 
@@ -728,7 +729,7 @@ handle_info({update_ms, NewMs}, State) ->
     {noreply, State#state{match_specs=NewMs}};
 
 handle_info(Any, State) ->
-    io:format("~p~p: received unexpected message: ~p\n", [?MODULE, self(), Any]),
+    io:format("~p~p: received unexpected message: ~tp\n", [?MODULE, self(), Any]),
     {noreply, State}.
 
 terminate(_Reason, #state{nodes=_Nodes}) ->
@@ -1045,33 +1046,33 @@ format_trace(Trace, Size, TS0={_,_,MS}) ->
 	    case element(4, Trace) of
 		{dbg,ok} -> "";
 		Message ->
-		    io_lib:format("~s (~100p) << ~100p~n", [TS,From,Message])
+		    io_lib:format("~s (~100p) << ~100tp~n", [TS,From,Message])
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
 	    To = element(5, Trace),
-	    io_lib:format("~s (~100p) ~100p ! ~100p~n", [TS,From,To,Message]);
+	    io_lib:format("~s (~100p) ~100p ! ~100tp~n", [TS,From,To,Message]);
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Message = element(5, Trace),
-		    io_lib:format("~s (~100p) call ~s (~100p) ~n", [TS,From,ffunc(MFA),Message]);
+		    io_lib:format("~s (~100p) call ~ts (~100tp) ~n", [TS,From,ffunc(MFA),Message]);
 		MFA ->
-		    io_lib:format("~s (~100p) call ~s~n", [TS,From,ffunc(MFA)])
+		    io_lib:format("~s (~100p) call ~ts~n", [TS,From,ffunc(MFA)])
 	    end;
 	return_from ->
 	    MFA = element(4, Trace),
 	    Ret = element(5, Trace),
-	    io_lib:format("~s (~100p) returned from ~s -> ~100p~n", [TS,From,ffunc(MFA),Ret]);
+	    io_lib:format("~s (~100p) returned from ~ts -> ~100tp~n", [TS,From,ffunc(MFA),Ret]);
 	return_to ->
 	    MFA = element(4, Trace),
-	    io_lib:format("~s (~100p) returning to ~s~n", [TS,From,ffunc(MFA)]);
+	    io_lib:format("~s (~100p) returning to ~ts~n", [TS,From,ffunc(MFA)]);
 	spawn when Size == 5 ->
 	    Pid = element(4, Trace),
 	    MFA = element(5, Trace),
-	    io_lib:format("~s (~100p) spawn ~100p as ~s~n", [TS,From,Pid,ffunc(MFA)]);
+	    io_lib:format("~s (~100p) spawn ~100p as ~ts~n", [TS,From,Pid,ffunc(MFA)]);
 	Op ->
-	    io_lib:format("~s (~100p) ~100p ~s~n", [TS,From,Op,ftup(Trace,4,Size)])
+	    io_lib:format("~s (~100p) ~100p ~ts~n", [TS,From,Op,ftup(Trace,4,Size)])
     end.
 
 %%% These f* functions returns non-flat strings
@@ -1079,51 +1080,64 @@ format_trace(Trace, Size, TS0={_,_,MS}) ->
 %% {M,F,[A1, A2, ..., AN]} -> "M:F(A1, A2, ..., AN)"
 %% {M,F,A}                 -> "M:F/A"
 ffunc({M,F,Argl}) when is_list(Argl) ->
-    io_lib:format("~100p:~100p(~s)", [M, F, fargs(Argl)]);
+    io_lib:format("~100p:~100tp(~ts)", [M, F, fargs(Argl)]);
 ffunc({M,F,Arity}) ->
-    io_lib:format("~100p:~100p/~100p", [M,F,Arity]);
-ffunc(X) -> io_lib:format("~100p", [X]).
+    io_lib:format("~100p:~100tp/~100p", [M,F,Arity]);
+ffunc(X) -> io_lib:format("~100tp", [X]).
 
 %% Integer           -> "Integer"
 %% [A1, A2, ..., AN] -> "A1, A2, ..., AN"
 fargs(Arity) when is_integer(Arity) -> integer_to_list(Arity);
 fargs([]) -> [];
-fargs([A]) -> io_lib:format("~100p", [A]);  %% last arg
-fargs([A|Args]) -> [io_lib:format("~100p,", [A]) | fargs(Args)];
-fargs(A) -> io_lib:format("~100p", [A]). % last or only arg
+fargs([A]) -> io_lib:format("~100tp", [A]);  %% last arg
+fargs([A|Args]) -> [io_lib:format("~100tp,", [A]) | fargs(Args)];
+fargs(A) -> io_lib:format("~100tp", [A]). % last or only arg
 
 %% {A_1, A_2, ..., A_N} -> "A_Index A_Index+1 ... A_Size"
 ftup(Trace, Index, Index) ->
-    io_lib:format("~100p", [element(Index, Trace)]);
+    io_lib:format("~100tp", [element(Index, Trace)]);
 ftup(Trace, Index, Size) ->
-    [io_lib:format("~100p ", [element(Index, Trace)])
+    [io_lib:format("~100tp ", [element(Index, Trace)])
      | ftup(Trace, Index+1, Size)].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-write_file(Frame, Filename, ProcFlags, PortFlags, MatchSpecs, Output, TPs) ->
+get_config(#state{def_proc_flags = ProcFlags,
+                  def_port_flags = PortFlags,
+                  match_specs = MatchSpecs0,
+                  tpatterns = TracePatterns,
+                  output = Output}) ->
     MSToList = fun(#match_spec{name=Id, term=T, func=F}) ->
 		       [{name,Id},{term,T},{func,F}]
 	       end,
-    MSTermList = [{ms,Key,[MSToList(MS) || MS <- MSs]} ||
-		     {Key,MSs} <- MatchSpecs],
+    MatchSpecs = [{ms,Key,[MSToList(MS) || MS <- MSs]} ||
+		     {Key,MSs} <- MatchSpecs0],
     TPToTuple = fun(#tpattern{fa={F,A}, ms=Ms}) ->
-		       {F,A,MSToList(Ms)}
+                        {F,A,MSToList(Ms)}
 		end,
     ModuleTermList = [{tp, Module, [TPToTuple(FTP) || FTP <- FTPs]} ||
-			 {Module,FTPs} <- TPs],
+			 {Module,FTPs} <- dict:to_list(TracePatterns)],
+    [{procflags,ProcFlags},
+     {portflags,PortFlags},
+     {match_specs,MatchSpecs},
+     {output,Output},
+     {trace_p,ModuleTermList}].
 
+write_file(Frame, Filename, Config) ->
     Str =
-	["%%%\n%%% This file is generated by Observer\n",
+	["%%% ",epp:encoding_to_string(utf8), "\n"
+         "%%%\n%%% This file is generated by Observer\n",
 	 "%%%\n%%% DO NOT EDIT!\n%%%\n",
-	 [io_lib:format("~p.~n",[MSTerm]) || MSTerm <- MSTermList],
-	 io_lib:format("~p.~n",[{procflags,ProcFlags}]),
-	 io_lib:format("~p.~n",[{portflags,PortFlags}]),
-	 io_lib:format("~p.~n",[{output,Output}]),
-	 [io_lib:format("~p.~n",[ModuleTerm]) || ModuleTerm <- ModuleTermList]
+	 [io_lib:format("~tp.~n",[MSTerm]) ||
+             MSTerm <- proplists:get_value(match_specs, Config)],
+	 io_lib:format("~p.~n",[lists:keyfind(procflags, 1, Config)]),
+	 io_lib:format("~p.~n",[lists:keyfind(portflags, 1, Config)]),
+	 io_lib:format("~tp.~n",[lists:keyfind(output, 1, Config)]),
+	 [io_lib:format("~tp.~n",[ModuleTerm]) ||
+             ModuleTerm <- proplists:get_value(trace_p, Config)]
 	],
 
-    case file:write_file(Filename, list_to_binary(Str)) of
+    case file:write_file(Filename, unicode:characters_to_binary(Str)) of
 	ok ->
 	    success;
 	{error, Reason} ->
@@ -1187,7 +1201,7 @@ make_ms(MS) ->
     make_ms(Name,Term,FunStr).
 
 make_ms(Name, Term, FunStr) ->
-    #match_spec{name=Name, term=Term, str=io_lib:format("~w", Term), func = FunStr}.
+    #match_spec{name=Name, term=Term, str=io_lib:format("~tw", [Term]), func = FunStr}.
 
 parse_tp({tp, Mod, FAs}, State) ->
     Patterns = [#tpattern{m=Mod,fa={F,A}, ms=make_ms(List)} ||

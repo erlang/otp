@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +19,7 @@
 %%
 -module(make_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-         init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
--export([otp_6057_init/1,
-         otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
-         otp_6057_end/1]).
+-compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +36,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [make_all, make_files, {group, otp_6057}].
+    [make_all, make_files, load, netload, recompile_on_changed_include,
+     emake_opts, {group, otp_6057}].
 
 groups() -> 
     [{otp_6057,[],[otp_6057_a, otp_6057_b,
@@ -58,6 +55,21 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     otp_6057_end(Config).
 
+init_per_testcase(_,Config) ->
+    Config.
+
+end_per_testcase(netload,_Config) ->
+    %% Stop slave - in case of failure
+    Nodes = nodes(),
+    case [N || N <- Nodes,
+               "make_SUITE_netload" == hd(string:lexemes(atom_to_list(N),"@"))] of
+        [Node] ->
+            ct_slave:stop(Node);
+        _ ->
+            ok
+    end;
+end_per_testcase(_,_Config) ->
+    ok.
 
 test_files() -> ["test1", "test2", "test3", "test4"].
 
@@ -86,6 +98,81 @@ make_files(Config) when is_list(Config) ->
     ensure_no_messages(),
     ok.
 
+load(Config) ->
+    Current = prepare_data_dir(Config),
+    code:purge(test1),
+    code:delete(test1),
+    false = code:is_loaded(test1),
+    up_to_date = make:files([test1], [load]),
+    {file,_} = code:is_loaded(test1),
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+netload(Config) ->
+    Current = prepare_data_dir(Config),
+    code:purge(test1),
+    code:delete(test1),
+    false = code:is_loaded(test1),
+    {ok,Node} = ct_slave:start(make_SUITE_netload),
+    up_to_date = make:files([test1], [netload]),
+    timer:sleep(1000), % async, so give some time
+    {file,F} = code:is_loaded(test1),
+    {file,F} = rpc:call(Node,code,is_loaded,[test1]),
+    ct_slave:stop(Node),
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+recompile_on_changed_include(Config) ->
+    Current = prepare_data_dir(Config),
+
+    Files = [test_incl1,"incl_src/test_incl2"],
+    up_to_date = make:files(Files),
+    ok = ensure_exists([test_incl1,test_incl2]),
+
+    {ok, FileInfo11} = file:read_file_info("test_incl1.beam"),
+    Date11 = FileInfo11#file_info.mtime,
+    {ok, FileInfo21} = file:read_file_info("test_incl2.beam"),
+    Date21 = FileInfo21#file_info.mtime,
+    timer:sleep(2000),
+
+    %% Touch the include file
+    {ok,Bin} = file:read_file("test_incl.hrl"),
+    ok = file:delete("test_incl.hrl"),
+    ok = file:write_file("test_incl.hrl",Bin),
+
+    up_to_date = make:files(Files),
+
+    {ok, FileInfo12} = file:read_file_info("test_incl1.beam"),
+    case FileInfo12#file_info.mtime of
+        Date11 -> ct:fail({"file not recompiled", "test_incl1.beam"});
+        _Date12 -> ok
+    end,
+    {ok, FileInfo22} = file:read_file_info("test_incl2.beam"),
+    case FileInfo22#file_info.mtime of
+        Date21 -> ct:fail({"file not recompiled", "test_incl2.beam"});
+        _Date22 -> ok
+    end,
+
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
+
+emake_opts(Config) when is_list(Config) ->
+    Current = prepare_data_dir(Config),
+
+    %% prove that emake is used in opts instead of local Emakefile
+    Opts = [{emake, [test8, test9]}],
+    error = make:all(Opts),
+    error = make:files([test9], Opts),
+    "test8.beam" = ensure_exists([test8]),
+    "test9.beam" = ensure_exists([test9]),
+    "test5.S" = ensure_exists(["test5"],".S"),
+
+    file:set_cwd(Current),
+    ensure_no_messages(),
+    ok.
 
 %% Moves to the data directory of this suite, clean it from any object
 %% files (*.jam for a JAM emulator).  Returns the previous directory.

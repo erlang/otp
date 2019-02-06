@@ -1,0 +1,2 @@
+
+left_assoc.erl:93: The variable __@2 can never match since previous clauses completely covered the type binary()

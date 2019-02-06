@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
 %% File    : hipe_ig.erl
@@ -28,7 +22,7 @@
 
 -module(hipe_ig).
 
--export([build/2, 
+-export([build/4,
 	 nodes_are_adjacent/3,
 	 node_spill_cost/2,
 	 node_adj_list/2,
@@ -38,8 +32,8 @@
 	 spill_costs/1,
 	 adj_list/1,
 	 %% adj_set/1,
-	 add_edge/4,
-	 remove_edge/4,
+	 add_edge/5,
+	 remove_edge/5,
 	 %% set_adj_set/2,
 	 %% set_adj_list/2,
 	 %% set_ig_moves/2,
@@ -64,6 +58,9 @@
 -include("../flow/cfg.hrl").
 -include("hipe_spillcost.hrl").
 
+-type target_context() :: any().
+-type target() :: {TargetMod :: module(), TargetContext :: target_context()}.
+
 %%----------------------------------------------------------------------
 
 -record(igraph, {adj_set, adj_list, ig_moves, degree,
@@ -78,11 +75,11 @@
 %% degree, and testing for trivial colourability (degree < K).
 %%----------------------------------------------------------------------
 
-degree_new(No_temporaries, Target) ->
+degree_new(No_temporaries, {TargetMod, TargetCtx}) ->
   Degree = hipe_bifs:array(No_temporaries, 0),
-  K = length(Target:allocatable()),
+  K = length(TargetMod:allocatable(TargetCtx)),
   Inf = K + No_temporaries,
-  precoloured_to_inf_degree(Target:all_precoloured(), Inf, Degree).
+  precoloured_to_inf_degree(TargetMod:all_precoloured(TargetCtx), Inf, Degree).
 
 precoloured_to_inf_degree([], _Inf, Degree) -> Degree;
 precoloured_to_inf_degree([P|Ps], Inf, Degree) ->
@@ -344,7 +341,7 @@ set_spill_costs(Spill_costs, IG) -> IG#igraph{spill_costs = Spill_costs}.
 %%   A new interference record
 %%----------------------------------------------------------------------
 
--spec initial_ig(non_neg_integer(), atom()) -> #igraph{}.
+-spec initial_ig(non_neg_integer(), target()) -> #igraph{}.
 
 initial_ig(NumTemps, Target) ->
   #igraph{adj_set     = adjset_new(NumTemps),
@@ -361,20 +358,21 @@ initial_ig(NumTemps, Target) ->
 %% Description: Constructs an interference graph for the specifyed CFG.
 %%
 %% Parameters:
-%%   CFG     -- A Control Flow Graph
-%%   Target  -- The module that contains the target-specific functions
+%%   CFG       -- A Control Flow Graph
+%%   TargetMod -- The module that contains the target-specific functions
+%%   TargetCtx -- Context data to pass to TargetMod
 %%
 %% Returns: 
 %%   An interference graph for the given CFG.
 %%----------------------------------------------------------------------
 
--spec build(#cfg{}, atom()) -> #igraph{}.
+-spec build(#cfg{}, Liveness::_, module(), target_context()) -> #igraph{}.
 
-build(CFG, Target) ->
-  BBs_in_out_liveness = Target:analyze(CFG),
-  Labels = Target:labels(CFG),
+build(CFG, BBs_in_out_liveness, TargetMod, TargetCtx) ->
+  Target = {TargetMod, TargetCtx},
+  Labels = TargetMod:labels(CFG, TargetCtx),
   %% How many temporaries exist?
-  NumTemps = Target:number_of_temporaries(CFG),
+  NumTemps = TargetMod:number_of_temporaries(CFG, TargetCtx),
   IG0 = initial_ig(NumTemps, Target),
   %%?debug_msg("initial adjset: ~p\n",[element(2, IG0)]),
   %%?debug_msg("initial adjset array: ~.16b\n",[element(3, element(2, IG0))]),
@@ -395,7 +393,7 @@ build(CFG, Target) ->
 %%   CFG                  --  The Control Flow Graph that we constructs 
 %%                            the interference graph from.
 %%   Target               --  The module containing the target-specific
-%%                            functions
+%%                            functions, along with its context data
 %%
 %% Returns: 
 %%   An interference graph for the given CFG.
@@ -404,13 +402,11 @@ build(CFG, Target) ->
 analyze_bbs([], _, IG, _, _) -> IG;
 analyze_bbs([L|Ls], BBs_in_out_liveness, IG, CFG, Target) ->
     % Get basic block associated with label L
-    BB = Target:bb(CFG, L),
+    BB = bb(CFG, L, Target),
     % Get basic block code
     BB_code = hipe_bb:code(BB),
-    % Temporaries that are live out from this basic block
-    BB_liveout = Target:liveout(BBs_in_out_liveness, L),
-    % Only temporary numbers
-    BB_liveout_numbers = reg_numbers(BB_liveout, Target),
+    % Temporaries that are live out from this basic block, only numbers
+    BB_liveout_numbers = liveout(BBs_in_out_liveness, L, Target),
     % {Liveness, New Interference Graph}
     {_, New_ig, Ref} = analyze_bb_instructions(BB_code,
 					       ordsets:from_list(BB_liveout_numbers),
@@ -433,7 +429,8 @@ analyze_bbs([L|Ls], BBs_in_out_liveness, IG, CFG, Target) ->
 %%   Live          --  All temporaries that are live at the time.
 %%                     Live is a set of temporary "numbers only".
 %%   IG            --  The interference graph in it's current state
-%%   Target        --  The mopdule containing the target-specific functions
+%%   Target        --  The mopdule containing the target-specific functions,
+%%                     along with its context data.
 %%
 %% Returns: 
 %%   Live  --  Temporaries that are live at entery of basic block
@@ -449,7 +446,7 @@ analyze_bb_instructions([Instruction|Instructions], Live, IG, Target) ->
   {Live0, IG0, Ref} = analyze_bb_instructions(Instructions, Live, 
 					      IG, Target),
   %% Check for temporaries that are defined and used in instruction
-  {Def, Use} = Target:def_use(Instruction),
+  {Def, Use} = def_use(Instruction, Target),
   %% Convert to register numbers
   Def_numbers = ordsets:from_list(reg_numbers(Def, Target)),
   Use_numbers = ordsets:from_list(reg_numbers(Use, Target)),
@@ -501,14 +498,15 @@ analyze_bb_instructions([Instruction|Instructions], Live, IG, Target) ->
 %%   Def_numbers  --  Temporaries that are defined at this instruction
 %%   Use_numbers  --  Temporaries that are used at this instruction
 %%   IG           --  The interference graph in its current state
-%%   Target       --  The module containing the target-specific functions
+%%   Target       --  The module containing the target-specific functions, along
+%%                    with its context data
 %% Returns:
 %%   Live  --  An updated live set
 %%   IG    --  An updated interference graph
 %%----------------------------------------------------------------------
 
 analyze_move(Instruction, Live, Def_numbers, Use_numbers, IG, Target) ->
-  case Target:is_move(Instruction) of
+  case is_move(Instruction,Target) of
     true ->
       case {Def_numbers, Use_numbers} of
 	{[Dst], [Src]} ->
@@ -554,8 +552,9 @@ interfere([Define|Defines], Living, IG, Target) ->
 %%   Live       --  Current live set
 %%   Lives      --  Rest of living temporaries.
 %%   IG         --  An interference graph
-%%   Target     --  The module containing the target-specific functions
-%% Returns: 
+%%   Target     --  The module containing the target-specific functions, along
+%%                  with its context data.
+%% Returns:
 %%   An updated interference graph
 %%----------------------------------------------------------------------
 
@@ -623,10 +622,14 @@ get_moves(IG) ->
 %% Parameters:
 %%   U          --  A temporary number
 %%   V          --  A temporary number
-%%   Target     --  The module containing the target-specific functions
+%%   TargetMod  --  The module containing the target-specific functions.
+%%   TargetCtx  --  Context data to pass to TargetMod
 %% Returns: 
 %%   An updated interference graph.
 %%----------------------------------------------------------------------
+
+add_edge(U, V, IG, TargetMod, TargetCtx) ->
+  add_edge(U, V, IG, {TargetMod, TargetCtx}).
 
 add_edge(U, U, IG, _) -> IG;
 add_edge(U, V, IG, Target) ->
@@ -652,10 +655,14 @@ add_edge(U, V, IG, Target) ->
 %% Parameters:
 %%   U          --  A temporary number
 %%   V          --  A temporary number
-%%   Target     --  The module containing the target-specific functions
+%%   TargetMod  --  The module containing the target-specific functions.
+%%   TargetCtx  --  Context data for TargetMod.
 %% Returns: 
 %%   An updated interference graph.
 %%----------------------------------------------------------------------
+
+remove_edge(U, V, IG, TargetMod, TargetCtx) ->
+  remove_edge(U, V, IG, {TargetMod, TargetCtx}).
 
 remove_edge(U, U, IG, _) -> IG;
 remove_edge(U, V, IG, Target) ->
@@ -683,8 +690,8 @@ remove_edge(U, V, IG, Target) ->
 %%                             precoloured.
 %%   Adj_list             --  An adj_list
 %%   Degree               --  The degree that all nodes currently have
-%%   Target               --  The module containing the target-specific 
-%%                            functions
+%%   Target               --  The module containing the target-specific
+%%                            functions, along with its context data.
 %%
 %% Returns: 
 %%   Adj_list  --  An updated adj_list data structure
@@ -692,7 +699,7 @@ remove_edge(U, V, IG, Target) ->
 %%----------------------------------------------------------------------
 
 remove_if_uncolored(Temp, InterfereTemp, Adj_list, Degree, Target) ->
-  case Target:is_precoloured(Temp) of
+  case is_precoloured(Temp,Target) of
     false ->
       New_adj_list = hipe_adj_list:remove_edge(Temp, InterfereTemp, Adj_list),
       degree_dec(Temp, Degree),
@@ -714,8 +721,8 @@ remove_if_uncolored(Temp, InterfereTemp, Adj_list, Degree, Target) ->
 %%                             precoloured.
 %%   Adj_list             --  An adj_list
 %%   Degree               --  The degree that all nodes currently have
-%%   Target               --  The module containing the target-specific 
-%%                            functions
+%%   Target               --  The module containing the target-specific
+%%                            functions, along with its context data.
 %%
 %% Returns: 
 %%   Adj_list  --  An updated adj_list data structure
@@ -723,7 +730,7 @@ remove_if_uncolored(Temp, InterfereTemp, Adj_list, Degree, Target) ->
 %%----------------------------------------------------------------------
 
 interfere_if_uncolored(Temp, InterfereTemp, Adj_list, Degree, Target) ->
-  case Target:is_precoloured(Temp) of
+  case is_precoloured(Temp, Target) of
     false ->
       New_adj_list = hipe_adj_list:add_edge(Temp, InterfereTemp, Adj_list),
       degree_inc(Temp, Degree),
@@ -740,13 +747,14 @@ interfere_if_uncolored(Temp, InterfereTemp, Adj_list, Degree, Target) ->
 %%
 %% Parameters:
 %%   TRs     -- A list of temporary registers
-%%   Target  -- The module containing the target-specific functions
+%%   Target  -- The module containing the target-specific functions, along with
+%%              its context data.
 %% Returns: 
 %%   A list of register numbers.
 %%----------------------------------------------------------------------
 
-reg_numbers(Regs, Target) -> 
-  [Target:reg_nr(X) || X <- Regs].
+reg_numbers(Regs, {TgtMod, TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
 
 %%---------------------------------------------------------------------
 %% Print functions - only used for debugging
@@ -775,3 +783,24 @@ dec_node_degree(Node, IG) ->
 
 is_trivially_colourable(Node, K, IG) ->
   degree_is_trivially_colourable(Node, K, degree(IG)).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Interface to external functions.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+bb(CFG, L, {TgtMod,TgtCtx}) ->
+  TgtMod:bb(CFG,L,TgtCtx).
+
+def_use(Instruction, {TgtMod,TgtCtx}) ->
+  TgtMod:def_use(Instruction, TgtCtx).
+
+is_move(Instruction, {TgtMod,TgtCtx}) ->
+  TgtMod:is_move(Instruction, TgtCtx).
+
+is_precoloured(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_precoloured(R,TgtCtx).
+
+liveout(Liveness,L, Target={TgtMod,TgtCtx}) ->
+  reg_numbers(TgtMod:liveout(Liveness,L,TgtCtx), Target).

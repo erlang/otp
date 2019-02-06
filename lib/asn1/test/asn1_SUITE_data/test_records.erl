@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 -define(line,put(test_server_loc,{?MODULE,?LINE}),).
 
--include("NBAP-PDU-Discriptions.hrl").
+-include("NBAP-PDU-Descriptions.hrl").
 -include("NBAP-PDU-Contents.hrl").
 -include("NBAP-Containers.hrl").
 -include("NBAP-CommonDataTypes.hrl").

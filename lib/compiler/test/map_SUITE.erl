@@ -36,7 +36,7 @@
         t_guard_fun/1,
 	t_list_comprehension/1,
 	t_map_sort_literals/1,
-	t_map_size/1,
+	t_map_size/1, t_map_get/1,
 	t_build_and_match_aliasing/1,
 	t_is_map/1,
 
@@ -67,14 +67,15 @@
 
 	%% errors in 18
         t_register_corruption/1,
-	t_bad_update/1
+	t_bad_update/1,
 
+        %% new in OTP 21
+        t_reused_key_variable/1
     ]).
 
 suite() -> [].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [
 	%% literals
 	t_build_and_match_literals, t_build_and_match_literals_large,
@@ -89,7 +90,7 @@ all() ->
 	t_guard_receive, t_guard_receive_large,
         t_guard_fun, t_list_comprehension,
 	t_map_sort_literals,
-	t_map_size,
+	t_map_size, t_map_get,
 	t_build_and_match_aliasing,
 	t_is_map,
 
@@ -120,13 +121,20 @@ all() ->
 
 	%% errors in 18
         t_register_corruption,
-        t_bad_update
+        t_bad_update,
+
+        %% new in OTP 21
+        t_reused_key_variable
     ].
 
 groups() -> [].
 
-init_per_suite(Config) -> Config.
-end_per_suite(_Config) -> ok.
+init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) -> Config.
 end_per_group(_GroupName, Config) -> Config.
@@ -686,6 +694,32 @@ t_map_size(Config) when is_list(Config) ->
 map_is_size(M,N) when map_size(M) =:= N -> true;
 map_is_size(_,_) -> false.
 
+t_map_get(Config) when is_list(Config) ->
+    1 = map_get(a, id(#{a=>1})),
+
+    {'EXIT',{{badkey,a},_}} = (catch map_get(a, #{})),
+    {'EXIT',{{badkey,a},_}} = (catch map_get(a, #{b=>1})),
+
+    M = #{"a"=>1, "b" => 2},
+    true = check_map_value(M, "a", 1),
+    false = check_map_value(M, "b", 1),
+    true = check_map_value(M#{"c"=>2}, "c", 2),
+    false = check_map_value(M#{"a"=>5}, "a", 1),
+
+    {'EXIT',{{badmap,[]},_}} = (catch map_get(a, [])),
+    {'EXIT',{{badmap,<<1,2,3>>},_}} = (catch map_get(a, <<1,2,3>>)),
+    {'EXIT',{{badmap,1},_}} = (catch map_get(a, 1)),
+
+    %% Test that beam_validator understands that NewMap is
+    %% a map after seeing map_get(a, NewMap).
+    NewMap = id(#{a=>b}),
+    b = map_get(a, NewMap),
+    #{a:=z} = NewMap#{a:=z},
+    ok.
+
+check_map_value(Map, Key, Value) when map_get(Key, Map) =:= Value -> true;
+check_map_value(_, _, _) -> false.
+
 t_is_map(Config) when is_list(Config) ->
     true = is_map(#{}),
     true = is_map(#{a=>1}),
@@ -695,7 +729,27 @@ t_is_map(Config) when is_list(Config) ->
     if is_map(#{b=>1}) -> ok end,
     if not is_map([1,2,3]) -> ok end,
     if not is_map(x) -> ok end,
+
+    ok = do_t_is_map(map, #{}),
+    error = do_t_is_map(map, {a,b,c}),
+    ok = do_t_is_map(number, 42),
+    ok = do_t_is_map(number, 42.0),
+    error = do_t_is_map(number, {a,b,c}),
     ok.
+
+do_t_is_map(What, X) ->
+    B = case What of
+            map ->
+                %% Cover conversion of is_map/1 BIF to test instruction
+                %% in beam_utils:bif_to_test/3.
+                is_map(X);
+            number ->
+                is_number(X)
+        end,
+    case B of
+        true -> ok;
+        false -> error
+    end.
 
 % test map updates without matching
 t_update_literals(Config) when is_list(Config) ->
@@ -1158,12 +1212,84 @@ t_guard_bifs(Config) when is_list(Config) ->
     true   = map_guard_empty_2(),
     true   = map_guard_head(#{a=>1}),
     false  = map_guard_head([]),
+
+    true   = map_get_head(#{a=>1}),
+    false  = map_get_head(#{}),
+    false  = map_get_head([]),
+
+    true   = map_get_head_not(#{a=>false}),
+    false  = map_get_head_not(#{a=>true}),
+    false  = map_get_head(#{}),
+    false  = map_get_head([]),
+
+    true   = map_is_key_head(#{a=>1}),
+    false  = map_is_key_head(#{}),
+    false  = map_is_key_head(not_a_map),
+
+    false  = map_is_key_head_not(#{a=>1}),
+    true   = map_is_key_head_not(#{b=>1}),
+    true   = map_is_key_head_not(#{}),
+    false  = map_is_key_head_not(not_a_map),
+
     true   = map_guard_body(#{a=>1}),
     false  = map_guard_body({}),
     true   = map_guard_pattern(#{a=>1, <<"hi">> => "hi" }),
     false  = map_guard_pattern("list"),
     true   = map_guard_tautology(),
     true   = map_guard_ill_map_size(),
+    true   = map_field_check_sequence(#{a=>1}),
+    false  = map_field_check_sequence(#{}),
+
+    %% The guard BIFs used in a body.
+
+    v = map_get(a, id(#{a=>v})),
+    {'EXIT',{{badkey,a},_}} =
+        (catch map_get(a, id(#{}))),
+    {'EXIT',{{badmap,not_a_map},_}} =
+        (catch map_get(a, id(not_a_map))),
+
+    true   = is_map_key(a, id(#{a=>1})),
+    false  = is_map_key(b, id(#{a=>1})),
+    false  = is_map_key(b, id(#{})),
+    {'EXIT',{{badmap,not_a_map},_}} =
+        (catch is_map_key(b, id(not_a_map))),
+
+    {true,v} = erl_699(#{k=>v}),
+    {'EXIT',{{badkey,k},_}} = (catch erl_699(#{})),
+    {'EXIT',{{badmap,not_a_map},_}} = (catch erl_699(not_a_map)),
+
+    %% Cover optimizations in beam_dead.
+
+    ok = beam_dead_1(#{a=>any,k=>true}),
+    error = beam_dead_1(#{a=>any,k=>false}),
+    error = beam_dead_1(#{a=>any}),
+    error = beam_dead_1(#{}),
+
+    ok = beam_dead_2(#{a=>any,k=>true}),
+    error = beam_dead_2(#{a=>any,k=>false}),
+    error = beam_dead_2(#{a=>any}),
+    error = beam_dead_2(#{}),
+
+    ok = beam_dead_3(#{k=>true}),
+    error = beam_dead_3(#{k=>false}),
+    error = beam_dead_3(#{}),
+
+    ok = beam_dead_4(#{k=>true}),
+    error = beam_dead_4(#{k=>false}),
+    error = beam_dead_4(#{}),
+    error = beam_dead_4(not_a_map),
+
+    ok = beam_dead_5(#{k=>true}),
+    error = beam_dead_5(#{k=>false}),
+    error = beam_dead_3(#{}),
+
+    %% Test is_map_key/2 followed by map update.
+
+    Used0 = map_usage(var, #{other=>value}),
+    Used0 = #{other=>value,var=>dead},
+    Used1 = map_usage(var, #{var=>live}),
+    Used1 = #{var=>live},
+
     ok.
 
 map_guard_empty() when is_map(#{}); false -> true.
@@ -1173,6 +1299,18 @@ map_guard_empty_2() when true; #{} andalso false -> true.
 map_guard_head(M) when is_map(M) -> true;
 map_guard_head(_) -> false.
 
+map_get_head(M) when map_get(a, M) =:= 1 -> true;
+map_get_head(_) -> false.
+
+map_get_head_not(M) when not map_get(a, M) -> true;
+map_get_head_not(_) -> false.
+
+map_is_key_head(M) when is_map_key(a, M) -> true;
+map_is_key_head(_) -> false.
+
+map_is_key_head_not(M) when not is_map_key(a, M) -> true;
+map_is_key_head_not(_) -> false.
+
 map_guard_body(M) -> is_map(M).
 
 map_guard_pattern(#{}) -> true;
@@ -1181,6 +1319,58 @@ map_guard_pattern(_)   -> false.
 map_guard_tautology() when #{} =:= #{}; true -> true.
 
 map_guard_ill_map_size() when true; map_size(0) -> true.
+
+map_field_check_sequence(M)
+  when is_map(M) andalso is_map_key(a, M) andalso (map_get(a, M) == 1) ->
+    true;
+map_field_check_sequence(_) ->
+    false.
+
+erl_699(M) ->
+    %% Used to cause an internal consistency failure.
+    {is_map_key(k, M),maps:get(k, M)}.
+
+beam_dead_1(#{a:=_,k:=_}=M) when map_get(k, M) ->
+    ok;
+beam_dead_1(#{}) ->
+    error.
+
+beam_dead_2(M) ->
+    case M of
+        #{a:=_,k:=_} when map_get(k, M) ->
+            ok;
+        #{} ->
+            error
+    end.
+
+beam_dead_3(M) ->
+    case M of
+        #{k:=_} when map_get(k, M) ->
+            ok;
+        #{} ->
+            error
+    end.
+
+beam_dead_4(M) ->
+    case M of
+        #{} when map_get(k, M) ->
+            ok;
+        _ ->
+            error
+    end.
+
+beam_dead_5(#{}=M) when map_get(k, M) ->
+    ok;
+beam_dead_5(#{}) ->
+    error.
+
+%% Test is_map_key/2, followed by an update of the map.
+map_usage(Def, Used) ->
+    case is_map_key(Def, Used) of
+        true -> Used;
+        false -> Used#{Def=>dead}
+    end.
+
 
 t_guard_sequence(Config) when is_list(Config) ->
 	{1, "a"} = map_guard_sequence_1(#{seq=>1,val=>id("a")}),
@@ -1559,7 +1749,6 @@ t_warn_pair_key_overloaded(Config) when is_list(Config) ->
 	    "hi2" => lists:subtract([1,2],[1]),
 	    "hi3" => +3,
 	    "hi1" => erlang:min(1,2),
-	    "hi1" => erlang:hash({1,2},35),
 	    "hi1" => erlang:phash({1,2},33),
 	    "hi1" => erlang:phash2({1,2},34),
 	    "hi1" => erlang:integer_to_binary(1337),
@@ -1961,6 +2150,16 @@ properly(Item) ->
 increase(Allows) ->
     catch fun() -> Allows end#{[] => +Allows, "warranty" => fun id/1}.
 
+t_reused_key_variable(Config) when is_list(Config) ->
+    Key = id(key),
+    Map1 = id(#{Key=>Config}),
+    Map2 = id(#{Key=>Config}),
+    case {Map1,Map2} of
+        %% core_lint treated Key as pattern variables, not input variables,
+        %% and complained about the variable being duplicated.
+        {#{Key:=Same},#{Key:=Same}} ->
+            ok
+    end.
 
 %% aux
 

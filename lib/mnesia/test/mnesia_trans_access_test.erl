@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,28 @@
 %%
 -module(mnesia_trans_access_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([write/1, read/1, wread/1, delete/1, delete_object/1,
+         match_object/1, select/1, select14/1, all_keys/1, transaction/1,
+         basic_nested/1, mix_of_nested_activities/1,
+         nested_trans_both_ok/1, nested_trans_child_dies/1,
+         nested_trans_parent_dies/1, nested_trans_both_dies/1,
+         index_match_object/1, index_read/1,index_write/1,
+         index_update_set/1, index_update_bag/1,
+         add_table_index_ram/1, add_table_index_disc/1,
+         add_table_index_disc_only/1, create_live_table_index_ram/1,
+         create_live_table_index_disc/1,
+         create_live_table_index_disc_only/1, del_table_index_ram/1,
+         del_table_index_disc/1, del_table_index_disc_only/1,
+         idx_schema_changes_ram/1, idx_schema_changes_disc/1,
+         idx_schema_changes_disc_only/1]).
+
+-export([do_nested/1]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->
@@ -307,6 +328,7 @@ select14(Config) when is_list(Config) ->
 
     %% Some Helpers
     Trans = fun(Fun) -> mnesia:transaction(Fun) end,
+    Dirty = fun(Fun) -> mnesia:async_dirty(Fun) end,
     LoopHelp = fun('$end_of_table',_) -> [];
 		  ({Recs,Cont},Fun) ->
 		       Sel = mnesia:select(Cont),
@@ -334,8 +356,13 @@ select14(Config) when is_list(Config) ->
 		?match({atomic, [OneRec]}, Trans(fun() -> Loop(Tab, OnePat) end)),
 		?match({atomic, All}, Trans(fun() -> Loop(Tab, AllPat) end)),
 
-		{atomic,{_, Cont}} = Trans(fun() -> mnesia:select(Tab, OnePat, 1, read) end),
-		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(Cont) end)),
+		{atomic,{_, ContOne}} = Trans(fun() -> mnesia:select(Tab, OnePat, 1, read) end),
+		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(ContOne) end)),
+		?match('$end_of_table',              Dirty(fun() -> mnesia:select(ContOne) end)),
+
+		{atomic,{_, ContAll}} = Trans(fun() -> mnesia:select(Tab, AllPat, 1, read) end),
+		?match({aborted, wrong_transaction}, Trans(fun() -> mnesia:select(ContAll) end)),
+		?match({[_], _},                     Dirty(fun() -> mnesia:select(ContAll) end)),
 
 		?match({aborted, _}, Trans(fun() -> mnesia:select(Tab, {match, '$1', 2},1,read) end)),
 		?match({aborted, _}, Trans(fun() -> mnesia:select(Tab, [{'_', [], '$1'}],1,read) end)),

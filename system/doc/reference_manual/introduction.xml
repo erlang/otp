@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -48,7 +48,7 @@
       System Principles</seealso></p>
       <p>Starting and stopping, boot scripts, code loading,
       <seealso marker="doc/system_principles:error_logging">
-      error logging</seealso>,
+      logging</seealso>,
       <seealso marker="doc/system_principles:create_target">
       creating target systems</seealso></p>
       </item>
@@ -80,14 +80,14 @@
       <item>A <em>list</em> is any number of items. For example,
        an argument list can consist of zero, one, or more arguments.</item>
     </list>
-    <p>If a feature has been added recently, in Erlang 5.0/OTP R7 or
-      later, this is mentioned in the text.</p>
+    <p>If a feature has been added in R13A or later,
+    this is mentioned in the text.</p>
   </section>
 
   <section>
     <title>Complete List of BIFs</title>
     <p>For a complete list of BIFs, their arguments and return values,
-      see <seealso marker="erts:erlang#process_flag/2">erlang(3)</seealso>
+      see <seealso marker="erts:erlang">erlang(3)</seealso>
       manual page in ERTS.</p>
   </section>
 

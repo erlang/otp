@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -219,12 +219,12 @@ pbes2() ->
 pbes2(Config) when is_list(Config) ->
     decode_encode_key_file("pbes2_des_cbc_enc_key.pem", "password", "DES-CBC", Config),
     decode_encode_key_file("pbes2_des_ede3_cbc_enc_key.pem", "password", "DES-EDE3-CBC", Config),   
-    decode_encode_key_file("pbes2_rc2_cbc_enc_key.pem", "password", "RC2-CBC", Config).
-
-check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				     #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
-				 privateKey = Key}) ->
-    #'RSAPrivateKey'{} = public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key)).
+    case lists:member(rc2_cbc, proplists:get_value(ciphers, crypto:supports())) of
+	true ->
+	    decode_encode_key_file("pbes2_rc2_cbc_enc_key.pem", "password", "RC2-CBC", Config);
+	false ->
+	    ok
+    end.
 
 decode_encode_key_file(File, Password, Cipher, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
@@ -233,11 +233,10 @@ decode_encode_key_file(File, Password, Cipher, Config) ->
     PemEntry = public_key:pem_decode(PemKey),
     ct:print("Pem entry: ~p" , [PemEntry]),
     [{Asn1Type, _, {Cipher,_} = CipherInfo} = PubEntry] = PemEntry,
-    KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
+    #'RSAPrivateKey'{} = KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
     PemKey1 = public_key:pem_encode([public_key:pem_entry_encode(Asn1Type, KeyInfo, {CipherInfo, Password})]),
     Pem = strip_ending_newlines(PemKey),
-    Pem = strip_ending_newlines(PemKey1),
-    check_key_info(KeyInfo).
+    Pem = strip_ending_newlines(PemKey1).
 
 strip_ending_newlines(Bin) ->
     string:strip(binary_to_list(Bin), right, 10).

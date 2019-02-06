@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,10 +35,12 @@
   </description>
   <xi:include href="ssh_app.xml"/>
   <xi:include href="ssh.xml"/>
-  <xi:include href="ssh_channel.xml"/>
+  <xi:include href="ssh_client_channel.xml"/>
+  <xi:include href="ssh_server_channel.xml"/>
   <xi:include href="ssh_connection.xml"/>
   <xi:include href="ssh_client_key_api.xml"/>
   <xi:include href="ssh_server_key_api.xml"/>
+  <xi:include href="ssh_file.xml"/>
   <xi:include href="ssh_sftp.xml"/>
   <xi:include href="ssh_sftpd.xml"/>
 </application>

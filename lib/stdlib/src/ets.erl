@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,10 +51,10 @@
 -type tab()        :: atom() | tid().
 -type type()       :: set | ordered_set | bag | duplicate_bag.
 -type continuation() :: '$end_of_table'
-                      | {tab(),integer(),integer(),binary(),list(),integer()}
-                      | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
+                      | {tab(),integer(),integer(),comp_match_spec(),list(),integer()}
+                      | {tab(),_,_,integer(),comp_match_spec(),list(),integer(),integer()}.
 
--opaque tid()      :: integer().
+-opaque tid()      :: reference().
 
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
@@ -70,15 +70,36 @@
          match_object/2, match_object/3, match_spec_compile/1,
          match_spec_run_r/3, member/2, new/2, next/2, prev/2,
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
-         select_count/2, select_delete/2, select_reverse/1,
+         select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
          take/2,
-         update_counter/3, update_counter/4, update_element/3]).
+         update_counter/3, update_counter/4, update_element/3,
+         whereis/1]).
+
+%% internal exports
+-export([internal_request_all/0,
+         internal_delete_all/2,
+         internal_select_delete/2]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
 
 all() ->
+    receive_all(ets:internal_request_all(),
+                erlang:system_info(schedulers),
+                []).
+
+receive_all(_Ref, 0, All) ->
+    All;
+receive_all(Ref, N, All) ->
+    receive
+        {Ref, SchedAll} ->
+            receive_all(Ref, N-1, SchedAll ++ All)
+    end.
+
+-spec internal_request_all() -> reference().
+
+internal_request_all() ->
     erlang:nif_error(undef).
 
 -spec delete(Tab) -> true when
@@ -97,7 +118,15 @@ delete(_, _) ->
 -spec delete_all_objects(Tab) -> true when
       Tab :: tab().
 
-delete_all_objects(_) ->
+delete_all_objects(Tab) ->
+    _ = ets:internal_delete_all(Tab, undefined),
+    true.
+
+-spec internal_delete_all(Tab, undefined) -> NumDeleted when
+      Tab :: tab(),
+      NumDeleted :: non_neg_integer().
+
+internal_delete_all(_, _) ->
     erlang:nif_error(undef).
 
 -spec delete_object(Tab, Object) -> true when
@@ -127,6 +156,7 @@ give_away(_, _, _) ->
       InfoList :: [InfoTuple],
       InfoTuple :: {compressed, boolean()}
                  | {heir, pid() | none}
+                 | {id, tid()}
                  | {keypos, pos_integer()}
                  | {memory, non_neg_integer()}
                  | {name, atom()}
@@ -144,7 +174,7 @@ info(_) ->
 
 -spec info(Tab, Item) -> Value | undefined when
       Tab :: tab(),
-      Item :: compressed | fixed | heir | keypos | memory
+      Item :: compressed | fixed | heir | id | keypos | memory
             | name | named_table | node | owner | protection
             | safe_fixed | safe_fixed_monotonic_time | size | stats | type
 	    | write_concurrency | read_concurrency,
@@ -259,7 +289,7 @@ match_spec_compile(_) ->
     erlang:nif_error(undef).
 
 -spec match_spec_run_r(List, CompiledMatchSpec, list()) -> list() when
-      List :: [tuple()],
+      List :: [term()],
       CompiledMatchSpec :: comp_match_spec().
 
 match_spec_run_r(_, _, _) ->
@@ -358,7 +388,25 @@ select_count(_, _) ->
       MatchSpec :: match_spec(),
       NumDeleted :: non_neg_integer().
 
-select_delete(_, _) ->
+select_delete(Tab, [{'_',[],[true]}]) ->
+    ets:internal_delete_all(Tab, undefined);
+select_delete(Tab, MatchSpec) ->
+    ets:internal_select_delete(Tab, MatchSpec).
+
+-spec internal_select_delete(Tab, MatchSpec) -> NumDeleted when
+      Tab :: tab(),
+      MatchSpec :: match_spec(),
+      NumDeleted :: non_neg_integer().
+
+internal_select_delete(_, _) ->
+    erlang:nif_error(undef).
+
+-spec select_replace(Tab, MatchSpec) -> NumReplaced when
+      Tab :: tab(),
+      MatchSpec :: match_spec(),
+      NumReplaced :: non_neg_integer().
+
+select_replace(_, _) ->
     erlang:nif_error(undef).
 
 -spec select_reverse(Tab, MatchSpec) -> [Match] when
@@ -486,12 +534,17 @@ update_counter(_, _, _, _) ->
 update_element(_, _, _) ->
     erlang:nif_error(undef).
 
+-spec whereis(TableName) -> tid() | undefined when
+    TableName :: atom().
+whereis(_) ->
+    erlang:nif_error(undef).
+
 %%% End of BIFs
 
--opaque comp_match_spec() :: binary().  %% this one is REALLY opaque
+-opaque comp_match_spec() :: reference().
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
-      List :: [tuple()],
+      List :: [term()],
       CompiledMatchSpec :: comp_match_spec().
 
 match_spec_run(List, CompiledMS) ->
@@ -505,28 +558,28 @@ match_spec_run(List, CompiledMS) ->
 repair_continuation('$end_of_table', _) ->
     '$end_of_table';
 %% ordered_set
-repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,Bin,L2,N3,N4}, MS)
+repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,MSRef,L2,N3,N4}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L2),
        is_integer(N3),
        is_integer(N4) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->
 	    {Table,Lastkey,EndCondition,N2,ets:match_spec_compile(MS),L2,N3,N4}
     end;
 %% set/bag/duplicate_bag
-repair_continuation(Untouched = {Table,N1,N2,Bin,L,N3}, MS)
+repair_continuation(Untouched = {Table,N1,N2,MSRef,L,N3}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N1),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L),
        is_integer(N3) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->
@@ -856,10 +909,10 @@ tab2file(Tab, File, Options) ->
 		_ = disk_log:close(Name),
 		_ = file:delete(File),
 		exit(ExReason);
-	    error:ErReason ->
+	    error:ErReason:StackTrace ->
 		_ = disk_log:close(Name),
 		_ = file:delete(File),
-	        erlang:raise(error,ErReason,erlang:get_stacktrace())
+	        erlang:raise(error,ErReason,StackTrace)
 	end
     catch
 	throw:TReason2 ->
@@ -1034,9 +1087,9 @@ file2tab(File, Opts) ->
 		exit:ExReason ->
 		    ets:delete(Tab),
 		    exit(ExReason);
-		error:ErReason ->
+		error:ErReason:StackTrace ->
 		    ets:delete(Tab),
-		    erlang:raise(error,ErReason,erlang:get_stacktrace())
+		    erlang:raise(error,ErReason,StackTrace)
 	    end
 	after
 	    _ = disk_log:close(Name)
@@ -1667,13 +1720,15 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
 		  end,
 	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos);
 	[$/|Regexp]   -> %% from regexp
-	    case re:compile(nonl(Regexp)) of
+	    case re:compile(nonl(Regexp),[unicode]) of
 		{ok,Re} ->
 		    re_search(Height, Width, Tab, ets:first(Tab), Re, 1, 1);
 		{error,{ErrorString,_Pos}} ->
 		    io:format("~ts\n", [ErrorString]),
 		    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
 	    end;
+        eof ->
+            ok;
 	_  ->
 	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
     end.
@@ -1691,7 +1746,7 @@ get_line(P, Default) ->
 line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
 line_string(Other) -> Other.
 
-nonl(S) -> string:strip(S, right, $\n).
+nonl(S) -> string:trim(S, trailing, "$\n").
 
 print_number(Tab, Key, Num) ->
     Os = ets:lookup(Tab, Key),
@@ -1720,7 +1775,7 @@ do_display_item(_Height, Width, I, Opos)  ->
     L = to_string(I),
     L2 = if
 	     length(L) > Width - 8 ->
-                 string:substr(L, 1, Width-13) ++ "  ...";
+                 string:slice(L, 0, Width-13) ++ "  ...";
 	     true ->
 		 L
 	 end,

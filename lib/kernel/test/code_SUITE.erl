@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,9 +35,11 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
+         on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
 	 on_load_deleted/1,
 	 big_boot_embedded/1,
+         module_status/1,
 	 native_early_modules/1, get_mode/1,
 	 normalized_paths/1]).
 
@@ -65,13 +67,16 @@ all() ->
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_binary, on_load_embedded, on_load_errors, on_load_update,
+     on_load_binary, on_load_embedded, on_load_errors,
+     {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
      on_load_deleted,
+     module_status,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
-groups() ->
-    [].
+%% These need to run in order
+groups() -> [{sequence, [sequence], [on_load_update,
+                                     on_load_trace_on_load]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -93,6 +98,11 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
+-define(TESTMOD, test_dummy).
+-define(TESTMODSTR, "test_dummy").
+-define(TESTMODSRC, ?TESTMODSTR ".erl").
+-define(TESTMODOBJ, ?TESTMODSTR ".beam").
+
 init_per_testcase(big_boot_embedded, Config) ->
     case catch crypto:start() of
 	ok ->
@@ -100,15 +110,35 @@ init_per_testcase(big_boot_embedded, Config) ->
 	_Else ->
 	    {skip, "Needs crypto!"}
     end;
+init_per_testcase(on_load_embedded, Config0) ->
+    LibRoot = code:lib_dir(),
+    LinkName = filename:join(LibRoot, "on_load_app-1.0"),
+    Config = [{link_name,LinkName}|Config0],
+    init_per_testcase(Config);
 init_per_testcase(_Func, Config) ->
+    init_per_testcase(Config).
+
+init_per_testcase(Config) ->
     P = code:get_path(),
     [{code_path, P}|Config].
 
+
+end_per_testcase(module_status, Config) ->
+    code:purge(?TESTMOD),
+    code:delete(?TESTMOD),
+    code:purge(?TESTMOD),
+    file:delete(?TESTMODOBJ),
+    file:delete(?TESTMODSRC),
+    end_per_testcase(Config);
 end_per_testcase(TC, Config) when TC == mult_lib_roots;
 				  TC == big_boot_embedded ->
     {ok, HostName} = inet:gethostname(),
     NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
     test_server:stop_node(NodeName),
+    end_per_testcase(Config);
+end_per_testcase(on_load_embedded, Config) ->
+    LinkName = proplists:get_value(link_name, Config),
+    _ = del_link(LinkName),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
     end_per_testcase(Config).
@@ -309,7 +339,7 @@ load_abs(Config) when is_list(Config) ->
     {error, nofile} = code:load_abs(TestDir ++ "/duuuumy_mod"),
     {error, badfile} = code:load_abs(TestDir ++ "/code_a_test"),
     {'EXIT', _} = (catch code:load_abs({})),
-    {'EXIT', _} = (catch code:load_abs("Non-latin-имя-файла")),
+    {error, nofile} = code:load_abs("Non-latin-имя-файла"),
     {module, code_b_test} = code:load_abs(TestDir ++ "/code_b_test"),
     code:stick_dir(TestDir),
     {error, sticky_directory} = code:load_abs(TestDir ++ "/code_b_test"),
@@ -483,23 +513,35 @@ load_binary(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
+
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
 
-    %%T = [beam, hipe],
-    T = [beam],
+    case erlang:system_info(hipe_architecture) of
+        undefined ->
+            upgrade_do(DataDir, beam, [beam]);
 
-    [upgrade_do(DataDir, Client, U1, U2, O1, O2)
-     || Client<-T, U1<-T, U2<-T, O1<-T, O2<-T],
+        _ ->
+            T = [beam, hipe],
+            [upgrade_do(DataDir, Client, T) || Client <- T],
 
+            case hipe:llvm_support_available() of
+                false -> ok;
+                true  ->
+                    T2 = [beam, hipe_llvm],
+                    [upgrade_do(DataDir, Client, T2) || Client <- T2]
+            end
+    end,
     ok.
 
-upgrade_do(DataDir, Client, U1, U2, O1, O2) ->
+upgrade_do(DataDir, Client, T) ->
     compile_load(upgrade_client, DataDir, undefined, Client),
-    upgrade_client:run(DataDir, U1, U2, O1, O2),
+    [upgrade_client:run(DataDir, U1, U2, O1, O2)
+     || U1<-T, U2<-T, O1<-T, O2<-T],
     ok.
 
 compile_load(Mod, Dir, Ver, CodeType) ->
+    %%erlang:display({"{{{{{{{{{{{{{{{{Loading",Mod,Ver,CodeType}),
     Version = case Ver of
 	undefined ->
 	    io:format("Compiling '~p' as ~p\n", [Mod, CodeType]),
@@ -511,14 +553,21 @@ compile_load(Mod, Dir, Ver, CodeType) ->
     end,
     Target = case CodeType of
 	beam -> [];
-	hipe -> [native]
+	hipe -> [native];
+	hipe_llvm -> [native,{hipe,[to_llvm]}]
     end,
     CompOpts = [binary, report] ++ Target ++ Version,
 
     Src = filename:join(Dir, atom_to_list(Mod) ++ ".erl"),
+    T1 = erlang:now(),
     {ok,Mod,Code} = compile:file(Src, CompOpts),
+    T2 = erlang:now(),
     ObjFile = filename:basename(Src,".erl") ++ ".beam",
     {module,Mod} = code:load_binary(Mod, ObjFile, Code),
+    T3 = erlang:now(),
+    io:format("Compile time ~p ms, Load time ~p ms\n",
+	      [timer:now_diff(T2,T1) div 1000, timer:now_diff(T3,T2) div 1000]),
+    %%erlang:display({"}}}}}}}}}}}}}}}Loaded",Mod,Ver,CodeType}),
     ok.
 
 dir_req(Config) when is_list(Config) ->
@@ -588,20 +637,28 @@ sticky_compiler(Files, PrivDir) ->
     [R || R <- Rets, R =/= ok].
 
 do_sticky_compile(Mod, Dir) ->
-    %% Make sure that the module is loaded. A module being sticky
-    %% only prevents it from begin reloaded, not from being loaded
-    %% from the wrong place to begin with.
-    Mod = Mod:module_info(module),
-    File = filename:append(Dir, atom_to_list(Mod)),
-    Src = io_lib:format("-module(~s).\n"
-			"-export([test/1]).\n"
-			"test(me) -> fail.\n", [Mod]),
-    ok = file:write_file(File++".erl", Src),
-    case c:c(File, [{outdir,Dir}]) of
-	{ok,Module} ->
-	    Module:test(me);
-	{error,sticky_directory} ->
-	    ok
+    case code:is_sticky(Mod) of
+        true ->
+            %% Make sure that the module is loaded. A module being sticky
+            %% only prevents it from begin reloaded, not from being loaded
+            %% from the wrong place to begin with.
+            Mod = Mod:module_info(module),
+            File = filename:append(Dir, atom_to_list(Mod)),
+            Src = io_lib:format("-module(~s).\n"
+                                "-export([test/1]).\n"
+                                "test(me) -> fail.\n", [Mod]),
+            ok = file:write_file(File++".erl", Src),
+            case c:c(File, [{outdir,Dir}]) of
+                {ok,Module} ->
+                    Module:test(me);
+                {error,sticky_directory} ->
+                    ok
+            end;
+        false ->
+            %% For some reason the module is not sticky
+            %% could be that the .erlang file has
+            %% unstuck it?
+            {Mod, is_not_sticky}
     end.
 
 %% Test that the -pa and -pz options work as expected.
@@ -810,8 +867,6 @@ check_funs({'$M_EXPR','$F_EXPR',_},
 	    {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{erlang,spawn_link,1},{code_server,start_link,1}]) -> 0;
-check_funs({'$M_EXPR',module_info,1},
-	   [{hipe_unified_loader,patch_to_emu_step1,1} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',2},
 	   [{hipe_unified_loader,write_words,3} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',2},
@@ -823,11 +878,7 @@ check_funs({'$M_EXPR','$F_EXPR',2},
 	    {hipe_unified_loader,sort_and_write,5} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,foreach,2},
-	    {hipe_unified_loader,patch_consts,3} | _]) -> 0;
-check_funs({'$M_EXPR','$F_EXPR',1},
-	   [{lists,foreach,2},
-	    {hipe_unified_loader,mark_referred_from,1},
-	    {hipe_unified_loader,get_refs_from,2}| _]) -> 0;
+	    {hipe_unified_loader,patch_consts,4} | _]) -> 0;
 check_funs({'$M_EXPR',warning_msg,2},
 	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
@@ -880,37 +931,34 @@ purge_stacktrace(Config) when is_list(Config) ->
     code:purge(code_b_test),
     try code_b_test:call(fun(b) -> ok end, a)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace of
 		      [{?MODULE,_,[a],_},
 		       {code_b_test,call,2,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     try code_b_test:call(nofun, 2)
     catch
-	error:function_clause ->
+	error:function_clause:Stacktrace2 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace2 of
 		      [{code_b_test,call,[nofun,2],_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     Args = [erlang,error,[badarg]],
     try code_b_test:call(erlang, error, [badarg,Args])
     catch
-	error:badarg ->
+	error:badarg:Stacktrace3 ->
 	    code:load_file(code_b_test),
-	    case erlang:get_stacktrace() of
+	    case Stacktrace3 of
 		      [{code_b_test,call,Args,_},
 		       {?MODULE,purge_stacktrace,1,_}|_] ->
-			  false = code:purge(code_b_test),
-			  [] = erlang:get_stacktrace()
+			  false = code:purge(code_b_test)
 		  end
     end,
     ok.
@@ -1236,10 +1284,9 @@ on_load_embedded(Config) when is_list(Config) ->
 
 on_load_embedded_1(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
+    LinkName = proplists:get_value(link_name, Config),
 
     %% Link the on_load_app application into the lib directory.
-    LibRoot = code:lib_dir(),
-    LinkName = filename:join(LibRoot, "on_load_app-1.0"),
     OnLoadApp = filename:join(DataDir, "on_load_app-1.0"),
     del_link(LinkName),
     io:format("LinkName :~p, OnLoadApp: ~p~n",[LinkName,OnLoadApp]),
@@ -1273,8 +1320,7 @@ on_load_embedded_1(Config) ->
     ok = rpc:call(Node, on_load_embedded, status, []),
 
     %% Clean up.
-    stop_node(Node),
-    ok = del_link(LinkName).
+    stop_node(Node).
 
 del_link(LinkName) ->
    case file:delete(LinkName) of
@@ -1325,9 +1371,8 @@ create_big_boot(Config) ->
 %% corresponding beam file (if hipe is not enabled).
 filter_app("hipe",_) -> false;
 
-%% Dialyzer and typer depends on hipe
+%% Dialyzer depends on hipe
 filter_app("dialyzer",_) -> false;
-filter_app("typer",_) -> false;
 
 %% Orber requires explicit configuration
 filter_app("orber",_) -> false;
@@ -1448,7 +1493,7 @@ do_on_load_error(ReturnValue) ->
 	    {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
 
-on_load_update(_Config) ->
+on_load_update(Config) ->
     {Mod,Code1} = on_load_update_code(1),
     {module,Mod} = code:load_binary(Mod, "", Code1),
     42 = Mod:a(),
@@ -1458,7 +1503,7 @@ on_load_update(_Config) ->
     {Mod,Code2} = on_load_update_code(2),
     {error,on_load_failure} = code:load_binary(Mod, "", Code2),
     42 = Mod:a(),
-    100 = Mod:b(99),
+    78 = Mod:b(77),
     {'EXIT',{undef,_}} = (catch Mod:never()),
     4 = erlang:trace_pattern({Mod,'_','_'}, false),
 
@@ -1469,6 +1514,9 @@ on_load_update(_Config) ->
     {'EXIT',{undef,_}} = (catch Mod:b(10)),
     {'EXIT',{undef,_}} = (catch Mod:never()),
 
+    code:purge(Mod),
+    code:delete(Mod),
+    code:purge(Mod),
     ok.
 
 on_load_update_code(Version) ->
@@ -1499,6 +1547,31 @@ on_load_update_code_1(3, Mod) ->
 	"-on_load(f/0).\n",
 	"f() -> ok.\n",
 	"c() -> 100.\n"]).
+
+%% Test -on_load while trace feature 'on_load' is enabled (OTP-14612)
+on_load_trace_on_load(Config) ->
+    Papa = self(),
+    Tracer = spawn_link(fun F() -> receive M -> Papa ! M end, F() end),
+    {tracer,[]} = erlang:trace_info(self(),tracer),
+    erlang:trace(self(), true, [call, {tracer, Tracer}]),
+    erlang:trace_pattern(on_load, true, []),
+    on_load_update(Config),
+    erlang:trace_pattern(on_load, false, []),
+    erlang:trace(self(), false, [call]),
+
+    Ms = flush(),
+    [{trace, Papa, call, {on_load_update_code, a, []}},
+     {trace, Papa, call, {on_load_update_code, b, [99]}},
+     {trace, Papa, call, {on_load_update_code, c, []}}] = Ms,
+
+    exit(Tracer, normal),
+    ok.
+
+flush() ->
+    receive M -> [M | flush()]
+    after 100 -> []
+    end.
+
 
 on_load_purge(_Config) ->
     Mod = ?FUNCTION_NAME,
@@ -1744,6 +1817,185 @@ do_normalized_paths([M|Ms]) ->
 do_normalized_paths([]) ->
     ok.
 
+%% Test that module_status/1 behaves as expected
+module_status(_Config) ->
+    case test_server:is_cover() of
+        true ->
+            module_status();
+        false ->
+            %% Make sure that we terminate the cover server.
+            try
+                module_status()
+            after
+                cover:stop()
+            end
+    end.
+
+module_status() ->
+    %% basics
+    not_loaded = code:module_status(fubar),     % nonexisting
+    {file, preloaded} = code:is_loaded(erlang),
+    loaded = code:module_status(erlang),        % preloaded
+    loaded = code:module_status(?MODULE),       % normal known loaded
+
+    non_existing = code:which(?TESTMOD), % verify dummy name not in path
+    code:purge(?TESTMOD), % ensure no previous version in memory
+    code:delete(?TESTMOD),
+    code:purge(?TESTMOD),
+
+    %% generated code is detected as such
+    {ok,?TESTMOD,Bin} = compile:forms(dummy_ast(), []),
+    {module,?TESTMOD} = code:load_binary(?TESTMOD,"",Bin),  % no source file
+    ok = ?TESTMOD:f(),
+    "" = code:which(?TESTMOD), % verify empty string for source file
+    loaded = code:module_status(?TESTMOD),
+
+    %% deleting generated code
+    true = code:delete(?TESTMOD),
+    non_existing = code:which(?TESTMOD), % verify still not in path
+    not_loaded = code:module_status(?TESTMOD),
+
+    %% beam file exists but not loaded
+    make_source_file(<<"0">>),
+    compile_beam(0),
+    true = (non_existing =/= code:which(?TESTMOD)), % verify in path
+    not_loaded = code:module_status(?TESTMOD),
+
+    %% loading code from disk makes it loaded
+    load_code(),
+    loaded = code:module_status(?TESTMOD), % loaded
+
+    %% cover compiling a module
+    {ok,?TESTMOD} = cover:compile(?TESTMOD),
+    {file, cover_compiled} = code:is_loaded(?TESTMOD), % verify cover compiled
+    modified = code:module_status(?TESTMOD), % loaded cover code but file exists
+    remove_code(),
+    removed = code:module_status(?TESTMOD), % removed
+    compile_beam(0),
+    modified = code:module_status(?TESTMOD), % recreated
+    load_code(),
+    loaded = code:module_status(?TESTMOD), % loading removes cover status
+    code:purge(?TESTMOD),
+    true = code:delete(?TESTMOD),
+    not_loaded = code:module_status(?TESTMOD), % deleted
+
+    %% recompilation ignores timestamps, only md5 matters
+    load_code(),
+    compile_beam(1100),
+    loaded = code:module_status(?TESTMOD),
+
+    %% modifying module detects different md5
+    make_source_file(<<"1">>),
+    compile_beam(0),
+    modified = code:module_status(?TESTMOD),
+
+    %% loading the modified code from disk makes it loaded
+    load_code(),
+    loaded = code:module_status(?TESTMOD),
+
+    %% removing and recreating a module with same md5
+    remove_code(),
+    removed = code:module_status(?TESTMOD),
+    compile_beam(0),
+    loaded = code:module_status(?TESTMOD),
+
+    case erlang:system_info(hipe_architecture) of
+	undefined ->
+	    %% no native support
+	    ok;
+	_ ->
+	    %% native chunk is ignored if beam code is already loaded
+	    load_code(),
+	    loaded = code:module_status(?TESTMOD),
+	    false = has_native(?TESTMOD),
+	    compile_native(0),
+	    BeamMD5 = erlang:get_module_info(?TESTMOD, md5),
+	    {ok,{?TESTMOD,BeamMD5}} = beam_lib:md5(?TESTMODOBJ), % beam md5 unchanged
+	    loaded = code:module_status(?TESTMOD),
+
+	    %% native code reported as loaded, though different md5 from beam
+	    load_code(),
+	    true = has_native(?TESTMOD),
+	    NativeMD5 = erlang:get_module_info(?TESTMOD, md5),
+	    true = (BeamMD5 =/= NativeMD5),
+	    loaded = code:module_status(?TESTMOD),
+
+	    %% recompilation ignores timestamps, only md5 matters
+	    compile_native(1100), % later timestamp
+	    loaded = code:module_status(?TESTMOD),
+
+	    %% modifying native module detects different md5
+	    make_source_file(<<"2">>),
+	    compile_native(0),
+	    modified = code:module_status(?TESTMOD),
+
+	    %% loading the modified native code from disk makes it loaded
+	    load_code(),
+	    true = has_native(?TESTMOD),
+	    NativeMD5_2 = erlang:get_module_info(?TESTMOD, md5),
+	    true = (NativeMD5 =/= NativeMD5_2), % verify native md5 changed
+	    {ok,{?TESTMOD,BeamMD5_2}} = beam_lib:md5(?TESTMODOBJ),
+	    true = (BeamMD5_2 =/= NativeMD5_2), % verify md5 differs from beam
+	    loaded = code:module_status(?TESTMOD),
+
+	    %% removing and recreating a native module with same md5
+	    remove_code(),
+	    removed = code:module_status(?TESTMOD),
+	    compile_native(0),
+	    loaded = code:module_status(?TESTMOD),
+
+	    %% purging/deleting native module
+	    code:purge(?TESTMOD),
+	    true = code:delete(?TESTMOD),
+	    not_loaded = code:module_status(?TESTMOD)
+    end,
+    ok.
+
+compile_beam(Sleep) ->
+    compile(Sleep, []).
+
+compile_native(Sleep) ->
+    compile(Sleep, [native]).
+
+compile(Sleep, Opts) ->
+    timer:sleep(Sleep),  % increment compilation timestamp
+    {ok,?TESTMOD} = compile:file(?TESTMODSRC, Opts).
+
+load_code() ->
+    code:purge(?TESTMOD),
+    {module,?TESTMOD} = code:load_file(?TESTMOD).
+
+remove_code() ->
+    ok = file:delete(?TESTMODOBJ).
+
+has_native(Module) ->
+    case erlang:get_module_info(Module, native_addresses) of
+	[] -> false;
+	[_|_] -> true
+    end.
+
+make_source_file(Body) ->
+    ok = file:write_file(?TESTMODSRC, dummy_source(Body)).
+
+dummy_source(Body) ->
+    [<<"-module(" ?TESTMODSTR ").\n"
+       "-export([f/0]).\n"
+       "f() -> ">>, Body, <<".\n">>].
+
+dummy_ast() ->
+    dummy_ast(?TESTMODSTR).
+
+dummy_ast(Mod) when is_atom(Mod) ->
+    dummy_ast(atom_to_list(Mod));
+dummy_ast(ModStr) ->
+    [scan_form("-module(" ++ ModStr ++ ")."),
+     scan_form("-export([f/0])."),
+     scan_form("f() -> ok.")].
+
+scan_form(String) ->
+    {ok,Ts,_} = erl_scan:string(String),
+    {ok,F} = erl_parse:parse_form(Ts),
+    F.
 
 %%-----------------------------------------------------------------
 %% error_logger handler.

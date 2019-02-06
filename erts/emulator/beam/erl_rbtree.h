@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2015. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,8 +50,14 @@
  * - ERTS_RBT_GET_LEFT(T) - Get left child node.
  * - ERTS_RBT_SET_LEFT(T, L) - Set left child node.
  * - ERTS_RBT_GET_KEY(T) - Get key of node.
- * - ERTS_RBT_IS_LT(KX, KY) - Is key KX less than key KY?
- * - ERTS_RBT_IS_EQ(KX, KY) - Is key KX equal to key KY?
+ * Either:
+ *   - ERTS_RBT_CMP_KEYS(KX, KY) - Compare keys...
+ * or:
+ *   - ERTS_RBT_IS_LT(KX, KY) - Is key KX less than key KY?
+ *   - ERTS_RBT_IS_EQ(KX, KY) - Is key KX equal to key KY?
+ *
+ * If ERTS_RBT_CMP_KEYS is defined ERTS_RBT_IS_LT and
+ * ERTS_RBT_IS_EQ will be redefined using ERTS_RBT_CMP_KEYS
  *
  * Optional defines:
  *
@@ -105,7 +111,10 @@
  * <ERTS_RBT_PREFIX>_rbt_yield_state_t.
  *
  * The yield state should be statically initialized by
- * ERTS_RBT_YIELD_STAT_INITER.
+ * ERTS_RBT_YIELD_STAT_INITER
+ *
+ * or dynamically initialized with
+ * ERTS_RBT_YIELD_STAT_INIT(<ERTS_RBT_PREFIX>_rbt_yield_state_t *ystate)
  *
  *
  * The following API functions are implemented if corresponding
@@ -178,8 +187,8 @@
  *         Operate by calling the operator 'op' on each element.
  *         Order is undefined.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -195,8 +204,8 @@
  *         Order is undefined. Each element should be destroyed
  *         by 'op'.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed.
  *
  *         'arg' is passed as argument to 'op'.
@@ -228,8 +237,8 @@
  *         Operate by calling the operator 'op' on each element from
  *         smallest towards larger elements.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -244,8 +253,8 @@
  *         Operate by calling the operator 'op' on each element from
  *         largest towards smaller elements.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -296,8 +305,8 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -318,8 +327,8 @@
  *         Note that elements are often destroyed in another order
  *         than the order that the elements are operated on.
  *
- *         Yield when 'ylimit' elements has been processed. Zero is
- *         returned when yielding, and a non-zero value is returned when
+ *         Yield when 'ylimit' elements has been processed. True is
+ *         returned when yielding, and false is returned when
  *         the whole tree has been processed. The tree should not be
  *         modified until all of it has been processed.
  *
@@ -334,6 +343,15 @@
  *         Should only be used for debuging.
  */
 
+#ifdef ERTS_RBT_CMP_KEYS
+
+#  undef ERTS_RBT_IS_LT
+#  define ERTS_RBT_IS_LT(KX, KY) (ERTS_RBT_CMP_KEYS((KX), (KY)) < 0)
+
+#  undef ERTS_RBT_IS_EQ
+#  define ERTS_RBT_IS_EQ(KX, KY) (ERTS_RBT_CMP_KEYS((KX), (KY)) == 0)
+
+#endif
 
 /*
  * Check that we have all mandatory defines
@@ -393,6 +411,16 @@
 #  error Missing definition of ERTS_RBT_IS_EQ
 #endif
 
+#undef ERTS_RBT_IS_GT__
+#ifdef ERTS_RBT_CMP_KEYS
+#  define ERTS_RBT_IS_GT__(KX, KY) \
+    (ERTS_RBT_CMP_KEYS((KX), (KY)) > 0)
+#else
+#  define ERTS_RBT_IS_GT__(KX, KY) \
+    (!ERTS_RBT_IS_LT((KX), (KY)) && !ERTS_RBT_IS_EQ((KX), (KY)))
+
+#endif
+
 #if defined(ERTS_RBT_HARD_DEBUG) || defined(DEBUG)
 #  ifndef ERTS_RBT_DEBUG
 #    define ERTS_RBT_DEBUG 1
@@ -421,6 +449,13 @@
 
 #ifndef ERTS_RBT_YIELD_STAT_INITER
 #  define ERTS_RBT_YIELD_STAT_INITER {NULL, 0}
+#endif
+#ifndef ERTS_RBT_YIELD_STAT_INIT
+#  define ERTS_RBT_YIELD_STAT_INIT(YS) \
+    do {                               \
+        (YS)->x = NULL;                \
+        (YS)->up = 0;                  \
+    } while (0)
 #endif
 
 #define ERTS_RBT_CONCAT_MACRO_VALUES___(X, Y) \
@@ -476,12 +511,12 @@ typedef struct {
 #if defined(ERTS_RBT_HARD_DEBUG) \
     && (defined(ERTS_RBT_WANT_DELETE) \
 	|| defined(ERTS_RBT_NEED_INSERT__))
-static void ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root);
+static void ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root, ERTS_RBT_T *node);
 #  define ERTS_RBT_NEED_HDBG_CHECK_TREE__
-#  define ERTS_RBT_HDBG_CHECK_TREE__(R) \
-    ERTS_RBT_FUNC__(hdbg_check_tree)((R))
+#  define ERTS_RBT_HDBG_CHECK_TREE__(R,N) \
+    ERTS_RBT_FUNC__(hdbg_check_tree)((R),(N))
 #else
-#  define ERTS_RBT_HDBG_CHECK_TREE__(R) ((void) 1)
+#  define ERTS_RBT_HDBG_CHECK_TREE__(R,N) ((void) 1)
 #endif
 
 #ifdef ERTS_RBT_NEED_ROTATE__
@@ -634,7 +669,7 @@ ERTS_RBT_FUNC__(delete)(ERTS_RBT_T **root, ERTS_RBT_T *n)
     ERTS_RBT_T null_x; /* null_x is used to get the fixup started when we
 			  splice out a node without children. */
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, n);
 
     ERTS_RBT_INIT_EMPTY_TNODE(&null_x);
 
@@ -852,7 +887,7 @@ ERTS_RBT_FUNC__(delete)(ERTS_RBT_T **root, ERTS_RBT_T *n)
 	}
     }
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
 }
 
@@ -982,7 +1017,7 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 {
     ERTS_RBT_KEY_T kn = ERTS_RBT_GET_KEY(n);
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
     ERTS_RBT_INIT_EMPTY_TNODE(n);	
 
@@ -997,19 +1032,30 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 	ERTS_RBT_T *p, *x = *root;
 
 	while (1) {
-	    ERTS_RBT_KEY_T kx;
+	    ERTS_RBT_KEY_T kx = ERTS_RBT_GET_KEY(x);
 	    ERTS_RBT_T *c;
+            int kres;
+#ifdef ERTS_RBT_CMP_KEYS
+            int kcmp = ERTS_RBT_CMP_KEYS(kn, kx);
+            kres = kcmp == 0;
+#else
+            kres = ERTS_RBT_IS_EQ(kn, kx);
+#endif
 
-	    kx = ERTS_RBT_GET_KEY(x);
+	    if (lookup && kres) {
 
-	    if (lookup && ERTS_RBT_IS_EQ(kn, kx)) {
-
-		ERTS_RBT_HDBG_CHECK_TREE__(*root);
+		ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
 
 		return x;
 	    }
 
-	    if (ERTS_RBT_IS_LT(kn, kx)) {
+#ifdef ERTS_RBT_CMP_KEYS
+            kres = kcmp < 0;
+#else
+            kres = ERTS_RBT_IS_LT(kn, kx);
+#endif
+
+	    if (kres) {
 		c = ERTS_RBT_GET_LEFT(x);
 		if (!c) {
 		    ERTS_RBT_SET_PARENT(n, x);
@@ -1038,7 +1084,7 @@ ERTS_RBT_FUNC__(insert_aux__)(ERTS_RBT_T **root, ERTS_RBT_T *n, int lookup)
 	    ERTS_RBT_FUNC__(insert_fixup__)(root, n);
     }
 
-    ERTS_RBT_HDBG_CHECK_TREE__(*root);
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, n);
 
     return NULL;
 }
@@ -1065,6 +1111,101 @@ ERTS_RBT_FUNC__(insert)(ERTS_RBT_T **root, ERTS_RBT_T *n)
 
 #endif /* ERTS_RBT_WANT_INSERT */
 
+#ifdef ERTS_RBT_WANT_LOOKUP_CREATE
+static ERTS_INLINE ERTS_RBT_T *
+ERTS_RBT_FUNC__(lookup_create)(ERTS_RBT_T **root,
+                               ERTS_RBT_KEY_T kn,
+                               ERTS_RBT_T *(*create)(ERTS_RBT_KEY_T, void *),
+                               void *arg,
+                               int *created)
+{
+    ERTS_RBT_T *n;
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
+
+    if (!*root) {
+        n = (*create)(kn, arg);
+        ERTS_RBT_INIT_EMPTY_TNODE(n);
+        ERTS_RBT_ASSERT(ERTS_RBT_IS_EQ(ERTS_RBT_GET_KEY(n), kn));
+	ERTS_RBT_SET_BLACK(n);
+	*root = n;
+        *created = !0;
+#ifdef ERTS_RBT_UPDATE_ATTACHED_DATA_CHGROOT
+	ERTS_RBT_UPDATE_ATTACHED_DATA_CHGROOT(NULL, n);
+#endif
+    }
+    else {
+	ERTS_RBT_T *p, *x = *root;
+
+	while (1) {
+	    ERTS_RBT_KEY_T kx = ERTS_RBT_GET_KEY(x);
+	    ERTS_RBT_T *c;
+            int kres;
+#ifdef ERTS_RBT_CMP_KEYS
+            int kcmp = ERTS_RBT_CMP_KEYS(kn, kx);
+            kres = kcmp == 0;
+#else
+            kres = ERTS_RBT_IS_EQ(kn, kx);
+#endif
+
+	    if (kres) {
+
+		ERTS_RBT_HDBG_CHECK_TREE__(*root, NULL);
+
+                *created = 0;
+		return x;
+	    }
+
+#ifdef ERTS_RBT_CMP_KEYS
+            kres = kcmp < 0;
+#else
+            kres = ERTS_RBT_IS_LT(kn, kx);
+#endif
+
+	    if (kres) {
+		c = ERTS_RBT_GET_LEFT(x);
+		if (!c) {
+                    n = (*create)(kn, arg);
+                    ERTS_RBT_INIT_EMPTY_TNODE(n);
+                    ERTS_RBT_ASSERT(ERTS_RBT_IS_EQ(ERTS_RBT_GET_KEY(n), kn));
+                    *created = !0;
+		    ERTS_RBT_SET_PARENT(n, x);
+		    ERTS_RBT_SET_LEFT(x, n);
+		    p = x;
+		    break;
+		}
+	    }
+	    else {
+		c = ERTS_RBT_GET_RIGHT(x);
+		if (!c) {
+                    n = (*create)(kn, arg);
+                    ERTS_RBT_INIT_EMPTY_TNODE(n);
+                    ERTS_RBT_ASSERT(ERTS_RBT_IS_EQ(ERTS_RBT_GET_KEY(n), kn));
+                    *created = !0;
+		    ERTS_RBT_SET_PARENT(n, x);
+		    ERTS_RBT_SET_RIGHT(x, n);
+		    p = x;
+		    break;
+		}
+	    }
+
+	    x = c;
+	}
+
+        ERTS_RBT_ASSERT(ERTS_RBT_IS_EQ(ERTS_RBT_GET_KEY(n), kn));
+	ERTS_RBT_ASSERT(p);
+
+	ERTS_RBT_SET_RED(n);
+	if (ERTS_RBT_IS_RED(p))
+	    ERTS_RBT_FUNC__(insert_fixup__)(root, n);
+    }
+
+    ERTS_RBT_HDBG_CHECK_TREE__(*root, n);
+
+    return n;
+}
+
+#endif /* ERTS_RBT_WANT_LOOKUP_CREATE */
+
 #ifdef ERTS_RBT_WANT_LOOKUP
 
 static ERTS_RBT_API_INLINE__ ERTS_RBT_T *
@@ -1078,11 +1219,24 @@ ERTS_RBT_FUNC__(lookup)(ERTS_RBT_T *root, ERTS_RBT_KEY_T key)
     while (1) {
 	ERTS_RBT_KEY_T kx = ERTS_RBT_GET_KEY(x);
 	ERTS_RBT_T *c;
+        int kres;
+#ifdef ERTS_RBT_CMP_KEYS
+        int kcmp = ERTS_RBT_CMP_KEYS(key, kx);
+        kres = kcmp == 0;
+#else
+        kres = ERTS_RBT_IS_EQ(key, kx);
+#endif
 
-	if (ERTS_RBT_IS_EQ(key, kx))
+	if (kres)
 	    return x;
 
-	if (ERTS_RBT_IS_LT(key, kx)) {
+#ifdef ERTS_RBT_CMP_KEYS
+        kres = kcmp < 0;
+#else
+        kres = ERTS_RBT_IS_LT(key, kx);
+#endif
+
+	if (kres) {
 	    c = ERTS_RBT_GET_LEFT(x);
 	    if (!c)
 		return NULL;
@@ -1364,7 +1518,7 @@ ERTS_RBT_FUNC__(foreach_ordered__)(ERTS_RBT_T **root,
 		    ystate->x = NULL;
 		    ystate->up = 0;
 		}
-		return 1; /* Done */
+		return 0; /* Done */
 	    }
 	    x = p;
 	}
@@ -1416,14 +1570,14 @@ ERTS_RBT_FUNC__(foreach_large)(ERTS_RBT_T *root,
 
 #ifdef ERTS_RBT_WANT_FOREACH_YIELDING
 
-static ERTS_RBT_API_INLINE__ void
+static ERTS_RBT_API_INLINE__ int
 ERTS_RBT_FUNC__(foreach_yielding)(ERTS_RBT_T *root,
 				  void (*op)(ERTS_RBT_T *, void *),
 				  void *arg,
 				  ERTS_RBT_YIELD_STATE_T__ *ystate,
 				  Sint ylimit)
 {
-    (void) ERTS_RBT_FUNC__(foreach_unordered__)(*root, 0, op, arg,
+    return ERTS_RBT_FUNC__(foreach_unordered__)(&root, 0, op, arg,
 						1, ystate, ylimit);
 }
 
@@ -1579,15 +1733,17 @@ ERTS_RBT_FUNC__(debug_print)(FILE *filep, ERTS_RBT_T *x, int indent,
 #ifdef ERTS_RBT_NEED_HDBG_CHECK_TREE__
 
 static void
-ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
+ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root, ERTS_RBT_T *n)
 {
     int black_depth = -1, no_black = 0;
     ERTS_RBT_T *c, *p, *x = root;
     ERTS_RBT_KEY_T kx;
     ERTS_RBT_KEY_T kc;
 
-    if (!x)
+    if (!x) {
+        ERTS_RBT_ASSERT(!n);
 	return;
+    }
 
     ERTS_RBT_ASSERT(!ERTS_RBT_GET_PARENT(x));
 
@@ -1596,6 +1752,9 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 	while (1) {
 
 	    while (1) {
+
+                if (x == n)
+                    n = NULL;
 
 		if (ERTS_RBT_IS_BLACK(x))
 		    no_black++;
@@ -1615,8 +1774,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 		kx = ERTS_RBT_GET_KEY(x);
 		kc = ERTS_RBT_GET_KEY(c);
 
-		ERTS_RBT_ASSERT(ERTS_RBT_IS_LT(kc, kx)
-				|| ERTS_RBT_IS_EQ(kc, kx));
+                ERTS_RBT_ASSERT(!ERTS_RBT_IS_GT__(kc, kx));
 
 		x = c;
 	    }
@@ -1634,8 +1792,8 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 	    kx = ERTS_RBT_GET_KEY(x);
 	    kc = ERTS_RBT_GET_KEY(c);
 
-	    ERTS_RBT_ASSERT(ERTS_RBT_IS_LT(kx, kc)
-			    || ERTS_RBT_IS_EQ(kx, kc));
+            ERTS_RBT_ASSERT(!ERTS_RBT_IS_GT__(kx, kc));
+
 	    x = c;
 	}
 
@@ -1657,8 +1815,8 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 		    kx = ERTS_RBT_GET_KEY(x);
 		    kc = ERTS_RBT_GET_KEY(c);
 
-		    ERTS_RBT_ASSERT(ERTS_RBT_IS_LT(kx, kc)
-				    || ERTS_RBT_IS_EQ(kx, kc));
+                    ERTS_RBT_ASSERT(!ERTS_RBT_IS_GT__(kx, kc));
+
 		    /* Go down tree of x's sibling... */
 		    x = c;
 		    break;
@@ -1668,6 +1826,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 	    if (!p) {
 		ERTS_RBT_ASSERT(root == x);
 		ERTS_RBT_ASSERT(no_black == 0);
+                ERTS_RBT_ASSERT(!n);
 		return; /* Done */
 	    }
 
@@ -1691,6 +1850,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 #undef ERTS_RBT_NEED_FOREACH_ORDERED__
 #undef ERTS_RBT_NEED_HDBG_CHECK_TREE__
 #undef ERTS_RBT_HDBG_CHECK_TREE__
+#undef ERTS_RBT_IS_GT__
 
 #ifdef ERTS_RBT_UNDEF
 #  undef ERTS_RBT_PREFIX
@@ -1711,6 +1871,7 @@ ERTS_RBT_FUNC__(hdbg_check_tree)(ERTS_RBT_T *root)
 #  undef ERTS_RBT_GET_LEFT
 #  undef ERTS_RBT_SET_LEFT
 #  undef ERTS_RBT_GET_KEY
+#  undef ERTS_RBT_CMP_KEYS
 #  undef ERTS_RBT_IS_LT
 #  undef ERTS_RBT_IS_EQ
 #  undef ERTS_RBT_UNDEF

@@ -34,11 +34,10 @@
 -record(ssl_tls, {   
 	  type,
 	  version,
-	  epoch,           
-	  sequence_number,      
-	  offset,
-	  length,
-	  fragment
+	  %%length,
+	  fragment,
+	  epoch,   
+	  sequence_number
 	 }).
 
 -endif. % -ifdef(dtls_record).

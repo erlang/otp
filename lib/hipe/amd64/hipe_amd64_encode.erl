@@ -1,8 +1,3 @@
-%%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -14,8 +9,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% Copyright (C) 2000-2004 Mikael Pettersson
 %%% Copyright (C) 2004 Daniel Luna
@@ -63,7 +56,7 @@
 -export([% condition codes
 	 cc/1,
 	 % 8-bit registers
-	 %% al/0, cl/0, dl/0, bl/0, ah/0, ch/0, dh/0, bh/0,
+	 %% al/0, cl/0, dl/0, bl/0,
 	 % 32-bit registers
 	 %% eax/0, ecx/0, edx/0, ebx/0, esp/0, ebp/0, esi/0, edi/0,
 	 % operands
@@ -127,19 +120,15 @@ cc(g) -> ?CC_G.
 -define(CL, 2#001).
 -define(DL, 2#010).
 -define(BL, 2#011).
--define(AH, 2#100).
--define(CH, 2#101).
--define(DH, 2#110).
--define(BH, 2#111).
+-define(SPL, 2#100).
+-define(BPL, 2#101).
+-define(SIL, 2#110).
+-define(DIL, 2#111).
 
 %% al() -> ?AL.
 %% cl() -> ?CL.
 %% dl() -> ?DL.
 %% bl() -> ?BL.
-%% ah() -> ?AH.
-%% ch() -> ?CH.
-%% dh() -> ?DH.
-%% bh() -> ?BH.
 
 %%% 32-bit registers
 
@@ -208,6 +197,7 @@ rex_([]) -> 0;
 rex_([{r8, Reg8}| Rest]) ->             % 8 bit registers
     case Reg8 of
 	{rm_mem, _} -> rex_(Rest);
+	{rm_reg, R} -> rex_([{r8, R} | Rest]);
 	4 -> (1 bsl 8) bor rex_(Rest);
 	5 -> (1 bsl 8) bor rex_(Rest);
 	6 -> (1 bsl 8) bor rex_(Rest);
@@ -825,12 +815,26 @@ shd_op_encode(Opcode, Opnds) ->
 
 test_encode(Opnds) ->
     case Opnds of
+	{al, {imm8,Imm8}} ->
+	    [16#A8, Imm8];
+	{ax, {imm16,Imm16}} ->
+	    [?PFX_OPND_16BITS, 16#A9 | le16(Imm16, [])];
 	{eax, {imm32,Imm32}} ->
 	    [16#A9 | le32(Imm32, [])];
+	{rax, {imm32,Imm32}} ->
+	    [rex([{w,1}]), 16#A9 | le32(Imm32, [])];
+	{{rm8,RM8}, {imm8,Imm8}} ->
+	    [rex([{r8,RM8}]), 16#F6 | encode_rm(RM8, 2#000, [Imm8])];
+	{{rm16,RM16}, {imm16,Imm16}} ->
+	    [?PFX_OPND_16BITS, 16#F7 | encode_rm(RM16, 2#000, le16(Imm16, []))];
 	{{rm32,RM32}, {imm32,Imm32}} ->
 	    [16#F7 | encode_rm(RM32, 2#000, le32(Imm32, []))];
+	{{rm64,RM64}, {imm32,Imm32}} ->
+	    [rex([{w,1}]), 16#F7 | encode_rm(RM64, 2#000, le32(Imm32, []))];
 	{{rm32,RM32}, {reg32,Reg32}} ->
-	    [16#85 | encode_rm(RM32, Reg32, [])]
+	    [16#85 | encode_rm(RM32, Reg32, [])];
+	{{rm64,RM64}, {reg64,Reg64}} ->
+	    [rex([{w,1}]), 16#85 | encode_rm(RM64, Reg64, [])]
     end.
 
 %% test_sizeof(Opnds) ->
@@ -1309,18 +1313,22 @@ dotest1(OS) ->
     Imm32 = {imm32,Word32},
     Imm16 = {imm16,Word16},
     Imm8 = {imm8,Word8},
+    RM64 = {rm64,rm_reg(?EDX)},
     RM32 = {rm32,rm_reg(?EDX)},
     RM16 = {rm16,rm_reg(?EDX)},
+    RM16REX = {rm16,rm_reg(?R13)},
     RM8 = {rm8,rm_reg(?EDX)},
+    RM8REX = {rm8,rm_reg(?SIL)},
     Rel32 = {rel32,Word32},
     Rel8 = {rel8,Word8},
     Moffs32 = {moffs32,Word32},
     Moffs16 = {moffs16,Word32},
     Moffs8 = {moffs8,Word32},
     CC = {cc,?CC_G},
+    Reg64 = {reg64,?EAX},
     Reg32 = {reg32,?EAX},
     Reg16 = {reg16,?EAX},
-    Reg8 = {reg8,?AH},
+    Reg8 = {reg8,?SPL},
     EA = {ea,ea_base(?ECX)},
     % exercise each instruction definition
     t(OS,'adc',{eax,Imm32}),
@@ -1465,9 +1473,18 @@ dotest1(OS) ->
     t(OS,'sub',{RM32,Imm8}),
     t(OS,'sub',{RM32,Reg32}),
     t(OS,'sub',{Reg32,RM32}),
+    t(OS,'test',{al,Imm8}),
+    t(OS,'test',{ax,Imm16}),
     t(OS,'test',{eax,Imm32}),
+    t(OS,'test',{rax,Imm32}),
+    t(OS,'test',{RM8,Imm8}),
+    t(OS,'test',{RM8REX,Imm8}),
+    t(OS,'test',{RM16,Imm16}),
+    t(OS,'test',{RM16REX,Imm16}),
     t(OS,'test',{RM32,Imm32}),
+    t(OS,'test',{RM64,Imm32}),
     t(OS,'test',{RM32,Reg32}),
+    t(OS,'test',{RM64,Reg64}),
     t(OS,'xor',{eax,Imm32}),
     t(OS,'xor',{RM32,Imm32}),
     t(OS,'xor',{RM32,Imm8}),

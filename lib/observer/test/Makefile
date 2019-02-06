@@ -27,7 +27,8 @@ MODULES =  \
 	ttb_SUITE \
 	client \
 	server \
-	crashdump_helper
+	crashdump_helper \
+	crashdump_helper_unicode
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -46,7 +47,7 @@ RELSYSDIR = $(RELEASE_PATH)/observer_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +warnings_as_errors +nowarn_export_all
 
 EBIN = .
 

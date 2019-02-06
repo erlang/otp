@@ -61,8 +61,8 @@
          enabled_garbage_collection/3,
          enabled/3]).
 
-
 -export([user_trace_i4s4/9]). % Know what you're doing!
+-compile(no_native).
 -on_load(on_load/0).
 
 -type probe_arg() :: integer() | iolist().

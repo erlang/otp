@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #include "erl_binary.h"
 #include "beam_bp.h"
 #include "erl_term.h"
+#include "erl_nfunc_sched.h"
 
 /* *************************************************************************
 ** Macros
@@ -45,15 +46,15 @@
 #define ReAlloc(P, SIZ)		erts_realloc(ERTS_ALC_T_BPD, (P), (SZ))
 #define Free(P)			erts_free(ERTS_ALC_T_BPD, (P))
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+#if defined(ERTS_ENABLE_LOCK_CHECK)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P) \
       if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
 					 __FILE__, __LINE__)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P) \
       if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P)
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 #define ERTS_BPF_LOCAL_TRACE       0x01
@@ -72,8 +73,9 @@ extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
-erts_smp_atomic32_t erts_active_bp_index;
-erts_smp_atomic32_t erts_staging_bp_index;
+erts_atomic32_t erts_active_bp_index;
+erts_atomic32_t erts_staging_bp_index;
+erts_mtx_t erts_dirty_bp_ix_mtx;
 
 /*
  * Inlined helpers
@@ -85,6 +87,27 @@ get_mtime(Process *c_p)
     return erts_get_monotonic_time(erts_proc_sched_data(c_p));
 }
 
+static ERTS_INLINE Uint32
+acquire_bp_sched_ix(Process *c_p)
+{
+    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ASSERT(esdp);
+    if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
+	erts_mtx_lock(&erts_dirty_bp_ix_mtx);
+        return (Uint32) erts_no_schedulers;
+    }
+    return (Uint32) esdp->no - 1;
+}
+
+static ERTS_INLINE void
+release_bp_sched_ix(Uint32 ix)
+{
+    if (ix == (Uint32) erts_no_schedulers)
+        erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
+}
+
+
+
 /* *************************************************************************
 ** Local prototypes
 */
@@ -92,27 +115,27 @@ get_mtime(Process *c_p)
 /*
 ** Helpers
 */
-static ErtsTracer do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
+static ErtsTracer do_call_trace(Process* c_p, ErtsCodeInfo *info, Eterm* reg,
                                 int local, Binary* ms, ErtsTracer tracer);
 static void set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 		      enum erts_break_op count_op, ErtsTracer tracer);
-static void set_function_break(BeamInstr *pc,
+static void set_function_break(ErtsCodeInfo *ci,
 			       Binary *match_spec,
 			       Uint break_flags,
 			       enum erts_break_op count_op,
 			       ErtsTracer tracer);
 
 static void clear_break(BpFunctions* f, Uint break_flags);
-static int clear_function_break(BeamInstr *pc, Uint break_flags);
+static int clear_function_break(ErtsCodeInfo *ci, Uint break_flags);
 
-static BpDataTime* get_time_break(BeamInstr *pc);
-static GenericBpData* check_break(BeamInstr *pc, Uint break_flags);
+static BpDataTime* get_time_break(ErtsCodeInfo *ci);
+static GenericBpData* check_break(ErtsCodeInfo *ci, Uint break_flags);
 
-static void bp_meta_unref(BpMetaTracer* bmt);
-static void bp_count_unref(BpCount* bcp);
-static void bp_time_unref(BpDataTime* bdt);
-static void consolidate_bp_data(Module* modp, BeamInstr* pc, int local);
-static void uninstall_breakpoint(BeamInstr* pc);
+static void bp_meta_unref(BpMetaTracer *bmt);
+static void bp_count_unref(BpCount *bcp);
+static void bp_time_unref(BpDataTime *bdt);
+static void consolidate_bp_data(Module *modp, ErtsCodeInfo *ci, int local);
+static void uninstall_breakpoint(ErtsCodeInfo *ci);
 
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
@@ -133,13 +156,15 @@ static void bp_hash_delete(bp_time_hash_t *hash);
 
 void 
 erts_bp_init(void) {
-    erts_smp_atomic32_init_nob(&erts_active_bp_index, 0);
-    erts_smp_atomic32_init_nob(&erts_staging_bp_index, 1);
+    erts_atomic32_init_nob(&erts_active_bp_index, 0);
+    erts_atomic32_init_nob(&erts_staging_bp_index, 1);
+    erts_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 }
 
 
 void
-erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
+erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 {
     ErtsCodeIndex code_ix = erts_active_code_ix();
     Uint max_funcs = 0;
@@ -164,41 +189,44 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
     i = 0;
     for (current = 0; current < num_modules; current++) {
 	BeamCodeHeader* code_hdr = module[current]->curr.code_hdr;
-	BeamInstr* code;
+	ErtsCodeInfo* ci;
 	Uint num_functions = (Uint)(UWord) code_hdr->num_functions;
 	Uint fi;
 
 	if (specified > 0) {
-	    if (mfa[0] != make_atom(module[current]->module)) {
+	    if (mfa->module != make_atom(module[current]->module)) {
 		/* Wrong module name */
 		continue;
 	    }
 	}
 
 	for (fi = 0; fi < num_functions; fi++) {
-	    BeamInstr* pc;
-	    int wi;
 
-	    code = code_hdr->functions[fi];
-	    ASSERT(code[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-	    pc = code+5;
-	    if (erts_is_native_break(pc)) {
+	    ci = code_hdr->functions[fi];
+	    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	    if (erts_is_function_native(ci)) {
 		continue;
 	    }
-	    if (is_nil(code[3])) { /* Ignore BIF stub */
+	    if (is_nil(ci->mfa.module)) { /* Ignore BIF stub */
 		continue;
 	    }
-	    for (wi = 0;
-		 wi < specified && (Eterm) code[2+wi] == mfa[wi];
-		 wi++) {
-		/* Empty loop body */
-	    }
-	    if (wi == specified) {
-		/* Store match */
-		f->matching[i].pc = pc;
-		f->matching[i].mod = module[current];
-		i++;
-	    }
+            switch (specified) {
+            case 3:
+                if (ci->mfa.arity != mfa->arity)
+                    continue;
+            case 2:
+                if (ci->mfa.function != mfa->function)
+                    continue;
+            case 1:
+                if (ci->mfa.module != mfa->module)
+                    continue;
+            case 0:
+                break;
+            }
+            /* Store match */
+            f->matching[i].ci = ci;
+            f->matching[i].mod = module[current];
+            i++;
 	}
     }
     f->matched = i;
@@ -206,7 +234,7 @@ erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified)
 }
 
 void
-erts_bp_match_export(BpFunctions* f, Eterm mfa[3], int specified)
+erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
 {
     ErtsCodeIndex code_ix = erts_active_code_ix();
     int i;
@@ -218,27 +246,36 @@ erts_bp_match_export(BpFunctions* f, Eterm mfa[3], int specified)
     for (i = 0; i < num_exps; i++) {
 	Export* ep = export_list(i, code_ix);
 	BeamInstr* pc;
-	int j;
 
-	for (j = 0; j < specified && mfa[j] == ep->code[j]; j++) {
-	    /* Empty loop body */
-	}
-	if (j < specified) {
-	    continue;
-	}
-	pc = ep->code+3;
+        switch (specified) {
+        case 3:
+            if (mfa->arity != ep->info.mfa.arity)
+                continue;
+        case 2:
+            if (mfa->function != ep->info.mfa.function)
+                continue;
+        case 1:
+            if (mfa->module != ep->info.mfa.module)
+                continue;
+        case 0:
+            break;
+        default:
+            ASSERT(0);
+        }
+
+	pc = ep->beam;
 	if (ep->addressv[code_ix] == pc) {
-	    if ((*pc == (BeamInstr) em_apply_bif ||
-		 *pc == (BeamInstr) em_call_error_handler)) {
-		continue;
+	    if (BeamIsOpCode(*pc, op_apply_bif) ||
+                BeamIsOpCode(*pc, op_call_error_handler)) {
+                continue;
 	    }
-	    ASSERT(*pc == (BeamInstr) BeamOp(op_i_generic_breakpoint));
-	} else if (erts_is_native_break(ep->addressv[code_ix])) {
+	    ASSERT(BeamIsOpCode(*pc, op_i_generic_breakpoint));
+	} else if (erts_is_function_native(erts_code_to_codeinfo(ep->addressv[code_ix]))) {
 	    continue;
 	}
 
-	f->matching[ne].pc = pc;
-	f->matching[ne].mod = erts_get_module(ep->code[0], code_ix);
+	f->matching[ne].ci = &ep->info;
+	f->matching[ne].mod = erts_get_module(ep->info.mfa.module, code_ix);
 	ne++;
 
     }
@@ -261,10 +298,10 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
     Uint i;
     Uint n = f->matched;
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
 
     for (i = 0; i < n; i++) {
-	consolidate_bp_data(fs[i].mod, fs[i].pc, local);
+	consolidate_bp_data(fs[i].mod, fs[i].ci, local);
     }
 }
 
@@ -273,17 +310,17 @@ erts_consolidate_bif_bp_data(void)
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
     for (i = 0; i < BIF_SIZE; i++) {
 	Export *ep = bif_export[i];
-	consolidate_bp_data(0, ep->code+3, 0);
+	consolidate_bp_data(0, &ep->info, 0);
     }
 }
 
 static void
-consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
+consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
 {
-    GenericBp* g = (GenericBp *) pc[-4];
+    GenericBp* g = ci->u.gen_bp;
     GenericBpData* src;
     GenericBpData* dst;
     Uint flags;
@@ -329,9 +366,10 @@ consolidate_bp_data(Module* modp, BeamInstr* pc, int local)
 	    }
 	    ASSERT(modp->curr.num_breakpoints >= 0);
 	    ASSERT(modp->curr.num_traced_exports >= 0);
-	    ASSERT(*pc != (BeamInstr) BeamOp(op_i_generic_breakpoint));
+	    ASSERT(! BeamIsOpCode(*erts_codeinfo_to_code(ci),
+                                  op_i_generic_breakpoint));
 	}
-	pc[-4] = 0;
+	ci->u.gen_bp = NULL;
 	Free(g);
 	return;
     }
@@ -368,8 +406,8 @@ erts_commit_staged_bp(void)
     ErtsBpIndex staging = erts_staging_bp_ix();
     ErtsBpIndex active = erts_active_bp_ix();
 
-    erts_smp_atomic32_set_nob(&erts_active_bp_index, staging);
-    erts_smp_atomic32_set_nob(&erts_staging_bp_index, active);
+    erts_atomic32_set_nob(&erts_active_bp_index, staging);
+    erts_atomic32_set_nob(&erts_staging_bp_index, active);
 }
 
 void
@@ -377,12 +415,15 @@ erts_install_breakpoints(BpFunctions* f)
 {
     Uint i;
     Uint n = f->matched;
-    BeamInstr br = (BeamInstr) BeamOp(op_i_generic_breakpoint);
+    BeamInstr br = BeamOpCodeAddr(op_i_generic_breakpoint);
 
     for (i = 0; i < n; i++) {
-	BeamInstr* pc = f->matching[i].pc;
-	GenericBp* g = (GenericBp *) pc[-4];
-	if (*pc != br && g) {
+	ErtsCodeInfo* ci = f->matching[i].ci;
+	GenericBp* g = ci->u.gen_bp;
+        BeamInstr volatile *pc = erts_codeinfo_to_code(ci);
+        BeamInstr instr = *pc;
+
+	if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
 	    Module* modp = f->matching[i].mod;
 
 	    /*
@@ -396,11 +437,16 @@ erts_install_breakpoints(BpFunctions* f)
 	    /*
 	     * The following write is not protected by any lock. We
 	     * assume that the hardware guarantees that a write of an
-	     * aligned word-size (or half-word) writes is atomic
-	     * (i.e. that other processes executing this code will not
-	     * see a half pointer).
+	     * aligned word-size writes is atomic (i.e. that other
+	     * processes executing this code will not see a half
+	     * pointer).
+             *
+             * The contents of *pc is marked 'volatile' to ensure that
+             * the compiler will do a single full-word write, and not
+             * try any fancy optimizations to write a half word.
 	     */
-	    *pc = br;
+            instr = BeamSetCodeAddr(instr, br);
+            *pc = instr;
 	    modp->curr.num_breakpoints++;
 	}
     }
@@ -413,16 +459,16 @@ erts_uninstall_breakpoints(BpFunctions* f)
     Uint n = f->matched;
 
     for (i = 0; i < n; i++) {
-	BeamInstr* pc = f->matching[i].pc;
-	uninstall_breakpoint(pc);
+	uninstall_breakpoint(f->matching[i].ci);
     }
 }
 
 static void
-uninstall_breakpoint(BeamInstr* pc)
+uninstall_breakpoint(ErtsCodeInfo *ci)
 {
-    if (*pc == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-	GenericBp* g = (GenericBp *) pc[-4];
+    BeamInstr *pc = erts_codeinfo_to_code(ci);
+    if (BeamIsOpCode(*pc, op_i_generic_breakpoint)) {
+	GenericBp* g = ci->u.gen_bp;
 	if (g->data[erts_active_bp_ix()].flags == 0) {
 	    /*
 	     * The following write is not protected by any lock. We
@@ -449,30 +495,30 @@ erts_set_mtrace_break(BpFunctions* f, Binary *match_spec, ErtsTracer tracer)
 }
 
 void
-erts_set_call_trace_bif(BeamInstr *pc, Binary *match_spec, int local)
+erts_set_call_trace_bif(ErtsCodeInfo *ci, Binary *match_spec, int local)
 {
     Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
 
-    set_function_break(pc, match_spec, flags, 0, erts_tracer_nil);
+    set_function_break(ci, match_spec, flags, 0, erts_tracer_nil);
 }
 
 void
-erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec, ErtsTracer tracer)
+erts_set_mtrace_bif(ErtsCodeInfo *ci, Binary *match_spec, ErtsTracer tracer)
 {
-    set_function_break(pc, match_spec, ERTS_BPF_META_TRACE, 0, tracer);
+    set_function_break(ci, match_spec, ERTS_BPF_META_TRACE, 0, tracer);
 }
 
 void
-erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op count_op)
+erts_set_time_trace_bif(ErtsCodeInfo *ci, enum erts_break_op count_op)
 {
-    set_function_break(pc, NULL,
+    set_function_break(ci, NULL,
 		       ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE,
 		       count_op, erts_tracer_nil);
 }
 
 void
-erts_clear_time_trace_bif(BeamInstr *pc) {
-    clear_function_break(pc, ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE);
+erts_clear_time_trace_bif(ErtsCodeInfo *ci) {
+    clear_function_break(ci, ERTS_BPF_TIME_TRACE|ERTS_BPF_TIME_TRACE_ACTIVE);
 }
 
 void
@@ -501,14 +547,14 @@ erts_clear_trace_break(BpFunctions* f)
 }
 
 void
-erts_clear_call_trace_bif(BeamInstr *pc, int local)
+erts_clear_call_trace_bif(ErtsCodeInfo *ci, int local)
 {
-    GenericBp* g = (GenericBp *) pc[-4];
+    GenericBp* g = ci->u.gen_bp;
 
     if (g) {
 	Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
 	if (g->data[erts_staging_bp_ix()].flags & flags) {
-	    clear_function_break(pc, flags);
+	    clear_function_break(ci, flags);
 	}
     }
 }
@@ -520,15 +566,15 @@ erts_clear_mtrace_break(BpFunctions* f)
 }
 
 void
-erts_clear_mtrace_bif(BeamInstr *pc)
+erts_clear_mtrace_bif(ErtsCodeInfo *ci)
 {
-    clear_function_break(pc, ERTS_BPF_META_TRACE);
+    clear_function_break(ci, ERTS_BPF_META_TRACE);
 }
 
 void
 erts_clear_debug_break(BpFunctions* f)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     clear_break(f, ERTS_BPF_DEBUG);
 }
 
@@ -556,7 +602,7 @@ erts_clear_module_break(Module *modp) {
     Uint n;
     Uint i;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     ASSERT(modp);
     code_hdr = modp->curr.code_hdr;
     if (!code_hdr) {
@@ -564,52 +610,91 @@ erts_clear_module_break(Module *modp) {
     }
     n = (Uint)(UWord) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	BeamInstr* pc;
-
-	pc = code_hdr->functions[i] + 5;
-	if (erts_is_native_break(pc)) {
+	ErtsCodeInfo *ci = code_hdr->functions[i];
+	if (erts_is_function_native(ci))
 	    continue;
-	}
-	clear_function_break(pc, ERTS_BPF_ALL);
+	clear_function_break(ci, ERTS_BPF_ALL);
     }
 
     erts_commit_staged_bp();
 
     for (i = 0; i < n; ++i) {
-	BeamInstr* pc;
-
-	pc = code_hdr->functions[i] + 5;
-	if (erts_is_native_break(pc)) {
+	ErtsCodeInfo *ci = code_hdr->functions[i];
+	if (erts_is_function_native(ci))
 	    continue;
-	}
-	uninstall_breakpoint(pc);
-	consolidate_bp_data(modp, pc, 1);
-	ASSERT(pc[-4] == 0);
+	uninstall_breakpoint(ci);
+	consolidate_bp_data(modp, ci, 1);
+	ASSERT(ci->u.gen_bp == NULL);
     }
     return n;
 }
 
 void
-erts_clear_export_break(Module* modp, BeamInstr* pc)
+erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
-    clear_function_break(pc, ERTS_BPF_ALL);
+    clear_function_break(ci, ERTS_BPF_ALL);
     erts_commit_staged_bp();
-    *pc = (BeamInstr) 0;
-    consolidate_bp_data(modp, pc, 0);
-    ASSERT(pc[-4] == 0);
+    *erts_codeinfo_to_code(ci) = (BeamInstr) 0;
+    consolidate_bp_data(modp, ci, 0);
+    ASSERT(ci->u.gen_bp == NULL);
+}
+
+/*
+ * If c_p->cp is a trace return instruction, we set cp
+ * to be the place where we again start to execute code.
+ *
+ * cp is used by match spec {caller} to get the calling
+ * function, and if we don't do this fixup it will be
+ * 'undefined'. This has the odd side effect of {caller}
+ * not really being which function is the caller, but
+ * rather which function we are about to return to.
+ */
+static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
+{
+    Eterm *cpp, *E = c_p->stop;
+    BeamInstr w = *c_p->cp;
+    if (BeamIsOpCode(w, op_return_trace)) {
+        cpp = &E[2];
+    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+        *return_to_trace = 1;
+        cpp = &E[0];
+    } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+        cpp = &E[0];
+    } else {
+        cpp = NULL;
+    }
+    if (cpp) {
+        for (;;) {
+            BeamInstr w = *cp_val(*cpp);
+            if (BeamIsOpCode(w, op_return_trace)) {
+                cpp += 3;
+            } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+                *return_to_trace = 1;
+                cpp += 1;
+            } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+                cpp += 2;
+            } else {
+                break;
+            }
+        }
+        c_p->cp = (BeamInstr *) cp_val(*cpp);
+        ASSERT(is_CP(*cpp));
+    }
 }
 
 BeamInstr
-erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
+erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 {
     GenericBp* g;
     GenericBpData* bp;
     Uint bp_flags;
     ErtsBpIndex ix = erts_active_bp_ix();
 
-    g = (GenericBp *) I[-4];
+    ASSERT(BeamIsOpCode(info->op, op_i_func_info_IaaI));
+
+    g = info->u.gen_bp;
     bp = &g->data[ix];
     bp_flags = bp->flags;
     ASSERT((bp_flags & ~ERTS_BPF_ALL) == 0);
@@ -628,19 +713,20 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 
     if (bp_flags & ERTS_BPF_LOCAL_TRACE) {
 	ASSERT((bp_flags & ERTS_BPF_GLOBAL_TRACE) == 0);
-	(void) do_call_trace(c_p, I, reg, 1, bp->local_ms, erts_tracer_true);
+	(void) do_call_trace(c_p, info, reg, 1, bp->local_ms, erts_tracer_true);
     } else if (bp_flags & ERTS_BPF_GLOBAL_TRACE) {
-	(void) do_call_trace(c_p, I, reg, 0, bp->local_ms, erts_tracer_true);
+	(void) do_call_trace(c_p, info, reg, 0, bp->local_ms, erts_tracer_true);
     }
 
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	ErtsTracer old_tracer, new_tracer;
 
-	old_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+	old_tracer = erts_atomic_read_nob(&bp->meta_tracer->tracer);
 
-	new_tracer = do_call_trace(c_p, I, reg, 1, bp->meta_ms, old_tracer);
+	new_tracer = do_call_trace(c_p, info, reg, 1, bp->meta_ms, old_tracer);
+
 	if (!ERTS_TRACER_COMPARE(new_tracer, old_tracer)) {
-            if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+            if (old_tracer == erts_atomic_cmpxchg_acqb(
                     &bp->meta_tracer->tracer,
                     (erts_aint_t)new_tracer,
                     (erts_aint_t)old_tracer)) {
@@ -652,20 +738,20 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_COUNT_ACTIVE) {
-	erts_smp_atomic_inc_nob(&bp->count->acount);
+	erts_atomic_inc_nob(&bp->count->acount);
     }
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
 	Eterm w;
-	erts_trace_time_call(c_p, I, bp->time);
+	erts_trace_time_call(c_p, info, bp->time);
 	w = (BeamInstr) *c_p->cp;
-	if (! (w == (BeamInstr) BeamOp(op_i_return_time_trace) ||
-	       w == (BeamInstr) BeamOp(op_return_trace) ||
-	       w == (BeamInstr) BeamOp(op_i_return_to_trace)) ) {
+	if (! (BeamIsOpCode(w, op_i_return_time_trace) ||
+	       BeamIsOpCode(w, op_return_trace) ||
+               BeamIsOpCode(w, op_i_return_to_trace)) ) {
 	    Eterm* E = c_p->stop;
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 	    if (E - 2 < c_p->htop) {
-		(void) erts_garbage_collect(c_p, 2, reg, I[-1]);
+		(void) erts_garbage_collect(c_p, 2, reg, info->mfa.arity);
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    }
 	    E = c_p->stop;
@@ -673,7 +759,7 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
 	    ASSERT(c_p->htop <= E && E <= c_p->hend);
 
 	    E -= 2;
-	    E[0] = make_cp(I);
+	    E[0] = make_cp(erts_codeinfo_to_code(info));
 	    E[1] = make_cp(c_p->cp);     /* original return address */
 	    c_p->cp = beam_return_time_trace;
 	    c_p->stop = E;
@@ -681,7 +767,7 @@ erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_DEBUG) {
-	return (BeamInstr) BeamOp(op_i_debug_breakpoint);
+	return BeamOpCodeAddr(op_i_debug_breakpoint);
     } else {
 	return g->orig_instr;
     }
@@ -701,17 +787,18 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     Export* ep = bif_export[bif_index];
     Uint32 flags = 0, flags_meta = 0;
     ErtsTracer meta_tracer = erts_tracer_nil;
-    int applying = (I == &(ep->code[3])); /* Yup, the apply code for a bif
-					   * is actually in the
-					   * export entry */
+    int applying = (I == ep->beam); /* Yup, the apply code for a bif
+                                      * is actually in the
+                                      * export entry */
     BeamInstr *cp = p->cp;
     GenericBp* g;
     GenericBpData* bp = NULL;
     Uint bp_flags = 0;
+    int return_to_trace = 0;
 
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-    g = (GenericBp *) ep->fake_op_func_info_for_hipe[1];
+    g = ep->info.u.gen_bp;
     if (g) {
 	bp = &g->data[erts_active_bp_ix()];
 	bp_flags = bp->flags;
@@ -723,25 +810,27 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
      */
     if (!applying) {
 	p->cp = I;
+    } else {
+        fixup_cp_before_trace(p, &return_to_trace);
     }
     if (bp_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE) &&
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
 	int local = !!(bp_flags & ERTS_BPF_LOCAL_TRACE);
-	flags = erts_call_trace(p, ep->code, bp->local_ms, args,
+	flags = erts_call_trace(p, &ep->info, bp->local_ms, args,
 				local, &ERTS_TRACER(p));
     }
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	ErtsTracer old_tracer;
 
-        meta_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+        meta_tracer = erts_atomic_read_nob(&bp->meta_tracer->tracer);
         old_tracer = meta_tracer;
-	flags_meta = erts_call_trace(p, ep->code, bp->meta_ms, args,
+	flags_meta = erts_call_trace(p, &ep->info, bp->meta_ms, args,
 				     0, &meta_tracer);
 
 	if (!ERTS_TRACER_COMPARE(old_tracer, meta_tracer)) {
             ErtsTracer new_tracer = erts_tracer_nil;
             erts_tracer_update(&new_tracer, meta_tracer);
-	    if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+	    if (old_tracer == erts_atomic_cmpxchg_acqb(
                     &bp->meta_tracer->tracer,
                     (erts_aint_t)new_tracer,
                     (erts_aint_t)old_tracer)) {
@@ -753,8 +842,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     }
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE &&
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
-	BeamInstr *pc = (BeamInstr *)ep->code+3;
-	erts_trace_time_call(p, pc, bp->time);
+	erts_trace_time_call(p, &ep->info, bp->time);
     }
 
     /* Restore original continuation pointer (if changed). */
@@ -764,6 +852,30 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 
     result = func(p, args, I);
 
+    if (erts_nif_export_check_save_trace(p, result,
+					 applying, ep,
+					 cp, flags,
+					 flags_meta, I,
+					 meta_tracer)) {
+	/*
+	 * erts_bif_trace_epilogue() will be called
+	 * later when appropriate via the NIF export
+	 * scheduling functionality...
+	 */
+	return result;
+    }
+
+    return erts_bif_trace_epilogue(p, result, applying, ep, cp,
+				   flags, flags_meta, I,
+				   meta_tracer);
+}
+
+Eterm
+erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
+			Export* ep, BeamInstr *cp, Uint32 flags,
+			Uint32 flags_meta, BeamInstr* I,
+			ErtsTracer meta_tracer)
+{
     if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	BeamInstr i_return_trace      = beam_return_trace[0];
 	BeamInstr i_return_to_trace   = beam_return_to_trace[0];
@@ -817,11 +929,11 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	    class = exception_tag[GET_EXC_CLASS(reason)];
 
 	    if (flags_meta & MATCH_SET_EXCEPTION_TRACE) {
-		erts_trace_exception(p, ep->code, class, value,
+		erts_trace_exception(p, &ep->info.mfa, class, value,
 				     &meta_tracer);
 	    }
 	    if (flags & MATCH_SET_EXCEPTION_TRACE) {
-		erts_trace_exception(p, ep->code, class, value,
+		erts_trace_exception(p, &ep->info.mfa, class, value,
 				     &ERTS_TRACER(p));
 	    }
 	    if ((flags & MATCH_SET_RETURN_TO_TRACE) && p->catches > 0) {
@@ -845,18 +957,18 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 		}
 	    }
 	    if ((flags_meta|flags) & MATCH_SET_EXCEPTION_TRACE) {
-		erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(p) |= F_EXCEPTION_TRACE;
-		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	}
     } else {
 	if (flags_meta & MATCH_SET_RX_TRACE) {
-	    erts_trace_return(p, ep->code, result, &meta_tracer);
+	    erts_trace_return(p, &ep->info.mfa, result, &meta_tracer);
 	}
 	/* MATCH_SET_RETURN_TO_TRACE cannot occur if(meta) */
 	if (flags & MATCH_SET_RX_TRACE) {
-	    erts_trace_return(p, ep->code, result, &ERTS_TRACER(p));
+	    erts_trace_return(p, &ep->info.mfa, result, &ERTS_TRACER(p));
 	}
 	if (flags & MATCH_SET_RETURN_TO_TRACE &&
             IS_TRACED_FL(p, F_TRACE_RETURN_TO)) {
@@ -870,57 +982,28 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	    }
 	}
     }
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
     return result;
 }
 
 static ErtsTracer
-do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
+do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms, ErtsTracer tracer)
 {
-    Eterm* cpp;
     int return_to_trace = 0;
-    BeamInstr w;
     BeamInstr *cp_save = c_p->cp;
     Uint32 flags;
     Uint need = 0;
     Eterm* E = c_p->stop;
 
-    w = *c_p->cp;
-    if (w == (BeamInstr) BeamOp(op_return_trace)) {
-	cpp = &E[2];
-    } else if (w == (BeamInstr) BeamOp(op_i_return_to_trace)) {
-	return_to_trace = 1;
-	cpp = &E[0];
-    } else if (w == (BeamInstr) BeamOp(op_i_return_time_trace)) {
-	cpp = &E[0];
-    } else {
-	cpp = NULL;
-    }
-    if (cpp) {
-	for (;;) {
-	    BeamInstr w = *cp_val(*cpp);
-	    if (w == (BeamInstr) BeamOp(op_return_trace)) {
-		cpp += 3;
-	    } else if (w == (BeamInstr) BeamOp(op_i_return_to_trace)) {
-		return_to_trace = 1;
-		cpp += 1;
-	    } else if (w == (BeamInstr) BeamOp(op_i_return_time_trace)) {
-		cpp += 2;
-	    } else {
-		break;
-	    }
-	}
-	cp_save = c_p->cp;
-	c_p->cp = (BeamInstr *) cp_val(*cpp);
-	ASSERT(is_CP(*cpp));
-    }
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-    flags = erts_call_trace(c_p, I-3, ms, reg, local, &tracer);
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-    if (cpp) {
-	c_p->cp = cp_save;
-    }
+    fixup_cp_before_trace(c_p, &return_to_trace);
+
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
+
+    /* restore cp after potential fixup */
+    c_p->cp = cp_save;
 
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
@@ -932,7 +1015,7 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
     if (need) {
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
 	if (E - need < c_p->htop) {
-	    (void) erts_garbage_collect(c_p, need, reg, I[-1]);
+	    (void) erts_garbage_collect(c_p, need, reg, info->mfa.arity);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    E = c_p->stop;
 	}
@@ -948,39 +1031,40 @@ do_call_trace(Process* c_p, BeamInstr* I, Eterm* reg,
 	E -= 3;
         c_p->stop = E;
 	ASSERT(c_p->htop <= E && E <= c_p->hend);
-	ASSERT(is_CP((Eterm) (UWord) (I - 3)));
+	ASSERT(is_CP((Eterm) (UWord) (&info->mfa.module)));
 	ASSERT(IS_TRACER_VALID(tracer));
 	E[2] = make_cp(c_p->cp);
         E[1] = copy_object(tracer, c_p);
-	E[0] = make_cp(I - 3); /* We ARE at the beginning of an
-				  instruction,
+	E[0] = make_cp(&info->mfa.module);
+                               /* We ARE at the beginning of an instruction,
 				  the funcinfo is above i. */
 	c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE) ?
 	    beam_exception_trace : beam_return_trace;
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+	erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     } else
         c_p->stop = E;
     return tracer;
 }
 
 void
-erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
+erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
 {
     ErtsMonotonicTime time;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(c_p);
 
     ASSERT(c_p);
-    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
+    ASSERT(erts_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
 						       | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
-
+    
     pbt = ERTS_PROC_GET_CALL_TIME(c_p);
     time = get_mtime(c_p);
 
@@ -995,18 +1079,18 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
 	pbt = Alloc(sizeof(process_breakpoint_time_t));
 	(void) ERTS_PROC_SET_CALL_TIME(c_p, pbt);
     } else {
-	ASSERT(pbt->pc);
+	ASSERT(pbt->ci);
 	/* add time to previous code */
 	sitem.time = time - pbt->time;
 	sitem.pid = c_p->common.id;
 	sitem.count = 0;
 
 	/* previous breakpoint */
-	pbdt = get_time_break(pbt->pc);
+	pbdt = get_time_break(pbt->ci);
 
 	/* if null then the breakpoint was removed */
 	if (pbdt) {
-	    h = &(pbdt->hash[bp_sched2ix_proc(c_p)]);
+	    h = &(pbdt->hash[six]);
 
 	    ASSERT(h);
 	    ASSERT(h->item);
@@ -1027,7 +1111,7 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
 
     /* this breakpoint */
     ASSERT(bdt);
-    h = &(bdt->hash[bp_sched2ix_proc(c_p)]);
+    h = &(bdt->hash[six]);
 
     ASSERT(h);
     ASSERT(h->item);
@@ -1039,21 +1123,24 @@ erts_trace_time_call(Process* c_p, BeamInstr* I, BpDataTime* bdt)
 	BP_TIME_ADD(item, &sitem);
     }
 
-    pbt->pc = I;
+    pbt->ci = info;
     pbt->time = time;
+
+    release_bp_sched_ix(six);
 }
 
 void
-erts_trace_time_return(Process *p, BeamInstr *pc)
+erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
 {
     ErtsMonotonicTime time;
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
-    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
+    ASSERT(erts_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
 						     | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
@@ -1071,21 +1158,23 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
      */
 
     if (pbt) {
+
 	/* might have been removed due to
 	 * trace_pattern(false)
 	 */
-	ASSERT(pbt->pc);
+	ASSERT(pbt->ci);
 
 	sitem.time = time - pbt->time;
 	sitem.pid   = p->common.id;
 	sitem.count = 0;
 
 	/* previous breakpoint */
-	pbdt = get_time_break(pbt->pc);
+	pbdt = get_time_break(pbt->ci);
 
 	/* beware, the trace_pattern might have been removed */
 	if (pbdt) {
-	    h = &(pbdt->hash[bp_sched2ix_proc(p)]);
+
+	    h = &(pbdt->hash[six]);
 
 	    ASSERT(h);
 	    ASSERT(h->item);
@@ -1096,18 +1185,22 @@ erts_trace_time_return(Process *p, BeamInstr *pc)
 	    } else {
 		BP_TIME_ADD(item, &sitem);
 	    }
+
 	}
 
-	pbt->pc = pc;
+	pbt->ci = ci;
 	pbt->time = time;
+
     }
+
+    release_bp_sched_ix(six);
 }
 
 int 
-erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local)
+erts_is_trace_break(ErtsCodeInfo *ci, Binary **match_spec_ret, int local)
 {
     Uint flags = local ? ERTS_BPF_LOCAL_TRACE : ERTS_BPF_GLOBAL_TRACE;
-    GenericBpData* bp = check_break(pc, flags);
+    GenericBpData* bp = check_break(ci, flags);
 
     if (bp) {
 	if (match_spec_ret) {
@@ -1119,55 +1212,44 @@ erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local)
 }
 
 int
-erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
+erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
 		     ErtsTracer *tracer_ret)
 {
-    GenericBpData* bp = check_break(pc, ERTS_BPF_META_TRACE);
+    GenericBpData* bp = check_break(ci, ERTS_BPF_META_TRACE);
     
     if (bp) {
 	if (match_spec_ret) {
 	    *match_spec_ret = bp->meta_ms;
 	}
 	if (tracer_ret) {
-            *tracer_ret = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+            *tracer_ret = erts_atomic_read_nob(&bp->meta_tracer->tracer);
 	}
 	return 1;
     }
     return 0;
-}
-
-int
-erts_is_native_break(BeamInstr *pc) {
-#ifdef HIPE
-    ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    return pc[0]  == (BeamInstr) BeamOp(op_hipe_trap_call)
-	|| pc[0]  == (BeamInstr) BeamOp(op_hipe_trap_call_closure);
-#else
-    return 0;
-#endif
 }
 
 int 
-erts_is_count_break(BeamInstr *pc, Uint *count_ret)
+erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret)
 {
-    GenericBpData* bp = check_break(pc, ERTS_BPF_COUNT);
+    GenericBpData* bp = check_break(ci, ERTS_BPF_COUNT);
     
     if (bp) {
 	if (count_ret) {
-	    *count_ret = (Uint) erts_smp_atomic_read_nob(&bp->count->acount);
+	    *count_ret = (Uint) erts_atomic_read_nob(&bp->count->acount);
 	}
 	return 1;
     }
     return 0;
 }
 
-int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
+int erts_is_time_break(Process *p, ErtsCodeInfo *ci, Eterm *retval) {
     Uint i, ix;
     bp_time_hash_t hash;
     Uint size;
     Eterm *hp, t;
     bp_data_time_item_t *item = NULL;
-    BpDataTime *bdt = get_time_break(pc);
+    BpDataTime *bdt = get_time_break(ci);
 
     if (bdt) {
 	if (retval) {
@@ -1221,26 +1303,25 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
 }
 
 
-BeamInstr *
-erts_find_local_func(Eterm mfa[3]) {
+ErtsCodeInfo *
+erts_find_local_func(ErtsCodeMFA *mfa) {
     Module *modp;
     BeamCodeHeader* code_hdr;
-    BeamInstr* code_ptr;
+    ErtsCodeInfo* ci;
     Uint i,n;
 
-    if ((modp = erts_get_module(mfa[0], erts_active_code_ix())) == NULL)
+    if ((modp = erts_get_module(mfa->module, erts_active_code_ix())) == NULL)
 	return NULL;
     if ((code_hdr = modp->curr.code_hdr) == NULL)
 	return NULL;
     n = (BeamInstr) code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
-	code_ptr = code_hdr->functions[i];
-	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IaaI)) == code_ptr[0]);
-	ASSERT(mfa[0] == ((Eterm) code_ptr[2]) ||
-	       is_nil((Eterm) code_ptr[2]));
-	if (mfa[1] == ((Eterm) code_ptr[3]) &&
-	    ((BeamInstr) mfa[2]) == code_ptr[4]) {
-	    return code_ptr + 5;
+	ci = code_hdr->functions[i];
+	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+	ASSERT(mfa->module == ci->mfa.module || is_nil(ci->mfa.module));
+	if (mfa->function == ci->mfa.function &&
+	    mfa->arity == ci->mfa.arity) {
+	    return ci;
 	}
     }
     return NULL;
@@ -1353,6 +1434,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
+    Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
 
@@ -1369,13 +1451,13 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * the previous breakpoint.
 	     */
 
-	    pbdt = get_time_break(pbt->pc);
+	    pbdt = get_time_break(pbt->ci);
 	    if (pbdt) {
 		sitem.time = get_mtime(p) - pbt->time;
 		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
-		h = &(pbdt->hash[bp_sched2ix_proc(p)]);
+		h = &(pbdt->hash[six]);
 
 		ASSERT(h);
 		ASSERT(h->item);
@@ -1401,6 +1483,8 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	    break;
 	}
     } /* pbt */
+
+    release_bp_sched_ix(six);
 }
 
 /* *************************************************************************
@@ -1417,14 +1501,14 @@ set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 
     n = f->matched;
     for (i = 0; i < n; i++) {
-	BeamInstr* pc = f->matching[i].pc;
-	set_function_break(pc, match_spec, break_flags,
+	set_function_break(f->matching[i].ci,
+                           match_spec, break_flags,
 			   count_op, tracer);
     }
 }
 
 static void
-set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
+set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 		   enum erts_break_op count_op, ErtsTracer tracer)
 {
     GenericBp* g;
@@ -1432,8 +1516,8 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
-    g = (GenericBp *) pc[-4];
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
+    g = ci->u.gen_bp;
     if (g == 0) {
 	int i;
 	if (count_op == ERTS_BREAK_RESTART || count_op == ERTS_BREAK_PAUSE) {
@@ -1441,11 +1525,11 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	    return;
 	}
 	g = Alloc(sizeof(GenericBp));
-	g->orig_instr = *pc;
+	g->orig_instr = *erts_codeinfo_to_code(ci);
 	for (i = 0; i < ERTS_NUM_BP_IX; i++) {
 	    g->data[i].flags = 0;
 	}
-	pc[-4] = (BeamInstr) g;
+	ci->u.gen_bp = g;
     }
     bp = &g->data[ix];
 
@@ -1464,7 +1548,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	    bp->flags &= ~ERTS_BPF_COUNT_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_COUNT_ACTIVE;
-	    erts_smp_atomic_set_nob(&bp->count->acount, 0);
+	    erts_atomic_set_nob(&bp->count->acount, 0);
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
@@ -1500,7 +1584,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	bmt = Alloc(sizeof(BpMetaTracer));
 	erts_refc_init(&bmt->refc, 1);
         erts_tracer_update(&meta_tracer, tracer); /* copy tracer */
-	erts_smp_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
+	erts_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
 	bp->meta_tracer = bmt;
     } else if (break_flags & ERTS_BPF_COUNT) {
 	BpCount* bcp;
@@ -1508,7 +1592,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ERTS_BPF_COUNT) == 0);
 	bcp = Alloc(sizeof(BpCount));
 	erts_refc_init(&bcp->refc, 1);
-	erts_smp_atomic_init_nob(&bcp->acount, 0);
+	erts_atomic_init_nob(&bcp->acount, 0);
 	bp->count = bcp;
     } else if (break_flags & ERTS_BPF_TIME_TRACE) {
 	BpDataTime* bdt;
@@ -1517,7 +1601,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
 	erts_refc_init(&bdt->refc, 1);
-	bdt->n = erts_no_schedulers;
+	bdt->n = erts_no_schedulers + 1;
 	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 	for (i = 0; i < bdt->n; i++) {
 	    bp_hash_init(&(bdt->hash[i]), 32);
@@ -1537,22 +1621,21 @@ clear_break(BpFunctions* f, Uint break_flags)
 
     n = f->matched;
     for (i = 0; i < n; i++) {
-	BeamInstr* pc = f->matching[i].pc;
-	clear_function_break(pc, break_flags);
+	clear_function_break(f->matching[i].ci, break_flags);
     }
 }
 
 static int
-clear_function_break(BeamInstr *pc, Uint break_flags)
+clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
 {
     GenericBp* g;
     GenericBpData* bp;
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
 
-    if ((g = (GenericBp *) pc[-4]) == 0) {
+    if ((g = ci->u.gen_bp) == NULL) {
 	return 1;
     }
 
@@ -1584,7 +1667,7 @@ static void
 bp_meta_unref(BpMetaTracer* bmt)
 {
     if (erts_refc_dectest(&bmt->refc, 0) <= 0) {
-        ErtsTracer trc = erts_smp_atomic_read_nob(&bmt->tracer);
+        ErtsTracer trc = erts_atomic_read_nob(&bmt->tracer);
         ERTS_TRACER_CLEAR(&trc);
 	Free(bmt);
     }
@@ -1625,7 +1708,7 @@ bp_time_unref(BpDataTime* bdt)
 			    if (pbt) {
 				Free(pbt);
 			    }
-			    erts_smp_proc_unlock(h_p, ERTS_PROC_LOCK_MAIN);
+			    erts_proc_unlock(h_p, ERTS_PROC_LOCK_MAIN);
 			}
 		    }
 		}
@@ -1638,19 +1721,19 @@ bp_time_unref(BpDataTime* bdt)
 }
 
 static BpDataTime*
-get_time_break(BeamInstr *pc)
+get_time_break(ErtsCodeInfo *ci)
 {
-    GenericBpData* bp = check_break(pc, ERTS_BPF_TIME_TRACE);
+    GenericBpData* bp = check_break(ci, ERTS_BPF_TIME_TRACE);
     return bp ? bp->time : 0;
 }
 
 static GenericBpData*
-check_break(BeamInstr *pc, Uint break_flags)
+check_break(ErtsCodeInfo *ci, Uint break_flags)
 {
-    GenericBp* g = (GenericBp *) pc[-4];
+    GenericBp* g = ci->u.gen_bp;
 
-    ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    if (erts_is_native_break(pc)) {
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+    if (erts_is_function_native(ci)) {
 	return 0;
     }
     if (g) {

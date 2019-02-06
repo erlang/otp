@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(lc_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
@@ -32,11 +32,10 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    test_lib:recompile(?MODULE),
+all() ->
     [{group,p}].
 
-groups() -> 
+groups() ->
     [{p,test_lib:parallel(),
       [basic,
        deeply_nested,
@@ -48,6 +47,7 @@ groups() ->
       ]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -107,6 +107,31 @@ basic(Config) when is_list(Config) ->
     [] = [X || X <- L1, X+1 < 2],
     {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
     fc([x], catch [E || E <- id(x)]),
+
+    %% Make sure that line numbers point out the generator.
+    case ?MODULE of
+        lc_inline_SUITE ->
+            ok;
+        _ ->
+            {'EXIT',{function_clause,
+                     [{?MODULE,_,_,
+                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
+                (catch bad_generator(a)),
+            {'EXIT',{function_clause,
+                     [{?MODULE,_,_,
+                       [{file,"bad_lc.erl"},{line,4}]}|_]}} =
+                (catch bad_generator([a|b])),
+            {'EXIT',{badarg,
+                     [{erlang,length,_,_},
+                      {?MODULE,bad_generator_bc,1,
+                       [{file,"bad_lc.erl"},{line,7}]}|_]}} =
+                (catch bad_generator_bc(a)),
+            {'EXIT',{badarg,
+                     [{erlang,length,_,_},
+                      {?MODULE,bad_generator_bc,1,
+                       [{file,"bad_lc.erl"},{line,7}]}|_]}} =
+                (catch bad_generator_bc([a|b]))
+    end,
     ok.
 
 tuple_list() ->
@@ -214,6 +239,7 @@ shadow(Config) when is_list(Config) ->
     ok.
 
 effect(Config) when is_list(Config) ->
+    ct:timetrap({minutes,10}),
     [{42,{a,b,c}}] =
 	do_effect(fun(F, L) ->
 			  [F({V1,V2}) ||
@@ -226,7 +252,7 @@ effect(Config) when is_list(Config) ->
 	lc_SUITE ->
 	    _ = [{'EXIT',{badarg,_}} =
 		     (catch binary_to_atom(<<C/utf8>>, utf8)) ||
-		    C <- lists:seq(16#10000, 16#FFFFF)];
+		    C <- lists:seq(16#FF10000, 16#FFFFFFF)];
 	_ ->
 	    ok
     end,
@@ -240,7 +266,7 @@ do_effect(Lc, L) ->
     lists:reverse(erase(?MODULE)).
 
 id(I) -> I.
-    
+
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args,_}|_]}}) -> ok;
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity,_}|_]}})
   when length(Args) =:= Arity ->
@@ -248,3 +274,11 @@ fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity,_}|_]}})
 fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})
   when ?MODULE =:= lc_inline_SUITE ->
     Args = tuple_to_list(ActualArgs).
+
+-file("bad_lc.erl", 1).
+bad_generator(List) ->                          %Line 2
+    [I ||                                       %Line 3
+        I <- List].                             %Line 4
+bad_generator_bc(List) ->                       %Line 5
+    << <<I:4>> ||                               %Line 6
+        I <- List>>.                            %Line 7

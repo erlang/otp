@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -64,7 +64,7 @@
       the supervisors are similar in structure. The only difference
       between them is which child processes they supervise. Many
       of the workers are servers in a server-client relation,
-      finite-state machines, or event handlers such as error loggers.</p>
+      finite-state machines, or event handlers.</p>
     <p><em>Behaviours</em> are formalizations of these common patterns.
       The idea is to divide the code for a process in a generic part
       (a behaviour module) and a specific part (a
@@ -225,10 +225,8 @@ free(Ch, {Alloc, Free} = Channels) ->
     <list type="bulleted">
       <item><p><seealso marker="gen_server_concepts">gen_server</seealso></p>
       <p>For implementing the server of a client-server relation</p></item>
-      <item><p><seealso marker="fsm">gen_fsm</seealso></p>
-      <p>For implementing finite-state machines (Old)</p></item>
       <item><p><seealso marker="statem">gen_statem</seealso></p>
-      <p>For implementing state machines (New)</p></item>
+      <p>For implementing state machines</p></item>
       <item><p><seealso marker="events">gen_event</seealso></p>
       <p>For implementing event handling functionality</p></item>
       <item><p><seealso marker="sup_princ">supervisor</seealso></p>

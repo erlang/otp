@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,13 +32,12 @@
 #  include "config.h"
 #endif
 
-#ifdef ERTS_SMP
 
 #include "erl_process.h"
 #include "erl_thr_progress.h"
 
 erts_sspa_data_t *
-erts_sspa_create(size_t blk_sz, int pa_size)
+erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
 {
     erts_sspa_data_t *data;
     size_t tot_size;
@@ -48,23 +47,40 @@ erts_sspa_create(size_t blk_sz, int pa_size)
     int cix;
     int no_blocks = pa_size;
     int no_blocks_per_chunk;
+    size_t aligned_blk_sz;
 
-    if (erts_no_schedulers == 1)
+#if !defined(ERTS_STRUCTURE_ALIGNED_ALLOC)
+    /* Force 64-bit alignment... */
+    aligned_blk_sz = ((blk_sz - 1) / 8) * 8 + 8;
+#else
+    /* Alignment of structure is enough... */
+    aligned_blk_sz = blk_sz;
+#endif
+
+    if (!name) { /* schedulers only variant */
+        ASSERT(!nthreads);
+        nthreads = erts_no_schedulers;
+    }
+    else {
+        ASSERT(nthreads > 0);
+    }
+
+    if (nthreads == 1)
 	no_blocks_per_chunk = no_blocks;
     else {
 	int extra = (no_blocks - 1)/4 + 1;
 	if (extra == 0)
 	    extra = 1;
 	no_blocks_per_chunk = no_blocks;
-	no_blocks_per_chunk += extra*erts_no_schedulers;
-	no_blocks_per_chunk /= erts_no_schedulers;
+	no_blocks_per_chunk += extra * nthreads;
+	no_blocks_per_chunk /= nthreads;
     }
-    no_blocks = no_blocks_per_chunk * erts_no_schedulers;
+    no_blocks = no_blocks_per_chunk * nthreads;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_chunk_header_t));
-    chunk_mem_size += blk_sz * no_blocks_per_chunk;
+    chunk_mem_size += aligned_blk_sz * no_blocks_per_chunk;
     chunk_mem_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(chunk_mem_size);
     tot_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_sspa_data_t));
-    tot_size += chunk_mem_size*erts_no_schedulers;
+    tot_size += chunk_mem_size * nthreads;
 
     p = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_PRE_ALLOC_DATA, tot_size);
     data = (erts_sspa_data_t *) p;
@@ -73,10 +89,16 @@ erts_sspa_create(size_t blk_sz, int pa_size)
 
     data->chunks_mem_size = chunk_mem_size;
     data->start = chunk_start;
-    data->end = chunk_start + chunk_mem_size*erts_no_schedulers;
+    data->end = chunk_start + chunk_mem_size * nthreads;
+    data->nthreads = nthreads;
+
+    if (name) { /* thread variant */
+        erts_tsd_key_create(&data->tsd_key, (char*)name);
+        erts_atomic_init_nob(&data->id_generator, 0);
+    }
 
     /* Initialize all chunks */
-    for (cix = 0; cix < erts_no_schedulers; cix++) {
+    for (cix = 0; cix < nthreads; cix++) {
 	erts_sspa_chunk_t *chnk = erts_sspa_cix2chunk(data, cix);
 	erts_sspa_chunk_header_t *chdr = &chnk->aligned.header;
 	erts_sspa_blk_t *blk;
@@ -102,7 +124,7 @@ erts_sspa_create(size_t blk_sz, int pa_size)
 	blk = (erts_sspa_blk_t *) p;
 	for (i = 0; i < no_blocks_per_chunk; i++) {
 	    blk = (erts_sspa_blk_t *) p;
-	    p += blk_sz;
+	    p += aligned_blk_sz;
 	    blk->next_ptr = (erts_sspa_blk_t *) p;
 	}
 
@@ -161,7 +183,7 @@ enqueue_remote_managed_thread(erts_sspa_chunk_header_t *chdr,
 	    if ((i & 1) == 0)
 		itmp = itmp2;
 	    else {
-		enq = (erts_sspa_blk_t *) itmp;
+		enq = (erts_sspa_blk_t *) itmp2;
 		itmp = erts_atomic_read_acqb(&enq->next_atmc);
 		ASSERT(itmp != ERTS_AINT_NULL);
 	    }
@@ -325,4 +347,3 @@ erts_sspa_process_remote_frees(erts_sspa_chunk_header_t *chdr,
     return res;
 }
 
-#endif /* ERTS_SMP */

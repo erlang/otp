@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,6 +50,9 @@
       <desc><p>A continuation as returned by
         <seealso marker="#fread/3"><c>fread/3</c></seealso>.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name name="chars_limit"/>
     </datatype>
     <datatype>
       <name name="depth"/>
@@ -147,8 +150,33 @@
           format string (that is, <c>~ts</c> or <c>~tc</c>), the resulting list
           can contain characters beyond the ISO Latin-1 character range
           (that is, numbers &gt; 255). If so, the
-          result is not an ordinary Erlang <c>string()</c>, but can well be
+          result is still an ordinary Erlang <c>string()</c>, and can well be
           used in any context where Unicode data is allowed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="format" arity="3"/>
+      <name name="fwrite" arity="3"/>
+      <fsummary>Write formatted output.</fsummary>
+      <desc>
+        <p>Returns a character list that represents <c><anno>Data</anno></c>
+          formatted in accordance with <c><anno>Format</anno></c> in
+          the same way as
+          <seealso marker="#fwrite/2"><c>fwrite/2</c></seealso> and
+          <seealso marker="#format/2"><c>format/2</c></seealso>,
+          but takes an extra argument, a list of options.</p>
+          <p>Valid option:</p>
+          <taglist>
+            <tag><c>{chars_limit, <anno>CharsLimit</anno>}</c></tag>
+            <item>
+              <p>A soft limit on the number of characters returned.
+                When the number of characters is reached, remaining
+                structures are replaced by "<c>...</c>".
+                <c><anno>CharsLimit</anno></c> defaults to -1, which
+		means no limit on the number of characters returned.</p>
+            </item>
+          </taglist>
       </desc>
     </func>
 
@@ -356,21 +384,29 @@
 
     <func>
       <name name="write" arity="1"/>
-      <name name="write" arity="2"/>
+      <name name="write" arity="2" clause_i="1"/>
+      <name name="write" arity="2" clause_i="2"/>
       <fsummary>Write a term.</fsummary>
       <desc>
         <p>Returns a character list that represents <c><anno>Term</anno></c>.
-          Argument <c><anno>Depth</anno></c> controls the depth of the
+          Option <c><anno>Depth</anno></c> controls the depth of the
           structures written. When the specified depth is reached,
           everything below this level is replaced by "<c>...</c>".
           <c><anno>Depth</anno></c> defaults to -1, which means
-          no limitation.</p>
+          no limitation. Option <c><anno>CharsLimit</anno></c> puts a
+          soft limit on the number of characters returned. When the
+          number of characters is reached, remaining structures are
+          replaced by "<c>...</c>". <c><anno>CharsLimit</anno></c>
+          defaults to -1, which means no limit on the number of
+          characters returned.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9})).</input>
 "{1,[2],[3],[4,5],6,7,8,9}"
 2> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5)).</input>
-"{1,[2],[3],[...],...}"</pre>
+"{1,[2],[3],[...],...}"
+3> <input>lists:flatten(io_lib:write({[1,2,3],[4,5],6,7,8,9}, [{chars_limit,20}])).</input>
+"{[1,2|...],[4|...],...}"</pre>
       </desc>
     </func>
 
@@ -380,6 +416,16 @@
       <desc>
         <p>Returns the list of characters needed to print atom
           <c><anno>Atom</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_atom_as_latin1" arity="1"/>
+      <fsummary>Write an atom.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print atom
+          <c><anno>Atom</anno></c>. Non-Latin-1 characters
+          are escaped.</p>
       </desc>
     </func>
 

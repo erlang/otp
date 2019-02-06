@@ -1,0 +1,396 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+OUTLINED_ARITH_2(Fail, Live, Name, BIF, Op1, Op2, Dst) {
+    Eterm result;
+    Uint live = $Live;
+    HEAVY_SWAPOUT;
+    reg[live] = $Op1;
+    reg[live+1] = $Op2;
+    result = erts_gc_$Name (c_p, reg, live);
+    HEAVY_SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+    $BIF_ERROR_ARITY_2($Fail, $BIF, reg[live], reg[live+1]);
+}
+
+
+i_plus := plus.fetch.execute;
+
+plus.head() {
+    Eterm PlusOp1, PlusOp2;
+}
+
+plus.fetch(Op1, Op2) {
+    PlusOp1 = $Op1;
+    PlusOp2 = $Op2;
+}
+
+plus.execute(Fail, Live, Dst) {
+    if (ERTS_LIKELY(is_both_small(PlusOp1, PlusOp2))) {
+        Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, mixed_plus, BIF_splus_2, PlusOp1, PlusOp2, $Dst);
+}
+
+i_minus := minus.fetch.execute;
+
+minus.head() {
+    Eterm MinusOp1, MinusOp2;
+}
+
+minus.fetch(Op1, Op2) {
+    MinusOp1 = $Op1;
+    MinusOp2 = $Op2;
+}
+
+minus.execute(Fail, Live, Dst) {
+    if (ERTS_LIKELY(is_both_small(MinusOp1, MinusOp2))) {
+        Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, mixed_minus, BIF_sminus_2, MinusOp1, MinusOp2, $Dst);
+}
+
+i_increment := increment.fetch.execute;
+
+increment.head() {
+    Eterm increment_reg_val;
+}
+
+increment.fetch(Src) {
+    increment_reg_val = $Src;
+}
+
+increment.execute(IncrementVal, Live, Dst) {
+    Eterm increment_val = $IncrementVal;
+    Uint live;
+    Eterm result;
+
+    if (ERTS_LIKELY(is_small(increment_reg_val))) {
+        Sint i = signed_val(increment_reg_val) + increment_val;
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
+            $Dst = make_small(i);
+            $NEXT0();
+        }
+    }
+    live = $Live;
+    HEAVY_SWAPOUT;
+    reg[live] = increment_reg_val;
+    reg[live+1] = make_small(increment_val);
+    result = erts_gc_mixed_plus(c_p, reg, live);
+    HEAVY_SWAPIN;
+    ERTS_HOLE_CHECK(c_p);
+    if (ERTS_LIKELY(is_value(result))) {
+        $REFRESH_GEN_DEST();
+        $Dst = result;
+        $NEXT0();
+    }
+    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
+    goto find_func_info;
+}
+
+i_times(Fail, Live, Op1, Op2, Dst) {
+    Eterm op1 = $Op1;
+    Eterm op2 = $Op2;
+    $OUTLINED_ARITH_2($Fail, $Live, mixed_times, BIF_stimes_2, op1, op2, $Dst);
+}
+
+i_m_div(Fail, Live, Op1, Op2, Dst) {
+    Eterm op1 = $Op1;
+    Eterm op2 = $Op2;
+    $OUTLINED_ARITH_2($Fail, $Live, mixed_div, BIF_div_2, op1, op2, $Dst);
+}
+
+i_int_div(Fail, Live, Op1, Op2, Dst) {
+    Eterm op1 = $Op1;
+    Eterm op2 = $Op2;
+    if (ERTS_UNLIKELY(op2 == SMALL_ZERO)) {
+        c_p->freason = BADARITH;
+        $BIF_ERROR_ARITY_2($Fail, BIF_intdiv_2, op1, op2);
+    } else if (ERTS_LIKELY(is_both_small(op1, op2))) {
+        Sint ires = signed_val(op1) / signed_val(op2);
+        if (ERTS_LIKELY(IS_SSMALL(ires))) {
+            $Dst = make_small(ires);
+            $NEXT0();
+        }
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, int_div, BIF_intdiv_2, op1, op2, $Dst);
+}
+
+i_rem := rem.fetch.execute;
+
+rem.head() {
+     Eterm RemOp1, RemOp2;
+}
+
+rem.fetch(Src1, Src2) {
+    RemOp1 = $Src1;
+    RemOp2 = $Src2;
+}
+
+rem.execute(Fail, Live, Dst) {
+    if (ERTS_UNLIKELY(RemOp2 == SMALL_ZERO)) {
+        c_p->freason = BADARITH;
+        $BIF_ERROR_ARITY_2($Fail, BIF_rem_2, RemOp1, RemOp2);
+    } else if (ERTS_LIKELY(is_both_small(RemOp1, RemOp2))) {
+        $Dst = make_small(signed_val(RemOp1) % signed_val(RemOp2));
+        $NEXT0();
+    } else {
+        $OUTLINED_ARITH_2($Fail, $Live, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
+    }
+}
+
+i_band := band.fetch.execute;
+
+band.head() {
+    Eterm BandOp1, BandOp2;
+}
+
+band.fetch(Src1, Src2) {
+    BandOp1 = $Src1;
+    BandOp2 = $Src2;
+}
+
+band.execute(Fail, Live, Dst) {
+    if (ERTS_LIKELY(is_both_small(BandOp1, BandOp2))) {
+        /*
+         * No need to untag -- TAG & TAG == TAG.
+         */
+        $Dst = BandOp1 & BandOp2;
+        $NEXT0();
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, band, BIF_band_2, BandOp1, BandOp2, $Dst);
+}
+
+i_bor(Fail, Live, Src1, Src2, Dst) {
+    if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
+        /*
+         * No need to untag -- TAG | TAG == TAG.
+         */
+        $Dst = $Src1 | $Src2;
+        $NEXT0();
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, bor, BIF_bor_2, $Src1, $Src2, $Dst);
+}
+
+i_bxor(Fail, Live, Src1, Src2, Dst) {
+    if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
+        /*
+         * TAG ^ TAG == 0.
+         *
+         * Therefore, we perform the XOR operation on the tagged values,
+         * and OR in the tag bits.
+         */
+        $Dst = ($Src1 ^ $Src2) | make_small(0);
+        $NEXT0();
+    }
+    $OUTLINED_ARITH_2($Fail, $Live, bxor, BIF_bxor_2, $Src1, $Src2, $Dst);
+}
+
+i_bsl := shift.setup_bsl.execute;
+i_bsr := shift.setup_bsr.execute;
+
+shift.head() {
+    Eterm Op1, Op2;
+    Sint shift_left_count;
+}
+
+shift.setup_bsr(Src1, Src2) {
+    Op1 = $Src1;
+    Op2 = $Src2;
+    shift_left_count = 0;
+    if (ERTS_LIKELY(is_small(Op2))) {
+        shift_left_count = -signed_val(Op2);
+    } else if (is_big(Op2)) {
+        /*
+         * N bsr NegativeBigNum == N bsl MAX_SMALL
+         * N bsr PositiveBigNum == N bsl MIN_SMALL
+         */
+        shift_left_count = make_small(bignum_header_is_neg(*big_val(Op2)) ?
+                                      MAX_SMALL : MIN_SMALL);
+    }
+}
+
+shift.setup_bsl(Src1, Src2) {
+    Op1 = $Src1;
+    Op2 = $Src2;
+    shift_left_count = 0;
+    if (ERTS_LIKELY(is_small(Op2))) {
+        shift_left_count = signed_val(Op2);
+    } else if (is_big(Op2)) {
+        if (bignum_header_is_neg(*big_val(Op2))) {
+            /*
+             * N bsl NegativeBigNum is either 0 or -1, depending on
+             * the sign of N. Since we don't believe this case
+             * is common, do the calculation with the minimum
+             * amount of code.
+             */
+            shift_left_count = MIN_SMALL;
+        } else if (is_integer(Op1)) {
+            /*
+             * N bsl PositiveBigNum is too large to represent.
+             */
+            shift_left_count = MAX_SMALL;
+        }
+    }
+}
+
+shift.execute(Fail, Live, Dst) {
+    Uint big_words_needed;
+
+    if (ERTS_LIKELY(is_small(Op1))) {
+        Sint int_res = signed_val(Op1);
+        if (ERTS_UNLIKELY(shift_left_count == 0 || int_res == 0)) {
+            if (ERTS_UNLIKELY(is_not_integer(Op2))) {
+                goto shift_error;
+            }
+            if (int_res == 0) {
+                $Dst = Op1;
+                $NEXT0();
+            }
+        } else if (shift_left_count < 0)  { /* Right shift */
+            Eterm bsr_res;
+            shift_left_count = -shift_left_count;
+            if (shift_left_count >= SMALL_BITS-1) {
+                bsr_res = (int_res < 0) ? SMALL_MINUS_ONE : SMALL_ZERO;
+            } else {
+                bsr_res = make_small(int_res >> shift_left_count);
+            }
+            $Dst = bsr_res;
+            $NEXT0();
+        } else if (shift_left_count < SMALL_BITS-1) { /* Left shift */
+            if ((int_res > 0 &&
+                 ((~(Uint)0 << ((SMALL_BITS-1)-shift_left_count)) & int_res) == 0) ||
+                ((~(Uint)0 << ((SMALL_BITS-1)-shift_left_count)) & ~int_res) == 0) {
+                $Dst = make_small(int_res << shift_left_count);
+                $NEXT0();
+            }
+        }
+        big_words_needed = 1;   /* big_size(small_to_big(Op1)) */
+        goto big_shift;
+    } else if (is_big(Op1)) {
+        if (shift_left_count == 0) {
+            if (is_not_integer(Op2)) {
+                goto shift_error;
+            }
+            $Dst = Op1;
+            $NEXT0();
+        }
+        big_words_needed = big_size(Op1);
+
+    big_shift:
+        if (shift_left_count > 0) {	/* Left shift. */
+            big_words_needed += (shift_left_count / D_EXP);
+        } else {	/* Right shift. */
+            if (big_words_needed <= (-shift_left_count / D_EXP)) {
+                big_words_needed = 3;       /* ??? */
+            } else {
+                big_words_needed -= (-shift_left_count / D_EXP);
+            }
+        }
+        {
+            Eterm tmp_big[2];
+            Sint big_need_size = BIG_NEED_SIZE(big_words_needed+1);
+
+            /*
+             * Slightly conservative check the size to avoid
+             * allocating huge amounts of memory for bignums that
+             * clearly would overflow the arity in the header
+             * word.
+             */
+            if (big_need_size-8 > BIG_ARITY_MAX) {
+                $SYSTEM_LIMIT($Fail);
+            }
+            $GC_TEST_PRESERVE(big_need_size+1, $Live, Op1);
+            if (is_small(Op1)) {
+                Op1 = small_to_big(signed_val(Op1), tmp_big);
+            }
+            Op1 = big_lshift(Op1, shift_left_count, HTOP);
+            if (is_big(Op1)) {
+                HTOP += bignum_header_arity(*HTOP) + 1;
+            }
+            HEAP_SPACE_VERIFIED(0);
+            if (ERTS_UNLIKELY(is_nil(Op1))) {
+                /*
+                 * This result must have been only slighty larger
+                 * than allowed since it wasn't caught by the
+                 * previous test.
+                 */
+                $SYSTEM_LIMIT($Fail);
+            }
+            ERTS_HOLE_CHECK(c_p);
+            $REFRESH_GEN_DEST();
+            $Dst = Op1;
+            $NEXT0();
+        }
+    }
+
+    /*
+     * One or more non-integer arguments.
+     */
+ shift_error:
+    c_p->freason = BADARITH;
+    if ($Fail) {
+        $FAIL($Fail);
+    } else {
+        reg[0] = Op1;
+        reg[1] = Op2;
+        SWAPOUT;
+        if (IsOpCode(I[0], i_bsl_ssjtd)) {
+            I = handle_error(c_p, I, reg, &bif_export[BIF_bsl_2]->info.mfa);
+        } else {
+            ASSERT(IsOpCode(I[0], i_bsr_ssjtd));
+            I = handle_error(c_p, I, reg, &bif_export[BIF_bsr_2]->info.mfa);
+        }
+        goto post_error_handling;
+    }
+}
+
+i_int_bnot(Fail, Src, Live, Dst) {
+    Eterm bnot_val = $Src;
+    if (ERTS_LIKELY(is_small(bnot_val))) {
+        bnot_val = make_small(~signed_val(bnot_val));
+    } else {
+        Uint live = $Live;
+        HEAVY_SWAPOUT;
+        reg[live] = bnot_val;
+        bnot_val = erts_gc_bnot(c_p, reg, live);
+        HEAVY_SWAPIN;
+        ERTS_HOLE_CHECK(c_p);
+        if (ERTS_UNLIKELY(is_nil(bnot_val))) {
+            $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, reg[live]);
+        }
+        $REFRESH_GEN_DEST();
+    }
+    $Dst = bnot_val;
+}

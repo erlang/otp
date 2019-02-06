@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,8 +41,6 @@
 -export([getRenderer/1,isNull/1,parent_class/1]).
 
 -export_type([wxGraphicsContext/0]).
--deprecated([createLinearGradientBrush/7,createRadialGradientBrush/8]).
-
 %% @hidden
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
@@ -287,7 +285,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H,Radius)
 -spec drawText(This, Str, X, Y) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
- when is_list(Str),is_number(X),is_number(Y) ->
+ when ?is_chardata(Str),is_number(X),is_number(Y) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxGraphicsContext_DrawText_3,
@@ -303,13 +301,13 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
       (This, Str, X, Y, BackgroundBrush) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,Angle)
- when is_list(Str),is_number(X),is_number(Y),is_number(Angle) ->
+ when ?is_chardata(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Str_UC = unicode:characters_to_binary([Str,0]),
   wxe_util:cast(?wxGraphicsContext_DrawText_4_0,
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8,X:64/?F,Y:64/?F,Angle:64/?F>>);
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,#wx_ref{type=BackgroundBrushT,ref=BackgroundBrushRef})
- when is_list(Str),is_number(X),is_number(Y) ->
+ when ?is_chardata(Str),is_number(X),is_number(Y) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Str_UC = unicode:characters_to_binary([Str,0]),
   ?CLASS(BackgroundBrushT,wxGraphicsBrush),
@@ -320,7 +318,7 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,#wx_ref{type=BackgroundBrushT,r
 -spec drawText(This, Str, X, Y, Angle, BackgroundBrush) -> 'ok' when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,Angle,#wx_ref{type=BackgroundBrushT,ref=BackgroundBrushRef})
- when is_list(Str),is_number(X),is_number(Y),is_number(Angle) ->
+ when ?is_chardata(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Str_UC = unicode:characters_to_binary([Str,0]),
   ?CLASS(BackgroundBrushT,wxGraphicsBrush),
@@ -363,7 +361,7 @@ strokePath(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PathT,ref=PathRef}) ->
 -spec getPartialTextExtents(This, Text) -> [number()] when
 	This::wxGraphicsContext(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxGraphicsContext_GetPartialTextExtents,
@@ -374,7 +372,7 @@ getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
 	Result ::{Width::number(), Height::number(), Descent::number(), ExternalLeading::number()},
 	This::wxGraphicsContext(), Text::unicode:chardata().
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxGraphicsContext_GetTextExtent,

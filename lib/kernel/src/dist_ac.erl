@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ load_application(AppName, DistNodes) ->
     gen_server:call(?DIST_AC, {load_application, AppName, DistNodes}, infinity).
 
 takeover_application(AppName, RestartType) ->
-    case validRestartType(RestartType) of
+    case valid_restart_type(RestartType) of
 	true ->
 	    wait_for_sync_dacs(),
 	    Nodes = get_nodes(AppName),
@@ -1514,10 +1514,10 @@ dist_del_node(Appls, Node) ->
 		Appl#appl{run = NRun}
 	end, Appls).
 
-validRestartType(permanent)   -> true;
-validRestartType(temporary)   -> true;
-validRestartType(transient)   -> true;
-validRestartType(_RestartType) -> false.
+valid_restart_type(permanent)   -> true;
+valid_restart_type(temporary)   -> true;
+valid_restart_type(transient)   -> true;
+valid_restart_type(_RestartType) -> false.
 
 dist_mismatch(AppName, Node) ->
     error_msg("Distribution mismatch for application \"~p\" on nodes ~p and ~p~n",

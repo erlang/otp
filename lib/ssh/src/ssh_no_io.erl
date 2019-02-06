@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,35 +31,24 @@
 -spec yes_no(any(), any()) -> no_return().
 
 yes_no(_, _) ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			  description = "User interaction is not allowed"},
-      {no_io_allowed, yes_no}).
+    ?DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+                "User interaction is not allowed").
 
 
 -spec read_password(any(), any()) -> no_return().
 
 read_password(_, _) ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			  description = "User interaction is not allowed"},
-      {no_io_allowed, read_password}).
-
+    ?DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+                "User interaction is not allowed").
 
 -spec read_line(any(), any()) -> no_return().
 
 read_line(_, _) ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			  description =  "User interaction is not allowed"},
-    {no_io_allowed, read_line}).
-
+    ?DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+                "User interaction is not allowed").
 
 -spec format(any(), any()) -> no_return().
 
 format(_, _) ->
-    ssh_connection_handler:disconnect(
-      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			  description =   "User interaction is not allowed"},
-      {no_io_allowed, format}).
-    
+    ?DISCONNECT(?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+                "User interaction is not allowed").

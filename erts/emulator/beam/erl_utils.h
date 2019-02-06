@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,12 @@
 #define ERL_UTILS_H__
 
 #include "sys.h"
-#include "erl_smp.h"
+#include "atom.h"
 #include "erl_printf.h"
 
 struct process;
 
 typedef struct {
-#ifdef DEBUG
-    int smp_api;
-#endif
     union {
 	Uint64 not_atomic;
 	erts_atomic64_t atomic;
@@ -38,70 +35,25 @@ typedef struct {
 } erts_interval_t;
 
 void erts_interval_init(erts_interval_t *);
-void erts_smp_interval_init(erts_interval_t *);
 Uint64 erts_step_interval_nob(erts_interval_t *);
 Uint64 erts_step_interval_relb(erts_interval_t *);
-Uint64 erts_smp_step_interval_nob(erts_interval_t *);
-Uint64 erts_smp_step_interval_relb(erts_interval_t *);
 Uint64 erts_ensure_later_interval_nob(erts_interval_t *, Uint64);
 Uint64 erts_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_nob(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-ERTS_GLB_INLINE Uint64 erts_current_interval_nob__(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_current_interval_acqb__(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_nob(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_acqb(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_nob(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_acqb(erts_interval_t *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Uint64
-erts_current_interval_nob__(erts_interval_t *icp)
+erts_current_interval_nob(erts_interval_t *icp)
 {
     return (Uint64) erts_atomic64_read_nob(&icp->counter.atomic);
 }
 
 ERTS_GLB_INLINE Uint64
-erts_current_interval_acqb__(erts_interval_t *icp)
-{
-    return (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_nob__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
 erts_current_interval_acqb(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_acqb__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_nob__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_acqb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_acqb__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
+    return (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
@@ -117,11 +69,10 @@ int erts_fit_in_bits_int32(Sint32);
 int erts_fit_in_bits_uint(Uint);
 Sint erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
-Uint32 make_broken_hash(Eterm);
 Uint32 block_hash(byte *, unsigned, Uint32);
 Uint32 make_hash2(Eterm);
 Uint32 make_hash(Eterm);
-Uint32 make_internal_hash(Eterm);
+Uint32 make_internal_hash(Eterm, Uint32 salt);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
@@ -132,6 +83,7 @@ Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
 Eterm erts_bld_uword(Uint **hpp, Uint *szp, UWord uw);
 Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);
 Eterm erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64);
+#define erts_bld_monotonic_time erts_bld_sint64
 Eterm erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr);
 Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
 #define erts_bld_tuple2(H,S,E1,E2) erts_bld_tuple(H,S,2,E1,E2)
@@ -140,7 +92,7 @@ Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
 #define erts_bld_tuple5(H,S,E1,E2,E3,E4,E5) erts_bld_tuple(H,S,5,E1,E2,E3,E4,E5)
 Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[]);
 Eterm erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len);
-#define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,strlen(str))
+#define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,sys_strlen(str))
 Eterm erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[]);
 Eterm erts_bld_2tup_list(Uint **hpp, Uint *szp,
 			 Sint length, Eterm terms1[], Uint terms2[]);
@@ -161,10 +113,12 @@ int eq(Eterm, Eterm);
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
-int erts_cmp_atoms(Eterm a, Eterm b);
-Sint erts_cmp(Eterm, Eterm, int, int);
-Sint erts_cmp_compound(Eterm, Eterm, int, int);
+ERTS_GLB_INLINE Sint erts_cmp(Eterm, Eterm, int, int);
+ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b);
+
 Sint cmp(Eterm a, Eterm b);
+Sint erts_cmp_compound(Eterm, Eterm, int, int);
+
 #define CMP(A,B)                         erts_cmp(A,B,0,0)
 #define CMP_TERM(A,B)                    erts_cmp(A,B,1,0)
 #define CMP_EQ_ONLY(A,B)                 erts_cmp(A,B,0,1)
@@ -198,5 +152,57 @@ Sint cmp(Eterm a, Eterm b);
     } else {							\
 	if (erts_cmp_compound(X,Y,0,EqOnly) Op 0) { Action; };	\
     }
+
+#define erts_float_comp(x,y) (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
+    Atom *aa = atom_tab(atom_val(a));
+    Atom *bb = atom_tab(atom_val(b));
+
+    byte *name_a, *name_b;
+    int len_a, len_b, diff;
+
+    diff = aa->ord0 - bb->ord0;
+
+    if (diff != 0) {
+        return diff;
+    }
+
+    name_a = &aa->name[3];
+    name_b = &bb->name[3];
+    len_a = aa->len-3;
+    len_b = bb->len-3;
+
+    if (len_a > 0 && len_b > 0) {
+        diff = sys_memcmp(name_a, name_b, MIN(len_a, len_b));
+
+        if (diff != 0) {
+            return diff;
+        }
+    }
+
+    return len_a - len_b;
+}
+
+ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
+    if (is_atom(a) && is_atom(b)) {
+        return erts_cmp_atoms(a, b);
+    } else if (is_both_small(a, b)) {
+        return (signed_val(a) - signed_val(b));
+    } else if (is_float(a) && is_float(b)) {
+        FloatDef af, bf;
+
+        GET_DOUBLE(a, af);
+        GET_DOUBLE(b, bf);
+
+        return erts_float_comp(af.fd, bf.fd);
+    }
+
+    return erts_cmp_compound(a,b,exact,eq_only);
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif

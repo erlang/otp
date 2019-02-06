@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2012</year><year>2015</year>
+      <year>2012</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -53,22 +53,22 @@
     <p>Type definitions that are related to URI:</p>
     
 <taglist>
-       <tag><c>uri() = string()</c></tag>
+       <tag><c>uri() = string() | binary()</c></tag>
        <item><p>Syntax according to the URI definition in RFC 3986,
        for example, "http://www.erlang.org/"</p></item>
-       <tag><c>user_info() = string()</c></tag>
+       <tag><c>user_info() = string() | binary()</c></tag>
        <item><p></p></item>
        <tag><c>scheme() = atom()</c></tag>
        <item><p>Example: http, https</p></item>
-       <tag><c>host() = string()</c></tag>
+       <tag><c>host() = string() | binary()</c></tag>
        <item><p></p></item>
-       <tag><c>port() = pos_integer()</c></tag>
+       <tag><c>port() = inet:port_number()</c></tag>
        <item><p></p></item>
-       <tag><c>path() = string()</c></tag>
+       <tag><c>path() = string() | binary()</c></tag>
        <item><p>Represents a file path or directory path</p></item>
-       <tag><c>query() = string()</c></tag>
+       <tag><c>query() = string() | binary()</c></tag>
        <item><p></p></item>
-       <tag><c>fragment() = string()</c></tag>
+       <tag><c>fragment() = string() | binary()</c></tag>
        <item><p></p></item>
      </taglist>
    
@@ -83,7 +83,7 @@
       
       <fsummary>Decodes a hexadecimal encoded URI.</fsummary>
       <type>
-        <v>HexEncodedURI = string() - A possibly hexadecimal encoded URI</v>
+        <v>HexEncodedURI = string() | binary() - A possibly hexadecimal encoded URI</v>
         <v>URI = uri()</v>
       </type>
 
@@ -98,7 +98,7 @@
       <fsummary>Encodes a hexadecimal encoded URI.</fsummary>
       <type>
         <v>URI = uri()</v>
-        <v>HexEncodedURI = string() - Hexadecimal encoded URI</v>
+        <v>HexEncodedURI = string() | binary() - Hexadecimal encoded URI</v>
       </type>
 
       <desc>
@@ -118,12 +118,13 @@
         <v>Option = {ipv6_host_with_brackets, boolean()} | 
                     {scheme_defaults, scheme_defaults()} |
                     {fragment, boolean()} |
-                    {schema_validation_fun, fun()}]</v>
+                    {scheme_validation_fun, fun()}</v>
         <v>Result = {Scheme, UserInfo, Host, Port, Path, Query} |
                     {Scheme, UserInfo, Host, Port, Path, Query, Fragment}</v>
+	<v>Scheme = scheme()</v>
 	<v>UserInfo = user_info()</v>
 	<v>Host = host()</v>
-	<v>Port = pos_integer()</v>
+	<v>Port = inet:port_number()</v>
 	<v>Path = path()</v>
 	<v>Query = query()</v>
         <v>Fragment = fragment()</v>
@@ -145,12 +146,19 @@
         <p>Scheme validation fun is to be defined as follows:</p>
 
 	<code>
-fun(SchemeStr :: string()) ->
+fun(SchemeStr :: string() | binary()) ->
 	valid |	{error, Reason :: term()}.
 	</code>
 
         <p>It is called before scheme string gets converted into scheme atom and
         thus possible atom leak could be prevented</p>
+
+        <warning>
+          <p>The scheme portion of the URI gets converted into atom,
+          meaning that atom leak may occur. Specifying a scheme
+          validation fun is recommended unless the URI is already
+          sanitized.</p>
+        </warning>
 
         <marker id="encode"></marker>
       </desc>
@@ -161,7 +169,7 @@ fun(SchemeStr :: string()) ->
       <fsummary>A list of the scheme and their default ports.</fsummary>
       <type>
         <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
-	<v>default_scheme_port_number() = pos_integer()</v>
+	<v>default_scheme_port_number() = inet:port_number()</v>
       </type>
       <desc>
         <p>Provides a list of the scheme and their default 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -310,7 +310,7 @@ verify_no_exists(Fname) ->
 	false ->
 	    ok;
 	true ->
-	    fatal("Log file exists: ~p~n", [Fname])
+	    fatal("Log file exists: ~tp~n", [Fname])
     end.
 
 open_log(Name, Header, Fname) ->
@@ -331,7 +331,7 @@ open_log(Name, Header, Fname, Exists, Repair) ->
 
 open_log(Name, Header, Fname, Exists, Repair, Mode) ->
     Args = [{file, Fname}, {name, Name}, {repair, Repair}, {mode, Mode}],
-%%    io:format("~p:open_log: ~p ~p~n", [?MODULE, Name, Fname]),
+%%    io:format("~p:open_log: ~tp ~tp~n", [?MODULE, Name, Fname]),
     case mnesia_monitor:open_log(Args) of
 	{ok, Log} when Exists == true ->
 	    Log;
@@ -344,19 +344,19 @@ open_log(Name, Header, Fname, Exists, Repair, Mode) ->
 	    write_header(Log, Header),
 	    Log;
 	{repaired, Log, _Recover, BadBytes} ->
-	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n",
+	    mnesia_lib:important("Data may be missing, log ~tp repaired: Lost ~p bytes~n",
 				 [Fname, BadBytes]),
 	    Log;
 	{error, Reason = {file_error, _Fname, emfile}} ->
-	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason]);
+	    fatal("Cannot open log file ~tp: ~tp~n", [Fname, Reason]);
 	{error, Reason} when Repair == true ->
 	    file:delete(Fname),
-	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n",
+	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~tp, ~tp ~n",
 				 [Fname, Reason]),
 	    %% Create a new
 	    open_log(Name, Header, Fname, false, false, read_write);
 	{error, Reason} ->
-	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason])
+	    fatal("Cannot open log file ~tp: ~tp~n", [Fname, Reason])
     end.
 
 write_header(Log, Header) ->
@@ -381,7 +381,7 @@ close_log(Log) ->
 	{error, {read_only_mode, Log}} ->
 	    ok;
 	{error, Reason} ->
-	    mnesia_lib:important("Failed syncing ~p to_disk reason ~p ~n",
+	    mnesia_lib:important("Failed syncing ~tp to_disk reason ~tp ~n",
 				 [Log, Reason])
     end,
     mnesia_monitor:close_log(Log).
@@ -464,13 +464,13 @@ chunk_log(_Log, eof) ->
 chunk_log(Log, Cont) ->
     case disk_log:chunk(Log, Cont) of
 	{error, Reason} ->
-	    fatal("Possibly truncated ~p file: ~p~n",
+	    fatal("Possibly truncated ~tp file: ~tp~n",
 		  [Log, Reason]);
 	{C2, Chunk, _BadBytes} ->
 	    %% Read_only case, should we warn about the bad log file?
 	    %% BUGBUG Should we crash if Repair == false ??
 	    %% We got to check this !!
-	    mnesia_lib:important("~p repaired, lost ~p bad bytes~n", [Log, _BadBytes]),
+	    mnesia_lib:important("~tp repaired, lost ~p bad bytes~n", [Log, _BadBytes]),
 	    {C2, Chunk};
 	Other ->
 	    Other
@@ -505,7 +505,7 @@ prepare_decision_log_dump(false, Prev) ->
 	ok ->
 	    prepare_decision_log_dump(true, Prev);
 	{error, Reason} ->
-	    fatal("Cannot rename decision log file ~p -> ~p: ~p~n",
+	    fatal("Cannot rename decision log file ~tp -> ~tp: ~tp~n",
 		     [decision_log_file(), Prev, Reason])
     end;
 prepare_decision_log_dump(true, Prev) ->
@@ -522,7 +522,7 @@ confirm_decision_log_dump() ->
 	ok ->
 	    file:delete(previous_decision_log_file());
 	{error, Reason} ->
-	    fatal("Cannot confirm decision log dump: ~p~n",
+	    fatal("Cannot confirm decision log dump: ~tp~n",
 		  [Reason])
     end.
 
@@ -561,7 +561,7 @@ view() ->
     lists:foreach(fun(F) -> view(F) end, log_files()).
 
 view(File) ->
-    mnesia_lib:show("*****  ~p ***** ~n", [File]),
+    mnesia_lib:show("*****  ~tp ***** ~n", [File]),
     case exists(File) of
 	false ->
 	    nolog;
@@ -574,25 +574,25 @@ view(File) ->
 		{repaired, _, _, _} ->
 		    view_file(start, N);
 		{error, Reason} ->
-		    error("Cannot open log ~p: ~p~n", [File, Reason])
+		    error("Cannot open log ~tp: ~tp~n", [File, Reason])
 	    end
     end.
 
 view_file(C, Log) ->
     case disk_log:chunk(Log, C) of
 	{error, Reason} ->
-	    error("** Possibly truncated FILE ~p~n", [Reason]),
+	    error("** Possibly truncated FILE ~tp~n", [Reason]),
 	    error;
 	eof ->
 	    disk_log:close(Log),
 	    eof;
 	{C2, Terms, _BadBytes} ->
-	    dbg_out("Lost ~p bytes in ~p ~n", [_BadBytes, Log]),
-	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end,
+	    dbg_out("Lost ~p bytes in ~tp ~n", [_BadBytes, Log]),
+	    lists:foreach(fun(X) -> mnesia_lib:show("~tp~n", [X]) end,
 			  Terms),
 	    view_file(C2, Log);
 	{C2, Terms} ->
-	    lists:foreach(fun(X) -> mnesia_lib:show("~p~n", [X]) end,
+	    lists:foreach(fun(X) -> mnesia_lib:show("~tp~n", [X]) end,
 			  Terms),
 	    view_file(C2, Log)
     end.
@@ -750,12 +750,12 @@ abort_write_fun(B, What, Args) ->
 abort_write(B, What, Args, Reason) ->
     Mod = B#backup_args.module,
     Opaque = B#backup_args.opaque,
-    dbg_out("Failed to perform backup. M=~p:F=~p:A=~p -> ~p~n",
+    dbg_out("Failed to perform backup. M=~p:F=~tp:A=~tp -> ~tp~n",
 	    [Mod, What, Args, Reason]),
-    try apply(Mod, abort_write, [Opaque]) of
-	{ok, _Res} -> throw({error, Reason})
+    try {ok, _Res} = apply(Mod, abort_write, [Opaque]) of
+        _ -> throw({error, Reason})
     catch _:Other ->
-	    error("Failed to abort backup. ~p:~p~p -> ~p~n",
+	    error("Failed to abort backup. ~p:~tp~tp -> ~tp~n",
 		  [Mod, abort_write, [Opaque], Other]),
 	    throw({error, Reason})
     end.
@@ -802,7 +802,7 @@ select_source(Tab, Name, PrevName) ->
 		    {PrevName, retainer};
 		_ ->
 		    %% Do a full backup anyway
-		    dbg_out("Incremental backup escalated to full backup: ~p~n", [Tab]),
+		    dbg_out("Incremental backup escalated to full backup: ~tp~n", [Tab]),
 		    {Name, table}
 	    end
     end.

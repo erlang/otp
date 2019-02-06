@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1154,7 +1154,7 @@ comp_crs([], Last) -> [{Last,maxchar}].
 %% build_dfa(NFA, NfaStartState) -> {DFA,DfaStartState}.
 %%  Build a DFA from an NFA using "subset construction". The major
 %%  difference from the book is that we keep the marked and unmarked
-%%  DFA states in seperate lists. New DFA states are added to the
+%%  DFA states in separate lists. New DFA states are added to the
 %%  unmarked list and states are marked by moving them to the marked
 %%  list. We assume that the NFA accepting state numbers are in
 %%  ascending order for the rules and use ordsets to keep this order.

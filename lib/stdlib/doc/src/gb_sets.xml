@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2015</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -82,6 +82,8 @@
       <item><seealso marker="#intersection/2"><c>intersection/2</c></seealso>
       </item>
       <item><seealso marker="#is_element/2"><c>is_element/2</c></seealso>
+      </item>
+      <item><seealso marker="#is_empty/1"><c>is_empty/1</c></seealso>
       </item>
       <item><seealso marker="#is_set/1"><c>is_set/1</c></seealso>
       </item>

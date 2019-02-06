@@ -62,7 +62,7 @@ t2() ->
 %% Shows that the list TypeNames in t_from_form must include ArgsLen.
 
 t1_adt() ->
-    {{{{{17}}}}} = para3_adt:t1(3). % breaks the opaqueness
+    {{{{{17}}}}} = para3_adt:t1(3). % breaks the opacity
 
 t2_adt() ->
     {{{{17}}}} = para3_adt:t1(3). % can never match

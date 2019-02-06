@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% HiPE/x86 assembler
 %%%
@@ -69,7 +63,7 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 	  || {MFA, Defun} <- CompiledCode],
   %%
   {ConstAlign,ConstSize,ConstMap,RefsFromConsts} =
-    hipe_pack_constants:pack_constants(Code, ?HIPE_X86_REGISTERS:alignment()),
+    hipe_pack_constants:pack_constants(Code),
   %%
   {CodeSize,CodeBinary,AccRefs,LabelMap,ExportMap} =
     encode(translate(Code, ConstMap, Options), Options),
@@ -154,6 +148,8 @@ insn_size(I) ->
 
 translate_insn(I, Context, Options) ->
   case I of
+    #alu{aluop='xor', src=#x86_temp{reg=Reg}=Src, dst=#x86_temp{reg=Reg}=Dst} ->
+      [{'xor', {temp_to_reg32(Dst), temp_to_rm32(Src)}, I}];
     #alu{} ->
       Arg = resolve_alu_args(hipe_x86:alu_src(I), hipe_x86:alu_dst(I), Context),
       [{hipe_x86:alu_op(I), Arg, I}];
@@ -234,11 +230,11 @@ translate_insn(I, Context, Options) ->
     #move64{} ->
       translate_move64(I, Context);
     #movsx{} ->
-      Arg = resolve_movx_args(hipe_x86:movsx_src(I), hipe_x86:movsx_dst(I)),
-      [{movsx, Arg, I}];
+      Src = resolve_movx_src(hipe_x86:movsx_src(I)),
+      [{movsx, {temp_to_regArch(hipe_x86:movsx_dst(I)), Src}, I}];
     #movzx{} ->
-      Arg = resolve_movx_args(hipe_x86:movzx_src(I), hipe_x86:movzx_dst(I)),
-      [{movzx, Arg, I}];
+      Src = resolve_movx_src(hipe_x86:movzx_src(I)),
+      [{movzx, {temp_to_reg32(hipe_x86:movzx_dst(I)), Src}, I}];
     %% pseudo_call: eliminated before assembly
     %% pseudo_jcc: eliminated before assembly
     %% pseudo_tailcall: eliminated before assembly
@@ -599,10 +595,20 @@ temp_to_xmm(#x86_temp{reg=Reg}) ->
   {xmm, Reg}. 
 
 -ifdef(HIPE_AMD64).
+temp_to_rm8(#x86_temp{reg=Reg}) ->
+  {rm8, ?HIPE_X86_ENCODE:rm_reg(Reg)}.
 temp_to_rm64(#x86_temp{reg=Reg}) ->
   {rm64, hipe_amd64_encode:rm_reg(Reg)}.
+-else.
+temp_to_rm8(#x86_temp{reg=Reg}) ->
+  true = ?HIPE_X86_ENCODE:reg_has_8bit(Reg),
+  {rm8, ?HIPE_X86_ENCODE:rm_reg(Reg)}.
+temp_to_rm16(#x86_temp{reg=Reg}) ->
+  {rm16, ?HIPE_X86_ENCODE:rm_reg(Reg)}.
 -endif.
 
+temp_to_rm32(#x86_temp{reg=Reg}) ->
+  {rm32, ?HIPE_X86_ENCODE:rm_reg(Reg)}.
 temp_to_rmArch(#x86_temp{reg=Reg}) ->
   {?RMArch, ?HIPE_X86_ENCODE:rm_reg(Reg)}.
 temp_to_rm64fp(#x86_temp{reg=Reg}) ->
@@ -729,6 +735,7 @@ resolve_sse2_op(Op) ->
     fdiv -> divsd;
     fmul -> mulsd;
     fsub -> subsd;
+    xorpd -> xorpd;
     _ -> exit({?MODULE, unknown_sse2_operator, Op})
   end.
 
@@ -841,16 +848,15 @@ translate_move64(I, _Context) -> exit({?MODULE, I}).
 -endif.
 
 %%% mov{s,z}x
-resolve_movx_args(Src=#x86_mem{type=Type}, Dst=#x86_temp{}) ->
-  {temp_to_regArch(Dst),
-   case Type of
-     byte ->
-       mem_to_rm8(Src);
-     int16 ->
-       mem_to_rm16(Src);
-     int32 ->
-       mem_to_rm32(Src)
-   end}.
+resolve_movx_src(Src=#x86_mem{type=Type}) ->
+  case Type of
+    byte ->
+      mem_to_rm8(Src);
+    int16 ->
+      mem_to_rm16(Src);
+    int32 ->
+      mem_to_rm32(Src)
+  end.
 
 %%% alu/cmp (_not_ test)
 resolve_alu_args(Src, Dst, Context) ->
@@ -878,15 +884,29 @@ resolve_alu_args(Src, Dst, Context) ->
 %%% test
 resolve_test_args(Src, Dst, Context) ->
   case Src of
-    #x86_imm{} -> % imm8 not allowed
-      {_ImmSize,ImmValue} = translate_imm(Src, Context, false),
-      NewDst =
-	case Dst of
-	  #x86_temp{reg=0} -> ?EAX;
-	  #x86_temp{} -> temp_to_rmArch(Dst);
-	  #x86_mem{} -> mem_to_rmArch(Dst)
-	end,
-      {NewDst, {imm32,ImmValue}};
+    %% Since we're using an 8-bit instruction, the immediate is not sign
+    %% extended. Thus, we can use immediates up to 255.
+    #x86_imm{value=ImmVal}
+      when is_integer(ImmVal), ImmVal >= 0, ImmVal =< 255 ->
+      Imm = {imm8, ImmVal},
+      case Dst of
+	#x86_temp{reg=0} -> {al, Imm};
+	#x86_temp{} -> resolve_test_imm8_reg(Imm, Dst);
+	#x86_mem{} -> {mem_to_rm8(Dst), Imm}
+      end;
+    #x86_imm{value=ImmVal} when is_integer(ImmVal), ImmVal >= 0 ->
+      {case Dst of
+	 #x86_temp{reg=0} -> eax;
+	 #x86_temp{} -> temp_to_rm32(Dst);
+	 #x86_mem{} -> mem_to_rm32(Dst)
+       end, {imm32, ImmVal}};
+    #x86_imm{} -> % Negative ImmVal; use word-sized instr, imm32
+      {_, ImmVal} = translate_imm(Src, Context, false),
+      {case Dst of
+	 #x86_temp{reg=0} -> ?EAX;
+	 #x86_temp{} -> temp_to_rmArch(Dst);
+	 #x86_mem{} -> mem_to_rmArch(Dst)
+       end, {imm32, ImmVal}};
     #x86_temp{} ->
       NewDst =
 	case Dst of
@@ -895,6 +915,18 @@ resolve_test_args(Src, Dst, Context) ->
 	end,
       {NewDst, temp_to_regArch(Src)}
   end.
+
+-ifdef(HIPE_AMD64).
+resolve_test_imm8_reg(Imm, Dst) -> {temp_to_rm8(Dst), Imm}.
+-else.
+resolve_test_imm8_reg(Imm = {imm8, ImmVal}, Dst = #x86_temp{reg=Reg}) ->
+  case ?HIPE_X86_ENCODE:reg_has_8bit(Reg) of
+    true -> {temp_to_rm8(Dst), Imm};
+    false ->
+      %% Register does not exist in 8-bit version; use 16-bit instead
+      {temp_to_rm16(Dst), {imm16, ImmVal}}
+  end.
+-endif.
 
 %%% shifts
 resolve_shift_args(Src, Dst, Context) ->

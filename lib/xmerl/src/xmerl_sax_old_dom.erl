@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -127,9 +127,10 @@ build_dom(endDocument,
 	    State#xmerl_sax_old_dom_state{dom=[Decl, Current#xmlElement{
 						 content=lists:reverse(C)
 						}]};
-	_ ->
-	    %%?dbg("~p\n", [D]),
-	    ?error("we're not at end the document when endDocument event is encountered.")
+	_ -> 
+            %% endDocument is also sent by the parser when a fault occur to tell 
+            %% the event receiver that no more input will be sent
+	    State
     end;
 
 %% Element

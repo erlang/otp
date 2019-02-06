@@ -122,19 +122,19 @@ util_api(Config) when is_list(Config) ->
 
     %% util([])
     {all, Busy1, NonBusy1, []} = cpu_sup:util([]),
-    100.00 = Busy1 + NonBusy1,
+    true = tiny_diff(100.00, Busy1 + NonBusy1),
 
     %% util([detailed])
     {Cpus2, Busy2, NonBusy2, []} = cpu_sup:util([detailed]),
     true = lists:all(fun(X) -> is_integer(X) end, Cpus2),
     true = lists:all(BusyP, Busy2),
     true = lists:all(NonBusyP, NonBusy2),
-    100.00 = lists:foldl(Sum,0,Busy2)+lists:foldl(Sum,0,NonBusy2),
+    true = tiny_diff(100.00, lists:foldl(Sum,0,Busy2)+lists:foldl(Sum,0,NonBusy2)),
 
     %% util([per_cpu])
     [{Cpu3, Busy3, NonBusy3, []}|_] = cpu_sup:util([per_cpu]),
     true = is_integer(Cpu3),
-    100.00 = Busy3 + NonBusy3,
+    true = tiny_diff(100.00, Busy3 + NonBusy3),
 
     %% util([detailed, per_cpu])
     [{Cpu4, Busy4, NonBusy4, []}|_] =
@@ -142,13 +142,16 @@ util_api(Config) when is_list(Config) ->
     true = is_integer(Cpu4),
     true = lists:all(BusyP, Busy2),
     true = lists:all(NonBusyP, NonBusy2),
-    100.00 = lists:foldl(Sum,0,Busy4)+lists:foldl(Sum,0,NonBusy4),
+    true = tiny_diff(100.00, lists:foldl(Sum,0,Busy4)+lists:foldl(Sum,0,NonBusy4)),
 
     %% bad util/1 calls
     {'EXIT',{badarg,_}} = (catch cpu_sup:util(detailed)),
     {'EXIT',{badarg,_}} = (catch cpu_sup:util([detialed])),
 
     ok.
+
+tiny_diff(A, B) ->
+    (abs(A - B) < 1.0e-11).
 
 -define(SPIN_TIME, 1000).
 

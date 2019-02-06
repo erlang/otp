@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 #include "big.h"
 #include "dist.h"
 #include "erl_version.h"
+#include "erl_osenv.h"
 
 /*
  * Return the pid for the Erlang process in the host OS.
@@ -65,141 +66,90 @@ BIF_RETTYPE os_getpid_0(BIF_ALIST_0)
      BIF_RET(buf_to_intlist(&hp, pid_string, n, NIL));
 }
 
-BIF_RETTYPE os_getenv_0(BIF_ALIST_0)
+static void os_getenv_foreach(Process *process, Eterm *result, Eterm key, Eterm value)
 {
-    GETENV_STATE state;
-    char *cp;
-    Eterm* hp;
-    Eterm ret;
-    Eterm str;
+    Eterm kvp_term, *hp;
 
-    init_getenv_state(&state);
+    hp = HAlloc(process, 5);
+    kvp_term = TUPLE2(hp, key, value);
+    hp += 3;
 
-    ret = NIL;
-    while ((cp = getenv_string(&state)) != NULL) {
-	str = erts_convert_native_to_filename(BIF_P,(byte *)cp);
-	hp = HAlloc(BIF_P, 2);
-	ret = CONS(hp, str, ret);
-    }
-
-    fini_getenv_state(&state);
-
-    return ret;
+    (*result) = CONS(hp, kvp_term, (*result));
 }
 
-#define STATIC_BUF_SIZE 1024
-BIF_RETTYPE os_getenv_1(BIF_ALIST_1)
+BIF_RETTYPE os_list_env_vars_0(BIF_ALIST_0)
 {
-    Process* p = BIF_P;
-    Eterm str;
-    Sint len;
-    int res;
-    char *key_str, *val;
-    char buf[STATIC_BUF_SIZE];
-    size_t val_size = sizeof(buf);
+    const erts_osenv_t *global_env;
+    Eterm result = NIL;
 
-    key_str = erts_convert_filename_to_native(BIF_ARG_1,buf,STATIC_BUF_SIZE,
-					      ERTS_ALC_T_TMP,1,0,&len);
+    global_env = erts_sys_rlock_global_osenv();
+    erts_osenv_foreach_term(global_env, BIF_P, &result, (void*)&os_getenv_foreach);
+    erts_sys_runlock_global_osenv();
 
-    if (!key_str) {
-	BIF_ERROR(p, BADARG);
-    }
-
-    if (key_str != &buf[0])
-	val = &buf[0];
-    else {
-	/* len includes zero byte */
-	val_size -= len;
-	val = &buf[len];
-    }
-    res = erts_sys_getenv(key_str, val, &val_size);
-
-    if (res < 0) {
-    no_var:
-	str = am_false;
-    } else {
-	if (res > 0) {
-	    val = erts_alloc(ERTS_ALC_T_TMP, val_size);
-	    while (1) {
-		res = erts_sys_getenv(key_str, val, &val_size);
-		if (res == 0)
-		    break;
-		else if (res < 0)
-		    goto no_var;
-		else
-		    val = erts_realloc(ERTS_ALC_T_TMP, val, val_size);
-	    }
-	}
-	str = erts_convert_native_to_filename(p,(byte *)val);
-    }
-    if (key_str != &buf[0])
-	erts_free(ERTS_ALC_T_TMP, key_str);
-    if (val < &buf[0] || &buf[sizeof(buf)-1] < val)
-	erts_free(ERTS_ALC_T_TMP, val);
-    BIF_RET(str);
+    return result;
 }
 
-BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
+BIF_RETTYPE os_get_env_var_1(BIF_ALIST_1)
 {
-    char def_buf_key[STATIC_BUF_SIZE];
-    char def_buf_value[STATIC_BUF_SIZE];
-    char *key_buf, *value_buf;
+    const erts_osenv_t *global_env;
+    Eterm out_term;
+    int error;
 
-    key_buf = erts_convert_filename_to_native(BIF_ARG_1,def_buf_key,
-					      STATIC_BUF_SIZE,
-					      ERTS_ALC_T_TMP,0,0,NULL);
-    if (!key_buf) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    value_buf = erts_convert_filename_to_native(BIF_ARG_2,def_buf_value,
-						STATIC_BUF_SIZE,
-						ERTS_ALC_T_TMP,1,0,
-						NULL);
-    if (!value_buf) {
-	if (key_buf != def_buf_key) {
-	    erts_free(ERTS_ALC_T_TMP, key_buf);
-	}
-	BIF_ERROR(BIF_P, BADARG);
-    }
-	    
+    global_env = erts_sys_rlock_global_osenv();
+    error = erts_osenv_get_term(global_env, BIF_P, BIF_ARG_1, &out_term);
+    erts_sys_runlock_global_osenv();
 
-    if (erts_sys_putenv(key_buf, value_buf)) {
-	if (key_buf != def_buf_key) {
-	    erts_free(ERTS_ALC_T_TMP, key_buf);
-	}
-	if (value_buf != def_buf_value) {
-	    erts_free(ERTS_ALC_T_TMP, value_buf);
-	}
-	BIF_ERROR(BIF_P, BADARG);
+    if (error == 0) {
+        return am_false;
+    } else if (error < 0) {
+        BIF_ERROR(BIF_P, BADARG);
+    } 
+
+    return out_term;
+}
+
+BIF_RETTYPE os_set_env_var_2(BIF_ALIST_2)
+{
+    erts_osenv_t *global_env;
+    int error;
+
+    global_env = erts_sys_rwlock_global_osenv();
+    error = erts_osenv_put_term(global_env, BIF_ARG_1, BIF_ARG_2);
+    erts_sys_rwunlock_global_osenv();
+
+    if (error < 0) {
+        BIF_ERROR(BIF_P, BADARG);
     }
-    if (key_buf != def_buf_key) {
-	erts_free(ERTS_ALC_T_TMP, key_buf);
-    }
-    if (value_buf != def_buf_value) {
-	erts_free(ERTS_ALC_T_TMP, value_buf);
-    }
+
     BIF_RET(am_true);
 }
 
-BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
+BIF_RETTYPE os_unset_env_var_1(BIF_ALIST_1)
 {
-    char *key_buf;
-    char buf[STATIC_BUF_SIZE];
+    erts_osenv_t *global_env;
+    int error;
 
-    key_buf = erts_convert_filename_to_native(BIF_ARG_1,buf,STATIC_BUF_SIZE,
-					      ERTS_ALC_T_TMP,0,0,NULL);
-    if (!key_buf) {
-	BIF_ERROR(BIF_P, BADARG);
+    global_env = erts_sys_rwlock_global_osenv();
+    error = erts_osenv_unset_term(global_env, BIF_ARG_1);
+    erts_sys_rwunlock_global_osenv();
+
+    if (error < 0) {
+        BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (erts_sys_unsetenv(key_buf)) {
-	if (key_buf != buf) {
-	    erts_free(ERTS_ALC_T_TMP, key_buf);
-	}
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if (key_buf != buf) {
-	erts_free(ERTS_ALC_T_TMP, key_buf);
-    }
     BIF_RET(am_true);
+}
+
+BIF_RETTYPE os_set_signal_2(BIF_ALIST_2) {
+    if (is_atom(BIF_ARG_1) && ((BIF_ARG_2 == am_ignore) ||
+                               (BIF_ARG_2 == am_default) ||
+                               (BIF_ARG_2 == am_handle))) {
+        if (!erts_set_signal(BIF_ARG_1, BIF_ARG_2))
+            goto error;
+
+        BIF_RET(am_ok);
+    }
+
+error:
+    BIF_ERROR(BIF_P, BADARG);
 }

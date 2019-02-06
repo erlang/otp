@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
 %%       close_notify(0),
 %%       unexpected_message(10),
 %%       bad_record_mac(20),
-%%       decryption_failed(21),
+%%       decryption_failed_reserved(21),
 %%       record_overflow(22),
 %%       decompression_failure(30),
 %%       handshake_failure(40),
@@ -78,7 +78,7 @@
 -define(CLOSE_NOTIFY, 0).
 -define(UNEXPECTED_MESSAGE, 10).
 -define(BAD_RECORD_MAC, 20).
--define(DECRYPTION_FAILED, 21).
+-define(DECRYPTION_FAILED_RESERVED, 21).
 -define(RECORD_OVERFLOW, 22).
 -define(DECOMPRESSION_FAILURE, 30).
 -define(HANDSHAKE_FAILURE, 40).
@@ -118,6 +118,7 @@
 	  level,
 	  description,
           where = {?FILE, ?LINE},
+          role,
           reason
 	 }).
 -endif. % -ifdef(ssl_alert).

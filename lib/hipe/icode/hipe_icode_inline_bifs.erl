@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%--------------------------------------------------------------------
 %% File    : hipe_icode_inline_bifs.erl
@@ -24,14 +18,15 @@
 %% Purpose : Inlines BIFs which can be expressed easily in ICode.
 %%           This allows for optimizations in later ICode passes
 %%           and makes the code faster.
-%%                   
+%%
 %% Created : 14 May 2007 by Per Gustafsson <pergu@it.uu.se>
 %%--------------------------------------------------------------------
 
 %% Currently inlined BIFs:
 %% and, or, xor, not, <, >, >=, =<, ==, /=, =/=, =:=
-%% is_atom, is_boolean, is_binary, is_float, is_function,
-%% is_integer, is_list, is_pid, is_port, is_reference, is_tuple
+%% is_atom, is_binary, is_bitstring, is_boolean, is_float,
+%% is_function, is_integer, is_list, is_map, is_number,
+%% is_pid, is_port, is_reference, is_tuple
 
 -module(hipe_icode_inline_bifs).
 
@@ -122,17 +117,20 @@ try_type_tests(I) -> I.
 
 is_type_test(Name) ->
   case Name of
-    is_integer -> {true, integer};
-    is_float -> {true, float};
-    is_tuple -> {true, tuple};
-    is_binary -> {true, binary};	       
-    is_list -> {true, list};
-    is_pid -> {true, pid};
     is_atom -> {true, atom};
+    is_binary -> {true, binary};
+    is_bitstring -> {true, bitstr};
     is_boolean -> {true, boolean};
-    is_function -> {true, function};	       
-    is_reference -> {true, reference};
+    is_float -> {true, float};
+    is_function -> {true, function};
+    is_integer -> {true, integer};
+    is_list -> {true, list};
+    is_map -> {true, map};
+    is_number -> {true, number};
+    is_pid -> {true, pid};
     is_port -> {true, port};
+    is_reference -> {true, reference};
+    is_tuple -> {true, tuple};
     _ -> false
   end.
  

@@ -48,8 +48,8 @@ do(Info) ->
 
 
 %%----------------------------------------------------------------------
-%%Control that the request header did not contians any limitations
-%%wheather a response shall be createed or not
+%%Control that the request header did not contains any limitations
+%%whether a response shall be created or not
 %%----------------------------------------------------------------------
 
 do_responsecontrol(Info) ->

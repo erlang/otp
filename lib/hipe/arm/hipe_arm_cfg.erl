@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,26 +11,26 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_arm_cfg).
 
 -export([init/1,
          labels/1, start_label/1,
          succ/2,
+         map_bbs/2, fold_bbs/3,
          bb/2, bb_add/3]).
 -export([postorder/1]).
 -export([linearise/1]).
 -export([params/1, reverse_postorder/1]).
 -export([arity/1]). % for linear scan
 %%-export([redirect_jmp/3]).
+-export([branch_preds/1]).
 
 %%% these tell cfg.inc what to define (ugly as hell)
 -define(BREADTH_ORDER,true).  % for linear scan
 -define(PARAMS_NEEDED,true).
 -define(START_LABEL_UPDATE_NEEDED,true).
+-define(MAP_FOLD_NEEDED,true).
 
 -include("hipe_arm.hrl").
 -include("../flow/cfg.hrl").
@@ -78,6 +74,26 @@ branch_successors(Branch) ->
       end;
     #pseudo_switch{labels=Labels} -> Labels;
     #pseudo_tailcall{} -> []
+  end.
+
+branch_preds(Branch) ->
+  case Branch of
+    #pseudo_bc{true_label=TrueLab,false_label=FalseLab,pred=Pred} ->
+      [{FalseLab, 1.0-Pred}, {TrueLab, Pred}];
+    #pseudo_call{contlab=ContLab, sdesc=#arm_sdesc{exnlab=[]}} ->
+      %% A function can still cause an exception, even if we won't catch it
+      [{ContLab, 1.0-hipe_bb_weights:call_exn_pred()}];
+    #pseudo_call{contlab=ContLab, sdesc=#arm_sdesc{exnlab=ExnLab}} ->
+      CallExnPred = hipe_bb_weights:call_exn_pred(),
+      [{ContLab, 1.0-CallExnPred}, {ExnLab, CallExnPred}];
+    #pseudo_switch{labels=Labels} ->
+      Prob = 1.0/length(Labels),
+      [{L, Prob} || L <- Labels];
+    _ ->
+      case branch_successors(Branch) of
+	[] -> [];
+	[Single] -> [{Single, 1.0}]
+      end
   end.
 
 -ifdef(REMOVE_TRIVIAL_BBS_NEEDED).

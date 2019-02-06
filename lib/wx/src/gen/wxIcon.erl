@@ -60,7 +60,7 @@ new() ->
 	Loc::wx:wx_object().
 
 new(Filename)
- when is_list(Filename) ->
+ when ?is_chardata(Filename) ->
   new(Filename, []);
 new(#wx_ref{type=LocT,ref=LocRef}) ->
   ?CLASS(LocT,wx),
@@ -75,7 +75,7 @@ new(#wx_ref{type=LocT,ref=LocRef}) ->
 		 | {'desiredWidth', integer()}
 		 | {'desiredHeight', integer()}.
 new(Filename, Options)
- when is_list(Filename),is_list(Options) ->
+ when ?is_chardata(Filename),is_list(Options) ->
   Filename_UC = unicode:characters_to_binary([Filename,0]),
   MOpts = fun({type, Type}, Acc) -> [<<1:32/?UI,Type:32/?UI>>|Acc];
           ({desiredWidth, DesiredWidth}, Acc) -> [<<2:32/?UI,DesiredWidth:32/?UI>>|Acc];

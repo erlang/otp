@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc TS Installed SCB
+%%% TS Installed SCB
 %%%
 %%% This module does what the make parts of the ts:run/x command did,
 %%% but not the Makefile.first parts! So they have to be done by ts or
@@ -60,13 +60,13 @@
 
 -record(state, { ts_conf_dir, target_system, install_opts, nodenames, nodes }).
 
-%% @doc The id of this SCB
+%% The id of this SCB
 -spec id(Opts :: term()) ->
     Id :: term().
 id(_Opts) ->
     ?MODULE.
 
-%% @doc Always called before any other callback function.
+%% Always called before any other callback function.
 -spec init(Id :: term(), Opts :: proplists:proplist()) ->
     {ok, State :: #state{}}.
 init(_Id, Opts) ->
@@ -81,7 +81,7 @@ init(_Id, Opts) ->
 		 target_system = TargetSystem, 
 		 install_opts = InstallOpts } }.
 
-%% @doc Called before init_per_suite is called.
+%% Called before init_per_suite is called.
 -spec pre_init_per_suite(Suite :: atom(),
 			 Config :: config(),
 			 State :: #state{}) ->
@@ -108,13 +108,12 @@ pre_init_per_suite(_Suite,Config,State) ->
 	{add_node_name(Config, State), State}
     catch error:{badmatch,{error,enoent}} ->
 	{add_node_name(Config, State), State};
-	  Error:Reason ->
-	    Stack = erlang:get_stacktrace(),
+	  Error:Reason:Stack ->
 	    ct:pal("~p failed! ~p:{~p,~p}",[?MODULE,Error,Reason,Stack]),
 	    {{fail,{?MODULE,{Error,Reason, Stack}}},State}
     end.
 
-%% @doc Called after init_per_suite.
+%% Called after init_per_suite.
 -spec post_init_per_suite(Suite :: atom(),
 			  Config :: config(),
 			  Return :: config() | skip_or_fail(),
@@ -124,7 +123,7 @@ post_init_per_suite(_Suite,_Config,Return,State) ->
     test_server_ctrl:kill_slavenodes(),
     {Return, State}.
 
-%% @doc Called before end_per_suite. 
+%% Called before end_per_suite.
 -spec pre_end_per_suite(Suite :: atom(),
 			Config :: config() | skip_or_fail(),
 			State :: #state{}) ->
@@ -132,7 +131,7 @@ post_init_per_suite(_Suite,_Config,Return,State) ->
 pre_end_per_suite(_Suite,Config,State) ->
     {Config, State}.
 
-%% @doc Called after end_per_suite. 
+%% Called after end_per_suite.
 -spec post_end_per_suite(Suite :: atom(),
 			 Config :: config(),
 			 Return :: term(),
@@ -141,7 +140,7 @@ pre_end_per_suite(_Suite,Config,State) ->
 post_end_per_suite(_Suite,_Config,Return,State) ->
     {Return, State}.
 
-%% @doc Called before each init_per_group.
+%% Called before each init_per_group.
 -spec pre_init_per_group(Group :: atom(),
 			 Config :: config(),
 			 State :: #state{}) ->
@@ -149,7 +148,7 @@ post_end_per_suite(_Suite,_Config,Return,State) ->
 pre_init_per_group(_Group,Config,State) ->
     {add_node_name(Config, State), State}.
 
-%% @doc Called after each init_per_group.
+%% Called after each init_per_group.
 -spec post_init_per_group(Group :: atom(),
 			  Config :: config(),
 			  Return :: config() | skip_or_fail(),
@@ -158,7 +157,7 @@ pre_init_per_group(_Group,Config,State) ->
 post_init_per_group(_Group,_Config,Return,State) ->
     {Return, State}.
 
-%% @doc Called after each end_per_group. 
+%% Called after each end_per_group.
 -spec pre_end_per_group(Group :: atom(),
 			Config :: config() | skip_or_fail(),
 			State :: #state{}) ->
@@ -166,7 +165,7 @@ post_init_per_group(_Group,_Config,Return,State) ->
 pre_end_per_group(_Group,Config,State) ->
     {Config, State}.
 
-%% @doc Called after each end_per_group. 
+%% Called after each end_per_group.
 -spec post_end_per_group(Group :: atom(),
 			 Config :: config(),
 			 Return :: term(),
@@ -175,7 +174,7 @@ pre_end_per_group(_Group,Config,State) ->
 post_end_per_group(_Group,_Config,Return,State) ->
     {Return, State}.
 
-%% @doc Called before each test case.
+%% Called before each test case.
 -spec pre_init_per_testcase(TC :: atom(),
 			    Config :: config(),
 			    State :: #state{}) ->
@@ -191,7 +190,7 @@ pre_init_per_testcase(_TC,Config,State) ->
 post_init_per_testcase(_TC,_Config,Return,State) ->
     {Return, State}.
 
-%% @doc Called after each test case. 
+%% Called after each test case.
 -spec pre_end_per_testcase(TC :: atom(),
 			   Config :: config(),
 			   State :: #state{}) ->
@@ -207,7 +206,7 @@ pre_end_per_testcase(_TC,Config,State) ->
 post_end_per_testcase(_TC,_Config,Return,State) ->
     {Return, State}.
 
-%% @doc Called after a test case failed.
+%% Called after a test case failed.
 -spec on_tc_fail(TC :: init_per_suite | end_per_suite |
 		       init_per_group | end_per_group | atom(),
 		 Reason :: term(), State :: #state{}) ->
@@ -215,7 +214,7 @@ post_end_per_testcase(_TC,_Config,Return,State) ->
 on_tc_fail(_TC, _Reason, State) ->
     State.
 
-%% @doc Called when a test case is skipped. 
+%% Called when a test case is skipped.
 -spec on_tc_skip(TC :: end_per_suite | init_per_group | end_per_group | atom(),
 		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), 
 					  Reason :: term()}}} |
@@ -225,7 +224,7 @@ on_tc_fail(_TC, _Reason, State) ->
 on_tc_skip(_TC, _Reason, State) ->
     State.
 
-%% @doc Called when the scope of the SCB is done.
+%% Called when the scope of the SCB is done.
 -spec terminate(State :: #state{}) ->
 	term().
 terminate(_State) ->

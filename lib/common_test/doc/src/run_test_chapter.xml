@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1322,8 +1322,8 @@
 	  <title>The Unexpected I/O Log</title>
 	  <p>The test suites overview page includes a link to the Unexpected I/O Log.
 	  In this log, <c>Common Test</c> saves printouts made with
-	  <seealso marker="ct#log-2"><c>ct:log/2</c></seealso> and 
-	  <seealso marker="ct#pal-2"><c>ct:pal/2</c></seealso>, as well as captured system 
+	  <seealso marker="ct#log-2"><c>ct:log/1,2,3,4,5</c></seealso> and 
+	  <seealso marker="ct#pal-2"><c>ct:pal/1,2,3,4,5</c></seealso>, as well as captured system 
 	  error- and progress reports, which cannot be associated with particular test cases and
 	  therefore cannot be written to individual test case log files. This occurs,
 	  for example, if a log printout is made from an external process (not a test 
@@ -1338,7 +1338,7 @@
 	  <title>The Pre- and Post Test I/O Log</title>
 	  <p>The <c>Common Test</c> Framework Log page includes links to the
 	  Pre- and Post Test I/O Log. In this log, <c>Common Test</c> saves printouts made 
-	  with <c>ct:log/2</c> and <c>ct:pal/2</c>, as well as captured system error-
+	  with <c>ct:log/1,2,3,4,5</c> and <c>ct:pal/1,2,3,4,5</c>, as well as captured system error-
 	  and progress reports, which take place before, and after, the test run.
 	  Examples of this are printouts from a CT hook init- or terminate function, or
 	  progress reports generated when an OTP application is started from a CT hook
@@ -1349,9 +1349,21 @@
 	  applications, see section
 	  <seealso marker="ct_hooks_chapter#synchronizing">Synchronizing</seealso>
 	  in section Common Test Hooks.</p>
-	  <note><p>Logging to file with <c>ct:log/2</c> or <c>ct:pal/2</c>
-	  only works when <c>Common Test</c> is running. Printouts with <c>ct:pal/2</c>
+	  <note><p>Logging to file with <c>ct:log/1,2,3,4,5</c> or <c>ct:pal/1,2,3,4,5</c>
+	  only works when <c>Common Test</c> is running. Printouts with <c>ct:pal/1,2,3,4,5</c>
 	  are however always displayed on screen.</p></note>
+	</section>
+
+	<section>
+	  <marker id="delete_old_logs"></marker>
+	  <title>Delete Old Logs</title>
+	  <p><c>Common Test</c> can automatically delete old log. This
+	    is specified with the <c>keep_logs</c> option. The default
+	    value for this option is <c>all</c>, which means that no
+	    logs are deleted. If the value is set to an
+	    integer, <c>N</c>, <c>Common Test</c> deletes
+	    all <c>ct_run.&lt;timestamp&gt;</c> directories, except
+	    the <c>N</c> newest.</p>
 	</section>
       </section>
   
@@ -1371,24 +1383,38 @@
 	<p><c>Common Test</c> includes an <em>optional</em> feature to allow
 	  user HTML style sheets for customizing printouts. The
 	  functions in <c>ct</c> that print to a test case HTML log
-	  file (<c>log/3</c> and <c>pal/3</c>) accept <c>Category</c>
+	  file (<c>log/3,4,5</c> and <c>pal/3,4,5</c>) accept <c>Category</c>
 	  as first argument. With this argument a category can be specified 
-	  that can be mapped to a selector in a CSS
-	  definition. This is useful, especially for coloring text
+	  that can be mapped to a named <c>div</c> selector in a CSS rule-set.
+	  This is useful, especially for coloring text
 	  differently depending on the type of (or reason for) the
-	  printout. Say you want one color for test system
+	  printout. Say you want one particular background color for test system
 	  configuration information, a different one for test system
 	  state information, and finally one for errors detected by the
 	  test case functions. The corresponding style sheet can
 	  look as follows:</p>
 
 	<pre>
- div.sys_config  { background:blue; color:white }
- div.sys_state   { background:yellow; color:black }
- div.error       { background:red; color:white }</pre>
+ div.sys_config  { background:blue }
+ div.sys_state   { background:yellow }
+ div.error       { background:red }</pre>
+
+        <p>Common Test prints the text from <c>ct:log/3,4,5</c> or
+	<c>ct:pal/3,4,5</c> inside a <c>pre</c> element
+	nested under the named <c>div</c> element. Since the <c>pre</c> selector
+	has a predefined CSS rule (in file <c>ct_default.css</c>) for the attributes
+	<c>color</c>, <c>font-family</c> and <c>font-size</c>, if a user wants to
+	change any of the predefined attribute settings, a new rule for <c>pre</c>
+	must be added to the user stylesheet. Example:</p>
+
+	<pre>
+div.error pre { color:white }</pre>
+
+        <p>Here, white text is used instead of the default black for <c>div.error</c>
+	printouts (and no other attribute settings for <c>pre</c> are affected).</p>
 
 	<p>To install the CSS file (<c>Common Test</c> inlines the definition in the 
-	  HTML code), the name can be provided when executing <c>ct_run</c>.</p>
+	  HTML code), the file name can be provided when executing <c>ct_run</c>.</p>
 	  <p><em>Example:</em></p>
 
 	<pre>
@@ -1436,8 +1462,8 @@
 	  suite.</p>
 
 	<p>Argument <c>Category</c> in the previous example can have the
-	  value (atom) <c>sys_config</c> (white on blue), <c>sys_state</c>
-	  (black on yellow), or <c>error</c> (white on red).</p>
+	  value (atom) <c>sys_config</c> (blue background), <c>sys_state</c>
+	  (yellow background), or <c>error</c> (white text on red background).</p>
   </section>
 
   <section>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,15 +34,12 @@ bool(Rules) ->
     Types = ['Bool','BoolCon','BoolPri','BoolApp',
 	     'BoolExpCon','BoolExpPri','BoolExpApp'],
     [roundtrip(T, V) || T <- Types, V <- [true,false]],
-    case Rules of
-	ber ->
-	    [begin
-		 {error,{asn1,{encode_boolean,517}}} = enc_error(T, 517)
-	     end || T <- Types],
-	    ok;
-	_ ->
-	    ok
-    end.
+    Tag = case Rules of
+              ber -> encode_boolean;
+              _ -> illegal_boolean
+          end,
+    [{Tag,517} = enc_error(T, 517) || T <- Types],
+    ok.
 
 
 int(Rules) ->
@@ -60,10 +57,22 @@ int(Rules) ->
 	      123456789,12345678901234567890,
 	      -1,-2,-3,-4,-100,-127,-255,-256,-257,
 	      -1234567890,-2147483648],
-    [roundtrip(T, V) ||
-	T <- ['Int','IntCon','IntPri','IntApp',
-	      'IntExpCon','IntExpPri','IntExpApp'],
-	V <- [1|Values]],
+    Types = ['Int','IntCon','IntPri','IntApp',
+             'IntExpCon','IntExpPri','IntExpApp'],
+    _ = [roundtrip(T, V) || T <- Types, V <- [1|Values]],
+    Tag = case Rules of
+              ber -> encode_integer;
+              _ -> illegal_integer
+          end,
+    _ = [{Tag,V} = enc_error(T, V) ||
+            T <- Types, V <- [atom,42.0,{a,b,c}]],
+    case Rules of
+        ber ->
+            ok;
+        _ ->
+            _ = [{Tag,V} = enc_error('IntConstrained', V) ||
+                    V <- [atom,-1,256,42.0]]
+    end,
 
     %%==========================================================
     %% IntEnum ::=  INTEGER {first(1),last(31)} 
@@ -119,7 +128,11 @@ enum(Rules) ->
 
     roundtrip('Enum', monday),
     roundtrip('Enum', thursday),
-    {error,{asn1,{_,4}}} = enc_error('Enum', 4),
+    Tag = case Rules of
+              ber -> enumerated_not_in_range;
+              _ -> illegal_enumerated
+          end,
+    {Tag,4} = enc_error('Enum', 4),
 
     case Rules of
 	Per when Per =:= per; Per =:= uper ->
@@ -182,13 +195,15 @@ roundtrip(Type, Value, ExpectedValue) ->
 enc_error(T, V) ->
     case get(no_ok_wrapper) of
 	false ->
-	    'Prim':encode(T, V);
+	    {error,{asn1,{Reason,Stk}}} = 'Prim':encode(T, V),
+            [{_,_,_,_}|_] = Stk,
+            Reason;
 	true ->
 	    try 'Prim':encode(T, V) of
 		_ ->
 		    ?t:fail()
 	    catch
-		_:Reason ->
+		_:{error,{asn1,Reason}} ->
 		    Reason
 	    end
     end.

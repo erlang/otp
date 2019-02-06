@@ -120,10 +120,10 @@ run3(Erule) ->
         asn1_NOVALUE,asn1_NOVALUE,asn1_NOVALUE},
        asn1_NOVALUE,asn1_NOVALUE}}}}}}},
         io:format("~p:~p~n",[Erule,Val]),
-    {ok,List}= asn1rt:encode('EUTRA-RRC-Definitions','DL-DCCH-Message',Val),
+    {ok,List}= 'EUTRA-RRC-Definitions':encode('DL-DCCH-Message',Val),
     Enc = iolist_to_binary(List),
     io:format("Result from encode:~n~p~n",[Enc]),
-    {ok,Val2} = asn1rt:decode('EUTRA-RRC-Definitions','DL-DCCH-Message',Enc),
+    {ok,Val2} = 'EUTRA-RRC-Definitions':decode('DL-DCCH-Message', Enc),
     io:format("Result from decode:~n~p~n",[Val2]),
     case Val2 of
 	Val -> ok;

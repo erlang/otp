@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,27 +11,31 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_arm_ra_finalise).
 -export([finalise/3]).
 -include("hipe_arm.hrl").
 
-finalise(Defun, TempMap, _FPMap0=[]) ->
-  Code = hipe_arm:defun_code(Defun),
-  {_, SpillLimit} = hipe_arm:defun_var_range(Defun),
+finalise(CFG, TempMap, _FPMap0=[]) ->
+  {_, SpillLimit} = hipe_gensym:var_range(arm),
   Map = mk_ra_map(TempMap, SpillLimit),
-  NewCode = ra_code(Code, Map, []),
-  Defun#defun{code=NewCode}.
+  hipe_arm_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map) end, CFG).
+
+ra_bb(BB, Map) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, [])).
 
 ra_code([I|Insns], Map, Accum) ->
-  ra_code(Insns, Map, [ra_insn(I, Map) | Accum]);
+  ra_code(Insns, Map, ra_insn(I, Map, Accum));
 ra_code([], _Map, Accum) ->
   lists:reverse(Accum).
 
-ra_insn(I, Map) ->
+ra_insn(I, Map, Accum) ->
+  case I of
+    #pseudo_move{} -> ra_pseudo_move(I, Map, Accum);
+    _ -> [ra_insn_1(I, Map) | Accum]
+  end.
+
+ra_insn_1(I, Map) ->
   case I of
     #alu{} -> ra_alu(I, Map);
     #cmp{} -> ra_cmp(I, Map);
@@ -44,7 +44,7 @@ ra_insn(I, Map) ->
     #move{} -> ra_move(I, Map);
     #pseudo_call{} -> ra_pseudo_call(I, Map);
     #pseudo_li{} -> ra_pseudo_li(I, Map);
-    #pseudo_move{} -> ra_pseudo_move(I, Map);
+    #pseudo_spill_move{} -> ra_pseudo_spill_move(I, Map);
     #pseudo_switch{} -> ra_pseudo_switch(I, Map);
     #pseudo_tailcall{} -> ra_pseudo_tailcall(I, Map);
     #smull{} -> ra_smull(I, Map);
@@ -86,10 +86,19 @@ ra_pseudo_li(I=#pseudo_li{dst=Dst}, Map) ->
   NewDst = ra_temp(Dst, Map),
   I#pseudo_li{dst=NewDst}.
 
-ra_pseudo_move(I=#pseudo_move{dst=Dst,src=Src}, Map) ->
+ra_pseudo_move(I=#pseudo_move{dst=Dst,src=Src}, Map, Accum) ->
   NewDst = ra_temp(Dst, Map),
   NewSrc = ra_temp(Src, Map),
-  I#pseudo_move{dst=NewDst,src=NewSrc}.
+  case NewSrc#arm_temp.reg =:= NewDst#arm_temp.reg of
+    true -> Accum;
+    false -> [I#pseudo_move{dst=NewDst,src=NewSrc} | Accum]
+  end.
+
+ra_pseudo_spill_move(I=#pseudo_spill_move{dst=Dst,temp=Temp,src=Src}, Map) ->
+  NewDst = ra_temp(Dst, Map),
+  NewTemp = ra_temp(Temp, Map),
+  NewSrc = ra_temp(Src, Map),
+  I#pseudo_spill_move{dst=NewDst, temp=NewTemp, src=NewSrc}.
 
 ra_pseudo_switch(I=#pseudo_switch{jtab=JTab,index=Index}, Map) ->
   NewJTab = ra_temp(JTab, Map),

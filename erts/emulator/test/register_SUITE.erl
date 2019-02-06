@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,14 +44,7 @@ all() ->
 -define(OTP_8099_NAME, otp_8099_reg_proc).
 
 otp_8099(Config) when is_list(Config) ->
-    case catch erlang:system_info(lock_counting) of
-	true -> {skipped,
-		 "Lock counting enabled. Current lock counting "
-		 "implementation cannot handle this many "
-		 "processes."};
-	_ ->
-	    otp_8099_test(1000000)
-    end.
+    otp_8099_test(1000000).
 
 otp_8099_test(0) ->
     ok;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 
 -define(HELLO_VERIFY_REQUEST, 3).
+-define(HELLO_VERIFY_REQUEST_VERSION, {254, 255}).
 
 -record(client_hello, {
 	  client_version,
@@ -46,12 +47,13 @@
 	  cookie
 	 }).
 
--record(dtls_hs_state,
-	{current_read_seq,
-	 starting_read_seq,
-	 highest_record_seq,
-	 fragments,
-	 completed
-	}).
+-record(handshake_fragment, {
+	  type,
+	  length,
+	  message_seq,               
+	  fragment_offset,           
+	  fragment_length,
+	  fragment
+	 }).
 
 -endif. % -ifdef(dtls_handshake).

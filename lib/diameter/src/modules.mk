@@ -1,7 +1,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2016. All Rights Reserved.
+# Copyright Ericsson AB 2010-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ DICTS = \
 	base_rfc6733 \
 	base_accounting \
 	acct_rfc6733 \
+	doic_rfc7683 \
 	relay
 
 # The yecc grammar for the dictionary parser.
@@ -39,7 +40,7 @@ RT_MODULES = \
 	base/diameter_config \
 	base/diameter_config_sup \
 	base/diameter_codec \
-	base/diameter_dict \
+	base/diameter_gen \
 	base/diameter_lib \
 	base/diameter_misc_sup \
 	base/diameter_peer \

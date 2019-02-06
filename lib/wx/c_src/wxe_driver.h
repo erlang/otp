@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,10 +56,8 @@ typedef struct wxe_data_def {
 
 void init_glexts(wxe_data*);
 
-int  load_native_gui();
 int  start_native_gui(wxe_data *sd);
 void stop_native_gui(wxe_data *sd);
-void unload_native_gui();
 
 #define FUNC_CALL    13
 #define CREATE_PORT  14

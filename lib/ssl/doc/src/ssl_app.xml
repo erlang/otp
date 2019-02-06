@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,16 +35,21 @@
 
   <description>
     <p>
-      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+      The ssl application is an implementation of the SSL/TLS/DTLS protocol in Erlang.
     </p>
     <list type="bulleted">
-      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
-      TLS-1.1, and TLS-1.2.</item>
-      <item>For security reasons SSL-2.0 is not supported.</item>
+      <item>Supported SSL/TLS/DTLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1, TLS-1.2, DTLS-1.0 (based on TLS-1.1), DTLS-1.2 (based on TLS-1.2)</item>
+      <item>For security reasons SSL-2.0 is not supported.
+      Interoperability with SSL-2.0 enabled clients dropped. (OTP 21) </item>
       <item>For security reasons SSL-3.0 is no longer supported by default,
-      but can be configured.</item>
+      but can be configured. (OTP 19) </item>
+      <item>For security reasons RSA key exchange cipher suites are no longer supported by default,
+      but can be configured. (OTP 21) </item>
       <item>For security reasons DES cipher suites are no longer supported by default,
-      but can be configured.</item>
+      but can be configured. (OTP 20) </item>
+    <item>For security reasons 3DES cipher suites are no longer supported by default,
+    but can be configured. (OTP 21) </item>
       <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
       </item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported,
@@ -72,7 +77,7 @@
 
   <section>
     <title>DEPENDENCIES</title>
-    <p>The SSL application uses the <c>public_key</c> and
+    <p>The SSL application uses the <c>public_key</c>, <c>asn1</c> and
     Crypto application to handle public keys and encryption, hence
     these applications must be loaded for the SSL application to work. 
     In an embedded environment this means they must be started with
@@ -94,13 +99,20 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:ssl_tls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
-      protocols currently supported by the SSL application.
+      TLS protocols currently supported by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
+      <tag><c>dtls_protocol_version = </c><seealso marker="ssl#type-protocol">ssl:dtls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      DTLS protocols currently supported by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
+      
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
       <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
       recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However
@@ -123,14 +135,14 @@
       new client connections.  If the maximum number of sessions is
       reached, the current cache entries will be invalidated
       regardless of their remaining lifetime. Defaults to
-      1000.</p></item>
+      1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
 
       <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
       <item><p>Limits the growth of the servers session cache, that is
       how many client sessions are cached by the server. If the
       maximum number of sessions is reached, the current cache entries
       will be invalidated regardless of their remaining
-      lifetime. Defaults to 1000.</p></item>
+      lifetime. Defaults to 1000. Recommended ssl-8.2.1 or later for this option to work as intended.</p></item>
       
       <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
@@ -145,9 +157,8 @@
       <tag><c><![CDATA[bypass_pem_cache = boolean() <optional>]]></c></tag>
       <item>
 	<p>Introduced in ssl-8.0.2. Disables the PEM-cache.
-	The PEM cache has proven to be a bottleneck, until the
-	implementation has been improved this can be used as
-	a workaround. Defaults to false.
+	Can be used as a workaround for the PEM-cache bottleneck
+	before ssl-8.1.1. Defaults to false.
 	</p>
       </item>
       
@@ -160,6 +171,20 @@
 	  shutdown gracefully. Defaults to 5000 milliseconds.   
 	</p>
       </item>
+
+      <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
+        <item>
+	<p>
+	  For TLS connections this value is used to handle the
+	  internal socket. As the implementation was changed from an
+	  active once to an active N behavior (N = 100), for
+	  performance reasons, this option exist for possible tweaking
+	  or restoring of the old behavior (internal_active_n = 1) in
+	  unforeseen scenarios.  The option will not affect erlang
+	  distribution over TLS that will always run in active N mode.
+	  Added in ssl-9.1 (OTP-21.2).
+	</p>
+      </item>
     </taglist>
   </section>
 
@@ -167,7 +192,7 @@
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
     <p>The SSL application uses the default <seealso
     marker="kernel:error_logger">OTP error logger</seealso> to log
-    unexpected errors and TLS alerts. The logging of TLS alerts may be
+    unexpected errors and TLS/DTLS alerts. The logging of TLS/DTLS alerts may be
     turned off with the <c>log_alert</c> option. </p>
   </section>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0, suite/0, basic/1]).
+-export([all/0, suite/0,
+         init_per_testcase/2,
+         basic/1]).
 
 % Private exports
 -include_lib("common_test/include/ct.hrl").
@@ -44,6 +46,8 @@ suite() ->
 all() -> 
     [basic].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 basic(Config) when is_list(Config) ->
     case os:type() of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,8 +19,12 @@
 %%
 
 -module(crashdump_helper).
--export([n1_proc/2,remote_proc/2]).
--compile(r13).
+-export([n1_proc/2,remote_proc/2,
+         dump_maps/0,create_maps/0,
+         create_binaries/0,create_sub_binaries/1,
+         dump_persistent_terms/0,
+         create_persistent_terms/0]).
+-compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->
@@ -44,7 +48,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     Ref = make_ref(),
     Pid = self(),
     Bin = list_to_binary(lists:seq(1, 255)),
-    SubBin = element(1, split_binary(element(2, split_binary(Bin, 8)), 17)),
+    <<_:2,SubBin:17/binary,_/bits>> = Bin,
 
     register(named_port,Port),
 
@@ -60,7 +64,10 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     put(ref,Ref),
     put(pid,Pid),
     put(bin,Bin),
+    put(proc_bins,create_proc_bins()),
+    put(bins,create_binaries()),
     put(sub_bin,SubBin),
+    put(sub_bins,create_sub_binaries(get(bins))),
     put(bignum,83974938738373873),
     put(neg_bignum,-38748762783736367),
     put(ext_pid,Pid2),
@@ -79,6 +86,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     link(OtherPid), % own node
     link(Pid2),     % external node
     erlang:monitor(process,OtherPid),
+    erlang:monitor(process,init), % named process
     erlang:monitor(process,Pid2),
 
     code:load_file(?MODULE),
@@ -92,3 +100,109 @@ remote_proc(P1,Creator) ->
 		  Creator ! {self(),done},
 		  receive after infinity -> ok end
 	  end).
+
+create_binaries() ->
+    Sizes = lists:seq(60, 70) ++ lists:seq(120, 140),
+    [begin
+         <<H:16/unit:8>> = erlang:md5(<<Size:32>>),
+         Data = ((H bsl (8*150)) div (H+7919)),
+         <<Data:Size/unit:8>>
+     end || Size <- Sizes].
+
+create_sub_binaries(Bins) ->
+    [create_sub_binary(Bin, Start, LenSub) ||
+        Bin <- Bins,
+        Start <- [0,1,2,3,4,5,10,22],
+        LenSub <- [0,1,2,3,4,6,9]].
+
+create_sub_binary(Bin, Start, LenSub) ->
+    Len = byte_size(Bin) - LenSub - Start,
+    <<_:Start/bytes,Sub:Len/bytes,_/bytes>> = Bin,
+    Sub.
+
+create_proc_bins() ->
+    Parent = self(),
+    Pid =
+        spawn(
+          fun() ->
+                  %% Just reverse the list here, so this binary is not
+                  %% confused with the one created in n1_proc/5 above,
+                  %% which is used for testing truncation (see
+                  %% crashdump_viewer_SUITE:truncate_dump_binary/1)
+                  Bin = list_to_binary(lists:reverse(lists:seq(1, 255))),
+                  <<A:65/bytes,B:65/bytes,C/bytes>> = Bin,
+                  Parent ! {self(),{A,B,C}}
+          end),
+    receive
+        {Pid,ProcBins} -> ProcBins
+    end.
+
+%%%
+%%% Test dumping of maps. Dumping of maps only from OTP 20.2.
+%%%
+
+dump_maps() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_maps, self()),
+                put(maps, create_maps()),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            {ok,Pid}
+    end.
+
+create_maps() ->
+    Map0 = maps:from_list([{I,[I,I+1]} || I <- lists:seq(1, 40)]),
+    Map1 = maps:from_list([{I,{a,[I,I*I],{}}} || I <- lists:seq(1, 100)]),
+    Map2 = maps:from_list([{{I},(I*I) bsl 24} || I <- lists:seq(1, 10000)]),
+    Map3 = lists:foldl(fun(I, A) ->
+                               A#{I=>I*I}
+                       end, Map2, lists:seq(-10, 0)),
+    #{a=>Map0,b=>Map1,c=>Map2,d=>Map3,e=>#{},literal=>literal_map()}.
+
+literal_map() ->
+    %% A literal map such as the one below will produce a heap dump
+    %% like this:
+    %%
+    %%   Address1:t4:H<Address3>,H<Address4>,H<Address5>,H<Address6>
+    %%   Address2:Mf4:H<Adress1>:I1,I2,I3,I4
+    %%   Address3: ...  % "one"
+    %%   Address4: ...  % "two"
+    %%   Address5: ...  % "three"
+    %%   Address6: ...  % "four"
+    %%
+    %% The map cannot be reconstructed in a single sequential pass.
+    %%
+    %% To reconstruct the map, first the string keys "one"
+    %% through "four" must be reconstructed, then the tuple at
+    %% Adress1, then the map at Address2.
+
+    #{"one"=>1,"two"=>2,"three"=>3,"four"=>4}.
+
+%%%
+%%% Test dumping of persistent terms (from OTP 21.2).
+%%%
+
+dump_persistent_terms() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_persistent_terms, self()),
+                put(pts, create_persistent_terms()),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            {ok,Pid}
+    end.
+
+create_persistent_terms() ->
+    persistent_term:put({?MODULE,first}, {pid,42.0}),
+    persistent_term:put({?MODULE,second}, [1,2,3]),
+    persistent_term:get().
+

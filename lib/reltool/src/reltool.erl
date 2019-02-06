@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ get_server(WinPid) ->
         {ok, _ServerPid} = OK ->
             OK;
         {error, Reason} ->
-            {error, lists:flatten(io_lib:format("~p", [Reason]))}
+            {error, lists:flatten(io_lib:format("~tp", [Reason]))}
     end.
 
 %% Stop a server or window process
@@ -93,7 +93,7 @@ stop(Pid) when is_pid(Pid) ->
         {'DOWN', Ref, _, _, shutdown} ->
             ok;
         {'DOWN', Ref, _, _, Reason} ->
-            {error, lists:flatten(io_lib:format("~p", [Reason]))}
+            {error, lists:flatten(io_lib:format("~tp", [Reason]))}
     end.
 
 %% Internal library function

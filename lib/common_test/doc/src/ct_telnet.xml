@@ -337,7 +337,7 @@
           <c>FullMatch</c> is the string matched by the whole regular
           expression, and <c>SubMatchN</c> is the string that matched
           subexpression number <c>N</c>. Subexpressions are denoted with
-          <c>(' ')</c> in the regular expression.</p>
+          <c>'(' ')'</c> in the regular expression.</p>
 
         <p>If a <c>Tag</c> is speciifed, the returned <c>Match</c> also
           includes the matched <c>Tag</c>. Otherwise, only <c>RxMatch</c>

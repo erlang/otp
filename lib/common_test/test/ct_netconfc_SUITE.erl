@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,9 +52,8 @@ init_per_suite(Config) ->
     end.
 
 check_crypto_and_ssh() ->
-    (catch code:load_file(crypto)),
-    case code:is_loaded(crypto) of
-	{file,_} ->
+    case code:ensure_loaded(crypto) of
+	{module,_} ->
 	    case catch ssh:start() of
 		Ok when Ok==ok; Ok=={error,{already_started,ssh}} ->
 		    ct:log("ssh started",[]),

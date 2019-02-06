@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 -module(estone_SUITE).
 %% Test functions
 -export([all/0, suite/0, groups/0,
-	 estone/1, estone_bench/1]).
+	 estone/1, estone_bench/1, pgo/0]).
 
 %% Internal exports for EStone tests
 -export([lists/1,
@@ -44,9 +44,9 @@
 	 links/1,lproc/1,
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
-
--include_lib("common_test/include/ct.hrl").
+-ifndef(PGO).
 -include_lib("common_test/include/ct_event.hrl").
+-endif.
 
 %% EStone defines
 -define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
@@ -85,13 +85,28 @@ estone(Config) when is_list(Config) ->
 estone_bench(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     L = ?MODULE:macro(?MODULE:micros(),DataDir),
-    [ct_event:notify(
-       #event{name = benchmark_data, 
-	      data = [{name,proplists:get_value(title,Mark)},
-		      {value,proplists:get_value(estones,Mark)}]})
-     || Mark <- L],
+    {Total, Stones} = sum_micros(L, 0, 0),
+    notify([[{title,"ESTONES"}, {estones, Stones}] | L]),
     L.
 
+-ifndef(PGO).
+notify(Marks) ->
+    [ct_event:notify(
+       #event{name = benchmark_data,
+	      data = [{name,proplists:get_value(title, Mark)},
+		      {value,proplists:get_value(estones, Mark)}]})
+     || Mark <- Marks].
+-else.
+notify(_) ->
+    ok.
+-endif.
+
+%% The benchmarks to run in order to guide PGO (profile guided optimisation)
+pgo() ->
+    %% We run all benchmarks except the port_io as we don't want to
+    %% have to build a custom port.
+    Micros = ?MODULE:micros() -- [micro(port_io)],
+    ?MODULE:macro(Micros,[]).
 
 %%
 %% Calculate CPU speed
@@ -364,7 +379,7 @@ monotonic_time() ->
     try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
 subtr(Before, After) when is_integer(Before), is_integer(After) ->
-    erlang:convert_time_unit(After-Before, native, microsecond);
+    erlang:convert_time_unit(After-Before, native, 1000000);
 subtr({_,_,_}=Before, {_,_,_}=After) ->
     timer:now_diff(After, Before).
 
@@ -708,7 +723,7 @@ alloc(I) ->
 
 %% Time to call bif's
 %% Lot's of element stuff which reflects the record code which
-%% is becomming more and more common
+%% is becoming more and more common
 bif_dispatch(0) ->
     0;
 bif_dispatch(I) ->

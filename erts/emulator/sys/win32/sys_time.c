@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ struct sys_time_internal_state_read_mostly__ {
 };
 
 struct sys_time_internal_state_write_freq__ {
-    erts_smp_mtx_t mtime_mtx;
+    erts_mtx_t mtime_mtx;
     ULONGLONG wrap;
     ULONGLONG last_tick_count;
 };
@@ -187,8 +187,6 @@ os_monotonic_time_gtc32(void)
 {
     ErtsMonotonicTime mtime;
     Uint32 ticks = (Uint32) GetTickCount();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					  ticks);
     mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
@@ -205,8 +203,6 @@ os_times_gtc32(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
     ticks = (Uint32) GetTickCount();
     GetSystemTime(&st);
 
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      ticks);
     mtime = ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 					  ticks);
     mtime <<= ERTS_GET_TICK_COUNT_TIME_UNIT_SHIFT;
@@ -265,8 +261,6 @@ sys_hrtime_gtc32(void)
 {
     ErtsSysHrTime time;
     Uint32 ticks = (Uint32) GetTickCount();
-    ERTS_CHK_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
-				      tick_count);
     time = (ErtsSysHrTime) ERTS_EXTEND_OS_MONOTONIC_TIME(&internal_state.wr.m.os_mtime_xtnd,
 							 ticks);
     time *= (ErtsSysHrTime) (1000 * 1000);
@@ -300,8 +294,8 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     module = GetModuleHandle(kernel_dll_name);
     if (!module) {
     get_tick_count:
-	erts_smp_mtx_init(&internal_state.w.f.mtime_mtx,
-			  "os_monotonic_time");
+        erts_mtx_init(&internal_state.w.f.mtime_mtx, "os_monotonic_time", NIL,
+            ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 	internal_state.w.f.wrap = 0;
 	internal_state.w.f.last_tick_count = 0;
 

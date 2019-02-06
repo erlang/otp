@@ -374,3 +374,10 @@ fun:erts_debug_set_internal_state_2
 fun:process_main
 }
 
+{
+Thread specific dlerror buffer. Either bug in libc or valgrind.
+Memcheck:Leak
+...
+fun:_dlerror_run
+...
+}

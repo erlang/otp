@@ -1,1 +1,2 @@
-{suites,"../ssh_test",[ssh_benchmark_SUITE]}.
+{suites,"../ssh_test",[ssh_bench_SUITE
+	              ]}.

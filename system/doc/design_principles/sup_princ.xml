@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -163,7 +163,9 @@ SupFlags = #{strategy => Strategy, ...}</code>
 SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
     <p>If more than <c>MaxR</c> number of restarts occur in the last
       <c>MaxT</c> seconds, the supervisor terminates all the child
-      processes and then itself.</p>
+      processes and then itself.
+      The termination reason for the supervisor itself in that case will be
+      <c>shutdown</c>.</p>
     <p>When the supervisor terminates, then the next higher-level
       supervisor takes some action. It either restarts the terminated
       supervisor or terminates itself.</p>
@@ -173,6 +175,69 @@ SupFlags = #{intensity => MaxR, period => MaxT, ...}</code>
     <p>The keys <c>intensity</c> and <c>period</c> are optional in the
       supervisor flags map. If they are not given, they default
       to <c>1</c> and <c>5</c>, respectively.</p>
+    <section>
+      <title>Tuning the intensity and period</title>
+      <p>The default values are 1 restart per 5 seconds. This was chosen to
+        be safe for most systems, even with deep supervision hierarchies,
+        but you will probably want to tune the settings for your particular
+        use case.</p>
+      <p>First, the intensity decides how big bursts of restarts you want
+        to tolerate. For example, you might want to accept a burst of at
+        most 5 or 10 attempts, even within the same second, if it results
+        in a successful restart.</p>
+      <p>Second, you need to consider the sustained failure rate, if
+        crashes keep happening but not often enough to make the supervisor
+        give up. If you set intensity to 10 and set the period as low as 1,
+        the supervisor will allow child processes to keep restarting up to
+        10 times per second, forever, filling your logs with crash reports
+        until someone intervenes manually.</p>
+      <p>You should therefore set the period to be long enough that you can
+        accept that the supervisor keeps going at that rate. For example,
+        if you have picked an intensity value of 5, then setting the period
+        to 30 seconds will give you at most one restart per 6 seconds for
+        any longer period of time, which means that your logs won't fill up
+        too quickly, and you will have a chance to observe the failures and
+        apply a fix.</p>
+      <p>These choices depend a lot on your problem domain. If you don't
+        have real time monitoring and ability to fix problems quickly, for
+        example in an embedded system, you might want to accept at most
+        one restart per minute before the supervisor should give up and
+        escalate to the next level to try to clear the error automatically.
+        On the other hand, if it is more important that you keep trying
+        even at a high failure rate, you might want a sustained rate of as
+        much as 1-2 restarts per second.</p>
+      <p>Avoiding common mistakes:</p>
+      <list type="bulleted">
+        <item>
+          <p>Do not forget to consider the burst rate. If you set intensity
+            to 1 and period to 6, it gives the same sustained error rate as
+            5/30 or 10/60, but will not allow even 2 restart attempts in
+            quick succession. This is probably not what you wanted.</p>
+        </item>
+        <item>
+          <p>Do not set the period to a very high value if you want to
+            tolerate bursts. If you set intensity to 5 and period to 3600
+            (one hour), the supervisor will allow a short burst of 5
+            restarts, but then gives up if it sees another single restart
+            almost an hour later. You probably want to regard those crashes
+            as separate incidents, so setting the period to 5 or 10 minutes
+            will be more reasonable.</p>
+        </item>
+        <item>
+          <p>If your application has multiple levels of supervision, then
+            do not simply set the restart intensities to the same values on
+            all levels. Keep in mind that the total number of restarts
+            (before the top level supervisor gives up and terminates the
+            application) will be the product of the intensity values of all
+            the supervisors above the failing child process.</p>
+          <p>For example, if the top level allows 10 restarts, and the next
+            level also allows 10, a crashing child below that level will be
+            restarted 100 times, which is probably excessive. Allowing at
+            most 3 restarts for the top level supervisor might be a better
+            choice in this case.</p>
+        </item>
+      </list>
+    </section>
   </section>
 
   <section>
@@ -211,7 +276,6 @@ child_spec() = #{id => child_id(),       % mandatory
 	<list type="bulleted">
 	  <item><c>supervisor:start_link</c></item>
 	  <item><c>gen_server:start_link</c></item>
-	  <item><c>gen_fsm:start_link</c></item>
 	  <item><c>gen_statem:start_link</c></item>
 	  <item><c>gen_event:start_link</c></item>
 	  <item>A function compliant with these functions. For details,
@@ -248,12 +312,17 @@ child_spec() = #{id => child_id(),       % mandatory
            signal back. If no exit signal is received within
            the specified time, the child process is unconditionally
            terminated using <c>exit(Child, kill)</c>.</item>
-          <item>If the child process is another supervisor, it is to be
+          <item>If the child process is another supervisor, it must be
            set to <c>infinity</c> to give the subtree enough time to
            shut down. It is also allowed to set it to <c>infinity</c>,
-          if the child process is a worker. See the warning below:</item>
+           if the child process is a worker. See the warning below:</item>
         </list>
         <warning>
+	  <p>Setting the shutdown time to anything other
+	    than <c>infinity</c> for a child of type <c>supervisor</c>
+	    can cause a race condition where the child in question
+	    unlinks its own children, but fails to terminate them
+	    before it is killed.</p>
           <p>Be careful when setting the shutdown time to
           <c>infinity</c> when the child process is a worker. Because, in this
           situation, the termination of the supervision tree depends on the
@@ -276,7 +345,7 @@ child_spec() = #{id => child_id(),       % mandatory
         <p><c>modules</c> are to be a list with one element
           <c>[Module]</c>, where <c>Module</c> is the name of
           the callback module, if the child process is a supervisor,
-          gen_server, gen_fsm or gen_statem.
+          gen_server, gen_statem.
 	  If the child process is a gen_event,
           the value shall be <c>dynamic</c>.</p>
         <p>This information is used by the release handler during

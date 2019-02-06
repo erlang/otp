@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Example Suite Callback module.
+%%% Common Test Example Suite Callback module.
 %%%
-%%% <p>This module gives an example of a common test CTH (Common Test Hook).
+%%% This module gives an example of a common test CTH (Common Test Hook).
 %%% There are many ways to add a CTH to a test run, you can do it either in
 %%% the command line using -ct_hook, in a test spec using
 %%% {ct_hook,M} or in the suite it self by returning ct_hook
@@ -31,7 +31,7 @@
 %%% it will be stopped after end_per_suite and so on. See terminate
 %%% documentation for a table describing the scoping machanics. 
 %%%
-%%% All of callbacks except init/1 in a CTH are optional.</p>
+%%% All of callbacks except init/1 in a CTH are optional.
 
 -module(empty_cth).
 
@@ -44,18 +44,18 @@
 -export([pre_end_per_suite/3]).
 -export([post_end_per_suite/4]).
 
--export([pre_init_per_group/3]).
--export([post_init_per_group/4]).
--export([pre_end_per_group/3]).
--export([post_end_per_group/4]).
+-export([pre_init_per_group/4]).
+-export([post_init_per_group/5]).
+-export([pre_end_per_group/4]).
+-export([post_end_per_group/5]).
 
--export([pre_init_per_testcase/3]).
--export([post_init_per_testcase/4]).
--export([pre_end_per_testcase/3]).
--export([post_end_per_testcase/4]).
+-export([pre_init_per_testcase/4]).
+-export([post_init_per_testcase/5]).
+-export([pre_end_per_testcase/4]).
+-export([post_end_per_testcase/5]).
 
--export([on_tc_fail/3]).
--export([on_tc_skip/3]).
+-export([on_tc_fail/4]).
+-export([on_tc_skip/4]).
 
 -export([terminate/1]).
 
@@ -71,7 +71,7 @@
 
 -record(state, { id = ?MODULE :: term()}).
 
-%% @doc Always called before any other callback function. Use this to initiate
+%% Always called before any other callback function. Use this to initiate
 %% any common state. It should return an state for this CTH.
 -spec init(Id :: term(), Opts :: proplists:proplist()) ->
     {ok, State :: #state{}}.
@@ -81,7 +81,7 @@ init(Id, Opts) ->
     ct:log("~w:init called", [?MODULE]),
     {ok,Opts}.
 
-%% @doc The ID is used to uniquly identify an CTH instance, if two CTH's 
+%% The ID is used to uniquly identify an CTH instance, if two CTH's
 %% return the same ID the seconds CTH is ignored. This function should NOT 
 %% have any side effects as it might be called multiple times by common test.
 -spec id(Opts :: proplists:proplist()) ->
@@ -92,7 +92,7 @@ id(Opts) ->
     ct:log("~w:id called", [?MODULE]),
     ct_test_support:unique_timestamp().
 
-%% @doc Called before init_per_suite is called. Note that this callback is
+%% Called before init_per_suite is called. Note that this callback is
 %% only called if the CTH is added before init_per_suite is run (eg. in a test
 %% specification, suite/0 function etc).
 %% You can change the config in the this function.
@@ -108,7 +108,7 @@ pre_init_per_suite(Suite,Config,State) ->
     ct:log("~w:pre_init_per_suite(~w) called", [?MODULE,Suite]),
     {Config, State}.
 
-%% @doc Called after init_per_suite.
+%% Called after init_per_suite.
 %% you can change the return value in this function.
 -spec post_init_per_suite(Suite :: atom(),
 			  Config :: config(),
@@ -123,7 +123,7 @@ post_init_per_suite(Suite,Config,Return,State) ->
     ct:log("~w:post_init_per_suite(~w) called", [?MODULE,Suite]),
     {Return, State}.
 
-%% @doc Called before end_per_suite. The config/state can be changed here,
+%% Called before end_per_suite. The config/state can be changed here,
 %% though it will only affect the *end_per_suite function.
 -spec pre_end_per_suite(Suite :: atom(),
 		    Config :: config() | skip_or_fail(),
@@ -137,7 +137,7 @@ pre_end_per_suite(Suite,Config,State) ->
     ct:log("~w:pre_end_per_suite(~w) called", [?MODULE,Suite]),
     {Config, State}.
 
-%% @doc Called after end_per_suite. Note that the config cannot be
+%% Called after end_per_suite. Note that the config cannot be
 %% changed here, only the status of the suite.
 -spec post_end_per_suite(Suite :: atom(),
 			 Config :: config(),
@@ -152,155 +152,165 @@ post_end_per_suite(Suite,Config,Return,State) ->
     ct:log("~w:post_end_per_suite(~w) called", [?MODULE,Suite]),
     {Return, State}.
 
-%% @doc Called before each init_per_group.
+%% Called before each init_per_group.
 %% You can change the config in this function.
--spec pre_init_per_group(Group :: atom(),
-		     Config :: config(),
-		     State :: #state{}) ->
+-spec pre_init_per_group(Suite :: atom(),
+                         Group :: atom(),
+                         Config :: config(),
+                         State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
-pre_init_per_group(Group,Config,State) ->
+pre_init_per_group(Suite,Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, pre_init_per_group,
-				     [Group,Config,State]}}),
-    ct:log("~w:pre_init_per_group(~w) called", [?MODULE,Group]),
+				     [Suite,Group,Config,State]}}),
+    ct:log("~w:pre_init_per_group(~w,~w) called", [?MODULE,Suite,Group]),
     {Config, State}.
 
-%% @doc Called after each init_per_group.
+%% Called after each init_per_group.
 %% You can change the return value in this function.
--spec post_init_per_group(Group :: atom(),
+-spec post_init_per_group(Suite :: atom(),
+                          Group :: atom(),
 			  Config :: config(),
 			  Return :: config() | skip_or_fail(),
 			  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
-post_init_per_group(Group,Config,Return,State) ->
+post_init_per_group(Suite,Group,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, post_init_per_group,
-				     [Group,Config,Return,State]}}),
-    ct:log("~w:post_init_per_group(~w) called", [?MODULE,Group]),
+				     [Suite,Group,Config,Return,State]}}),
+    ct:log("~w:post_init_per_group(~w,~w) called", [?MODULE,Suite,Group]),
     {Return, State}.
 
-%% @doc Called after each end_per_group. The config/state can be changed here,
+%% Called after each end_per_group. The config/state can be changed here,
 %% though it will only affect the *end_per_group functions.
--spec pre_end_per_group(Group :: atom(),
+-spec pre_end_per_group(Suite :: atom(),
+                        Group :: atom(),
 			Config :: config() | skip_or_fail(),
 			State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-pre_end_per_group(Group,Config,State) ->
+pre_end_per_group(Suite,Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, pre_end_per_group,
-				     [Group,Config,State]}}),
-    ct:log("~w:pre_end_per_group(~w) called", [?MODULE,Group]),
+				     [Suite,Group,Config,State]}}),
+    ct:log("~w:pre_end_per_group(~w~w) called", [?MODULE,Suite,Group]),
     {Config, State}.
 
-%% @doc Called after each end_per_group. Note that the config cannot be
+%% Called after each end_per_group. Note that the config cannot be
 %% changed here, only the status of the group.
--spec post_end_per_group(Group :: atom(),
+-spec post_end_per_group(Suite :: atom(),
+                         Group :: atom(),
 			 Config :: config(),
 			 Return :: term(),
 			 State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-post_end_per_group(Group,Config,Return,State) ->
+post_end_per_group(Suite,Group,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, post_end_per_group,
-				     [Group,Config,Return,State]}}),
-    ct:log("~w:post_end_per_group(~w) called", [?MODULE,Group]),
+				     [Suite,Group,Config,Return,State]}}),
+    ct:log("~w:post_end_per_group(~w,~w) called", [?MODULE,Suite,Group]),
     {Return, State}.
 
-%% @doc Called before init_per_testcase/2 for each test case.
+%% Called before init_per_testcase/2 for each test case.
 %% You can change the config in this function.
--spec pre_init_per_testcase(TC :: atom(),
-		  Config :: config(),
-		  State :: #state{}) ->
+-spec pre_init_per_testcase(Suite :: atom(),
+                            TC :: atom(),
+                            Config :: config(),
+                            State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
-pre_init_per_testcase(TC,Config,State) ->
+pre_init_per_testcase(Suite,TC,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, pre_init_per_testcase,
-				     [TC,Config,State]}}),
-    ct:log("~w:pre_init_per_testcase(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Config,State]}}),
+    ct:log("~w:pre_init_per_testcase(~w,~w) called", [?MODULE,Suite,TC]),
     {Config, State}.
 
-%% @doc Called after init_per_testcase/2, and before the test case.
--spec post_init_per_testcase(TC :: atom(),
+%% Called after init_per_testcase/2, and before the test case.
+-spec post_init_per_testcase(Suite :: atom(),
+                             TC :: atom(),
 			     Config :: config(),
 			     Return :: config() | skip_or_fail(),
 			     State :: #state{}) ->
 				    {config() | skip_or_fail(), NewState :: #state{}}.
-post_init_per_testcase(TC,Config,Return,State) ->
+post_init_per_testcase(Suite,TC,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, post_init_per_testcase,
-				     [TC,Config,Return,State]}}),
-    ct:log("~w:post_init_per_testcase(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Config,Return,State]}}),
+    ct:log("~w:post_init_per_testcase(~w,~w) called", [?MODULE,Suite,TC]),
     {Return, State}.
 
-%% @doc Called before end_per_testacse/2. No skip or fail allowed here,
+%% Called before end_per_testacse/2. No skip or fail allowed here,
 %% only config additions.
--spec pre_end_per_testcase(TC :: atom(),
-		  Config :: config(),
-		  State :: #state{}) ->
+-spec pre_end_per_testcase(Suite :: atom(),
+                           TC :: atom(),
+                           Config :: config(),
+                           State :: #state{}) ->
     {config(), NewState :: #state{}}.
-pre_end_per_testcase(TC,Config,State) ->
+pre_end_per_testcase(Suite,TC,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, pre_end_per_testcase,
-				     [TC,Config,State]}}),
-    ct:log("~w:pre_end_per_testcase(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Config,State]}}),
+    ct:log("~w:pre_end_per_testcase(~w,~w) called", [?MODULE,Suite,TC]),
     {Config, State}.
 
-%% @doc Called after end_per_testcase/2 for each test case. Note that
+%% Called after end_per_testcase/2 for each test case. Note that
 %% the config cannot be changed here, only the status of the test case.
--spec post_end_per_testcase(TC :: atom(),
+-spec post_end_per_testcase(Suite :: atom(),
+                            TC :: atom(),
 			    Config :: config(),
 			    Return :: term(),
 			    State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-post_end_per_testcase(TC,Config,Return,State) ->
+post_end_per_testcase(Suite,TC,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, post_end_per_testcase,
-				     [TC,Config,Return,State]}}),
-    ct:log("~w:post_end_per_testcase(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Config,Return,State]}}),
+    ct:log("~w:post_end_per_testcase(~w,~w) called", [?MODULE,Suite,TC]),
     {Return, State}.
 
-%% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
+%% Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
 %% post_end_per_group and post_end_per_tc if the suite, group or test case failed.
 %% This function should be used for extra cleanup which might be needed.
 %% It is not possible to modify the config or the status of the test run.
--spec on_tc_fail(TC :: init_per_suite | end_per_suite |
+-spec on_tc_fail(Suite :: atom(),
+                 TC :: init_per_suite | end_per_suite |
 		       init_per_group | end_per_group | atom() |
 		       {Function :: atom(), GroupName :: atom()},
 		 Reason :: term(), State :: #state{}) -> NewState :: #state{}.
-on_tc_fail(TC, Reason, State) ->
+on_tc_fail(Suite, TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, on_tc_fail,
-				     [TC,Reason,State]}}),
-    ct:log("~w:on_tc_fail(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Reason,State]}}),
+    ct:log("~w:on_tc_fail(~w,~w) called", [?MODULE,Suite,TC]),
     State.
 
-%% @doc Called when a test case is skipped by either user action
+%% Called when a test case is skipped by either user action
 %% or due to an init function failing. Test case can be
 %% end_per_suite, init_per_group, end_per_group and the actual test cases. 
--spec on_tc_skip(TC :: end_per_suite |
+-spec on_tc_skip(Suite :: atom(),
+                 TC :: end_per_suite |
 		       init_per_group | end_per_group | atom() |
 		       {Function :: atom(), GroupName :: atom()},
 		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), Reason :: term()}}} |
 		 {tc_user_skip, {skipped, Reason :: term()}},
 		 State :: #state{}) -> NewState :: #state{}.
-on_tc_skip(TC, Reason, State) ->
+on_tc_skip(Suite, TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = cth, node = node(),
 			     data = {?MODULE, on_tc_skip,
-				     [TC,Reason,State]}}),
-    ct:log("~w:on_tc_skip(~w) called", [?MODULE,TC]),
+				     [Suite,TC,Reason,State]}}),
+    ct:log("~w:on_tc_skip(~w,~w) called", [?MODULE,Suite,TC]),
     State.
 
-%% @doc Called when the scope of the CTH is done, this depends on
+%% Called when the scope of the CTH is done, this depends on
 %% when the CTH was specified. This translation table describes when this
 %% function is called.
 %%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ unmake(Config) when is_list(Config) ->
 
 make(Make, Dir, Makefile) ->
     {RunFile, RunCmd, Script} = run_make_script(os:type(), Make, Dir, Makefile),
-    case file:write_file(RunFile, Script) of
+    case file:write_file(RunFile, unicode:characters_to_binary(Script)) of
 	ok ->
 	    Log = filename:join(Dir, "make.log"),
 	    file:delete(Log),

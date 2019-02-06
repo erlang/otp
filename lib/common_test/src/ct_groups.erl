@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework callback module.
-%%%
-%%% <p>This module contains CT internal help functions for searching
-%%%    through groups specification trees and producing resulting
-%%%    tests.</p>
+%%% This module contains CT internal help functions for searching
+%%% through groups specification trees and producing resulting
+%%% tests.
 
 -module(ct_groups).
 
@@ -210,7 +208,7 @@ find(Mod, _GrNames, _TCs, [BadTerm | _Gs], Known, _Defs, _FindAll) ->
 		    "group "++atom_to_list(lists:last(Known))++
 			" in "++atom_to_list(Mod)++":groups/0"
 	    end,		 
-    Term = io_lib:format("~p", [BadTerm]),
+    Term = io_lib:format("~tp", [BadTerm]),
     E = "Bad term "++lists:flatten(Term)++" in "++Where,
     throw({error,list_to_atom(E)});
 
@@ -442,17 +440,21 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	    ok
     end,
     {InitConf,EndConf,ExtraProps} =
-	case erlang:function_exported(Mod,init_per_group,2) of
-	    true ->
-		{{Mod,init_per_group},{Mod,end_per_group},[]};
-	    false ->
+	case {erlang:function_exported(Mod,init_per_group,2),
+              erlang:function_exported(Mod,end_per_group,2)} of
+	    {false,false} ->
 		ct_logs:log("TEST INFO", "init_per_group/2 and "
 			    "end_per_group/2 missing for group "
-			    "~w in ~w, using default.",
+			    "~tw in ~w, using default.",
 			    [Name,Mod]),
 		{{ct_framework,init_per_group},
 		 {ct_framework,end_per_group},
-		 [{suite,Mod}]}
+		 [{suite,Mod}]};
+	    _ ->
+                %% If any of these exist, the other should too
+                %% (required and documented). If it isn't, it will fail
+                %% with reason 'undef'.
+		{{Mod,init_per_group},{Mod,end_per_group},[]}
 	end,
     {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
 

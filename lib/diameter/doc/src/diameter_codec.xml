@@ -4,7 +4,10 @@
   '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
   <!ENTITY types
   '<seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>'>
-  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY decode_format
+  '<seealso marker="diameter#decode_format">decode format</seealso>'>
+
+<!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
   %here;
@@ -13,7 +16,8 @@
 <erlref>
 <header>
 <copyright>
-<year>2012</year><year>2016</year>
+<year>2012</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -53,17 +57,17 @@ communicated to &man_app; callbacks.
 Similarly, outgoing Diameter messages are encoded into binary() before
 being passed to the appropriate &man_transport; module for
 transmission.
-The functions in this module implement this encode/decode.</p>
+The functions documented here implement the default encode/decode.</p>
 
-<note>
+<warning>
 <p>
-Calls to this module are made by diameter itself as a consequence of
-configuration passed to &mod_start_service;.
-The encode/decode functions may also be useful for other purposes (eg.
-test) but the diameter user does not need to call them explicitly when
+The diameter user does not need to call functions here explicitly when
 sending and receiving messages using &mod_call; and the callback
-interface documented in &man_app;.</p>
-</note>
+interface documented in &man_app;: diameter itself provides encode/decode
+as a consequence of configuration passed to &mod_start_service;, and
+the results may differ from those returned by the functions documented
+here, depending on configuration.</p>
+</warning>
 
 <p>
 The &header; and &packet; records below
@@ -144,7 +148,8 @@ question.</p>
 <p>
 The decoded value of an AVP.
 Will be <c>undefined</c> on decode if the data bytes could
-not be decoded or the AVP is unknown.
+not be decoded, the AVP is unknown, or if the &decode_format; is
+<c>none</c>.
 The type of a decoded value is as document in &types;.</p>
 </item>
 
@@ -229,7 +234,8 @@ header.</p>
 </item>
 
 <tag>
-<marker id="message"/><c>message() = record() | list()</c></tag>
+<marker id="message"/><c>message() = record()
+                                   | maybe_improper_list()</c></tag>
 <item>
 <p>
 The representation of a Diameter message as passed to
@@ -239,14 +245,17 @@ a message as defined in a dictionary file is encoded as a record with
 one field for each component AVP.
 Equivalently, a message can also be encoded as a list whose head is
 the atom-valued message name (as specified in the relevant dictionary
-file) and whose tail is a list of <c>{AvpName, AvpValue}</c> pairs.</p>
+file) and whose tail is either a list of AVP name/values
+pairs or a map with values keyed on AVP names.
+The format at decode is determined by &mod_decode_format;.
+Any of the formats is accepted at encode.</p>
 
 <p>
 Another list-valued representation allows a message to be specified
 as a list whose head is a &header; and whose tail is an &avp; list.
 This representation is used by diameter itself when relaying requests
 as directed by the return value of a &app_handle_request; callback.
-It differs from the other other two in that it bypasses the checks for
+It differs from the other two in that it bypasses the checks for
 messages that do not agree with their definitions in the dictionary in
 question: messages are sent exactly as specified.</p>
 
@@ -282,15 +291,16 @@ value other than <c>undefined</c>.</p>
 <item>
 <p>
 The incoming/outgoing message.
-For an incoming message, a record if the message can be
-decoded in a non-relay application, <c>undefined</c> otherwise.
+For an incoming message, a term corresponding to the configured
+&decode_format; if the message can be decoded in a non-relay
+application, <c>undefined</c> otherwise.
 For an outgoing message, setting a <c>[&header; | &avp;]</c> list is
 equivalent to setting the <c>header</c> and <c>avps</c> fields to the
 corresponding values.</p>
 
 <warning>
 <p>
-A record-valued <c>msg</c> field does <em>not</em> imply an absence of
+A value in the <c>msg</c> field does <em>not</em> imply an absence of
 decode errors.
 The <c>errors</c> field should also be examined.</p>
 </warning>

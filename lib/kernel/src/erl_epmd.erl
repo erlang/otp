@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,10 +29,20 @@
 -define(port_please_failure2(Term), noop).
 -endif.
 
+-ifndef(erlang_daemon_port).
+-define(erlang_daemon_port, 4369).
+-endif.
+-ifndef(epmd_dist_high).
+-define(epmd_dist_high, 4370).
+-endif.
+-ifndef(epmd_dist_low).
+-define(epmd_dist_low, 4370).
+-endif.
+
 %% External exports
 -export([start/0, start_link/0, stop/0, port_please/2, 
 	 port_please/3, names/0, names/1,
-	 register_node/2, register_node/3, open/0, open/1, open/2]).
+	 register_node/2, register_node/3, address_please/3, open/0, open/1, open/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -53,7 +63,7 @@
 start() ->
     gen_server:start({local, erl_epmd}, ?MODULE, [], []).
 
-
+-spec start_link() -> {ok, pid()} | ignore | {error,term()}.
 start_link() ->
     gen_server:start_link({local, erl_epmd}, ?MODULE, [], []).
 
@@ -66,8 +76,21 @@ stop() ->
 %% return {port, P, Version} | noport
 %%
 
+-spec port_please(Name, Host) -> {ok, Port, Version} | noport when
+	  Name :: string(),
+	  Host :: inet:ip_address(),
+	  Port :: non_neg_integer(),
+	  Version :: non_neg_integer().
+
 port_please(Node, Host) ->
   port_please(Node, Host, infinity).
+
+-spec port_please(Name, Host, Timeout) -> {ok, Port, Version} | noport when
+	  Name :: string(),
+	  Host :: inet:ip_address(),
+	  Timeout :: non_neg_integer() | infinity,
+	  Port :: non_neg_integer(),
+	  Version :: non_neg_integer().
 
 port_please(Node,HostName, Timeout) when is_atom(HostName) ->
   port_please1(Node,atom_to_list(HostName), Timeout);
@@ -79,16 +102,33 @@ port_please(Node, EpmdAddr, Timeout) ->
 
 
 port_please1(Node,HostName, Timeout) ->
-  case inet:gethostbyname(HostName, inet, Timeout) of
+  Family = case inet_db:res_option(inet6) of
+             true ->
+               inet6;
+             false ->
+               inet
+           end,
+  case inet:gethostbyname(HostName, Family, Timeout) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
       get_port(Node, EpmdAddr, Timeout);
     Else ->
       Else
   end.
 
+-spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
+	  Name :: string(),
+	  Port :: non_neg_integer(),
+	  Reason :: address | file:posix().
+
 names() ->
     {ok, H} = inet:gethostname(),
     names(H).
+
+-spec names(Host) -> {ok, [{Name, Port}]} | {error, Reason} when
+      Host :: atom() | string() | inet:ip_address(),
+      Name :: string(),
+      Port :: non_neg_integer(),
+      Reason :: address | file:posix().
 
 names(HostName) when is_atom(HostName); is_list(HostName) ->
   case inet:gethostbyname(HostName) of
@@ -100,15 +140,39 @@ names(HostName) when is_atom(HostName); is_list(HostName) ->
 names(EpmdAddr) ->
   get_names(EpmdAddr).
 
+-spec register_node(Name, Port) -> Result when
+	  Name :: string(),
+	  Port :: non_neg_integer(),
+	  Creation :: non_neg_integer(),
+	  Result :: {ok, Creation} | {error, already_registered} | term().
 
 register_node(Name, PortNo) ->
-    register_node(Name, PortNo, inet).
+	register_node(Name, PortNo, inet).
+
+-spec register_node(Name, Port, Driver) -> Result when
+	  Name :: string(),
+	  Port :: non_neg_integer(),
+	  Driver :: inet_tcp | inet6_tcp | inet | inet6,
+	  Creation :: non_neg_integer(),
+	  Result :: {ok, Creation} | {error, already_registered} | term().
+
 register_node(Name, PortNo, inet_tcp) ->
     register_node(Name, PortNo, inet);
 register_node(Name, PortNo, inet6_tcp) ->
     register_node(Name, PortNo, inet6);
 register_node(Name, PortNo, Family) ->
     gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
+
+-spec address_please(Name, Host, AddressFamily) -> Success | {error, term()} when
+	  Name :: string(),
+	  Host :: string() | inet:ip_address(),
+	  AddressFamily :: inet | inet6,
+	  Port :: non_neg_integer(),
+	  Version :: non_neg_integer(),
+	  Success :: {ok, inet:ip_address()} | {ok, inet:ip_address(), Port, Version}.
+
+address_please(_Name, Host, AddressFamily) ->
+	inet:getaddr(Host, AddressFamily).
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server

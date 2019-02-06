@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,7 +46,8 @@
         <v>option() = {parent_pid, pid()} | {event_order, event_order()} | {dict_insert, {filter, collector}, collector_fun()} | {dict_insert, {filter, event_filter_name()}, event_filter_fun()} | {dict_insert, {subscriber, pid()}, dict_val()} | {dict_insert, dict_key(), dict_val()} | {dict_delete, dict_key()} | {trace_client, trace_client()} | {trace_global, boolean()} |  {trace_pattern, trace_pattern()} | {trace_port, integer()} |  {trace_max_queue, integer()}</v>
         <v>event_order() = trace_ts | event_ts</v>
         <v>trace_pattern() = {report_module(), extended_dbg_match_spec()} | undefined</v>
-        <v>report_module() = atom() | undefined &lt;v>extended_dbg_match_spec()() = detail_level() | dbg_match_spec()</v>
+        <v>report_module() = atom() | undefined</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
         <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
         <v>trace_client() =  {event_file, file_name()} | {dbg_trace_type(), dbg_trace_parameters()}</v>
         <v>file_name() = string()</v>
@@ -221,7 +222,7 @@
         <v>CollectorPid = pid()</v>
         <v>RawPattern = {report_module(), extended_dbg_match_spec()}</v>
         <v>report_module() = atom() | undefined</v>
-        <v>extended_dbg_match_spec()() = detail_level() | dbg_match_spec()</v>
+        <v>extended_dbg_match_spec() = detail_level() | dbg_match_spec()</v>
         <v>RawPattern = detail_level()</v>
         <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
         <v>TracePattern = {report_module(), dbg_match_spec_match_spec()}</v>
@@ -348,7 +349,8 @@
         <v>done() = 0</v>
         <v>forward() = infinity | integer(X) where X > 0</v>
         <v>backward() = '-infinity' | integer(X) where X &lt; 0</v>
-        <v>Fun = fun(Event, Acc) -> NewAcc &lt;v>Acc = NewAcc = term()</v>
+        <v>Fun = fun(Event, Acc) -> NewAcc</v>
+        <v>Acc = NewAcc = term()</v>
       </type>
       <desc>
         <p>Iterate over the currently stored events.</p>

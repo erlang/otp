@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,26 +23,25 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--export_type([algorithm/0]).
+-export_type([client_key_cb_options/0]).
 
--type algorithm()  :: 'ssh-rsa'
-		    | 'ssh-dss'
-		    | 'ecdsa-sha2-nistp256'
-		    | 'ecdsa-sha2-nistp384'
-		    | 'ecdsa-sha2-nistp521'
-		    .
+-type client_key_cb_options() :: [{key_cb_private,term()} | ssh:client_option()].
 
--callback is_host_key(PublicKey      :: public_key:public_key(),
-		      Host           :: string(),
-		      Algorithm      :: algorithm(),
-		      ConnectOptions :: proplists:proplist()) ->
+-callback is_host_key(Key :: public_key:public_key(),
+                      Host :: string(),
+		      Algorithm :: ssh:pubkey_alg(),
+                      Options :: client_key_cb_options()
+                     ) ->
     boolean().
 
--callback user_key(Algorithm      :: algorithm(),
-		   ConnectOptions :: proplists:proplist()) ->
-    {ok,  PrivateKey::public_key:private_key()} | {error, term()}.
+-callback user_key(Algorithm :: ssh:pubkey_alg(),
+                   Options :: client_key_cb_options()
+                  ) ->
+    {ok,  PrivateKey :: public_key:private_key()} | {error, string()}.
 
 
--callback add_host_key(Host :: string(), PublicKey :: public_key:public_key(),
-		       Options :: proplists:proplist()) ->
+-callback add_host_key(Host :: string(),
+                       PublicKey :: public_key:public_key(),
+                       Options :: client_key_cb_options()
+                      ) ->
     ok | {error, Error::term()}.

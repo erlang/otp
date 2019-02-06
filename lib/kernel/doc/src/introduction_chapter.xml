@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2017</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Scope</title>
+    <p>The Kernel application has all the code necessary to run
+      the Erlang runtime system: file servers, code servers,
+      and so on.</p>
+    <p>The Kernel application is the first application started. It is
+      mandatory in the sense that the minimal system based on
+      Erlang/OTP consists of Kernel and STDLIB. Kernel
+      contains the following functional areas:</p>
+    <list type="bulleted">
+      <item>Start, stop, supervision, configuration, and distribution of applications</item>
+      <item>Code loading</item>
+      <item>Logging</item>
+      <item>Global name service</item>
+      <item>Supervision of Erlang/OTP</item>
+      <item>Communication with sockets</item>
+      <item>Operating system interface</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang programming
+      language.</p> 
+  </section>
+</chapter>
+
+

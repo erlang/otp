@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
-%%%
 %%%
 %%% - apply temp -> reg/spill map from RA
 
@@ -25,23 +18,36 @@
 -define(HIPE_X86_RA_FINALISE,	hipe_amd64_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_amd64_registers).
 -define(HIPE_X86_X87,		hipe_amd64_x87).
+-define(HIPE_X86_SSE2,		hipe_amd64_sse2).
+-define(IF_HAS_SSE2(Expr),	Expr).
 -else.
 -define(HIPE_X86_RA_FINALISE,	hipe_x86_ra_finalise).
 -define(HIPE_X86_REGISTERS,	hipe_x86_registers).
 -define(HIPE_X86_X87,		hipe_x86_x87).
+-define(IF_HAS_SSE2(Expr),).
 -endif.
 
 -module(?HIPE_X86_RA_FINALISE).
 -export([finalise/4]).
 -include("../x86/hipe_x86.hrl").
 
-finalise(Defun, TempMap, FpMap, Options) ->
-  Defun1 = finalise_ra(Defun, TempMap, FpMap, Options),
+finalise(CFG0, TempMap, FpMap, Options) ->
+  CFG1 = finalise_ra(CFG0, TempMap, FpMap, Options),
   case proplists:get_bool(x87, Options) of
     true ->
-      ?HIPE_X86_X87:map(Defun1);
+      ?HIPE_X86_X87:map(CFG1);
     _ ->
-      Defun1
+      case
+	proplists:get_bool(inline_fp, Options)
+	and (proplists:get_value(regalloc, Options) =:= linear_scan)
+      of
+	%% Ugly, but required to avoid Dialyzer complaints about "Unknown
+	%% function" hipe_x86_sse2:map/1
+	?IF_HAS_SSE2(true ->
+			?HIPE_X86_SSE2:map(CFG1);)
+	false ->
+	  CFG1
+      end
   end.
 
 %%%
@@ -50,15 +56,16 @@ finalise(Defun, TempMap, FpMap, Options) ->
 %%% but I just want this to work now)
 %%%
 
-finalise_ra(Defun, [], [], _Options) ->
-  Defun;
-finalise_ra(Defun, TempMap, FpMap, Options) ->
-  Code = hipe_x86:defun_code(Defun),
-  {_, SpillLimit} = hipe_x86:defun_var_range(Defun),
+finalise_ra(CFG, [], [], _Options) ->
+  CFG;
+finalise_ra(CFG, TempMap, FpMap, Options) ->
+  {_, SpillLimit} = hipe_gensym:var_range(x86),
   Map = mk_ra_map(TempMap, SpillLimit),
   FpMap0 = mk_ra_map_fp(FpMap, SpillLimit, Options),
-  NewCode = ra_code(Code, Map, FpMap0),
-  Defun#defun{code=NewCode}.
+  hipe_x86_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FpMap0) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap)).
 
 ra_code(Code, Map, FpMap) ->
   [ra_insn(I, Map, FpMap) || I <- Code].
@@ -133,6 +140,16 @@ ra_insn(I, Map, FpMap) ->
       I#pseudo_call{'fun'=Fun};
     #pseudo_jcc{} ->
       I;
+    #pseudo_spill_fmove{src=Src0, temp=Temp0, dst=Dst0} ->
+      Src = ra_opnd(Src0, Map, FpMap),
+      Temp = ra_opnd(Temp0, Map, FpMap),
+      Dst = ra_opnd(Dst0, Map, FpMap),
+      I#pseudo_spill_fmove{src=Src, temp=Temp, dst=Dst};
+    #pseudo_spill_move{src=Src0, temp=Temp0, dst=Dst0} ->
+      Src = ra_opnd(Src0, Map),
+      Temp = ra_opnd(Temp0, Map),
+      Dst = ra_opnd(Dst0, Map),
+      I#pseudo_spill_move{src=Src, temp=Temp, dst=Dst};
     #pseudo_tailcall{'fun'=Fun0,stkargs=StkArgs0} ->
       Fun = ra_opnd(Fun0, Map),
       StkArgs = ra_args(StkArgs0, Map),
@@ -148,6 +165,10 @@ ra_insn(I, Map, FpMap) ->
       Src = ra_opnd(Src0, Map),
       Dst = ra_opnd(Dst0, Map),
       I#shift{src=Src,dst=Dst};
+    #test{src=Src0,dst=Dst0} ->
+      Src = ra_opnd(Src0, Map),
+      Dst = ra_opnd(Dst0, Map),
+      I#test{src=Src,dst=Dst};
     _ ->
       exit({?MODULE,ra_insn,I})
   end.
@@ -230,49 +251,27 @@ mk_ra_map(TempMap, SpillLimit) ->
 	      gb_trees:empty(),
 	      TempMap).
 
-conv_ra_maplet(MapLet = {From,To}, SpillLimit, IsPrecoloured) ->
+conv_ra_maplet({From,To}, SpillLimit, IsPrecoloured)
+  when is_integer(From), From =< SpillLimit ->
   %% From should be a pseudo, or a hard reg mapped to itself.
-  if is_integer(From), From =< SpillLimit ->
-      case ?HIPE_X86_REGISTERS:IsPrecoloured(From) of
-	false -> [];
-	_ ->
-	  case To of
-	    {reg, From} -> [];
-	    _ -> exit({?MODULE,conv_ra_maplet,MapLet})
-	  end
-      end;
-     true -> exit({?MODULE,conv_ra_maplet,MapLet})
+  case ?HIPE_X86_REGISTERS:IsPrecoloured(From) of
+    false -> ok;
+    _ -> To = {reg, From}, ok
   end,
   %% end of From check
   case To of
-    {reg, NewReg} ->
+    {reg, NewReg} when is_integer(NewReg) ->
       %% NewReg should be a hard reg, or a pseudo mapped
       %% to itself (formals are handled this way).
-      if is_integer(NewReg) ->
-	  case ?HIPE_X86_REGISTERS:IsPrecoloured(NewReg) of
-	    true -> [];
-	    _ -> if From =:= NewReg -> [];
-		    true ->
-		     exit({?MODULE,conv_ra_maplet,MapLet})
-		 end
-	  end;
-	 true -> exit({?MODULE,conv_ra_maplet,MapLet})
-      end,
-      %% end of NewReg check
+      true = (?HIPE_X86_REGISTERS:IsPrecoloured(NewReg) orelse From =:= NewReg),
       {From, NewReg};
-    {spill, SpillIndex} ->
-      %% SpillIndex should be >= 0.
-      if is_integer(SpillIndex), SpillIndex >= 0 -> [];
-	 true -> exit({?MODULE,conv_ra_maplet,MapLet})
-      end,
-      %% end of SpillIndex check
+    {spill, SpillIndex} when is_integer(SpillIndex), SpillIndex >= 0 ->
       ToTempNum = SpillLimit+SpillIndex+1,
       MaxTempNum = hipe_gensym:get_var(x86),
       if MaxTempNum >= ToTempNum -> ok;
 	 true -> hipe_gensym:set_var(x86, ToTempNum)
       end,
-      {From, ToTempNum};
-    _ -> exit({?MODULE,conv_ra_maplet,MapLet})
+      {From, ToTempNum}
   end.
 
 mk_ra_map_x87(FpMap, SpillLimit) ->

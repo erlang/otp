@@ -65,7 +65,7 @@ dnl ---------------------------------------------------------------------
 dnl Special windows stuff regarding CFLAGS and details in the environment...
 dnl ---------------------------------------------------------------------
 LM_WINDOWS_ENVIRONMENT
-	
+
 AC_PROG_MAKE_SET
 
 AC_CHECK_PROGS(LD, ld.sh)
@@ -136,8 +136,8 @@ AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_addr], [], [],
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
-	
-# ODBC 
+
+# ODBC
 $RM -f "$ERL_TOP/lib/odbc/SKIP"
 
 LM_CHECK_THR_LIB
@@ -146,24 +146,24 @@ AC_SUBST(THR_LIBS)
 
 odbc_lib_link_success=no
 AC_SUBST(TARGET_FLAGS)
-    case $host_os in
-        darwin1[[0-5]].*|darwin[[0-9]].*)
+    case $host_os in	
+       darwin1[[0-9]].*)
                 TARGET_FLAGS="-DUNIX"
 	        if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
-		    ODBC_LIB= -L"/usr/lib"
-		    ODBC_INCLUDE="-I/usr/lib/include"
+		    ODBC_LIB= -L"/usr/local/lib"
+		    ODBC_INCLUDE="-I/usr/local/include"
 		else
 		    ODBC_LIB=-L"$with_odbc/lib"
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
-			    
-               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+
+               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
             ;;
         win32|cygwin)
 		TARGET_FLAGS="-DWIN32"
 		AC_CHECK_LIB(ws2_32, main)
 		if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
-		    ODBC_LIB=""   
+		    ODBC_LIB=""
 		    ODBC_INCLUDE=""
 		else
 		    ODBC_LIB=-L"$with_odbc/lib"
@@ -196,7 +196,7 @@ AC_SUBST(TARGET_FLAGS)
 			      elif test -d "${libdir}/64/."; then
 				  libdir="${libdir}/64"
 			      fi
-			  fi			  
+			  fi
 			  ODBC_LIB="-L$libdir"
 			  ODBC_INCLUDE="-I$erl_xcomp_isysroot$rdir/include"
 			  break
@@ -207,7 +207,7 @@ AC_SUBST(TARGET_FLAGS)
 			    echo "No odbc library found" > "$ERL_TOP/lib/odbc/SKIP"
 			else
 			    AC_MSG_RESULT($ODBC_LIB)
-			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])			 
+			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
 			fi
 			;;
 

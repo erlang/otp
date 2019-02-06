@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -80,7 +80,7 @@
 
     <code type="none">
 /* niftest.c */
-#include "erl_nif.h"
+#include &lt;erl_nif.h&gt;
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -123,7 +123,7 @@ ok
 "Hello world!"</code>
 
     <p>A better solution for a real module is to take advantage of the new
-      directive <c>on load</c> (see section
+      directive <c>on_load</c> (see section
       <seealso marker="doc/reference_manual:code_loading#on_load">Running a
       Function When a Module is Loaded</seealso> in the Erlang Reference
       Manual) to load the NIF library automatically when the module is
@@ -135,27 +135,14 @@ ok
         away by the compiler, causing loading of the NIF library to fail.</p>
     </note>
 
-    <p>A loaded NIF library is tied to the Erlang module code version
-      that loaded it. If the module is upgraded with a new version, the
-      new Erlang code need to load its own NIF library (or maybe choose not
-      to). The new code version can, however, choose to load the
-      same NIF library as the old code if it wants to. Sharing the
-      dynamic library means that static data defined by the library
-      is shared as well. To avoid unintentionally shared static
-      data, each Erlang module code can keep its own private data. This
-      private data can be set when the NIF library is loaded and
-      then retrieved by calling <seealso marker="#enif_priv_data">
-      <c>enif_priv_data</c></seealso>.</p>
-
-    <p>A NIF library cannot be loaded explicitly. A library is
-      automatically unloaded when the module code that it belongs to is purged
-      by the code server.</p>
+    <p>Once loaded, a NIF library is persistent. It will not be unloaded
+      until the module code version that it belongs to is purged.</p>
   </description>
 
   <section>
   <title>Functionality</title>
-    <p>All functions that a NIF library needs to do with Erlang are
-      performed through the NIF API functions. Functions exist
+    <p>All interaction between NIF code and the Erlang runtime system is
+      performed by calling NIF API functions. Functions exist
       for the following functionality:</p>
 
     <taglist>
@@ -207,7 +194,7 @@ ok
         <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
           bit length have no support yet.</p>
       </item>
-      <tag>Resource objects</tag>
+      <tag><marker id="resource_objects"/>Resource objects</tag>
       <item>
         <p>The use of resource objects is a safe way to return pointers to
           native data structures from a NIF. A resource object is
@@ -219,7 +206,7 @@ ok
           <seealso marker="#enif_make_resource">
           <c>enif_make_resource</c></seealso>.
           The term returned by <c>enif_make_resource</c> is opaque in nature.
-          It can be stored and passed between processes on the same node, but
+          It can be stored and passed between processes, but
           the only real end usage is to pass it back as an argument to a NIF.
           The NIF can then call <seealso marker="#enif_get_resource">
           <c>enif_get_resource</c></seealso> and get back a pointer to the
@@ -286,6 +273,19 @@ return term;</code>
           library is postponed as long as there exist resource objects with a
           destructor function in the library.</p>
       </item>
+      <tag>Module upgrade and static data</tag>
+      <item>
+	<p>A loaded NIF library is tied to the Erlang module instance
+	that loaded it. If the module is upgraded, the new module instance
+	needs to load its own NIF library (or maybe choose not to). The new
+	module instance can, however, choose to load the exact same NIF library
+	as the old code if it wants to. Sharing the dynamic library means that
+	static data defined by the library is shared as well. To avoid
+	unintentionally shared static data between module instances, each Erlang
+	module version can keep its own private data. This private data can be
+	set when the NIF library is loaded and later retrieved by calling
+	<seealso marker="#enif_priv_data"><c>enif_priv_data</c></seealso>.</p>
+      </item>
       <tag>Threads and concurrency</tag>
       <item>
         <p>A NIF is thread-safe without any explicit synchronization as
@@ -293,11 +293,11 @@ return term;</code>
           arguments. When you write to a shared state either through
           static variables or <seealso marker="#enif_priv_data">
           <c>enif_priv_data</c></seealso>, you need to supply your own explicit
-          synchronization. This includes terms in process-independent
+          synchronization. This includes terms in process independent
           environments that are shared between threads. Resource objects also
           require synchronization if you treat them as mutable.</p>
-        <p>The library initialization callbacks <c>load</c>, <c>reload</c>, and
-          <c>upgrade</c> are all thread-safe even for shared state data.</p>
+        <p>The library initialization callbacks <c>load</c> and
+          <c>upgrade</c> are thread-safe even for shared state data.</p>
       </item>
       <tag><marker id="version_management"/>Version Management</tag>
       <item>
@@ -343,6 +343,83 @@ return term;</code>
           <item><seealso marker="#enif_convert_time_unit">
             <c>enif_convert_time_unit()</c></seealso></item>
       </list>
+      </item>
+      <tag><marker id="enif_ioq"/>I/O Queues</tag>
+      <item>
+        <p>The Erlang nif library contains function for easily working
+          with I/O vectors as used by the unix system call <c>writev</c>.
+          The I/O Queue is not thread safe, so some other synchronization
+          mechanism has to be used.</p>
+          <list type="bulleted">
+            <item><seealso marker="#SysIOVec">
+            <c>SysIOVec</c></seealso></item>
+            <item><seealso marker="#ErlNifIOVec">
+            <c>ErlNifIOVec</c></seealso></item>
+            <item><seealso marker="#enif_ioq_create">
+            <c>enif_ioq_create()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_destroy">
+            <c>enif_ioq_destroy()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_enq_binary">
+            <c>enif_ioq_enq_binary()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_enqv">
+            <c>enif_ioq_enqv()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_deq">
+            <c>enif_ioq_deq()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_peek">
+            <c>enif_ioq_peek()</c></seealso></item>
+            <item><seealso marker="#enif_ioq_peek_head">
+            <c>enif_ioq_peek_head()</c></seealso></item>
+            <item><seealso marker="#enif_inspect_iovec">
+            <c>enif_inspect_iovec()</c></seealso></item>
+            <item><seealso marker="#enif_free_iovec">
+            <c>enif_free_iovec()</c></seealso></item>
+          </list>
+        <p>Typical usage when writing to a file descriptor looks like this:</p>
+          <code type="none"><![CDATA[
+int writeiovec(ErlNifEnv *env, ERL_NIF_TERM term, ERL_NIF_TERM *tail,
+               ErlNifIOQueue *q, int fd) {
+
+    ErlNifIOVec vec, *iovec = &vec;
+    SysIOVec *sysiovec;
+    int saved_errno;
+    int iovcnt, n;
+
+    if (!enif_inspect_iovec(env, 64, term, tail, &iovec))
+        return -2;
+
+    if (enif_ioq_size(q) > 0) {
+        /* If the I/O queue contains data we enqueue the iovec and
+           then peek the data to write out of the queue. */
+        if (!enif_ioq_enqv(q, iovec, 0))
+            return -3;
+
+        sysiovec = enif_ioq_peek(q, &iovcnt);
+    } else {
+        /* If the I/O queue is empty we skip the trip through it. */
+        iovcnt = iovec->iovcnt;
+        sysiovec = iovec->iov;
+    }
+
+    /* Attempt to write the data */
+    n = writev(fd, sysiovec, iovcnt);
+    saved_errno = errno;
+
+    if (enif_ioq_size(q) == 0) {
+        /* If the I/O queue was initially empty we enqueue any
+           remaining data into the queue for writing later. */
+        if (n >= 0 && !enif_ioq_enqv(q, iovec, n))
+            return -3;
+    } else {
+        /* Dequeue any data that was written from the queue. */
+        if (n > 0 && !enif_ioq_deq(q, n, NULL))
+            return -4;
+    }
+
+    /* return n, which is either number of bytes written or -1 if
+       some error happened */
+    errno = saved_errno;
+    return n;
+}]]></code>
       </item>
       <tag><marker id="lengthy_work"/>Long-running NIFs</tag>
       <item>
@@ -402,14 +479,14 @@ return term;</code>
           <tag><marker id="dirty_nifs"/>Dirty NIF</tag>
           <item>
             <note>
-              <p><em>The dirty NIF functionality described here
-                is experimental</em>. Dirty NIF support is available only when
-                the emulator is configured with dirty schedulers enabled. This
-                feature is disabled by default. The Erlang runtime
-                without SMP support does not support dirty schedulers even when
-                the dirty scheduler support is enabled. To check at runtime for
-                the presence of dirty scheduler threads, code can use the
-                <seealso marker="#enif_system_info">
+              <p>Dirty NIF support is available only when the emulator is
+	        configured with dirty scheduler support. As of ERTS version
+		9.0, dirty scheduler support is enabled by default on the
+		runtime system with SMP support. The Erlang runtime without
+		SMP support does <em>not</em> support dirty schedulers even
+		when the dirty scheduler support is explicitly enabled. To
+		check at runtime for the presence of dirty scheduler threads,
+		code can use the <seealso marker="#enif_system_info">
                 <c>enif_system_info()</c></seealso> API function.</p>
             </note>
             <p>A NIF that cannot be split and cannot execute in a millisecond
@@ -463,7 +540,7 @@ return term;</code>
               have to wait for a very long time. Blocking multi-scheduling, that
               is, calling <seealso marker="erlang#system_flag_multi_scheduling">
               <c>erlang:system_flag(multi_scheduling, block)</c></seealso>, can
-              also take a very long time to complete. This becaue all ongoing
+              also take a very long time to complete. This is because all ongoing
               dirty operations on all dirty schedulers must complete before
               the block operation can complete.</p>
             <p>Many operations communicating with a process executing a
@@ -498,7 +575,7 @@ return term;</code>
     <title>Initialization</title>
     <taglist>
       <tag><marker id="ERL_NIF_INIT"/><c>ERL_NIF_INIT(MODULE,
-        ErlNifFunc funcs[], load, reload, upgrade, unload)</c></tag>
+        ErlNifFunc funcs[], load, NULL, upgrade, unload)</c></tag>
       <item>
         <p>This is the magic macro to initialize a NIF library. It
           is to be evaluated in global file scope.</p>
@@ -507,22 +584,25 @@ return term;</code>
           the macro.</p>
         <p><c>funcs</c> is a static array of function descriptors for
           all the implemented NIFs in this library.</p>
-        <p><c>load</c>, <c>reload</c>, <c>upgrade</c> and <c>unload</c>
-          are pointers to functions. One of <c>load</c>, <c>reload</c>, or
+        <p><c>load</c>, <c>upgrade</c> and <c>unload</c>
+          are pointers to functions. One of <c>load</c> or
           <c>upgrade</c> is called to initialize the library.
           <c>unload</c> is called to release the library. All are
           described individually below.</p>
+       <p>The fourth argument <c>NULL</c> is ignored. It
+          was earlier used for the deprecated <c>reload</c> callback
+          which is no longer supported since OTP 20.</p>
         <p>If compiling a NIF for static inclusion through
           <c>--enable-static-nifs</c>, you must define <c>STATIC_ERLANG_NIF</c>
            before the <c>ERL_NIF_INIT</c> declaration.</p>
       </item>
-      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* env, void** priv_data,
+      <tag><marker id="load"/><c>int (*load)(ErlNifEnv* caller_env, void** priv_data,
         ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>load</c> is called when the NIF library is loaded
           and no previously loaded library exists for this module.</p>
         <p><c>*priv_data</c> can be set to point to some private data
-          that the library needs to keep a state between NIF
+          if the library needs to keep a state between NIF
           calls. <c>enif_priv_data</c> returns this pointer.
           <c>*priv_data</c> is initialized to <c>NULL</c> when <c>load</c> is
           called.</p> 
@@ -532,46 +612,26 @@ return term;</code>
           anything other than <c>0</c>. <c>load</c> can be <c>NULL</c> if
           initialization is not needed.</p> 
       </item>
-      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* env, void**
+      <tag><marker id="upgrade"/><c>int (*upgrade)(ErlNifEnv* caller_env, void**
         priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</c></tag>
       <item>
         <p><c>upgrade</c> is called when the NIF library is loaded
           and there is old code of this module with a loaded NIF library.</p>
         <p>Works as <c>load</c>, except that <c>*old_priv_data</c> already
           contains the value set by the last call to <c>load</c> or
-          <c>reload</c> for the old module code. <c>*priv_data</c> is
+          <c>upgrade</c> for the old module code. <c>*priv_data</c> is
           initialized to <c>NULL</c> when <c>upgrade</c> is called. It is
           allowed to write to both <c>*priv_data</c> and
           <c>*old_priv_data.</c></p> 
         <p>The library fails to load if <c>upgrade</c> returns
            anything other than <c>0</c> or if <c>upgrade</c> is <c>NULL</c>.</p>
       </item>
-      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* env, void*
+      <tag><marker id="unload"/><c>void (*unload)(ErlNifEnv* caller_env, void*
         priv_data)</c></tag>
       <item>
         <p><c>unload</c> is called when the module code that
           the NIF library belongs to is purged as old. New code of the same
-          module may or may not exist. Notice that <c>unload</c> is not
-          called for a replaced library as a consequence of <c>reload</c>.</p>
-      </item>
-      <tag><marker id="reload"/><c>int (*reload)(ErlNifEnv* env, void**
-        priv_data, ERL_NIF_TERM load_info)</c></tag>
-      <item>
-        <note>
-          <p><em>The reload mechanism is deprecated.</em> It was only intended
-            as a development feature. Do not use it as an upgrade method for
-            live production systems. It can be removed in future releases.
-            Ensure to pass <c>reload</c> as <c>NULL</c> to
-            <seealso marker="#ERL_NIF_INIT"><c>ERL_NIF_INIT</c></seealso>
-            to disable it when not used.</p>
-        </note>
-        <p><c>reload</c> is called when the NIF library is loaded and a
-          previously loaded library already exists for this module code.</p>
-        <p>Works as <c>load</c>, except that
-          <c>*priv_data</c> already contains the value set by the
-          previous call to <c>load</c> or <c>reload</c>.</p>
-        <p>The library fails to load if <c>reload</c> returns
-          anything other than <c>0</c> or if <c>reload</c> is <c>NULL</c>.</p> 
+          module may or may not exist.</p>
       </item>
     </taglist>
   </section>
@@ -594,27 +654,41 @@ return term;</code>
         <p><c>ErlNifEnv</c> represents an environment that can host Erlang
           terms. All terms in an environment are valid as long as the
           environment is valid. <c>ErlNifEnv</c> is an opaque type; pointers to
-          it can only be passed on to API functions. Two types of environments
+          it can only be passed on to API functions. Three types of environments
           exist:</p>
         <taglist>
-          <tag>Process-bound environment</tag>
+          <tag>Process bound environment</tag>
           <item>
             <p>Passed as the first argument to all NIFs. All function arguments
               passed to a NIF belong to that environment. The return value from
               a NIF must also be a term belonging to the same environment.</p>
-            <p>A process-bound environment contains transient information
+            <p>A process bound environment contains transient information
               about the calling Erlang process. The environment is only valid
               in the thread where it was supplied as argument until the NIF
               returns. It is thus useless and dangerous to store pointers to
-              process-bound environments between NIF calls.</p>
+              process bound environments between NIF calls.</p>
           </item>
-          <tag>Process-independent environment</tag>
+	  <tag>Callback environment</tag>
+          <item>
+            <p>Passed as the first argument to all the non-NIF callback functions
+	    (<seealso marker="#load"><c>load</c></seealso>,
+	    <seealso marker="#upgrade"><c>upgrade</c></seealso>,
+	    <seealso marker="#unload"><c>unload</c></seealso>,
+	    <seealso marker="#ErlNifResourceDtor"><c>dtor</c></seealso>,
+	    <seealso marker="#ErlNifResourceDown"><c>down</c></seealso> and
+	    <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso>).
+	    Works like a process bound environment but with a temporary
+	    pseudo process that "terminates" when the callback has
+	    returned. Terms may be created in this environment but they will
+	    only be accessible during the callback.</p>
+          </item>
+          <tag>Process independent environment</tag>
           <item>
             <p>Created by calling <seealso marker="#enif_alloc_env">
               <c>enif_alloc_env</c></seealso>. This environment can be
               used to store terms between NIF calls and to send terms with
               <seealso marker="#enif_send"><c>enif_send</c></seealso>. A
-              process-independent environment with all its terms is valid until
+              process independent environment with all its terms is valid until
               you explicitly invalidate it with
               <seealso marker="#enif_free_env"><c>enif_free_env</c></seealso>
               or <c>enif_send</c>.</p>
@@ -659,9 +733,6 @@ typedef struct {
             <p><c>flags</c> can be used to indicate that the NIF is a
               <seealso marker="#dirty_nifs">dirty NIF</seealso> that is to be
               executed on a dirty scheduler thread.</p>
-            <p><em>The dirty NIF functionality described here is
-              experimental.</em> You have to enable support for dirty
-              schedulers when building OTP to try out the functionality.</p>
             <p>If the dirty NIF is expected to be CPU-bound, its <c>flags</c>
               field is to be set to <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c> or
               <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c>.</p>
@@ -695,6 +766,18 @@ typedef struct {
         <p>When receiving data from untrusted sources, use option
           <c>ERL_NIF_BIN2TERM_SAFE</c>.</p>
       </item>
+      <tag><marker id="ErlNifMonitor"/><c>ErlNifMonitor</c></tag>
+      <item>
+        <p>This is an opaque data type that identifies a monitor.</p>
+        <p>The nif writer is to provide the memory for storing the
+          monitor when calling <seealso marker="#enif_monitor_process">
+          <c>enif_monitor_process</c></seealso>. The
+          address of the data is not stored by the runtime system, so
+          <c>ErlNifMonitor</c> can be used as any other data, it
+          can be copied, moved in memory, forgotten, and so on.
+	  To compare two monitors, <seealso marker="#enif_compare_monitors">
+          <c>enif_compare_monitors</c></seealso> must be used.</p>
+      </item>
       <tag><marker id="ErlNifPid"/><c>ErlNifPid</c></tag>
       <item>
         <p>A process identifier (pid). In contrast to pid terms (instances of
@@ -716,11 +799,47 @@ typedef struct {
           Each resource type has a unique name and a destructor function that
           is called when objects of its type are released.</p>
       </item>
+      <tag><marker id="ErlNifResourceTypeInit"/><c>ErlNifResourceTypeInit</c></tag>
+      <item>
+        <code type="none">
+typedef struct {
+    ErlNifResourceDtor* dtor;
+    ErlNifResourceStop* stop;
+    ErlNifResourceDown* down;
+} ErlNifResourceTypeInit;</code>
+        <p>Initialization structure read by <seealso marker="#enif_open_resource_type_x">
+	enif_open_resource_type_x</seealso>.</p>
+      </item>
       <tag><marker id="ErlNifResourceDtor"/><c>ErlNifResourceDtor</c></tag>
       <item>
         <code type="none">
-typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);</code>
+typedef void ErlNifResourceDtor(ErlNifEnv* caller_env, void* obj);</code>
         <p>The function prototype of a resource destructor function.</p>
+	<p>The <c>obj</c> argument is a pointer to the resource. The only
+	allowed use for the resource in the destructor is to access its
+	user data one final time. The destructor is guaranteed to be the
+	last callback before the resource is deallocated.</p>
+      </item>
+      <tag><marker id="ErlNifResourceDown"/><c>ErlNifResourceDown</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceDown(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, ErlNifMonitor* mon);</code>
+        <p>The function prototype of a resource down function,
+	  called on the behalf of <seealso marker="#enif_monitor_process">
+	  enif_monitor_process</seealso>. <c>obj</c> is the resource, <c>pid</c>
+	  is the identity of the monitored process that is exiting, and <c>mon</c>
+	  is the identity of the monitor.
+	</p>
+      </item>
+      <tag><marker id="ErlNifResourceStop"/><c>ErlNifResourceStop</c></tag>
+      <item>
+        <code type="none">
+typedef void ErlNifResourceStop(ErlNifEnv* caller_env, void* obj, ErlNifEvent event, int is_direct_call);</code>
+        <p>The function prototype of a resource stop function,
+	  called on the behalf of <seealso marker="#enif_select">
+	  enif_select</seealso>. <c>obj</c> is the resource, <c>event</c> is OS event,
+	  <c>is_direct_call</c> is true if the call is made directly from <c>enif_select</c>
+	  or false if it is a scheduled call (potentially from another thread).</p>
       </item>
       <tag><marker id="ErlNifCharEncoding"/><c>ErlNifCharEncoding</c></tag>
       <item>
@@ -770,7 +889,7 @@ typedef enum {
       <item>
         <p>An enumeration of the properties that can be requested from
           <seealso marker="#enif_make_unique_integer">
-          <c>enif_unique_integer</c></seealso>.
+          <c>enif_make_unique_integer</c></seealso>.
           For default properties, use value <c>0</c>.</p>
         <taglist>
           <tag><c>ERL_NIF_UNIQUE_POSITIVE</c></tag>
@@ -786,6 +905,59 @@ typedef enum {
           </item>
         </taglist>
       </item>
+      <tag><marker id="ErlNifHash"/><c>ErlNifHash</c></tag>
+      <item>
+        <p>An enumeration of the supported hash types that can be generated
+          using <seealso marker="#enif_hash"><c>enif_hash</c></seealso>.
+        </p>
+        <taglist>
+          <tag><c>ERL_NIF_INTERNAL_HASH</c></tag>
+          <item>
+            <p>Non-portable hash function that only guarantees the same hash
+              for the same term within one Erlang VM instance.</p>
+            <p>It takes 32-bit salt values and generates hashes within <c>0..2^32-1</c>.</p>
+          </item>
+          <tag><c>ERL_NIF_PHASH2</c></tag>
+          <item>
+            <p>Portable hash function that gives the same hash for the
+              same Erlang term regardless of machine architecture and ERTS version.</p>
+            <p><em>It ignores salt values</em> and generates hashes within <c>0..2^27-1</c>.</p>
+            <p>Slower than <c>ERL_NIF_INTERNAL_HASH.</c>
+              It corresponds to <seealso marker="erlang#phash2-1"><c>erlang:phash2/1</c></seealso>.
+            </p>
+          </item>
+        </taglist>
+      </item>
+      <tag><marker id="SysIOVec"/><c>SysIOVec</c></tag>
+      <item>
+        <p>A system I/O vector, as used by <c>writev</c> on
+          Unix and <c>WSASend</c> on Win32. It is used in
+          <c>ErlNifIOVec</c> and by
+          <seealso marker="#enif_ioq_peek"><c>enif_ioq_peek</c></seealso>.</p>
+      </item>
+      <tag><marker id="ErlNifIOVec"/><c>ErlNifIOVec</c></tag>
+      <item>
+        <code type="none">
+typedef struct {
+  int iovcnt;
+  size_t size;
+  SysIOVec* iov;
+} ErlNifIOVec;</code>
+        <p>An I/O vector containing <c>iovcnt</c> <c>SysIOVec</c>s
+          pointing to the data. It is used by
+          <seealso marker="#enif_inspect_iovec">
+            <c>enif_inspect_iovec</c></seealso> and
+          <seealso marker="#enif_ioq_enqv">
+            <c>enif_ioq_enqv</c></seealso>.</p>
+      </item>
+      <tag><marker id="ErlNifIOQueueOpts"/><c>ErlNifIOQueueOpts</c></tag>
+      <item>
+        Options to configure a <c>ErlNifIOQueue</c>.
+        <taglist>
+          <tag>ERL_NIF_IOQ_NORMAL</tag>
+          <item><p>Create a normal I/O Queue</p></item>
+        </taglist>
+      </item>
     </taglist>
   </section>
 
@@ -796,6 +968,8 @@ typedef enum {
       <desc>
         <p>Allocates memory of <c>size</c> bytes.</p>
         <p>Returns <c>NULL</c> if the allocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
@@ -814,6 +988,10 @@ typedef enum {
           <seealso marker="#enif_make_binary"><c>enif_make_binary</c></seealso>.
           An allocated (and owned) <c>ErlNifBinary</c> can be kept between NIF
           calls.</p>
+        <p>If you do not need to reallocate or keep the data alive across NIF
+          calls, consider using <seealso marker="#enif_make_new_binary">
+          <c>enif_make_new_binary</c></seealso> instead as it will allocate
+          small binaries on the process heap when possible.</p>
         <p>Returns <c>true</c> on success, or <c>false</c> if allocation
           fails.</p>
       </desc>
@@ -823,7 +1001,7 @@ typedef enum {
       <name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment.</fsummary>
       <desc>
-        <p>Allocates a new process-independent environment. The environment can
+        <p>Allocates a new process independent environment. The environment can
           be used to hold terms that are not bound to any process. Such terms
           can later be copied to a process environment with
           <seealso marker="#enif_make_copy"><c>enif_make_copy</c></seealso> or
@@ -895,6 +1073,21 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_compare_monitors(const ErlNifMonitor
+        *monitor1, const ErlNifMonitor *monitor2)</nametext></name>
+      <fsummary>Compare two monitors.</fsummary>
+      <desc>
+        <marker id="enif_compare_monitors"></marker>
+        <p>Compares two <seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>s.
+          Can also be used to imply some artificial order on monitors,
+          for whatever reason.</p>
+        <p>Returns <c>0</c> if <c>monitor1</c> and <c>monitor2</c> are equal,
+          &lt; <c>0</c> if <c>monitor1</c> &lt; <c>monitor2</c>, and
+          &gt; <c>0</c> if <c>monitor1</c> &gt; <c>monitor2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>void</ret>
         <nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
       <fsummary></fsummary>
@@ -921,6 +1114,16 @@ typedef enum {
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_cond_destroy">
           <c>erl_drv_cond_destroy</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_cond_name(ErlNifCond* cnd)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_cond_name">
+          <c>erl_drv_cond_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1022,6 +1225,33 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_demonitor_process(ErlNifEnv* caller_env, void* obj,
+      const ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Cancel a process monitor.</fsummary>
+      <desc>
+        <marker id="enif_demonitor_process"></marker>
+        <p>Cancels a monitor created earlier with <seealso marker="#enif_monitor_process">
+	<c>enif_monitor_process</c></seealso>. Argument <c>obj</c> is a pointer
+	to the resource holding the monitor and	<c>*mon</c> identifies the
+	monitor.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
+        <p>Returns <c>0</c> if the monitor was successfully identified and removed.
+	Returns	a non-zero value if the monitor could not be identified, which means
+	it was either</p>
+	<list type="bulleted">
+          <item>never created for this resource</item>
+          <item>already cancelled</item>
+          <item>already triggered</item>
+          <item>just about to be triggered by a concurrent thread</item>
+        </list>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>int</ret>
         <nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext>
       </name>
@@ -1029,6 +1259,19 @@ typedef enum {
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">
           <c>erl_drv_equal_tids</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_fprintf(FILE *stream, const char *format, ...)</nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Similar to <c>fprintf</c> but this format string also accepts
+        <c>"%T"</c>, which formats Erlang terms of type
+	<seealso marker="#ERL_NIF_TERM"><c>ERL_NIF_TERM</c></seealso>.</p>
+	<p>This function is primarily intended for debugging purpose. It is not
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
@@ -1049,6 +1292,31 @@ typedef enum {
         <p>Frees an environment allocated with
           <seealso marker="#enif_alloc_env"><c>enif_alloc_env</c></seealso>.
           All terms created in the environment are freed as well.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret>
+        <nametext>enif_free_iovec(ErlNifIOvec* iov)</nametext></name>
+      <fsummary>Free an ErlIOVec</fsummary>
+      <desc>
+        <p>Frees an io vector returned from
+          <seealso marker="#enif_inspect_iovec">
+            <c>enif_inspect_iovec</c></seealso>.
+          This is needed only if a <c>NULL</c> environment is passed to
+          <seealso marker="#enif_inspect_iovec">
+          <c>enif_inspect_iovec</c></seealso>.</p>
+          <code type="none"><![CDATA[
+ErlNifIOVec *iovec = NULL;
+size_t max_elements = 128;
+ERL_NIF_TERM tail;
+if (!enif_inspect_iovec(NULL, max_elements, term, &tail, &iovec))
+  return 0;
+
+// Do things with the iovec
+
+/* Free the iovector, possibly in another thread or nif function call */
+enif_free_iovec(iovec);]]></code>
       </desc>
     </func>
 
@@ -1306,17 +1574,29 @@ typedef enum {
         <p>Returns <c>true</c> if a pending exception is associated with the
           environment <c>env</c>. If <c>reason</c> is a <c>NULL</c> pointer,
           ignore it. Otherwise, if a pending exception associated with
-          <c>env</c> exists, set <c>ERL_NIF_TERM</c> to which <c>reason</c>
-          points to the value of the exception's term. For example, if
-          <seealso marker="#enif_make_badarg">
+          <c>env</c> exists, set <c>*reason</c> to the value of the exception
+	  term. For example, if <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso> is called to set a pending
           <c>badarg</c> exception, a later call to
           <c>enif_has_pending_exception(env, &amp;reason)</c> sets
-          <c>reason</c> to the atom <c>badarg</c>, then return <c>true</c>.</p>
+          <c>*reason</c> to the atom <c>badarg</c>, then return <c>true</c>.</p>
         <p>See also <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso> and
           <seealso marker="#enif_raise_exception">
           <c>enif_raise_exception</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>
+        <ret>ErlNifUInt64</ret>
+        <nametext>enif_hash(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt)</nametext>
+      </name>
+      <fsummary>Hash terms.</fsummary>
+      <desc>
+        <p>Hashes <c>term</c> according to the specified
+          <seealso marker="#ErlNifHash"><c>ErlNifHash</c></seealso> <c>type</c>.</p>
+        <p>Ranges of taken salt (if any) and returned value depend on the hash type.</p>
       </desc>
     </func>
 
@@ -1344,6 +1624,141 @@ typedef enum {
         <p>Returns <c>true</c> on success, or <c>false</c> if <c>iolist</c> is
           not an iolist.</p>
       </desc> 
+    </func>
+
+    <func>
+      <name><ret>int</ret><nametext>enif_inspect_iovec(ErlNifEnv*
+        env, size_t max_elements, ERL_NIF_TERM iovec_term, ERL_NIF_TERM* tail,
+        ErlNifIOVec** iovec)</nametext></name>
+      <fsummary>Inspect a list of binaries as an ErlNifIOVec.</fsummary>
+      <desc>
+        <p>Fills <c>iovec</c> with the list of binaries provided in
+           <c>iovec_term</c>. The number of elements handled in the call is
+           limited to <c>max_elements</c>, and <c>tail</c> is set to the
+           remainder of the list. Note that the output may be longer than
+           <c>max_elements</c> on some platforms.
+        </p>
+        <p>To create a list of binaries from an arbitrary iolist, use
+           <seealso marker="erts:erlang#iolist_to_iovec/1">
+           <c>erlang:iolist_to_iovec/1</c></seealso>.</p>
+        <p>When calling this function, <c>iovec</c> should contain a pointer to
+           <c>NULL</c> or a ErlNifIOVec structure that should be used if
+           possible. e.g.
+        </p>
+        <code type="none">
+/* Don't use a pre-allocated structure */
+ErlNifIOVec *iovec = NULL;
+enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
+
+/* Use a stack-allocated vector as an optimization for vectors with few elements */
+ErlNifIOVec vec, *iovec = &amp;vec;
+enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
+</code>
+        <p>The contents of the <c>iovec</c> is valid until the called nif
+           function returns. If the <c>iovec</c> should be valid after the nif
+           call returns, it is possible to call this function with a
+           <c>NULL</c> environment. If no environment is given the <c>iovec</c>
+           owns the data in the vector and it has to be explicitly freed using
+           <seealso marker="#enif_free_iovec"><c>enif_free_iovec</c>
+           </seealso>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>iovec_term</c>
+           not an iovec.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlNifIOQueue *</ret>
+      <nametext>enif_ioq_create(ErlNifIOQueueOpts opts)</nametext></name>
+      <fsummary>Create a new IO Queue</fsummary>
+      <desc>
+        <p>Create a new I/O Queue that can be used to store data.
+          <c>opts</c> has to be set to <c>ERL_NIF_IOQ_NORMAL</c>.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void</ret>
+      <nametext>enif_ioq_destroy(ErlNifIOQueue *q)</nametext></name>
+      <fsummary>Destroy an IO Queue and free it's content</fsummary>
+      <desc>
+        <p>Destroy the I/O queue and free all of it's contents</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_deq(ErlNifIOQueue *q, size_t count, size_t *size)</nametext></name>
+      <fsummary>Dequeue count bytes from the IO Queue</fsummary>
+      <desc>
+        <p>Dequeue <c>count</c> bytes from the I/O queue.
+          If <c>size</c> is not <c>NULL</c>, the new size of the queue
+          is placed there.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if the I/O does
+          not contain <c>count</c> bytes. On failure the queue is left un-altered.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip)</nametext></name>
+      <fsummary>Enqueue the binary into the IO Queue</fsummary>
+      <desc>
+        <p>Enqueue the <c>bin</c> into <c>q</c> skipping the first <c>skip</c> bytes.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>skip</c> is greater
+        than the size of <c>bin</c>. Any ownership of the binary data is transferred
+        to the queue and <c>bin</c> is to be considered read-only for the rest of the NIF
+        call and then as released.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iovec, size_t skip)</nametext></name>
+      <fsummary>Enqueue the iovec into the IO Queue</fsummary>
+      <desc>
+        <p>Enqueue the <c>iovec</c> into <c>q</c> skipping the first <c>skip</c> bytes.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if <c>skip</c> is greater
+        than the size of <c>iovec</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>SysIOVec *</ret>
+      <nametext>enif_ioq_peek(ErlNifIOQueue *q, int *iovlen)</nametext></name>
+      <fsummary>Peek inside the IO Queue</fsummary>
+      <desc>
+        <p>Get the I/O queue as a pointer to an array of <c>SysIOVec</c>s.
+           It also returns the number of elements in <c>iovlen</c>.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+          with <seealso marker="#enif_ioq_deq"><c>enif_ioq_deq</c></seealso>.</p>
+         <p>The returned array is suitable to use with the Unix system
+          call <c>writev</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_ioq_peek_head(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *bin_term)</nametext></name>
+      <fsummary>Peek the head of the IO Queue.</fsummary>
+      <desc>
+        <p>Get the head of the IO Queue as a binary term.</p>
+        <p>If <c>size</c> is not <c>NULL</c>, the size of the head is placed
+           there.</p>
+        <p>Nothing is removed from the queue by this function, that must be done
+           with <seealso marker="#enif_ioq_deq"><c>enif_ioq_deq</c></seealso>.</p>
+        <p>Returns <c>true</c> on success, or <c>false</c> if the queue is
+           empty.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>size_t</ret>
+      <nametext>enif_ioq_size(ErlNifIOQueue *q)</nametext></name>
+      <fsummary>Get the current size of the IO Queue</fsummary>
+      <desc>
+        <p>Get the size of <c>q</c>.</p>
+      </desc>
     </func>
 
     <func>
@@ -1788,6 +2203,20 @@ typedef enum {
     </func>
 
     <func>
+      <name><ret>int</ret>
+        <nametext>enif_make_map_from_arrays(ErlNifEnv* env, ERL_NIF_TERM keys[],
+        ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out)</nametext></name>
+      <fsummary>Make map term from the given keys and values.</fsummary>
+      <desc>
+        <p>Makes a map term from the given keys and values.</p>
+        <p>If successful, this function sets <c>*map_out</c> to the new map and
+          returns <c>true</c>. Returns <c>false</c> there are any duplicate
+          keys.</p>
+        <p>All keys and values must belong to <c>env</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
@@ -1850,10 +2279,33 @@ typedef enum {
           details, see the <seealso marker="#enif_resource_example">example of
           creating and returning a resource object</seealso> in the User's
           Guide.</p>
-        <p>Notice that the only defined behavior of using a resource term in
-          an Erlang program is to store it and send it between processes on the
-          same node. Other operations, such as matching or
-          <c>term_to_binary</c>, have unpredictable (but harmless) results.</p>
+	<note>
+	  <p>Since ERTS 9.0 (OTP-20.0), resource terms have a defined behavior
+	  when compared and serialized through <c>term_to_binary</c> or passed
+	  between nodes.</p>
+	  <list type="bulleted">
+	    <item>
+	      <p>Two resource terms will compare equal if and only if they
+	      would yield the same resource object pointer when passed to
+	      <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>.</p>
+	    </item>
+	    <item>
+	      <p>A resource term can be serialized with <c>term_to_binary</c> and later
+	      be fully recreated if the resource object is still alive when
+	      <c>binary_to_term</c> is called. A <em>stale</em> resource term will be
+	      returned from <c>binary_to_term</c> if the resource object has
+	      been deallocated. <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>
+	      will return false for stale resource terms.</p>
+	      <p>The same principles of serialization apply when passing
+	      resource terms in messages to remote nodes and back again. A
+	      resource term will act stale on all nodes except the node where
+	      its resource object is still alive in memory.</p>
+	    </item>
+	  </list>
+	  <p>Before ERTS 9.0 (OTP-20.0), all resource terms did
+	  compare equal to each other and to empty binaries (<c>&lt;&lt;&gt;&gt;</c>).
+	  If serialized, they would be recreated as plain empty binaries.</p>
+	</note>
       </desc>
     </func>
 
@@ -2137,6 +2589,38 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>int</ret><nametext>enif_monitor_process(ErlNifEnv* caller_env, void* obj,
+      const ErlNifPid* target_pid, ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Monitor a process from a resource.</fsummary>
+      <desc>
+        <marker id="enif_monitor_process"></marker>
+        <p>Starts monitoring a process from a resource. When a process is
+          monitored, a process exit results in a call to the provided
+          <seealso marker="#ErlNifResourceDown">
+          <c>down</c></seealso> callback associated with the resource type.</p>
+	<p>Argument <c>obj</c> is pointer to the resource to hold the monitor and
+	<c>*target_pid</c> identifies the local process to be monitored.</p>
+	<p>If <c>mon</c> is not <c>NULL</c>, a successful call stores the
+	identity of the monitor	in the
+	<seealso marker="#ErlNifMonitor"><c>ErlNifMonitor</c></seealso>
+	struct pointed to by <c>mon</c>. This identifier is used to refer to the
+	monitor for later removal with
+	<seealso marker="#enif_demonitor_process"><c>enif_demonitor_process</c></seealso>
+	or compare with
+	<seealso marker="#enif_compare_monitors"><c>enif_compare_monitors</c></seealso>.
+	A monitor is automatically removed when it triggers or when
+	the resource is deallocated.</p>
+	<p>Argument <c>caller_env</c> is the environment of the calling process
+	or callback. Must only be NULL if calling from a custom thread.</p>
+        <p>Returns <c>0</c> on success, &lt; 0 if no <c>down</c> callback is
+          provided, and &gt; 0 if the process is no longer alive.</p>
+        <p>This function is only thread-safe when the emulator with SMP support
+          is used. It can only be used in a non-SMP emulator from a NIF-calling
+          thread.</p>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>ErlNifTime</ret>
         <nametext>enif_monotonic_time(ErlNifTimeUnit time_unit)</nametext>
       </name>
@@ -2184,6 +2668,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_mutex_lock">
           <c>erl_drv_mutex_lock</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_mutex_name(ErlNifMutex* mtx)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_mutex_name">
+          <c>erl_drv_mutex_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -2249,10 +2743,30 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           returns <c>NULL</c> and sets <c>*tried</c> to <c>flags</c>.
           It is allowed to set <c>tried</c> to <c>NULL</c>.</p>
         <p>Notice that <c>enif_open_resource_type</c> is only allowed to be
-          called in the three callbacks
-          <seealso marker="#load"><c>load</c></seealso>,
-          <seealso marker="#reload"><c>reload</c></seealso>, and
+          called in the two callbacks
+          <seealso marker="#load"><c>load</c></seealso> and
           <seealso marker="#upgrade"><c>upgrade</c></seealso>.</p>
+	<p>See also <seealso marker="#enif_open_resource_type_x">
+	  <c>enif_open_resource_type_x</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>ErlNifResourceType *</ret>
+        <nametext>enif_open_resource_type_x(ErlNifEnv* env, const char* name,
+	const ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext>
+      </name>
+      <fsummary>Create or takeover a resource type.</fsummary>
+      <desc>
+	<p>Same as <seealso marker="#enif_open_resource_type"><c>enif_open_resource_type</c></seealso>
+	  except it accepts additional callback functions for resource types that are
+	  used together with <seealso marker="#enif_select"><c>enif_select</c></seealso>
+	  and <seealso marker="#enif_monitor_process"><c>enif_monitor_process</c></seealso>.</p>
+	<p>Argument <c>init</c> is a pointer to an
+	  <seealso marker="#ErlNifResourceTypeInit"><c>ErlNifResourceTypeInit</c></seealso>
+	  structure that contains the function pointers for destructor, down and stop callbacks
+	  for the resource type.</p>
       </desc>
     </func>
 
@@ -2273,7 +2787,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
          <item>The port ID of the receiving port. The port ID is to refer to a
            port on the local node.</item>
          <tag><c>msg_env</c></tag>
-         <item>The environment of the message term. Can be a process-independent
+         <item>The environment of the message term. Can be a process independent
            environment allocated with <seealso marker="#enif_alloc_env">
            <c>enif_alloc_env</c></seealso> or <c>NULL</c>.</item>
          <tag><c>msg</c></tag>
@@ -2305,10 +2819,8 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <fsummary>Get the private data of a NIF library.</fsummary>
       <desc>
         <p>Returns the pointer to the private data that was set by
-          <seealso marker="#load"><c>load</c></seealso>,
-          <seealso marker="#reload"><c>reload</c></seealso>, or
+          <seealso marker="#load"><c>load</c></seealso> or
           <seealso marker="#upgrade"><c>upgrade</c></seealso>.</p>
-        <p>Was previously named <c>enif_get_data</c>.</p>
       </desc>
     </func>
 
@@ -2332,6 +2844,20 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <c>enif_has_pending_exception</c></seealso> and
           <seealso marker="#enif_make_badarg">
           <c>enif_make_badarg</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>void *</ret>
+        <nametext>enif_realloc(void* ptr, size_t size)</nametext></name>
+      <fsummary>Reallocate dynamic memory.</fsummary>
+      <desc>
+        <p>Reallocates memory allocated by
+          <seealso marker="#enif_alloc"><c>enif_alloc</c></seealso> to
+          <c>size</c> bytes.</p>
+        <p>Returns <c>NULL</c> if the reallocation fails.</p>
+        <p>The returned pointer is suitably aligned for any built-in type that
+          fit in the allocated memory.</p>
       </desc>
     </func>
 
@@ -2365,7 +2891,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
         <nametext>enif_release_resource(void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
       <desc>
-        <p>Removes a reference to resource object <c>obj</c>obtained from
+        <p>Removes a reference to resource object <c>obj</c> obtained from
           <seealso marker="#enif_alloc_resource">
           <c>enif_alloc_resource</c></seealso>.
           The resource object is destructed when the last reference is removed.
@@ -2396,6 +2922,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">
           <c>erl_drv_rwlock_destroy</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_rwlock_name(ErlNifRWLock* rwlck)</nametext></name>
+      <fsummary></fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_rwlock_name">
+          <c>erl_drv_rwlock_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -2470,9 +3006,6 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           application to break up long-running work into multiple regular NIF
           calls or to schedule a <seealso marker="#dirty_nifs">
           dirty NIF</seealso> to execute on a dirty scheduler thread.</p>
-        <p><em>The dirty NIF functionality described here is
-          experimental.</em> You have to enable support for dirty
-          schedulers when building OTP to try out the functionality.</p>
         <taglist>
           <tag><c>fun_name</c></tag>
           <item>
@@ -2483,13 +3016,13 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <tag><c>flags</c></tag>
           <item>
             <p>Must be set to <c>0</c> for a regular NIF. If the emulator was
-              built with the experimental dirty scheduler support enabled,
+              built with dirty scheduler support enabled,
               <c>flags</c> can be set to either
               <c>ERL_NIF_DIRTY_JOB_CPU_BOUND</c> if the job is expected to be
               CPU-bound, or <c>ERL_NIF_DIRTY_JOB_IO_BOUND</c> for
               jobs that will be I/O-bound. If dirty scheduler threads are not
               available in the emulator, an attempt to schedule such a job
-              results in a <c>badarg</c> exception.</p>
+              results in a <c>notsup</c> exception.</p>
           </item>
           <tag><c>argc</c> and <c>argv</c></tag>
           <item>
@@ -2508,33 +3041,128 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
     </func>
 
     <func>
+      <name><ret>int</ret>
+        <nametext>enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
+	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref)</nametext>
+      </name>
+      <fsummary>Manage subscription on IO event.</fsummary>
+      <desc>
+        <p>This function can be used to receive asynchronous notifications
+	  when OS-specific event objects become ready for either read or write operations.</p>
+	<p>Argument <c>event</c> identifies the event object. On Unix
+	  systems, the functions <c>select</c>/<c>poll</c> are used. The event
+	  object must be a socket, pipe or other file descriptor object that
+	  <c>select</c>/<c>poll</c> can use.</p>
+	<p>Argument <c>mode</c> describes the type of events to wait for. It can be
+	  <c>ERL_NIF_SELECT_READ</c>, <c>ERL_NIF_SELECT_WRITE</c> or a bitwise
+	  OR combination to wait for both. It can also be <c>ERL_NIF_SELECT_STOP</c>
+	  which is described further below. When a read or write event is triggered,
+	  a notification message like this is sent to the process identified by
+	  <c>pid</c>:</p>
+	<code type="none">{select, Obj, Ref, ready_input | ready_output}</code>
+	<p><c>ready_input</c> or <c>ready_output</c> indicates if the event object
+	  is ready for reading or writing.</p>
+	<p>Argument <c>pid</c> may be <c>NULL</c> to indicate the calling process.</p>
+	<p>Argument <c>obj</c> is a resource object obtained from
+          <seealso marker="#enif_alloc_resource"><c>enif_alloc_resource</c></seealso>.
+	  The purpose of the resource objects is as a container of the event object
+	  to manage its state and lifetime. A handle to the resource is received
+	  in the notification message as <c>Obj</c>.</p>
+	<p>Argument <c>ref</c> must be either a reference obtained from
+	  <seealso marker="erlang#make_ref-0"><c>erlang:make_ref/0</c></seealso>
+	  or the atom <c>undefined</c>. It will be passed as <c>Ref</c> in the notifications.
+	  If a selective <c>receive</c> statement is used to wait for the notification
+	  then a reference created just before the <c>receive</c> will exploit a runtime
+	  optimization that bypasses all earlier received messages in the queue.</p>
+	<p>The notifications are one-shot only. To receive further notifications of the same
+	  type (read or write), repeated calls to <c>enif_select</c> must be made
+	  after receiving each notification.</p>
+	<p>Use <c>ERL_NIF_SELECT_STOP</c> as <c>mode</c> in order to safely
+	  close an event object that has been passed to <c>enif_select</c>. The
+	  <seealso marker="#ErlNifResourceStop"><c>stop</c></seealso> callback
+	  of the resource <c>obj</c> will be called when it is safe to close
+	  the event object. This safe way of closing event objects must be used
+	  even if all notifications have been received and no further calls to
+	  <c>enif_select</c> have been made.</p>
+	<p>The first call to <c>enif_select</c> for a specific OS <c>event</c> will establish
+	  a relation between the event object and the containing resource. All subsequent calls
+	  for an <c>event</c> must pass its containing resource as argument
+	  <c>obj</c>. The relation is dissolved when <c>enif_select</c> has
+	  been called with <c>mode</c> as <c>ERL_NIF_SELECT_STOP</c> and the
+	  corresponding <c>stop</c> callback has returned. A resource can contain
+	  several event objects but one event object can only be contained within
+	  one resource. A resource will not be destructed until all its contained relations
+	  have been dissolved.</p>
+        <note>
+	  <p>Use <seealso marker="#enif_monitor_process"><c>enif_monitor_process</c></seealso>
+	  together with <c>enif_select</c> to detect failing Erlang
+	  processes and prevent them from causing permanent leakage of resources
+	  and their contained OS event objects.</p>
+	</note>
+	<p>Returns a non-negative value on success where the following bits can be set:</p>
+        <taglist>
+          <tag><c>ERL_NIF_SELECT_STOP_CALLED</c></tag>
+          <item>The stop callback was called directly by <c>enif_select</c>.</item>
+          <tag><c>ERL_NIF_SELECT_STOP_SCHEDULED</c></tag>
+          <item>The stop callback was scheduled to run on some other thread
+	    or later by this thread.</item>
+	</taglist>
+	<p>Returns a negative value if the call failed where the following bits can be set:</p>
+        <taglist>
+          <tag><c>ERL_NIF_SELECT_INVALID_EVENT</c></tag>
+          <item>Argument <c>event</c> is not a valid OS event object.</item>
+          <tag><c>ERL_NIF_SELECT_FAILED</c></tag>
+          <item>The system call failed to add the event object to the poll set.</item>
+        </taglist>
+        <note>
+          <p>Use bitwise AND to test for specific bits in the return value.
+	  New significant bits may be added in future releases to give more detailed
+	  information for both failed and successful calls. Do NOT use equality tests
+	  like <c>==</c>, as that may cause your application to stop working.</p>
+	  <p>Example:</p>
+	  <code type="none">
+retval = enif_select(env, fd, ERL_NIF_SELECT_STOP, resource, ref);
+if (retval &lt; 0) {
+    /* handle error */
+}
+/* Success! */
+if (retval &amp; ERL_NIF_SELECT_STOP_CALLED) {
+    /* ... */
+}
+</code>
+        </note>
+      </desc>
+    </func>
+
+    <func>
       <name><ret>ErlNifPid *</ret>
         <nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext>
       </name>
       <fsummary>Get the pid of the calling process.</fsummary>
       <desc>
-        <p>Initializes the pid variable <c>*pid</c> to represent the
-          calling process.</p>
-        <p>Returns <c>pid</c>.</p>
+        <p>Initializes the <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
+	variable at <c>*pid</c> to represent the calling process.</p>
+        <p>Returns <c>pid</c> if successful, or NULL if <c>caller_env</c> is not
+	a <seealso marker="#ErlNifEnv">process bound environment</seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid,
+      <name><ret>int</ret><nametext>enif_send(ErlNifEnv* caller_env, ErlNifPid* to_pid,
         ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a message to a process.</fsummary>
       <desc>
         <p>Sends a message to a process.</p>
         <taglist>
-          <tag><c>env</c></tag>
-          <item>The environment of the calling process. Must be <c>NULL</c>
-            only if calling from a created thread.</item>
+          <tag><c>caller_env</c></tag>
+          <item>The environment of the calling process or callback. Must be <c>NULL</c>
+            only if calling from a custom thread not spawned by ERTS.</item>
           <tag><c>*to_pid</c></tag>
           <item>The pid of the receiving process. The pid is to refer to a
             process on the local node.</item>
           <tag><c>msg_env</c></tag>
           <item>The environment of the message term. Must be a
-            process-independent environment allocated with
+            process independent environment allocated with
             <seealso marker="#enif_alloc_env"><c>enif_alloc_env</c></seealso>
             or NULL.</item>
           <tag><c>msg</c></tag>
@@ -2554,7 +3182,7 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <c>enif_free_env</c></seealso> of cleared for reuse with
           <seealso marker="#enif_clear_env"><c>enif_clear_env</c></seealso>.</p>
         <p>If <c>msg_env</c> is set to <c>NULL</c>, the <c>msg</c> term is
-          copied and the original term and its environemt is still valid after
+          copied and the original term and its environment is still valid after
           the call.</p>
         <p>This function is only thread-safe when the emulator with SMP support
           is used. It can only be used in a non-SMP emulator from a NIF-calling
@@ -2583,7 +3211,11 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <fsummary>Format strings and Erlang terms.</fsummary>
       <desc>
         <p>Similar to <c>snprintf</c> but this format string also accepts
-          <c>"%T"</c>, which formats Erlang terms.</p>
+        <c>"%T"</c>, which formats Erlang terms of type
+	<seealso marker="#ERL_NIF_TERM"><c>ERL_NIF_TERM</c></seealso>.</p>
+	<p>This function is primarily intended for debugging purpose. It is not
+	  recommended to print very large terms with <c>%T</c>. The function may
+	  change <c>errno</c>, even if successful.</p>
       </desc>
     </func>
 
@@ -2643,6 +3275,16 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
       <desc>
         <p>Same as <seealso marker="erl_driver#erl_drv_thread_join">
           <c>erl_drv_thread_join</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>char*</ret>
+        <nametext>enif_thread_name(ErlNifTid tid)</nametext></name>
+      <fsummary>Thread name</fsummary>
+      <desc>
+        <p>Same as <seealso marker="erl_driver#erl_drv_thread_name">
+          <c>erl_drv_thread_name</c></seealso>.</p>
       </desc>
     </func>
 
@@ -2761,6 +3403,87 @@ enif_map_iterator_destroy(env, &amp;iter);</code>
           <c>erl_drv_tsd_set</c></seealso>.</p>
       </desc>
     </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_vfprintf(FILE *stream, const char *format, va_list ap)
+      </nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Equivalent to <seealso marker="#enif_fprintf"><c>enif_fprintf</c></seealso>
+	except that its called with a <c>va_list</c> instead of a variable number of
+	arguments.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+      <nametext>enif_vsnprintf(char *str, size_t size, const char *format, va_list ap)
+      </nametext></name>
+      <fsummary>Format strings and Erlang terms.</fsummary>
+      <desc>
+        <p>Equivalent to <seealso marker="#enif_snprintf"><c>enif_snprintf</c></seealso>
+	except that its called with a <c>va_list</c> instead of a variable number of
+	arguments.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_whereis_pid(ErlNifEnv *env,
+          ERL_NIF_TERM name, ErlNifPid *pid)</nametext></name>
+      <fsummary>Looks up a process by its registered name.</fsummary>
+      <desc>
+        <p>Looks up a process by its registered name.</p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. Must be <c>NULL</c>
+            only if calling from a created thread.</item>
+          <tag><c>name</c></tag>
+          <item>The name of a registered process, as an atom.</item>
+          <tag><c>*pid</c></tag>
+          <item>The <seealso marker="#ErlNifPid"><c>ErlNifPid</c></seealso>
+            in which the resolved process id is stored.</item>
+        </taglist>
+        <p>On success, sets <c>*pid</c> to the local process registered with
+          <c>name</c> and returns <c>true</c>. If <c>name</c> is not a
+          registered process, or is not an atom, <c>false</c> is returned and
+          <c>*pid</c> is unchanged.</p>
+        <p>Works as <seealso marker="erlang#whereis-1">
+          <c>erlang:whereis/1</c></seealso>, but restricted to processes. See
+          <seealso marker="#enif_whereis_port"><c>enif_whereis_port</c></seealso>
+          to resolve registered ports.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name><ret>int</ret>
+        <nametext>enif_whereis_port(ErlNifEnv *env,
+          ERL_NIF_TERM name, ErlNifPort *port)</nametext></name>
+      <fsummary>Looks up a port by its registered name.</fsummary>
+      <desc>
+        <p>Looks up a port by its registered name.</p>
+        <taglist>
+          <tag><c>env</c></tag>
+          <item>The environment of the calling process. Must be <c>NULL</c>
+            only if calling from a created thread.</item>
+          <tag><c>name</c></tag>
+          <item>The name of a registered port, as an atom.</item>
+          <tag><c>*port</c></tag>
+          <item>The <seealso marker="#ErlNifPort"><c>ErlNifPort</c></seealso>
+            in which the resolved port id is stored.</item>
+        </taglist>
+        <p>On success, sets <c>*port</c> to the port registered with
+          <c>name</c> and returns <c>true</c>. If <c>name</c> is not a
+          registered port, or is not an atom, <c>false</c> is returned and
+          <c>*port</c> is unchanged.</p>
+        <p>Works as <seealso marker="erlang#whereis-1">
+          <c>erlang:whereis/1</c></seealso>, but restricted to ports. See
+          <seealso marker="#enif_whereis_pid"><c>enif_whereis_pid</c></seealso>
+          to resolve registered processes.</p>
+      </desc>
+    </func>
+
   </funcs>
 
   <section>

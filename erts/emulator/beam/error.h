@@ -21,6 +21,8 @@
 #ifndef __ERROR_H__
 #define __ERROR_H__
 
+#include "code_ix.h"
+
 /*
  * There are three primary exception classes:
  *
@@ -37,14 +39,11 @@
  */
 
 /*
- * Bits 0-1 index the 'exception class tag' table.
- */
-#define EXC_CLASSBITS 3
-#define GET_EXC_CLASS(x) ((x) & EXC_CLASSBITS)
-
-/*
  * Exception class tags (indices into the 'exception_tag' array)
  */
+#define EXTAG_OFFSET	0
+#define EXTAG_BITS	2
+
 #define EXTAG_ERROR	0
 #define EXTAG_EXIT	1
 #define EXTAG_THROWN	2
@@ -52,20 +51,31 @@
 #define NUMBER_EXC_TAGS 3	/* The number of exception class tags */
 
 /*
- * Exit code flags (bits 2-7)
+ * Index to the 'exception class tag' table.
+ */
+#define EXC_CLASSBITS	((1<<EXTAG_BITS)-1)
+#define GET_EXC_CLASS(x) ((x) & EXC_CLASSBITS)
+
+/*
+ * Exit code flags
  *
  * These flags make is easier and quicker to decide what to do with the
  * exception in the early stages, before a handler is found, and also
  * maintains some separation between the class tag and the actions.
  */
-#define EXF_PANIC	(1<<2)	/* ignore catches */
-#define EXF_THROWN	(1<<3)	/* nonlocal return */
-#define EXF_LOG		(1<<4)	/* write to logger on termination */
-#define EXF_NATIVE	(1<<5)	/* occurred in native code */
-#define EXF_SAVETRACE	(1<<6)	/* save stack trace in internal form */
-#define EXF_ARGLIST	(1<<7)	/* has arglist for top of trace */
+#define EXF_OFFSET	EXTAG_BITS
+#define EXF_BITS	7
 
-#define EXC_FLAGBITS 0x00fc
+#define EXF_PANIC	(1<<(0+EXF_OFFSET))	/* ignore catches */
+#define EXF_THROWN	(1<<(1+EXF_OFFSET))	/* nonlocal return */
+#define EXF_LOG		(1<<(2+EXF_OFFSET))	/* write to logger on termination */
+#define EXF_NATIVE	(1<<(3+EXF_OFFSET))	/* occurred in native code */
+#define EXF_SAVETRACE	(1<<(4+EXF_OFFSET))	/* save stack trace in internal form */
+#define EXF_ARGLIST	(1<<(5+EXF_OFFSET))	/* has arglist for top of trace */
+#define EXF_RESTORE_NIF	(1<<(6+EXF_OFFSET))	/* restore original bif/nif */
+
+#define EXC_FLAGBITS	(((1<<(EXF_BITS+EXF_OFFSET))-1) \
+			 & ~((1<<(EXF_OFFSET))-1))
 
 /*
  * The primary fields of an exception code
@@ -75,11 +85,16 @@
 #define NATIVE_EXCEPTION(x) ((x) | EXF_NATIVE)
 
 /*
- * Bits 8-12 of the error code are used for indexing into
+ * Error code used for indexing into
  * the short-hand error descriptor table.
  */
-#define EXC_INDEXBITS 0x1f00
-#define GET_EXC_INDEX(x) (((x) & EXC_INDEXBITS) >> 8)
+#define EXC_OFFSET	(EXF_OFFSET+EXF_BITS)
+#define EXC_BITS	5
+
+#define EXC_INDEXBITS	(((1<<(EXC_BITS+EXC_OFFSET))-1) \
+			 & ~((1<<(EXC_OFFSET))-1))
+
+#define GET_EXC_INDEX(x) (((x) & EXC_INDEXBITS) >> EXC_OFFSET)
 
 /*
  * Exit codes used for raising a fresh exception. The primary exceptions
@@ -105,46 +120,46 @@
 					/* Error with given arglist term
 					 * (exit reason in p->fvalue) */
 
-#define EXC_NORMAL		((1 << 8) | EXC_EXIT)
+#define EXC_NORMAL		((1 << EXC_OFFSET) | EXC_EXIT)
 					/* Normal exit (reason 'normal') */
-#define EXC_INTERNAL_ERROR	((2 << 8) | EXC_ERROR | EXF_PANIC)
+#define EXC_INTERNAL_ERROR	((2 << EXC_OFFSET) | EXC_ERROR | EXF_PANIC)
 					/* Things that shouldn't happen */
-#define EXC_BADARG		((3 << 8) | EXC_ERROR)
+#define EXC_BADARG		((3 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad argument to a BIF */
-#define EXC_BADARITH		((4 << 8) | EXC_ERROR)
+#define EXC_BADARITH		((4 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad arithmetic */
-#define EXC_BADMATCH		((5 << 8) | EXC_ERROR)
+#define EXC_BADMATCH		((5 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad match in function body */
-#define EXC_FUNCTION_CLAUSE	((6 << 8) | EXC_ERROR)
+#define EXC_FUNCTION_CLAUSE	((6 << EXC_OFFSET) | EXC_ERROR)
 					 /* No matching function head */
-#define EXC_CASE_CLAUSE		((7 << 8) | EXC_ERROR)
+#define EXC_CASE_CLAUSE		((7 << EXC_OFFSET) | EXC_ERROR)
 					/* No matching case clause */
-#define EXC_IF_CLAUSE		((8 << 8) | EXC_ERROR)
+#define EXC_IF_CLAUSE		((8 << EXC_OFFSET) | EXC_ERROR)
 					/* No matching if clause */
-#define EXC_UNDEF		((9 << 8) | EXC_ERROR)
+#define EXC_UNDEF		((9 << EXC_OFFSET) | EXC_ERROR)
 				 	/* No farity that matches */
-#define EXC_BADFUN		((10 << 8) | EXC_ERROR)
+#define EXC_BADFUN		((10 << EXC_OFFSET) | EXC_ERROR)
 					/* Not an existing fun */
-#define EXC_BADARITY		((11 << 8) | EXC_ERROR)
+#define EXC_BADARITY		((11 << EXC_OFFSET) | EXC_ERROR)
 					/* Attempt to call fun with
 					 * wrong number of arguments. */
-#define EXC_TIMEOUT_VALUE	((12 << 8) | EXC_ERROR)
+#define EXC_TIMEOUT_VALUE	((12 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad time out value */
-#define EXC_NOPROC		((13 << 8) | EXC_ERROR)
+#define EXC_NOPROC		((13 << EXC_OFFSET) | EXC_ERROR)
 					/* No process or port */
-#define EXC_NOTALIVE		((14 << 8) | EXC_ERROR)
+#define EXC_NOTALIVE		((14 << EXC_OFFSET) | EXC_ERROR)
 					/* Not distributed */
-#define EXC_SYSTEM_LIMIT	((15 << 8) | EXC_ERROR)
+#define EXC_SYSTEM_LIMIT	((15 << EXC_OFFSET) | EXC_ERROR)
 					/* Ran out of something */
-#define EXC_TRY_CLAUSE		((16 << 8) | EXC_ERROR)
+#define EXC_TRY_CLAUSE		((16 << EXC_OFFSET) | EXC_ERROR)
 					/* No matching try clause */
-#define EXC_NOTSUP		((17 << 8) | EXC_ERROR)
+#define EXC_NOTSUP		((17 << EXC_OFFSET) | EXC_ERROR)
 					/* Not supported */
 
-#define EXC_BADMAP		((18 << 8) | EXC_ERROR)
+#define EXC_BADMAP		((18 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad map */
 
-#define EXC_BADKEY		((19 << 8) | EXC_ERROR)
+#define EXC_BADKEY		((19 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad key in map */
 
 #define NUMBER_EXIT_CODES 20	/* The number of exit code indices */
@@ -152,7 +167,7 @@
 /*
  * Internal pseudo-error codes.
  */
-#define TRAP		(1 << 8)	/* BIF Trap to erlang code */
+#define TRAP		(1 << EXC_OFFSET)	/* BIF Trap to erlang code */
 
 /*
  * Aliases for some common exit codes.
@@ -197,7 +212,7 @@ struct StackTrace {
     Eterm header;	/* bignum header - must be first in struct */
     Eterm freason; /* original exception reason is saved in the struct */
     BeamInstr* pc;
-    BeamInstr* current;
+    ErtsCodeMFA* current;
     int depth;	/* number of saved pointers in trace[] */
     BeamInstr *trace[1];  /* varying size - must be last in struct */
 };

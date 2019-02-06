@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,33 +25,38 @@
 -export([start/0, purge/1, soft_purge/1, pending_purge_lambda/3,
 	 finish_after_on_load/2]).
 
--spec start() -> term().
+-spec start() -> no_return().
 start() ->
     register(erts_code_purger, self()),
     process_flag(trap_exit, true),
-    loop().
+    wait_for_request().
 
-loop() ->
-    _ = receive
-	{purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
-	    Res = do_purge(Mod),
-	    From ! {reply, purge, Res, Ref};
+wait_for_request() ->
+    handle_request(receive Msg -> Msg end, []).
 
-	{soft_purge,Mod,From,Ref} when is_atom(Mod), is_pid(From) ->
-	    Res = do_soft_purge(Mod),
-	    From ! {reply, soft_purge, Res, Ref};
+handle_request({purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
+    {Res, NewReqs} = do_purge(Mod, Reqs),
+    From ! {reply, purge, Res, Ref},
+    check_requests(NewReqs);
+handle_request({soft_purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
+    {Res, NewReqs} = do_soft_purge(Mod, Reqs),
+    From ! {reply, soft_purge, Res, Ref},
+    check_requests(NewReqs);
+handle_request({finish_after_on_load, {Mod,Keep}, From, Ref}, Reqs)
+  when is_atom(Mod), is_boolean(Keep), is_pid(From) ->
+    NewReqs = do_finish_after_on_load(Mod, Keep, Reqs),
+    From ! {reply, finish_after_on_load, ok, Ref},
+    check_requests(NewReqs);
+handle_request({test_purge, Mod, From, Type, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
+    NewReqs = do_test_purge(Mod, From, Type, Ref, Reqs),
+    check_requests(NewReqs);
+handle_request(_Garbage, Reqs) ->
+    check_requests(Reqs).
 
-	{finish_after_on_load,{Mod,Keep},From,Ref}
-	      when is_atom(Mod), is_pid(From) ->
-	    Res = do_finish_after_on_load(Mod, Keep),
-	    From ! {reply, finish_after_on_load, Res, Ref};
-
-	{test_purge, Mod, From, Type, Ref} when is_atom(Mod), is_pid(From) ->
-	     do_test_purge(Mod, From, Type, Ref);
-
-	_Other -> ignore
-    end,
-    loop().
+check_requests([]) ->
+    wait_for_request();
+check_requests([R|Rs]) ->
+    handle_request(R, Rs).
 
 %%
 %% Processes that tries to call a fun that belongs to
@@ -99,14 +104,15 @@ purge(Mod) when is_atom(Mod) ->
 	    Result
     end.
 
-do_purge(Mod) ->
+do_purge(Mod, Reqs) ->
     case erts_internal:purge_module(Mod, prepare) of
 	false ->
-	    {false, false};
+	    {{false, false}, Reqs};
 	true ->
-	    DidKill = check_proc_code(erlang:processes(), Mod, true),
+	    {DidKill, NewReqs} = check_proc_code(erlang:processes(),
+						 Mod, true, Reqs),
 	    true = erts_internal:purge_module(Mod, complete),
-	    {true, DidKill}
+	    {{true, DidKill}, NewReqs}
     end.
 
 %% soft_purge(Module)
@@ -122,17 +128,14 @@ soft_purge(Mod) ->
 	    Result
     end.
 
-do_soft_purge(Mod) ->
+do_soft_purge(Mod, Reqs) ->
     case erts_internal:purge_module(Mod, prepare) of
 	false ->
-	    true;
+	    {true, Reqs};
 	true ->
-	    Res = check_proc_code(erlang:processes(), Mod, false),
-	    erts_internal:purge_module(Mod,
-				       case Res of
-					   false -> abort;
-					   true -> complete
-				       end)
+	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes(),
+						 Mod, false, Reqs),
+	    {erts_internal:purge_module(Mod, PurgeOp), NewReqs}
     end.
 
 %% finish_after_on_load(Module, Keep)
@@ -147,178 +150,129 @@ finish_after_on_load(Mod, Keep) ->
 	    Result
     end.
 
-do_finish_after_on_load(Mod, Keep) ->
+do_finish_after_on_load(Mod, Keep, Reqs) ->
     erlang:finish_after_on_load(Mod, Keep),
     case Keep of
 	true ->
-	    ok;
+	    Reqs;
 	false ->
 	    case erts_internal:purge_module(Mod, prepare_on_load) of
 		false ->
-		    true;
+		    Reqs;
 		true ->
-		    _ = check_proc_code(erlang:processes(), Mod, true),
-		    true = erts_internal:purge_module(Mod, complete)
+		    {_DidKill, NewReqs} =
+			check_proc_code(erlang:processes(),
+					Mod, true, Reqs),
+		    true = erts_internal:purge_module(Mod, complete),
+		    NewReqs
 	    end
     end.
 
 
-
 %%
-%% check_proc_code(Pids, Mod, Hard) - Send asynchronous
+%% check_proc_code(Pids, Mod, Hard, Preqs) - Send asynchronous
 %%   requests to all processes to perform a check_process_code
 %%   operation. Each process will check their own state and
 %%   reply with the result. If 'Hard' equals
 %%   - true, processes that refer 'Mod' will be killed. If
 %%     any processes were killed true is returned; otherwise,
 %%     false.
-%%   - false, and any processes refer 'Mod', false will
-%%     returned; otherwise, true.
+%%   - false, and any processes refer 'Mod', 'abort' will
+%%     be returned; otherwise, 'complete'.
 %%
-%%   Requests will be sent to all processes identified by
-%%   Pids at once, but without allowing GC to be performed.
-%%   Check process code operations that are aborted due to
-%%   GC need, will be restarted allowing GC. However, only
-%%   ?MAX_CPC_GC_PROCS outstanding operation allowing GC at
-%%   a time will be allowed. This in order not to blow up
-%%   memory wise.
-%%
-%%   We also only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
+%%   We only allow ?MAX_CPC_NO_OUTSTANDING_KILLS
 %%   outstanding kills. This both in order to avoid flooding
 %%   our message queue with 'DOWN' messages and limiting the
 %%   amount of memory used to keep references to all
 %%   outstanding kills.
 %%
 
-%% We maybe should allow more than two outstanding
-%% GC requests, but for now we play it safe...
--define(MAX_CPC_GC_PROCS, 2).
 -define(MAX_CPC_NO_OUTSTANDING_KILLS, 10).
 
--record(cpc_static, {hard, module, tag}).
+-record(cpc_static, {hard, module, tag, purge_requests}).
 
 -record(cpc_kill, {outstanding = [],
 		   no_outstanding = 0,
 		   waiting = [],
 		   killed = false}).
 
-check_proc_code(Pids, Mod, Hard) ->
+check_proc_code(Pids, Mod, Hard, PReqs) ->
     Tag = erlang:make_ref(),
     CpcS = #cpc_static{hard = Hard,
 		       module = Mod,
-		       tag = Tag},
-    check_proc_code(CpcS, cpc_init(CpcS, Pids, 0), 0, [], #cpc_kill{}, true).
+		       tag = Tag,
+		       purge_requests = PReqs},
+    cpc_receive(CpcS, cpc_init(CpcS, Pids, 0), #cpc_kill{}, []).
 
-check_proc_code(#cpc_static{hard = true}, 0, 0, [],
-		#cpc_kill{outstanding = [], waiting = [], killed = Killed},
-		true) ->
-    %% No outstanding requests. We did a hard check, so result is whether or
-    %% not we killed any processes...
-    Killed;
-check_proc_code(#cpc_static{hard = false}, 0, 0, [], _KillState, Success) ->
-    %% No outstanding requests and we did a soft check...
-    Success;
-check_proc_code(#cpc_static{hard = false, tag = Tag} = CpcS, NoReq0, NoGcReq0,
-		[], _KillState, false) ->
-    %% Failed soft check; just cleanup the remaining replies corresponding
-    %% to the requests we've sent...
-    {NoReq1, NoGcReq1} = receive
-			     {check_process_code, {Tag, _P, GC}, _Res} ->
-				 case GC of
-				     false -> {NoReq0-1, NoGcReq0};
-				     true -> {NoReq0, NoGcReq0-1}
-				 end
-			 end,
-    check_proc_code(CpcS, NoReq1, NoGcReq1, [], _KillState, false);
-check_proc_code(#cpc_static{tag = Tag} = CpcS, NoReq0, NoGcReq0, NeedGC0,
-		KillState0, Success) ->
-
-    %% Check if we should request a GC operation
-    {NoGcReq1, NeedGC1} = case NoGcReq0 < ?MAX_CPC_GC_PROCS of
-			      GcOpAllowed when GcOpAllowed == false;
-					       NeedGC0 == [] ->
-				  {NoGcReq0, NeedGC0};
-			      _ ->
-				  {NoGcReq0+1, cpc_request_gc(CpcS,NeedGC0)}
-			  end,
-
-    %% Wait for a cpc reply or 'DOWN' message
-    {NoReq1, NoGcReq2, Pid, Result, KillState1} = cpc_recv(Tag,
-							   NoReq0,
-							   NoGcReq1,
-							   KillState0),
-
-    %% Check the result of the reply
-    case Result of
-	aborted ->
-	    %% Operation aborted due to the need to GC in order to
-	    %% determine if the process is referring the module.
-	    %% Schedule the operation for restart allowing GC...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, [Pid|NeedGC1], KillState1,
-			    Success);
-	false ->
+cpc_receive(#cpc_static{hard = true} = CpcS,
+	    0,
+	    #cpc_kill{outstanding = [], waiting = [], killed = Killed},
+	    PReqs) ->
+    %% No outstanding cpc requests. We did a hard check, so result is
+    %% whether or not we killed any processes...
+    cpc_result(CpcS, PReqs, Killed);
+cpc_receive(#cpc_static{hard = false} = CpcS, 0, _KillState, PReqs) ->
+    %% No outstanding cpc requests and we did a soft check that succeeded...
+    cpc_result(CpcS, PReqs, complete);
+cpc_receive(#cpc_static{tag = Tag} = CpcS, NoReq, KillState0, PReqs) ->
+    receive
+	{check_process_code, {Tag, _Pid}, false} ->
 	    %% Process not referring the module; done with this process...
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1, KillState1,
-			    Success);
-	true ->
+	    cpc_receive(CpcS, NoReq-1, KillState0, PReqs);
+	{check_process_code, {Tag, Pid}, true} ->
 	    %% Process referring the module...
 	    case CpcS#cpc_static.hard of
 		false ->
 		    %% ... and soft check. The whole operation failed so
-		    %% no point continuing; clean up and fail...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, [], KillState1,
-				    false);
+		    %% no point continuing; fail straight away. Garbage
+		    %% messages from this session will be ignored
+		    %% by following sessions...
+		    cpc_result(CpcS, PReqs, abort);
 		true ->
 		    %% ... and hard check; schedule kill of it...
-		    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-				    cpc_sched_kill(Pid, KillState1), Success)
+		    KillState1 = cpc_sched_kill(Pid, KillState0),
+		    cpc_receive(CpcS, NoReq-1, KillState1, PReqs)
 	    end;
-	'DOWN' ->
-	    %% Handled 'DOWN' message
-	    check_proc_code(CpcS, NoReq1, NoGcReq2, NeedGC1,
-			    KillState1, Success)
+	{'DOWN', MonRef, process, _, _} ->
+	    KillState1 = cpc_handle_down(MonRef, KillState0),
+	    cpc_receive(CpcS, NoReq, KillState1, PReqs);
+	PReq when element(1, PReq) == purge;
+		  element(1, PReq) == soft_purge;
+		  element(1, PReq) == test_purge ->
+	    %% A new purge request; save it until later...
+	    cpc_receive(CpcS, NoReq, KillState0, [PReq | PReqs]);
+	_Garbage ->
+	    %% Garbage message; ignore it...
+	    cpc_receive(CpcS, NoReq, KillState0, PReqs)
     end.
 
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = []} = KillState) ->
-    receive
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq,
-	 #cpc_kill{outstanding = [R0, R1, R2, R3, R4 | _]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} when R == R0;
-					R == R1;
-					R == R2;
-					R == R3;
-					R == R4 ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState);
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
-    end;
-cpc_recv(Tag, NoReq, NoGcReq, #cpc_kill{outstanding = [R|_]} = KillState) ->
-    receive
-	{'DOWN', R, process, _, _} ->
-	    cpc_handle_down(NoReq, NoGcReq, R, KillState);
-	{check_process_code, {Tag, Pid, GC}, Res} ->
-	    cpc_handle_cpc(NoReq, NoGcReq, GC, Pid, Res, KillState)
+cpc_result(#cpc_static{purge_requests = PReqs}, NewPReqs, Res) ->
+    {Res, PReqs ++ cpc_reverse(NewPReqs)}.
+
+cpc_reverse([_] = L) -> L;
+cpc_reverse(Xs) -> cpc_reverse(Xs, []).
+
+cpc_reverse([], Ys) -> Ys;
+cpc_reverse([X|Xs], Ys) -> cpc_reverse(Xs, [X|Ys]).
+
+cpc_handle_down(R, #cpc_kill{outstanding = Rs,
+			     no_outstanding = N} = KillState0) ->
+    try
+	NewOutst = cpc_list_rm(R, Rs),
+	KillState1 = KillState0#cpc_kill{outstanding = NewOutst,
+					 no_outstanding = N-1},
+	cpc_sched_kill_waiting(KillState1)
+    catch
+	throw : undefined -> %% Triggered by garbage message...
+	    KillState0
     end.
 
-cpc_handle_down(NoReq, NoGcReq, R, #cpc_kill{outstanding = Rs,
-					     no_outstanding = N} = KillState) ->
-    {NoReq, NoGcReq, undefined, 'DOWN',
-     cpc_sched_kill_waiting(KillState#cpc_kill{outstanding = cpc_list_rm(R, Rs),
-					       no_outstanding = N-1})}.
-
+cpc_list_rm(_R, []) ->
+    throw(undefined);
 cpc_list_rm(R, [R|Rs]) ->
     Rs;
 cpc_list_rm(R0, [R1|Rs]) ->
     [R1|cpc_list_rm(R0, Rs)].
-
-cpc_handle_cpc(NoReq, NoGcReq, false, Pid, Res, KillState) ->
-    {NoReq-1, NoGcReq, Pid, Res, KillState};
-cpc_handle_cpc(NoReq, NoGcReq, true, Pid, Res, KillState) ->
-    {NoReq, NoGcReq-1, Pid, Res, KillState}.
 
 cpc_sched_kill_waiting(#cpc_kill{waiting = []} = KillState) ->
     KillState;
@@ -343,18 +297,13 @@ cpc_sched_kill(Pid,
 		       no_outstanding = N+1,
 		       killed = true}.
 
-cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid, AllowGc) ->
-    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid, AllowGc}},
-						{allow_gc, AllowGc}]).
-
-cpc_request_gc(CpcS, [Pid|Pids]) ->
-    cpc_request(CpcS, Pid, true),
-    Pids.
+cpc_request(#cpc_static{tag = Tag, module = Mod}, Pid) ->
+    erts_internal:check_process_code(Pid, Mod, [{async, {Tag, Pid}}]).
 
 cpc_init(_CpcS, [], NoReqs) ->
     NoReqs;
 cpc_init(CpcS, [Pid|Pids], NoReqs) ->
-    cpc_request(CpcS, Pid, false),
+    cpc_request(CpcS, Pid),
     cpc_init(CpcS, Pids, NoReqs+1).
 
 % end of check_proc_code() implementation.
@@ -366,64 +315,63 @@ cpc_init(CpcS, [Pid|Pids], NoReqs) ->
 %% as usual, but the tester can control when to enter the
 %% specific phases.
 %%
-do_test_purge(Mod, From, Type, Ref) when Type == true; Type == false ->
-    Mon = erlang:monitor(process, From),
-    Res = case Type of
-	      true -> do_test_hard_purge(Mod, From, Ref, Mon);
-	      false -> do_test_soft_purge(Mod, From, Ref, Mon)
-	  end,
+do_test_purge(Mod, From, true, Ref, Reqs) ->
+    {Res, NewReqs} = do_test_hard_purge(Mod, From, Ref, Reqs),
     From ! {test_purge, Res, Ref},
-    erlang:demonitor(Mon, [flush]),
-    ok;
-do_test_purge(_, _, _, _) ->
-    ok.
+    NewReqs;
+do_test_purge(Mod, From, false, Ref, Reqs) ->
+    {Res, NewReqs} = do_test_soft_purge(Mod, From, Ref, Reqs),
+    From ! {test_purge, Res, Ref},
+    NewReqs;
+do_test_purge(_, _, _, _, Reqs) ->
+    Reqs.
 
-do_test_soft_purge(Mod, From, Ref, Mon) ->
+do_test_soft_purge(Mod, From, Ref, Reqs) ->
     PrepRes = erts_internal:purge_module(Mod, prepare),
-    TestRes = test_progress(started, From, Mon, Ref, ok),
+    TestRes = test_progress(started, From, Ref, ok),
     case PrepRes of
 	false ->
-	    _ = test_progress(continued, From, Mon, Ref, TestRes),
-	    true;
+	    _ = test_progress(continued, From, Ref, TestRes),
+	    {true, Reqs};
 	true ->
-	    Res = check_proc_code(erlang:processes(), Mod, false),
-	    _ = test_progress(continued, From, Mon, Ref, TestRes),
-	    erts_internal:purge_module(Mod,
-				       case Res of
-					   false -> abort;
-					   true -> complete
-				       end)
+	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes(),
+						 Mod, false, Reqs),
+	    _ = test_progress(continued, From, Ref, TestRes),
+	    {erts_internal:purge_module(Mod, PurgeOp), NewReqs}
     end.
 
-do_test_hard_purge(Mod, From, Ref, Mon) ->
+do_test_hard_purge(Mod, From, Ref, Reqs) ->
     PrepRes = erts_internal:purge_module(Mod, prepare),
-    TestRes = test_progress(started, From, Mon, Ref, ok),
+    TestRes = test_progress(started, From, Ref, ok),
     case PrepRes of
 	false ->
-	    _ = test_progress(continued, From, Mon, Ref, TestRes),
-	    {false, false};
+	    _ = test_progress(continued, From, Ref, TestRes),
+	    {{false, false}, Reqs};
 	true ->
-	    DidKill = check_proc_code(erlang:processes(), Mod, true),
-	    _ = test_progress(continued, From, Mon, Ref, TestRes),
+	    {DidKill, NewReqs} = check_proc_code(erlang:processes(),
+						 Mod, true, Reqs),
+	    _ = test_progress(continued, From, Ref, TestRes),
 	    true = erts_internal:purge_module(Mod, complete),
-	    {true, DidKill}
+	    {{true, DidKill}, NewReqs}
     end.
 
-test_progress(_State, _From, _Mon, _Ref, died) ->
+test_progress(_State, _From, _Ref, died) ->
     %% Test process died; continue so we wont
     %% leave the system in an inconsistent
     %% state...
     died;
-test_progress(started, From, Mon, Ref, ok) ->
+test_progress(started, From, Ref, ok) ->
     From ! {started, Ref},
+    Mon = erlang:monitor(process, From),
     receive
 	{'DOWN', Mon, process, From, _} -> died;
-	{continue, Ref} -> ok
+	{continue, Ref} -> erlang:demonitor(Mon, [flush]), ok
     end;
-test_progress(continued, From, Mon, Ref, ok) ->
+test_progress(continued, From, Ref, ok) ->
     From ! {continued, Ref},
+    Mon = erlang:monitor(process, From),
     receive
 	{'DOWN', Mon, process, From, _} -> died;
-	{complete, Ref} -> ok
+	{complete, Ref} -> erlang:demonitor(Mon, [flush]), ok
     end.
 

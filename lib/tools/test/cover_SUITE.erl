@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ all() ->
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
-                 otp_8270, otp_10979_hanging_node],
+                 otp_8270, otp_10979_hanging_node, otp_14817],
     case whereis(cover_server) of
         undefined ->
             [coverage,StartStop ++ NoStartStop];
@@ -1572,6 +1572,30 @@ otp_10979_hanging_node(_Config) ->
             ct:fail(hanging_process)
     end,
 
+    ok.
+
+otp_14817(Config) when is_list(Config) ->
+    Test = <<"-module(otp_14817).
+              -export([a/0, b/0, c/0, d/0]).
+              a() -> ok. b() -> ok. c() -> ok.
+              d() -> ok.
+             ">>,
+    File = cc_mod(otp_14817, Test, Config),
+    ok = otp_14817:a(),
+    ok = otp_14817:b(),
+    ok = otp_14817:c(),
+    ok = otp_14817:d(),
+    {ok,[{{otp_14817,3},1},
+         {{otp_14817,3},1},
+         {{otp_14817,3},1},
+         {{otp_14817,4},1}]} =
+        cover:analyse(otp_14817, calls, line),
+    {ok, CovOut} = cover:analyse_to_file(otp_14817),
+    {ok, Bin} = file:read_file(CovOut),
+    <<"3..|",_/binary>> = string:find(Bin, "3..|"),
+    <<"1..|",_/binary>> = string:find(Bin, "1..|"),
+    ok = file:delete(File),
+    ok = file:delete(CovOut),
     ok.
 
 %% Take compiler options from beam in cover:compile_beam

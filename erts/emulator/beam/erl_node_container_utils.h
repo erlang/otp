@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -255,19 +255,16 @@ extern ErtsPTab erts_port;
  * Refs                                                                    *
 \*                                                                         */
 
+#define internal_ref_no_numbers(x)	ERTS_REF_NUMBERS
+#define internal_ref_numbers(x)		(is_internal_ordinary_ref((x)) \
+					 ? internal_ordinary_ref_numbers((x)) \
+					 : (ASSERT(is_internal_magic_ref((x))), \
+					    internal_magic_ref_numbers((x))))
 #if defined(ARCH_64)
 
-#define internal_ref_no_of_numbers(x)					\
-  (internal_ref_data((x))[0])
-#define internal_thing_ref_no_of_numbers(thing)			        \
-  (internal_thing_ref_data(thing)[0])
-#define internal_ref_numbers(x)						\
-  (&internal_ref_data((x))[1])
-#define internal_thing_ref_numbers(thing)				\
-  (&internal_thing_ref_data(thing)[1])
-#define external_ref_no_of_numbers(x)					\
+#define external_ref_no_numbers(x)					\
   (external_ref_data((x))[0])
-#define external_thing_ref_no_of_numbers(thing)			        \
+#define external_thing_ref_no_numbers(thing)			        \
   (external_thing_ref_data(thing)[0])
 #define external_ref_numbers(x)						\
   (&external_ref_data((x))[1])
@@ -277,12 +274,8 @@ extern ErtsPTab erts_port;
 
 #else
 
-#define internal_ref_no_of_numbers(x)	(internal_ref_data_words((x)))
-#define internal_thing_ref_no_of_numbers(t) (internal_thing_ref_data_words(t))
-#define internal_ref_numbers(x)		(internal_ref_data((x)))
-#define internal_thing_ref_numbers(t)   (internal_thing_ref_data(t))
-#define external_ref_no_of_numbers(x)	(external_ref_data_words((x)))
-#define external_thing_ref_no_of_numbers(t) (external_thing_ref_data_words((t)))
+#define external_ref_no_numbers(x)	(external_ref_data_words((x)))
+#define external_thing_ref_no_numbers(t) (external_thing_ref_data_words((t)))
 #define external_ref_numbers(x)		(external_ref_data((x)))
 #define external_thing_ref_numbers(t)   (external_thing_ref_data((t)))
 
@@ -299,15 +292,9 @@ extern ErtsPTab erts_port;
 #define internal_ref_channel_no(x)	(internal_channel_no((x)))
 #define external_ref_channel_no(x)	(external_channel_no((x)))
 
-#define ref_data_words(x)		(is_internal_ref((x))		\
-					 ? internal_ref_data_words((x))	\
-					 : external_ref_data_words((x)))
-#define ref_data(x)			(is_internal_ref((x))		\
-					 ? internal_ref_data((x))	\
-					 : external_ref_data((x)))
-#define ref_no_of_numbers(x)		(is_internal_ref((x))		\
-					 ? internal_ref_no_of_numbers((x))\
-					 : external_ref_no_of_numbers((x)))
+#define ref_no_numbers(x)		(is_internal_ref((x))		\
+					 ? internal_ref_no_numbers((x))\
+					 : external_ref_no_numbers((x)))
 #define ref_numbers(x)			(is_internal_ref((x))		\
 					 ? internal_ref_numbers((x))	\
 					 : external_ref_numbers((x)))
@@ -331,5 +318,3 @@ extern ErtsPTab erts_port;
 #define is_not_ref(x)			(!is_ref(x))
 
 #endif
-
-

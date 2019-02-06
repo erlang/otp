@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2012</year>
-      <year>2016</year>
+      <year>2018</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -145,7 +145,7 @@
       data that can be sent to the channel peer without adjusting the
       window. Typically, an SSH client opens a channel, sends data (commands),
       receives data (control information), and then closes the channel.
-      The <seealso marker="ssh_channel">ssh_channel</seealso> behaviour
+      The <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behaviour
       handles generic parts of SSH channel management. This makes it easy
       to write your own SSH client/server processes that use flow-control
       and thus opens for more focus on the application logic.
@@ -195,8 +195,6 @@
       Transport Layer Protocol</item>
       <item><url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> -
       Connection Protocol</item>
-      <item><url href="http://www.ietf.org/rfc/rfc4255.txt">RFC 4255</url> -
-      Key Fingerprints</item>
       <item><url href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</url> -
       Transport Layer Encryption Modes</item>
       <item><url href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</url> -

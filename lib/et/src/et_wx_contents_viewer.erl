@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,8 +93,8 @@ start_link(Options) ->
 		end,
 		{ok, Pid}
 	    catch
-		error:Reason ->
-		    {error, {'EXIT', Reason, erlang:get_stacktrace()}}
+		error:Reason:Stacktrace ->
+		    {error, {'EXIT', Reason, Stacktrace}}
 	    end;
 	{error, Reason} ->
 	    {error, Reason}
@@ -213,7 +213,7 @@ init([S]) when is_record(S, state) ->
 %%----------------------------------------------------------------------
 
 handle_call(Request, From, S) ->
-    ok = error_logger:format("~p(~p): handle_call(~p, ~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_call(~tp, ~tp, ~tp)~n",
                              [?MODULE, self(), Request, From, S]),
     Reply = {error, {bad_request, Request}},
     {reply, Reply, S}.
@@ -226,7 +226,7 @@ handle_call(Request, From, S) ->
 %%----------------------------------------------------------------------
 
 handle_cast(Msg, S) ->
-    ok = error_logger:format("~p(~p): handle_cast(~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_cast(~tp, ~tp)~n",
                              [?MODULE, self(), Msg, S]),
     {noreply, S}.
 
@@ -272,10 +272,11 @@ handle_event(#wx{id = Id,
                 end,
             FileName = lists:flatten(["et_contents_viewer_", now_to_string(TimeStamp), ".txt"]),
 	    Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
-	    Msg = "Select a file to the events to",
+	    Msg = "Select a file to save events to",
 	    case select_file(S#state.frame, Msg, filename:absname(FileName), Style) of
 		{ok, FileName2} ->
-		    Bin = list_to_binary(event_to_string(Event, S#state.event_order)),
+                    EventString = event_to_string(Event, S#state.event_order),
+		    Bin = unicode:characters_to_binary(EventString),
 		    ok = file:write_file(FileName2, Bin);
 		cancel ->
 		    ok
@@ -381,7 +382,7 @@ handle_event(#wx{event = #wxSize{size = {W, H}}}, S) ->
     S2 = S#state{width = W, height = H},
     {noreply, S2};
 handle_event(Wx = #wx{}, S) ->
-    io:format("~p got an unexpected event: ~p\n", [self(), Wx]),
+    io:format("~p got an unexpected event: ~tp\n", [self(), Wx]),
     {noreply, S}.
 
 %%----------------------------------------------------------------------
@@ -405,7 +406,7 @@ handle_info({'EXIT', Pid, Reason}, S) ->
             {noreply, S}
     end;
 handle_info(Info, S) ->
-    ok = error_logger:format("~p(~p): handle_info(~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_info(~tp, ~tp)~n",
                              [?MODULE, self(), Info, S]),
     {noreply, S}.
 
@@ -606,8 +607,8 @@ do_config_editor(Editor, Event, _Colour, TsKey) ->
 %%%----------------------------------------------------------------------
 
 term_to_string(Term) ->
-    case catch io_lib:format("~s", [Term]) of
-        {'EXIT', _} -> io_lib:format("~p", [Term]);
+    case catch io_lib:format("~ts", [Term]) of
+        {'EXIT', _} -> io_lib:format("~tp", [Term]);
         GoodString  -> GoodString
     end.
 
@@ -659,7 +660,7 @@ pad_string(Int, MinLen, Char, Dir) when is_integer(Int) ->
 pad_string(Atom, MinLen, Char, Dir) when is_atom(Atom) ->
     pad_string(atom_to_list(Atom), MinLen, Char, Dir);
 pad_string(String, MinLen, Char, Dir) when is_integer(MinLen), MinLen >= 0 ->
-    Len = length(String),
+    Len = string:length(String),
     case {Len >= MinLen, Dir} of
         {true, _} ->
             String;

@@ -24,11 +24,11 @@
 -export([new/0,opcode/2,highest_opcode/1,
 	 atom/2,local/4,export/4,import/4,
 	 string/2,lambda/3,literal/2,line/2,fname/2,
-	 atom_table/1,local_table/1,export_table/1,import_table/1,
+	 atom_table/2,local_table/1,export_table/1,import_table/1,
 	 string_table/1,lambda_table/1,literal_table/1,
 	 line_table/1]).
 
--type label() :: non_neg_integer().
+-type label() :: beam_asm:label().
 
 -type index() :: non_neg_integer().
 
@@ -38,13 +38,16 @@
 -type line_tab()   :: #{{Fname :: index(), Line :: term()} => index()}.
 -type literal_tab() :: dict:dict(Literal :: term(), index()).
 
+-type lambda_info() :: {label(),{index(),label(),non_neg_integer()}}.
+-type lambda_tab() :: {non_neg_integer(),[lambda_info()]}.
+
 -record(asm,
 	{atoms = #{}                :: atom_tab(),
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: import_tab(),
 	 strings = <<>>		    :: binary(),	%String pool
-	 lambdas = {0,[]},				%[{...}]
+	 lambdas = {0,[]}           :: lambda_tab(),
 	 literals = dict:new()	    :: literal_tab(),
 	 fnames = #{}               :: fname_tab(),
 	 lines = #{}                :: line_tab(),
@@ -148,10 +151,7 @@ string(Str, Dict) when is_list(Str) ->
 lambda(Lbl, NumFree, #asm{lambdas={OldIndex,Lambdas0}}=Dict) ->
     %% Set Index the same as OldIndex.
     Index = OldIndex,
-    %% Initialize OldUniq to 0. It will be set to an unique value
-    %% based on the MD5 checksum of the BEAM code for the module.
-    OldUniq = 0,
-    Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
+    Lambdas = [{Lbl,{Index,Lbl,NumFree}}|Lambdas0],
     {OldIndex,Dict#asm{lambdas={OldIndex+1,Lambdas}}}.
 
 %% Returns the index for a literal (adding it to the literal table if necessary).
@@ -185,6 +185,9 @@ line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
             {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
     end.
 
+-spec fname(nonempty_string(), bdict()) ->
+                   {non_neg_integer(), bdict()}.
+
 fname(Name, #asm{fnames=Fnames}=Dict) ->
     case Fnames of
         #{Name := Index} -> {Index,Dict};
@@ -194,15 +197,15 @@ fname(Name, #asm{fnames=Fnames}=Dict) ->
     end.
 
 %% Returns the atom table.
-%%    atom_table(Dict) -> {LastIndex,[Length,AtomString...]}
--spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
+%%    atom_table(Dict, Encoding) -> {LastIndex,[Length,AtomString...]}
+-spec atom_table(bdict(), latin1 | utf8) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
-atom_table(#asm{atoms=Atoms}) ->
+atom_table(#asm{atoms=Atoms}, Encoding) ->
     NumAtoms = maps:size(Atoms),
     Sorted = lists:keysort(2, maps:to_list(Atoms)),
     {NumAtoms,[begin
-                   L = atom_to_list(A),
-                   [length(L)|L]
+                   L = atom_to_binary(A, Encoding),
+                   [byte_size(L),L]
                end || {A,_} <- Sorted]}.
 
 %% Returns the table of local functions.
@@ -239,8 +242,11 @@ lambda_table(#asm{locals=Loc0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
     Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
     Lambdas2 = sofs:relative_product1(Lambdas1, Loc),
+    %% Initialize OldUniq to 0. It will be set to an unique value
+    %% based on the MD5 checksum of the BEAM code for the module.
+    OldUniq = 0,
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
-		  {{_,Lbl,Index,NumFree,OldUniq},{F,A}} <- sofs:to_external(Lambdas2)],
+		  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
     {NumLambdas,Lambdas}.
 
 %% Returns the literal table.

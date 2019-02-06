@@ -19,8 +19,6 @@
 %%
 %%
 -module(testPrimStrings).
--compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}},
-	  {nowarn_deprecated_function,{asn1rt,utf8_binary_to_list,1}}]).
 
 -export([bit_string/2]).
 -export([octet_string/1]).
@@ -756,19 +754,21 @@ utf8_string(_Rules) ->
 		 16#800,
 		 16#ffff,
 		 16#10000,
-		 16#1fffff,
-		 16#200000,
-		 16#3ffffff,
-		 16#4000000,
-		 16#7fffffff],
+		 16#1ffff,
+		 16#20000,
+		 16#2ffff,
+                 16#e0000,
+                 16#effff,
+                 16#F0000,
+		 16#10ffff],
     [begin
-	 {ok,UTF8} = asn1rt:utf8_list_to_binary([Char]),
-	 {ok,[Char]} = asn1rt:utf8_binary_to_list(UTF8),
+	 UTF8 = unicode:characters_to_binary([Char]),
+	 [Char] = unicode:characters_to_list([UTF8]),
 	 roundtrip('UTF', UTF8)
      end || Char <- AllRanges],
 
-    {ok,UTF8} = asn1rt:utf8_list_to_binary(AllRanges),
-    {ok,AllRanges} = asn1rt:utf8_binary_to_list(UTF8),
+    UTF8 = unicode:characters_to_binary(AllRanges),
+    AllRanges = unicode:characters_to_list(UTF8),
     roundtrip('UTF', UTF8),
     ok.
 

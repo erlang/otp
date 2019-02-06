@@ -43,7 +43,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/hipe-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = hipe_spillmin hipe_spillmin_color hipe_spillmin_scan
+MODULES = hipe_spillmin hipe_spillmin_color hipe_spillmin_scan \
+	hipe_bb_weights
 
 HRL_FILES=
 ERL_FILES= $(MODULES:%=%.erl)

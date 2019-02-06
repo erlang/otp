@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,293 +26,187 @@
 #include "erl_sys_driver.h"
 #include "erl_alloc.h"
 
-static WCHAR *merge_environment(WCHAR *current, WCHAR *add);
-static WCHAR *arg_to_env(WCHAR **arg);
-static WCHAR **env_to_arg(WCHAR *env);
-static WCHAR **find_arg(WCHAR **arg, WCHAR *str);
-static int compare(const void *a, const void *b);
+static erts_osenv_t sysenv_global_env;
+static erts_rwmtx_t sysenv_rwmtx;
 
-static erts_smp_rwmtx_t environ_rwmtx;
+static void import_initial_env(void);
 
-void
-erts_sys_env_init(void)
-{
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ");
+void erts_sys_env_init() {
+    erts_rwmtx_init(&sysenv_rwmtx, "environ", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+
+    erts_osenv_init(&sysenv_global_env);
+    import_initial_env();
 }
 
-int
-erts_sys_putenv_raw(char *key, char *value)
-{
-    int res;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = (SetEnvironmentVariable((LPCTSTR) key,
-				  (LPCTSTR) value) ? 0 : 1);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-    return res;
+const erts_osenv_t *erts_sys_rlock_global_osenv() {
+    erts_rwmtx_rlock(&sysenv_rwmtx);
+    return &sysenv_global_env;
 }
 
-int
-erts_sys_putenv(char *key, char *value)
-{
-    int res;
-    WCHAR *wkey = (WCHAR *) key;
-    WCHAR *wvalue = (WCHAR *) value;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = (SetEnvironmentVariableW(wkey,
-				   wvalue) ? 0 : 1);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-    return res;
+erts_osenv_t *erts_sys_rwlock_global_osenv() {
+    erts_rwmtx_rwlock(&sysenv_rwmtx);
+    return &sysenv_global_env;
 }
 
-int
-erts_sys_getenv(char *key, char *value, size_t *size)
-{
-    size_t req_size = 0;
-    int res = 0;
-    DWORD new_size;
-    WCHAR *wkey = (WCHAR *) key;
-    WCHAR *wvalue = (WCHAR *) value;
-    DWORD wsize = *size / (sizeof(WCHAR) / sizeof(char));
-
-    SetLastError(0);
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    new_size = GetEnvironmentVariableW(wkey,
-				       wvalue,
-				      (DWORD) wsize);
-    res = !new_size && GetLastError() == ERROR_ENVVAR_NOT_FOUND ? -1 : 0;
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
-    if (res < 0)
-	return res;
-    res = new_size > wsize ? 1 : 0;
-    *size = new_size * (sizeof(WCHAR) / sizeof(char));
-    return res;
+void erts_sys_runlock_global_osenv() {
+    erts_rwmtx_runlock(&sysenv_rwmtx);
 }
-int
-erts_sys_getenv__(char *key, char *value, size_t *size)
-{
-    size_t req_size = 0;
-    int res = 0;
-    DWORD new_size;
 
-    SetLastError(0);
-    new_size = GetEnvironmentVariable((LPCTSTR) key,
-				      (LPTSTR) value,
-				      (DWORD) *size);
-    res = !new_size && GetLastError() == ERROR_ENVVAR_NOT_FOUND ? -1 : 0;
-    if (res < 0)
-	return res;
-    res = new_size > *size ? 1 : 0;
+void erts_sys_rwunlock_global_osenv() {
+    erts_rwmtx_rwunlock(&sysenv_rwmtx);
+}
+
+int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size) {
+    size_t new_size = GetEnvironmentVariableA(key, value, (DWORD)*size);
+
+    if(new_size == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
+        return 0;
+    } else if(new_size > *size) {
+        return -1;
+    }
+
     *size = new_size;
-    return res;
+    return 1;
 }
 
-int
-erts_sys_getenv_raw(char *key, char *value, size_t *size)
-{
-    int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    res = erts_sys_getenv__(key, value, size);
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
-    return res;
+int erts_sys_explicit_8bit_putenv(char *key, char *value) {
+    WCHAR *wide_key, *wide_value;
+    int key_length, value_length;
+    int result;
+
+    /* Note that we do *NOT* honor the filename encoding flags (+fnu/+fnl)
+     * here; the previous implementation used SetEnvironmentVariableA and
+     * things may break if we step away from that. */
+
+    key_length = MultiByteToWideChar(CP_ACP, 0, key, -1, NULL, 0);
+    value_length = MultiByteToWideChar(CP_ACP, 0, value, -1, NULL, 0);
+
+    /* Report "not found" if either string isn't convertible. */
+    if(key_length == 0 || value_length == 0) {
+        return 0;
+    }
+
+    wide_key = erts_alloc(ERTS_ALC_T_TMP, key_length * sizeof(WCHAR));
+    wide_value = erts_alloc(ERTS_ALC_T_TMP, value_length * sizeof(WCHAR));
+
+    MultiByteToWideChar(CP_ACP, 0, key, -1, wide_key, key_length);
+    MultiByteToWideChar(CP_ACP, 0, value, -1, wide_value, value_length);
+
+    {
+        erts_osenv_data_t env_key, env_value;
+        erts_osenv_t *env;
+
+        env = erts_sys_rwlock_global_osenv();
+
+        /* -1 to exclude the NUL terminator. */
+        env_key.length = (key_length - 1) * sizeof(WCHAR);
+        env_key.data = wide_key;
+
+        env_value.length = (value_length - 1) * sizeof(WCHAR);
+        env_value.data = wide_value;
+
+        result = erts_osenv_put_native(env, &env_key, &env_value);
+        erts_sys_rwunlock_global_osenv();
+    }
+
+    erts_free(ERTS_ALC_T_TMP, wide_key);
+    erts_free(ERTS_ALC_T_TMP, wide_value);
+
+    return result;
 }
 
-void init_getenv_state(GETENV_STATE *state)
-{
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    state->environment_strings = GetEnvironmentStringsW();
-    state->next_string = state->environment_strings;
-}
+int erts_sys_explicit_8bit_getenv(char *key, char *value, size_t *size) {
+    erts_osenv_data_t env_key, env_value;
+    int key_length, value_length, result;
+    WCHAR *wide_key, *wide_value;
 
-char *getenv_string(GETENV_STATE *state)
-{
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
-    if (state->next_string[0] == L'\0') {
-	return NULL;
+    key_length = MultiByteToWideChar(CP_ACP, 0, key, -1, NULL, 0);
+
+    /* Report "not found" if the string isn't convertible. */
+    if(key_length == 0) {
+        return 0;
+    }
+
+    wide_key = erts_alloc(ERTS_ALC_T_TMP, key_length * sizeof(WCHAR));
+    MultiByteToWideChar(CP_ACP, 0, key, -1, wide_key, key_length);
+
+    /* We assume that the worst possible size is twice the output buffer width,
+     * as we could theoretically be on a code page that requires surrogates. */
+    value_length = (*size) * 2;
+    wide_value = erts_alloc(ERTS_ALC_T_TMP, value_length * sizeof(WCHAR));
+
+    {
+        const erts_osenv_t *env = erts_sys_rlock_global_osenv();
+
+        /* -1 to exclude the NUL terminator. */
+        env_key.length = (key_length - 1) * sizeof(WCHAR);
+        env_key.data = wide_key;
+
+        env_value.length = value_length * sizeof(WCHAR);
+        env_value.data = wide_value;
+
+        result = erts_osenv_get_native(env, &env_key, &env_value);
+        erts_sys_runlock_global_osenv();
+    }
+
+    if(result == 1 && env_value.length > 0) {
+        /* This function doesn't NUL-terminate if the provided size is >= 0,
+         * so we pass (*size - 1) to reserve space for it and then do it
+         * manually. */
+        *size = WideCharToMultiByte(CP_ACP, 0, env_value.data,
+            env_value.length / sizeof(WCHAR), value, *size - 1, NULL, NULL);
+
+        if(*size == 0) {
+            if(GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+                result = -1;
+            } else {
+                result = 0;
+            }
+        }
     } else {
-	WCHAR *res = state->next_string;
-	state->next_string += wcslen(res) + 1;
-	return (char *) res;
+        *size = 0;
     }
+
+    if(*size > 0) {
+        value[*size] = '\0';
+    }
+
+    erts_free(ERTS_ALC_T_TMP, wide_key);
+    erts_free(ERTS_ALC_T_TMP, wide_value);
+
+    return result;
 }
 
-void fini_getenv_state(GETENV_STATE *state)
-{
-    FreeEnvironmentStringsW(state->environment_strings);
-    state->environment_strings = state->next_string = NULL;
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
-}
+static void import_initial_env(void) {
+    WCHAR *environment_block, *current_variable;
 
-int erts_sys_unsetenv(char *key)
-{
-    int res = 0;
-    WCHAR *wkey = (WCHAR *) key;
+    environment_block = GetEnvironmentStringsW();
+    current_variable = environment_block;
 
-    SetLastError(0);
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
-    GetEnvironmentVariableW(wkey,
-                            NULL,
-                            0);
-    if (GetLastError() != ERROR_ENVVAR_NOT_FOUND) {
-        res = (SetEnvironmentVariableW(wkey,
-                                       NULL) ? 0 : 1);
-    }
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
-    return res;
-}
+    while(wcslen(current_variable) > 0) {
+        WCHAR *separator_index = wcschr(current_variable, L'=');
 
-char*
-win_build_environment(char* new_env)
-{
-    if (new_env == NULL) {
-	return NULL;
-    } else {
-	WCHAR *tmp, *merged, *tmp_new;
+        /* We tolerate environment variables starting with '=' as the per-drive
+         * working directories are stored this way. */
+        if(separator_index == current_variable) {
+            separator_index = wcschr(separator_index + 1, L'=');
+        }
 
-	tmp_new = (WCHAR *) new_env;
-	
-	erts_smp_rwmtx_rlock(&environ_rwmtx);
-	tmp = GetEnvironmentStringsW();
-	merged = merge_environment(tmp, tmp_new);
+        if(separator_index != NULL && separator_index != current_variable) {
+            erts_osenv_data_t env_key, env_value;
 
-	FreeEnvironmentStringsW(tmp);
-	erts_smp_rwmtx_runlock(&environ_rwmtx);
-	return (char *) merged;
-    }
-}
+            env_key.length = (separator_index - current_variable) * sizeof(WCHAR);
+            env_key.data = current_variable;
 
-static WCHAR *
-merge_environment(WCHAR *old, WCHAR *add)
-{
-    WCHAR **a_arg = env_to_arg(add);
-    WCHAR **c_arg = env_to_arg(old);
-    WCHAR *ret;
-    int i, j;
-    
-    for(i = 0; c_arg[i] != NULL; ++i)
-	;
+            env_value.length = (wcslen(separator_index) - 1) * sizeof(WCHAR);
+            env_value.data = separator_index + 1;
 
-    for(j = 0; a_arg[j] != NULL; ++j)
-	;
+            erts_osenv_put_native(&sysenv_global_env, &env_key, &env_value);
+        }
 
-    c_arg = erts_realloc(ERTS_ALC_T_TMP,
-			 c_arg, (i+j+1) * sizeof(WCHAR *));
-
-    for(j = 0; a_arg[j] != NULL; ++j){
-	WCHAR **tmp;
-	WCHAR *current = a_arg[j];
-	WCHAR *eq_p = wcschr(current,L'=');
-	int unset = (eq_p!=NULL && eq_p[1]==L'\0');
-
-	if ((tmp = find_arg(c_arg, current)) != NULL) {
-	    if (!unset) {
-		*tmp = current;
-	    } else {
-		*tmp = c_arg[--i];
-		c_arg[i] = NULL;
-	    }
-	} else if (!unset) {
-	    c_arg[i++] = current;
-	    c_arg[i] = NULL;
-	}
-    }
-    ret = arg_to_env(c_arg);
-    erts_free(ERTS_ALC_T_TMP, c_arg);
-    erts_free(ERTS_ALC_T_TMP, a_arg);
-    return ret;
-}
-
-static WCHAR**
-find_arg(WCHAR **arg, WCHAR *str)
-{
-    WCHAR *tmp;
-    int len;
-
-    if ((tmp = wcschr(str, L'=')) != NULL) {
-	tmp++;
-	len = tmp - str;
-	while (*arg != NULL){
-	    if (_wcsnicmp(*arg, str, len) == 0){
-		return arg;
-	    }
-	    ++arg;
-	}
-    }
-    return NULL;
-}
-
-static int
-compare(const void *a, const void *b)
-{
-    WCHAR *s1 = *((WCHAR **) a);
-    WCHAR *s2 = *((WCHAR **) b);
-    WCHAR *e1 = wcschr(s1,L'=');
-    WCHAR *e2 = wcschr(s2,L'=');
-    int ret;
-    int len;
-  
-    if(!e1)
-	e1 = s1 + wcslen(s1);
-    if(!e2)
-	e2 = s2 + wcslen(s2);
-  
-    if((e1 - s1) > (e2 - s2))
-	len = (e2 - s2);
-    else
-	len = (e1 - s1);
-  
-    ret = _wcsnicmp(s1,s2,len);
-    if (ret == 0)
-	return ((e1 - s1) - (e2 - s2));
-    else
-	return ret;
-}
-
-static WCHAR**
-env_to_arg(WCHAR *env)
-{
-    WCHAR **ret;
-    WCHAR *tmp;
-    int i;
-    int num_strings = 0;
-
-    for(tmp = env; *tmp != '\0'; tmp += wcslen(tmp)+1) {
-	++num_strings;
-    }
-    ret = erts_alloc(ERTS_ALC_T_TMP, sizeof(WCHAR *) * (num_strings + 1));
-    i = 0;
-    for(tmp = env; *tmp != '\0'; tmp += wcslen(tmp)+1){
-	ret[i++] = tmp;
-    }
-    ret[i] = NULL;
-    return ret;
-}
-
-static WCHAR *
-arg_to_env(WCHAR **arg)
-{
-    WCHAR *block;
-    WCHAR *ptr;
-    int i;
-    int totlen = 1;		/* extra '\0' */
-
-    for(i = 0; arg[i] != NULL; ++i) {
-	totlen += wcslen(arg[i])+1;
+        current_variable += wcslen(current_variable) + 1;
     }
 
-    /* sort the environment vector */
-    qsort(arg, i, sizeof(WCHAR *), &compare);
-
-    if (totlen == 1){
-	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, 2 * sizeof(WCHAR));
-	block[0] = block[1] = '\0'; 
-    } else {
-	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, totlen * sizeof(WCHAR));
-	ptr = block;
-	for(i=0; arg[i] != NULL; ++i){
-	    wcscpy(ptr, arg[i]);
-	    ptr += wcslen(ptr)+1;
-	}
-	*ptr = '\0';
-    }
-    return block;
+    FreeEnvironmentStringsW(environment_block);
 }

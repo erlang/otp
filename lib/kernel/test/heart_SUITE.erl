@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -168,7 +168,7 @@ reboot(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
 
     ok = rpc:call(Node, heart, set_cmd,
-			[atom_to_list(lib:progname()) ++ 
+			[ct:get_progname() ++
 			 " -noshell -heart " ++ name(Node) ++ "&"]),
     rpc:call(Node, init, reboot, []),
     receive
@@ -203,7 +203,7 @@ node_start_immediately_after_crash_test(Config) when is_list(Config) ->
 			     [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
-	[atom_to_list(lib:progname()) ++
+	[ct:get_progname() ++
 	    " -noshell -heart " ++ name(Node) ++ "&"]),
 
     Mod  = exhaust_atoms,
@@ -254,7 +254,7 @@ node_start_soon_after_crash_test(Config) when is_list(Config) ->
 			     [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
-	[atom_to_list(lib:progname()) ++
+	[ct:get_progname() ++
 	    " -noshell -heart " ++ name(Node) ++ "&"]),
 
     Mod  = exhaust_atoms,
@@ -309,7 +309,7 @@ set_cmd(Config) when is_list(Config) ->
 clear_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
     ok = rpc:call(Node, heart, set_cmd,
-			[atom_to_list(lib:progname()) ++
+			[ct:get_progname() ++
 			 " -noshell -heart " ++ name(Node) ++ "&"]),
     rpc:call(Node, init, reboot, []),
     receive
@@ -346,9 +346,16 @@ clear_cmd(Config) when is_list(Config) ->
 
 get_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, ?UNIQ_NODE_NAME),
-    Cmd = "test",
-    ok  = rpc:call(Node, heart, set_cmd, [Cmd]),
-    {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
+
+    ShortCmd = "test",
+    ok  = rpc:call(Node, heart, set_cmd, [ShortCmd]),
+    {ok, ShortCmd} = rpc:call(Node, heart, get_cmd, []),
+
+    %% This would hang prior to OTP-15024 being fixed.
+    LongCmd = [$a || _ <- lists:seq(1, 160)],
+    ok  = rpc:call(Node, heart, set_cmd, [LongCmd]),
+    {ok, LongCmd} = rpc:call(Node, heart, get_cmd, []),
+
     stop_node(Node),
     ok.
 

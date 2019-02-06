@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -526,7 +526,7 @@ loop(S, G) ->
 	    exit(Reason);
 
         Other ->
-            error_logger:format("~w~w got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~tp\n",
                                 [?MODULE, self(), Other]),
             loop(S, G)
     end.

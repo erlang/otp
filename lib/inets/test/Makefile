@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,8 +44,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 INCLUDES = -I. \
 	-I$(ERL_TOP)/lib/inets/src/inets_app \
 	-I$(ERL_TOP)/lib/inets/src/http_lib \
-	-I$(ERL_TOP)/lib/inets/src/http_client \
-	-I$(ERL_TOP)/lib/inets/src/ftp
+	-I$(ERL_TOP)/lib/inets/src/http_client
 
 CP = cp
 
@@ -68,34 +67,6 @@ INETS_FLAGS = -Dinets_data_dir='"$(INETS_DATA_DIR)"'       \
 ### 
 ### test suite debug flags
 ### 
-ifeq ($(FTP_DEBUG_CLIENT),)
-  FTP_DEBUG_CLIENT = y
-endif
-
-ifeq ($(FTP_DEBUG_CLIENT),)
-  FTP_FLAGS += -Dftp_debug_client
-endif
-
-ifeq ($(FTP_TRACE_CLIENT),)
-  FTP_DEBUG_CLIENT = y
-endif
-
-ifeq ($(FTP_TRACE_CLIENT),y)
-  FTP_FLAGS += -Dftp_trace_client
-endif
-
-ifneq ($(FTP_DEBUG),)
-  FTP_DEBUG = s
-endif
-
-ifeq ($(FTP_DEBUG),l)
-  FTP_FLAGS += -Dftp_log
-endif
-
-ifeq ($(FTP_DEBUG),d)
-  FTP_FLAGS += -Dftp_debug -Dftp_log
-endif
-
 ifeq ($(INETS_DEBUG),)
   INETS_DEBUG = d
 endif
@@ -150,17 +121,16 @@ INETS_ROOT = ../../inets
 MODULES =                 		\
 	inets_test_lib    		\
 	erl_make_certs                  \
-	ftp_SUITE 	  		\
-	ftp_format_SUITE  		\
+	make_certs                      \
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
 	httpc_cookie_SUITE		\
 	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
-	old_httpd_SUITE       		\
+	httpd_bench_SUITE               \
+	http_test_lib    		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
-	httpd_block	  		\
 	httpd_load        		\
 	httpd_time_test	  		\
 	httpd_1_1         		\
@@ -168,8 +138,6 @@ MODULES =                 		\
 	httpd_test_lib    		\
 	inets_sup_SUITE   		\
 	inets_SUITE       		\
-        tftp_test_lib			\
-        tftp_SUITE                      \
 	uri_SUITE                       \
 	inets_socketwrap_SUITE
 
@@ -178,10 +146,8 @@ EBIN = .
 
 HRL_FILES = inets_test_lib.hrl \
 	    inets_internal.hrl \
-	    ftp_internal.hrl   \
             httpc_internal.hrl \
-            http_internal.hrl \
-            tftp_test_lib.hrl
+            http_internal.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -189,23 +155,22 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec
+INETS_SPECS = inets.spec inets_bench.spec
 COVER_FILE = inets.cover
 INETS_FILES = inets.config $(INETS_SPECS)
 
 # SUB_SUITES = \
 # 	inets_sup_suite \
 # 	inets_httpd_suite \
-# 	inets_httpc_suite \
-# 	inets_ftp_suite \
-# 	inets_tftp_suite
+# 	inets_httpc_suite
+
 
 INETS_DATADIRS = inets_SUITE_data inets_socketwrap_SUITE_data
-HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data
-HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
-FTP_DATADIRS   = ftp_SUITE_data  
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data httpd_basic_SUITE_data old_httpd_SUITE_data httpd_bench_SUITE_data
 
-DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS) $(FTP_DATADIRS)
+HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
+
+DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS)
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -235,7 +200,6 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 	$(INCLUDES) \
-	$(FTP_FLAGS) \
 	$(INETS_FLAGS)
 
 # ----------------------------------------------------
@@ -331,11 +295,3 @@ info:
 	@echo "INETS_PRIV_DIR    = $(INETS_PRIV_DIR)"
 	@echo "INETS_ROOT        = $(INETS_ROOT)"
 	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
-	@echo "FTP_FLAGS         = $(FTP_FLAGS)"
-
-tftp:
-	erlc $(ERL_COMPILE_FLAGS) tftp_test_lib.erl tftp_SUITE.erl && erl -pa ../../inets/ebin -s tftp_SUITE t -s erlang halt
-
-tftp_work:
-	echo "tftp_test_lib:t([{tftp_SUITE, all}])."
-	erlc $(ERL_COMPILE_FLAGS) tftp_test_lib.erl tftp_SUITE.erl && erl -pa ../../inets/ebin

@@ -3,17 +3,17 @@ Carrier Migration
 
 The ERTS memory allocators manage memory blocks in two types of raw
 memory chunks. We call these chunks of raw memory
-*carriers*. Singleblock carriers which only contain one large block,
-and multiblock carriers which contain multiple blocks. A carrier is
+*carriers*. Single-block carriers which only contain one large block,
+and multi-block carriers which contain multiple blocks. A carrier is
 typically created using `mmap()` on unix systems. However, how a
 carrier is created is of minor importance. An allocator instance
-typically manages a mixture of single- and multiblock carriers.
+typically manages a mixture of single- and multi-block carriers.
 
 Problem
 -------
 
 When a carrier is empty, i.e. contains only one large free block, it
-is deallocated. Since multiblock carriers can contain both allocated
+is deallocated. Since multi-block carriers can contain both allocated
 blocks and free blocks at the same time, an allocator instance might
 be stuck with a large amount of poorly utilized carriers if the memory
 load decreases. After a peak in memory usage it is expected that not
@@ -23,9 +23,9 @@ can usually be reused if the memory load increases again. However,
 since each scheduler thread manages its own set of allocator
 instances, and memory load is not necessarily correlated to CPU load, we
 might get into a situation where there are lots of poorly utilized
-multiblock carriers on some allocator instances while we need to
-allocate new multiblock carriers on other allocator instances. In
-scenarios like this, the demand for multiblock carriers in the system
+multi-block carriers on some allocator instances while we need to
+allocate new multi-block carriers on other allocator instances. In
+scenarios like this, the demand for multi-block carriers in the system
 might increase at the same time as the actual memory demand in the
 system has decreased which is both unwanted and quite unexpected for
 the end user.
@@ -34,7 +34,7 @@ Solution
 --------
 
 In order to prevent scenarios like this we've implemented support for
-migration of multiblock carriers between allocator instances of the
+migration of multi-block carriers between allocator instances of the
 same type.
 
 ### Management of Free Blocks ###
@@ -44,7 +44,7 @@ and add it to another we need to be able to move references to the
 free blocks of the carrier between the allocator instances. The
 allocator instance specific data structure referring to the free
 blocks it manages often refers to the same carrier from multiple
-places. For example, when the address order bestfit strategy is used
+places. For example, when the address order best-fit strategy is used
 this data structure is a binary search tree spanning all carriers that
 the allocator instance manages. Free blocks in one specific carrier
 can be referred to from potentially every other carrier that is
@@ -135,7 +135,7 @@ carriers between scheduler specific allocator instances of the same
 allocator type.
 
 Each allocator instance keeps track of the current utilization of its
-multiblock carriers. When the total utilization falls below the "abandon
+multi-block carriers. When the total utilization falls below the "abandon
 carrier utilization limit" it starts to inspect the utilization of the
 current carrier when deallocations are made. If also the utilization
 of the carrier falls below the "abandon carrier utilization limit" it
@@ -144,30 +144,44 @@ and inserts the carrier into the pool.
 
 Since the carrier has been unlinked from the data structure of
 available free blocks, no more allocations will be made in the
-carrier. The allocator instance putting the carrier into the pool,
-however, still has the responsibility of performing deallocations in
-it while it remains in the pool. The allocator instance with this
-deallocation responsibility is here called the **employer**.
+carrier.
 
-Each carrier has a flag field containing information about the
-employing allocator instance, a flag indicating if the carrier is in
-the pool or not, and a flag indicating if it is busy or not. When the
-carrier is in the pool, the employing allocator instance needs to mark it
-as busy while operating on it. If another thread inspects it in order
-to try to fetch it from the pool, it will skip it if it is busy. When
-fetching the carrier from the pool, employment will change and further
+The allocator instance that created a carrier is called its **owner**.
+Ownership never changes.
+
+The allocator instance that has the responsibility to perform deallocations in a
+carrier is called its **employer**. The employer may also perform allocations if
+the carrier is not in the pool. Employment may change when a carrier is fetched from
+or inserted into the pool.
+
+Deallocations in a carrier, while it remains in the pool, is always performed
+the owner. That is, all pooled carriers are employed by their owners.
+
+Each carrier has an atomic word containing a pointer to the employing allocator
+instance and three bit flags; IN_POOL, BUSY and HOMECOMING.
+
+When fetching a carrier from the pool, employment may change and further
 deallocations in the carrier will be redirected to the new
 employer using the delayed dealloc functionality.
 
-If a carrier in the pool becomes empty, it will be withdrawn from the
-pool. All carriers that become empty are also always passed to its
-**owning** allocator instance for deallocation using the delayed
-dealloc functionality. Since carriers this way always will be
-deallocated by the owner that allocated the carrier, the
+When a foreign allocator instance abandons a carrier back into the pool, it will
+also pass it back to its **owner** using the delayed dealloc queue. When doing
+this it will set the HOMECOMING bit flag to mark it as "enqueued". The owner
+will later clear the HOMECOMING bit when the carrier is dequeued. This mechanism
+prevents a carrier from being enqueued again before it has been dequeued.
+
+When a carrier becomes empty, it will be deallocated. Carrier deallocation is
+always done by the owner that allocated the carrier. By doing this, the
 underlying functionality of allocating and deallocating carriers can
 remain simple and doesn't have to bother about multiple threads. In a
 NUMA system we will also not mix carriers originating from multiple
 NUMA nodes.
+
+If a carrier in the pool becomes empty, it will be withdrawn from the
+pool and be deallocated by the owner which already employs it.
+
+If a carrier employed by a foreign allocator becomes empty, it will be passed
+back to the owner for deallocation using the delayed dealloc functionality.
 
 In short:
 
@@ -177,34 +191,31 @@ In short:
 * The allocator instance that uses a carrier **employs** it.
 * An **employer** can abandon a carrier into the pool.
 * Pooled carriers are not allocated from.
-* Deallocation in a pooled carrier is still performed by its **employer**.
-* **Employment** can only change when a carrier is fetched from the pool.
+* Pooled carriers are always **employed** by their **owner**.
+* **Employment** can only change from **owner** to a foreign allocator
+  when a carrier is fetched from the pool.
+
 
 ### Searching the pool ###
+
+When an allocator instance needs more carrier space, it inspects the pool. If no
+carrier could be fetched from the pool, it will allocate a new
+carrier. Regardless of where the allocator instance gets the carrier from, it
+just links in the carrier into its data structure of free blocks.
 
 To harbor real time characteristics, searching the pool is
 limited. We only inspect a limited number of carriers. If none of
 those carriers had a free block large enough to satisfy the allocation
-request, the search will fail. A carrier in the pool can also be busy
+request, the search will fail. A carrier in the pool can also be BUSY
 if another thread is currently doing block deallocation work on the
-carrier. A busy carrier will also be skipped by the search as it can
+carrier. A BUSY carrier will also be skipped by the search as it can
 not satisfy the request. The pool is lock-free and we do not want to
 block, waiting for the other thread to finish.
 
-#### Before OTP 17.4 ####
+### The bad cluster problem ###
 
-When an allocator instance needs more carrier space, it always begins
-by inspecting its own carriers that are waiting for thread progress
-before they can be deallocated. If no such carrier could be found, it
-then inspects the pool. If no carrier could be fetched from the pool,
-it will allocate a new carrier. Regardless of where the allocator
-instance gets the carrier from it the just links in the carrier into
-its data structure of free blocks.
-
-#### After OTP 17.4 ####
-
-The old search algorithm had a problem as the search always started at
-the same position in the pool, the sentinel. This could lead to
+Before OTP-17.4 the search algorithm had a problem as the search always started
+at the same position in the pool, the sentinel. This could lead to
 contention from concurrent searching processes. But even worse, it
 could lead to a "bad" state when searches fail with a high rate
 leading to new carriers instead being allocated. These new carriers
@@ -236,26 +247,27 @@ The result is that we prefer carriers created by the thread itself,
 which is good for NUMA performance. And we get more entry points when
 searching the pool, which will ease contention and clustering.
 
-To do the first search among own carriers, every allocator instance
-has two new lists: `pooled_list` and `traitor_list`. These lists are only
-accessed by the allocator itself and they only contain the allocator's
-own carriers. When an owned carrier is abandoned and put in the
-pool, it is also linked into `pooled_list`. When we search our
-`pooled_list` and find a carrier that is no longer in the pool, we
-move that carrier from `pooled_list` to `traitor_list` as it is now
-employed by another allocator. If searching `pooled_list` fails, we
-also do a limited search of `traitor_list`. When finding an abandoned
-carrier in `traitor_list` it is either employed or moved back to
-`pooled_list` if it could not satisfy the allocation request.
+### Our own pooled tree ###
 
-When searching `pooled_list` and `traitor_list` we always start at the
-point where the last search ended. This to avoid clustering
-problems and increase the probability to find a "good" carrier. As
-`pooled_list` and `traitor_list` are only accessed by the owning
-allocator instance, they need no thread synchronization at all.
+To do the first search among own carriers, every allocator instance
+has a `pooled_tree` of carriers. This tree is only accessed by the allocator
+itself and can only contain its own carriers. When a carrier is
+abandoned and put in the pool, it is also inserted into `pooled_tree`. This is
+either done direct, if the carrier was already employed by its owner, or by
+first passing it back to the owner via the delayed dealloc queue.
+
+When we search our `pooled_tree` and find a carrier that is no longer in the
+pool, we remove that carrier from `pooled_tree` and mark it as TRAITOR, as it is
+now employed by a foreign allocator. We will not find any carriers in
+`pooled_tree` that are marked as BUSY by other threads.
+
+If no carrier in `pooled_tree` had a large enough free block, we search it again
+to find any carrier that may act as an entry point into the shared list of all
+pooled carriers. This in order to, if possible, avoid starting at the sentinel
+and thereby ease the "bad clustering" problem.
 
 Furthermore, the search for own carriers that are scheduled
-for deallocation is now done as the last search option. The idea is
+for deallocation is done as the last search option. The idea is
 that it is better to reuse a poorly utilized carrier than to
 resurrect an empty carrier that was just about to be released back to
 the OS.
@@ -271,14 +283,14 @@ load did not.
 When using the `aoffcaobf` or `aoff` strategies compared to `gf` or
 `bf`, we loose some performance since we get more modifications in the
 data structure of free blocks. This performance penalty is however
-reduced using the `aoffcbf` strategy. A tradeoff between memory
+reduced using the `aoffcbf` strategy. A trade off between memory
 consumption and performance is however inevitable, and it is up to
 the user to decide what is most important. 
 
 Further work
 ------------
 
-It would be quite easy to extend this to allow migration of multiblock
+It would be quite easy to extend this to allow migration of multi-block
 carriers between all allocator types. More or less the only obstacle
 is maintenance of the statistics information.
 

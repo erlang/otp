@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ stop(Pid)->
 %%          {error, Reason}   
 %%----------------------------------------------------------------------
 init(_StartArgs) ->
+    ct_util:mark_process(),
     %%Child1 = 
     %%Child2 ={webcover_backend,{webcover_backend,start_link,[]},permanent,2000,worker,[webcover_backend]},
     %%{ok,{{simple_one_for_one,5,10},[Child1]}}.

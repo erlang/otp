@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 %%%-------------------------------------------------------------------
 %%% File        : dialyzer_behaviours.erl
@@ -62,9 +55,9 @@ check_callbacks(Module, Attrs, Records, Plt, Codeserver) ->
     _ ->
       MFA = {Module,module_info,0},
       {_Var,Code} = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
-      File = get_file(cerl:get_ann(Code)),
+      File = get_file(Codeserver, Module, cerl:get_ann(Code)),
       State = #state{plt = Plt, filename = File, behlines = BehLines,
-		     codeserver = Codeserver, records = Records},
+                     codeserver = Codeserver, records = Records},
       Warnings = get_warnings(Module, Behaviours, State),
       [add_tag_warning_info(Module, W, State) || W <- Warnings]
   end.
@@ -213,12 +206,15 @@ add_tag_warning_info(Module, {_Tag, [_B, Fun, Arity|_R]} = Warn, State) ->
     dialyzer_codeserver:lookup_mfa_code({Module, Fun, Arity},
 					State#state.codeserver),
   Anns = cerl:get_ann(FunCode),
-  WarningInfo = {get_file(Anns), get_line(Anns), {Module, Fun, Arity}},
+  File = get_file(State#state.codeserver, Module, Anns),
+  WarningInfo = {File, get_line(Anns), {Module, Fun, Arity}},
   {?WARN_BEHAVIOUR, WarningInfo, Warn}.
 
 get_line([Line|_]) when is_integer(Line) -> Line;
 get_line([_|Tail]) -> get_line(Tail);
 get_line([]) -> -1.
 
-get_file([{file, File}|_]) -> File;
-get_file([_|Tail]) -> get_file(Tail).
+get_file(Codeserver, Module, [{file, FakeFile}|_]) ->
+  dialyzer_codeserver:translate_fake_file(Codeserver, Module, FakeFile);
+get_file(Codeserver, Module, [_|Tail]) ->
+  get_file(Codeserver, Module, Tail).

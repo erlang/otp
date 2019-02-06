@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2016. All Rights Reserved.
+# Copyright Ericsson AB 2008-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ include $(ERL_TOP)/lib/kernel/vsn.mk
 PRE_LOADED_ERL_MODULES = \
 	erl_prim_loader \
 	init \
+	prim_buffer \
 	prim_file \
 	prim_inet \
 	zlib \
@@ -46,7 +47,10 @@ PRE_LOADED_ERL_MODULES = \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
-	erts_dirty_process_code_checker
+	erts_dirty_process_signal_handler \
+	atomics \
+	counters \
+        persistent_term
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval
@@ -73,7 +77,7 @@ KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
-ERL_COMPILE_FLAGS += +warn_obsolete_guard +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 debug opt: $(TARGET_FILES) 
 
@@ -116,7 +120,7 @@ prim_eval.beam: prim_eval.S prim_eval.abstr
 
 # Include dependencies -- list below added by PaN
 $(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file.hrl
-$(EBIN)/prim_file.beam: $(KERNEL_INCLUDE)/file.hrl
+$(EBIN)/prim_file.beam: $(KERNEL_SRC)/file_int.hrl $(KERNEL_INCLUDE)/file.hrl
 $(EBIN)/prim_inet.beam: $(KERNEL_SRC)/inet_int.hrl $(KERNEL_INCLUDE)/inet_sctp.hrl
 $(EBIN)/prim_zip.beam: zip_internal.hrl $(KERNEL_INCLUDE)/file.hrl $(STDLIB_INCLUDE)/zip.hrl
 $(EBIN)/init.erl: $(KERNEL_INCLUDE)/file.hrl

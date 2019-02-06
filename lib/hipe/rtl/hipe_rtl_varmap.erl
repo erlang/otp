@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,12 +11,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Copyright (c) 2001 by Erik Johansson.  All Rights Reserved 
-%% Time-stamp: <2008-04-20 14:55:35 richard>
 %% ====================================================================
 %%  Module   :	hipe_rtl_varmap
 %%  Purpose  :  
@@ -112,7 +105,7 @@ icode_var2rtl_var(Var, Map) ->
 	{reg, IsGcSafe} ->
 	  NewVar =
 	    case IsGcSafe of
-	      %% true -> hipe_rtl:mk_new_reg_gcsafe();
+              true -> hipe_rtl:mk_new_reg_gcsafe();
 	      false -> hipe_rtl:mk_new_reg()
 	    end,
 	  {NewVar, insert(Var, NewVar, Map)}

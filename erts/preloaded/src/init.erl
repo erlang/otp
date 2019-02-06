@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@
 %%                         (Optional - default efile)
 %%        -hosts [Node]  : List of hosts from which we can boot.
 %%                         (Mandatory if -loader inet)
-%%        -mode embedded : Load all modules at startup, no automatic loading
-%%        -mode interactive : Auto load modules (default system behaviour).
+%%        -mode interactive : Auto load modules not needed at startup (default system behaviour).
+%%        -mode embedded : Load all modules in the boot script, disable auto loading.
 %%        -path          : Override path in bootfile.
 %%        -pa Path+      : Add my own paths first.
 %%        -pz Path+      : Add my own paths last.
@@ -200,12 +200,15 @@ boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
 
-    %% Load the tracer nif
+    %% Load the static nifs
+    zlib:on_load(),
     erl_tracer:on_load(),
+    prim_buffer:on_load(),
+    prim_file:on_load(),
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
-    case get_flag(profile_boot, Flags, false) of
+    case b2a(get_flag(profile_boot, Flags, false)) of
         false -> ok;
         true  -> debug_profile_start()
     end,
@@ -263,21 +266,30 @@ boot(Start,Flags,Args) ->
     boot_loop(BootPid,State).
 
 %%% Convert a term to a printable string, if possible.
-to_string(X) when is_list(X) ->			% assume string
+to_string(X, D) when is_list(X), D < 4 ->			% assume string
     F = flatten(X, []),
     case printable_list(F) of
-	true ->  F;
-	false -> ""
+	true when length(F) > 0 ->  F;
+	_false ->
+            List = [to_string(E, D+1) || E <- X],
+            flatten(["[",join(List),"]"], [])
     end;
-to_string(X) when is_atom(X) ->
+to_string(X, _D) when is_list(X) ->
+    "[_]";
+to_string(X, _D) when is_atom(X) ->
     atom_to_list(X);
-to_string(X) when is_pid(X) ->
+to_string(X, _D) when is_pid(X) ->
     pid_to_list(X);
-to_string(X) when is_float(X) ->
+to_string(X, _D) when is_float(X) ->
     float_to_list(X);
-to_string(X) when is_integer(X) ->
+to_string(X, _D) when is_integer(X) ->
     integer_to_list(X);
-to_string(_X) ->
+to_string(X, D) when is_tuple(X), D < 4 ->
+    List = [to_string(E, D+1) || E <- tuple_to_list(X)],
+    flatten(["{",join(List),"}"], []);
+to_string(X, _D) when is_tuple(X) ->
+    "{_}";
+to_string(_X, _D) ->
     "".						% can't do anything with it
 
 %% This is an incorrect and narrow definition of printable characters.
@@ -291,6 +303,13 @@ printable_list([$\t|T]) -> printable_list(T);
 printable_list([]) -> true;
 printable_list(_) ->  false.
 
+join([] = T) ->
+    T;
+join([_Elem] = T) ->
+    T;
+join([Elem|T]) ->
+    [Elem,","|join(T)].
+
 flatten([H|T], Tail) when is_list(H) ->
     flatten(H, flatten(T, Tail));
 flatten([H|T], Tail) ->
@@ -299,7 +318,7 @@ flatten([], Tail) ->
     Tail.
 
 things_to_string([X|Rest]) ->
-    " (" ++ to_string(X) ++ ")" ++ things_to_string(Rest);
+    " (" ++ to_string(X, 0) ++ ")" ++ things_to_string(Rest);
 things_to_string([]) ->
     "".
 
@@ -307,9 +326,8 @@ halt_string(String, List) ->
     String ++ things_to_string(List).
 
 %% String = string()
-%% List = [string() | atom() | pid() | number()]
-%% Any other items in List, such as tuples, are ignored when creating
-%% the string used as argument to erlang:halt/1.
+%% List = [string() | atom() | pid() | number() | list() | tuple()]
+%% Items in List are truncated if found to be too large
 -spec crash(_, _) -> no_return().
 crash(String, List) ->
     halt(halt_string(String, List)).
@@ -467,7 +485,12 @@ do_handle_msg(Msg,State) ->
 	X ->
 	    case whereis(user) of
 		undefined ->
-		    catch error_logger ! {info, self(), {self(), X, []}};
+		    Time = erlang:monotonic_time(microsecond),
+                    catch logger ! {log, info, "init got unexpected: ~p", [X],
+                                    #{pid=>self(),
+                                      gl=>self(),
+                                      time=>Time,
+                                      error_logger=>#{tag=>info_msg}}};
 		User ->
 		    User ! X,
 		    ok
@@ -527,6 +550,9 @@ stop(Reason,State) ->
     do_stop(Reason,State1).
 
 do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
+    %% Make sure we don't have any outstanding messages before doing the restart.
+    flush(),
+    erts_internal:erase_persistent_terms(),
     boot(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();
@@ -539,8 +565,18 @@ do_stop({stop,Status},State) ->
 
 clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
-    shutdown_pids(Heart,BootPid,State),
-    unload(Heart).
+    Logger = get_logger(State#state.kernel),
+    shutdown_pids(Heart,Logger,BootPid,State),
+    unload(Heart),
+    kill_em([Logger]),
+    do_unload([logger_server]).
+
+flush() ->
+    receive
+        _M -> flush()
+    after 0 ->
+            ok
+    end.
 
 stop_heart(State) ->
     case get_heart(State#state.kernel) of
@@ -553,19 +589,26 @@ stop_heart(State) ->
 	    shutdown_kernel_pid(Pid, BootPid, self(), State) 
     end.
 
-shutdown_pids(Heart,BootPid,State) ->
+shutdown_pids(Heart,Logger,BootPid,State) ->
     Timer = shutdown_timer(State#state.flags),
     catch shutdown(State#state.kernel,BootPid,Timer,State),
-    kill_all_pids(Heart), % Even the shutdown timer.
-    kill_all_ports(Heart),
+    kill_all_pids(Heart,Logger), % Even the shutdown timer.
+    kill_all_ports(Heart), % Logger has no ports
     flush_timout(Timer).
 
-get_heart([{heart,Pid}|_Kernel]) -> Pid;
-get_heart([_|Kernel])           -> get_heart(Kernel);
-get_heart(_)                    -> false.
+get_heart(Kernel) ->
+    get_kernelpid(heart,Kernel).
+
+get_logger(Kernel) ->
+    get_kernelpid(logger,Kernel).
+
+get_kernelpid(Name,[{Name,Pid}|_Kernel]) -> Pid;
+get_kernelpid(Name,[_|Kernel])           -> get_kernelpid(Name,Kernel);
+get_kernelpid(_,_)                    -> false.
 
 
-shutdown([{heart,_Pid}|Kernel],BootPid,Timer,State) ->
+shutdown([{Except,_Pid}|Kernel],BootPid,Timer,State)
+  when Except==heart; Except==logger ->
     shutdown(Kernel, BootPid, Timer, State);
 shutdown([{_Name,Pid}|Kernel],BootPid,Timer,State) ->
     shutdown_kernel_pid(Pid, BootPid, Timer, State),
@@ -617,24 +660,25 @@ resend(_) ->
 
 %%
 %% Kill all existing pids in the system (except init and heart).
-kill_all_pids(Heart) ->
-    case get_pids(Heart) of
+kill_all_pids(Heart,Logger) ->
+    case get_pids(Heart,Logger) of
 	[] ->
 	    ok;
 	Pids ->
 	    kill_em(Pids),
-	    kill_all_pids(Heart)  % Continue until all are really killed.
+	    kill_all_pids(Heart,Logger)  % Continue until all are really killed.
     end.
     
 %% All except system processes.
-get_pids(Heart) ->
+get_pids(Heart,Logger) ->
     Pids = [P || P <- processes(), not erts_internal:is_system_process(P)],
-    delete(Heart,self(),Pids).
+    delete(Heart,Logger,self(),Pids).
 
-delete(Heart,Init,[Heart|Pids]) -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Init|Pids])  -> delete(Heart,Init,Pids);
-delete(Heart,Init,[Pid|Pids])   -> [Pid|delete(Heart,Init,Pids)];
-delete(_,_,[])                  -> [].
+delete(Heart,Logger,Init,[Heart|Pids]) -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Logger|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Init|Pids])  -> delete(Heart,Logger,Init,Pids);
+delete(Heart,Logger,Init,[Pid|Pids])   -> [Pid|delete(Heart,Logger,Init,Pids)];
+delete(_,_,_,[])                  -> [].
     
 kill_em([Pid|Pids]) ->
     exit(Pid,kill),
@@ -664,9 +708,9 @@ kill_all_ports(_,_) ->
     ok.
 
 unload(false) ->
-    do_unload(sub(erlang:pre_loaded(),erlang:loaded()));
+    do_unload(sub([logger_server|erlang:pre_loaded()],erlang:loaded()));
 unload(_) ->
-    do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
+    do_unload(sub([heart,logger_server|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
@@ -674,15 +718,7 @@ do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
-    purge_all_hipe_refs(),
     ok.
-
-purge_all_hipe_refs() ->
-    case erlang:system_info(hipe_architecture) of
-	undefined -> ok;
-	_ -> hipe_bifs:remove_refs_from(all)
-    end.
-
 
 sub([H|T],L) -> sub(T,del(H,L));
 sub([],L)    -> L.
@@ -782,7 +818,7 @@ do_boot(Init,Flags,Start) ->
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
     start_em(Start),
-    case get_flag(profile_boot,Flags,false) of
+    case b2a(get_flag(profile_boot,Flags,false)) of
         false -> ok;
         true  ->
             debug_profile_format_mfas(debug_profile_mfas()),
@@ -932,15 +968,15 @@ load_rest([], _) ->
 prepare_loading_fun() ->
     fun(Mod, FullName, Beam) ->
 	    case erlang:prepare_loading(Mod, Beam) of
-		Prepared when is_binary(Prepared) ->
+		{error,_}=Error ->
+		    Error;
+		Prepared ->
 		    case erlang:has_prepared_code_on_load(Prepared) of
 			true ->
 			    {ok,{on_load,Beam,FullName}};
 			false ->
 			    {ok,{prepared,Prepared,FullName}}
-		    end;
-		{error,_}=Error ->
-		    Error
+		    end
 	    end
     end.
 
@@ -1084,7 +1120,7 @@ start_it({eval,Bin}) ->
     {ok,Ts,_} = erl_scan:string(Str),
     Ts1 = case reverse(Ts) of
 	      [{dot,_}|_] -> Ts;
-	      TsR -> reverse([{dot,1} | TsR])
+	      TsR -> reverse([{dot,erl_anno:new(1)} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
     {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),

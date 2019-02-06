@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ trace_nif_meta(Config) when is_list(Config) ->
                           {?MODULE,nif, ["Arg1"]}}),
     ok.
 do_trace_nif(Flags) ->
-    Pid = spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
     Pid ! {apply_nif, nif, []},
@@ -123,6 +123,8 @@ do_trace_nif(Flags) ->
 
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({?MODULE,nif,'_'}, false, Flags),
+
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -137,7 +139,7 @@ trace_nif_timestamp_local(Config) when is_list(Config) ->
     do_trace_nif_timestamp([local]).
 
 do_trace_nif_timestamp(Flags) ->
-    Pid=spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call,timestamp]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [], Flags),
 
@@ -170,6 +172,7 @@ do_trace_nif_timestamp(Flags) ->
     1 = erlang:trace(Pid, false, [call]),
     erlang:trace_pattern({erlang,'_','_'}, false, Flags),
 
+    unlink(Pid),
     exit(Pid, die),
     ok.
 
@@ -177,7 +180,7 @@ do_trace_nif_timestamp(Flags) ->
 trace_nif_return(Config) when is_list(Config) ->
     load_nif(Config),
 
-    Pid=spawn(?MODULE, nif_process, []),
+    Pid = spawn_link(?MODULE, nif_process, []),
     1 = erlang:trace(Pid, true, [call,timestamp,return_to]),
     erlang:trace_pattern({?MODULE,nif,'_'}, [{'_',[],[{return_trace}]}], 
                          [local]),
@@ -265,10 +268,16 @@ nif_process() ->
     nif_process().    
 
 load_nif(Config) ->    
-    Path = proplists:get_value(data_dir, Config),
+    case is_nif_loaded() of
+        true ->
+            ok;
+        false ->
+            Path = proplists:get_value(data_dir, Config),
+            ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0)
+    end.
 
-    ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
-
+is_nif_loaded() ->
+    false.
 
 nif() ->
     {"Stub0",[]}. %exit("nif/0 stub called").

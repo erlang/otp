@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Purpose : Expand records into tuples.
+%% Purpose: Expand records into tuples. Also add explicit module
+%% names to calls to imported functions and BIFs.
 
 %% N.B. Although structs (tagged tuples) are not yet allowed in the
 %% language there is code included in pattern/2 and expr/3 (commented out)
@@ -29,13 +30,13 @@
 
 -import(lists, [map/2,foldl/3,foldr/3,sort/1,reverse/1,duplicate/2]).
 
--record(exprec, {compile=[],          % Compile flags
-                 vcount=0,            % Variable counter
-                 imports=[],          % Imports
-                 records=dict:new(),  % Record definitions
-                 strict_ra=[],        % strict record accesses
-                 checked_ra=[]        % successfully accessed records
-                }).
+-record(exprec, {compile=[],	% Compile flags
+		 vcount=0,	% Variable counter
+		 calltype=#{},	% Call types
+		 records=#{},	% Record definitions
+		 strict_ra=[],	% strict record accesses
+		 checked_ra=[]	% successfully accessed records
+		}).
 
 -spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],
@@ -46,22 +47,34 @@
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
     Opts = compiler_options(Fs0) ++ Opts0,
-    St0 = #exprec{compile = Opts},
+    Calltype = init_calltype(Fs0),
+    St0 = #exprec{compile = Opts, calltype = Calltype},
     {Fs,_St} = forms(Fs0, St0),
     Fs.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
+init_calltype(Forms) ->
+    Locals = [{{Name,Arity},local} || {function,_,Name,Arity,_} <- Forms],
+    Ctype = maps:from_list(Locals),
+    init_calltype_imports(Forms, Ctype).
+
+init_calltype_imports([{attribute,_,import,{Mod,Fs}}|T], Ctype0) ->
+    true = is_atom(Mod),
+    Ctype = foldl(fun(FA, Acc) ->
+			  Acc#{FA=>{imported,Mod}}
+		  end, Ctype0, Fs),
+    init_calltype_imports(T, Ctype);
+init_calltype_imports([_|T], Ctype) ->
+    init_calltype_imports(T, Ctype);
+init_calltype_imports([], Ctype) -> Ctype.
+
 forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
-    St = St0#exprec{records=dict:store(Name, NDefs, St0#exprec.records)},
+    St = St0#exprec{records=maps:put(Name, NDefs, St0#exprec.records)},
     {Fs1, St1} = forms(Fs, St),
     {[Attr | Fs1], St1};
-forms([{attribute,L,import,Is} | Fs0], St0) ->
-    St1 = import(Is, St0),
-    {Fs,St2} = forms(Fs0, St1),
-    {[{attribute,L,import,Is} | Fs], St2};
 forms([{function,L,N,A,Cs0} | Fs0], St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {Fs,St2} = forms(Fs0, St1),
@@ -334,8 +347,16 @@ expr({'receive',Line,Cs0,To0,ToEs0}, St0) ->
     {ToEs,St2} = exprs(ToEs0, St1),
     {Cs,St3} = clauses(Cs0, St2),
     {{'receive',Line,Cs,To,ToEs},St3};
-expr({'fun',_,{function,_F,_A}}=Fun, St) ->
-    {Fun,St};
+expr({'fun',Lf,{function,F,A}}=Fun0, St0) ->
+    case erl_internal:bif(F, A) of
+        true ->
+	    {As,St1} = new_vars(A, Lf, St0),
+	    Cs = [{clause,Lf,As,[],[{call,Lf,{atom,Lf,F},As}]}],
+	    Fun = {'fun',Lf,{clauses,Cs}},
+	    expr(Fun,  St1);
+	false ->
+	    {Fun0,St0}
+    end;
 expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
     {Fun,St};
 expr({'fun',Line,{clauses,Cs0}}, St0) ->
@@ -352,14 +373,30 @@ expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},
 expr({call,Line,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
       [A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
+expr({call,Line,{atom,_La,record_info},[_,_]=As0}, St0) ->
+    {As,St1} = expr_list(As0, St0),
+    record_info_call(Line, As, St1);
 expr({call,Line,{atom,_La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case {N,Ar} =:= {record_info,2} andalso not imported(N, Ar, St1) of
-	true ->
-	    record_info_call(Line, As, St1);
-	false ->
-	    {{call,Line,Atom,As},St1}
+    NA = {N,Ar},
+    case St0#exprec.calltype of
+	#{NA := local} ->
+	    {{call,Line,Atom,As},St1};
+	#{NA := {imported,Module}} ->
+	    ModAtom = {atom,Line,Module},
+	    {{call,Line,{remote,Line,ModAtom,Atom},As},St1};
+	_ ->
+	    case erl_internal:bif(N, Ar) of
+		true ->
+		    ModAtom = {atom,Line,erlang},
+		    {{call,Line,{remote,Line,ModAtom,Atom},As},St1};
+		false ->
+		    %% Call to a module_info/0,1 or one of the
+		    %% pseudo-functions in the shell. Leave it as
+		    %% a local call.
+		    {{call,Line,Atom,As},St1}
+	    end
     end;
 expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     {[M1,F1 | As1],St1} = expr_list([M,F | As0], St0),
@@ -470,9 +507,16 @@ lc_tq(Line, [{b_generate,Lg,P0,G0} | Qs0], St0) ->
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Line, Qs0, St2),
     {[{b_generate,Lg,P1,G1} | Qs1],St3};
-lc_tq(Line, [F0 | Qs0], St0) ->
+lc_tq(Line, [F0 | Qs0], #exprec{calltype=Calltype}=St0) ->
     %% Allow record/2 and expand out as guard test.
-    case erl_lint:is_guard_test(F0) of
+    IsOverriden = fun(FA) ->
+			  case Calltype of
+			      #{FA := local} -> true;
+			      #{FA := {imported,_}} -> true;
+			      _ -> false
+			  end
+		  end,
+    case erl_lint:is_guard_test(F0, [], IsOverriden) of
         true ->
             {F1,St1} = guard_test(F0, St0),
             {Qs1,St2} = lc_tq(Line, Qs0, St1),
@@ -502,7 +546,7 @@ normalise_fields(Fs) ->
 %% record_fields(RecordName, State)
 %% find_field(FieldName, Fields)
 
-record_fields(R, St) -> dict:fetch(R, St#exprec.records).
+record_fields(R, St) -> maps:get(R, St#exprec.records).
 
 find_field(F, [{record_field,_,{atom,_,F},Val} | _]) -> {ok,Val};
 find_field(F, [_ | Fs]) -> find_field(F, Fs);
@@ -769,6 +813,13 @@ bin_element({bin_element,Line,Expr,Size,Type}, {Es,St0}) ->
                   end,
     {[{bin_element,Line,Expr1,Size1,Type} | Es],St2}.
 
+new_vars(N, L, St) -> new_vars(N, L, St, []).
+
+new_vars(N, L, St0, Vs) when N > 0 ->
+    {V,St1} = new_var(L, St0),
+    new_vars(N-1, L, St1, [V|Vs]);
+new_vars(0, _L, St, Vs) -> {Vs,St}.
+
 new_var(L, St0) ->
     {New,St1} = new_var_name(St0),
     {{var,L,New},St1}.
@@ -782,18 +833,6 @@ make_list(Ts, Line) ->
 
 call_error(L, R) ->
     {call,L,{remote,L,{atom,L,erlang},{atom,L,error}},[R]}.
-
-import({Mod,Fs}, St) ->
-    St#exprec{imports=add_imports(Mod, Fs, St#exprec.imports)};
-import(_Mod0, St) ->
-    St.
-
-add_imports(Mod, [F | Fs], Is) ->
-    add_imports(Mod, Fs, orddict:store(F, Mod, Is));
-add_imports(_, [], Is) -> Is.
-
-imported(F, A, St) ->
-    orddict:is_key({F,A}, St#exprec.imports).
 
 %%%
 %%% Replace is_record/3 in guards with matching if possible.

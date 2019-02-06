@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,7 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc_util.h"
-#ifdef USE_THREADS
 #include "erl_threads.h"
-#endif
 #include "erl_mmap.h"
 
 #ifdef DEBUG
@@ -69,11 +67,11 @@ void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old
 void erts_sys_aligned_free(UWord alignment, void *ptr);
 #endif
 
-Eterm erts_memory(int *, void *, void *, Eterm);
-Eterm erts_allocated_areas(int *, void *, void *);
+Eterm erts_memory(fmtfn_t *, void *, void *, Eterm);
+Eterm erts_allocated_areas(fmtfn_t *, void *, void *);
 
 Eterm erts_alloc_util_allocators(void *proc);
-void erts_allocator_info(int, void *);
+void erts_allocator_info(fmtfn_t, void *);
 Eterm erts_allocator_options(void *proc);
 
 struct process;
@@ -128,8 +126,10 @@ typedef struct {
     void *extra;
 } ErtsAllocatorFunctions_t;
 
-extern ErtsAllocatorFunctions_t erts_allctrs[ERTS_ALC_A_MAX+1];
-extern ErtsAllocatorInfo_t erts_allctrs_info[ERTS_ALC_A_MAX+1];
+extern ErtsAllocatorFunctions_t
+    ERTS_WRITE_UNLIKELY(erts_allctrs[ERTS_ALC_A_MAX+1]);
+extern ErtsAllocatorInfo_t
+    ERTS_WRITE_UNLIKELY(erts_allctrs_info[ERTS_ALC_A_MAX+1]);
 
 typedef struct {
     int enabled;
@@ -146,7 +146,7 @@ typedef struct ErtsAllocatorWrapper_t_ {
     void (*unlock)(void);
     struct ErtsAllocatorWrapper_t_* next;
 }ErtsAllocatorWrapper_t;
-ErtsAllocatorWrapper_t *erts_allctr_wrappers;
+extern ErtsAllocatorWrapper_t *erts_allctr_wrappers;
 extern int erts_allctr_wrapper_prelocked;
 extern erts_tsd_key_t erts_allctr_prelock_tsd_key;
 void erts_allctr_wrapper_prelock_init(ErtsAllocatorWrapper_t* wrapper);
@@ -154,12 +154,10 @@ void erts_allctr_wrapper_pre_lock(void);
 void erts_allctr_wrapper_pre_unlock(void);
 
 void erts_alloc_register_scheduler(void *vesdp);
-#ifdef ERTS_SMP
 void erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 						 int *need_thr_progress,
 						 ErtsThrPrgrVal *thr_prgr_p,
 						 int *more_work);
-#endif
 erts_aint32_t erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs);
 
 __decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,Uint)		
@@ -173,12 +171,7 @@ __decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
 
-/* --- DO *NOT* USE THESE DEPRECATED FUNCTIONS ---    Instead use:       */
-void *safe_alloc(Uint)               __deprecated; /* erts_alloc()       */
-void *safe_realloc(void *, Uint)     __deprecated; /* erts_realloc()     */
-void  sys_free(void *)               __deprecated; /* erts_free()        */
-void *sys_alloc(Uint )               __deprecated; /* erts_alloc_fnf()   */
-void *sys_realloc(void *, Uint)      __deprecated; /* erts_realloc_fnf() */
+Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
 
 #undef ERTS_HAVE_IS_IN_LITERAL_RANGE
 #if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
@@ -345,54 +338,23 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      (void) 0, (void) 0, (void) 0)
-
-#define ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-static erts_smp_spinlock_t NAME##_lck;					\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_smp_spinlock_init(&NAME##_lck, #NAME "_alloc_lock"),\
-		      erts_smp_spin_lock(&NAME##_lck),			\
-		      erts_smp_spin_unlock(&NAME##_lck))
-
-#ifdef ERTS_SMP
+    ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
 
 #define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
-
-#else /* !ERTS_SMP */
-
-#define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-static erts_mtx_t NAME##_lck;						\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_mtx_init(NAME##_lck, #NAME "_alloc_lock"),	\
-		      erts_mtx_lock(&NAME##_lck),			\
-		      erts_mtx_unlock(&NAME##_lck))
-
-
-#endif
-
-#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
+ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
 
 #define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
 static erts_spinlock_t NAME##_lck;					\
 ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
-		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock"),\
+		    erts_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
+		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
 		    erts_spin_lock(&NAME##_lck),			\
 		    erts_spin_unlock(&NAME##_lck))
 
-#ifdef ERTS_SMP
 
-#define ERTS_SMP_PALLOC_IMPL(NAME, TYPE, PASZ)				\
+#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
   ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)
 
-#else /* !ERTS_SMP */
-
-#define ERTS_SMP_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-  ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)
-
-#endif
 
 #define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
 ERTS_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ, ILCK, LCK, ULCK)		\
@@ -416,21 +378,11 @@ NAME##_free(TYPE *p)							\
 	erts_free(ALCT, (void *) p);					\
 }
 
-#ifdef ERTS_SMP
 #define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
   ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)
-#else
-#define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
-  ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
-#endif
 
-#ifdef ERTS_SMP
 #define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
 ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
-#else
-#define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
-ERTS_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
-#endif
 
 #define ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	\
 ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)					\
@@ -454,9 +406,35 @@ NAME##_free(TYPE *p)							\
 	erts_free(ALCT, (void *) p);					\
 }
 
+#define ERTS_THR_PREF_AUX(NAME, TYPE, PASZ)				\
+ERTS_THR_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
+
+#define ERTS_THR_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	        \
+ERTS_THR_PREF_AUX(NAME, TYPE, PASZ)					\
+static void								\
+init_##NAME##_alloc(int nthreads)					\
+{									\
+    init_##NAME##_pre_alloc(nthreads);			                \
+}									\
+static ERTS_INLINE TYPE *						\
+NAME##_alloc(void)							\
+{									\
+    TYPE *res = NAME##_pre_alloc();					\
+    if (!res)								\
+	res = erts_alloc(ALCT, sizeof(TYPE));				\
+    return res;								\
+}									\
+static ERTS_INLINE void							\
+NAME##_free(TYPE *p)							\
+{									\
+    if (!NAME##_pre_free(p))						\
+	erts_free(ALCT, (void *) p);					\
+}
+
+
 #ifdef DEBUG
-#define ERTS_PRE_ALLOC_SIZE(SZ) 2
-#define ERTS_PRE_ALLOC_CLOBBER(P, T) memset((void *) (P), 0xfd, sizeof(T))
+#define ERTS_PRE_ALLOC_SIZE(SZ) ((SZ) < 1000 ? (SZ)/10 + 10 : 100)
+#define ERTS_PRE_ALLOC_CLOBBER(P, T) sys_memset((void *) (P), 0xfd, sizeof(T))
 #else
 #define ERTS_PRE_ALLOC_SIZE(SZ) ((SZ) > 1 ? (SZ) : 1)
 #define ERTS_PRE_ALLOC_CLOBBER(P, T)
@@ -534,7 +512,8 @@ init_##NAME##_alloc(void)						\
 {									\
     sspa_data_##NAME##__ =						\
 	erts_sspa_create(sizeof(union erts_sspa_##NAME##__),		\
-			 ERTS_PRE_ALLOC_SIZE((PASZ)));			\
+			 ERTS_PRE_ALLOC_SIZE((PASZ)), 			\
+                         0, NULL);                                      \
 }									\
 									\
 static TYPE *								\
@@ -555,6 +534,57 @@ NAME##_free(TYPE *p)							\
 			  esdp ? (int) esdp->no - 1 : -1,		\
 			  (char *) p);					\
 }
+
+
+#define ERTS_THR_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)		        \
+union erts_sspa_##NAME##__ {						\
+    erts_sspa_blk_t next;						\
+    TYPE type;								\
+};									\
+									\
+static erts_sspa_data_t *sspa_data_##NAME##__;				\
+									\
+static void								\
+init_##NAME##_alloc(int nthreads)					\
+{									\
+    sspa_data_##NAME##__ =						\
+	erts_sspa_create(sizeof(union erts_sspa_##NAME##__),		\
+			 ERTS_PRE_ALLOC_SIZE((PASZ)),			\
+                         nthreads,                                      \
+                         #NAME);                                        \
+}									\
+                                                                        \
+void								        \
+erts_##NAME##_alloc_init_thread(void)				        \
+{									\
+    int id = erts_atomic_inc_read_nob(&sspa_data_##NAME##__->id_generator);\
+    if (id > sspa_data_##NAME##__->nthreads) {                          \
+        erts_exit(ERTS_ABORT_EXIT,                                      \
+                  "%s:%d:%s(): Too many threads for '" #NAME "'\n",     \
+                  __FILE__, __LINE__, __func__);                        \
+    }                                                                   \
+    erts_tsd_set(sspa_data_##NAME##__->tsd_key, (void*)(SWord)id);      \
+}									\
+									\
+static TYPE *								\
+NAME##_alloc(void)							\
+{									\
+    int id = (int)(SWord)erts_tsd_get(sspa_data_##NAME##__->tsd_key);   \
+    if (id == 0)                                                        \
+        return NULL;                                                    \
+    return (TYPE *) erts_sspa_alloc(sspa_data_##NAME##__,		\
+                                    id-1);		                \
+}									\
+									\
+static int								\
+NAME##_free(TYPE *p)							\
+{									\
+    int id = (int)(SWord)erts_tsd_get(sspa_data_##NAME##__->tsd_key);   \
+    return erts_sspa_free(sspa_data_##NAME##__,				\
+			  id - 1,		                        \
+			  (char *) p);					\
+}
+
 
 #ifdef DEBUG
 #define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))

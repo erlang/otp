@@ -26,8 +26,10 @@
 %common.header;
 
 <!ELEMENT description         (%block;|quote|br|marker|warning|note|dont|do)* >
+<!ATTLIST description          ghlink CDATA #IMPLIED>
 <!ELEMENT funcs               (func)+ >
 <!ELEMENT func                (name+,fsummary,(type|type_desc)*,desc?) >
+<!ATTLIST func                 ghlink CDATA #IMPLIED>
 <!-- ELEMENT name is defined in each ref dtd -->
 <!ELEMENT fsummary            (#PCDATA|c|i|em|anno)* >
 <!ELEMENT type                (v,d?)* >
@@ -42,8 +44,11 @@
 <!ELEMENT email               (#PCDATA) >
 <!ELEMENT section             (marker*,title,(%block;|quote|br|marker|
                                warning|note|dont|do|section)*) >
-<!ELEMENT datatypes           (datatype)+ >
+<!ATTLIST section              ghlink CDATA #IMPLIED>
+<!ELEMENT datatypes           (datatype_title?,datatype)+ >
+<!ELEMENT datatype_title      (#PCDATA) >
 <!ELEMENT datatype            (name+,desc?) >
+<!ATTLIST datatype             ghlink CDATA #IMPLIED>
 <!ELEMENT type_desc           (#PCDATA|anno|c|seealso)* >
 <!ATTLIST type_desc            variable CDATA #IMPLIED
                                name CDATA #IMPLIED>

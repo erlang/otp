@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@
  * %CopyrightEnd%
  */
 
-/*
- * Description:	Check I/O
+/**
+ * @description Check I/O, a cross platform IO polling framework for ERTS
  *
- * Author: 	Rickard Green
+ * @author Rickard Green
+ * @author Lukas Larsson
  */
 
 #ifndef ERL_CHECK_IO_H__
@@ -30,68 +31,82 @@
 #include "sys.h"
 #include "erl_sys_driver.h"
 
-#ifdef ERTS_ENABLE_KERNEL_POLL
+/** @brief a structure that is used by each polling thread */
+struct erts_poll_thread;
 
-int driver_select_kp(ErlDrvPort, ErlDrvEvent, int, int);
-int driver_select_nkp(ErlDrvPort, ErlDrvEvent, int, int);
-int driver_event_kp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-int driver_event_nkp(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-Uint erts_check_io_size_kp(void);
-Uint erts_check_io_size_nkp(void);
-Eterm erts_check_io_info_kp(void *);
-Eterm erts_check_io_info_nkp(void *);
-int erts_check_io_max_files_kp(void);
-int erts_check_io_max_files_nkp(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt_kp(void);
-void erts_check_io_async_sig_interrupt_nkp(void);
-#endif
-void erts_check_io_interrupt_kp(int);
-void erts_check_io_interrupt_nkp(int);
-void erts_check_io_interrupt_timed_kp(int, ErtsMonotonicTime);
-void erts_check_io_interrupt_timed_nkp(int, ErtsMonotonicTime);
-void erts_check_io_kp(int);
-void erts_check_io_nkp(int);
-void erts_init_check_io_kp(void);
-void erts_init_check_io_nkp(void);
-int erts_check_io_debug_kp(ErtsCheckIoDebugInfo *);
-int erts_check_io_debug_nkp(ErtsCheckIoDebugInfo *);
-
-#else /* !ERTS_ENABLE_KERNEL_POLL */
-
+/**
+ * Get the memory size of the check io framework
+ */
 Uint erts_check_io_size(void);
-Eterm erts_check_io_info(void *);
+/**
+ * Returns an Eterm with information about all the pollsets active at the
+ * moment.
+ *
+ * @param proc the Process* to allocate the result on. It is passed as
+ *  void * because of header include problems.
+ */
+Eterm erts_check_io_info(void *proc);
+/**
+ * Should be called when a port IO task has been executed in order to re-enable
+ * or clear the information about the fd.
+ *
+ * @param type The type of event that has been completed.
+ * @param handle The port task handle of the event.
+ * @param reset A function pointer to be called when the port task handle
+ *  should be reset.
+ */
+void erts_io_notify_port_task_executed(ErtsPortTaskType type,
+                                       ErtsPortTaskHandle *handle,
+                                       void (*reset)(ErtsPortTaskHandle *));
+/**
+ * Returns the maximum number of fds that the check io framework can handle.
+ */
 int erts_check_io_max_files(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt(void);
+/**
+ * Called by any thread that should check for new IO events. This function will
+ * not return unless erts_check_io_interrupt(pt, 1) is called by another thread.
+ *
+ * @param pt the poll thread structure to use.
+ */
+void erts_check_io(struct erts_poll_thread *pt, ErtsMonotonicTime timeout_time);
+/**
+ * Initialize the check io framework. This function will parse the arguments
+ * and delete any entries that it is interested in.
+ *
+ * @param argc the number of arguments
+ * @param argv an array with the arguments
+ */
+void erts_init_check_io(int *argc, char **argv);
+/**
+ * Interrupt the poll thread so that it can execute other code.
+ *
+ * Should be called with set = 0 by the waiting thread before calling
+ * erts_check_io.
+ *
+ * @param pt the poll thread to wake
+ * @param set whether to set or clear the interrupt flag
+ */
+void erts_check_io_interrupt(struct erts_poll_thread *pt, int set);
+/**
+ * Create a new poll thread structure that is associated with the number no.
+ * It is the callers responsibility that no is unique.
+ *
+ * @param no the id of the pollset thread, -2 = aux thread, -1 = scheduler
+ * @param tpd the thread progress data of the pollset thread
+ */
+struct erts_poll_thread* erts_create_pollset_thread(int no, ErtsThrPrgrData *tpd);
+#ifdef ERTS_ENABLE_LOCK_COUNT
+/**
+ * Toggle lock counting on all check io locks
+ */
+void erts_lcnt_update_cio_locks(int enable);
 #endif
-void erts_check_io_interrupt(int);
-void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
-void erts_check_io(int);
-void erts_init_check_io(void);
-
-#endif
-
-extern erts_smp_atomic_t erts_check_io_time;
 
 typedef struct {
     ErtsPortTaskHandle task;
-    erts_smp_atomic_t executed_time;
+    ErtsSysFdType fd;
 } ErtsIoTask;
 
-ERTS_GLB_INLINE void erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
-{
-    ErtsIoTask *itp = (ErtsIoTask *) (((char *) pthp) - offsetof(ErtsIoTask, task));
-    erts_aint_t ci_time = erts_smp_atomic_read_acqb(&erts_check_io_time);
-    erts_smp_atomic_set_relb(&itp->executed_time, ci_time);
-}
-
-#endif
 
 #endif /*  ERL_CHECK_IO_H__ */
 
@@ -99,36 +114,20 @@ erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
 #define ERL_CHECK_IO_INTERNAL__
 #endif
 
+#define ERTS_CHECK_IO_DRV_EV_STATE_LOCK_CNT 128
+
+/* Controls how many pollsets to allocate. Fd's are hashed into
+   each pollset based on the FD. When doing non-concurrent updates
+   there will be one pollset per thread.
+*/
+extern int erts_no_pollsets;
+extern int erts_no_poll_threads;
+
+
 #ifndef ERL_CHECK_IO_INTERNAL__
 #define ERL_CHECK_IO_INTERNAL__
 #include "erl_poll.h"
 #include "erl_port_task.h"
-
-#ifdef __WIN32__
-/*
- * Current erts_poll implementation for Windows cannot handle
- * active events in the set of events polled.
- */
-#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 1
-#else
-#  define ERTS_CIO_DEFER_ACTIVE_EVENTS 0
-#endif
-
-/*
- * ErtsDrvEventDataState is used by driver_event() which is almost never
- * used. We allocate ErtsDrvEventDataState separate since we dont wan't
- * the size of ErtsDrvEventState to increase due to driver_event()
- * information.
- */
-typedef struct {
-    Eterm port;
-    ErlDrvEventData data;
-    ErtsPollEvents removed_events;
-#if ERTS_CIO_DEFER_ACTIVE_EVENTS
-    ErtsPollEvents deferred_events;
-#endif
-    ErtsIoTask iotask;
-} ErtsDrvEventDataState;
 
 typedef struct {
     Eterm inport;
@@ -136,4 +135,16 @@ typedef struct {
     ErtsIoTask iniotask;
     ErtsIoTask outiotask;
 } ErtsDrvSelectDataState;
+
+struct erts_nif_select_event {
+    Eterm pid;
+    Eterm immed;
+    Uint32 refn[ERTS_REF_NUMBERS];
+};
+
+typedef struct {
+    struct erts_nif_select_event in;
+    struct erts_nif_select_event out;
+} ErtsNifSelectDataState;
+
 #endif /* #ifndef ERL_CHECK_IO_INTERNAL__ */

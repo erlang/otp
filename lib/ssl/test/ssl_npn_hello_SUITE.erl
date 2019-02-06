@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,6 +49,10 @@ init_per_suite(Config) ->
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
+
+end_per_suite(_Config) ->
+    %% This function is required since init_per_suite/1 exists.
+    ok.
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),

@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>logger_std_h</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>logger_std_h.xml</file>
+  </header>
+  <module>logger_std_h</module>
+  <modulesummary>Standard handler for Logger.</modulesummary>
+
+  <description>
+    <p>This is the standard handler for Logger.
+      Multiple instances of this handler can be added to
+      Logger, and each instance prints logs to <c>standard_io</c>,
+      <c>standard_error</c>, or to file.</p>
+    <p>The handler has an overload protection mechanism that keeps the handler
+      process and the Kernel application alive during high loads of log 
+      events. How overload protection works, and how to configure it, is
+      described in the
+      <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
+      </seealso>.</p>
+    <p>To add a new instance of the standard handler, use
+      <seealso marker="logger#add_handler-3"><c>logger:add_handler/3</c>
+      </seealso>. The handler configuration argument is a map which can contain
+      general configuration parameters, as documented in the
+       <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
+       </seealso>, and handler specific parameters. The specific data
+       is stored in a sub map with the key <c>config</c>, and can contain the
+       following parameters:</p>
+    <taglist>
+      <tag><marker id="type"/><c>type</c></tag>
+      <item>
+	<p>This has the value <c>standard_io</c>, <c>standard_error</c>,
+	<c>{file,LogFileName}</c>, or <c>{file,LogFileName,LogFileOpts}</c>.</p>
+	<p>If <c>LogFileOpts</c> is specified, it replaces the default
+	  list of options used when opening the log file. The default
+	  list is <c>[raw,append,delayed_write]</c>. One reason to do
+	  so can be to change <c>append</c> to, for
+	  example, <c>write</c>, ensuring that the old log is
+	  truncated when a node is restarted. See the reference manual
+	  for <seealso marker="file#open-2"><c>file:open/2</c></seealso>
+	  for more information about file options.</p>
+	<p>Log files are always UTF-8 encoded. The encoding can not be
+	  changed by setting the option <c>{encoding,Encoding}</c>
+	  in <c>LogFileOpts</c>.</p>
+	<p>Notice that the standard handler does not have support for
+	  circular logging. Use the disk_log handler,
+	  <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>,
+	  for this.</p>
+	<p>The value is set when the handler is added, and it can not
+	  be changed in runtime.</p>
+	<p>Defaults to <c>standard_io</c>.</p>
+      </item>
+      <tag><c>filesync_repeat_interval</c></tag>
+      <item>
+	<p>This value, in milliseconds, specifies how often the handler does
+	a file sync operation to write buffered data to disk. The handler attempts
+	the operation repeatedly, but only performs a new sync if something has
+	actually been logged.</p>
+	<p>If <c>no_repeat</c> is set as value, the repeated file sync operation
+	is disabled, and it is the operating system settings that determine
+	how quickly or slowly data is written to disk. The user can also call
+	the <seealso marker="logger_std_h#filesync-1"><c>filesync/1</c></seealso>
+        function to perform a file sync.</p>
+	<p>Defaults to <c>5000</c> milliseconds.</p>
+      </item>
+    </taglist>
+    <p>Other configuration parameters exist, to be used for customizing
+    the overload protection behaviour. The same parameters are used both in the
+    standard handler and the disk_log handler, and are documented in the
+    <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
+    </seealso>.</p>
+    <p>Notice that if changing the configuration of the handler in runtime,
+    the <c>type</c> parameter must not be modified.</p>
+    <p>Example of adding a standard handler:</p>
+    <code type="none">
+logger:add_handler(my_standard_h, logger_std_h,
+                   #{config => #{type => {file,"./system_info.log"},
+                                 filesync_repeat_interval => 1000}}).
+    </code>
+    <p>To set the default handler, that starts initially with
+    the Kernel application, to log to file instead of <c>standard_io</c>,
+    change the Kernel default logger configuration. Example:</p>
+    <code type="none">
+erl -kernel logger '[{handler,default,logger_std_h,
+                      #{config => #{type => {file,"./log.log"}}}}]'
+    </code>
+    <p>An example of how to replace the standard handler with a disk_log handler
+    at startup is found in the
+    <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>
+    manual.</p>
+  </description>
+
+  <funcs>
+
+    <func>
+      <name name="filesync" arity="1" clause_i="1"/>
+      <fsummary>Writes buffered data to disk.</fsummary>
+      <desc>
+        <p>Write buffered data to disk.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="logger"><c>logger(3)</c></seealso>,
+      <seealso marker="logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seealso></p>
+  </section>
+</erlref>
+
+

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1136,7 +1136,7 @@ ensure_open(Pid, _Options) when is_pid(Pid) ->
 ensure_open([], _Options) ->
     {already_open, undefined};
 ensure_open(Filename, Options) when is_atom(Filename); is_list(Filename) ->
-    file:open(Filename, Options).
+    file:open(Filename, [{encoding, utf8} | Options]).
 
 %%%---------------------------------
 %%% Fairly generic utility functions
@@ -1242,8 +1242,7 @@ spawn_3step(Spawn, FunPrelude, FunAck, FunBody)
 		    catch Child ! {Parent, Ref, Go},
 		    Result
 	    catch
-		Class:Reason ->
-		    Stacktrace = erlang:get_stacktrace(),
+		Class:Reason:Stacktrace ->
 		    catch exit(Child, kill),
 		    erlang:raise(Class, Reason, Stacktrace)
 	    end;
@@ -1475,7 +1474,7 @@ info_suspect_call(GroupLeader, GroupLeader, _, _) ->
     ok;
 info_suspect_call(GroupLeader, _, Func, Pid) ->
     io:format(GroupLeader,
-	      "~nWarning: ~p called in ~p - trace may become corrupt!~n",
+	      "~nWarning: ~tp called in ~p - trace may become corrupt!~n",
 	      parsify([Func, Pid])).
 
 info(GroupLeader, GroupLeader, _, _) ->
@@ -1498,13 +1497,13 @@ dump_stack(Dump, Stack, Term) ->
 			{N, length(hd(Stack))}
 		end
 	end,
-     io:format(Dump, "~s~p.~n", [lists:duplicate(Depth, "  "), parsify(Term)]),
+     io:format(Dump, "~s~tp.~n", [lists:duplicate(Depth, "  "), parsify(Term)]),
     true.
 
 dump(undefined, _) ->
     false;
 dump(Dump, Term) ->
-    io:format(Dump, "~p.~n", [parsify(Term)]),
+    io:format(Dump, "~tp.~n", [parsify(Term)]),
     true.
 
 
@@ -1698,6 +1697,12 @@ trace_handler({trace_ts, Pid, unregister, _Name, TS} = Trace,
 %%
 %% send
 trace_handler({trace_ts, Pid, send, _OtherPid, _Msg, TS} = Trace,
+	      _Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    TS;
+%%
+%% send_to_non_existing_process
+trace_handler({trace_ts, Pid, send_to_non_existing_process, _OtherPid, _Msg, TS} = Trace,
 	      _Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     TS;
@@ -2597,17 +2602,17 @@ println({Io, [W1, W2, W3, W4]}, Head,
 println({Io, _}, Head,
 	[],
 	Tail, Comment) ->
-    io:format(Io, "~s~s~s~n",
+    io:format(Io, "~s~ts~ts~n",
 	      [pad(Head, $ , 3), Tail, Comment]);
 println({Io, _}, Head,
 	{Tag, Term},
 	Tail, Comment) ->
-    io:format(Io, "~s~p, ~p~s~s~n",
+    io:format(Io, "~s~tp, ~tp~ts~ts~n",
 	      [pad(Head, $ , 3), parsify(Tag), parsify(Term), Tail, Comment]);
 println({Io, _}, Head,
 	Term,
 	Tail, Comment) ->
-    io:format(Io, "~s~p~s~s~n",
+    io:format(Io, "~s~tp~ts~ts~n",
 	      [pad(Head, $ , 3), parsify(Term), Tail, Comment]).
 
 
@@ -2630,21 +2635,31 @@ funcstat_pd(Pid, Func1, Func0, Clocks) ->
 	    #funcstat{callers_sum = CallersSum,
 		      callers = Callers} = FuncstatCallers ->
 		FuncstatCallers#funcstat{
-		  callers_sum = clocks_sum(CallersSum, Clocks, Func0),
-		  callers = [Clocks#clocks{id = Func1} | Callers]}
-	end),
+                  callers_sum = clocks_sum(CallersSum, Clocks, Func0),
+                  callers = insert_call(Clocks, Func1, Callers)}
+        end),
     put({Pid, Func1},
         case get({Pid, Func1}) of
             undefined ->
-                #funcstat{callers_sum = #clocks{id = Func1}, 
+                #funcstat{callers_sum = #clocks{id = Func1},
                           called_sum = Clocks#clocks{id = Func1},
                           called = [Clocks#clocks{id = Func0}]};
             #funcstat{called_sum = CalledSum,
                       called = Called} = FuncstatCalled ->
                 FuncstatCalled#funcstat{
                   called_sum = clocks_sum(CalledSum, Clocks, Func1),
-                  called = [Clocks#clocks{id = Func0} | Called]}
+                  called = insert_call(Clocks, Func0, Called)}
         end).
+
+insert_call(Clocks, Func, ClocksList) ->
+    insert_call(Clocks, Func, ClocksList, []).
+
+insert_call(Clocks, Func, [#clocks{id = Func} = C | T], Acc) ->
+    [clocks_sum(C, Clocks, Func) | T ++ Acc];
+insert_call(Clocks, Func, [H | T], Acc) ->
+    insert_call(Clocks, Func, T, [H | Acc]);
+insert_call(Clocks, Func, [], Acc) ->
+    [Clocks#clocks{id = Func} | Acc].
 
 
 
@@ -2704,7 +2719,7 @@ postsort_r([[_|C] | L], R) ->
 flat_format(F, Trailer) when is_float(F) ->
     lists:flatten([io_lib:format("~.3f", [F]), Trailer]);
 flat_format(W, Trailer) ->
-    lists:flatten([io_lib:format("~p", [W]), Trailer]).
+    lists:flatten([io_lib:format("~tp", [W]), Trailer]).
 
 %% Format, flatten, and pad.
 flat_format(Term, Trailer, Width) ->

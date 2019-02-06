@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
+-export([find_file/2, find_file/3, find_source/1, find_source/2, find_source/3]).
 
 %% For debugging/testing.
 -export([compile_wildcard/1]).
@@ -364,11 +365,18 @@ do_list_dir(Dir, Mod) ->     eval_list_dir(Dir, Mod).
 	    
 %%% Compiling a wildcard.
 
+
+%% Define characters used for escaping a \.
+-define(ESCAPE_PREFIX, $@).
+-define(ESCAPE_CHARACTER, [?ESCAPE_PREFIX,$e]).
+-define(ESCAPED_ESCAPE_PREFIX, [?ESCAPE_PREFIX,?ESCAPE_PREFIX]).
+
 %% Only for debugging.
 compile_wildcard(Pattern) when is_list(Pattern) ->
     {compiled_wildcard,?HANDLE_ERROR(compile_wildcard(Pattern, "."))}.
 
-compile_wildcard(Pattern, Cwd0) ->
+compile_wildcard(Pattern0, Cwd0) ->
+    Pattern = convert_escapes(Pattern0),
     [Root|Rest] = filename:split(Pattern),
     case filename:pathtype(Root) of
 	relative ->
@@ -408,7 +416,8 @@ compile_join({cwd,Cwd}, File0) ->
 compile_join({root,PrefixLen,Root}, File) ->
     {root,PrefixLen,filename:join(Root, File)}.
 
-compile_part(Part) ->
+compile_part(Part0) ->
+    Part = wrap_escapes(Part0),
     compile_part(Part, false, []).
 
 compile_part_to_sep(Part) ->
@@ -444,6 +453,8 @@ compile_part([${|Rest], Upto, Result) ->
 	error ->
 	    compile_part(Rest, Upto, [${|Result])
     end;
+compile_part([{escaped,X}|Rest], Upto, Result) ->
+    compile_part(Rest, Upto, [X|Result]);
 compile_part([X|Rest], Upto, Result) ->
     compile_part(Rest, Upto, [X|Result]);
 compile_part([], _Upto, Result) ->
@@ -460,6 +471,8 @@ compile_charset1([Lower, $-, Upper|Rest], Ordset) when Lower =< Upper ->
     compile_charset1(Rest, compile_range(Lower, Upper, Ordset));
 compile_charset1([$]|Rest], Ordset) ->
     {ok, {one_of, gb_sets:from_ordset(Ordset)}, Rest};
+compile_charset1([{escaped,X}|Rest], Ordset) ->
+    compile_charset1(Rest, ordsets:add_element(X, Ordset));
 compile_charset1([X|Rest], Ordset) ->
     compile_charset1(Rest, ordsets:add_element(X, Ordset));
 compile_charset1([], _Ordset) ->
@@ -484,6 +497,32 @@ compile_alt(Pattern, Result) ->
 	Pattern ->
 	    error
     end.
+
+%% Convert backslashes to an illegal Unicode character to
+%% protect in from filename:split/1.
+
+convert_escapes([?ESCAPE_PREFIX|T]) ->
+    ?ESCAPED_ESCAPE_PREFIX ++ convert_escapes(T);
+convert_escapes([$\\|T]) ->
+    ?ESCAPE_CHARACTER ++ convert_escapes(T);
+convert_escapes([H|T]) ->
+    [H|convert_escapes(T)];
+convert_escapes([]) ->
+    [].
+
+%% Wrap each escape in a tuple to remove the special meaning for
+%% the character that follows.
+
+wrap_escapes(?ESCAPED_ESCAPE_PREFIX ++ T) ->
+    [?ESCAPE_PREFIX|wrap_escapes(T)];
+wrap_escapes(?ESCAPE_CHARACTER ++ [C|T]) ->
+    [{escaped,C}|wrap_escapes(T)];
+wrap_escapes(?ESCAPE_CHARACTER) ->
+    [];
+wrap_escapes([H|T]) ->
+    [H|wrap_escapes(T)];
+wrap_escapes([]) ->
+    [].
 
 badpattern(Reason) ->
     error({badpattern,Reason}).
@@ -517,3 +556,131 @@ eval_list_dir(Dir, erl_prim_loader) ->
     end;
 eval_list_dir(Dir, Mod) ->
     Mod:list_dir(Dir).
+
+%% Getting the rules to use for file search
+
+keep_dir_search_rules(Rules) ->
+    [T || {_,_}=T <- Rules].
+
+keep_suffix_search_rules(Rules) ->
+    [T || {_,_,_}=T <- Rules].
+
+get_search_rules() ->
+    case application:get_env(kernel, source_search_rules) of
+        undefined -> default_search_rules();
+        {ok, []}  -> default_search_rules();
+        {ok, R} when is_list(R) -> R
+    end.
+
+default_search_rules() ->
+    [%% suffix-speficic rules for source search
+     {".beam", ".erl", erl_source_search_rules()},
+     {".erl", ".yrl", []},
+     {"", ".src", erl_source_search_rules()},
+     {".so", ".c", c_source_search_rules()},
+     {".o", ".c", c_source_search_rules()},
+     {"", ".c", c_source_search_rules()},
+     {"", ".in", basic_source_search_rules()},
+     %% plain old directory rules, backwards compatible
+     {"", ""}] ++ erl_source_search_rules().
+
+basic_source_search_rules() ->
+    (erl_source_search_rules()
+     ++ c_source_search_rules()).
+
+erl_source_search_rules() ->
+    [{"ebin","src"}, {"ebin","esrc"},
+     {"ebin",filename:join("src", "*")},
+     {"ebin",filename:join("esrc", "*")}].
+
+c_source_search_rules() ->
+    [{"priv","c_src"}, {"priv","src"}, {"bin","c_src"}, {"bin","src"}, {"", "src"}].
+
+%% Looks for a file relative to a given directory
+
+-type find_file_rule() :: {ObjDirSuffix::string(), SrcDirSuffix::string()}.
+
+-spec find_file(filename(), filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_file(Filename, Dir) ->
+    find_file(Filename, Dir, []).
+
+-spec find_file(filename(), filename(), [find_file_rule()]) ->
+        {ok, filename()} | {error, not_found}.
+find_file(Filename, Dir, []) ->
+    find_file(Filename, Dir, get_search_rules());
+find_file(Filename, Dir, Rules) ->
+    try_dir_rules(keep_dir_search_rules(Rules), Filename, Dir).
+
+%% Looks for a source file relative to the object file name and directory
+
+-type find_source_rule() :: {ObjExtension::string(), SrcExtension::string(),
+                             [find_file_rule()]}.
+
+-spec find_source(filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_source(FilePath) ->
+    find_source(filename:basename(FilePath), filename:dirname(FilePath)).
+
+-spec find_source(filename(), filename()) ->
+        {ok, filename()} | {error, not_found}.
+find_source(Filename, Dir) ->
+    find_source(Filename, Dir, []).
+
+-spec find_source(filename(), filename(), [find_source_rule()]) ->
+        {ok, filename()} | {error, not_found}.
+find_source(Filename, Dir, []) ->
+    find_source(Filename, Dir, get_search_rules());
+find_source(Filename, Dir, Rules) ->
+    try_suffix_rules(keep_suffix_search_rules(Rules), Filename, Dir).
+
+try_suffix_rules(Rules, Filename, Dir) ->
+    Ext = filename:extension(Filename),
+    try_suffix_rules(Rules, filename:rootname(Filename, Ext), Dir, Ext).
+
+try_suffix_rules([{Ext,Src,Rules}|Rest], Root, Dir, Ext)
+  when is_list(Src), is_list(Rules) ->
+    case try_dir_rules(add_local_search(Rules), Root ++ Src, Dir) of
+        {ok, File} -> {ok, File};
+        _Other ->
+            try_suffix_rules(Rest, Root, Dir, Ext)
+    end;
+try_suffix_rules([_|Rest], Root, Dir, Ext) ->
+    try_suffix_rules(Rest, Root, Dir, Ext);
+try_suffix_rules([], _Root, _Dir, _Ext) ->
+    {error, not_found}.
+
+%% ensuring we check the directory of the object file before any other directory
+add_local_search(Rules) ->
+    Local = {"",""},
+    [Local] ++ lists:filter(fun (X) -> X =/= Local end, Rules).
+
+try_dir_rules([{From, To}|Rest], Filename, Dir)
+  when is_list(From), is_list(To) ->
+    case try_dir_rule(Dir, Filename, From, To) of
+	{ok, File} -> {ok, File};
+	error      -> try_dir_rules(Rest, Filename, Dir)
+    end;
+try_dir_rules([], _Filename, _Dir) ->
+    {error, not_found}.
+
+try_dir_rule(Dir, Filename, From, To) ->
+    case lists:suffix(From, Dir) of
+	true ->
+	    NewDir = lists:sublist(Dir, 1, length(Dir)-length(From))++To,
+	    Src = filename:join(NewDir, Filename),
+	    case is_regular(Src) of
+		true -> {ok, Src};
+		false -> find_regular_file(wildcard(Src))
+	    end;
+	false ->
+	    error
+    end.
+
+find_regular_file([]) ->
+    error;
+find_regular_file([File|Files]) ->
+    case is_regular(File) of
+        true -> {ok, File};
+        false -> find_regular_file(Files)
+    end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@
                           | {archive, base_file(), [archive_opt()], [target_spec()]}
                           | {copy_file, base_file()}
                           | {copy_file, base_file(), top_file()}
-                          | {write_file, base_file(), iolist()}
+                          | {write_file, base_file(), binary()}
                           | {strip_beam_file, base_file()}.
 -type target_dir()       :: dir().
 -type incl_defaults()    :: boolean().
@@ -220,7 +220,8 @@
         {
           name     :: rel_name(),
           vsn      :: rel_vsn(),
-          rel_apps :: [#rel_app{}]
+          rel_apps :: [#rel_app{}],
+          load_dot_erlang = true :: boolean()
 	}).
 
 -record(sys,
@@ -300,6 +301,7 @@
 
 -define(STANDALONE_INCL_SYS_FILTERS,  ["^bin/(erl|epmd)(|\\.exe|\\.ini)\$",
 				       "^bin/start(|_clean).boot\$",
+				       "^bin/no_dot_erlang\\.boot\$",
 				       "^erts.*/bin",
 				       "^lib\$"]).
 -define(STANDALONE_EXCL_SYS_FILTERS,

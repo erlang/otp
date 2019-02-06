@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@
 
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
-	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
-	 split/2,
+	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,
+         search/2, splitwith/2,split/2,
 	 join/2]).
 
 %%% BIFs
@@ -1398,6 +1398,19 @@ dropwhile(Pred, [Hd|Tail]=Rest) ->
 	false -> Rest
     end;
 dropwhile(Pred, []) when is_function(Pred, 1) -> [].
+
+-spec search(Pred, List) -> {value, Value} | false when
+      Pred :: fun((T) -> boolean()),
+      List :: [T],
+      Value :: T.
+
+search(Pred, [Hd|Tail]) ->
+    case Pred(Hd) of
+        true -> {value, Hd};
+        false -> search(Pred, Tail)
+    end;
+search(Pred, []) when is_function(Pred, 1) ->
+    false.
 
 -spec splitwith(Pred, List) -> {List1, List2} when
       Pred :: fun((T) -> boolean()),

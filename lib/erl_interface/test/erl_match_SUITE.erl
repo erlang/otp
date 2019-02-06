@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("erl_match_SUITE_data/match_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          atoms/1, lists/1, tuples/1, references/1, pids/1, ports/1,
          bind/1, integers/1, floats/1, binaries/1, strings/1]).
 
@@ -40,6 +41,8 @@ all() ->
     [atoms, lists, tuples, references, pids, ports, bind,
      integers, floats, binaries, strings].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 atoms(Config) when is_list(Config) ->
     P = start_matcher(Config),
@@ -239,7 +242,7 @@ bind(Config) when is_list(Config) ->
     ok.
 
 start_bind(Config) ->
-    runner:start(?erl_match_bind).
+    runner:start(Config, ?erl_match_bind).
 
 bind_ok(Port, Bind, Term) ->
     true = erl_bind(Port, Bind, Term).
@@ -258,7 +261,7 @@ erl_bind(Port, Pattern, Term) ->
 
 
 start_matcher(Config) ->
-    runner:start(?erl_match_server).
+    runner:start(Config, ?erl_match_server).
 
 eq(Port, Pattern, Term) ->
     true = erl_match(Port, Pattern, Term).

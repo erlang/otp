@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 %%
 %% %CopyrightEnd%
 %%
-
 
 %%%-------------------------------------------------------------------
 %%% File    : install_SUITE.erl
@@ -63,12 +62,12 @@
 	       erlang_bindir = "",
 	       bindir_symlinks = ""}).
 
-need_symlink_cases() -> 
+need_symlink_cases() ->
     [bin_unreachable_absolute, bin_unreachable_relative,
      bin_same_dir, bin_ok_symlink, bin_dirname_fail,
      bin_no_use_dirname_fail].
 
-dont_need_symlink_cases() -> 
+dont_need_symlink_cases() ->
     [bin_default, bin_default_dirty, bin_outside_eprfx,
      bin_outside_eprfx_dirty, bin_not_abs,
      bin_unreasonable_path, 'bin white space',
@@ -78,9 +77,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
-all() -> 
+all() ->
     dont_need_symlink_cases() ++ need_symlink_cases().
-
 
 %%
 %% The test cases
@@ -533,21 +531,19 @@ bin_no_srcfile(Config) when is_list(Config) ->
 		ChkRes).
 
 %%
-%%
 %% Auxiliary functions
-%%
 %%
 
 expect(X, X) ->
-    io:format("result: ~p~n", [X]),
+    io:format("result: ~tp~n", [X]),
     io:format("-----------------------------------------------~n", []),
     ok;
 expect(X, Y) ->
-    io:format("expected: ~p~n", [X]),
-    io:format("got     : ~p~n", [Y]),
+    io:format("expected: ~tp~n", [X]),
+    io:format("got     : ~tp~n", [Y]),
     io:format("-----------------------------------------------~n", []),
     ct:fail({X,Y}).
-    
+
 init_per_suite(Config) ->
     PD = proplists:get_value(priv_dir, Config),
     SymLinks = case os:type() of
@@ -584,7 +580,7 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 make_dirs(Root, Suffix) ->
-    do_make_dirs(Root, string:tokens(Suffix, [$/])).
+    do_make_dirs(Root, string:lexemes(Suffix, [$/])).
 
 do_make_dirs(_Root, []) ->
     "";
@@ -630,8 +626,8 @@ install_bin(Config, #inst{mkdirs = MkDirs,
 	true -> ok;
 	false -> {comment, "No symlink tests run, since symlinks not working"}
     end.
-				   
-    
+
+
 install_bin2(Config, Inst, ChkRes) ->
     install_bin3(Config, Inst#inst{symlinks = false,
 				   ln_s = "ln"}, ChkRes),
@@ -662,8 +658,6 @@ install_bin2(Config, Inst, ChkRes) ->
 	false ->
 	    ok
     end.
-    
-    
 
 install_bin3(Config,
 		 #inst{cmd_prefix = CMD_PRFX,
@@ -690,20 +684,20 @@ install_bin3(Config,
 	++ "\" --exec-prefix \"" ++ EXEC_PREFIX
 	++ "\" --test-file \"" ++ ResFile ++ "\" erl erlc",
 
-    io:format("CMD_PRFX        = \"~s\"~n"
-	      "LN_S            = \"~s\"~n" 
-	      "BINDIR_SYMLINKS = \"~s\"~n"
-	      "exec_prefix     = \"~s\"~n"
-	      "bindir          = \"~s\"~n"
-	      "erlang_bindir   = \"~s\"~n"
-	      "EXTRA_PREFIX    = \"~s\"~n"
-	      "DESTDIR         = \"~s\"~n",
+    io:format("CMD_PRFX        = \"~ts\"~n"
+	      "LN_S            = \"~ts\"~n"
+	      "BINDIR_SYMLINKS = \"~ts\"~n"
+	      "exec_prefix     = \"~ts\"~n"
+	      "bindir          = \"~ts\"~n"
+	      "erlang_bindir   = \"~ts\"~n"
+	      "EXTRA_PREFIX    = \"~ts\"~n"
+	      "DESTDIR         = \"~ts\"~n",
 	      [CMD_PRFX, LN_S, BINDIR_SYMLINKS, EXEC_PREFIX, BINDIR,
 	       ERLANG_BINDIR, EXTRA_PREFIX, DESTDIR]),
 
-    io:format("$ ~s~n", [Cmd]),
+    io:format("$ ~ts~n", [Cmd]),
     CmdOutput = os:cmd(Cmd),
-    io:format("~s~n", [CmdOutput]),
+    io:format("~ts~n", [CmdOutput]),
     ChkRes(case file:consult(ResFile) of
 	       {ok, [Res]} -> Res;
 	       Err -> exit({result, Err})
@@ -715,4 +709,4 @@ join("") ->
 join([""|Ds]) ->
     join(Ds);
 join([D|Ds]) ->
-    "/" ++ string:strip(D, both, $/) ++ join(Ds).
+    "/" ++ string:trim(D, both, [$/]) ++ join(Ds).

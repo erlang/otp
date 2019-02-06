@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2018. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,31 +50,48 @@ include ../tutorial/xmlfiles.mk
 include ../design_principles/xmlfiles.mk
 include ../oam/xmlfiles.mk
 
-XML_FILES = \
-	$(INST_GUIDE_CHAPTER_FILES:%=../installation_guide/%) \
-	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=../system_principles/%) \
-	$(EMBEDDED_CHAPTER_FILES:%=../embedded/%) \
-	$(GETTING_STARTED_CHAPTER_FILES:%=../getting_started/%) \
-	$(REF_MAN_CHAPTER_FILES:%=../reference_manual/%) \
-	$(PROG_EX_CHAPTER_FILES:%=../programming_examples/%) \
-	$(EFF_GUIDE_CHAPTER_FILES:%=../efficiency_guide/%) \
-	$(TUTORIAL_CHAPTER_FILES:%=../tutorial/%) \
-	$(DESIGN_PRINCIPLES_CHAPTER_FILES:%=../design_principles/%) \
-	$(OAM_CHAPTER_FILES:%=../oam/%) \
-	../installation_guide/part.xml \
-	../system_principles/part.xml \
-	../embedded/part.xml \
-	../getting_started/part.xml \
-	../reference_manual/part.xml \
-	../programming_examples/part.xml \
-	../efficiency_guide/part.xml \
-	../tutorial/part.xml \
-	../design_principles/part.xml \
-	../oam/part.xml
-
 BOOK_FILES = book.xml
 
-XMLLINT_SRCDIRS= ../installation_guide:../system_principles:../embedded:../getting_started:../reference_manual:../programming_examples:../efficiency_guide:../tutorial:../design_principles:../oam
+XML_FILES = \
+	$(BOOK_FILES)
+
+XML_GUIDE_FILES = \
+	$(INST_GUIDE_CHAPTER_FILES:%=installation_guide/%) \
+	$(INST_GUIDE_CHAPTER_GEN_FILES:%=installation_guide/%) \
+	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=system_principles/%) \
+	$(SYSTEM_PRINCIPLES_CHAPTER_GEN_FILES:%=system_principles/%) \
+	$(EMBEDDED_CHAPTER_FILES:%=embedded/%) \
+	$(EMBEDDED_CHAPTER_GEN_FILES:%=embedded/%) \
+	$(GETTING_STARTED_CHAPTER_FILES:%=getting_started/%) \
+	$(GETTING_STARTED_CHAPTER_GEN_FILES:%=getting_started/%) \
+	$(REF_MAN_CHAPTER_FILES:%=reference_manual/%) \
+	$(REF_MAN_CHAPTER_GEN_FILES:%=reference_manual/%) \
+	$(PROG_EX_CHAPTER_FILES:%=programming_examples/%) \
+	$(PROG_EX_CHAPTER_GEN_FILES:%=programming_examples/%) \
+	$(EFF_GUIDE_CHAPTER_FILES:%=efficiency_guide/%) \
+	$(EFF_GUIDE_CHAPTER_GEN_FILES:%=efficiency_guide/%) \
+	$(TUTORIAL_CHAPTER_FILES:%=tutorial/%) \
+	$(TUTORIAL_CHAPTER_GEN_FILES:%=tutorial/%) \
+	$(DESIGN_PRINCIPLES_CHAPTER_FILES:%=design_principles/%) \
+	$(DESIGN_PRINCIPLES_CHAPTER_GEN_FILES:%=design_principles/%) \
+	$(OAM_CHAPTER_FILES:%=oam/%) \
+	$(OAM_CHAPTER_GEN_FILES:%=oam/%)
+
+XML_GEN_FILES = \
+	$(XML_GUIDE_FILES:%=$(XMLDIR)/%) \
+	$(XMLDIR)/installation_guide/part.xml \
+	$(XMLDIR)/system_principles/part.xml \
+	$(XMLDIR)/embedded/part.xml \
+	$(XMLDIR)/getting_started/part.xml \
+	$(XMLDIR)/reference_manual/part.xml \
+	$(XMLDIR)/programming_examples/part.xml \
+	$(XMLDIR)/efficiency_guide/part.xml \
+	$(XMLDIR)/tutorial/part.xml \
+	$(XMLDIR)/design_principles/part.xml \
+	$(XMLDIR)/oam/part.xml
+
+
+XMLLINT_SRCDIRS= $(XMLDIR)/installation_guide:$(XMLDIR)/system_principles:$(XMLDIR)/embedded:$(XMLDIR)/getting_started:$(XMLDIR)/reference_manual:$(XMLDIR)/programming_examples:$(XMLDIR)/efficiency_guide:$(XMLDIR)/tutorial:$(XMLDIR)/design_principles:$(XMLDIR)/oam
 HTMLDIR= ../html
 PDFREFDIR= pdf
 
@@ -238,12 +255,10 @@ clean:
 	rm -f $(INDEX_SCRIPT) $(GLOSSARY_SCRIPT) \
 		$(JAVASCRIPT_BUILD_SCRIPT) 
 	rm -f erl_crash.dump errs core *~
-
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
-
 
 release_docs_spec: docs
 	$(INSTALL_DIR)  "$(RELEASE_PATH)"

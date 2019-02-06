@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -352,7 +352,7 @@ handle_call({open_event, N}, _From, S) when is_integer(N), N > 0->
     Reply = do_open_event(S, N),
     reply(Reply, S);
 handle_call(Request, From, S) ->
-    ok = error_logger:format("~p(~p): handle_call(~p, ~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_call(~tp, ~tp, ~tp)~n",
 			     [?MODULE, self(), Request, From, S]),
     Reply = {error, {bad_request, Request}},
     reply(Reply, S).
@@ -365,7 +365,7 @@ handle_call(Request, From, S) ->
 %%----------------------------------------------------------------------
 
 handle_cast(Msg, S) ->
-    ok = error_logger:format("~p(~p): handle_cast(~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_cast(~tp, ~tp)~n",
 			     [?MODULE, self(), Msg, S]),
     noreply(S).
 
@@ -793,8 +793,8 @@ handle_info(#wx{event = #wxScroll{type = scroll_changed}} = Wx, S) ->
     N = round(S#state.n_events * Pos / Range),
     Diff = 
 	case N - event_pos(S) of
-	    D when D < 0 -> D  - 1;
-	    D            -> D  + 1
+	    D when D < 0 -> D;
+	    D            -> D
 	end,
     S2 = scroll_changed(S, Diff),
     noreply(S2);
@@ -803,7 +803,7 @@ handle_info(timeout, S) ->
 handle_info({'EXIT', Pid, Reason}, S) ->
     if
 	Pid =:= S#state.collector_pid ->
-	    io:format("collector died: ~p\n\n", [Reason]),
+	    io:format("collector died: ~tp\n\n", [Reason]),
 	    wxFrame:destroy(S#state.frame),
 	    {stop, Reason, S};
 	Pid =:= S#state.parent_pid ->
@@ -853,10 +853,10 @@ handle_info(#wx{event = #wxPaint{}}, S) ->
     S2 = refresh_main_window(S),
     noreply(S2);
 handle_info(#wx{event = #wxMouse{type = T, x=X,y=Y}}, S) ->
-    io:format("~p ~p\n", [T, {X,Y}]),
+    io:format("~tp ~tp\n", [T, {X,Y}]),
     noreply(S);
 handle_info(Info, S) ->
-    ok = error_logger:format("~p(~p): handle_info(~p, ~p)~n",
+    ok = error_logger:format("~p(~p): handle_info(~tp, ~tp)~n",
 			     [?MODULE, self(), Info, S]),
     noreply(S).
 
@@ -1002,7 +1002,7 @@ scroll_changed(S, Expected) ->
 		    scroll_first(S);
 		last ->
 		    scroll_last(S)
-	    end;
+            end;
 	true ->
 	    %% Down
 	    OldPos = event_pos(S),
@@ -1018,19 +1018,24 @@ scroll_changed(S, Expected) ->
     end.
 
 jump_up(S, OldKey, OldPos, NewPos) ->
-    Try = NewPos - OldPos,
+    Try = NewPos - OldPos -1,
     Order = S#state.event_order,
-    Fun = fun(Event, #e{pos = P}) when P >= NewPos ->
-		  Key = et_collector:make_key(Order, Event),
-		  #e{event = Event, key = Key, pos = P - 1};
-	     (_, Acc) ->
-		  Acc
-	  end,
-    PrevE = et_collector:iterate(S#state.collector_pid,
-				 OldKey, 
-				 Try, 
-				 Fun,
-				 #e{key = OldKey, pos = OldPos}),
+    PrevE =
+        if NewPos =:= 0 ->
+                first;
+           true ->
+                Fun = fun(Event, #e{pos = P}) when P >= NewPos ->
+                              Key = et_collector:make_key(Order, Event),
+                              #e{event = Event, key = Key, pos = P - 1};
+                         (_E, Acc) ->
+                              Acc
+                      end,
+                et_collector:iterate(S#state.collector_pid,
+                                     OldKey,
+                                     Try,
+                                     Fun,
+                                     #e{key = OldKey, pos = OldPos})
+        end,
     case collect_more_events(S, PrevE, S#state.events_per_page) of
 	{_, []} ->
 	    S;
@@ -1162,7 +1167,7 @@ open_viewer(Scale, FilterName, Actors, S) ->
 	    %% unlink(ViewerPid),
 	    ok;
 	{error, Reason} ->
-	    ok = error_logger:format("~p: Failed to start a new window: ~p~n",
+	    ok = error_logger:format("~p: Failed to start a new window: ~tp~n",
 				     [?MODULE, Reason])
     end.
 
@@ -1393,7 +1398,7 @@ create_filter_menu(S=#state{filter_menu = {Menu,Data}}, ActiveFilterName, Filter
 			    wxMenu:delete(Menu,I)
 			catch
 			    _:Reason ->
-				io:format("Could not delete item: ~p, because ~p.\n", [I, Reason])
+				io:format("Could not delete item: ~tp, because ~tp.\n", [I, Reason])
 			end
 		end, 
 		Data),
@@ -1872,7 +1877,7 @@ create_contents_window(Event, {S, Res}) ->
 	{ok, Pid} ->
 	    {S, [{ok, Pid} | Res]};
 	{error, Reason} ->
-	    ok = error_logger:format("~p(~p): create_contents_window(~p) ->~n     ~p~n",
+	    ok = error_logger:format("~p(~p): create_contents_window(~tp) ->~n     ~tp~n",
 				     [?MODULE, self(), Options, Reason]),
 	    {S, [{error, Reason} | Res]};
 	Stuff ->
@@ -2013,7 +2018,7 @@ update_scroll_bar(#state{scroll_bar      = ScrollBar,
 	    PixelsPerEvent = Range / EventsPerPage,
 	    Share = EventsPerPage / N,
 	    wxScrollBar:setScrollbar(ScrollBar,
-				     trunc(EventPos * Share * PixelsPerEvent),
+                                     trunc(EventPos * Share * PixelsPerEvent),
 				     round(Share * Range),
 				     Range,
 				     round(Share * Range),
@@ -2069,15 +2074,15 @@ create_actor(Name) ->
     #actor{name = Name, string = String, include = false, exclude = false}.
 
 name_to_string(Name) ->
-    case catch io_lib:format("~s", [Name]) of
-        {'EXIT', _} -> lists:flatten(io_lib:format("~w", [Name]));
+    case catch io_lib:format("~ts", [Name]) of
+        {'EXIT', _} -> lists:flatten(io_lib:format("~tw", [Name]));
         GoodString  -> lists:flatten(GoodString)
     end.
 
 pad_string(Atom, MinLen) when is_atom(Atom) ->
     pad_string(atom_to_list(Atom), MinLen);
 pad_string(String, MinLen) when is_integer(MinLen), MinLen >= 0 ->
-    Len = length(String),
+    Len = string:length(String),
     case Len >= MinLen of
         true ->
             String;

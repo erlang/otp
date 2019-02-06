@@ -144,7 +144,7 @@ check_protocol([{Node, {accept, Mon, _Version, Protocol}} | Tail], Protocols) ->
 	    end,
 	    [node(Mon) | check_protocol(Tail, Protocols)];
 	false  ->
-	    unlink(Mon), % Get rid of unneccessary link
+	    unlink(Mon), % Get rid of unnecessary link
 	    check_protocol(Tail, Protocols)
     end;
 check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@
 
 %% Exported for internal use via rpc
 -export([get_erl_node/1, get_appls/1]).
+
+-deprecated([{load,1,eventually},
+	     {unload,1,eventually}]).
 
 %% Shadow tables
 -record(erlNodeTable,

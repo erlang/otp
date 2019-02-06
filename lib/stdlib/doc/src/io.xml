@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -137,11 +137,11 @@
 Hello world!
 ok</pre>
         <p>The general format of a control sequence is <c>~F.P.PadModC</c>.</p>
-        <p>Character <c>C</c> determines the type of control sequence
-          to be used, <c>F</c> and <c>P</c> are optional numeric
-          arguments. If <c>F</c>, <c>P</c>, or <c>Pad</c> is <c>*</c>,
-          the next argument in <c>Data</c> is used as the numeric value
-          of <c>F</c> or <c>P</c>.</p>
+        <p>The character <c>C</c> determines the type of control sequence
+          to be used. It is the only required field. All of <c>F</c>,
+          <c>P</c>, <c>Pad</c>, and <c>Mod</c> are optional. For example,
+          to use a <c>#</c> for <c>Pad</c> but use the default values for
+          <c>F</c> and <c>P</c>, you can write <c>~..#C</c>.</p>
         <list type="bulleted">
         <item>
           <p><c>F</c> is the <c>field width</c> of the printed argument. A
@@ -167,13 +167,26 @@ ok</pre>
             The default padding character is <c>' '</c> (space).</p>
         </item>
         <item>
-          <p><c>Mod</c> is the control sequence modifier. It is either a
-            single character (<c>t</c>, for Unicode
-            translation, and <c>l</c>, for stopping <c>p</c> and
-            <c>P</c> from detecting printable characters)
-            that changes the interpretation of <c>Data</c>.</p>
+          <p><c>Mod</c> is the control sequence modifier. This is
+            one or more characters that change the interpretation of
+            <c>Data</c>. The current modifiers are <c>t</c>, for Unicode
+            translation, and <c>l</c>, for stopping <c>p</c> and <c>P</c>
+            from detecting printable characters.</p>
         </item>
       </list>
+        <p>If <c>F</c>, <c>P</c>, or <c>Pad</c> is a <c>*</c> character,
+        the next argument in <c>Data</c> is used as the value.
+        For example:</p>
+        <pre>
+1> <input>io:fwrite("~*.*.0f~n",[9, 5, 3.14159265]).</input>
+003.14159
+ok</pre>
+        <p>To use a literal <c>*</c> character as <c>Pad</c>, it must be
+          passed as an argument:</p>
+        <pre>
+2> <input>io:fwrite("~*.*.*f~n",[9, 5, $*, 3.14159265]).</input>
+**3.14159
+ok</pre>
         <p><em>Available control sequences:</em></p>
         <taglist>
           <tag><c>~</c></tag>
@@ -257,14 +270,17 @@ ok</pre>
 \x{400}
 ok
 5> <input>io:fwrite("~s~n",[[1024]]).</input>
-** exception exit: {badarg,[{io,format,[&lt;0.26.0&gt;,"~s~n",[[1024]]]},
-   ...</pre>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0>,"~s~n",[[1024]])</pre>
           </item>
           <tag><c>w</c></tag>
           <item>
             <p>Writes data with the standard syntax. This is used to
               output Erlang terms. Atoms are printed within quotes if
               they contain embedded non-printable characters.
+	      Atom characters &gt; 255 are escaped unless the
+	      Unicode translation modifier (<c>t</c>) is used.
               Floats are printed accurately as the shortest, correctly
               rounded string.</p>
           </item>
@@ -274,10 +290,9 @@ ok
               <c>~w</c>, but breaks terms whose printed representation
               is longer than one line into many lines and indents each
               line sensibly. Left-justification is not supported.
-              It also tries to detect lists of
-              printable characters and to output these as strings. The
-              Unicode translation modifier is used for determining
-              what characters are printable, for example:</p>
+              It also tries to detect flat lists of
+              printable characters and output these as strings.
+              For example:</p>
             <pre>
 1> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
 <input>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</input>
@@ -299,7 +314,7 @@ ok
  {mode,implicit}]
 ok</pre>
             <p>The field width specifies the maximum line length.
-              Defaults to 80. The precision specifies the initial
+              It defaults to 80. The precision specifies the initial
               indentation of the term. It defaults to the number of
               characters printed on this line in the <em>same</em> call to
               <seealso marker="#write/1"><c>write/1</c></seealso> or
@@ -317,11 +332,22 @@ Here T = [{attributes,[[{id,age,1.5},
           {tag,{'PRIVATE',3}},
           {mode,implicit}]
 ok</pre>
+
+            <p>As from Erlang/OTP 21.0, a field width of value
+	      <c>0</c> can be used for specifying that a line is
+	      infinitely long, which means that no line breaks
+	      are inserted. For example:</p>
+
+	    <pre>
+5> <input>io:fwrite("~0p~n", [lists:seq(1, 30)]).</input>
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+ok</pre>
+
             <p>When the modifier <c>l</c> is specified, no detection of
               printable character lists takes place, for example:</p>
             <pre>
-5> <input>S = [{a,"a"}, {b, "b"}].</input>
-6> <input>io:fwrite("~15p~n", [S]).</input>
+6> <input>S = [{a,"a"}, {b, "b"}],
+   io:fwrite("~15p~n", [S]).</input>
 [{a,"a"},
  {b,"b"}]
 ok
@@ -329,18 +355,53 @@ ok
 [{a,[97]},
  {b,[98]}]
 ok</pre>
-            <p>Binaries that look like UTF-8 encoded strings are
-              output with the string syntax if the Unicode translation
+            <p>The Unicode translation modifier <c>t</c> specifies how to treat
+              characters outside the Latin-1 range of codepoints, in
+              atoms, strings, and binaries. For example, printing an atom
+              containing a character &gt; 255:</p>
+            <pre>
+8> <input>io:fwrite("~p~n",[list_to_atom([1024])]).</input>
+'\x{400}'
+ok
+9> <input>io:fwrite("~tp~n",[list_to_atom([1024])]).</input>
+'Ѐ'
+ok</pre>
+            <p>By default, Erlang only detects lists of characters
+              in the Latin-1 range as strings, but the <c>+pc unicode</c>
+              flag can be used to change this (see <seealso
+              marker="#printable_range/0">
+              <c>printable_range/0</c></seealso> for details). For example:</p>
+            <pre>
+10> <input>io:fwrite("~p~n",[[214]]).</input>
+"Ö"
+ok
+11> <input>io:fwrite("~p~n",[[1024]]).</input>
+[1024]
+ok
+12> <input>io:fwrite("~tp~n",[[1024]]).</input>
+[1024]
+ok
+</pre>
+            <p>but if Erlang was started with <c>+pc unicode</c>:</p>
+            <pre>
+13> <input>io:fwrite("~p~n",[[1024]]).</input>
+[1024]
+ok
+14> <input>io:fwrite("~tp~n",[[1024]]).</input>
+"Ѐ"
+ok</pre>
+            <p>Similarly, binaries that look like UTF-8 encoded strings
+              are output with the binary string syntax if the <c>t</c>
               modifier is specified:</p>
             <pre>
-9> <input>io:fwrite("~p~n",[[1024]]).</input>
-[1024]
-10> <input>io:fwrite("~tp~n",[[1024]]).</input>
-"\x{400}"
-11> <input>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</input>
+15> <input>io:fwrite("~p~n", [&lt;&lt;208,128&gt;&gt;]).</input>
+&lt;&lt;208,128&gt;&gt;
+ok
+16> <input>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</input>
+&lt;&lt;"Ѐ"/utf8&gt;&gt;
+ok
+17> <input>io:fwrite("~tp~n", [&lt;&lt;128,128&gt;&gt;]).</input>
 &lt;&lt;128,128&gt;&gt;
-12> <input>io:fwrite("~tp~n", [&lt;&lt;208,128&gt;&gt;]).</input>
-&lt;&lt;"\x{400}"/utf8&gt;&gt;
 ok</pre>
           </item>
           <tag><c>W</c></tag>
@@ -452,12 +513,9 @@ ok</pre>
 abc def 'abc def'  {foo,1} A
 ok
 2> <input>io:fwrite("~s", [65]).</input>
-** exception exit: {badarg,[{io,format,[&lt;0.22.0>,"~s","A"]},
-                            {erl_eval,do_apply,5},
-                            {shell,exprs,6},
-                            {shell,eval_exprs,6},
-                            {shell,eval_loop,3}]}
-     in function  io:o_request/2</pre>
+** exception error: bad argument
+     in function  io:format/3
+        called as io:format(&lt;0.53.0>,"~s","A")</pre>
         <p>In this example, an attempt was made to output the single
           character 65 with the aid of the string formatting directive
           <c>"~s"</c>.</p>
@@ -567,8 +625,6 @@ Prompt> <input>&lt;Characters beyond latin1 range not printable in this medium&g
               <item>
                 <p>Similar to <c>s</c>, but the resulting string is
                   converted into an atom.</p>
-                <p>The Unicode translation modifier is not allowed (atoms
-                  cannot contain characters beyond the <c>latin1</c> range).</p>
               </item>
               <tag><c>c</c></tag>
               <item>

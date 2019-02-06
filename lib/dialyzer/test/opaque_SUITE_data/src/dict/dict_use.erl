@@ -34,7 +34,7 @@ middle() ->
   {w1(), w2()}.
 
 %%---------------------------------------------------------------------
-%% Cases that are problematic w.r.t. opaqueness of types
+%% Cases that are problematic w.r.t. opacity of types
 %%---------------------------------------------------------------------
 
 w1() ->

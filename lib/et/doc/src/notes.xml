@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,6 +36,68 @@
   (ET)</c>. Each release of <c>Event Tracer (ET) </c> thus constitutes
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
+
+<section><title>ET 1.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The scroll bar of the et_viewer window could not be
+	    dragged all the way to the top of the window. It would
+	    always stop at the second event. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-15463 Aux Id: ERL-780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Calls to <c>erlang:get_stacktrace()</c> are removed.
+	    </p>
+          <p>
+	    Own Id: OTP-14861</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ET 1.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>ET 1.6</title>
 

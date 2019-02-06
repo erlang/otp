@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2016. All Rights Reserved.
+# Copyright Ericsson AB 2010-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,7 @@ XML_PART_FILES = \
 	user_man.xml
 
 XML_EXTRA_FILES = \
-	seealso.ent \
-	diameter_soc_rfc6733.xml
+	seealso.ent
 
 XML_CHAPTER_FILES = \
 	diameter_intro.xml \

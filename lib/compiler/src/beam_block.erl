@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,27 +23,36 @@
 -module(beam_block).
 
 -export([module/2]).
--import(lists, [reverse/1,reverse/2,foldl/3,member/2]).
+-import(lists, [reverse/1,reverse/2,member/2]).
 
-module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
-    Fs = [function(F) || F <- Fs0],
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
+module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
+    Blockify = not member(no_blockify, Opts),
+    Fs = [function(F, Blockify) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is0}) ->
+function({function,Name,Arity,CLabel,Is0}, Blockify) ->
     try
 	%% Collect basic blocks and optimize them.
-	Is1 = blockify(Is0),
-	Is2 = embed_lines(Is1),
-	Is3 = move_allocates(Is2),
-	Is4 = beam_utils:live_opt(Is3),
-	Is5 = opt_blocks(Is4),
-	Is6 = beam_utils:delete_live_annos(Is5),
+        Is1 = case Blockify of
+                  false -> Is0;
+                  true -> blockify(Is0)
+              end,
+        Is2 = embed_lines(Is1),
+        Is3 = local_cse(Is2),
+        Is4 = beam_utils:anno_defs(Is3),
+        Is5 = move_allocates(Is4),
+        Is6 = beam_utils:live_opt(Is5),
+        Is7 = opt_blocks(Is6),
+        Is8 = beam_utils:delete_annos(Is7),
+        Is = opt_allocs(Is8),
 
-	%% Done.
-	{function,Name,Arity,CLabel,Is6}
+        %% Done.
+        {function,Name,Arity,CLabel,Is}
     catch
-	Class:Error ->
-	    Stack = erlang:get_stacktrace(),
+        Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
@@ -58,13 +67,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-blockify([{get_map_elements,F,S,{list,Gets}}|Is0], Acc) ->
-    %% A get_map_elements instruction is only safe at the beginning of
-    %% a block because of the failure label.
-    {Ss,Ds} = beam_utils:split_even(Gets),
-    I = {set,Ds,[S|Ss],{get_map_elements,F}},
-    {Block,Is} = collect_block(Is0, [I]),
-    blockify(Is, [{block,Block}|Acc]);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -106,7 +108,8 @@ collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
 collect({put,S})             -> {set,[],[S],put};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
-collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
+collect({get_hd,S,D})  ->       {set,[D],[S],get_hd};
+collect({get_tl,S,D})  ->       {set,[D],[S],get_tl};
 collect(remove_message)      -> {set,[],[],remove_message};
 collect({put_map,F,Op,S,D,R,{list,Puts}}) ->
     {set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}};
@@ -134,23 +137,27 @@ embed_lines([{block,B2},{line,_}=Line,{block,B1}|T], Acc) ->
 embed_lines([{block,B1},{line,_}=Line|T], Acc) ->
     B = {block,[{set,[],[],Line}|B1]},
     embed_lines([B|T], Acc);
+embed_lines([{block,B2},{block,B1}|T], Acc) ->
+    %% This can only happen when beam_block is run for
+    %% the second time.
+    B = {block,B1++B2},
+    embed_lines([B|T], Acc);
 embed_lines([I|Is], Acc) ->
     embed_lines(Is, [I|Acc]);
 embed_lines([], Acc) -> Acc.
 
 opt_blocks([{block,Bl0}|Is]) ->
     %% The live annotation at the beginning is not useful.
-    [{'%live',_,_}|Bl] = Bl0,
+    [{'%anno',_}|Bl] = Bl0,
     [{block,opt_block(Bl)}|opt_blocks(Is)];
 opt_blocks([I|Is]) ->
     [I|opt_blocks(Is)];
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    Is = find_fixpoint(fun(Is) ->
-			       opt_tuple_element(opt(Is))
-		       end, Is0),
-    opt_alloc(Is).
+    find_fixpoint(fun(Is) ->
+                          opt_tuple_element(opt(Is))
+                  end, Is0).
 
 find_fixpoint(OptFun, Is0) ->
     case OptFun(Is0) of
@@ -177,7 +184,7 @@ find_fixpoint(OptFun, Is0) ->
 %%  safe to assume that if x(N) is initialized, then all lower-numbered
 %%  x registers are also initialized.
 %%
-%%  For example, in general it is not safe to transform the following
+%%  For example, we must be careful when transforming the following
 %%  instructions:
 %%
 %%     get_tuple_element x(0) Element => x(1)
@@ -189,13 +196,9 @@ find_fixpoint(OptFun, Is0) ->
 %%     get_tuple_element x(0) Element => x(1)
 %%
 %%  The transformation is safe if and only if x(1) has been
-%%  initialized previously. Unfortunately, beam_reorder may have moved
-%%  a get_tuple_element instruction so that x(1) is not always
-%%  initialized when this code is reached. To find whether or not x(1)
-%%  is initialized, we would need to analyze all code preceding these
-%%  two instructions (across branches). Since we currently don't have
-%%  any practical mechanism for doing that, we will have to
-%%  conservatively assume that the transformation is unsafe.
+%%  initialized previously.  We will use the annotations added by
+%%  beam_utils:anno_defs/1 to determine whether x(a) has been
+%%  initialized.
 
 move_allocates([{block,Bl0}|Is]) ->
     Bl = move_allocates_1(reverse(Bl0), []),
@@ -204,43 +207,77 @@ move_allocates([I|Is]) ->
     [I|move_allocates(Is)];
 move_allocates([]) -> [].
 
-move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
-    case {alloc_may_pass(I),alloc_live_regs(I, Live0)} of
-	{false,_} ->
-	    move_allocates_1(Is, [I|Acc0]);
-	{true,not_possible} ->
-	    move_allocates_1(Is, [I|Acc0]);
-	{true,Live} when is_integer(Live) ->
-	    A = {set,[],[],{alloc,Live,Info}},
-	    move_allocates_1(Is, [A,I|Acc])
+move_allocates_1([{'%anno',_}|Is], Acc) ->
+    move_allocates_1(Is, Acc);
+move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info0}}|Acc]=Acc0) ->
+    case alloc_may_pass(I) of
+        false ->
+            move_allocates_1(Is, [I|Acc0]);
+        true ->
+            case alloc_live_regs(I, Is, Live0) of
+                not_possible ->
+                    move_allocates_1(Is, [I|Acc0]);
+                Live when is_integer(Live) ->
+                    Info = safe_info(Info0),
+                    A = {set,[],[],{alloc,Live,Info}},
+                    move_allocates_1(Is, [A,I|Acc])
+            end
     end;
 move_allocates_1([I|Is], Acc) ->
     move_allocates_1(Is, [I|Acc]);
 move_allocates_1([], Acc) -> Acc.
 
+alloc_may_pass({set,_,[{fr,_}],fmove}) -> false;
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
-alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
-    
+
+safe_info({nozero,Stack,Heap,_}) ->
+    %% nozero is not safe if the allocation instruction is moved
+    %% upwards past an instruction that may throw an exception
+    %% (such as element/2).
+    {zero,Stack,Heap,[]};
+safe_info(Info) -> Info.
+
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
 opt([{set,[X],[X],move}|Is]) -> opt(Is);
+opt([{set,[Dst],_,move},{set,[Dst],[Src],move}=I|Is]) when Dst =/= Src ->
+    opt([I|Is]);
+opt([{set,[{x,0}],[S1],move}=I1,{set,[D2],[{x,0}],move}|Is]) ->
+    opt([I1,{set,[D2],[S1],move}|Is]);
+opt([{set,[{x,0}],[S1],move}=I1,{set,[D2],[S2],move}|Is0]) when S1 =/= D2 ->
+    %% Place move S x0 at the end of move sequences so that
+    %% loader can merge with the following instruction
+    {Ds,Is} = opt_moves([D2], Is0),
+    [{set,Ds,[S2],move}|opt([I1|Is])];
 opt([{set,_,_,{line,_}}=Line1,
      {set,[D1],[{integer,Idx1},Reg],{bif,element,{f,0}}}=I1,
      {set,_,_,{line,_}}=Line2,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
-opt([{set,[_|_],_Ss,{get_map_elements,_F}}=I|Is]) ->
-    [I|opt(Is)];
+opt([{set,[D1],[{integer,Idx1},Reg],{bif,element,{f,L}}}=I1,
+     {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,L}}}=I2|Is])
+  when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
+    opt([I2,I1|Is]);
+opt([{set,Hd0,Cons,get_hd}=GetHd,
+     {set,Tl0,Cons,get_tl}=GetTl|Is0]) ->
+    case {opt_moves(Hd0, [GetTl|Is0]),opt_moves(Tl0, [GetHd|Is0])} of
+        {{Hd0,Is},{Tl0,_}} ->
+            [GetHd|opt(Is)];
+        {{Hd,Is},{Tl0,_}} ->
+            [{set,Hd,Cons,get_hd}|opt(Is)];
+        {{_,_},{Tl,Is}} ->
+            [{set,Tl,Cons,get_tl}|opt(Is)]
+    end;
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
-opt([{'%live',_,_}=I|Is]) ->
+opt([{'%anno',_}=I|Is]) ->
     [I|opt(Is)];
 opt([]) -> [].
 
@@ -252,17 +289,6 @@ opt_moves([D0]=Ds, Is0) ->
     case opt_move(D0, Is0) of
 	not_possible -> {Ds,Is0};
 	{D1,Is} -> {[D1],Is}
-    end;
-opt_moves([X0,Y0], Is0) ->
-    {X,Is2} = case opt_move(X0, Is0) of
-		  not_possible -> {X0,Is0};
-		  {Y0,_} -> {X0,Is0};
-		  {_X1,_Is1} = XIs1 -> XIs1
-	      end,
-    case opt_move(Y0, Is2) of
-	not_possible -> {[X,Y0],Is2};
-	{X,_} -> {[X,Y0],Is2};
-	{Y,Is} -> {[X,Y],Is}
     end.
 
 %% opt_move(Dest, [Instruction]) -> {UpdatedDest,[Instruction]} | not_possible
@@ -276,7 +302,7 @@ opt_move(Dest, Is) ->
 opt_move_1(R, [{set,[D],[R],move}|Is0], Acc) ->
     %% Provided that the source register is killed by instructions
     %% that follow, the optimization is safe.
-    case eliminate_use_of_from_reg(Is0, R, D, []) of
+    case eliminate_use_of_from_reg(Is0, R, D) of
 	{yes,Is} -> opt_move_rev(D, Acc, Is);
 	no -> not_possible
     end;
@@ -334,13 +360,21 @@ opt_tuple_element_1([{set,_,_,{alloc,_,_}}|_], _, _, _) ->
 opt_tuple_element_1([{set,_,_,{try_catch,_,_}}|_], _, _, _) ->
     no;
 opt_tuple_element_1([{set,[D],[S],move}|Is0], I0, {_,S}, Acc) ->
-    case eliminate_use_of_from_reg(Is0, S, D, []) of
+    case eliminate_use_of_from_reg(Is0, S, D) of
 	no ->
 	    no;
-	{yes,Is} ->
+	{yes,Is1} ->
 	    {set,[S],Ss,Op} = I0,
 	    I = {set,[D],Ss,Op},
-	    {yes,reverse(Acc, [I|Is])}
+            case opt_move_rev(S, Acc, [I|Is1]) of
+                not_possible ->
+                    %% Not safe because the move of the
+                    %% get_tuple_element instruction would cause the
+                    %% result of a previous instruction to be ignored.
+                    no;
+                {_,Is} ->
+                    {yes,Is}
+            end
     end;
 opt_tuple_element_1([{set,Ds,Ss,_}=I|Is], MovedI, {S,D}=Regs, Acc) ->
     case member(S, Ds) orelse member(D, Ss) of
@@ -376,6 +410,14 @@ is_killed_or_used(R, {set,Ss,Ds,_}) ->
 %%  that FromRegister is still used and that the optimization is not
 %%  possible.
 
+eliminate_use_of_from_reg(Is, From, To) ->
+    try
+        eliminate_use_of_from_reg(Is, From, To, [])
+    catch
+        throw:not_possible ->
+            no
+    end.
+
 eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
     if
 	X < Live ->
@@ -384,21 +426,32 @@ eliminate_use_of_from_reg([{set,_,_,{alloc,Live,_}}|_]=Is0, {x,X}, _, Acc) ->
 	    {yes,reverse(Acc, Is0)}
     end;
 eliminate_use_of_from_reg([{set,Ds,Ss0,Op}=I0|Is], From, To, Acc) ->
+    ensure_safe_tuple(I0, To),
     I = case member(From, Ss0) of
-	    true ->
-		Ss = [case S of
-			  From -> To;
-			  _ -> S
-		      end || S <- Ss0],
-		{set,Ds,Ss,Op};
-	    false ->
-		I0
-	end,
+            true ->
+                Ss = [case S of
+                          From -> To;
+                          _ -> S
+                      end || S <- Ss0],
+                {set,Ds,Ss,Op};
+            false ->
+                I0
+        end,
     case member(From, Ds) of
-	true ->
-	    {yes,reverse(Acc, [I|Is])};
-	false ->
-	    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+        true ->
+            {yes,reverse(Acc, [I|Is])};
+        false ->
+            case member(To, Ds) of
+                true ->
+                    case beam_utils:is_killed_block(From, Is) of
+                        true ->
+                            {yes,reverse(Acc, [I|Is])};
+                        false ->
+                            no
+                    end;
+                false ->
+                    eliminate_use_of_from_reg(Is, From, To, [I|Acc])
+            end
     end;
 eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
     case beam_utils:is_killed_block(From, [I]) of
@@ -408,31 +461,51 @@ eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
 	    no
     end.
 
+ensure_safe_tuple({set,[To],[],{put_tuple,_}}, To) ->
+    throw(not_possible);
+ensure_safe_tuple(_, _) -> ok.
+
+%% opt_allocs(Instructions) -> Instructions.  Optimize allocate
+%%  instructions inside blocks. If safe, replace an allocate_zero
+%%  instruction with the slightly cheaper allocate instruction.
+
+opt_allocs(Is) ->
+    D = beam_utils:index_labels(Is),
+    opt_allocs_1(Is, D).
+
+opt_allocs_1([{block,Bl0}|Is], D) ->
+    Bl = opt_alloc(Bl0, {D,Is}),
+    [{block,Bl}|opt_allocs_1(Is, D)];
+opt_allocs_1([I|Is], D) ->
+    [I|opt_allocs_1(Is, D)];
+opt_allocs_1([], _) -> [].
+
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
 
 opt_alloc([{set,[],[],{alloc,Live0,Info0}},
-	   {set,[],[],{alloc,Live,Info}}|Is]) ->
+           {set,[],[],{alloc,Live,Info}}|Is], D) ->
     Live = Live0,				%Assertion.
     Alloc = combine_alloc(Info0, Info),
     I = {set,[],[],{alloc,Live,Alloc}},
-    opt_alloc([I|Is]);
-opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is]) ->
-    [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|Is];
-opt_alloc([I|Is]) -> [I|opt_alloc(Is)];
-opt_alloc([]) -> [].
+    opt_alloc([I|Is], D);
+opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is], D) ->
+    [{set,[],[],opt_alloc(Is, D, Ns, Nh, R)}|Is];
+opt_alloc([I|Is], D) -> [I|opt_alloc(Is, D)];
+opt_alloc([], _) -> [].
 
 combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
     {zero,Ns,beam_utils:combine_heap_needs(Nh1, Nh2),Init}.
-	
+
 %% opt_alloc(Instructions, FrameSize, HeapNeed, LivingRegs) -> [Instr]
 %%  Generates the optimal sequence of instructions for
 %%  allocating and initalizing the stack frame and needed heap.
 
-opt_alloc(_Is, nostack, Nh, LivingRegs) ->
+opt_alloc(_Is, _D, nostack, Nh, LivingRegs) ->
     {alloc,LivingRegs,{nozero,nostack,Nh,[]}};
-opt_alloc(Is, Ns, Nh, LivingRegs) ->
-    InitRegs = init_yreg(Is, 0),
+opt_alloc(Bl, {D,OuterIs}, Ns, Nh, LivingRegs) ->
+    Is = [{block,Bl}|OuterIs],
+    InitRegs = init_yregs(Ns, Is, D),
     case count_ones(InitRegs) of
 	N when N*2 > Ns ->
 	    {alloc,LivingRegs,{nozero,Ns,Nh,gen_init(Ns, InitRegs)}};
@@ -448,19 +521,14 @@ gen_init(Fs, Regs, Y, Acc) when Regs band 1 =:= 0 ->
 gen_init(Fs, Regs, Y, Acc) ->
     gen_init(Fs, Regs bsr 1, Y+1, Acc).
 
-%% init_yreg(Instructions, RegSet) -> RegSetInitialized
-%%  Calculate the set of initialized y registers.
-
-init_yreg([{set,_,_,{bif,_,_}}|_], Reg) -> Reg;
-init_yreg([{set,_,_,{alloc,_,{gc_bif,_,_}}}|_], Reg) -> Reg;
-init_yreg([{set,_,_,{alloc,_,{put_map,_,_}}}|_], Reg) -> Reg;
-init_yreg([{set,Ds,_,_}|Is], Reg) -> init_yreg(Is, add_yregs(Ds, Reg));
-init_yreg(_Is, Reg) -> Reg.
-
-add_yregs(Ys, Reg) -> foldl(fun(Y, R0) -> add_yreg(Y, R0) end, Reg, Ys).
-    
-add_yreg({y,Y}, Reg) -> Reg bor (1 bsl Y);
-add_yreg(_, Reg)     -> Reg.
+init_yregs(Y, Is, D) when Y >= 0 ->
+    case beam_utils:is_killed({y,Y}, Is, D) of
+        true ->
+            (1 bsl Y) bor init_yregs(Y-1, Is, D);
+        false ->
+            init_yregs(Y-1, Is, D)
+    end;
+init_yregs(_, _, _) -> 0.
 
 count_ones(Bits) -> count_ones(Bits, 0).
 count_ones(0, Acc) -> Acc;
@@ -470,16 +538,34 @@ count_ones(Bits, Acc) ->
 %% Calculate the new number of live registers when we move an allocate
 %% instruction upwards, passing a 'set' instruction.
 
-alloc_live_regs({set,Ds,Ss,_}, Regs0) ->
+alloc_live_regs({set,Ds,Ss,_}, Is, Regs0) ->
     Rset = x_live(Ss, x_dead(Ds, (1 bsl Regs0)-1)),
-    live_regs(0, Rset).
+    Live = live_regs(0, Rset),
+    case ensure_contiguous(Rset, Live) of
+        not_possible ->
+            %% Liveness information (looking forward in the
+            %% instruction stream) can't prove that moving this
+            %% allocation instruction is safe. Now use the annotation
+            %% of defined registers at the beginning of the current
+            %% block to see whether moving would be safe.
+            Def0 = defined_regs(Is, 0),
+            Def = Def0 band ((1 bsl Live) - 1),
+            ensure_contiguous(Rset bor Def, Live);
+        Live ->
+            %% Safe based on liveness information.
+            Live
+    end.
 
 live_regs(N, 0) ->
     N;
-live_regs(N, Regs) when Regs band 1 =:= 1 ->
-    live_regs(N+1, Regs bsr 1);
-live_regs(_, _) ->
-    not_possible.
+live_regs(N, Regs) ->
+    live_regs(N+1, Regs bsr 1).
+
+ensure_contiguous(Regs, Live) ->
+    case (1 bsl Live) - 1 of
+        Regs -> Live;
+        _ -> not_possible
+    end.
 
 x_dead([{x,N}|Rs], Regs) -> x_dead(Rs, Regs band (bnot (1 bsl N)));
 x_dead([_|Rs], Regs) -> x_dead(Rs, Regs);
@@ -488,3 +574,120 @@ x_dead([], Regs) -> Regs.
 x_live([{x,N}|Rs], Regs) -> x_live(Rs, Regs bor (1 bsl N));
 x_live([_|Rs], Regs) -> x_live(Rs, Regs);
 x_live([], Regs) -> Regs.
+
+%% defined_regs(ReversedInstructions) -> RegBitmap.
+%%  Given a reversed instruction stream, determine the
+%%  the registers that are defined.
+
+defined_regs([{'%anno',{def,Def}}|_], Regs) ->
+    Def bor Regs;
+defined_regs([{set,Ds,_,{alloc,Live,_}}|_], Regs) ->
+    x_live(Ds, Regs bor ((1 bsl Live) - 1));
+defined_regs([{set,Ds,_,_}|Is], Regs) ->
+    defined_regs(Is, x_live(Ds, Regs)).
+
+%%%
+%%% Do local common sub expression elimination (CSE) in each block.
+%%%
+
+local_cse([{block,Bl0}|Is]) ->
+    Bl = cse_block(Bl0, orddict:new(), []),
+    [{block,Bl}|local_cse(Is)];
+local_cse([I|Is]) ->
+    [I|local_cse(Is)];
+local_cse([]) -> [].
+
+cse_block([I|Is], Es0, Acc0) ->
+    Es1 = cse_clear(I, Es0),
+    case cse_expr(I) of
+        none ->
+            %% Instruction is not suitable for CSE.
+            cse_block(Is, Es1, [I|Acc0]);
+        {ok,D,Expr} ->
+            %% Suitable instruction. First update the dictionary of
+            %% suitable expressions for the next iteration.
+            Es = cse_add(D, Expr, Es1),
+
+            %% Search for a previous identical expression.
+            case cse_find(Expr, Es0) of
+                error ->
+                    %% Nothing found
+                    cse_block(Is, Es, [I|Acc0]);
+                Src ->
+                    %% Use the previously calculated result.
+                    %% Also eliminate any line instruction.
+                    Move = {set,[D],[Src],move},
+                    case Acc0 of
+                        [{set,_,_,{line,_}}|Acc] ->
+                            cse_block(Is, Es, [Move|Acc]);
+                        [_|_] ->
+                            cse_block(Is, Es, [Move|Acc0])
+                    end
+            end
+    end;
+cse_block([], _, Acc) ->
+    reverse(Acc).
+
+%% cse_find(Expr, Expressions) -> error | Register.
+%%  Find a previously evaluated expression whose result can be reused,
+%%  or return 'error' if no such expression is found.
+
+cse_find(Expr, Es) ->
+    case orddict:find(Expr, Es) of
+        {ok,{Src,_}} -> Src;
+        error -> error
+    end.
+
+cse_expr({set,[D],Ss,{bif,N,_}}) ->
+    case D of
+        {fr,_} ->
+            %% There are too many things that can go wrong.
+            none;
+        _ ->
+            {ok,D,{{bif,N},Ss}}
+    end;
+cse_expr({set,[D],Ss,{alloc,_,{gc_bif,N,_}}}) ->
+    {ok,D,{{gc_bif,N},Ss}};
+cse_expr({set,[D],Ss,put_list}) ->
+    {ok,D,{put_list,Ss}};
+cse_expr(_) -> none.
+
+%% cse_clear(Instr, Expressions0) -> Expressions.
+%%  Remove all previous expressions that will become
+%%  invalid when this instruction is executed. Basically,
+%%  an expression is no longer safe to reuse when the
+%%  register it has been stored to has been modified, killed,
+%%  or if any of the source operands have changed.
+
+cse_clear({set,Ds,_,{alloc,Live,_}}, Es) ->
+    cse_clear_1(Es, Live, Ds);
+cse_clear({set,Ds,_,_}, Es) ->
+    cse_clear_1(Es, all, Ds).
+
+cse_clear_1(Es, Live, Ds0) ->
+    Ds = ordsets:from_list(Ds0),
+    [E || E <- Es, cse_is_safe(E, Live, Ds)].
+
+cse_is_safe({_,{Dst,Interfering}}, Live, Ds) ->
+    ordsets:is_disjoint(Interfering, Ds) andalso
+        case Dst of
+            {x,X} ->
+                X < Live;
+            _ ->
+                true
+        end.
+
+%% cse_add(Dest, Expr, Expressions0) -> Expressions.
+%%  Provided that it is safe, add a new expression to the dictionary
+%%  of already evaluated expressions.
+
+cse_add(D, {_,Ss}=Expr, Es) ->
+    case member(D, Ss) of
+        false ->
+            Interfering = ordsets:from_list([D|Ss]),
+            orddict:store(Expr, {D,Interfering}, Es);
+        true ->
+            %% Unsafe because the instruction overwrites one of
+            %% source operands.
+            Es
+    end.

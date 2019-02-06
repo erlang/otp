@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,6 @@
 #include "erl_thr_progress.h"
 #include "global.h"
 
-#ifdef ERTS_SMP
 
 #define ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE 0
 
@@ -321,13 +320,23 @@ tmp_thr_prgr_data(ErtsSchedulerData *esdp)
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(esdp);
 
     if (!tpd) {
-	/*
-	 * We only allocate the part up to the wakeup_request field
-	 * which is the first field only used by registered threads
-	 */
-	tpd = erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA,
-			 offsetof(ErtsThrPrgrData, wakeup_request));
-	init_tmp_thr_prgr_data(tpd);
+        /*
+         * We only allocate the part up to the wakeup_request field which is
+         * the first field only used by registered threads
+         */
+        size_t alloc_size = offsetof(ErtsThrPrgrData, wakeup_request);
+
+        /* We may land here as a result of unmanaged_delay being called from
+         * the lock counting module, which in turn might be called from within
+         * the allocator, so we use plain malloc to avoid deadlocks. */
+        tpd =
+#ifdef ERTS_ENABLE_LOCK_COUNT
+            malloc(alloc_size);
+#else
+            erts_alloc(ERTS_ALC_T_T_THR_PRGR_DATA, alloc_size);
+#endif
+
+        init_tmp_thr_prgr_data(tpd);
     }
 
     return tpd;
@@ -337,8 +346,13 @@ static ERTS_INLINE void
 return_tmp_thr_prgr_data(ErtsThrPrgrData *tpd)
 {
     if (tpd->is_temporary) {
-	erts_tsd_set(erts_thr_prgr_data_key__, NULL);
-	erts_free(ERTS_ALC_T_T_THR_PRGR_DATA, tpd);
+        erts_tsd_set(erts_thr_prgr_data_key__, NULL);
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+        free(tpd);
+#else
+        erts_free(ERTS_ALC_T_T_THR_PRGR_DATA, tpd);
+#endif
     }
 }
 
@@ -494,6 +508,10 @@ init_wakeup_request_array(ErtsThrPrgrVal *w)
     }
 }
 
+ErtsThrPrgrData *erts_thr_progress_data(void) {
+    return erts_tsd_get(erts_thr_prgr_data_key__);
+}
+
 void
 erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 {
@@ -537,7 +555,7 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
 }
 
 
-void
+ErtsThrPrgrData *
 erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 					  ErtsThrPrgrCallbacks *callbacks,
 					  int pref_wakeup)
@@ -616,6 +634,7 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 		wakeup_managed(id);
     }
     callbacks->finalize_wait(callbacks->arg);
+    return tpd;
 }
 
 static ERTS_INLINE int
@@ -782,7 +801,7 @@ leader_update(ErtsThrPrgrData *tpd)
 		     == ERTS_THR_PRGR_LFLG_NO_LEADER))
 		&& got_sched_wakeups()) {
 		/* Someone need to make progress */
-		wakeup_managed(0);
+		wakeup_managed(tpd->id);
 	    }
 	}
     }
@@ -835,23 +854,22 @@ update(ErtsThrPrgrData *tpd)
 }
 
 int
-erts_thr_progress_update(ErtsSchedulerData *esdp)
+erts_thr_progress_update(ErtsThrPrgrData *tpd)
 {
-    return update(thr_prgr_data(esdp));
+    return update(tpd);
 }
 
 
 int
-erts_thr_progress_leader_update(ErtsSchedulerData *esdp)
+erts_thr_progress_leader_update(ErtsThrPrgrData *tpd)
 {
-    return leader_update(thr_prgr_data(esdp));
+    return leader_update(tpd);
 }
 
 void
-erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp)
+erts_thr_progress_prepare_wait(ErtsThrPrgrData *tpd)
 {
     erts_aint32_t lflgs;
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
@@ -870,14 +888,13 @@ erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp)
 	== ERTS_THR_PRGR_LFLG_NO_LEADER 
 	&& got_sched_wakeups()) {
 	/* Someone need to make progress */
-	wakeup_managed(0);
+	wakeup_managed(tpd->id);
     }
 }
 
 void
-erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp)
+erts_thr_progress_finalize_wait(ErtsThrPrgrData *tpd)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
     ErtsThrPrgrVal current, val;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -907,9 +924,8 @@ erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp)
 }
 
 void
-erts_thr_progress_active(ErtsSchedulerData *esdp, int on)
+erts_thr_progress_active(ErtsThrPrgrData *tpd, int on)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
@@ -959,7 +975,7 @@ unmanaged_continue(ErtsThrPrgrDelayHandle handle)
 	    == (ERTS_THR_PRGR_LFLG_NO_LEADER|ERTS_THR_PRGR_LFLG_WAITING_UM)
 	    && got_sched_wakeups()) {
 	    /* Others waiting for us... */
-	    wakeup_managed(0);
+	    wakeup_managed(1);
 	}
     }
 }
@@ -1168,10 +1184,10 @@ request_wakeup_unmanaged(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
 }
 
 void
-erts_thr_progress_wakeup(ErtsSchedulerData *esdp,
+erts_thr_progress_wakeup(ErtsThrPrgrData *tpd,
 			 ErtsThrPrgrVal value)
 {
-    ErtsThrPrgrData *tpd = thr_prgr_data(esdp);
+
     ASSERT(!tpd->is_temporary);
     if (tpd->is_managed)
 	request_wakeup_managed(tpd, value);
@@ -1498,4 +1514,3 @@ void erts_thr_progress_dbg_print_state(void)
 
 }
 
-#endif

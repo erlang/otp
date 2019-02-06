@@ -1,0 +1,3 @@
+
+iodata.erl:7: The specification for iodata:encode/2 states that the function might also return binary() but the inferred return is nonempty_maybe_improper_list(<<_:8,_:_*8>> | nonempty_maybe_improper_list(<<_:8,_:_*8>> | nonempty_maybe_improper_list(any(),<<_:8,_:_*8>> | []) | byte(),<<_:8,_:_*8>> | []) | integer(),<<_:8,_:_*8>> | []) | integer()
+iodata.erl:7: The success typing for iodata:encode/2 implies that the function might also return integer() but the specification return is binary() | maybe_improper_list(binary() | maybe_improper_list(any(),binary() | []) | byte(),binary() | [])

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,8 +106,8 @@ check_diff(Diff) ->
 	throw:_ ->  diff;
 	error:{badmatch,_} ->
 	    diff;
-	_:What ->
-	    io:format("~p:~p: ~p ~p~n", [?MODULE,?LINE, What, erlang:get_stacktrace()]),
+	_:What:Stacktrace ->
+	    io:format("~p:~p: ~p ~p~n", [?MODULE,?LINE, What, Stacktrace]),
 	    diff
     end.
 
@@ -203,7 +203,7 @@ replace_and_remove([$; | R], Acc) ->
 replace_and_remove([$@ | R], Acc) ->
     replace_and_remove(R, [directive|Acc]);
 
-replace_and_remove([_E|R], Acc) ->       %% Ignore everthing else
+replace_and_remove([_E|R], Acc) ->       %% Ignore everything else
     replace_and_remove(R, Acc);
 replace_and_remove([], Acc) ->
     Acc.

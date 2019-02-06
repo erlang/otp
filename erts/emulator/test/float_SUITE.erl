@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ span_cmp(Axis, Incr, Length) ->
 %% for both negative and positive numbers.
 %%
 %% Axis: The number around which to do the tests eg. (1 bsl 58) - 1.0
-%% Incr: How much to increment the test numbers inbetween each test.
+%% Incr: How much to increment the test numbers in-between each test.
 %% Length: Length/2 is the number of Incr away from Axis to test on the
 %%         negative and positive plane.
 %% Diff: How much the float and int should differ when comparing

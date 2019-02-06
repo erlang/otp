@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@
 -export([get_wrap_size/1]).
 -export([is_head/1]).
 -export([position/3, truncate_at/3, fwrite/4, fclose/2]).
+-export([set_quiet/1, is_quiet/0]).
 
 -compile({inline,[{scan_f2,7}]}).
 
@@ -500,7 +501,10 @@ lh(H, _F) -> % cannot happen
 
 repair(In, File) ->
     FSz = file_size(File),
-    error_logger:info_msg("disk_log: repairing ~tp ...\n", [File]),
+    case is_quiet() of
+        true -> ok;
+        _ -> error_logger:info_msg("disk_log: repairing ~tp ...\n", [File])
+    end,
     Tmp = add_ext(File, "TMP"),
     {ok, {_Alloc, Out, {0, _}, _FileSize}} = new_int_file(Tmp, none),
     scan_f_read(<<>>, In, Out, File, FSz, Tmp, ?MAX_CHUNK_SIZE, 0, 0).
@@ -626,7 +630,7 @@ is_head(Bin) when is_binary(Bin) ->
 %%          Writes MaxB bytes on each file.  
 %%          Creates a file called Name.idx in the Dir.  This
 %%          file contains the last written FileName as one byte, and
-%%          follwing that, the sizes of each file (size 0 number of items).
+%%          following that, the sizes of each file (size 0 number of items).
 %%          On startup, this file is read, and the next available
 %%          filename is used as first log file.
 %%          Reports can be browsed with Report Browser Tool (rb), or
@@ -769,8 +773,11 @@ mf_int_chunk(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
-				 [FName]),
+	    case is_quiet() of
+		true -> ok;
+		_ -> error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
+					   [FName])
+	    end,
 	    mf_int_chunk(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->
 	    case chunk(FdC, FName, Pos, Bin, N) of
@@ -797,9 +804,12 @@ mf_int_chunk_read_only(Handle, {FileNo, Pos}, Bin, N) ->
     NFileNo = inc(FileNo, Handle#handle.maxF),
     case catch int_open(FName, true, read_only, any) of
 	{error, _Reason} ->
-	   error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
-				 [FName]),
-	   mf_int_chunk_read_only(Handle, {NFileNo, 0}, [], N);
+	    case is_quiet() of
+		true -> ok;
+		_ -> error_logger:info_msg("disk_log: chunk error. File ~tp missing.\n\n",
+					   [FName])
+	    end,
+	    mf_int_chunk_read_only(Handle, {NFileNo, 0}, [], N);
 	{ok, {_Alloc, FdC, _HeadSize, _FileSize}} ->
 	    case do_chunk_read_only(FdC, FName, Pos, Bin, N) of
 		{NewFdC, eof} ->
@@ -1416,24 +1426,36 @@ open_truncate(FileName) ->
 
 %%% Functions that access files, and throw on error. 
 
--define(MAX, 16384). % bytes
 -define(TIMEOUT, 2000). % ms
 
 %% -> {Reply, cache()}; Reply = ok | Error
-fwrite(#cache{c = []} = FdC, _FN, B, Size) ->
+fwrite(FdC, _FN, _B, 0) ->
+    {ok, FdC};  % avoid starting a timer for empty writes
+fwrite(#cache{fd = Fd, c = C, sz = Sz} = FdC, FileName, B, Size) ->
+    Sz1 = Sz + Size,
+    C1 = cache_append(C, B),
+    if Sz1 > ?MAX_FWRITE_CACHE ->
+            write_cache(Fd, FileName, C1);
+       true ->
+            maybe_start_timer(C),
+            {ok, FdC#cache{sz = Sz1, c = C1}}
+    end.
+
+cache_append([], B) -> B;
+cache_append(C, B) -> [C | B].
+
+%% if the cache was empty, start timer (unless it's already running)
+maybe_start_timer([]) ->
     case get(write_cache_timer_is_running) of
-        true -> 
+        true ->
             ok;
-        _ -> 
+        _ ->
             put(write_cache_timer_is_running, true),
             erlang:send_after(?TIMEOUT, self(), {self(), write_cache}),
             ok
-    end,
-    {ok, FdC#cache{sz = Size, c = B}};
-fwrite(#cache{sz = Sz, c = C} = FdC, _FN, B, Size) when Sz < ?MAX ->
-    {ok, FdC#cache{sz = Sz+Size, c = [C | B]}};
-fwrite(#cache{fd = Fd, c = C}, FileName, B, _Size) ->
-    write_cache(Fd, FileName, [C | B]).
+    end;
+maybe_start_timer(_C) ->
+    ok.
 
 fwrite_header(Fd, B, Size) ->
     {ok, #cache{fd = Fd, sz = Size, c = B}}.
@@ -1536,6 +1558,12 @@ fclose(#cache{fd = Fd, c = C}, FileName) ->
     %% The cache is empty if the file was opened in read_only mode.
     _ = write_cache_close(Fd, FileName, C),
     file:close(Fd).
+
+set_quiet(Bool) ->
+    put(quiet, Bool).
+
+is_quiet() ->
+    get(quiet) =:= true.
 
 %% -> {Reply, #cache{}}; Reply = ok | Error
 write_cache(Fd, _FileName, []) ->

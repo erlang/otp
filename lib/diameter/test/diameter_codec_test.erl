@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,8 @@ base() ->
     [] = run([[fun base/1, T] || T <- [zero, decode]]).
 
 gen(Mod) ->
-    Fs = [{Mod, F, []} || F <- [name, id, vendor_id, vendor_name]],
+    Fs = [{Mod, F, []} || Mod /= diameter_gen_doic_rfc7683,
+                          F <- [name, id, vendor_id, vendor_name]],
     [] = run(Fs ++ [[fun gen/2, Mod, T] || T <- [messages,
                                                  command_codes,
                                                  avp_types,
@@ -94,7 +95,7 @@ base(T) ->
 
 %% Ensure that 'zero' values encode only zeros.
 base(zero = T, F) ->
-    B = diameter_types:F(encode, T),
+    B = diameter_types:F(encode, T, opts()),
     B = z(B);
 
 %% Ensure that we can decode what we encode and vice-versa, and that
@@ -106,7 +107,7 @@ base(decode, F) ->
     [] = run([[fun base_invalid/2, F, V]       || V <- Is]).
 
 base_decode(F, Eq, Value) ->
-    d(fun(X,V) -> diameter_types:F(X,V) end, Eq, Value).
+    d(fun(X,V) -> diameter_types:F(X, V, opts()) end, Eq, Value).
 
 base_invalid(F, Value) ->
     try
@@ -171,7 +172,7 @@ gen(M, avp_types, {Name, Code, Type, _Flags}) ->
     V = undefined /= VendorId,
     V = 0 /= Flags band 2#10000000,
     {Name, Type} = M:avp_name(Code, VendorId),
-    B = M:empty_value(Name),
+    B = M:empty_value(Name, #{module => M}),
     B = z(B),
     [] = avp_decode(M, Type, Name);
 
@@ -207,10 +208,23 @@ avp_decode(Mod, Name, Type, Eq, Value) ->
     d(fun(X,V) -> avp(Mod, X, V, Name, Type) end, Eq, Value).
 
 avp(Mod, decode = X, V, Name, 'Grouped') ->
-    {Rec, _} = Mod:avp(X, V, Name),
+    {Rec, _} = Mod:avp(X, V, Name, opts(Mod)),
     Rec;
-avp(Mod, X, V, Name, _) ->
-    Mod:avp(X, V, Name).
+avp(Mod, decode = X, V, Name, _) ->
+    Mod:avp(X, V, Name, opts(Mod));
+avp(Mod, encode = X, V, Name, _) ->
+    iolist_to_binary(Mod:avp(X, V, Name, opts(Mod))).
+
+opts(Mod) ->
+    (opts())#{module => Mod,
+              app_dictionary => Mod}.
+
+opts() ->
+    #{decode_format => record,
+      string_decode => true,
+      strict_mbit => true,
+      rfc => 6733,
+      failed_avp => false}.
 
 %% v/1
 
@@ -257,8 +271,8 @@ arity(M, Name, AvpName, Rec) ->
 
 enum(M, Name, {_,E}) ->
     B = <<E:32>>,
-    B = M:avp(encode, E, Name),
-    E = M:avp(decode, B, Name).
+    B = M:avp(encode, E, Name, opts(M)),
+    E = M:avp(decode, B, Name, opts(M)).
 
 retag(import_avps)   -> avp_types;
 retag(import_groups) -> grouped;
@@ -280,7 +294,8 @@ d(F, Eq, V) ->
         end.
 
 z(B) ->
-    << <<0>> || <<_>> <= B >>.
+    Sz = size(B),
+    <<0:Sz/unit:8>>.
 
 %% values/1
 %%

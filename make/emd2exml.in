@@ -1,6 +1,6 @@
 #!@ENV@ escript
 %% -*- erlang -*-
-%%! -smp disable
+%%!
 
 %%
 %% %CopyrightBegin%
@@ -747,7 +747,7 @@ header(#state{ofile = {File, _}} = S0, Title) ->
 		    integer_to_list(Day),
 		    "</date>", nl(),
 		    "<rev>1</rev>", nl(),
-		    "<file>",File,"</file>", nl(),
+		    "<file>",filename:basename(File),"</file>", nl(),
 		    "</header>", nl()]),
     put_delayed(S3, ?DELAYED_TOC_IX).
 
@@ -1214,7 +1214,7 @@ complete_output(#state{out = Out} = S) ->
 
 complete_output(S, [], Out) ->
     S#state{delayed_array = [],
-	    out = ["<?xml version=\"1.0\" encoding=\"utf8\" ?>", nl(),
+	    out = ["<?xml version=\"1.0\" encoding=\"utf-8\" ?>", nl(),
 		   "<!DOCTYPE chapter SYSTEM \"chapter.dtd\">", nl(),
 		   Out]};
 complete_output(S, [{delayed, IX}|Rest], Out) ->

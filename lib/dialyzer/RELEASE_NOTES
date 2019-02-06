@@ -135,7 +135,7 @@ Version 1.9.1 (in Erlang/OTP R13B)
 Version 1.9.0 (in Erlang/OTP R13A)
 ----------------------------------
  - The analysis accepts opaque type declarations and detects violations of
-   opaqueness of terms of such types.  Starting with R13, many Erlang/OTP
+   opacity of terms of such types.  Starting with R13, many Erlang/OTP
    standard libraries (array, dict, digraph, ets, gb_sets, gb_trees, queue,
    and sets) contain opaque type declarations of their main data types.
    Dialyzer will spit out warnings in code that explicitly depends on the
@@ -181,7 +181,7 @@ Version 1.8.0 (in Erlang/OTP R12B-2)
  - Dialyzer has a new warning option -Wunmatched_returns which warns for
    function calls that ignore the return value.
    This catches many common programming errors (e.g. calling file:close/1
-   and not checking for the absense of errors), interface discrepancies
+   and not checking for the absence of errors), interface discrepancies
    (e.g. a function returning multiple values when in reality the function
    is void and only called for its side-effects), calling the wrong function
    (e.g. io_lib:format/1 instead of io:format/1), and even possible

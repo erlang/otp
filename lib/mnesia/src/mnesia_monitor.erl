@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ check_protocol([{Node, {accept, Mon, Version, Protocol}} | Tail], Protocols) ->
 	    verbose("Failed to connect with ~p. ~p protocols rejected. "
 		    "expected version = ~p, expected protocol = ~p~n",
 		    [Node, Protocols, Version, Protocol]),
-	    unlink(Mon), % Get rid of unneccessary link
+	    unlink(Mon), % Get rid of unnecessary link
 	    check_protocol(Tail, Protocols)
     end;
 check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->
@@ -178,10 +178,10 @@ check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->
 	    [Node, Protocols, Version, Protocol]),
     check_protocol(Tail, Protocols);
 check_protocol([{error, _Reason} | Tail], Protocols) ->
-    dbg_out("~p connect failed error: ~p~n", [?MODULE, _Reason]),
+    dbg_out("~p connect failed error: ~tp~n", [?MODULE, _Reason]),
     check_protocol(Tail, Protocols);
 check_protocol([{badrpc, _Reason} | Tail], Protocols) ->
-    dbg_out("~p connect failed badrpc: ~p~n", [?MODULE, _Reason]),
+    dbg_out("~p connect failed badrpc: ~tp~n", [?MODULE, _Reason]),
     check_protocol(Tail, Protocols);
 check_protocol([], [Protocol | _Protocols]) ->
     set(protocol_version, Protocol),
@@ -246,10 +246,10 @@ start_proc(Who, Mod, Fun, Args) ->
     proc_lib:start_link(mnesia_sp, init_proc, Args2, infinity).
 
 terminate_proc(Who, R, State) when R /= shutdown, R /= killed ->
-    fatal("~p crashed: ~p state: ~p~n", [Who, R, State]);
+    fatal("~p crashed: ~p state: ~tp~n", [Who, R, State]);
 
 terminate_proc(Who, Reason, _State) ->
-    mnesia_lib:verbose("~p terminated: ~p~n", [Who, Reason]),
+    mnesia_lib:verbose("~p terminated: ~tp~n", [Who, Reason]),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -294,7 +294,7 @@ init([Parent]) ->
 
 	    {ok, #state{supervisor = Parent}}
     catch _:Reason ->
-	    mnesia_lib:report_fatal("Bad configuration: ~p~n", [Reason]),
+	    mnesia_lib:report_fatal("Bad configuration: ~tp~n", [Reason]),
 	    {stop, {bad_config, Reason}}
     end.
 
@@ -333,7 +333,7 @@ handle_call({mktab, Tab, Args}, _From, State) ->
     catch error:ExitReason ->
 	    Msg = "Cannot create ets table",
 	    Reason = {system_limit, Msg, Tab, Args, ExitReason},
-	    fatal("~p~n", [Reason]),
+	    fatal("~tp~n", [Reason]),
 	    {noreply, State}
     end;
 
@@ -353,7 +353,7 @@ handle_call({open_dets, Tab, Args}, _From, State) ->
 	{error, Reason} ->
 	    Msg = "Cannot open dets table",
 	    Error = {error, {Msg, Tab, Args, Reason}},
-	    fatal("~p~n", [Error]),
+	    fatal("~tp~n", [Error]),
 	    {noreply, State}
     end;
 
@@ -385,7 +385,7 @@ handle_call({reopen_log, Name, Fname, Head}, _From, State) ->
         {error, Reason} ->
 	    Msg = "Cannot rename disk_log file",
             Error = {error, {Msg, Name, Fname, Head, Reason}},
-	    fatal("~p~n", [Error]),
+	    fatal("~tp~n", [Error]),
  	    {noreply, State}
     end;
 
@@ -400,7 +400,7 @@ handle_call({close_log, Name}, _From, State) ->
         {error, Reason} ->
 	    Msg = "Cannot close disk_log file",
             Error = {error, {Msg, Name, Reason}},
-	    fatal("~p~n", [Error]),
+	    fatal("~tp~n", [Error]),
 	    {noreply, State}
     end;
 
@@ -461,7 +461,7 @@ handle_call(init, _From, State) ->
     {reply, EarlyNodes, State2};
 
 handle_call(Msg, _From, State) ->
-    error("~p got unexpected call: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 accept_protocol(Mon, Version, Protocol, From, State) ->
@@ -535,7 +535,7 @@ handle_cast({inconsistent_database, Context, Node}, State) ->
     {noreply, State};
 
 handle_cast(Msg, State) ->
-    error("~p got unexpected cast: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected cast: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -572,7 +572,7 @@ handle_info(Msg = {'EXIT',Pid,_}, State) ->
 	    %% We have probably got an exit signal from
 	    %% disk_log or dets
 	    Hint = "Hint: check that the disk still is writable",
-	    fatal("~p got unexpected info: ~p; ~p~n",
+	    fatal("~p got unexpected info: ~tp; ~p~n",
 		  [?MODULE, Msg, Hint])
     end;
 
@@ -599,13 +599,13 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
 	{truncated, _No} ->
 	    ok;
 	_ ->
-	    mnesia_lib:important("Warning Log file ~p error reason ~s~n",
+	    mnesia_lib:important("Warning Log file ~tp error reason ~ts~n",
 				 [Log, disk_log:format_error(Info)])
     end,
     {noreply, State};
 
 handle_info(Msg, State) ->
-    error("~p got unexpected info (~p): ~p~n", [?MODULE, State, Msg]).
+    error("~p got unexpected info (~tp): ~tp~n", [?MODULE, State, Msg]).
 
 process_q(State = #state{mq=[]}) -> {noreply,State};
 process_q(State = #state{mq=[{info,Msg}|R]}) ->

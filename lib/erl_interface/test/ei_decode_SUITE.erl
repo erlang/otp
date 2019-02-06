@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 -include("ei_decode_SUITE_data/ei_decode_test_cases.hrl").
 
 -export([all/0, suite/0,
+         init_per_testcase/2,
          test_ei_decode_long/1,
          test_ei_decode_ulong/1,
          test_ei_decode_longlong/1,
@@ -42,6 +43,9 @@ all() ->
      test_ei_decode_char, test_ei_decode_nonoptimal,
      test_ei_decode_misc, test_ei_decode_utf8_atom].
 
+init_per_testcase(Case, Config) ->
+    runner:init_per_testcase(?MODULE, Case, Config).
+
 %% ---------------------------------------------------------------------------
 
 % NOTE: for historical reasons we don't pach as tight as we can,
@@ -51,7 +55,7 @@ all() ->
 %% ######################################################################## %%
 
 test_ei_decode_long(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_long),
+    P = runner:start(Config, ?test_ei_decode_long),
     send_integers(P),
     runner:recv_eot(P),
     ok.
@@ -60,7 +64,7 @@ test_ei_decode_long(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_decode_ulong(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_ulong),
+    P = runner:start(Config, ?test_ei_decode_ulong),
     send_integers(P),
     runner:recv_eot(P),
     ok.
@@ -77,7 +81,7 @@ test_ei_decode_longlong(Config) when is_list(Config) ->
         vxworks ->
             {skip,"Skipped on VxWorks"};
         _ ->
-            P = runner:start(?test_ei_decode_longlong),
+            P = runner:start(Config, ?test_ei_decode_longlong),
             send_integers2(P),
             runner:recv_eot(P),
             ok
@@ -91,7 +95,7 @@ test_ei_decode_ulonglong(Config) when is_list(Config) ->
         vxworks ->
             {skip,"Skipped on VxWorks"};
         _ ->
-            P = runner:start(?test_ei_decode_ulonglong),
+            P = runner:start(Config, ?test_ei_decode_ulonglong),
             send_integers2(P),
             runner:recv_eot(P),
             ok
@@ -99,12 +103,12 @@ test_ei_decode_ulonglong(Config) when is_list(Config) ->
 
 
 %% ######################################################################## %%
-%% A "character" for us is an 8 bit integer, alwasy positive, i.e.
+%% A "character" for us is an 8 bit integer, always positive, i.e.
 %% it is unsigned.
 %% FIXME maybe the API should change to use "unsigned char" to be clear?!
 
 test_ei_decode_char(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_char),
+    P = runner:start(Config, ?test_ei_decode_char),
 
     send_term_as_binary(P,0),
     send_term_as_binary(P,16#7f),
@@ -119,7 +123,7 @@ test_ei_decode_char(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_decode_nonoptimal(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_nonoptimal),
+    P = runner:start(Config, ?test_ei_decode_nonoptimal),
 
     send_non_optimal_pos(P),			% decode_char
     send_non_optimal(P),			% decode_long
@@ -168,7 +172,7 @@ send_non_optimal_neg(P) ->
 %% ######################################################################## %%
 
 test_ei_decode_misc(Config) when is_list(Config) ->
-    P = runner:start(?test_ei_decode_misc),
+    P = runner:start(Config, ?test_ei_decode_misc),
 
     send_term_as_binary(P,0.0),
     send_term_as_binary(P,-1.0),
@@ -179,7 +183,8 @@ test_ei_decode_misc(Config) when is_list(Config) ->
 
     send_term_as_binary(P,foo),
     send_term_as_binary(P,''),
-    send_term_as_binary(P,'ÅÄÖåäö'),
+    %%send_term_as_binary(P,'ÅÄÖåäö'),
+    send_latin1_atom_as_binary(P, "ÅÄÖåäö"),
 
     send_term_as_binary(P,"foo"),
     send_term_as_binary(P,""),
@@ -198,20 +203,21 @@ test_ei_decode_misc(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_decode_utf8_atom(Config) ->
-    P = runner:start(?test_ei_decode_utf8_atom),
+    P = runner:start(Config, ?test_ei_decode_utf8_atom),
 
-    send_utf8_atom_as_binary(P,"å"),
-    send_utf8_atom_as_binary(P,"ä"),
-    send_term_as_binary(P,'ö'),
-    send_term_as_binary(P,'õ'),
+    send_latin1_atom_as_binary(P,"å"),
+    send_latin1_atom_as_binary(P,"ä"),
+    send_latin1_atom_as_binary(P,"ö"),
+    send_latin1_atom_as_binary(P,"õ"),
 
     send_utf8_atom_as_binary(P,[1758]),
     send_utf8_atom_as_binary(P,[1758,1758]),
     send_utf8_atom_as_binary(P,[1758,1758,1758]),
     send_utf8_atom_as_binary(P,[1758,1758,1758,1758]),
 
-    send_utf8_atom_as_binary(P,"a"),
-    send_utf8_atom_as_binary(P,"b"),
+    send_latin1_atom_as_binary(P,"a"),
+    send_latin1_atom_as_binary(P,"b"),
+
     send_term_as_binary(P,'c'),
     send_term_as_binary(P,'d'),
 
@@ -229,6 +235,9 @@ send_raw(Port, Bin) when is_port(Port) ->
 
 send_utf8_atom_as_binary(Port, String) ->
     Port ! {self(), {command, term_to_binary(uc_atup(String))}}.
+
+send_latin1_atom_as_binary(Port, String) ->
+    Port ! {self(), {command, encode_latin1_atom(String)}}.
 
 send_integers(P) ->
     send_term_as_binary(P,0),		% SMALL_INTEGER_EXT smallest
@@ -303,6 +312,12 @@ send_integers2(P) ->
     send_term_as_binary(P, 16#ffffffffffffffff), % largest  u64
     send_term_as_binary(P, []), % illegal type
     ok.
+
+encode_latin1_atom(String) ->
+    Len = length(String),
+    %% Use ATOM_EXT (not SMALL_*) to simulate old term_to_binary
+    TagLen = [$d, Len bsr 8, Len band 16#ff],
+    list_to_binary([131, TagLen, String]).
 
 uc_atup(ATxt) ->
     string_to_atom(ATxt).

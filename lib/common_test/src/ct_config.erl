@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ start(Mode) ->
 
 do_start(Parent) ->
     process_flag(trap_exit,true),
+    ct_util:mark_process(),
     register(ct_config_server,self()),
     ct_util:create_table(?attr_table,bag,#ct_conf.key),
     {ok,StartDir} = file:get_cwd(),
@@ -171,8 +172,8 @@ reload_config(KeyOrName) ->
 
 process_default_configs(Opts) ->
     lists:flatmap(fun({config,[_|_] = FileOrFiles}) ->
-			  case {io_lib:printable_list(FileOrFiles),
-				io_lib:printable_list(hd(FileOrFiles))} of
+			  case {io_lib:printable_unicode_list(FileOrFiles),
+				io_lib:printable_unicode_list(hd(FileOrFiles))} of
 			      {false,true} ->
 				  FileOrFiles;
 			      {true,false} ->
@@ -659,7 +660,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
 get_crypt_key_from_file(File) ->
     case file:read_file(File) of
 	{ok,Bin} ->
-	    case catch string:tokens(binary_to_list(Bin), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Bin), [$\n, [$\r,$\n]]) of
 		[Key] ->
 		    Key;
 		_ ->
@@ -693,7 +694,7 @@ get_crypt_key_from_file() ->
 	noent ->
 	    Result;
 	_ ->
-	    case catch string:tokens(binary_to_list(Result), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Result), [$\n, [$\r,$\n]]) of
 		[Key] ->
 		    io:format("~nCrypt key file: ~ts~n", [FullName]),
 		    Key;

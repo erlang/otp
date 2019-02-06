@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,146 @@
   </header>
   <p>This document describes the changes made to the Xmerl application.</p>
 
+
+<section><title>Xmerl 1.3.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved documentation.</p>
+          <p>
+	    Own Id: OTP-15190</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix typos in documentation.</p>
+          <p>
+	    Own Id: OTP-15039</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Removed all old unused files in the documentation.
+	    </p>
+          <p>
+	    Own Id: OTP-14475 Aux Id: ERL-409, PR-1493 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improves accumulator fun in xmerl_scan so that only one
+	    #xmlText record is returned for strings which have
+	    character references.</p>
+          <p>
+	    (Thanks to Jimmy Zöger)</p>
+          <p>
+	    Own Id: OTP-14377 Aux Id: PR-1369 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A couple of bugs are fixed in the sax parser
+	    (xmerl_sax_parser). </p> <list> <item>The continuation
+	    function was not called correctly when the XML directive
+	    was fragmented. </item> <item>When the event callback
+	    modules (xmerl_sax_old_dom and xmerl_sax_simple) got an
+	    endDocument event at certain conditions the parser
+	    crashed.</item> <item>Replaced internal ets table with
+	    map to avoid table leakage.</item> </list>
+          <p>
+	    Own Id: OTP-14430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Xmerl 1.3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The namespace_conformant option in xmerl_scan did not
+	    work when parsing documents without explicit XML
+	    namespace declaration.</p>
+          <p>
+	    Own Id: OTP-14139</p>
+        </item>
+        <item>
+	    <p> Fix a "well-formedness" bug in the XML Sax parser so
+	    it returns an error if there are something more in the
+	    file after the matching document. If one using the
+	    xmerl_sax_parser:stream() a rest is allowed which then
+	    can be sent to a new call of xmerl_sax_parser:stream() to
+	    parse next document. </p> <p> This is done to be
+	    compliant with XML conformance tests. </p>
+          <p>
+	    Own Id: OTP-14211</p>
+        </item>
+        <item>
+	    <p> Fixed compiler and dialyzer warnings in the XML SAX
+	    parser. </p>
+          <p>
+	    Own Id: OTP-14212</p>
+        </item>
+        <item>
+	    <p> Change how to interpret end of document in the XML
+	    SAX parser to comply with Tim Brays comment on the
+	    standard. This makes it possible to handle more than one
+	    doc on a stream, the standard makes it impossible to know
+	    when the document is ended without waiting for the next
+	    document (and not always even that). </p> <p> Tim Brays
+	    comment: </p> <p> Trailing "Misc"<br/> The fact that
+	    you're allowed some trailing junk after the root element,
+	    I decided (but unfortunately too late) is a real design
+	    error in XML. If I'm writing a network client, I'm
+	    probably going to close the link as soon as a I see the
+	    root element end-tag, and not depend on the other end
+	    closing it down properly.<br/> Furthermore, if I want to
+	    send a succession of XML documents over a network link,
+	    if I find a processing instruction after a root element,
+	    is it a trailer on the previous document, or part of the
+	    prolog of the next? </p>
+          <p>
+	    Own Id: OTP-14213</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Xmerl 1.3.12</title>
 

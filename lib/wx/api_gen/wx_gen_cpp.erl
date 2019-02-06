@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -627,7 +627,7 @@ decode_arg(N,#type{name="wxArrayString"},Place,A0) ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     case Place of
 	arg -> w(" wxArrayString ~s;~n", [N]);
-	opt -> ignore %% Allready declared
+	opt -> ignore %% Already declared
     end,
     w(" int ~sASz = 0, * ~sTemp;~n", [N,N]),
     w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
@@ -995,8 +995,13 @@ build_ret_types(Type,Ps) ->
 	   end,
     lists:foldl(Calc, Free, Ps).
 
-build_ret(Name,_,#type{base={class,Class},single=true}) ->
-    w(" rt.addRef(getRef((void *)~s,memenv), \"~s\");~n",[Name,Class]);
+build_ret(Name,_D,#type{base={class,Class},single=true}=_T) ->
+    case Class of
+        "wxGraphicsContext" ->
+            w(" rt.addRef(getRef((void *)~s,memenv,8), \"~s\");~n",[Name,Class]);
+        _ ->
+            w(" rt.addRef(getRef((void *)~s,memenv), \"~s\");~n",[Name,Class])
+    end;
 build_ret(Name,_,#type{name="wxTreeItemId",single=true}) ->
     w(" rt.add((wxUIntPtr *) ~s.m_pItem);~n",[Name]);
 build_ret(Name,_,#type{name="wxTreeItemIdValue",single=true}) ->
@@ -1079,6 +1084,13 @@ build_ret(Name,_,#type{base=string,single=true}) ->
     w(" rt.add(~s);~n",[Name]);
 build_ret(Name,_,#type{name="wxArrayString", single=array}) ->
     w(" rt.add(~s);~n", [Name]);
+build_ret(Name,_,#type{name="wxString", single={list,Variable}}) ->
+    Obj = case Name of
+              "ev->" ++ _ -> "ev";
+              _ -> "This"
+          end,
+    w(" wxArrayString tmpArrayStr(~s->~s, ~s);~n", [Obj,Variable,Name]),
+    w(" rt.add(tmpArrayStr);~n", []);
 build_ret(Name,In,T) ->
     ?error({nyi, Name,In, T}).
 
@@ -1119,6 +1131,15 @@ build_gvar({Name, "wxColour", _Id}, Cnt) ->
 build_gvar({Name, {address,Class}, _Id}, Cnt) ->
     w("   rt.addAtom(\"~s\"); rt.addRef(getRef((void *)&~s,memenv), \"~s\");~n",[Name,Name,Class]),
     w("   rt.addTupleCount(2);~n"),
+    Cnt+1;
+build_gvar({Name, {test_if,Test}, _Id}, Cnt) ->
+    w("#if ~s~n", [Test]),
+    w(" rt.addAtom(\"~s\"); rt.addInt(~s);~n", [Name, Name]),
+    w(" rt.addTupleCount(2);~n"),
+    w("#else~n", []),
+    w(" rt.addAtom(\"~s\"); rt.addAtom(\"undefined\");~n", [Name]),
+    w(" rt.addTupleCount(2);~n"),
+    w("#endif~n", []),
     Cnt+1;
 build_gvar({Name, Class, _Id}, Cnt) ->
     w("   rt.addAtom(\"~s\"); rt.addRef(getRef((void *)~s,memenv),\"~s\");~n",[Name,Name,Class]),
@@ -1309,7 +1330,8 @@ encode_events(Evs) ->
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
     w("   if(cb->skip) event->Skip();~n"),
-    w("   if(app->recurse_level < 1) {~n"),
+    #class{id=MouseId} = lists:keyfind("wxMouseEvent", #class.name, Evs),
+    w("   if(app->recurse_level < 1 && Etype->cID != ~p) {~n", [MouseId]),
     w("     app->recurse_level++;~n"),
     w("     app->dispatch_cmds();~n"),
     w("     app->recurse_level--;~n"),

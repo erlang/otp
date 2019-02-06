@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ HIPE_MODULES = hipe_rtl hipe_rtl_cfg \
 	  hipe_rtl_ssa hipe_rtl_ssa_const_prop \
 	  hipe_rtl_cleanup_const hipe_rtl_symbolic hipe_rtl_lcm \
 	  hipe_rtl_ssapre hipe_rtl_binary hipe_rtl_ssa_avail_expr \
-	  hipe_rtl_arch hipe_tagscheme
+	  hipe_rtl_arch hipe_tagscheme hipe_rtl_verify_gcsafe
 else
 HIPE_MODULES =
 endif
@@ -118,10 +118,12 @@ else
 TYPE_STR=
 endif
 
-ifeq ($(FLAVOR),smp)
-FLAVOR_STR=.smp
-else
+FLAVOR=$(DEFAULT_FLAVOR)
+
+ifeq ($(FLAVOR),plain)
 FLAVOR_STR=
+else
+FLAVOR_STR=.smp
 endif
 
 ifeq ($(XCOMP),yes)

@@ -697,7 +697,7 @@ lookup(Key,Val) ->
 %%% This code is for parsing trailer headers in chunked messages.
 %%% Will be deprecated whenever I have found an alternative working solution!
 %%% Note:
-%%% - The header names are returned slighly different from what the what
+%%% - The header names are returned slightly different from what the what
 %%%   inet_drv returns
 read_headers_old(Scheme,Socket,Timeout) ->
     read_headers_old(<<>>,Scheme,Socket,Timeout,[],[]).

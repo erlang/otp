@@ -194,7 +194,7 @@ tt1() ->
 
 tt2() ->
     A = simple1_adt:d1(),
-    is_integer(A). % breaks the opaqueness
+    is_integer(A). % breaks the opacity
 
 %% Comparison with integers
 
@@ -262,11 +262,11 @@ f2() ->
 
 adt_f1() ->
     T = simple1_adt:n1(),
-    if is_function(T) -> ok end. % breaks the opaqueness
+    if is_function(T) -> ok end. % breaks the opacity
 
 adt_f2() ->
     T = simple1_adt:n1(),
-    is_function(T). % breaks the opaqueness
+    is_function(T). % breaks the opacity
 
 f3() ->
     A = i1(),
@@ -281,12 +281,12 @@ f4() ->
 adt_f3() ->
     A = simple1_adt:i1(),
     T = simple1_adt:n1(),
-    if is_function(T, A) -> ok end. % breaks the opaqueness
+    if is_function(T, A) -> ok end. % breaks the opacity
 
 adt_f4() ->
     A = simple1_adt:i1(),
     T = simple1_adt:n1(),
-    is_function(T, A). % breaks the opaqueness
+    is_function(T, A). % breaks the opacity
 
 adt_f4_a() ->
     A = simple1_adt:i1(),
@@ -297,7 +297,7 @@ adt_f4_a() ->
 adt_f4_b() ->
     A = i1(),
     T = simple1_adt:n1(),
-    is_function(T, A). % breaks the opaqueness
+    is_function(T, A). % breaks the opacity
 
 %% A few Boolean examples
 
@@ -404,7 +404,7 @@ bit_t1() ->
 
 bit_adt_t1() ->
     A = simple1_adt:i1(),
-    <<100:(A)>>. % breaks the opaqueness
+    <<100:(A)>>. % breaks the opacity
 
 bit_t3(A) ->
     B = i1(),
@@ -415,14 +415,14 @@ bit_t3(A) ->
 bit_adt_t2() ->
     A = simple1_adt:i1(),
     case <<"hej">> of
-        <<_:A>> -> ok % breaks the opaqueness (but the message is strange)
+        <<_:A>> -> ok % breaks the opacity (but the message is strange)
     end.
 
 
 bit_adt_t3(A) ->
     B = simple1_adt:i1(),
     case none:none() of
-        <<A:  % breaks the opaqueness (the message is less than perfect)
+        <<A:  % breaks the opacity (the message is less than perfect)
           B>> -> 1
     end.
 
@@ -445,7 +445,7 @@ bit_t4(A) ->
 bit_adt_t4(A) ->
     Sz = simple1_adt:i1(),
     case A of
-        <<_:Sz>> -> 1 % breaks the opaqueness
+        <<_:Sz>> -> 1 % breaks the opacity
     end.
 
 bit_t5() ->
@@ -457,7 +457,7 @@ bit_t5() ->
 bit_adt_t5() ->
     A = simple1_adt:bit1(),
     case A of
-        <<_/binary>> -> 1 % breaks the opaqueness
+        <<_/binary>> -> 1 % breaks the opacity
     end.
 
 -opaque bit1() :: binary().
@@ -475,7 +475,7 @@ call_f(A) ->
 
 call_f_adt(A) ->
     A = simple1_adt:a(),
-    foo:A(A). % breaks the opaqueness
+    foo:A(A). % breaks the opacity
 
 call_m(A) ->
     A = a(),
@@ -483,7 +483,7 @@ call_m(A) ->
 
 call_m_adt(A) ->
     A = simple1_adt:a(),
-    A:foo(A). % breaks the opaqueness
+    A:foo(A). % breaks the opacity
 
 -opaque a() :: atom().
 

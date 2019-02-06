@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2015. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,10 +43,10 @@
 #endif
 #ifdef HAVE_WORKING_POSIX_OPENPT
 #  ifndef _XOPEN_SOURCE
-     /* On OS X and BSD, we must leave _XOPEN_SOURCE undefined in order for
-      * the prototype of vsyslog() to be included.
+     /* On OS X, BSD and Solaris, we must leave _XOPEN_SOURCE undefined in order
+      * for the prototype of vsyslog() to be included.
       */
-#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__))
+#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
 #      define _XOPEN_SOURCE 600
 #    endif
 #  endif
@@ -553,7 +553,7 @@ static void pass_on(pid_t childpid)
 		FD_ZERO(&readfds);
 		FD_ZERO(&writefds);
 	    } else {
-		/* Some error occured */
+		/* Some error occurred */
 		ERRNO_ERR0(LOG_ERR,"Error in select.");
 		exit(1);
 	    }
@@ -627,12 +627,14 @@ static void pass_on(pid_t childpid)
 	    status("Pty master read; ");
 #endif
 	    if ((len = sf_read(mfd, buf, BUFSIZ)) <= 0) {
+		int saved_errno = errno;
 		sf_close(rfd);
 		if(wfd) sf_close(wfd);
 		sf_close(mfd);
 		unlink(fifo1);
 		unlink(fifo2);
 		if (len < 0) {
+		    errno = saved_errno;
 		    if(errno == EIO)
 			ERROR0(LOG_ERR,"Erlang closed the connection.");
 		    else
@@ -863,7 +865,7 @@ static int open_log(int log_num, int flags)
   if (write_all(lfd, buf, strlen(buf)) < 0)
       status("Error in writing to log.\n");
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(lfd);
 #endif
 
@@ -893,7 +895,7 @@ static void write_to_log(int* lfd, int* log_num, char* buf, int len)
     status("Error in writing to log.\n");
   }
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(*lfd);
 #endif
 }
@@ -1342,13 +1344,12 @@ static int sf_open(const char *path, int type, mode_t mode) {
 
     return fd;
 }
+
 static int sf_close(int fd) {
-    int res = 0;
-
-    do { res = close(fd); } while(fd < 0 && errno == EINTR);
-
-    return res;
+    /* "close() should not be retried after an EINTR" */
+    return close(fd);
 }
+
 /* Extract any control sequences that are ment only for run_erl
  * and should not be forwarded to the pty.
  */

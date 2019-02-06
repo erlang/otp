@@ -58,7 +58,7 @@ new(#wx_ref{type=IcT,ref=IcRef}) ->
 -spec new(File, Type) -> wxIconBundle() when
 	File::unicode:chardata(), Type::integer().
 new(File,Type)
- when is_list(File),is_integer(Type) ->
+ when ?is_chardata(File),is_integer(Type) ->
   File_UC = unicode:characters_to_binary([File,0]),
   wxe_util:construct(?wxIconBundle_new_2,
   <<(byte_size(File_UC)):32/?UI,(File_UC)/binary, 0:(((8- ((4+byte_size(File_UC)) band 16#7)) band 16#7))/unit:8,Type:32/?UI>>).
@@ -76,7 +76,7 @@ addIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef}) ->
 -spec addIcon(This, File, Type) -> 'ok' when
 	This::wxIconBundle(), File::unicode:chardata(), Type::integer().
 addIcon(#wx_ref{type=ThisT,ref=ThisRef},File,Type)
- when is_list(File),is_integer(Type) ->
+ when ?is_chardata(File),is_integer(Type) ->
   ?CLASS(ThisT,wxIconBundle),
   File_UC = unicode:characters_to_binary([File,0]),
   wxe_util:cast(?wxIconBundle_AddIcon_2,

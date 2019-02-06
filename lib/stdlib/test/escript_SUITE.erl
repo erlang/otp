@@ -28,6 +28,7 @@
 	 strange_name/1,
 	 emulator_flags/1,
 	 emulator_flags_no_shebang/1,
+	 two_lines/1,
 	 module_script/1,
 	 beam_script/1,
 	 archive_script/1,
@@ -49,7 +50,7 @@ suite() ->
 
 all() -> 
     [basic, errors, strange_name, emulator_flags,
-     emulator_flags_no_shebang,
+     emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
      archive_script_file_access, unicode].
@@ -146,6 +147,18 @@ emulator_flags(Config) when is_list(Config) ->
 	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "nostick:[{nostick,[]}]\n"
 	   "mnesia:[{mnesia,[\"dir\",\"a/directory\"]},{mnesia,[\"debug\",\"verbose\"]}]\n"
+	   "ERL_FLAGS=false\n"
+	   "unknown:[]\n"
+	   "ExitCode:0">>]),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+two_lines(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    run(Dir, "two_lines -arg1 arg2 arg3",
+	[<<"main:[\"-arg1\",\"arg2\",\"arg3\"]\n"
 	   "ERL_FLAGS=false\n"
 	   "unknown:[]\n"
 	   "ExitCode:0">>]),

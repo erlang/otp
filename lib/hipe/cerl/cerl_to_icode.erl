@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 4 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,11 +11,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2000-2006 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Translation from Core Erlang to HiPE Icode.
 
 %% TODO: annotate Icode leaf functions as such.
@@ -2627,7 +2621,7 @@ icode_switch_val(Arg, Fail, Length, Cases) ->
     hipe_icode:mk_switch_val(Arg, Fail, Length, Cases).
 
 icode_switch_tuple_arity(Arg, Fail, Length, Cases) ->
-    SortedCases = lists:keysort(1, Cases), %% immitate BEAM compiler - Kostis
+    SortedCases = lists:keysort(1, Cases), %% imitate BEAM compiler - Kostis
     hipe_icode:mk_switch_tuple_arity(Arg, Fail, Length, SortedCases).
 
 

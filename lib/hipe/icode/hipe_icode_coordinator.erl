@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%--------------------------------------------------------------------
 %% File        : hipe_icode_coordinator.erl
@@ -106,12 +100,29 @@ handle_no_change_done(MFA, {Queue, Busy}) ->
   {Queue, Busy -- [MFA]}.
 
 last_action(PM, ServerPid, Mod, All) ->
-  lists:foreach(fun (MFA) ->
-		    gb_trees:get(MFA, PM) ! {done, final_funs(ServerPid, Mod)},
-		    receive 
-		      {done_rewrite, MFA} -> ok
-		    end
-		end, All).
+  last_action(PM, ServerPid, Mod, All, []).
+
+last_action(_, _, _, [], []) -> ok;
+last_action(PM, ServerPid, Mod, [], [MFA|Busy]) ->
+  receive
+    {done_rewrite, MFA} ->
+      last_action(PM, ServerPid, Mod, [], Busy)
+  end;
+last_action(PM, ServerPid, Mod, All0, Busy) ->
+  receive
+    {done_rewrite, MFA} ->
+      last_action(PM, ServerPid, Mod, All0, Busy -- [MFA])
+  after 0 ->
+      case ?MAX_CONCURRENT - length(Busy) of
+	X when is_integer(X), X > 0 ->
+	  [MFA|All1] = All0,
+	  gb_trees:get(MFA, PM) ! {done, final_funs(ServerPid, Mod)},
+	  last_action(PM, ServerPid, Mod, All1, [MFA|Busy]);
+	X when is_integer(X) ->
+	  Busy1 = receive {done_rewrite, MFA} -> Busy -- [MFA] end,
+	  last_action(PM, ServerPid, Mod, All0, Busy1)
+      end
+  end.
 
 restart_funs({Queue, Busy} = QB, PM, All, ServerPid) ->
   case ?MAX_CONCURRENT - length(Busy) of

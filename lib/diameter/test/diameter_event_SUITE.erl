@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -63,7 +63,8 @@
          {'Host-IP-Address', [?ADDR]},
          {'Vendor-Id', 12345},
          {'Product-Name', "OTP/diameter"},
-         {'Acct-Application-Id', [D:id() || D <- Dicts]}
+         {'Acct-Application-Id', [D:id() || D <- Dicts]},
+         {decode_format, map}
          | [{application, [{dictionary, D},
                            {module, #diameter_callback{}}]}
             || D <- Dicts]]).
@@ -111,7 +112,8 @@ up(Config) ->
     {Svc, Ref} = connect(Config, [{connect_timer, 5000},
                                   {watchdog_timer, 15000}]),
     start = event(Svc),
-    {up, Ref, {TPid, Caps}, Cfg, #diameter_packet{}} = event(Svc),
+    {up, Ref, {TPid, Caps}, Cfg, #diameter_packet{msg = M}} = event(Svc),
+    ['CEA' | #{}] = M,  %% assert
     {watchdog, Ref, _, {initial, okay}, _} = event(Svc),
     %% Kill the transport process and see that the connection is
     %% reestablished after a watchdog timeout, not after connect_timer
@@ -131,8 +133,9 @@ down(Config) ->
                                   {connect_timer, 5000},
                                   {watchdog_timer, 20000}]),
     start = event(Svc),
-    {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{}}, _}
+    {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{msg = M}}, _}
         = event(Svc),
+    ['CEA' | #{}] = M,  %% assert
     {reconnect, Ref, _} = event(Svc, 4000, 10000).
 
 %% Connect with matching capabilities but have the server delay its

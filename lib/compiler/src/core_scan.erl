@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,12 +49,36 @@
 
 -import(lists, [reverse/1]).
 
+-type location() :: integer().
+-type category() :: atom().
+-type symbol() :: atom() | float() | integer() | string().
+-type token() :: {category(), Anno :: location(), symbol()}
+               | {category(), Anno :: location()}.
+-type tokens() :: [token()].
+-type error_description() :: term().
+-type error_info() :: {erl_anno:location(), module(), error_description()}.
+
 %% string([Char]) ->
 %% string([Char], StartPos) ->
 %%    {ok, [Tok], EndPos} |
 %%    {error, {Pos,core_scan,What}, EndPos}
 
+-spec string(String) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      EndLocation :: location(),
+      ErrorLocation :: location().
+
 string(Cs) -> string(Cs, 1).
+
+-spec string(String, StartLocation) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      StartLocation :: location(),
+      EndLocation :: location(),
+      ErrorLocation :: location().
 
 string(Cs, Sp) ->
     %% Add an 'eof' to always get correct handling.
@@ -176,8 +200,8 @@ pre_string(eof, Q, _, Sp, SoFar, Pos) ->
     pre_string_error(Q, Sp, SoFar, Pos).
 
 pre_string_error(Q, Sp, SoFar, Pos) ->
-    S = reverse(string:substr(SoFar, 1, string:chr(SoFar, Q)-1)),
-    pre_error({string,Q,string:substr(S, 1, 16)}, Sp, Pos).
+    [S,_] = string:split(SoFar, [Q]),
+    pre_error({string,Q,string:slice(string:reverse(S), 0, 16)}, Sp, Pos).
 
 pre_char([C|Cs], SoFar) -> pre_char(C, Cs, SoFar);
 pre_char([], _) -> more;
@@ -259,10 +283,12 @@ scan1([$$|Cs0], Toks, Pos) ->				%Character constant
     scan1(Cs, [{char,Pos,C}|Toks], Pos1);
 scan1([$'|Cs0], Toks, Pos) ->				%Atom (always quoted)
     {S,Cs1,Pos1} = scan_string(Cs0, $', Pos),
-    case catch list_to_atom(S) of
+    try binary_to_atom(list_to_binary(S), utf8) of
 	A when is_atom(A) ->
-	    scan1(Cs1, [{atom,Pos,A}|Toks], Pos1);
-	_Error -> scan_error({illegal,atom}, Pos)
+	    scan1(Cs1, [{atom,Pos,A}|Toks], Pos1)
+    catch
+        error:_ ->
+            scan_error({illegal,atom}, Pos)
     end;
 scan1([$"|Cs0], Toks, Pos) ->				%String
     {S,Cs1,Pos1} = scan_string(Cs0, $", Pos),

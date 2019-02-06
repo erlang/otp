@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1030,6 +1030,33 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
         <p>Starts an SFTP session on an already existing SSH connection.
           <c>Server</c> identifies the new session and must be specified
           whenever SFTP requests are to be sent.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <fsummary>Equivalent to shell(SSH, ChannelId, DefaultTimeout).</fsummary>
+      <desc><marker id="shell-2"/>
+        <p>Equivalent to
+          <seealso marker="#shell-3"><c>ct_ssh:shell(SSH, ChannelId,
+            DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
+      <fsummary>Requests that the user default shell is executed at the
+        server end.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="shell-3"/>
+        <p>Requests that the user default shell (typically defined in
+          <c>/etc/passwd</c> in Unix systems) is executed at the
+          server end.</p>
       </desc>
     </func>
 

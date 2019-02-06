@@ -22,7 +22,7 @@
 #include <string.h>
 #include <openssl/opensslconf.h>
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include "crypto_callback.h"
 
 #ifdef DEBUG
@@ -62,7 +62,7 @@ static void nomem(size_t size, const char* op)
     abort();
 }
 
-static void* crypto_alloc(size_t size)
+static void* crypto_alloc(size_t size CCB_FILE_LINE_ARGS)
 {
     void *ret = enif_alloc(size);
 
@@ -70,7 +70,7 @@ static void* crypto_alloc(size_t size)
 	nomem(size, "allocate");
     return ret;
 }
-static void* crypto_realloc(void* ptr, size_t size)
+static void* crypto_realloc(void* ptr, size_t size CCB_FILE_LINE_ARGS)
 {
     void* ret = enif_realloc(ptr, size);
 
@@ -78,7 +78,7 @@ static void* crypto_realloc(void* ptr, size_t size)
 	nomem(size, "reallocate");
     return ret;
 }
-static void crypto_free(void* ptr)
+static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 {
     enif_free(ptr);
 }
@@ -179,6 +179,10 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 /* This is not really a NIF library, but we use ERL_NIF_INIT in order to
  * get access to the erl_nif API (on Windows).
  */
-ERL_NIF_INIT(dummy, (ErlNifFunc*)NULL , NULL, NULL, NULL, NULL)
+static struct {
+    int dummy__;
+    ErlNifFunc funcv[0];
+} empty;
+ERL_NIF_INIT(dummy, empty.funcv, NULL, NULL, NULL, NULL)
 #endif
 

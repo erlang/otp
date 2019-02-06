@@ -40,7 +40,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 	Id::unicode:chardata().
 
 getBitmap(Id)
- when is_list(Id) ->
+ when ?is_chardata(Id) ->
   getBitmap(Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergetbitmap">external documentation</a>.
@@ -49,7 +49,7 @@ getBitmap(Id)
 	Option :: {'client', unicode:chardata()}
 		 | {'size', {W::integer(), H::integer()}}.
 getBitmap(Id, Options)
- when is_list(Id),is_list(Options) ->
+ when ?is_chardata(Id),is_list(Options) ->
   Id_UC = unicode:characters_to_binary([Id,0]),
   MOpts = fun({client, Client}, Acc) ->   Client_UC = unicode:characters_to_binary([Client, $_, $C,0]),[<<1:32/?UI,(byte_size(Client_UC)):32/?UI,(Client_UC)/binary, 0:(((8- ((0+byte_size(Client_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
           ({size, {SizeW,SizeH}}, Acc) -> [<<2:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
@@ -63,7 +63,7 @@ getBitmap(Id, Options)
 	Id::unicode:chardata().
 
 getIcon(Id)
- when is_list(Id) ->
+ when ?is_chardata(Id) ->
   getIcon(Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxartprovider.html#wxartprovidergeticon">external documentation</a>.
@@ -72,7 +72,7 @@ getIcon(Id)
 	Option :: {'client', unicode:chardata()}
 		 | {'size', {W::integer(), H::integer()}}.
 getIcon(Id, Options)
- when is_list(Id),is_list(Options) ->
+ when ?is_chardata(Id),is_list(Options) ->
   Id_UC = unicode:characters_to_binary([Id,0]),
   MOpts = fun({client, Client}, Acc) ->   Client_UC = unicode:characters_to_binary([Client, $_, $C,0]),[<<1:32/?UI,(byte_size(Client_UC)):32/?UI,(Client_UC)/binary, 0:(((8- ((0+byte_size(Client_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
           ({size, {SizeW,SizeH}}, Acc) -> [<<2:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];

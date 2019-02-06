@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,6 +140,8 @@ encode_relative_oid(Val) when is_tuple(Val) ->
 encode_relative_oid(Val) when is_list(Val) ->
     list_to_binary([e_object_element(X)||X <- Val]).
 
+encode_unconstrained_number(Val) when not is_integer(Val) ->
+    exit({error,{asn1,{illegal_integer,Val}}});
 encode_unconstrained_number(Val) when Val >= 0 ->
     if
 	Val < 16#80 ->
@@ -540,6 +542,7 @@ extension_bitmap(_Val, Pos, Limit, Acc) when Pos >= Limit ->
 extension_bitmap(Val, Pos, Limit, Acc) ->
     Bit = case element(Pos, Val) of
 	      asn1_NOVALUE -> 0;
+	      asn1_DEFAULT -> 0;
 	      _ -> 1
 	  end,
     extension_bitmap(Val, Pos+1, Limit, (Acc bsl 1) bor Bit).

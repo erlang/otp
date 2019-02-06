@@ -348,7 +348,7 @@ skeppet %<input>erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'</inpu
       <p>If the startup procedure fails, the function
         <seealso marker="mnesia#start/0">mnesia:start()</seealso>
         returns the cryptic tuple
-        <c>{error,{shutdown, {mnesia_sup,start,[normal,[]]}}}</c>.
+        <c>{error,{shutdown, {mnesia_sup,start_link,[normal,[]]}}}</c>.
         To get more information about the start failure, use
         command-line arguments <c>-boot start_sasl</c> as argument to
         the <c>erl</c> script.</p>

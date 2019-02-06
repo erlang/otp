@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,9 +42,16 @@
 #include "erl_utils.h"
 #include "erl_port.h"
 #include "erl_gc.h"
+#include "erl_nif.h"
+#define ERTS_BINARY_TYPES_ONLY__
+#include "erl_binary.h"
+#undef ERTS_BINARY_TYPES_ONLY__
 
 struct enif_func_t;
 
+#ifdef  DEBUG
+#  define ERTS_NIF_ASSERT_IN_ENV
+#endif
 struct enif_environment_t /* ErlNifEnv */
 {
     struct erl_module_nif* mod_nif;
@@ -57,26 +64,74 @@ struct enif_environment_t /* ErlNifEnv */
     int exception_thrown; /* boolean */
     Process *tracee;
     int exiting; /* boolean (dirty nifs might return in exiting state) */
+
+#ifdef ERTS_NIF_ASSERT_IN_ENV
+    int dbg_disable_assert_in_env;
+#endif
 };
+struct enif_resource_type_t
+{
+    struct enif_resource_type_t* next;   /* list of all resource types */
+    struct enif_resource_type_t* prev;
+    struct erl_module_nif* owner;  /* that created this type and thus implements the destructor*/
+    ErlNifResourceDtor* dtor;      /* user destructor function */
+    ErlNifResourceStop* stop;
+    ErlNifResourceDown* down;
+    erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
+                          +1 for active erl_module_nif */
+    Eterm module;
+    Eterm name;
+};
+
+typedef struct
+{
+    erts_mtx_t lock;
+    ErtsMonitor* root;
+    Uint refc;
+    size_t user_data_sz;
+} ErtsResourceMonitors;
+
+typedef struct ErtsResource_
+{
+    struct enif_resource_type_t* type;
+    ErtsResourceMonitors* monitors;
+#ifdef DEBUG
+    erts_refc_t nif_refc;
+#else
+# ifdef ARCH_32
+    byte align__[4];
+# endif
+#endif
+    char data[1];
+}ErtsResource;
+
+#define DATA_TO_RESOURCE(PTR) ErtsContainerStruct(PTR, ErtsResource, data)
+#define erts_resource_ref_size(P) ERTS_MAGIC_REF_THING_SIZE
+
+extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
+
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
-#ifdef ERTS_DIRTY_SCHEDULERS
-extern void erts_pre_dirty_nif(ErtsSchedulerData *,
-			       struct enif_environment_t*, Process*,
-			       struct erl_module_nif*);
-extern void erts_post_dirty_nif(struct enif_environment_t* env);
-#endif
+extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
+void erts_fire_nif_monitor(ErtsMonitor *tmon);
+void erts_nif_demonitored(ErtsResource* resource);
+extern void erts_add_taint(Eterm mod_atom);
 extern Eterm erts_nif_taints(Process* p);
-extern void erts_print_nif_taints(int to, void* to_arg);
+extern void erts_print_nif_taints(fmtfn_t to, void* to_arg);
 void erts_unload_nif(struct erl_module_nif* nif);
 extern void erl_nif_init(void);
 extern int erts_nif_get_funcs(struct erl_module_nif*,
                               struct enif_func_t **funcs);
+extern Module *erts_nif_get_module(struct erl_module_nif*);
 extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
+
+int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
+			BeamInstr *I, Eterm *reg);
+
 
 /* Driver handle (wrapper for old plain handle) */
 #define ERL_DE_OK      0
@@ -119,7 +174,7 @@ typedef struct de_proc_entry {
 			                PROC_AWAIT_LOAD == Wants to be notified when we
 			                reloaded the driver (old was locked) */
     Uint    flags;                   /* ERL_FL_DE_DEREFERENCED when reload in progress */
-    Eterm   heap[REF_THING_SIZE];    /* "ref heap" */
+    Eterm   heap[ERTS_REF_THING_SIZE];    /* "ref heap" */
     struct  de_proc_entry *next;
 } DE_ProcEntry;
 
@@ -129,7 +184,7 @@ typedef struct {
 				         or that wait for it to change state */
     erts_refc_t  refc;                /* Number of ports/processes having
 					 references to the driver */
-    erts_smp_atomic32_t port_count;   /* Number of ports using the driver */
+    erts_atomic32_t port_count;   /* Number of ports using the driver */
     Uint         flags;               /* ERL_DE_FL_KILL_PORTS */
     int          status;              /* ERL_DE_xxx */
     char         *full_path;          /* Full path of the driver */
@@ -146,6 +201,7 @@ typedef struct {
 struct erts_driver_t_ {
     erts_driver_t *next;
     erts_driver_t *prev;
+    Eterm name_atom;
     char *name;
     struct {
 	int major;
@@ -153,9 +209,7 @@ struct erts_driver_t_ {
     } version;
     int flags;
     DE_Handle *handle;
-#ifdef ERTS_SMP
-    erts_smp_mtx_t *lock;
-#endif
+    erts_mtx_t *lock;
     ErlDrvEntry *entry;
     ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
@@ -170,8 +224,6 @@ struct erts_driver_t_ {
 			 char *buf, ErlDrvSizeT len,
 			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
 			 unsigned int *flags);
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
     void (*timeout)(ErlDrvData drv_data);
@@ -182,7 +234,7 @@ struct erts_driver_t_ {
 };
 
 extern erts_driver_t *driver_list;
-extern erts_smp_rwmtx_t erts_driver_list_lock;
+extern erts_rwmtx_t erts_driver_list_lock;
 
 extern void erts_ddll_init(void);
 extern void erts_ddll_lock_driver(DE_Handle *dh, char *name);
@@ -207,118 +259,6 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 				      ErtsProcLocks plocks);
 
 /*
-** Just like the driver binary but with initial flags
-** Note that the two structures Binary and ErlDrvBinary HAVE to
-** be equal except for extra fields in the beginning of the struct.
-** ErlDrvBinary is defined in erl_driver.h.
-** When driver_alloc_binary is called, a Binary is allocated, but 
-** the pointer returned is to the address of the first element that
-** also occurs in the ErlDrvBinary struct (driver.*binary takes care if this).
-** The driver need never know about additions to the internal Binary of the
-** emulator. One should however NEVER be sloppy when mixing ErlDrvBinary
-** and Binary, the macros below can convert one type to the other, as they both
-** in reality are equal.
-*/
-
-#ifdef ARCH_32
- /* *DO NOT USE* only for alignment. */
-#define ERTS_BINARY_STRUCT_ALIGNMENT Uint32 align__;
-#else
-#define ERTS_BINARY_STRUCT_ALIGNMENT
-#endif
-
-/* Add fields in ERTS_INTERNAL_BINARY_FIELDS, otherwise the drivers crash */
-#define ERTS_INTERNAL_BINARY_FIELDS				\
-    UWord flags;							\
-    erts_refc_t refc;						\
-    ERTS_BINARY_STRUCT_ALIGNMENT
-
-typedef struct binary {
-    ERTS_INTERNAL_BINARY_FIELDS
-    SWord orig_size;
-    char orig_bytes[1]; /* to be continued */
-} Binary;
-
-#define ERTS_SIZEOF_Binary(Sz) \
-    (offsetof(Binary,orig_bytes) + (Sz))
-
-typedef struct {
-    ERTS_INTERNAL_BINARY_FIELDS
-    SWord orig_size;
-    void (*destructor)(Binary *);
-    union {
-        struct {
-            ERTS_BINARY_STRUCT_ALIGNMENT
-            char data[1];
-        } aligned;
-        struct {
-            char data[1];
-        } unaligned;
-    } u;
-} ErtsMagicBinary;
-
-#ifdef ARCH_32
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 4
-#else
-#define ERTS_MAGIC_BIN_BYTES_TO_ALIGN 0
-#endif
-
-typedef union {
-    Binary binary;
-    ErtsMagicBinary magic_binary;
-    struct {
-	ERTS_INTERNAL_BINARY_FIELDS
-	ErlDrvBinary binary;
-    } driver;
-} ErtsBinary;
-
-/*
- * 'Binary' alignment:
- *   Address of orig_bytes[0] of a Binary should always be 8-byte aligned.
- * It is assumed that the flags, refc, and orig_size fields are 4 bytes on
- * 32-bits architectures and 8 bytes on 64-bits architectures.
- */
-
-#define ERTS_MAGIC_BIN_DESTRUCTOR(BP) \
-  ((ErtsBinary *) (BP))->magic_binary.destructor
-#define ERTS_MAGIC_BIN_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.aligned.data)
-#define ERTS_MAGIC_DATA_OFFSET \
-  (offsetof(ErtsMagicBinary,u.aligned.data) - offsetof(Binary,orig_bytes))
-#define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
-  (ERTS_MAGIC_DATA_OFFSET + (Sz))
-#define ERTS_MAGIC_BIN_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,u.aligned.data) + (Sz))
-
-/* On 32-bit arch these macro variants will save memory
-   by not forcing 8-byte alignment for the magic payload.
-*/
-#define ERTS_MAGIC_BIN_UNALIGNED_DATA(BP) \
-  ((void *) ((ErtsBinary *) (BP))->magic_binary.u.unaligned.data)
-#define ERTS_MAGIC_UNALIGNED_DATA_OFFSET \
-  (offsetof(ErtsMagicBinary,u.unaligned.data) - offsetof(Binary,orig_bytes))
-#define ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(BP) \
-  ((BP)->orig_size - ERTS_MAGIC_UNALIGNED_DATA_OFFSET)
-#define ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(Sz) \
-  (ERTS_MAGIC_UNALIGNED_DATA_OFFSET + (Sz))
-#define ERTS_MAGIC_BIN_UNALIGNED_SIZE(Sz) \
-  (offsetof(ErtsMagicBinary,u.unaligned.data) + (Sz))
-#define ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(DATA) \
-  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,u.unaligned.data)))
-
-
-#define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
-#define ErlDrvBinary2Binary(D) ((Binary *) \
-				(((char *) (D)) \
-				 - offsetof(ErtsBinary, driver.binary)))
-
-/* A "magic" binary flag */
-#define BIN_FLAG_MAGIC      1
-#define BIN_FLAG_USR1       2 /* Reserved for use by different modules too mark */
-#define BIN_FLAG_USR2       4 /*  certain binaries as special (used by ets) */
-#define BIN_FLAG_DRV        8
-
-/*
  * This structure represents one type of a binary in a process.
  */
 
@@ -339,46 +279,12 @@ typedef struct proc_bin {
  */
 #define PROC_BIN_SIZE (sizeof(ProcBin)/sizeof(Eterm))
 
-ERTS_GLB_INLINE Eterm erts_mk_magic_binary_term(Eterm **hpp,
-						ErlOffHeap *ohp,
-						Binary *mbp);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE Eterm
-erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
-{
-    ProcBin *pb = (ProcBin *) *hpp;
-    *hpp += PROC_BIN_SIZE;
-
-    ASSERT(mbp->flags & BIN_FLAG_MAGIC);
-
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = 0;
-    pb->next = ohp->first;
-    ohp->first = (struct erl_off_heap_header*) pb;
-    pb->val = mbp;
-    pb->bytes = (byte *) mbp->orig_bytes;
-    pb->flags = 0;
-
-    erts_refc_inc(&mbp->refc, 1);
-
-    return make_binary(pb);    
-}
-
-#endif
-
-#define ERTS_TERM_IS_MAGIC_BINARY(T) \
-  (is_binary((T)) \
-   && (thing_subtag(*binary_val((T))) == REFC_BINARY_SUBTAG) \
-   && (((ProcBin *) binary_val((T)))->val->flags & BIN_FLAG_MAGIC))
-
-
 union erl_off_heap_ptr {
     struct erl_off_heap_header* hdr;
     ProcBin *pb;
     struct erl_fun_thing* fun;
     struct external_thing_* ext;
+    ErtsMRefThing *mref;
     Eterm* ep;
     void* voidp;
 };
@@ -389,7 +295,7 @@ extern Eterm node_cookie;
 extern Uint display_items;	/* no of items to display in traces etc */
 
 extern int erts_backtrace_depth;
-extern erts_smp_atomic32_t erts_max_gen_gcs;
+extern erts_atomic32_t erts_max_gen_gcs;
 
 extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
@@ -464,7 +370,7 @@ do {\
 	UWord _wsz = ESTACK_COUNT(s);\
 	(dst)->start = erts_alloc((s).alloc_type,\
 				  DEF_ESTACK_SIZE * sizeof(Eterm));\
-	memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
+	sys_memcpy((dst)->start, (s).start,_wsz*sizeof(Eterm));\
 	(dst)->sp = (dst)->start + _wsz;\
 	(dst)->end = (dst)->start + DEF_ESTACK_SIZE;\
         (dst)->edefault = NULL;\
@@ -632,7 +538,7 @@ do {\
 	UWord _wsz = WSTACK_COUNT(s);\
 	(dst)->wstart = erts_alloc(s.alloc_type,\
 				  DEF_WSTACK_SIZE * sizeof(UWord));\
-	memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
+	sys_memcpy((dst)->wstart, s.wstart,_wsz*sizeof(UWord));\
 	(dst)->wsp = (dst)->wstart + _wsz;\
 	(dst)->wend = (dst)->wstart + DEF_WSTACK_SIZE;\
         (dst)->wdefault = NULL;\
@@ -773,8 +679,8 @@ do {						\
 
 typedef struct ErtsPStack_ {
     byte* pstart;
-    byte* psp;
-    byte* pend;
+    int offs;   /* "stack pointer" as byte offset from pstart */
+    int size;   /* allocated size in bytes */
     ErtsAlcType_t alloc_type;
 }ErtsPStack;
 
@@ -785,8 +691,8 @@ void erl_grow_pstack(ErtsPStack* s, void* default_pstack, unsigned need_bytes);
 #define PSTACK_DECLARE(s, DEF_PSTACK_SIZE) \
 PSTACK_TYPE PSTK_DEF_STACK(s)[DEF_PSTACK_SIZE];                            \
 ErtsPStack s = { (byte*)PSTK_DEF_STACK(s), /* pstart */                    \
-                 (byte*)(PSTK_DEF_STACK(s) - 1), /* psp */                 \
-                 (byte*)(PSTK_DEF_STACK(s) + (DEF_PSTACK_SIZE)), /* pend */\
+                 -(int)sizeof(PSTACK_TYPE), /* offs */                     \
+                 DEF_PSTACK_SIZE*sizeof(PSTACK_TYPE), /* size */           \
                  ERTS_ALC_T_ESTACK   /* alloc_type */                      \
 }
 
@@ -806,19 +712,21 @@ do {							\
     }							\
 } while(0)
 
-#define PSTACK_IS_EMPTY(s) (s.psp < s.pstart)
+#define PSTACK_IS_EMPTY(s) (s.offs < 0)
 
-#define PSTACK_COUNT(s) (((PSTACK_TYPE*)s.psp + 1) - (PSTACK_TYPE*)s.pstart)
+#define PSTACK_COUNT(s) ((s.offs + sizeof(PSTACK_TYPE)) / sizeof(PSTACK_TYPE))
 
-#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), (PSTACK_TYPE*)(s.psp))
+#define PSTACK_TOP(s) (ASSERT(!PSTACK_IS_EMPTY(s)), \
+                       (PSTACK_TYPE*)(s.pstart + s.offs))
 
-#define PSTACK_PUSH(s) 		                                           \
-    (s.psp += sizeof(PSTACK_TYPE),                                         \
-     ((s.psp == s.pend) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
-                                          sizeof(PSTACK_TYPE)) : (void)0), \
-     ((PSTACK_TYPE*) s.psp))
+#define PSTACK_PUSH(s) 		                                            \
+    (s.offs += sizeof(PSTACK_TYPE),                                         \
+     ((s.offs == s.size) ? erl_grow_pstack(&s, PSTK_DEF_STACK(s),           \
+                                          sizeof(PSTACK_TYPE)) : (void)0),  \
+     ((PSTACK_TYPE*) (s.pstart + s.offs)))
 
-#define PSTACK_POP(s) ((PSTACK_TYPE*) (s.psp -= sizeof(PSTACK_TYPE)))
+#define PSTACK_POP(s) ((s.offs -= sizeof(PSTACK_TYPE)), \
+                       (PSTACK_TYPE*)(s.pstart + s.offs))
 
 /*
  * Do not free the stack after this, it may have pointers into what
@@ -831,8 +739,8 @@ do {\
 	(dst)->pstart = erts_alloc(s.alloc_type,\
 				   sizeof(PSTK_DEF_STACK(s)));\
 	sys_memcpy((dst)->pstart, s.pstart, _pbytes);\
-	(dst)->psp = (dst)->pstart + _pbytes - sizeof(PSTACK_TYPE);\
-	(dst)->pend = (dst)->pstart + sizeof(PSTK_DEF_STACK(s));\
+	(dst)->offs = s.offs;\
+	(dst)->size = s.size;\
 	(dst)->alloc_type = s.alloc_type;\
     } else\
         *(dst) = s;\
@@ -847,8 +755,8 @@ do {						        \
     ASSERT(s.pstart == (byte*)PSTK_DEF_STACK(s));	\
     s = *(src);  /* struct copy */		        \
     (src)->pstart = NULL;			        \
-    ASSERT(s.psp >= (s.pstart - sizeof(PSTACK_TYPE)));  \
-    ASSERT(s.psp < s.pend);			        \
+    ASSERT(s.offs >= -(int)sizeof(PSTACK_TYPE));        \
+    ASSERT(s.offs < s.size);			        \
 } while (0)
 
 #define PSTACK_DESTROY_SAVED(pstack)\
@@ -954,7 +862,10 @@ void erts_emasculate_writable_binary(ProcBin* pb);
 Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
 Eterm erts_new_mso_binary(Process*, byte*, Uint);
 Eterm new_binary(Process*, byte*, Uint);
+Eterm erts_heap_factory_new_binary(ErtsHeapFactory *hfact, byte *buf,
+                                   Uint len, Uint reserve_size);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
+Eterm erts_build_proc_bin(ErlOffHeap*, Eterm*, Binary*);
 
 /* erl_bif_info.c */
 
@@ -969,21 +880,6 @@ void erts_bif_info_init(void);
 
 /* bif.c */
 
-ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE Eterm
-erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
-{
-    Eterm *hp = HAlloc(c_p, REF_THING_SIZE);
-    write_ref_thing(hp, ref[0], ref[1], ref[2]);
-    return make_internal_ref(hp);
-}
-
-#endif
-
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,
 				Eterm,
@@ -991,21 +887,18 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
-			   Eterm (*bif)(Process*,Eterm*));
+			   Eterm (*bif)(Process*, Eterm*, BeamInstr*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
+int erts_set_group_leader(Process *proc, Eterm new_gl);
 
 /* erl_bif_op.c */
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* beam_bif_load.c */
-#define ERTS_CPC_ALLOW_GC      (1 << 0)
-#define ERTS_CPC_ALL           ERTS_CPC_ALLOW_GC
-Eterm erts_check_process_code(Process *c_p, Eterm module, Uint flags, int *redsp, int fcalls);
-#ifdef ERTS_NEW_PURGE_STRATEGY
+Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
-#endif
 
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
@@ -1013,25 +906,21 @@ typedef struct ErtsLiteralArea_ {
     Eterm start[1]; /* beginning of area */
 } ErtsLiteralArea;
 
+void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
+
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
-extern erts_smp_atomic_t erts_copy_literal_area__;
+extern erts_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
-    ((ErtsLiteralArea *) erts_smp_atomic_read_nob(&erts_copy_literal_area__))
-
-#ifdef ERTS_NEW_PURGE_STRATEGY
+    ((ErtsLiteralArea *) erts_atomic_read_nob(&erts_copy_literal_area__))
 extern Process *erts_literal_area_collector;
-#endif
-#ifdef ERTS_DIRTY_SCHEDULERS
-extern Process *erts_dirty_process_code_checker;
-#endif
 
 extern Process *erts_code_purger;
 
 /* beam_load.c */
 typedef struct {
-    BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
+    ErtsCodeMFA* mfa;		/* Pointer to: Mod, Name, Arity */
     Uint needed;		/* Heap space needed for entire tuple */
     Uint32 loc;			/* Location in source code */
     Eterm* fname_ptr;		/* Pointer to fname table */
@@ -1048,13 +937,14 @@ Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
 			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
-BeamInstr* find_function_from_pc(BeamInstr* pc);
+ErtsCodeMFA* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
+void erts_set_current_function(FunctionInfo* fi, ErtsCodeMFA* mfa);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
+int erts_commit_hipe_patch_load(Eterm hipe_magic_bin);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);
@@ -1064,21 +954,28 @@ void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
 UWord erts_ranges_sz(void);
 void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+extern ErtsLiteralArea** erts_dump_lit_areas;
+extern Uint erts_dump_num_lit_areas;
 
 /* break.c */
 void init_break_handler(void);
 void erts_set_ignore_break(void);
 void erts_replace_intr(void);
-void process_info(int, void *);
-void print_process_info(int, void *, Process*);
-void info(int, void *);
-void loaded(int, void *);
+void process_info(fmtfn_t, void *);
+void print_process_info(fmtfn_t, void *, Process*);
+void info(fmtfn_t, void *);
+void loaded(fmtfn_t, void *);
+void erts_print_base64(fmtfn_t to, void *to_arg, byte* src, Uint size);
+
+/* sighandler sys.c */
+int erts_set_signal(Eterm signal, Eterm type);
 
 /* erl_arith.c */
 double erts_get_positive_zero_float(void);
 
 /* config.c */
 
+__decl_noreturn void __noreturn erts_exit_epilogue(void);
 __decl_noreturn void __noreturn erts_exit(int n, char*, ...);
 __decl_noreturn void __noreturn erts_flush_async_exit(int n, char*, ...);
 void erl_error(char*, va_list);
@@ -1104,26 +1001,28 @@ typedef struct {
     Eterm* shtable_start;
     ErtsAlcType_t shtable_alloc_type;
     Uint literal_size;
-    Eterm *range_ptr;
-    Uint  range_sz;
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
+    int copy_literals;
 } erts_shcopy_t;
 
-#define INITIALIZE_SHCOPY(info)                         \
-do {                                                    \
-    ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();\
-    info.queue_start = info.queue_default;              \
-    info.bitstore_start = info.bitstore_default;        \
-    info.shtable_start = info.shtable_default;          \
-    info.literal_size = 0;                              \
-    if (larea__) {					\
-	info.range_ptr = &larea__->start[0];		\
-	info.range_sz = larea__->end - info.range_ptr;	\
-    }							\
-    else {						\
-	info.range_ptr = NULL;				\
-	info.range_sz = 0;				\
-    }							\
-} while(0)
+#define INITIALIZE_SHCOPY(info)						\
+    do {								\
+	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
+	info.queue_start = info.queue_default;				\
+	info.bitstore_start = info.bitstore_default;			\
+	info.shtable_start = info.shtable_default;			\
+	info.literal_size = 0;						\
+	info.copy_literals = 0;						\
+	if (larea__) {							\
+	    info.lit_purge_ptr = &larea__->start[0];			\
+	    info.lit_purge_sz = larea__->end - info.lit_purge_ptr;	\
+	}								\
+	else {								\
+	    info.lit_purge_ptr = NULL;					\
+	    info.lit_purge_sz = 0;					\
+	}								\
+    } while(0)
 
 #define DESTROY_SHCOPY(info)                                            \
 do {                                                                    \
@@ -1139,32 +1038,56 @@ do {                                                                    \
 } while(0)
 
 /* copy.c */
+typedef struct {
+    Eterm *lit_purge_ptr;
+    Uint lit_purge_sz;
+} erts_literal_area_t;
+
+#define INITIALIZE_LITERAL_PURGE_AREA(Area)				\
+    do {								\
+	ErtsLiteralArea *larea__ = ERTS_COPY_LITERAL_AREA();		\
+	if (larea__) {							\
+	    (Area).lit_purge_ptr = &larea__->start[0];			\
+	    (Area).lit_purge_sz = larea__->end - (Area).lit_purge_ptr;	\
+	}								\
+	else {								\
+	    (Area).lit_purge_ptr = NULL;				\
+	    (Area).lit_purge_sz = 0;					\
+	}								\
+    } while(0)
+
 Eterm copy_object_x(Eterm, Process*, Uint);
 #define copy_object(Term, Proc) copy_object_x(Term,Proc,0)
 
-Uint size_object(Eterm);
+Uint size_object_x(Eterm, erts_literal_area_t*);
+#define size_object(Term) size_object_x(Term,NULL)
+#define size_object_litopt(Term,LitArea) size_object_x(Term,LitArea)
+
 Uint copy_shared_calculate(Eterm, erts_shcopy_t*);
 Eterm copy_shared_perform(Eterm, Uint, erts_shcopy_t*, Eterm**, ErlOffHeap*);
 
 Uint size_shared(Eterm);
 
-Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint* bsz);
+Eterm copy_struct_x(Eterm, Uint, Eterm**, ErlOffHeap*, Uint*, erts_literal_area_t*);
 #define copy_struct(Obj,Sz,HPP,OH) \
-    copy_struct_x(Obj,Sz,HPP,OH,NULL)
-Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,NULL)
+#define copy_struct_litopt(Obj,Sz,HPP,OH,LitArea) \
+    copy_struct_x(Obj,Sz,HPP,OH,NULL,LitArea)
+
+Eterm copy_shallow(Eterm* ERTS_RESTRICT, Uint, Eterm**, ErlOffHeap*);
 
 void erts_move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 			   Eterm* refs, unsigned nrefs, int literals);
 
 /* Utilities */
-extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
+void erts_monitor_nodes_delete(ErtsMonitor *);
 extern Eterm erts_monitor_nodes(Process *, Eterm, Eterm);
 extern Eterm erts_processes_monitoring_nodes(Process *);
 extern int erts_do_net_exits(DistEntry*, Eterm);
-extern int distribution_info(int, void *);
+extern int distribution_info(fmtfn_t, void *);
 extern int is_node_name_atom(Eterm a);
 
-extern int erts_net_message(Port *, DistEntry *,
+extern int erts_net_message(Port *, DistEntry *, Uint32 conn_id,
 			    byte *, ErlDrvSizeT, byte *, ErlDrvSizeT);
 
 extern void init_dist(void);
@@ -1179,7 +1102,7 @@ void print_pass_through(int, byte*, int);
 /* beam_emu.c */
 int catchlevel(Process*);
 void init_emulator(void);
-void process_main(void);
+void process_main(Eterm* x_reg_array, FloatDef* f_reg_array);
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
@@ -1190,7 +1113,6 @@ void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
 typedef struct {
     Eterm delay_time;
     int context_reds;
-    int input_reds;
 } ErtsModifiedTimings;
 
 extern Export *erts_delay_trap;
@@ -1208,15 +1130,12 @@ extern ErtsModifiedTimings erts_modified_timings[];
 extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-extern erts_tid_t erts_main_thread;
-#endif
 extern int erts_compat_rel;
-extern int erts_use_sender_punish;
-void erts_short_init(void);
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
+
+
 /* erl_md5.c */
 
 typedef struct {
@@ -1240,7 +1159,7 @@ typedef struct {
 #define ERTS_SPAWN_DRIVER 1
 #define ERTS_SPAWN_EXECUTABLE 2
 #define ERTS_SPAWN_ANY (ERTS_SPAWN_DRIVER | ERTS_SPAWN_EXECUTABLE)
-int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
+int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked, int taint);
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
 Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
@@ -1256,14 +1175,26 @@ void erts_stale_drv_select(Eterm, ErlDrvPort, ErlDrvEvent, int, int);
 
 Port *erts_get_heart_port(void);
 void erts_emergency_close_ports(void);
+void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
+Eterm erts_driver_monitor_to_ref(Eterm* hp, const ErlDrvMonitor *mon);
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
-void erts_lcnt_enable_io_lock_count(int enable);
+#if defined(ERTS_ENABLE_LOCK_COUNT)
+void erts_lcnt_update_driver_locks(int enable);
+void erts_lcnt_update_port_locks(int enable);
 #endif
 
 /* driver_tab.c */
+typedef struct {
+    ErlDrvEntry* de;
+    int taint;
+} ErtsStaticDriver;
 typedef void *(*ErtsStaticNifInitFPtr)(void);
-ErtsStaticNifInitFPtr erts_static_nif_get_nif_init(const char *name, int len);
+typedef struct ErtsStaticNifEntry_ {
+    const char *nif_name;
+    ErtsStaticNifInitFPtr nif_init;
+    int taint;
+} ErtsStaticNifEntry;
+ErtsStaticNifEntry* erts_static_nif_get_nif_init(const char *name, int len);
 int erts_is_static_nif(void *handle);
 void erts_init_static_drivers(void);
 
@@ -1276,6 +1207,11 @@ void erts_cleanup_offheap(ErlOffHeap *offheap);
 Uint64 erts_timestamp_millis(void);
 
 Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
+
+void *erts_calc_stacklimit(char *prev_c, UWord stacksize);
+int erts_check_below_limit(char *ptr, char *limit);
+int erts_check_above_limit(char *ptr, char *limit);
+void *erts_ptr_id(void *ptr);
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
@@ -1306,11 +1242,23 @@ Sint erts_re_set_loop_limit(Sint limit);
 void erts_init_bif_binary(void);
 Sint erts_binary_set_loop_limit(Sint limit);
 
+/* erl_bif_persistent.c */
+void erts_init_bif_persistent_term(void);
+Uint erts_persistent_term_count(void);
+void erts_init_persistent_dumping(void);
+extern ErtsLiteralArea** erts_persistent_areas;
+extern Uint erts_num_persistent_areas;
+
 /* external.c */
 void erts_init_external(void);
 
 /* erl_map.c */
 void erts_init_map(void);
+
+/* beam_debug.c */
+UWord erts_check_stack_recursion_downwards(char *start_c);
+UWord erts_check_stack_recursion_upwards(char *start_c);
+int erts_is_above_stack_limit(char *ptr);
 
 /* erl_unicode.c */
 void erts_init_unicode(void);
@@ -1340,7 +1288,7 @@ char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
                                      char *statbuf, size_t statbuf_size,
                                      ErtsAlcType_t alloc_type, Sint* used,
                                      Uint extra_wchars);
-Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
+Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes);
 Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail);
 int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
@@ -1350,8 +1298,10 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen);
 #define ERTS_UTF8_ANALYZE_MORE 3
 #define ERTS_UTF8_OK_MAX_CHARS 4
 
-void bin_write(int, void*, byte*, size_t);
+void bin_write(fmtfn_t, void*, byte*, size_t);
 Sint intlist_to_buf(Eterm, char*, Sint); /* most callers pass plain char*'s */
+int erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written);
+Sint erts_unicode_list_to_buf_len(Eterm list);
 
 struct Sint_buf {
 #if defined(ARCH_64)
@@ -1452,23 +1402,11 @@ Eterm erts_gc_bor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bxor(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_bnot(Process* p, Eterm* reg, Uint live);
 
-Eterm erts_gc_length_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_bit_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_byte_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_map_size_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
-Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
-
 Uint erts_current_reductions(Process* current, Process *p);
 
-int erts_print_system_version(int to, void *arg, Process *c_p);
+int erts_print_system_version(fmtfn_t to, void *arg, Process *c_p);
 
-int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
+int erts_hibernate(Process* c_p, Eterm* reg);
 
 ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
 
@@ -1500,21 +1438,20 @@ Eterm erts_msacc_request(Process *c_p, int action, Eterm *threads);
 #define MatchSetRef(MPSP) 			\
 do {						\
     if ((MPSP) != NULL) {			\
-	erts_refc_inc(&(MPSP)->refc, 1);	\
+	erts_refc_inc(&(MPSP)->intern.refc, 1);	\
     }						\
 } while (0)
 
 #define MatchSetUnref(MPSP)					\
 do {								\
-    if (((MPSP) != NULL) && erts_refc_dectest(&(MPSP)->refc, 0) <= 0) { \
-	erts_bin_free(MPSP);					\
+    if (((MPSP) != NULL)) {                                     \
+	erts_bin_release(MPSP);					\
     }								\
 } while(0)
 
 #define MatchSetGetSource(MPSP) erts_match_set_get_source(MPSP)
 
 extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA);
-Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
 ERTS_GLB_INLINE void erts_match_set_release_result_trace(Process* p, Eterm);
 
@@ -1572,8 +1509,7 @@ int erts_beam_jump_table(void);
 ERTS_GLB_INLINE void dtrace_pid_str(Eterm pid, char *process_buf);
 ERTS_GLB_INLINE void dtrace_proc_str(Process *process, char *process_buf);
 ERTS_GLB_INLINE void dtrace_port_str(Port *port, char *port_buf);
-ERTS_GLB_INLINE void dtrace_fun_decode(Process *process,
-				       Eterm module, Eterm function, int arity,
+ERTS_GLB_INLINE void dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
 				       char *process_buf, char *mfa_buf);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -1607,8 +1543,7 @@ dtrace_port_str(Port *port, char *port_buf)
 }
 
 ERTS_GLB_INLINE void
-dtrace_fun_decode(Process *process,
-                  Eterm module, Eterm function, int arity,
+dtrace_fun_decode(Process *process, ErtsCodeMFA *mfa,
                   char *process_buf, char *mfa_buf)
 {
     if (process_buf) {
@@ -1616,7 +1551,7 @@ dtrace_fun_decode(Process *process,
     }
 
     erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
-                  module, function, arity);
+                  mfa->module, mfa->function, mfa->arity);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

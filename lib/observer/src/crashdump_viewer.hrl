@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,6 +80,10 @@
 	 old_heap,
 	 heap_unused,
 	 old_heap_unused,
+         bin_vheap,
+         old_bin_vheap,
+         bin_vheap_unused,
+         old_bin_vheap_unused,
 	 new_heap_start,
 	 new_heap_top,
 	 stack_top,
@@ -95,19 +99,27 @@
 
 -record(port,
 	{id,
+         state,
+         task_flags=0,
 	 slot,
 	 connected,
 	 links,
 	 name,
 	 monitors,
-	 controls}).
+         suspended,
+	 controls,
+         input,
+         output,
+         queue,
+         port_data}).
 
 -record(sched,
 	{name,
+         type,
 	 process,
 	 port,
 	 run_q=0,
-	 port_q=0,
+	 port_q,
 	 details=#{}
 	}).
 
@@ -118,6 +130,7 @@
 	 slot,
 	 id,
 	 name,
+         is_named,
 	 data_type="hash",
 	 buckets="-",
 	 size,

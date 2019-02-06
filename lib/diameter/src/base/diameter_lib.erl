@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,25 +33,21 @@
          time/1,
          eval/1,
          eval_name/1,
-         get_stacktrace/0,
+         stacktrace/1,
          ipaddr/1,
          spawn_opts/2,
          wait/1,
-         fold_tuple/3,
          fold_n/3,
          for_n/2,
          log/4]).
 
 %% ---------------------------------------------------------------------------
-%% # get_stacktrace/0
+%% # stacktrace/1
 %% ---------------------------------------------------------------------------
 
 %% Return a stacktrace with a leading, potentially large, argument
-%% list replaced by an arity. Trace on stacktrace/0 to see the
+%% list replaced by an arity. Trace on stacktrace/1 to see the
 %% original.
-
-get_stacktrace() ->
-    stacktrace(erlang:get_stacktrace()).
 
 stacktrace([{M,F,A,L} | T]) when is_list(A) ->
     [{M, F, length(A), L} | T];
@@ -269,8 +265,8 @@ ipaddr(Addr) ->
     try
         ip(Addr)
     catch
-        error: _ ->
-            erlang:error({invalid_address, erlang:get_stacktrace()})
+        error: _: Stack ->
+            erlang:error({invalid_address, Stack})
     end.
 
 %% Already a tuple: ensure non-negative integers of the right size.
@@ -284,7 +280,7 @@ ip(T)
 
 %% Or not: convert from '.'/':'-separated decimal/hex.
 ip(Addr) ->
-    {ok, A} = inet_parse:address(Addr),  %% documented in inet(3)
+    {ok, A} = inet:parse_address(Addr),
     A.
 
 %% ---------------------------------------------------------------------------
@@ -339,36 +335,6 @@ down(Pid)
 down(MRef)
   when is_reference(MRef) ->
     receive {'DOWN', MRef, process, _, _} = T -> T end.
-
-%% ---------------------------------------------------------------------------
-%% # fold_tuple/3
-%% ---------------------------------------------------------------------------
-
--spec fold_tuple(N, T0, T)
-   -> tuple()
- when N  :: pos_integer(),
-      T0 :: tuple(),
-      T  :: tuple()
-          | undefined.
-
-%% Replace fields in T0 by those of T starting at index N, unless the
-%% new value is 'undefined'.
-%%
-%% eg. fold_tuple(2, Hdr, #diameter_header{end_to_end_id = 42})
-
-fold_tuple(_, T, undefined) ->
-    T;
-
-fold_tuple(N, T0, T1) ->
-    {_, T} = lists:foldl(fun(V, {I,_} = IT) -> {I+1, ft(V, IT)} end,
-                         {N, T0},
-                         lists:nthtail(N-1, tuple_to_list(T1))),
-    T.
-
-ft(undefined, {_, T}) ->
-    T;
-ft(Value, {Idx, T}) ->
-    setelement(Idx, T, Value).
 
 %% ---------------------------------------------------------------------------
 %% # fold_n/3

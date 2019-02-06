@@ -1,7 +1,7 @@
  
  %CopyrightBegin%
  
- Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ Copyright Ericsson AB 1996-2017. All Rights Reserved.
  
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ Note that the Install script will terminate if it detects problems -
 you will have to correct them and re-run the script. If everything
 goes well, the last printout should be:
 
-Erlang installation sucessfully completed
+Erlang installation successfully completed
 
 If it isn't, something went wrong - check the printouts to find out
 what it was.

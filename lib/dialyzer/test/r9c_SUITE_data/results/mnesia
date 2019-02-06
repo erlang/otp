@@ -17,6 +17,7 @@ mnesia_frag.erl:294: The call mnesia_frag:remote_collect(Ref::reference(),{'erro
 mnesia_frag.erl:304: The call mnesia_frag:remote_collect(Ref::reference(),{'error',{'node_not_running',_}},[],OldSelectFun::fun(() -> [any()])) will never return since it differs in the 2nd argument from the success typing arguments: (reference(),'ok',[any()],fun(() -> [any()]))
 mnesia_frag.erl:312: The call mnesia_frag:remote_collect(Ref::reference(),LocalRes::{'error',_},[],OldSelectFun::fun(() -> [any()])) will never return since it differs in the 2nd argument from the success typing arguments: (reference(),'ok',[any()],fun(() -> [any()]))
 mnesia_frag_hash.erl:24: Callback info about the mnesia_frag_hash behaviour is not available
+mnesia_frag_old_hash.erl:105: Call to missing or unexported function erlang:hash/2
 mnesia_frag_old_hash.erl:23: Callback info about the mnesia_frag_hash behaviour is not available
 mnesia_index.erl:52: The call mnesia_lib:other_val(Var::{_,'commit_work' | 'index' | 'setorbag' | 'storage_type' | {'index',_}},_ReASoN_::any()) will never return since it differs in the 1st argument from the success typing arguments: ({_,'active_replicas' | 'where_to_read' | 'where_to_write'},any())
 mnesia_lib.erl:1028: The pattern {'EXIT', Reason} can never match the type [any()] | {'error',_}

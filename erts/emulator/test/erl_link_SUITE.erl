@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,26 +53,17 @@
 -export([test_proc/0]).
 
 
--define(LINK_UNDEF, 0).
--define(LINK_PID,   1).
--define(LINK_NODE,  3).
-
-
-% These are to be kept in sync with erl_monitors.h 
--define(MON_ORIGIN, 1).
--define(MON_TARGET, 3).
-
-
--record(erl_link, {type = ?LINK_UNDEF,
+-record(erl_link, {type,           % process | port | dist_process
                    pid = [],
-                   targets = []}).
+                   id}).
 
 % This is to be kept in sync with erl_bif_info.c (make_monitor_list)
 
--record(erl_monitor, {type,        % MON_ORIGIN or MON_TARGET (1 or 3)
-                      ref,
+-record(erl_monitor, {type,        % process | port | time_offset | dist_process | resource | node | nodes | suspend
+                      dir,         % origin | target
+                      ref,         % Reference | []
                       pid,         % Process or nodename
-                      name = []}). % registered name or []
+                      extra = []}). % registered name, integer or, []
 
 
 suite() ->
@@ -106,7 +97,7 @@ end_per_suite(_Config) ->
 links(Config) when is_list(Config) ->
     common_link_test(node(), node()),
     true = link(self()),
-    [] = find_erl_link(self(), ?LINK_PID, self()),
+    [] = find_erl_link(self(), process, self()),
     true = unlink(self()),
     ok.
 
@@ -191,6 +182,7 @@ monitor_nodes(Config) when is_list(Config) ->
     monitor_node(A, false),
     monitor_node(B, true),
     monitor_node(C, true),
+    receive after 1000 -> ok end,
     monitor_node(C, false),
     monitor_node(C, true),
     monitor_node(B, true),
@@ -200,13 +192,16 @@ monitor_nodes(Config) when is_list(Config) ->
     monitor_node(A, true),
     check_monitor_node(self(), A, 1),
     check_monitor_node(self(), B, 3),
+    ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    %%OTP-21: monitor_node(_,false) does not trigger auto-connect anymore
+    %%        and therefore no nodedown if it fails.
+    %%ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, C} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, D} -> ok after 1000 -> timeout end,
+    ok = receive {nodedown, D} -> ok after 1000 -> timeout end,
     check_monitor_node(self(), C, 0),
     check_monitor_node(self(), D, 0),
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, C} -> ok end,
-    receive {nodedown, D} -> ok end,
-    receive {nodedown, D} -> ok end,
+
     stop_node(A),
     receive {nodedown, A} -> ok end,
     check_monitor_node(self(), A, 0),
@@ -301,7 +296,8 @@ run_common_process_monitors(TP1, TP2) ->
     wait_until(fun () -> is_proc_dead(TP2) end),
     ok = tp_call(TP1, fun () ->
                               receive
-                                  {'DOWN',R2,process,TP2O,bye} ->
+                                  {'DOWN',R2,process,TP2O,Reason1} ->
+                                      bye = Reason1,
                                       ok
                               end
                       end),
@@ -310,7 +306,8 @@ run_common_process_monitors(TP1, TP2) ->
     R3 = tp_call(TP1, fun () -> erlang:monitor(process, TP2) end),
     ok = tp_call(TP1, fun () ->
                               receive
-                                  {'DOWN',R3,process,TP2O,noproc} ->
+                                  {'DOWN',R3,process,TP2O,Reason2} ->
+                                      noproc = Reason2,
                                       ok
                               end
                       end),
@@ -533,7 +530,7 @@ freeze_node(Node, MS) ->
                fun () ->
                        erts_debug:set_internal_state(available_internal_state,
                                                      true),
-                       dport_send(Freezer, DoingIt),
+                       dctrl_dop_send(Freezer, DoingIt),
                        receive after Own -> ok end,
                        erts_debug:set_internal_state(block, MS+Own)
                end),
@@ -544,20 +541,22 @@ make_busy(Node, Time) when is_integer(Time) ->
     Own = 500,
     freeze_node(Node, Time+Own), 
     Data = busy_data(),
+    DCtrl = dctrl(Node),
     %% first make port busy
     Pid = spawn_link(fun () ->
                              forever(fun () ->
-                                             dport_reg_send(Node,
-                                                            '__noone__',
-                                                            Data)
+                                             dctrl_dop_reg_send(Node,
+                                                                '__noone__',
+                                                                Data)
                                      end)
                      end),
     receive after Own -> ok end,
     wait_until(fun () ->
-                       case process_info(Pid, status) of
-                           {status, suspended} -> true;
-                           _ -> false
-                       end
+                  case {DCtrl, process_info(Pid, status)} of
+                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
+                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
+                      _ -> false
+                  end
                end),
     %% then dist entry
     make_busy(Node, [nosuspend], Data),
@@ -693,22 +692,10 @@ test_proc() ->
     end,
     test_proc().
 
-expand_link_list([#erl_link{type = ?LINK_NODE, targets = N} = Rec | T]) ->
-    lists:duplicate(N,Rec#erl_link{targets = []}) ++ expand_link_list(T);
-expand_link_list([#erl_link{targets = [#erl_link{pid = Pid}]} = Rec | T]) ->
-    [Rec#erl_link{targets = [Pid]} | expand_link_list(T)];
-expand_link_list([#erl_link{targets = [#erl_link{pid = Pid}|TT]} = Rec | T]) ->
-    [ Rec#erl_link{targets = [Pid]} | expand_link_list( 
-                                        [Rec#erl_link{targets = TT} | T])]; 
-expand_link_list([#erl_link{targets = []} = Rec | T]) ->
-    [Rec | expand_link_list(T)];
-expand_link_list([]) ->
-    [].
-
 get_local_link_list(Obj) ->
     case catch erts_debug:get_internal_state({link_list, Obj}) of
         LL when is_list(LL) ->
-            expand_link_list(LL);
+            LL;
         _ ->
             []
     end.
@@ -717,7 +704,7 @@ get_remote_link_list(Node, Obj) ->
     case catch rpc:call(Node, erts_debug, get_internal_state,
                         [{link_list, Obj}]) of
         LL when is_list(LL) ->
-            expand_link_list(LL);
+            LL;
         _ ->
             []
     end.
@@ -771,82 +758,106 @@ get_monitor_list(undefined) ->
 
 
 find_erl_monitor(Pid, Ref) when is_reference(Ref) ->
+    MonitorList = get_monitor_list(Pid),
+    io:format("~p MonitorList: ~p~n", [Pid, MonitorList]),
     lists:foldl(fun (#erl_monitor{ref = R} = EL, Acc) when R == Ref ->
                         [EL|Acc];
                     (_, Acc) ->
                         Acc
                 end,
                 [],
-                get_monitor_list(Pid)).
-
-% find_erl_link(Obj, Ref) when is_reference(Ref) -> 
-%     lists:foldl(fun (#erl_link{ref = R} = EL, Acc) when R == Ref ->
-% 			      [EL|Acc];
-% 			  (_, Acc) ->
-% 			      Acc
-% 		      end,
-% 		      [],
-% 		      get_link_list(Obj)).
-
-find_erl_link(Obj, Type, [Item, Data]) when is_pid(Item);
-                                            is_port(Item);
-                                            is_atom(Item) -> 
-    lists:foldl(fun (#erl_link{type = T, pid = I, targets = D} = EL,
-                     Acc) when T == Type, I == Item ->
-                        case Data of
-                            D ->
-                                [EL|Acc];
-                            [] ->
-                                [EL|Acc];
-                            _ ->
-                                Acc
-                        end;
+                MonitorList);
+find_erl_monitor(Pid, Item) ->
+    MonitorList = get_monitor_list(Pid),
+    io:format("~p MonitorList: ~p~n", [Pid, MonitorList]),
+    lists:foldl(fun (#erl_monitor{pid = I} = EL, Acc) when I == Item ->
+                        [EL|Acc];
                     (_, Acc) ->
                         Acc
                 end,
                 [],
-                get_link_list(Obj));
-find_erl_link(Obj, Type, Item) when is_pid(Item); is_port(Item); is_atom(Item) ->
-    find_erl_link(Obj, Type, [Item, []]). 
+                MonitorList).
 
 
+find_erl_link(Obj, Type, Item) when is_pid(Item); is_port(Item) -> 
+    LinkList = get_link_list(Obj),
+    io:format("~p LinkList: ~p~n", [Obj, LinkList]),
+    lists:foldl(fun (#erl_link{type = T, pid = I} = EL,
+                     Acc) when T == Type, I == Item ->
+                        [EL|Acc];
+                    (_, Acc) ->
+                        Acc
+                end,
+                [],
+                LinkList);
+find_erl_link(Obj, Type, Id) when is_integer(Id) -> 
+    %% Find by Id
+    LinkList = get_link_list(Obj),
+    io:format("~p LinkList: ~p~n", [Obj, LinkList]),
+    lists:foldl(fun (#erl_link{type = T, id = I} = EL,
+                     Acc) when T == Type, I == Id ->
+                        [EL|Acc];
+                    (_, Acc) ->
+                        Acc
+                end,
+                [],
+                LinkList).
 
-check_link(A, B) ->
-    [#erl_link{type = ?LINK_PID,
-               pid = B,
-               targets = []}] = find_erl_link(A, ?LINK_PID, B),
-    [#erl_link{type = ?LINK_PID,
-               pid = A,
-               targets = []}] = find_erl_link(B, ?LINK_PID, A),
+
+get_link_type(A, B) when is_port(A);
+                         is_port(B) ->
+    port;
+get_link_type(A, B) when is_pid(A),
+                         is_pid(B) ->
     case node(A) == node(B) of
-        false ->
-            [#erl_link{type = ?LINK_PID,
-                       pid = A,
-                       targets = [B]}] = find_erl_link({node(A),
-                                                        node(B)},
-                                                       ?LINK_PID,
-                                                       [A, [B]]),
-            [#erl_link{type = ?LINK_PID,
-                       pid = B,
-                       targets = [A]}] = find_erl_link({node(B),
-                                                        node(A)},
-                                                       ?LINK_PID,
-                                                       [B, [A]]);
         true ->
-            [] = find_erl_link({node(A), node(B)},
-                               ?LINK_PID,
-                               [A, [B]]),
-            [] = find_erl_link({node(B), node(A)},
-                               ?LINK_PID,
-                               [B, [A]])
-    end,
+            process;
+        false ->
+            dist_process
+    end.
+
+check_link(A, B) when node(A) == node(B) ->
+    LinkType = get_link_type(A, B),
+    [#erl_link{type = LinkType,
+               pid = B,
+               id = Id}] = find_erl_link(A, LinkType, B),
+    [#erl_link{type = LinkType,
+               pid = A,
+               id = Id}] = find_erl_link(B, LinkType, A),
+    [] = find_erl_link({node(A), node(B)},
+                       LinkType,
+                       A),
+    [] = find_erl_link({node(B), node(A)},
+                       LinkType,
+                       B),
+    ok;
+check_link(A, B) ->
+    [#erl_link{type = dist_process,
+               pid = B,
+               id = IdA}] = find_erl_link(A, dist_process, B),
+    [#erl_link{type = dist_process,
+               pid = A,
+               id = IdA}] = find_erl_link({node(A),
+                                           node(B)},
+                                          dist_process,
+                                          IdA),
+    [#erl_link{type = dist_process,
+               pid = A,
+               id = IdB}] = find_erl_link(B, dist_process, A),
+    [#erl_link{type = dist_process,
+               pid = B,
+               id = IdB}] = find_erl_link({node(B),
+                                           node(A)},
+                                          dist_process,
+                                          IdB),
     ok.
 
 check_unlink(A, B) ->
-    [] = find_erl_link(A, ?LINK_PID, B),
-    [] = find_erl_link(B, ?LINK_PID, A),
-    [] = find_erl_link({node(A), node(B)}, ?LINK_PID, [A, [B]]),
-    [] = find_erl_link({node(B), node(A)}, ?LINK_PID, [B, [A]]),
+    LinkType = get_link_type(A, B),
+    [] = find_erl_link(A, LinkType, B),
+    [] = find_erl_link(B, LinkType, A),
+    [] = find_erl_link({node(A), node(B)}, dist_process, A),
+    [] = find_erl_link({node(B), node(A)}, dist_process, B),
     ok.
 
 check_process_monitor(From, {Name, Node}, Ref) when is_pid(From),
@@ -859,22 +870,26 @@ check_process_monitor(From, {Name, Node}, Ref) when is_pid(From),
                                                     is_atom(Node),
                                                     is_reference(Ref) ->
     MonitoredPid = rpc:call(Node, erlang, whereis, [Name]),
-    [#erl_monitor{type = ?MON_ORIGIN,
+    [#erl_monitor{type = dist_process,
+                  dir = origin,
                   ref = Ref,
                   pid = Node,
-                  name = Name}] = find_erl_monitor(From, Ref),
-    [#erl_monitor{type = ?MON_TARGET,
+                  extra = Name}] = find_erl_monitor(From, Ref),
+    [#erl_monitor{type = dist_process,
+                  dir = target,
                   ref = Ref,
                   pid = From,
-                  name = Name}] = 	find_erl_monitor({node(From), Node}, Ref),
-    [#erl_monitor{type = ?MON_ORIGIN,
+                  extra = Name}] = find_erl_monitor({node(From), Node}, Ref),
+    [#erl_monitor{type = dist_process,
+                  dir = origin,
                   ref = Ref,
                   pid = MonitoredPid,
-                  name = Name}] = find_erl_monitor({Node, node(From)}, Ref),
-    [#erl_monitor{type = ?MON_TARGET,
+                  extra = Name}] = find_erl_monitor({Node, node(From)}, Ref),
+    [#erl_monitor{type = dist_process,
+                  dir = target,
                   ref = Ref,
                   pid = From,
-                  name = Name}] = find_erl_monitor(MonitoredPid, Ref),
+                  extra = Name}] = find_erl_monitor(MonitoredPid, Ref),
     ok;
 check_process_monitor(From, Name, Ref) when is_pid(From),
                                             is_atom(Name),
@@ -882,27 +897,36 @@ check_process_monitor(From, Name, Ref) when is_pid(From),
                                             is_reference(Ref) ->
     MonitoredPid = rpc:call(node(From), erlang, whereis, [Name]),
 
-    [#erl_monitor{type = ?MON_ORIGIN,
+    [#erl_monitor{type = process,
+                  dir = origin,
                   ref = Ref,
                   pid = MonitoredPid,
-                  name = Name}] = find_erl_monitor(From, Ref),
+                  extra = Name}] = find_erl_monitor(From, Ref),
 
 
-    [#erl_monitor{type = ?MON_TARGET,
+    [#erl_monitor{type = process,
+                  dir = target,
                   ref = Ref,
                   pid = From,
-                  name = Name}] = find_erl_monitor(MonitoredPid,Ref),
+                  extra = Name}] = find_erl_monitor(MonitoredPid,Ref),
     ok;
 check_process_monitor(From, To, Ref) when is_pid(From),
                                           is_pid(To),
                                           is_reference(Ref) ->
-    OriMon = [#erl_monitor{type = ?MON_ORIGIN,
+    MonType = case node(From) == node(To) of
+                  true -> process;
+                  false -> dist_process
+              end,
+
+    OriMon = [#erl_monitor{type = MonType,
+                           dir = origin,
                            ref = Ref,
                            pid = To}],
 
     OriMon = find_erl_monitor(From, Ref), 
 
-    TargMon = [#erl_monitor{type = ?MON_TARGET,
+    TargMon = [#erl_monitor{type = MonType,
+                            dir = target,
                             ref = Ref,
                             pid = From}],
     TargMon = find_erl_monitor(To, Ref),
@@ -910,7 +934,11 @@ check_process_monitor(From, To, Ref) when is_pid(From),
 
     case node(From) == node(To) of
         false ->
-            TargMon = find_erl_monitor({node(From), node(To)}, Ref),
+            DistTargMon = [#erl_monitor{type = dist_process,
+                                        dir = target,
+                                        ref = Ref,
+                                        pid = From}],
+            DistTargMon = find_erl_monitor({node(From), node(To)}, Ref),
             OriMon = find_erl_monitor({node(To), node(From)}, Ref);
         true ->
             [] = find_erl_monitor({node(From), node(From)}, Ref)
@@ -981,19 +1009,36 @@ check_process_demonitor(From, To, Ref) when is_pid(From),
     ok.
 
 no_of_monitor_node(From, Node) when is_pid(From), is_atom(Node) ->
-    length(find_erl_link(From, ?LINK_NODE, Node)).
+    case find_erl_monitor(From, Node) of
+        [] -> 0;
+        [#erl_monitor{type = node,
+                      dir = origin,
+                      pid = Node,
+                      extra = N}] -> N
+    end.
 
+check_monitor_node(From, Node, 0) when is_pid(From),
+                                        is_atom(Node) ->
+    [] = find_erl_monitor(From, Node),
+    [] = find_erl_monitor({node(From), Node}, From);
 check_monitor_node(From, Node, No) when is_pid(From),
                                         is_atom(Node),
                                         is_integer(No),
-                                        No >= 0 ->
-    LL = lists:duplicate(No, #erl_link{type = ?LINK_NODE, pid = Node}),
-    DLL = lists:duplicate(No, #erl_link{type = ?LINK_NODE, pid = From}),
-    LL = find_erl_link(From, ?LINK_NODE, Node),
-    DLL = find_erl_link({node(From), Node}, ?LINK_NODE, From),
-    ok.
+                                        No > 0 ->
+    [#erl_monitor{type = node,
+                  dir = origin,
+                  pid = Node,
+                  extra = No}] = find_erl_monitor(From, Node),
+    [#erl_monitor{type = node,
+                  dir = target,
+                  pid = From}] = find_erl_monitor({node(From), Node}, From).
 
-
+connection_id(Node) ->
+    try
+        erts_debug:get_internal_state({connection_id, Node})
+    catch
+        _:_ -> -1
+    end.
 
 hostname() ->
     from($@, atom_to_list(node())).
@@ -1048,42 +1093,45 @@ stop_node(Node) ->
 -define(DOP_DEMONITOR_P,	20).
 -define(DOP_MONITOR_P_EXIT,	21).
 
-dport_send(To, Msg) ->
-    Node = node(To),
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_SEND,
-                                  ?COOKIE,
-                                  To}),
-                        dmsg_ext(Msg)]).
+ensure_dctrl(Node) ->
+    case dctrl(Node) of
+        undefined ->
+            pong = net_adm:ping(Node),
+            dctrl(Node);
+        DCtrl ->
+            DCtrl
+    end.
 
-dport_reg_send(Node, Name, Msg) ->
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_REG_SEND,
-                                  self(),
-                                  ?COOKIE,
-                                  Name}),
-                        dmsg_ext(Msg)]).
+dctrl_send(DPrt, Data) when is_port(DPrt) ->
+    port_command(DPrt, Data);
+dctrl_send(DPid, Data) when is_pid(DPid) ->
+    Ref = make_ref(),
+    DPid ! {send, self(), Ref, Data},
+    receive {Ref, Res} -> Res end.
 
-dport(Node) when is_atom(Node) ->
+dctrl_dop_send(To, Msg) ->
+    dctrl_send(ensure_dctrl(node(To)),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SEND,
+                          ?COOKIE,
+                          To}),
+                dmsg_ext(Msg)]).
+
+dctrl_dop_reg_send(Node, Name, Msg) ->
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_REG_SEND,
+                          self(),
+                          ?COOKIE,
+                          Name}),
+                dmsg_ext(Msg)]).
+
+dctrl(Node) when is_atom(Node) ->
     case catch erts_debug:get_internal_state(available_internal_state) of
         true -> true;
         _ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
-    erts_debug:get_internal_state({dist_port, Node}).
+    erts_debug:get_internal_state({dist_ctrl, Node}).
 
 dmsg_hdr() ->
     [131, % Version Magic

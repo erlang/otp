@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,8 +33,9 @@
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
 	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1,
 	 map_field_lists/1,cover_bin_opt/1,
-	 val_dsetel/1]).
-	 
+	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
+         receive_stacked/1]).
+
 -include_lib("common_test/include/ct.hrl").
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
@@ -48,7 +49,6 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -61,9 +61,12 @@ groups() ->
        freg_state,bad_bin_match,bad_dsetel,
        state_after_fault_in_catch,no_exception_in_catch,
        undef_label,illegal_instruction,failing_gc_guard_bif,
-       map_field_lists,cover_bin_opt,val_dsetel]}].
+       map_field_lists,cover_bin_opt,val_dsetel,
+       bad_tuples,bad_try_catch_nesting,
+       receive_stacked]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -154,8 +157,8 @@ call_last(Config) when is_list(Config) ->
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,handle_call,2},
-      {{call_ext,2,{extfunc,debug,filter,2}},
-       22,
+      {{call_ext,1,{extfunc,erlang,exit,1}},
+       10,
        {uninitialized_reg,{y,0}}}}] = Errors,
     ok.
 
@@ -421,9 +424,9 @@ try_bin_opt(Mod) ->
     try
 	do_bin_opt(Mod)
     catch
-	Class:Error ->
+	Class:Error:Stk ->
 	    io:format("~p: ~p ~p\n~p\n",
-		      [Mod,Class,Error,erlang:get_stacktrace()]),
+		      [Mod,Class,Error,Stk]),
 	    error
     end.
 
@@ -446,7 +449,7 @@ do_bin_opt(Mod, Asm) ->
 do_bin_opt(Transform, Mod, Asm0) ->
     Asm = Transform(Asm0),
     case compile:forms(Asm, [from_asm,no_postopt,return]) of
-	{ok,[],Code,_Warnings} when is_binary(Code) ->
+	{ok,Mod,Code,_Warnings} when is_binary(Code) ->
 	    ok;
 	{error,Errors0,_} ->
 	    %% beam_validator must return errors, not simply crash,
@@ -508,6 +511,73 @@ destroy_reg({Tag,N}) ->
 	_ ->
 	    {y,N+1}
     end.
+
+bad_tuples(Config) ->
+    Errors = do_val(bad_tuples, Config),
+    [{{bad_tuples,heap_overflow,1},
+      {{put,{x,0}},8,{heap_overflow,{left,0},{wanted,1}}}},
+     {{bad_tuples,long,2},
+      {{put,{atom,too_long}},8,not_building_a_tuple}},
+     {{bad_tuples,self_referential,1},
+      {{put,{x,1}},7,{tuple_in_progress,{x,1}}}},
+     {{bad_tuples,short,1},
+      {{move,{x,1},{x,0}},7,{tuple_in_progress,{x,1}}}}] = Errors,
+
+    ok.
+
+bad_try_catch_nesting(Config) ->
+    Errors = do_val(bad_try_catch_nesting, Config),
+    [{{bad_try_catch_nesting,main,2},
+      {{'try',{y,2},{f,3}},
+       7,
+       {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
+    ok.
+
+receive_stacked(Config) ->
+    Mod = ?FUNCTION_NAME,
+    Errors = do_val(Mod, Config),
+    [{{receive_stacked,f1,0},
+      {{loop_rec_end,{f,3}},
+       17,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f2,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f3,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f4,0},
+      {{test_heap,3,0},10,{fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f5,0},
+      {{loop_rec_end,{f,23}},
+       23,
+       {fragile_message_reference,{y,1}}}},
+     {{receive_stacked,f6,0},
+      {{gc_bif,byte_size,{f,29},0,[{y,0}],{x,0}},
+       12,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f7,0},
+      {{loop_rec_end,{f,33}},
+       20,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,f8,0},
+      {{loop_rec_end,{f,38}},
+       20,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,m1,0},
+      {{loop_rec_end,{f,43}},
+       19,
+       {fragile_message_reference,{y,0}}}},
+     {{receive_stacked,m2,0},
+      {{loop_rec_end,{f,48}},
+       33,
+       {fragile_message_reference,{y,0}}}}] = Errors,
+
+    %% Compile the original source code as a smoke test.
+    Data = proplists:get_value(data_dir, Config),
+    Base = atom_to_list(Mod),
+    File = filename:join(Data, Base),
+    {ok,Mod,_} = compile:file(File, [binary]),
+
+    ok.
 
 %%%-------------------------------------------------------------------------
 

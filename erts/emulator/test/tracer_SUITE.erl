@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@
 -export([load/1, unload/1, reload/1, invalid_tracers/1]).
 -export([send/1, recv/1, call/1, call_return/1, spawn/1, exit/1,
          link/1, unlink/1, getting_linked/1, getting_unlinked/1,
-         register/1, unregister/1, in/1, out/1, gc_start/1, gc_end/1]).
+         register/1, unregister/1, in/1, out/1, gc_start/1, gc_end/1,
+         seq_trace/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
             {timetrap, {minutes, 1}}].
@@ -41,7 +42,8 @@ all() ->
 groups() ->
     [{ basic, [], [send, recv, call, call_return, spawn, exit,
                    link, unlink, getting_linked, getting_unlinked,
-                   register, unregister, in, out, gc_start, gc_end]}].
+                   register, unregister, in, out, gc_start, gc_end,
+                   seq_trace]}].
 
 init_per_suite(Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local]),
@@ -70,7 +72,7 @@ init_per_testcase(TC, Config) when TC =:= load; TC =:= reload ->
                                end
                        end),
     register(tracer_test_config, Pid),
-    Config;
+    common_init_per_testcase(Config);
 init_per_testcase(_, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     case catch tracer_test:enabled(trace_status, self(), self()) of
@@ -79,15 +81,51 @@ init_per_testcase(_, Config) ->
         _ ->
             tracer_test:load(DataDir)
     end,
+    common_init_per_testcase(Config).
+
+common_init_per_testcase(Config) ->
+    Killer = erlang:spawn(fun() -> killer_loop([]) end),
+    register(killer_process, Killer),
     Config.
 
 end_per_testcase(TC, _Config) when TC =:= load; TC =:= reload ->
     purge(),
     exit(whereis(tracer_test_config), kill),
-    ok;
+    kill_processes();
 end_per_testcase(_, _Config) ->
     purge(),
+    kill_processes().
+
+kill_processes() ->
+    killer_process ! {get_pids,self()},
+    receive
+        {pids_to_kill,Pids} -> ok
+    end,
+    _ = [begin
+             case erlang:is_process_alive(P) of
+                 true ->
+                     io:format("Killing ~p\n", [P]);
+                 false ->
+                     ok
+             end,
+             erlang:unlink(P),
+             exit(P, kill)
+         end || P <- Pids],
     ok.
+
+killer_loop(Pids) ->
+    receive
+        {add_pid,Pid} ->
+            killer_loop([Pid|Pids]);
+        {get_pids,To} ->
+            To ! {pids_to_kill,Pids}
+    end.
+
+kill_me(Pid) ->
+    killer_process ! {add_pid,Pid},
+    Pid.
+
+%%% Test cases follow.
 
 load(_Config) ->
     purge(),
@@ -112,7 +150,6 @@ unload(_Config) ->
                 end,
 
     Pid = erlang:spawn_link(fun() -> ServerFun(0, undefined) end),
-
 
     Tc = fun(N) ->
                  Pid ! {N, self()},
@@ -295,7 +332,7 @@ call_test(Arg) ->
 spawn(_Config) ->
 
     Tc = fun(Pid) ->
-                 Pid ! fun() -> erlang:spawn(lists,seq,[1,10]), ok end
+                 Pid ! fun() -> kill_me(erlang:spawn(lists,seq,[1,10])), ok end
          end,
 
     Expect =
@@ -355,6 +392,7 @@ unlink(_Config) ->
                                SPid = erlang:spawn(fun() -> receive _ -> ok end end),
                                erlang:link(SPid),
                                erlang:unlink(SPid),
+                               kill_me(SPid),
                                ok
                        end
          end,
@@ -547,6 +585,24 @@ gc_end(_Config) ->
 
     test(gc_major_end, garbage_collection, Tc, Expect, false).
 
+seq_trace(_Config) ->
+
+    seq_trace:set_system_tracer({tracer_test,
+                                 {#{ seq_trace => trace }, self(), []}}),
+    erlang:spawn(fun() ->
+                         seq_trace:set_token(label,17),
+                         seq_trace:set_token(print,true),
+                         seq_trace:print(17,"**** Trace Started ****")
+                 end),
+    receive
+        {seq_trace, _, 17, {print, _, _, _, _}, _} ->
+            ok;
+        M ->
+            ct:fail("~p~n",[M])
+    after 100 ->
+            ct:fail(timeout)
+    end.
+
 test(Event, Tc, Expect) ->
     test(Event, Tc, Expect, false).
 test(Event, Tc, Expect, Removes) ->
@@ -567,7 +623,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
 
     Expect(Pid1, State1, Opts),
     receive M11 -> ct:fail({unexpected, M11}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [TraceFlag]} = erlang:trace_info(Pid1, flags),
             {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1, tracer),
             erlang:trace(Pid1, false, [TraceFlag]);
@@ -584,7 +640,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     Expect(Pid1T, State1, Opts#{ scheduler_id => number,
                                  timestamp => timestamp}),
     receive M11T -> ct:fail({unexpected, M11T}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [scheduler_id, TraceFlag, timestamp]}
                 = erlang:trace_info(Pid1T, flags),
             {tracer, {tracer_test, State1}} = erlang:trace_info(Pid1T, tracer),
@@ -599,7 +655,7 @@ test(Event, TraceFlag, Tc, Expect, _Removes, Dies) ->
     Tc(Pid2),
     ok = trace_delivered(Pid2),
     receive M2 -> ct:fail({unexpected, M2}) after 0 -> ok end,
-    if not Dies ->
+    if not Dies andalso Event /= in ->
             {flags, [TraceFlag]} = erlang:trace_info(Pid2, flags),
             {tracer, {tracer_test, State2}} = erlang:trace_info(Pid2, tracer),
             erlang:trace(Pid2, false, [TraceFlag]);

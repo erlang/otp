@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -317,6 +317,32 @@
     </func>
 
     <func>
+      <name name="rfc3339_to_system_time" arity="1"/>
+      <name name="rfc3339_to_system_time" arity="2"/>
+      <fsummary>Convert from RFC 3339 timestamp to system time.</fsummary>
+      <type name="rfc3339_string"/>
+      <type name="rfc3339_time_unit"/>
+      <desc>
+        <p>Converts an RFC 3339 timestamp into system time. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.</p>
+	<p>Valid option:</p>
+	<taglist>
+	  <tag><c>{unit, Unit}</c></tag>
+	  <item><p>The time unit of the return value.
+	    The default is <c>second</c>.</p>
+	  </item>
+	</taglist>
+        <pre>
+1> <input>calendar:rfc3339_to_system_time("2018-02-01T16:17:58+01:00").</input>
+1517498278
+2> <input>calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
+   [{unit, nanosecond}]).</input>
+1517498282088000000</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="seconds_to_daystime" arity="1"/>
       <fsummary>Compute days and time from seconds.</fsummary>
       <desc>
@@ -335,6 +361,75 @@
         <p>Computes the time from the specified number of seconds.
           <c><anno>Seconds</anno></c> must be less than the number of
           seconds per day (86400).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_local_time" arity="2"/>
+      <fsummary>Convert system time to local date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into local date and time.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_rfc3339" arity="1"/>
+      <name name="system_time_to_rfc3339" arity="2"/>
+      <fsummary>Convert from system to RFC 3339 timestamp.</fsummary>
+      <type name="offset"/>
+      <type name="rfc3339_string"/>
+      <type name="rfc3339_time_unit"/>
+      <desc>
+        <p>Converts a system time into an RFC 3339 timestamp. The data format
+          of RFC 3339 timestamps is described by
+          <url href="https://www.ietf.org/rfc/rfc3339.txt">RFC 3339</url>.
+	  The data format of offsets is also described by RFC 3339.</p>
+	<p>Valid options:</p>
+	<taglist>
+	  <tag><c>{offset, Offset}</c></tag>
+	  <item><p>The offset, either a string or an integer, to be
+	    included in the formatted string.
+	    An empty string, which is the default, is interpreted
+	    as local time. A non-empty string is included as is.
+	    The time unit of the integer is the same as the one
+	    of <c><anno>Time</anno></c>.</p>
+	  </item>
+	  <tag><c>{time_designator, Character}</c></tag>
+	  <item><p>The character used as time designator, that is,
+	    the date and time separator. The default is <c>$T</c>.</p>
+	  </item>
+	  <tag><c>{unit, Unit}</c></tag>
+	  <item><p>The time unit of <c><anno>Time</anno></c>. The
+	    default is <c>second</c>. If some other unit is given
+	    (<c>millisecond</c>, <c>microsecond</c>, or
+	    <c>nanosecond</c>), the formatted string includes a
+	    fraction of a second. The number of fractional second
+	    digits is three, six, or nine depending on what time unit
+	    is chosen. Notice that trailing zeros are not removed from
+	    the fraction.
+            </p>
+	  </item>
+	</taglist>
+        <pre>
+1> <input>calendar:system_time_to_rfc3339(erlang:system_time(second)).</input>
+"2018-04-23T14:56:28+02:00"
+2> <input>calendar:system_time_to_rfc3339(erlang:system_time(second),
+   [{offset, "-02:00"}]).</input>
+"2018-04-23T10:56:52-02:00"
+3> <input>calendar:system_time_to_rfc3339(erlang:system_time(second),
+   [{offset, -7200}]).</input>
+"2018-04-23T10:57:05-02:00"
+4> <input>calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
+   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).</input>
+"2018-04-23 12:57:20.482Z"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="system_time_to_universal_time" arity="2"/>
+      <fsummary>Convert system time to universal date and time.</fsummary>
+      <desc>
+	<p>Converts a specified system time into universal date and time.</p>
       </desc>
     </func>
 

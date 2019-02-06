@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -428,13 +428,14 @@ stop() ->
     ok = wrap_log_test:stop(),
     dl_wait().
 
-%% Give disk logs opened by 'logger' and 'wlt' time to close after
+%% Give disk logs opened by 'wlr_logger' and 'wlt' time to close after
 %% receiving EXIT signals.
 dl_wait() ->
     case disk_log:accessible_logs() of
         {[], []} ->
             ok;
-        _ ->
+        _X ->
+            erlang:display(_X),
             timer:sleep(100),
             dl_wait()
     end.
@@ -507,27 +508,27 @@ add_ext(Name, Ext) ->
 
 %% disk_log.
 open(Log, File, Where) ->
-    logger ! {open, self(), Log, File},
+    wlr_logger ! {open, self(), Log, File},
     rec1(ok, Where).
 
 open_ext(Log, File, Where) ->
-    logger ! {open_ext, self(), Log, File},
+    wlr_logger ! {open_ext, self(), Log, File},
     rec1(ok, Where).
 
 close(Log) ->
-    logger ! {close, self(), Log},
+    wlr_logger ! {close, self(), Log},
     rec(ok, ?LINE).
 
 sync(Log) ->
-    logger ! {sync, self(), Log},
+    wlr_logger ! {sync, self(), Log},
     rec(ok, ?LINE).
 
 log_terms(File, Terms) ->
-    logger ! {log_terms, self(), File, Terms},
+    wlr_logger ! {log_terms, self(), File, Terms},
     rec(ok, ?LINE).
 
 blog_terms(File, Terms) ->
-    logger ! {blog_terms, self(), File, Terms},
+    wlr_logger ! {blog_terms, self(), File, Terms},
     rec(ok, ?LINE).
 
 rec1(M, Where) ->

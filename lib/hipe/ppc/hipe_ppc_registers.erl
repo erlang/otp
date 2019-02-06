@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_registers).
 
@@ -201,6 +194,8 @@ is_arg(R) ->
     _ -> false
   end.
 
+%% Note: the fact that allocatable_gpr() is a subset of call_clobbered() is
+%% hard-coded in hipe_ppc_defuse:insn_defs_all_gpr/1
 call_clobbered() ->		% does the RA strip the type or not?
   [{?R0,tagged},{?R0,untagged},
    %% R1 is reserved for C

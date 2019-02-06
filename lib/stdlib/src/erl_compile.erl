@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -181,13 +181,15 @@ parse_generic_option("P", T, #options{specific=Spec}=Opts) ->
 parse_generic_option("S", T, #options{specific=Spec}=Opts) ->
     compile1(T, Opts#options{specific=['S'|Spec]});
 parse_generic_option(Option, _T, _Opts) ->
-    io:format(?STDERR, "Unknown option: -~s\n", [Option]),
+    io:format(?STDERR, "Unknown option: -~ts\n", [Option]),
     usage().
 
 parse_dep_option("", T) ->
     {[makedep,{makedep_output,standard_io}],T};
 parse_dep_option("D", T) ->
     {[makedep],T};
+parse_dep_option("MD", T) ->
+    {[makedep_side_effect],T};
 parse_dep_option("F"++Opt, T0) ->
     {File,T} = get_option("MF", Opt, T0),
     {[makedep,{makedep_output,File}],T};
@@ -202,7 +204,7 @@ parse_dep_option("T"++Opt, T0) ->
     {Target,T} = get_option("MT", Opt, T0),
     {[{makedep_target,Target}],T};
 parse_dep_option(Opt, _T) ->
-    io:format(?STDERR, "Unknown option: -M~s\n", [Opt]),
+    io:format(?STDERR, "Unknown option: -M~ts\n", [Opt]),
     usage().
 
 usage() ->
@@ -221,6 +223,7 @@ usage() ->
 	  "the dependencies"},
 	 {"-MP","add a phony target for each dependency"},
 	 {"-MD","same as -M -MT file (with default 'file')"},
+	 {"-MMD","generate dependencies as a side-effect"},
 	 {"-o name","name output directory or file"},
 	 {"-pa path","add path to the front of Erlang's code path"},
 	 {"-pz path","add path to the end of Erlang's code path"},
@@ -337,7 +340,7 @@ file_or_directory(Name) ->
 make_term(Str) -> 
     case erl_scan:string(Str) of
 	{ok, Tokens, _} ->		  
-	    case erl_parse:parse_term(Tokens ++ [{dot, 1}]) of
+	    case erl_parse:parse_term(Tokens ++ [{dot, erl_anno:new(1)}]) of
 		{ok, Term} -> Term;
 		{error, {_,_,Reason}} ->
 		    io:format(?STDERR, "~ts: ~ts~n", [Reason, Str]),

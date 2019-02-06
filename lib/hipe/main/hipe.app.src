@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@
 	     cerl_closurean,
 	     cerl_hipeify,
 	     cerl_lib,
-	     cerl_messagean,
 	     cerl_pmatch,
 	     cerl_prettypr,
 	     cerl_to_icode,
@@ -49,12 +48,13 @@
 	     hipe_amd64_ra_naive,
 	     hipe_amd64_ra_postconditions,
 	     hipe_amd64_ra_sse2_postconditions,
-	     hipe_amd64_ra_x87_ls,
 	     hipe_amd64_registers,
 	     hipe_amd64_specific,
 	     hipe_amd64_specific_sse2,
 	     hipe_amd64_specific_x87,
 	     hipe_amd64_spill_restore,
+	     hipe_amd64_sse2,
+	     hipe_amd64_subst,
 	     hipe_amd64_x87,
 	     hipe_arm,
 	     hipe_arm_assemble,
@@ -73,7 +73,9 @@
 	     hipe_arm_ra_postconditions,
 	     hipe_arm_registers,
 	     hipe_arm_specific,
+	     hipe_arm_subst,
 	     hipe_bb,
+	     hipe_bb_weights,
 	     hipe_beam_to_icode,
 	     hipe_coalescing_regalloc,
 	     hipe_consttab,
@@ -81,6 +83,7 @@
 	     hipe_digraph,
 	     hipe_dominators,
 	     hipe_dot,
+	     hipe_dsets,
 	     hipe_gen_cfg,
 	     hipe_gensym,
 	     hipe_graph_coloring_regalloc,
@@ -142,9 +145,13 @@
 	     hipe_ppc_registers,
 	     hipe_ppc_specific,
 	     hipe_ppc_specific_fp,
+	     hipe_ppc_subst,
 	     hipe_profile,
+	     hipe_range_split,
 	     hipe_reg_worklists,
 	     hipe_regalloc_loop,
+	     hipe_regalloc_prepass,
+	     hipe_restore_reuse,
 	     hipe_rtl,
 	     hipe_rtl_arch,
 	     hipe_rtl_arith_32,
@@ -171,6 +178,8 @@
 	     hipe_rtl_to_sparc,
 	     hipe_rtl_to_x86,
 	     hipe_rtl_varmap,
+	     hipe_rtl_verify_gcsafe,
+	     hipe_segment_trees,
 	     hipe_sdi,
 	     hipe_sparc,
 	     hipe_sparc_assemble,
@@ -193,6 +202,7 @@
 	     hipe_sparc_registers,
 	     hipe_sparc_specific,
 	     hipe_sparc_specific_fp,
+	     hipe_sparc_subst,
 	     hipe_spillcost,
 	     hipe_spillmin,
 	     hipe_spillmin_color,
@@ -216,14 +226,14 @@
 	     hipe_x86_ra_ls,
 	     hipe_x86_ra_naive,
 	     hipe_x86_ra_postconditions,
-	     hipe_x86_ra_x87_ls,
 	     hipe_x86_registers,
 	     hipe_x86_specific,
 	     hipe_x86_specific_x87,
 	     hipe_x86_spill_restore,
+	     hipe_x86_subst,
 	     hipe_x86_x87]},
   {registered,[]},
   {applications, [kernel,stdlib]},
   {env, []},
-  {runtime_dependencies, ["syntax_tools-1.6.14","stdlib-2.5","kernel-3.0",
-			  "erts-7.1","compiler-5.0"]}]}.
+  {runtime_dependencies, ["syntax_tools-1.6.14","stdlib-3.4","kernel-5.3",
+			  "erts-9.3","compiler-5.0"]}]}.

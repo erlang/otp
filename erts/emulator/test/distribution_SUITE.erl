@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 
 -module(distribution_SUITE).
--compile(r15).
+-compile(r16).
 
 -define(VERSION_MAGIC,       131).
 
@@ -35,20 +35,25 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+%-define(Line, erlang:display({line,?LINE}),).
+-define(Line,).
+
 -export([all/0, suite/0, groups/0,
          ping/1, bulk_send_small/1,
+         group_leader/1,
+         optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
          local_send_legal/1, link_to_busy/1, exit_to_busy/1,
          lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
-         applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
+         ref_port_roundtrip/1, nil_roundtrip/1,
          trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
          stop_dist/1,
          dist_auto_connect_never/1, dist_auto_connect_once/1,
          dist_parallel_send/1,
          atom_roundtrip/1,
          unicode_atom_roundtrip/1,
-         atom_roundtrip_r15b/1,
+         atom_roundtrip_r16b/1,
          contended_atom_cache_entry/1,
          contended_unicode_atom_cache_entry/1,
          bad_dist_structure/1,
@@ -56,17 +61,19 @@
          bad_dist_ext_process_info/1,
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
+         bad_dist_ext_size/1,
 	 start_epmd_false/1, epmd_module/1]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
+         group_leader_1/1,
+         optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
-         dist_evil_parallel_receiver/0,
-         sendersender/4, sendersender2/4]).
+         dist_evil_parallel_receiver/0]).
 
 %% epmd_module exports
--export([start_link/0, register_node/2, register_node/3, port_please/2]).
+-export([start_link/0, register_node/2, register_node/3, port_please/2, address_please/3]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -74,11 +81,14 @@ suite() ->
 
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
+     group_leader,
+     optimistic_dflags,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
-     link_to_dead_new_node, applied_monitor_node,
+     link_to_dead_new_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
-     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip, atom_roundtrip_r15b,
+     dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
+     atom_roundtrip_r16b,
      contended_atom_cache_entry, contended_unicode_atom_cache_entry,
      bad_dist_structure, {group, bad_dist_ext},
      start_epmd_false, epmd_module].
@@ -92,6 +102,7 @@ groups() ->
       [dist_auto_connect_never, dist_auto_connect_once]},
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
+       bad_dist_ext_size,
        bad_dist_ext_control, bad_dist_ext_connection_id]}].
 
 %% Tests pinging a node in different ways.
@@ -122,14 +133,101 @@ ping(Config) when is_list(Config) ->
 
     ok.
 
+%% Test erlang:group_leader(_, ExternalPid), i.e. DOP_GROUP_LEADER
+group_leader(Config) when is_list(Config) ->
+    ?Line Sock = start_relay_node(group_leader_1, []),
+    ?Line Sock2 = start_relay_node(group_leader_2, []),
+    try
+        ?Line Node2 = inet_rpc_nodename(Sock2),
+        ?Line {ok, ok} = do_inet_rpc(Sock, ?MODULE, group_leader_1, [Node2])
+    after
+        ?Line stop_relay_node(Sock),
+        ?Line stop_relay_node(Sock2)
+    end,
+    ok.
+
+group_leader_1(Node2) ->
+    ?Line ExtPid = spawn(Node2, fun F() ->
+                                        receive {From, group_leader} ->
+                                                From ! {self(), group_leader, group_leader()}
+                                        end,
+                                        F()
+                                end),
+    ?Line GL1 = self(),
+    ?Line group_leader(GL1, ExtPid),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL1} = receive_one(),
+
+    %% Kill connection and repeat test when group_leader/2 triggers auto-connect
+    ?Line net_kernel:monitor_nodes(true),
+    ?Line net_kernel:disconnect(Node2),
+    ?Line {nodedown, Node2} = receive_one(),
+    ?Line GL2 = spawn(fun() -> dummy end),
+    ?Line group_leader(GL2, ExtPid),
+    ?Line {nodeup, Node2} = receive_one(),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL2} = receive_one(),
+    ok.
+
+%% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
+optimistic_dflags(Config) when is_list(Config) ->
+    ?Line Sender = start_relay_node(optimistic_dflags_sender, []),
+    ?Line Echo = start_relay_node(optimistic_dflags_echo, []),
+    try
+        ?Line {ok, ok} = do_inet_rpc(Echo, ?MODULE, optimistic_dflags_echo, []),
+
+        ?Line EchoNode = inet_rpc_nodename(Echo),
+        ?Line {ok, ok} = do_inet_rpc(Sender, ?MODULE, optimistic_dflags_sender, [EchoNode])
+    after
+        ?Line stop_relay_node(Sender),
+        ?Line stop_relay_node(Echo)
+    end,
+    ok.
+
+optimistic_dflags_echo() ->
+    P = spawn(fun F() ->
+                      receive {From, Term} ->
+                              From ! {self(), Term}
+                      end,
+                      F()
+              end),
+    register(optimistic_dflags_echo, P),
+    optimistic_dflags_echo ! {self(), hello},
+    {P, hello} = receive_one(),
+    ok.
+
+optimistic_dflags_sender(EchoNode) ->
+    ?Line net_kernel:monitor_nodes(true),
+
+    optimistic_dflags_do(EchoNode, <<1:1>>),
+    optimistic_dflags_do(EchoNode, fun lists:map/2),
+    ok.
+
+optimistic_dflags_do(EchoNode, Term) ->
+    ?Line {optimistic_dflags_echo, EchoNode} ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+    %% repeat with pid destination
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ?Line EchoPid ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ok.
+
+
+receive_one() ->
+    receive M -> M after 1000 -> timeout end.
+
+
 bulk_send_small(Config) when is_list(Config) ->
     bulk_send(64, 32).
 
 bulk_send_big(Config) when is_list(Config) ->
     bulk_send(32, 64).
-
-bulk_send_bigbig(Config) when is_list(Config) ->
-    bulk_sendsend(32*5, 4).
 
 bulk_send(Terms, BinSize) ->
     ct:timetrap({seconds, 30}),
@@ -137,67 +235,12 @@ bulk_send(Terms, BinSize) ->
     io:format("Sending ~w binaries, each of size ~w K", [Terms, BinSize]),
     {ok, Node} = start_node(bulk_receiver),
     Recv = spawn(Node, erlang, apply, [fun receiver/2, [0, 0]]),
-    Bin = list_to_binary(lists:duplicate(BinSize*1024, 253)),
+    Bin = binary:copy(<<253>>, BinSize*1024),
     Size = Terms*size(Bin),
     {Elapsed, {Terms, Size}} = test_server:timecall(?MODULE, sender,
                                                     [Recv, Bin, Terms]),
     stop_node(Node),
-    {comment, integer_to_list(trunc(Size/1024/max(1,Elapsed)+0.5)) ++ " K/s"}.
-
-bulk_sendsend(Terms, BinSize) ->
-    {Rate1, MonitorCount1} = bulk_sendsend2(Terms, BinSize,   5),
-    {Rate2, MonitorCount2} = bulk_sendsend2(Terms, BinSize, 995),
-    Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
-               true               -> MonitorCount1 / MonitorCount2
-            end,
-    Comment = integer_to_list(Rate1) ++ " K/s, " ++
-    integer_to_list(Rate2) ++ " K/s, " ++
-    integer_to_list(MonitorCount1) ++ " monitor msgs, " ++
-    integer_to_list(MonitorCount2) ++ " monitor msgs, " ++
-    float_to_list(Ratio) ++ " monitor ratio",
-    if
-        %% A somewhat arbitrary ratio, but hopefully one that will
-        %% accommodate a wide range of CPU speeds.
-        Ratio > 8.0 ->
-            {comment,Comment};
-        true ->
-            io:put_chars(Comment),
-            ct:fail(ratio_too_low)
-    end.
-
-bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
-    ct:timetrap({seconds, 30}),
-
-    io:format("Sending ~w binaries, each of size ~w K",
-              [Terms, BinSize]),
-    {ok, NodeRecv} = start_node(bulk_receiver),
-    Recv = spawn(NodeRecv, erlang, apply, [fun receiver/2, [0, 0]]),
-    Bin = list_to_binary(lists:duplicate(BinSize*1024, 253)),
-    %%Size = Terms*size(Bin),
-
-    %% SLF LEFT OFF HERE.
-    %% When the caller uses small hunks, like 4k via
-    %% bulk_sendsend(32*5, 4), then (on my laptop at least), we get
-    %% zero monitor messages.  But if we use "+zdbbl 5", then we
-    %% get a lot of monitor messages.  So, if we can count up the
-    %% total number of monitor messages that we get when running both
-    %% default busy size and "+zdbbl 5", and if the 5 case gets
-    %% "many many more" monitor messages, then we know we're working.
-
-    {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
-    _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
-    {Elapsed, {_TermsN, SizeN}, MonitorCount} =
-    receive
-        %% On some platforms (windows), the time taken is 0 so we
-        %% simulate that some little time has passed.
-        {sendersender, {0.0,T,MC}} ->
-            {0.0015, T, MC};
-        {sendersender, BigRes} ->
-            BigRes
-    end,
-    stop_node(NodeRecv),
-    stop_node(NodeSend),
-    {trunc(SizeN/1024/Elapsed+0.5), MonitorCount}.
+    {comment, integer_to_list(round(Size/1024/max(1,Elapsed))) ++ " K/s"}.
 
 sender(To, _Bin, 0) ->
     To ! {done, self()},
@@ -209,49 +252,96 @@ sender(To, Bin, Left) ->
     To ! {term, Bin},
     sender(To, Bin, Left-1).
 
+bulk_send_bigbig(Config) when is_list(Config) ->
+    Terms = 32*5,
+    BinSize = 4,
+    {Rate1, MonitorCount1} = bulk_sendsend2(Terms, BinSize,   5),
+    {Rate2, MonitorCount2} = bulk_sendsend2(Terms, BinSize, 995),
+    Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
+               true               -> MonitorCount1 / MonitorCount2
+            end,
+    Comment0 = io_lib:format("~p K/s, ~p K/s, "
+                             "~p monitor msgs, ~p monitor msgs, "
+                             "~.1f monitor ratio",
+                             [Rate1,Rate2,MonitorCount1,
+                              MonitorCount2,Ratio]),
+    Comment = lists:flatten(Comment0),
+    {comment,Comment}.
+
+bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
+    ct:timetrap({seconds, 30}),
+
+    io:format("\nSending ~w binaries, each of size ~w K",
+              [Terms, BinSize]),
+    {ok, NodeRecv} = start_node(bulk_receiver),
+    Recv = spawn(NodeRecv, erlang, apply, [fun receiver/2, [0, 0]]),
+    Bin = binary:copy(<<253>>, BinSize*1024),
+
+    %% SLF LEFT OFF HERE.
+    %% When the caller uses small hunks, like 4k via
+    %% bulk_sendsend(32*5, 4), then (on my laptop at least), we get
+    %% zero monitor messages.  But if we use "+zdbbl 5", then we
+    %% get a lot of monitor messages.  So, if we can count up the
+    %% total number of monitor messages that we get when running both
+    %% default busy size and "+zdbbl 5", and if the 5 case gets
+    %% "many many more" monitor messages, then we know we're working.
+
+    {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++
+                                    integer_to_list(BusyBufSize)),
+    _Send = spawn(NodeSend, erlang, apply,
+                  [fun sendersender/4, [self(), Recv, Bin, Terms]]),
+    {Elapsed, {_TermsN, SizeN}, MonitorCount} =
+        receive
+            %% On some platforms (Windows), the time taken is 0 so we
+            %% simulate that some little time has passed.
+            {sendersender, {0.0,T,MC}} ->
+                {0.0015, T, MC};
+            {sendersender, BigRes} ->
+                BigRes
+        end,
+    stop_node(NodeRecv),
+    stop_node(NodeSend),
+    {round(SizeN/1024/Elapsed), MonitorCount}.
+
 %% Sender process to be run on a slave node
 
 sendersender(Parent, To, Bin, Left) ->
     erlang:system_monitor(self(), [busy_dist_port]),
-    [spawn(fun() -> sendersender2(To, Bin, Left, false) end) ||
-     _ <- lists:seq(1,1)],
+    _ = spawn(fun() ->
+                      sendersender_send(To, Bin, Left),
+                      exit(normal)
+              end),
     {USec, {Res, MonitorCount}} =
-    timer:tc(?MODULE, sendersender2, [To, Bin, Left, true]),
+        timer:tc(fun() ->
+                         sendersender_send(To, Bin, Left),
+                         To ! {done, self()},
+                         count_monitors(0)
+                 end),
     Parent ! {sendersender, {USec/1000000, Res, MonitorCount}}.
 
-sendersender2(To, Bin, Left, SendDone) ->
-    sendersender3(To, Bin, Left, SendDone, 0).
+sendersender_send(_To, _Bin, 0) ->
+    ok;
+sendersender_send(To, Bin, Left) ->
+    To ! {term, Bin},
+    sendersender_send(To, Bin, Left-1).
 
-sendersender3(To, _Bin, 0, SendDone, MonitorCount) ->
-    if SendDone ->
-           To ! {done, self()};
-       true ->
-           ok
-    end,
+count_monitors(MonitorCount) ->
     receive
         {monitor, _Pid, _Type, _Info} ->
-            sendersender3(To, _Bin, 0, SendDone, MonitorCount + 1)
+            count_monitors(MonitorCount + 1)
     after 0 ->
-              if SendDone ->
-                     receive
-                         Any when is_tuple(Any), size(Any) == 2 ->
-                             {Any, MonitorCount}
-                     end;
-                 true ->
-                     exit(normal)
-              end
-    end;
-sendersender3(To, Bin, Left, SendDone, MonitorCount) ->
-    To ! {term, Bin},
-    %%timer:sleep(50),
-    sendersender3(To, Bin, Left-1, SendDone, MonitorCount).
+            receive
+                {_,_}=Any ->
+                    {Any,MonitorCount}
+            end
+    end.
 
 %% Receiver process to be run on a slave node.
 
 receiver(Terms, Size) ->
     receive
         {term, Bin} ->
-            receiver(Terms+1, Size+size(Bin));
+            receiver(Terms+1, Size+byte_size(Bin));
         {done, ReplyTo} ->
             ReplyTo ! {Terms, Size}
     end.
@@ -429,18 +519,20 @@ make_busy(Node, Time) when is_integer(Time) ->
     Own = 500,
     freeze_node(Node, Time+Own),
     Data = make_busy_data(),
+    DCtrl = dctrl(Node),
     %% first make port busy
     Pid = spawn_link(fun () ->
                              forever(fun () ->
-                                             dport_reg_send(Node,
-                                                            '__noone__',
-                                                            Data)
+                                             dctrl_dop_reg_send(Node,
+                                                                '__noone__',
+                                                                Data)
                                      end)
                      end),
     receive after Own -> ok end,
     until(fun () ->
-                  case process_info(Pid, status) of
-                      {status, suspended} -> true;
+                  case {DCtrl, process_info(Pid, status)} of
+                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
+                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
                       _ -> false
                   end
           end),
@@ -646,31 +738,11 @@ link_to_dead_new_node(Config) when is_list(Config) ->
     end,
     ok.
 
-%% Test that monitor_node/2 works when applied.
-applied_monitor_node(Config) when is_list(Config) ->
-    NonExisting = list_to_atom("__non_existing__@" ++ hostname()),
-
-    %% Tail-recursive call to apply (since the node is non-existing,
-    %% there will be a trap).
-
-    true = tail_apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    %% Ordinary call (with trap).
-
-    true = apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    ok.
-
-tail_apply(M, F, A) ->
-    apply(M, F, A).
-
 %% Test that sending a port or reference to another node and back again
 %% doesn't correct them in any way.
 ref_port_roundtrip(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    Port = open_port({spawn, efile}, []),
+    Port = make_port(),
     Ref = make_ref(),
     {ok, Node} = start_node(ref_port_roundtrip),
     net_adm:ping(Node),
@@ -690,6 +762,9 @@ ref_port_roundtrip(Config) when is_list(Config) ->
               ct:fail(timeout)
     end,
     ok.
+
+make_port() ->
+    hd(erlang:ports()).
 
 roundtrip(Term) ->
     exit(Term).
@@ -722,7 +797,7 @@ show_term(Term) ->
 
 %% Tests behaviour after net_kernel:stop (OTP-2586).
 stop_dist(Config) when is_list(Config) ->
-    Str = os:cmd(atom_to_list(lib:progname())
+    Str = os:cmd(ct:get_progname()
                  ++ " -noshell -pa "
                  ++ proplists:get_value(data_dir, Config)
                  ++ " -s run"),
@@ -793,8 +868,8 @@ dist_auto_connect_once(Config) when is_list(Config) ->
     {ok, pong} = do_inet_rpc(Sock2,net_adm,ping,[NN]),
     {ok,[NN2]} = do_inet_rpc(Sock,erlang,nodes,[]),
     {ok,[NN]} = do_inet_rpc(Sock2,erlang,nodes,[]),
-    [_,HostPartPeer] = string:tokens(atom_to_list(NN),"@"),
-    [_,MyHostPart] = string:tokens(atom_to_list(node()),"@"),
+    [_,HostPartPeer] = string:lexemes(atom_to_list(NN),"@"),
+    [_,MyHostPart] = string:lexemes(atom_to_list(node()),"@"),
     % Give net_kernel a chance to change the state of the node to up to.
     receive after 1000 -> ok end,
     case HostPartPeer of
@@ -899,9 +974,9 @@ dist_auto_connect_start(Name, Value) when is_list(Name), is_atom(Value) ->
     ModuleDir = filename:dirname(code:which(?MODULE)),
     ValueStr = atom_to_list(Value),
     Cookie = atom_to_list(erlang:get_cookie()),
-    Cmd = lists:concat(
+    Cmd = lists:append(
             [%"xterm -e ",
-             atom_to_list(lib:progname()),
+             ct:get_progname(),
              %	     " -noinput ",
              " -detached ",
              long_or_short(), " ", Name,
@@ -1032,21 +1107,21 @@ atom_roundtrip(Config) when is_list(Config) ->
     stop_node(Node),
     ok.
 
-atom_roundtrip_r15b(Config) when is_list(Config) ->
-    case test_server:is_release_available("r15b") of
+atom_roundtrip_r16b(Config) when is_list(Config) ->
+    case test_server:is_release_available("r16b") of
         true ->
             ct:timetrap({minutes, 6}),
-            AtomData = atom_data(),
+            AtomData = unicode_atom_data(),
             verify_atom_data(AtomData),
-            case start_node(Config, [], "r15b") of
+            case start_node(Config, [], "r16b") of
                 {ok, Node} ->
                     do_atom_roundtrip(Node, AtomData),
                     stop_node(Node);
                 {error, timeout} ->
-                    {skip,"Unable to start OTP R15B release"}
+                    {skip,"Unable to start OTP R16B release"}
             end;
         false ->
-            {skip,"No OTP R15B available"}
+            {skip,"No OTP R16B available"}
     end.
 
 unicode_atom_roundtrip(Config) when is_list(Config) ->
@@ -1165,8 +1240,6 @@ contended_atom_cache_entry_test(Config, Type) ->
     spawn_link(
       SNode,
       fun () ->
-              erts_debug:set_internal_state(available_internal_state,
-                                            true),
               Master = self(),
               CIX = get_cix(),
               TestAtoms = case Type of
@@ -1251,7 +1324,7 @@ get_cix(CIX) when is_integer(CIX), CIX < 0 ->
 get_cix(CIX) when is_integer(CIX) ->
     get_cix(CIX,
             unwanted_cixs(),
-            erts_debug:get_internal_state(max_atom_out_cache_index)).
+            get_internal_state(max_atom_out_cache_index)).
 
 get_cix(CIX, Unwanted, MaxCIX) when CIX > MaxCIX ->
     get_cix(0, Unwanted, MaxCIX);
@@ -1263,8 +1336,8 @@ get_cix(CIX, Unwanted, MaxCIX) ->
 
 unwanted_cixs() ->
     lists:map(fun (Node) ->
-                      erts_debug:get_internal_state({atom_out_cache_index,
-                                                     Node})
+                      get_internal_state({atom_out_cache_index,
+                                          Node})
               end,
               nodes()).
 
@@ -1273,7 +1346,7 @@ get_conflicting_atoms(_CIX, 0) ->
     [];
 get_conflicting_atoms(CIX, N) ->
     Atom = list_to_atom("atom" ++ integer_to_list(erlang:unique_integer([positive]))),
-    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+    case get_internal_state({atom_out_cache_index, Atom}) of
         CIX ->
             [Atom|get_conflicting_atoms(CIX, N-1)];
         _ ->
@@ -1284,7 +1357,7 @@ get_conflicting_unicode_atoms(_CIX, 0) ->
     [];
 get_conflicting_unicode_atoms(CIX, N) ->
     Atom = string_to_atom([16#1f608] ++ "atom" ++ integer_to_list(erlang:unique_integer([positive]))),
-    case erts_debug:get_internal_state({atom_out_cache_index, Atom}) of
+    case get_internal_state({atom_out_cache_index, Atom}) of
         CIX ->
             [Atom|get_conflicting_unicode_atoms(CIX, N-1)];
         _ ->
@@ -1372,81 +1445,59 @@ bad_dist_structure(Config) when is_list(Config) ->
     start_monitor(Offender,P),
     P ! one,
     send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P_EXIT,'replace',P,normal,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_LINK},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,'replace'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,'replace',make_ref()},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,make_ref(),P},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_link(Offender,P),
     send_bad_structure(Offender, P,{?DOP_UNLINK,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_MONITOR_P,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     start_monitor(Offender,P),
     send_bad_structure(Offender, P,{?DOP_DEMONITOR_P,'replace',P,normal},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+
     send_bad_structure(Offender, P,{?DOP_EXIT,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT,make_ref(),normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT_TT,'replace',token,P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT_TT,make_ref(),token,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2,'replace',P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2,make_ref(),normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2_TT,'replace',token,P},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_EXIT2_TT,make_ref(),token,normal,normal},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace','atomic'},2),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_GROUP_LEADER,'replace',P},0),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND_TT,'replace','',name,token},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace',''},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',P},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_REG_SEND,'replace','',name,{token}},2,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND_TT,'',P},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND_TT,'',name,token},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,''},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,'',name},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     send_bad_structure(Offender, P,{?DOP_SEND,'',P,{token}},0,{message}),
-    pong = rpc:call(Victim, net_adm, ping, [Offender]),
     P ! two,
     P ! check_msgs,
     receive
@@ -1683,6 +1734,61 @@ bad_dist_ext_connection_id(Config) when is_list(Config) ->
     stop_node(Offender),
     stop_node(Victim).
 
+%% OTP-14661: Bad message is discovered by erts_msg_attached_data_size
+bad_dist_ext_size(Config) when is_list(Config) ->
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
+    %%Prog = "Prog=/home/uabseri/src/otp_new3/bin/cerl -rr -debug",
+    Prog = [],
+    {ok, Victim} = start_node(bad_dist_ext_process_info_victim, [], Prog),
+    start_node_monitors([Offender,Victim]),
+
+    Parent = self(),
+    P = spawn_opt(Victim,
+                   fun () ->
+                           Parent ! {self(), started},
+                           receive check_msgs -> ok end,  %% DID CRASH HERE
+                           bad_dist_ext_check_msgs([one]),
+                           Parent ! {self(), messages_checked}
+                   end,
+                 [link,
+                  %% on_heap to force total_heap_size to inspect msg queue
+                  {message_queue_data, on_heap}]),
+
+    receive {P, started} -> ok end,
+    P ! one,
+
+    Suspended = make_ref(),
+    S = spawn(Victim,
+              fun () ->
+                      erlang:suspend_process(P),
+                      Parent ! Suspended,
+                      receive after infinity -> ok end
+              end),
+
+    receive Suspended -> ok end,
+    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    verify_up(Offender, Victim),
+    send_bad_msgs(Offender, P, 1, dmsg_bad_tag()),
+
+    %% Make sure bad msgs has reached Victim
+    rpc:call(Offender, rpc, call, [Victim, erlang, node, []]),
+
+    verify_still_up(Offender, Victim),
+
+    %% Let process_info(P, total_heap_size) find bad msg and disconnect
+    rpc:call(Victim, erlang, process_info, [P, total_heap_size]),
+
+    verify_down(Offender, connection_closed, Victim, killed),
+
+    P ! check_msgs,
+    exit(S, bang),  % resume Victim
+    receive {P, messages_checked} -> ok end,
+
+    unlink(P),
+    verify_no_down(Offender, Victim),
+    stop_node(Offender),
+    stop_node(Victim).
+
 
 bad_dist_struct_check_msgs([]) ->
     receive
@@ -1714,47 +1820,49 @@ bad_dist_ext_check_msgs([M|Ms]) ->
             bad_dist_ext_check_msgs(Ms)
     end.
 
+ensure_dctrl(Node) ->
+    case dctrl(Node) of
+        undefined ->
+            pong = net_adm:ping(Node),
+            dctrl(Node);
+        DCtrl ->
+            DCtrl
+    end.
 
-dport_reg_send(Node, Name, Msg) ->
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_REG_SEND,
-                                  self(),
-                                  ?COOKIE,
-                                  Name}),
-                        dmsg_ext(Msg)]).
+dctrl_send(DPrt, Data) when is_port(DPrt) ->
+    port_command(DPrt, Data);
+dctrl_send(DPid, Data) when is_pid(DPid) ->
+    Ref = make_ref(),
+    DPid ! {send, self(), Ref, Data},
+    receive {Ref, Res} -> Res end.
 
+dctrl_dop_reg_send(Node, Name, Msg) ->
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_REG_SEND,
+                          self(),
+                          ?COOKIE,
+                          Name}),
+                dmsg_ext(Msg)]).
 
-dport_send(To, Msg) ->
+dctrl_dop_send(To, Msg) ->
     Node = node(To),
-    DPrt = case dport(Node) of
-               undefined ->
-                   pong = net_adm:ping(Node),
-                   dport(Node);
-               Prt ->
-                   Prt
-           end,
-    port_command(DPrt, [dmsg_hdr(),
-                        dmsg_ext({?DOP_SEND,
-                                  ?COOKIE,
-                                  To}),
-                        dmsg_ext(Msg)]).
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SEND, ?COOKIE, To}),
+                dmsg_ext(Msg)]).
+
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
     send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,[]).
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
     Parent = self(),
     Done = make_ref(),
-    spawn(Offender,
+    spawn_link(Offender,
           fun () ->
                   Node = node(Victim),
                   pong = net_adm:ping(Node),
-                  DPrt = dport(Node),
+                  erlang:monitor_node(Node, true),
+                  DCtrl = dctrl(Node),
                   Bad1 = case WhereToPutSelf of
                              0 ->
                                  Bad;
@@ -1767,7 +1875,16 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
                       [] -> [];
                       _Other -> [dmsg_ext(PayLoad)]
                   end,
-                  port_command(DPrt, DData),
+
+                  receive {nodedown, Node} -> exit("premature nodedown")
+                  after 10 -> ok
+                  end,
+
+                  dctrl_send(DCtrl, DData),
+
+                  receive {nodedown, Node} -> ok
+                  after 5000 -> exit("missing nodedown")
+                  end,
                   Parent ! {DData,Done}
           end),
     receive
@@ -1786,20 +1903,23 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
 send_bad_msg(BadNode, To) ->
     send_bad_msgs(BadNode, To, 1).
 
-send_bad_msgs(BadNode, To, Repeat) when is_atom(BadNode),
-                                        is_pid(To),
-                                        is_integer(Repeat) ->
+send_bad_msgs(BadNode, To, Repeat) ->
+    send_bad_msgs(BadNode, To, Repeat, dmsg_bad_atom_cache_ref()).
+
+send_bad_msgs(BadNode, To, Repeat, BadTerm) when is_atom(BadNode),
+                                                 is_pid(To),
+                                                 is_integer(Repeat) ->
     Parent = self(),
     Done = make_ref(),
     spawn_link(BadNode,
                fun () ->
                        Node = node(To),
                        pong = net_adm:ping(Node),
-                       DPrt = dport(Node),
+                       DCtrl = dctrl(Node),
                        DData = [dmsg_hdr(),
                                 dmsg_ext({?DOP_SEND, ?COOKIE, To}),
-                                dmsg_bad_atom_cache_ref()],
-                       repeat(fun () -> port_command(DPrt, DData) end, Repeat),
+                                BadTerm],
+		       repeat(fun () -> dctrl_send(DCtrl, DData) end, Repeat),
                        Parent ! Done
                end),
     receive Done -> ok end.
@@ -1821,11 +1941,12 @@ send_bad_ctl(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
                                        replace}),
                        CtlBeginSize = size(Ctl) - size(Replace),
                        <<CtlBegin:CtlBeginSize/binary, Replace/binary>> = Ctl,
-                       port_command(dport(ToNode),
-                                    [dmsg_fake_hdr2(),
-                                     CtlBegin,
-                                     dmsg_bad_atom_cache_ref(),
-                                     dmsg_ext({a, message})]),
+                       DCtrl = dctrl(ToNode),
+                       Data = [dmsg_fake_hdr2(),
+                               CtlBegin,
+                               dmsg_bad_atom_cache_ref(),
+                               dmsg_ext({a, message})],
+                       dctrl_send(DCtrl, Data),
                        Parent ! Done
                end),
     receive Done -> ok end.
@@ -1838,17 +1959,32 @@ send_bad_dhdr(BadNode, ToNode) when is_atom(BadNode), is_atom(ToNode) ->
     spawn_link(BadNode,
                fun () ->
                        pong = net_adm:ping(ToNode),
-                       port_command(dport(ToNode), dmsg_bad_hdr()),
+                       dctrl_send(dctrl(ToNode), dmsg_bad_hdr()),
                        Parent ! Done
                end),
     receive Done -> ok end.
 
-dport(Node) when is_atom(Node) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
-        true -> true;
-        _ -> erts_debug:set_internal_state(available_internal_state, true)
-    end,
-    erts_debug:get_internal_state({dist_port, Node}).
+dctrl(Node) when is_atom(Node) ->
+    get_internal_state({dist_ctrl, Node}).
+
+get_internal_state(Op) ->
+    try erts_debug:get_internal_state(Op) of
+        R -> R
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            erts_debug:get_internal_state(Op)
+    end.
+
+set_internal_state(Op, Val) ->
+    try erts_debug:set_internal_state(Op, Val) of
+        R -> R
+    catch
+        error:undef ->
+            erts_debug:set_internal_state(available_internal_state, true),
+            erts_debug:set_internal_state(Op, Val)
+    end.
+
 
 dmsg_hdr() ->
     [131, % Version Magic
@@ -1884,6 +2020,9 @@ dmsg_ext(Term) ->
 
 dmsg_bad_atom_cache_ref() ->
     [$R, 137].
+
+dmsg_bad_tag() ->  %% Will fail early at heap size calculation
+    [$?, 66].
 
 start_epmd_false(Config) when is_list(Config) ->
     %% Start a node with the option -start_epmd false.
@@ -1947,6 +2086,11 @@ port_please(_Name, _Ip) ->
 	    {port, Port, Version}
     end.
 
+address_please(_Name, _Address, _AddressFamily) ->
+    %% Use localhost.
+    IP = {127,0,0,1},
+    {ok, IP}.
+
 %%% Utilities
 
 timestamp() ->
@@ -1988,11 +2132,9 @@ freeze_node(Node, MS) ->
     Freezer = self(),
     spawn_link(Node,
                fun () ->
-                       erts_debug:set_internal_state(available_internal_state,
-                                                     true),
-                       dport_send(Freezer, DoingIt),
+                       dctrl_dop_send(Freezer, DoingIt),
                        receive after Own -> ok end,
-                       erts_debug:set_internal_state(block, MS+Own)
+                       set_internal_state(block, MS+Own)
                end),
     receive DoingIt -> ok end,
     receive after Own -> ok end.
@@ -2042,7 +2184,7 @@ start_relay_node(Node, Args) ->
                                       [{args, Args ++
                                         " -setcookie "++Cookie++" -pa "++Pa++" "++
                                         RunArg}]),
-    [N,H] = string:tokens(atom_to_list(NN),"@"),
+    [N,H] = string:lexemes(atom_to_list(NN),"@"),
     {ok, Sock} = gen_tcp:accept(LSock),
     pang = net_adm:ping(NN),
     {N,H,Sock}.
@@ -2196,8 +2338,7 @@ forever(Fun) ->
     forever(Fun).
 
 abort(Why) ->
-    erts_debug:set_internal_state(available_internal_state, true),
-    erts_debug:set_internal_state(abort, Why).
+    set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->
@@ -2265,52 +2406,6 @@ string_to_utf8_list([CP|CPs]) when is_integer(CP),
      16#80 bor (16#3F band (CP bsr 6)),
      16#80 bor (16#3F band CP)
      | string_to_utf8_list(CPs)].
-
-utf8_list_to_string([]) ->
-    [];
-utf8_list_to_string([B|Bs]) when is_integer(B),
-                                 0 =< B,
-                                 B =< 16#7F ->
-    [B | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1 | Bs]) when is_integer(B0),
-                                        16#C0 =< B0,
-                                        B0 =< 16#DF,
-                                        is_integer(B1),
-                                        16#80 =< B1,
-                                        B1 =< 16#BF ->
-    [(((B0 band 16#1F) bsl 6)
-      bor (B1 band 16#3F))
-     | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1, B2 | Bs]) when is_integer(B0),
-                                            16#E0 =< B0,
-                                            B0 =< 16#EF,
-                                            is_integer(B1),
-                                            16#80 =< B1,
-                                            B1 =< 16#BF,
-                                            is_integer(B2),
-                                            16#80 =< B2,
-                                            B2 =< 16#BF ->
-    [(((B0 band 16#F) bsl 12)
-      bor ((B1 band 16#3F) bsl 6)
-      bor (B2 band 16#3F))
-     | utf8_list_to_string(Bs)];
-utf8_list_to_string([B0, B1, B2, B3 | Bs]) when is_integer(B0),
-                                                16#F0 =< B0,
-                                                B0 =< 16#F7,
-                                                is_integer(B1),
-                                                16#80 =< B1,
-                                                B1 =< 16#BF,
-                                                is_integer(B2),
-                                                16#80 =< B2,
-                                                B2 =< 16#BF,
-                                                is_integer(B3),
-                                                16#80 =< B3,
-                                                B3 =< 16#BF ->
-    [(((B0 band 16#7) bsl 18)
-      bor ((B1 band 16#3F) bsl 12)
-      bor ((B2 band 16#3F) bsl 6)
-      bor (B3 band 16#3F))
-     | utf8_list_to_string(Bs)].
 
 mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),

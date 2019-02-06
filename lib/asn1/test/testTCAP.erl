@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,5 +92,6 @@ test_asn1config() ->
 enc_dec(T, V0) ->
     M = 'TCAPPackage',
     {ok,Enc} = M:encode(T, V0),
+    asn1_test_lib:map_roundtrip(M, T, Enc),
     {ok,V} = M:decode(T, Enc),
     V.

@@ -32,31 +32,32 @@
   center/2,centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
   centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
   close/1,close/2,convertDialogToPixels/2,convertPixelsToDialog/2,destroy/1,
-  destroyChildren/1,disable/1,enable/1,enable/2,findFocus/0,findWindow/2,
-  findWindowById/1,findWindowById/2,findWindowByLabel/1,findWindowByLabel/2,
-  findWindowByName/1,findWindowByName/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
-  getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCapture/0,
-  getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,getClientSize/1,
-  getContainingSizer/1,getCursor/1,getDropTarget/1,getEventHandler/1,
-  getExtraStyle/1,getFont/1,getForegroundColour/1,getGrandParent/1,
-  getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,getMinSize/1,
-  getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
-  getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
-  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getToolTip/1,
-  getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,
-  hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,hide/1,inheritAttributes/1,
-  initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,isEnabled/1,
-  isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
-  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
-  navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popEventHandler/1,popEventHandler/2,
-  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
-  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
-  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
-  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
-  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  destroyChildren/1,disable/1,dragAcceptFiles/2,enable/1,enable/2,findFocus/0,
+  findWindow/2,findWindowById/1,findWindowById/2,findWindowByLabel/1,
+  findWindowByLabel/2,findWindowByName/1,findWindowByName/2,fit/1,fitInside/1,
+  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  getBestSize/1,getCapture/0,getCaret/1,getCharHeight/1,getCharWidth/1,
+  getChildren/1,getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,
+  getCursor/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
+  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
+  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
+  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
+  getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
+  getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
+  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
+  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
+  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
+  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popEventHandler/1,
+  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
+  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
+  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
+  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
+  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
+  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
+  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
+  setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
@@ -297,6 +298,15 @@ disable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxWindow_Disable,
   <<ThisRef:32/?UI>>).
 
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowdragacceptfiles">external documentation</a>.
+-spec dragAcceptFiles(This, Accept) -> 'ok' when
+	This::wxWindow(), Accept::boolean().
+dragAcceptFiles(#wx_ref{type=ThisT,ref=ThisRef},Accept)
+ when is_boolean(Accept) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:cast(?wxWindow_DragAcceptFiles,
+  <<ThisRef:32/?UI,(wxe_util:from_bool(Accept)):32/?UI>>).
+
 %% @equiv enable(This, [])
 -spec enable(This) -> boolean() when
 	This::wxWindow().
@@ -339,7 +349,7 @@ findWindow(#wx_ref{type=ThisT,ref=ThisRef},Winid)
   wxe_util:call(?wxWindow_FindWindow_1_0,
   <<ThisRef:32/?UI,Winid:32/?UI>>);
 findWindow(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxWindow),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxWindow_FindWindow_1_1,
@@ -370,7 +380,7 @@ findWindowById(Winid, Options)
 	Name::unicode:chardata().
 
 findWindowByName(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   findWindowByName(Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowfindwindowbyname">external documentation</a>.
@@ -378,7 +388,7 @@ findWindowByName(Name)
 	Name::unicode:chardata(),
 	Option :: {'parent', wxWindow()}.
 findWindowByName(Name, Options)
- when is_list(Name),is_list(Options) ->
+ when ?is_chardata(Name),is_list(Options) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   MOpts = fun({parent, #wx_ref{type=ParentT,ref=ParentRef}}, Acc) ->   ?CLASS(ParentT,wxWindow),[<<1:32/?UI,ParentRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -391,7 +401,7 @@ findWindowByName(Name, Options)
 	Label::unicode:chardata().
 
 findWindowByLabel(Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   findWindowByLabel(Label, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowfindwindowbylabel">external documentation</a>.
@@ -399,7 +409,7 @@ findWindowByLabel(Label)
 	Label::unicode:chardata(),
 	Option :: {'parent', wxWindow()}.
 findWindowByLabel(Label, Options)
- when is_list(Label),is_list(Options) ->
+ when ?is_chardata(Label),is_list(Options) ->
   Label_UC = unicode:characters_to_binary([Label,0]),
   MOpts = fun({parent, #wx_ref{type=ParentT,ref=ParentRef}}, Acc) ->   ?CLASS(ParentT,wxWindow),[<<1:32/?UI,ParentRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
@@ -719,7 +729,7 @@ getSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
 	This::wxWindow(), String::unicode:chardata().
 
 getTextExtent(This,String)
- when is_record(This, wx_ref),is_list(String) ->
+ when is_record(This, wx_ref),?is_chardata(String) ->
   getTextExtent(This,String, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgettextextent">external documentation</a>.
@@ -728,7 +738,7 @@ getTextExtent(This,String)
 	This::wxWindow(), String::unicode:chardata(),
 	Option :: {'theFont', wxFont:wxFont()}.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
- when is_list(String),is_list(Options) ->
+ when ?is_chardata(String),is_list(Options) ->
   ?CLASS(ThisT,wxWindow),
   String_UC = unicode:characters_to_binary([String,0]),
   MOpts = fun({theFont, #wx_ref{type=TheFontT,ref=TheFontRef}}, Acc) ->   ?CLASS(TheFontT,wxFont),[<<1:32/?UI,TheFontRef:32/?UI>>|Acc];
@@ -1439,7 +1449,7 @@ setForegroundColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
 -spec setHelpText(This, Text) -> 'ok' when
 	This::wxWindow(), Text::unicode:chardata().
 setHelpText(#wx_ref{type=ThisT,ref=ThisRef},Text)
- when is_list(Text) ->
+ when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxWindow),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxWindow_SetHelpText,
@@ -1458,7 +1468,7 @@ setId(#wx_ref{type=ThisT,ref=ThisRef},Winid)
 -spec setLabel(This, Label) -> 'ok' when
 	This::wxWindow(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
- when is_list(Label) ->
+ when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxWindow),
   Label_UC = unicode:characters_to_binary([Label,0]),
   wxe_util:cast(?wxWindow_SetLabel,
@@ -1468,7 +1478,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
 -spec setName(This, Name) -> 'ok' when
 	This::wxWindow(), Name::unicode:chardata().
 setName(#wx_ref{type=ThisT,ref=ThisRef},Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxWindow),
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxWindow_SetName,
@@ -1707,7 +1717,7 @@ setThemeEnabled(#wx_ref{type=ThisT,ref=ThisRef},EnableTheme)
       (This, Tip) -> 'ok' when
 	This::wxWindow(), Tip::wxToolTip:wxToolTip().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
- when is_list(Tip) ->
+ when ?is_chardata(Tip) ->
   ?CLASS(ThisT,wxWindow),
   Tip_UC = unicode:characters_to_binary([Tip,0]),
   wxe_util:cast(?wxWindow_SetToolTip_1_0,
@@ -1943,6 +1953,14 @@ setDoubleBuffered(#wx_ref{type=ThisT,ref=ThisRef},On)
   ?CLASS(ThisT,wxWindow),
   wxe_util:cast(?wxWindow_SetDoubleBuffered,
   <<ThisRef:32/?UI,(wxe_util:from_bool(On)):32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgetcontentscalefactor">external documentation</a>.
+-spec getContentScaleFactor(This) -> number() when
+	This::wxWindow().
+getContentScaleFactor(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_GetContentScaleFactor,
+  <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxWindow()) -> 'ok'.

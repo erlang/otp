@@ -9,11 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
-# 
+#
 #     $Id$
 #
 include $(ERL_TOP)/make/target.mk
@@ -45,17 +45,15 @@ XML_REF3_FILES = \
 XML_REF6_FILES = observer_app.xml
 
 XML_PART_FILES = \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
+	part.xml
 
 XML_CHAPTER_FILES = \
+	introduction_ug.xml \
 	crashdump_ug.xml \
 	etop_ug.xml \
 	observer_ug.xml \
 	ttb_ug.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 BOOK_FILES = book.xml
 
@@ -69,9 +67,7 @@ ONLY_HTML_FILE =
 
 GIF_FILES = \
 	et_processes.gif \
-	et_modsprocs.gif \
-	note.gif
-
+	et_modsprocs.gif
 # ----------------------------------------------------
 
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
@@ -88,9 +84,9 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -109,6 +105,7 @@ html: gifs $(HTML_REF_MAN_FILE) $(ONLY_HTML_FILE:%=$(HTMLDIR)/%)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -rf $(XMLDIR)
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
@@ -123,12 +120,12 @@ man: $(MAN1_FILES) $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 
@@ -148,4 +145,3 @@ release_docs_spec: docs
 
 
 release_spec:
-

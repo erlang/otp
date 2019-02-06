@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,21 +11,19 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_ra_finalise).
 -export([finalise/3]).
 -include("hipe_ppc.hrl").
 
-finalise(Defun, TempMap, FPMap0) ->
-  Code = hipe_ppc:defun_code(Defun),
-  {_, SpillLimit} = hipe_ppc:defun_var_range(Defun),
+finalise(CFG, TempMap, FPMap0) ->
+  {_, SpillLimit} = hipe_gensym:var_range(ppc),
   Map = mk_ra_map(TempMap, SpillLimit),
   FPMap1 = mk_ra_map_fp(FPMap0, SpillLimit),
-  NewCode = ra_code(Code, Map, FPMap1, []),
-  Defun#defun{code=NewCode}.
+  hipe_ppc_cfg:map_bbs(fun(_Lbl, BB) -> ra_bb(BB, Map, FPMap1) end, CFG).
+
+ra_bb(BB, Map, FpMap) ->
+  hipe_bb:code_update(BB, ra_code(hipe_bb:code(BB), Map, FpMap, [])).
 
 ra_code([I|Insns], Map, FPMap, Accum) ->
   ra_code(Insns, Map, FPMap, [ra_insn(I, Map, FPMap) | Accum]);
@@ -47,6 +41,7 @@ ra_insn(I, Map, FPMap) ->
     #mtspr{} -> ra_mtspr(I, Map);
     #pseudo_li{} -> ra_pseudo_li(I, Map);
     #pseudo_move{} -> ra_pseudo_move(I, Map);
+    #pseudo_spill_move{} -> ra_pseudo_spill_move(I, Map);
     #pseudo_tailcall{} -> ra_pseudo_tailcall(I, Map);
     #store{} -> ra_store(I, Map);
     #storex{} -> ra_storex(I, Map);
@@ -58,6 +53,7 @@ ra_insn(I, Map, FPMap) ->
     #fp_binary{} -> ra_fp_binary(I, FPMap);
     #fp_unary{} -> ra_fp_unary(I, FPMap);
     #pseudo_fmove{} -> ra_pseudo_fmove(I, FPMap);
+    #pseudo_spill_fmove{} -> ra_pseudo_spill_fmove(I, FPMap);
     _ -> I
   end.
 
@@ -103,6 +99,12 @@ ra_pseudo_move(I=#pseudo_move{dst=Dst,src=Src}, Map) ->
   NewDst = ra_temp(Dst, Map),
   NewSrc = ra_temp(Src, Map),
   I#pseudo_move{dst=NewDst,src=NewSrc}.
+
+ra_pseudo_spill_move(I=#pseudo_spill_move{dst=Dst,temp=Temp,src=Src}, Map) ->
+  NewDst = ra_temp(Dst, Map),
+  NewTemp = ra_temp(Temp, Map),
+  NewSrc = ra_temp(Src, Map),
+  I#pseudo_spill_move{dst=NewDst,temp=NewTemp,src=NewSrc}.
 
 ra_pseudo_tailcall(I=#pseudo_tailcall{stkargs=StkArgs}, Map) ->
   NewStkArgs = ra_args(StkArgs, Map),
@@ -161,6 +163,13 @@ ra_pseudo_fmove(I=#pseudo_fmove{dst=Dst,src=Src}, FPMap) ->
   NewDst = ra_temp_fp(Dst, FPMap),
   NewSrc = ra_temp_fp(Src, FPMap),
   I#pseudo_fmove{dst=NewDst,src=NewSrc}.
+
+ra_pseudo_spill_fmove(I=#pseudo_spill_fmove{dst=Dst,temp=Temp,src=Src},
+		      FPMap) ->
+  NewDst = ra_temp_fp(Dst, FPMap),
+  NewTemp = ra_temp_fp(Temp, FPMap),
+  NewSrc = ra_temp_fp(Src, FPMap),
+  I#pseudo_spill_fmove{dst=NewDst,temp=NewTemp,src=NewSrc}.
 
 ra_args([Arg|Args], Map) ->
   [ra_temp_or_imm(Arg, Map) | ra_args(Args, Map)];

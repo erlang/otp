@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -217,10 +217,10 @@ proxy_start(TC, {NS,P}) ->
 	spawn_link(
 	  fun () ->
 		  try proxy_start(TC, NS, P, Parent, Tag)
-		  catch C:X ->
+		  catch C:X:Stacktrace ->
 			  io:format(
 			    "~w: ~w:~p ~p~n",
-			    [self(),C,X,erlang:get_stacktrace()])
+			    [self(),C,X,Stacktrace])
 		  end
 	  end),
     receive {started,Tag,Port} ->

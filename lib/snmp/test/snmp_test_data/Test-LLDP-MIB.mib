@@ -1,0 +1,251 @@
+Test-LLDP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Integer32, Counter32, NOTIFICATION-TYPE
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION, TimeStamp, TruthValue
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+t-lldpMIB MODULE-IDENTITY
+    LAST-UPDATED "200505060000Z" -- May 06, 2005
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+            " Contact: The Erlang/OTP team at Ericsson AB, Sweden
+
+               WG-URL: http://grouper.ieee.org/groups/802/1/index.html
+             WG-EMail: stds-802-1@ieee.org
+
+              Contact: Paul Congdon
+               Postal: Hewlett-Packard Company
+                       8000 Foothills Blvd.
+                       Roseville, CA 95747
+                       USA
+                  Tel: +1-916-785-5753
+               E-mail: paul_congdon@hp.com"
+    DESCRIPTION
+            "This is the ripped out bits and pieces of LLDP-MIB
+            that triggered a compilation problem for Erlang/OTP's
+            MIB compiler due to an AUGMENTS in lldpConfigManAddrEntry
+            refering to a not yet defined OBJECT-TYPE lldpLocManAddrEntry.
+	    Rip and rewrite done 2017.
+
+             Management Information Base module for LLDP configuration,
+            statistics, local system data and remote systems data
+            components.
+
+            Copyright (C) IEEE (2005).  This version of this MIB module
+            is published as subclause 12.1 of IEEE Std 802.1AB-2005;
+            see the standard itself for full legal notices."
+    REVISION        "200505060000Z" -- May 06, 2005
+    DESCRIPTION
+            "Published as part of IEEE Std 802.1AB-2005 initial version."
+   ::= { iso std(0) iso8802(8802) ieee802dot1(1) ieee802dot1mibs(1) 2 }
+
+--lldpNotifications            OBJECT IDENTIFIER ::= { lldpMIB 0 }
+lldpObjects                  OBJECT IDENTIFIER ::= { t-lldpMIB 1 }
+lldpConformance              OBJECT IDENTIFIER ::= { t-lldpMIB 2 }
+
+--
+-- LLDP MIB Objects
+--
+
+lldpConfiguration            OBJECT IDENTIFIER ::= { lldpObjects 1 }
+--lldpStatistics               OBJECT IDENTIFIER ::= { lldpObjects 2 }
+lldpLocalSystemData          OBJECT IDENTIFIER ::= { lldpObjects 3 }
+--lldpRemoteSystemsData        OBJECT IDENTIFIER ::= { lldpObjects 4 }
+--lldpExtensions               OBJECT IDENTIFIER ::= { lldpObjects 5 }
+
+
+
+LldpPortList ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+            "Each octet within this value specifies a set of eight ports,
+            with the first octet specifying ports 1 through 8, the second
+            octet specifying ports 9 through 16, etc.  Within each octet,
+            the most significant bit represents the lowest numbered port,
+            and the least significant bit represents the highest numbered
+            port.  Thus, each port of the system is represented by a
+            single bit within the value of this object.  If that bit has
+            a value of '1' then that port is included in the set of ports;
+            the port is not included if its bit has a value of '0'."
+    REFERENCE
+            "IETF RFC 2674 section 5"
+    SYNTAX  OCTET STRING(SIZE(0..512))
+
+
+
+--
+-- lldpManAddrConfigTxPortsTable : selection of management addresses
+--                                 to be transmitted on a specified set
+--                                 of ports.
+--
+
+lldpConfigManAddrTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF LldpConfigManAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "The table that controls selection of LLDP management address
+            TLV instances to be transmitted on individual ports."
+    ::= { lldpConfiguration 7 }
+
+lldpConfigManAddrEntry  OBJECT-TYPE
+    SYNTAX      LldpConfigManAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "LLDP configuration information that specifies the set
+            of ports (represented as a PortList) on which the local
+            system management address instance will be transmitted.
+
+            This configuration object augments the lldpLocManAddrEntry,
+            therefore it is only present along with the management
+            address instance contained in the associated
+            lldpLocManAddrEntry entry.
+
+            Each active lldpConfigManAddrEntry must be restored from
+            non-volatile and re-created (along with the corresponding
+            lldpLocManAddrEntry) after a re-initialization of the
+            management system."
+    AUGMENTS { lldpLocManAddrEntry }
+    ::= { lldpConfigManAddrTable 1 }
+
+LldpConfigManAddrEntry  ::= SEQUENCE {
+    lldpConfigManAddrPortsTxEnable LldpPortList
+}
+
+lldpConfigManAddrPortsTxEnable  OBJECT-TYPE
+    SYNTAX        LldpPortList
+    MAX-ACCESS    read-write
+    STATUS        current
+    DESCRIPTION
+            "A set of ports that are identified by a PortList, in which
+            each port is represented as a bit.  The corresponding local
+            system management address instance will be transmitted on the
+            member ports of the lldpManAddrPortsTxEnable.
+
+            The default value for lldpConfigManAddrPortsTxEnable object
+            is empty binary string, which means no ports are specified
+            for advertising indicated management address instance."
+    REFERENCE
+            "IEEE 802.1AB-2005 10.2.1.1"
+    DEFVAL  { ''H }     -- empty binary string
+    ::= { lldpConfigManAddrEntry 1 }
+
+
+--
+-- lldpLocManAddrTable : Management addresses of the local system
+--
+
+lldpLocManAddrTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF LldpLocManAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "This table contains management address information on the
+            local system known to this agent."
+    ::= { lldpLocalSystemData 8 }
+
+lldpLocManAddrEntry OBJECT-TYPE
+    SYNTAX      LldpLocManAddrEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+            "Management address information about a particular chassis
+            component.  There may be multiple management addresses
+            configured on the system identified by a particular
+            lldpLocChassisId.  Each management address should have
+            distinct 'management address type' (lldpLocManAddrSubtype) and
+            'management address' (lldpLocManAddr.)
+
+            Entries may be created and deleted in this table by the
+            agent."
+    INDEX   { lldpLocManAddrIfId,
+              lldpLocManAddrLen }
+    ::= { lldpLocManAddrTable 1 }
+
+LldpLocManAddrEntry ::= SEQUENCE {
+      lldpLocManAddrIfId       Integer32,
+      lldpLocManAddrLen        Integer32,
+      lldpLocManAddrOID        OBJECT IDENTIFIER
+}
+
+lldpLocManAddrIfId  OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The integer value used to identify the interface number
+            regarding the management address component associated with
+            the local system."
+    REFERENCE
+            "IEEE 802.1AB-2005 9.5.9.6"
+    ::= { lldpLocManAddrEntry 1 }
+
+lldpLocManAddrLen  OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The total length of the management address subtype and the
+            management address fields in LLDPDUs transmitted by the
+            local LLDP agent.
+
+            The management address length field is needed so that the
+            receiving systems that do not implement SNMP will not be
+            required to implement an iana family numbers/address length
+            equivalency table in order to decode the management adress."
+    REFERENCE
+            "IEEE 802.1AB-2005 9.5.9.2"
+    ::= { lldpLocManAddrEntry 2 }
+
+lldpLocManAddrOID  OBJECT-TYPE
+    SYNTAX      OBJECT IDENTIFIER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+            "The OID value used to identify the type of hardware component
+            or protocol entity associated with the management address
+            advertised by the local system agent."
+    REFERENCE
+            "IEEE 802.1AB-2005 9.5.9.8"
+    ::= { lldpLocManAddrEntry 3 }
+
+
+lldpGroups      OBJECT IDENTIFIER ::= { lldpConformance 1 }
+
+lldpLocSysGroup  OBJECT-GROUP
+    OBJECTS {
+        lldpLocManAddrIfId,
+        lldpLocManAddrLen,
+        lldpLocManAddrOID
+    }
+    STATUS  current
+    DESCRIPTION
+            "The collection of objects which are used to represent LLDP
+            Local System Information.
+
+            This group is mandatory for agents which implement the LLDP
+            and have the capability of transmitting LLDP frames."
+    ::= { lldpGroups 6 }
+
+lldpConfigTxGroup    OBJECT-GROUP
+    OBJECTS {
+        lldpConfigManAddrPortsTxEnable
+    }
+    STATUS  current
+    DESCRIPTION
+            "The collection of objects which are used to configure the
+            LLDP implementation behavior.
+
+            This group is mandatory for agents which implement the LLDP
+            and have the capability of transmitting LLDP frames."
+    ::= { lldpGroups 3 }
+
+
+END

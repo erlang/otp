@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2016</year>
+      <year>1998</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,387 +41,190 @@
     <note>
       <p>Note that this whole module is experimental, and the representations
         used as well as the functionality is likely to change in the future.</p>
-      <p>The <c>instrument</c> module interface was slightly changed in
-        Erlang/OTP R9C.</p>
     </note>
-    <p>To start an Erlang runtime system with instrumentation, use the
-      <c>+Mi*</c> set of command-line arguments to the <c>erl</c> command (see
-      the erts_alloc(3) and erl(1) man pages).</p>
-    <p>The basic object of study in the case of memory allocation is a memory
-      allocation map. A memory allocation map contains a list of descriptors
-      for each allocated memory block. Currently, a descriptor is a 4-tuple</p>
-    <pre>
-        {TypeNo, Address, Size, PidDesc}    </pre>
-    <p>where <c>TypeNo</c> is the memory block type number, <c>Address</c>
-      is its place in memory, and <c>Size</c> is its size, in bytes.
-      <c>PidDesc</c> is either a tuple <c>{X,Y,Z}</c> identifying the
-      process which was executing when the block was allocated, or
-      <c>undefined</c> if no process was executing. The pid tuple
-      <c>{X,Y,Z}</c> can be transformed into a real pid by usage of the
-      <c>c:pid/3</c> function.</p>
-    <p>Various details about memory allocation:</p>
-    <p>Memory blocks are allocated both on the heap segment and on other memory
-      segments. This can cause the instrumentation functionality to report
-      very large holes. Currently the instrumentation functionality doesn't
-      provide any support for distinguishing between holes between memory
-      segments, and holes between allocated blocks inside memory segments.
-      The current size of the process cannot be obtained from within Erlang,
-      but can be seen with one of the system statistics tools, e.g.,
-      <c>ps</c> or <c>top</c>. The Solaris utility <c>pmap</c> can be
-      useful. It reports currently mapped memory segments. </p>
-    <p>Overhead for instrumentation: When the emulator has been started with
-      the <seealso marker="erts:erts_alloc#Mim">"+Mim true"</seealso>
-      flag, each block is preceded by a 24 bytes large
-      header on a 32-bit machine and a 48 bytes large header on a 64-bit
-      machine. When the emulator has been started with the
-      <seealso marker="erts:erts_alloc#Mis">"+Mis true"</seealso>
-      flag, each block is preceded by an 8 bytes large header. These are the header
-      sizes used by the Erlang 5.3/OTP R9C emulator. Other versions of the
-      emulator may use other header sizes. The function
-      <seealso marker="#block_header_size/1">block_header_size/1</seealso>
-      can be used for retrieving the header size used for a specific memory
-      allocation map. The time overhead for managing the instrumentation
-      data is small.</p>
-    <p>Sizes presented by the instrumentation functionality are (by the
-      emulator) requested sizes, i.e. neither instrumentation headers nor
-      headers used by allocators are included.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="block_histogram"/>
+      <desc>
+        <p>A histogram of block sizes where each interval's upper bound is 
+          twice as high as the one before it.</p>
+        <p>The upper bound of the first interval is provided by the function
+           that returned the histogram, and the last interval has no upper
+           bound.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="allocation_summary"/>
+      <desc>
+        <p>A summary of allocated block sizes (including their headers) grouped
+          by their <c><anno>Origin</anno></c> and <c><anno>Type</anno></c>.</p>
+        <p><c><anno>Origin</anno></c> is generally which NIF or driver that
+          allocated the blocks, or 'system' if it could not be determined.</p>
+        <p><c><anno>Type</anno></c> is the allocation category that the blocks
+          belong to, e.g. <c>db_term</c>, <c>message</c> or <c>binary</c>.</p>
+        <p>If one or more carriers could not be scanned in full without harming
+          the responsiveness of the system, <c><anno>UnscannedSize</anno></c>
+          is the number of bytes that had to be skipped.</p>
+       </desc>
+    </datatype>
+    <datatype>
+      <name name="carrier_info_list"/>
+      <desc>
+        <p><c><anno>AllocatorType</anno></c> is the type of the allocator that
+          employs this carrier.</p>
+        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
+          including its header.</p>
+        <p><c><anno>AllocatedSize</anno></c> is the combined size of the
+          carrier's allocated blocks, including their headers.</p>
+        <p><c><anno>AllocatedCount</anno></c> is the number of allocated
+          blocks in the carrier.</p>
+        <p><c><anno>InPool</anno></c> is whether the carrier is in the
+          migration pool.</p>
+        <p><c><anno>FreeBlocks</anno></c> is a histogram of the free block
+          sizes in the carrier.</p>
+        <p>If the carrier could not be scanned in full without harming the
+          responsiveness of the system, <c><anno>UnscannedSize</anno></c> is
+          the number of bytes that had to be skipped.</p>
+       </desc>
+    </datatype>
+  </datatypes>
   <funcs>
+
     <func>
-      <name>allocator_descr(MemoryData, TypeNo) -> AllocDescr | invalid_type | "unknown"</name>
-      <fsummary>Returns a allocator description</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>TypeNo = int()</v>
-        <v>AllocDescr = atom() | string()</v>
-      </type>
+      <name name="allocations" arity="0"/>
+      <fsummary>Return a summary of all allocations in the system.</fsummary>
       <desc>
-        <p>Returns the allocator description of the allocator that
-          manages memory blocks of type number <c>TypeNo</c> used in
-          <c>MemoryData</c>.
-          Valid <c>TypeNo</c>s are in the range returned by
-          <seealso marker="#type_no_range/1">type_no_range/1</seealso> on
-          this specific memory allocation map. If <c>TypeNo</c> is an
-          invalid integer, <c>invalid_type</c> is returned.</p>
+        <p>Shorthand for
+          <seealso marker="#allocations/1"><c>allocations(#{})</c>.</seealso></p>
       </desc>
     </func>
+
     <func>
-      <name>block_header_size(MemoryData) -> int()</name>
-      <fsummary>Returns the memory block header size used by the emulator that generated the memory allocation map</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
+      <name name="allocations" arity="1"/>
+      <fsummary>Return a summary of all allocations filtered by allocator type
+        and scheduler id.</fsummary>
       <desc>
-        <marker id="block_header_size_1"></marker>
-        <p>Returns the memory block header size used by the
-          emulator that generated the memory allocation map. The block
-          header size may differ between different emulators.</p>
-      </desc>
-    </func>
-    <func>
-      <name>class_descr(MemoryData, TypeNo) -> ClassDescr | invalid_type | "unknown"</name>
-      <fsummary>Returns a allocator description</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>TypeNo = int()</v>
-        <v>ClassDescr = atom() | string()</v>
-      </type>
-      <desc>
-        <p>Returns the class description of the class that
-          the type number <c>TypeNo</c> used in <c>MemoryData</c> belongs
-          to.
-          Valid <c>TypeNo</c>s are in the range returned by
-          <seealso marker="#type_no_range/1">type_no_range/1</seealso> on
-          this specific memory allocation map. If <c>TypeNo</c> is an
-          invalid integer, <c>invalid_type</c> is returned.</p>
-      </desc>
-    </func>
-    <func>
-      <name>descr(MemoryData) -> DescrMemoryData</name>
-      <fsummary>Replace type numbers in memory allocation map with type descriptions</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>DescrMemoryData = {term(), DescrAllocList}</v>
-        <v>DescrAllocList = [DescrDesc]</v>
-        <v>DescrDesc = {TypeDescr, int(), int(), DescrPidDesc}</v>
-        <v>TypeDescr = atom() | string()</v>
-        <v>DescrPidDesc = pid() | undefined</v>
-      </type>
-      <desc>
-        <p>Returns a memory allocation map where the type numbers (first
-          element of <c>Desc</c>) have been replaced by type descriptions,
-          and pid tuples (fourth element of <c>Desc</c>) have been
-          replaced by real pids.</p>
-      </desc>
-    </func>
-    <func>
-      <name>holes(MemoryData) -> ok</name>
-      <fsummary>Print out the sizes of unused memory blocks</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
-      <desc>
-        <p>Prints out the size of each hole (i.e., the space between
-          allocated blocks) on the terminal. <em>NOTE:</em> Really large holes
-          are probably holes between memory segments.
-          The memory allocation map has to be sorted (see
-          <seealso marker="#sort/1">sort/1</seealso>).</p>
-      </desc>
-    </func>
-    <func>
-      <name>mem_limits(MemoryData) -> {Low, High}</name>
-      <fsummary>Return lowest and highest memory address used</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>Low = High = int()</v>
-      </type>
-      <desc>
-        <p>Returns a tuple <c>{Low, High}</c> indicating
-          the lowest and highest address used.
-          The memory allocation map has to be sorted (see
-          <seealso marker="#sort/1">sort/1</seealso>).</p>
-      </desc>
-    </func>
-    <func>
-      <name>memory_data() -> MemoryData | false</name>
-      <fsummary>Return the current memory allocation map</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
-      <desc>
-        <p>Returns <c>MemoryData</c> (a the memory allocation map)
-          if the emulator has been started with the "<c>+Mim true</c>"
-          command-line argument; otherwise, <c>false</c>. <em>NOTE:</em><c>memory_data/0</c> blocks execution of other processes while
-          the data is collected. The time it takes to collect the data can
-          be substantial.</p>
-      </desc>
-    </func>
-    <func>
-      <name>memory_status(StatusType) -> [StatusInfo] | false</name>
-      <fsummary>Return current memory allocation status</fsummary>
-      <type>
-        <v>StatusType = total | allocators | classes | types</v>
-        <v>StatusInfo = {About, [Info]}</v>
-        <v>About = atom()</v>
-        <v>Info = {InfoName, Current, MaxSinceLast, MaxEver}</v>
-        <v>InfoName = sizes|blocks</v>
-        <v>Current = int()</v>
-        <v>MaxSinceLast = int()</v>
-        <v>MaxEver = int()</v>
-      </type>
-      <desc>
-        <p>Returns a list of <c>StatusInfo</c> if the emulator has been
-          started with the "<c>+Mis true</c>" or "<c>+Mim true</c>"
-          command-line argument; otherwise, <c>false</c>. </p>
-        <p>See the
-          <seealso marker="#read_memory_status/1">read_memory_status/1</seealso>
-          function for a description of the <c>StatusInfo</c> term.</p>
-      </desc>
-    </func>
-    <func>
-      <name>read_memory_data(File) -> MemoryData | {error, Reason}</name>
-      <fsummary>Read memory allocation map</fsummary>
-      <type>
-        <v>File = string()</v>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
-      <desc>
-        <marker id="read_memory_data_1"></marker>
-        <p>Reads a memory allocation map from the file <c>File</c> and
-          returns it. The file is assumed to have been created by
-          <c>store_memory_data/1</c>. The error codes are the same as for
-          <c>file:consult/1</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>read_memory_status(File) -> MemoryStatus | {error, Reason}</name>
-      <fsummary>Read memory allocation status from a file</fsummary>
-      <type>
-        <v>File = string()</v>
-        <v>MemoryStatus = [{StatusType, [StatusInfo]}]</v>
-        <v>StatusType = total | allocators | classes | types</v>
-        <v>StatusInfo = {About, [Info]}</v>
-        <v>About = atom()</v>
-        <v>Info = {InfoName, Current, MaxSinceLast, MaxEver}</v>
-        <v>InfoName = sizes|blocks</v>
-        <v>Current = int()</v>
-        <v>MaxSinceLast = int()</v>
-        <v>MaxEver = int()</v>
-      </type>
-      <desc>
-        <marker id="read_memory_status_1"></marker>
-        <p>Reads memory allocation status from the file <c>File</c> and
-          returns it. The file is assumed to have been created by
-          <c>store_memory_status/1</c>. The error codes are the same as
-          for <c>file:consult/1</c>.</p>
-        <p>When <c>StatusType</c> is <c>allocators</c>, <c>About</c> is
-          the allocator that the information is about. When
-          <c>StatusType</c> is <c>types</c>, <c>About</c> is
-          the memory block type that the information is about. Memory
-          block types are not described other than by their name and may
-          vary between emulators. When <c>StatusType</c> is <c>classes</c>,
-          <c>About</c> is the memory block type class that information is
-          presented about. Memory block types are classified after their
-          use. Currently the following classes exist:</p>
+        <p>Returns a summary of all tagged allocations in the system,
+          optionally filtered by allocator type and scheduler id.</p>
+        <p>Only binaries and allocations made by NIFs and drivers are tagged by
+          default, but this can be configured an a per-allocator basis with the
+          <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
+          </seealso> emulator option.</p>
+        <p>If tagged allocations are not enabled on any of the specified
+          allocator types, the call will fail with
+          <c>{error, not_enabled}</c>.</p>
+        <p>The following options can be used:</p>
         <taglist>
-          <tag><c>process_data</c></tag>
-          <item>Erlang process specific data.</item>
-          <tag><c>binary_data</c></tag>
-          <item>Erlang binaries.</item>
-          <tag><c>atom_data</c></tag>
-          <item>Erlang atoms.</item>
-          <tag><c>code_data</c></tag>
-          <item>Erlang code.</item>
-          <tag><c>system_data</c></tag>
-          <item>Other data used by the system</item>
+          <tag><c>allocator_types</c></tag>
+          <item>
+            <p>The allocator types that will be searched. Defaults to all
+              <c>alloc_util</c> allocators.</p>
+          </item>
+          <tag><c>scheduler_ids</c></tag>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <tag><c>histogram_start</c></tag>
+          <item>
+            <p>The upper bound of the first interval in the allocated block
+              size histograms. Defaults to 128.</p>
+          </item>
+          <tag><c>histogram_width</c></tag>
+          <item>
+            <p>The number of intervals in the allocated block size histograms.
+              Defaults to 18.</p>
+          </item>
         </taglist>
-        <p>When <c>InfoName</c> is <c>sizes</c>, <c>Current</c>,
-          <c>MaxSinceLast</c>, and <c>MaxEver</c> are, respectively, current
-          size, maximum size since last call to
-          <c>store_memory_status/1</c> or <c>memory_status/1</c> with the
-          specific <c>StatusType</c>, and maximum size since the emulator
-          was started. When <c>InfoName</c> is <c>blocks</c>, <c>Current</c>,
-          <c>MaxSinceLast</c>, and <c>MaxEver</c> are, respectively, current
-          number of blocks, maximum number of blocks since last call to
-          <c>store_memory_status/1</c> or <c>memory_status/1</c> with the
-          specific <c>StatusType</c>, and maximum number of blocks since the
-          emulator was started. </p>
-        <p><em>NOTE:</em>A memory block is accounted for at
-          "the first level" allocator. E.g. <c>fix_alloc</c> allocates its
-          memory pools via <c>ll_alloc</c>. When a <c>fix_alloc</c> block
-          is allocated, neither the block nor the pool in which it resides
-          are accounted for as memory allocated via <c>ll_alloc</c> even
-          though it is.</p>
+        <p><em>Example:</em></p>
+        <code type="none"><![CDATA[
+> instrument:allocations(#{ histogram_start => 128, histogram_width => 15 }).
+{ok,{128,0,
+     #{udp_inet =>
+           #{driver_event_state => {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0}},
+       system =>
+           #{heap => {0,0,0,0,20,4,2,2,2,3,0,1,0,0,1},
+             db_term => {271,3,1,52,80,1,0,0,0,0,0,0,0,0,0},
+             code => {0,0,0,5,3,6,11,22,19,20,10,2,1,0,0},
+             binary => {18,0,0,0,7,0,0,1,0,0,0,0,0,0,0},
+             message => {0,40,78,2,2,0,0,0,0,0,0,0,0,0,0},
+             ... }
+       spawn_forker =>
+           #{driver_select_data_state =>
+                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       ram_file_drv => #{drv_binary => {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0}},
+       prim_file =>
+           #{process_specific_data => {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             nif_trap_export_entry => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             monitor_extended => {0,1,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             drv_binary => {0,0,0,0,0,0,1,0,3,5,0,0,0,1,0},
+             binary => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+       prim_buffer =>
+           #{nif_internal => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0},
+             binary => {0,4,0,0,0,0,0,0,0,0,0,0,0,0,0}}}}}
+     ]]></code>
       </desc>
     </func>
+
     <func>
-      <name>sort(MemoryData) -> MemoryData</name>
-      <fsummary>Sort the memory allocation list</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
+      <name name="carriers" arity="0"/>
+      <fsummary>Return a list of all carriers in the system.</fsummary>
       <desc>
-        <marker id="sort_1"></marker>
-        <p>Sorts a memory allocation map so that the addresses are in
-          ascending order.</p>
+        <p>Shorthand for
+          <seealso marker="#carriers/1"><c>carriers(#{})</c>.</seealso></p>
       </desc>
     </func>
+
     <func>
-      <name>store_memory_data(File) -> true|false</name>
-      <fsummary>Store the current memory allocation map on a file</fsummary>
-      <type>
-        <v>File = string()</v>
-      </type>
+      <name name="carriers" arity="1"/>
+      <fsummary>Return a list of all carriers filtered by allocator type and
+        scheduler id.</fsummary>
       <desc>
-        <p>Stores the current memory allocation map on the file
-          <c>File</c>. Returns <c>true</c> if the emulator has been
-          started with the "<c>+Mim true</c>" command-line argument, and
-          the map was successfully stored; otherwise, <c>false</c>. The
-          contents of the file can later be read using
-          <seealso marker="#read_memory_data/1">read_memory_data/1</seealso>.
-          <em>NOTE:</em><c>store_memory_data/0</c> blocks execution of
-          other processes while the data is collected. The time it takes
-          to collect the data can be substantial.</p>
+        <p>Returns a summary of all carriers in the system, optionally filtered
+          by allocator type and scheduler id.</p>
+        <p>If the specified allocator types are not enabled, the call will fail
+          with <c>{error, not_enabled}</c>.</p>
+        <p>The following options can be used:</p>
+        <taglist>
+          <tag><c>allocator_types</c></tag>
+          <item>
+            <p>The allocator types that will be searched. Defaults to all
+              <c>alloc_util</c> allocators.</p>
+          </item>
+          <tag><c>scheduler_ids</c></tag>
+          <item>
+            <p>The scheduler ids whose allocator instances will be searched. A
+              scheduler id of 0 will refer to the global instance that is not
+              tied to any particular scheduler. Defaults to all schedulers and
+              the global instance.</p>
+          </item>
+          <tag><c>histogram_start</c></tag>
+          <item>
+            <p>The upper bound of the first interval in the free block size
+              histograms. Defaults to 512.</p>
+          </item>
+          <tag><c>histogram_width</c></tag>
+          <item>
+            <p>The number of intervals in the free block size histograms.
+              Defaults to 14.</p>
+          </item>
+        </taglist>
+        <p><em>Example:</em></p>
+        <code type="none"><![CDATA[
+> instrument:carriers(#{ histogram_start => 512, histogram_width => 8 }).
+{ok,{512,
+     [{ll_alloc,1048576,0,1048344,71,false,{0,0,0,0,0,0,0,0}},
+      {binary_alloc,1048576,0,324640,13,false,{3,0,0,1,0,0,0,2}},
+      {eheap_alloc,2097152,0,1037200,45,false,{2,1,1,3,4,3,2,2}},
+      {fix_alloc,32768,0,29544,82,false,{22,0,0,0,0,0,0,0}},
+      {...}|...]}}
+     ]]></code>
       </desc>
     </func>
-    <func>
-      <name>store_memory_status(File) -> true|false</name>
-      <fsummary>Store the current memory allocation status on a file</fsummary>
-      <type>
-        <v>File = string()</v>
-      </type>
-      <desc>
-        <p>Stores the current memory status on the file
-          <c>File</c>. Returns <c>true</c> if the emulator has been
-          started with the "<c>+Mis true</c>", or "<c>+Mim true</c>"
-          command-line arguments, and the data was successfully stored;
-          otherwise, <c>false</c>. The contents of the file can later be
-          read using
-          <seealso marker="#read_memory_status/1">read_memory_status/1</seealso>.</p>
-      </desc>
-    </func>
-    <func>
-      <name>sum_blocks(MemoryData) -> int()</name>
-      <fsummary>Return the total amount of memory used</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-      </type>
-      <desc>
-        <p>Returns the total size of the memory blocks in the list.</p>
-      </desc>
-    </func>
-    <func>
-      <name>type_descr(MemoryData, TypeNo) -> TypeDescr | invalid_type</name>
-      <fsummary>Returns a type description</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>TypeNo = int()</v>
-        <v>TypeDescr = atom() | string()</v>
-      </type>
-      <desc>
-        <p>Returns the type description of a type number used in
-          <c>MemoryData</c>.
-          Valid <c>TypeNo</c>s are in the range returned by
-          <seealso marker="#type_no_range/1">type_no_range/1</seealso> on
-          this specific memory allocation map. If <c>TypeNo</c> is an
-          invalid integer, <c>invalid_type</c> is returned.</p>
-      </desc>
-    </func>
-    <func>
-      <name>type_no_range(MemoryData) -> {Min, Max}</name>
-      <fsummary>Returns the memory block type numbers</fsummary>
-      <type>
-        <v>MemoryData = {term(), AllocList}</v>
-        <v>AllocList = [Desc]</v>
-        <v>Desc = {int(), int(), int(), PidDesc}</v>
-        <v>PidDesc = {int(), int(), int()} | undefined</v>
-        <v>Min = int()</v>
-        <v>Max = int()</v>
-      </type>
-      <desc>
-        <marker id="type_no_range_1"></marker>
-        <p>Returns the memory block type number range used in
-          <c>MemoryData</c>. When the memory allocation map was generated
-          by an Erlang 5.3/OTP R9C or newer emulator, all integers <c>T</c>
-          that satisfy <c>Min</c> &lt;= <c>T</c> &lt;= <c>Max</c> are
-          valid type numbers. When the memory allocation map was generated
-          by a pre Erlang 5.3/OTP R9C emulator, all integers in the
-          range are <em>not</em> valid type numbers.</p>
-      </desc>
-    </func>
+
   </funcs>
 
   <section>

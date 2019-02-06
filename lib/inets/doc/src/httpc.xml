@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,7 +68,7 @@
       this module:</p>
     <p><c>boolean() = true | false</c></p>
     <p><c>string()</c> = list of ASCII characters</p>
-    <p><c>request_id() = ref()</c></p>
+    <p><c>request_id() = reference()</c></p>
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
@@ -83,7 +83,7 @@
     <title>HTTP DATA TYPES</title>
     <p>Type definitions related to HTTP:</p>
 
-    <p><c>method() = head | get | put | post | trace | options | delete</c></p>
+    <p><c>method() = head | get | put | post | trace | options | delete | patch</c></p>
     <taglist>
       <tag><c>request()</c></tag>
       <item><p>= <c>{url(), headers()}</c></p>
@@ -210,7 +210,8 @@
 			   ip | 
 			   port | 
 			   socket_opts | 
-	                   verbose</v>
+	                   verbose |
+	                   unix_socket</v>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can used.</d>
         <v>Values = [{option_item(), term()}]</v>
@@ -287,8 +288,7 @@
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
-                           {relaxed,         boolean()} |
-	                   {url_encode,      boolean()}</v>
+                           {relaxed,         boolean()}</v>
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
@@ -298,8 +298,8 @@
                       {full_result,             boolean()} | 
                       {headers_as_is,           boolean() |
                       {socket_opts,             socket_opts()} | 
-                      {receiver,                receiver()},
-	              {ipv6_host_with_brackets, boolean()}}</v>
+                      {receiver,                receiver()} |
+	              {ipv6_host_with_brackets, boolean()}</v>
         <v>stream_to() = none | self | {self, once} | filename()</v>
         <v>socket_opts() = [socket_opt()]</v>
         <v>receiver() = pid() | function()/1 | {Module, Function, Args}</v>
@@ -312,8 +312,7 @@
         <v>Body = string() | binary()</v>
         <v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
-        <v>Reason = {connect_failed, term()} | 
-                    {send_failed, term()} | term()</v>
+        <v>Reason = term()</v>
       </type>
 
       <desc>
@@ -344,7 +343,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2, 3,4]</seealso>  for availble options.</p>
+            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
@@ -379,13 +378,6 @@
 	    from the HTTP-standard are enabled.</p>
             <p>Default is <c>false</c>.</p>
 	  </item>
-
-	  <tag><c><![CDATA[url_encode]]></c></tag>
-          <item>
-            <p>Applies Percent-encoding, also known as URL encoding on the 
-	    URL.</p>
-	    <p>Default is <c>false</c>.</p>
-	  </item>
         </taglist>
 
         <p>Option (<c>option()</c>) details:</p>
@@ -408,7 +400,7 @@
 	    <c>{self, once}</c>, the first message has an extra
 	    element, that is, <c>{http, {RequestId, stream_start, Headers, Pid}}</c>.
 	    This is the process id to be used as an argument to
-	    <c>http:stream_next/1</c> to trigger the next message to be sent to
+	    <c>httpc:stream_next/1</c> to trigger the next message to be sent to
 	    the calling process.</p>
 	    <p>Notice that chunked encoding can add
 	    headers so that there are more headers in the <c>stream_end</c>
@@ -449,17 +441,22 @@
 
           <tag><c><![CDATA[socket_opts]]></c></tag>
           <item>
-            <p>Socket options to be used for this and subsequent 
-	    requests.</p>
+            <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
 	    <seealso marker="#set_options-1">set_options</seealso>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
-            them if they are not correct. Note that the current
-            implementation assumes the requests to the same host, port
-            combination will use the same socket options.
+            them if they are not correct.
 	    </p>
+	    <note>
+	      <p>
+		Persistent connections are not supported when setting the
+		<c>socket_opts</c> option. When <c>socket_opts</c> is not
+		set the current implementation assumes the requests to the
+		same host, port combination will use the same socket options.
+	      </p>
+	    </note>
 	    
             <p>By default the socket options set by function
 	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
@@ -541,7 +538,8 @@
 	<v>| {ip, IpAddress}</v>
 	<v>| {port, Port}</v>
 	<v>| {socket_opts, socket_opts()}</v>
-	<v>| {verbose, VerboseMode}</v>	    
+	<v>| {verbose, VerboseMode}</v>
+	<v>| {unix_socket, UnixSocket}</v>
         <v>Proxy = {Hostname, Port}</v>
         <v>Hostname = string()</v>
         <d>Example: "localhost" or "foo.bar.se"</d>
@@ -584,7 +582,7 @@
 	If option <c>verify</c> is used, function <c>store_cookies/2</c>
 	has to be called for the cookies to be saved. 
 	Default is <c>disabled</c>.</d>
-	<v>IpFamily = inet | inet6 </v>
+	<v>IpFamily = inet | inet6 | local</v>
 	<d>Default is <c>inet</c>.</d>
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
@@ -609,6 +607,12 @@
 	It is a debug feature.</d>
 	<v>Profile = profile() | pid()</v>
 	<d>When started <c>stand_alone</c> only the pid can be used.</d>
+	<v>UnixSocket = path()</v>
+	<d>
+	  Experimental option for sending HTTP requests over a unix domain socket. The value
+	  of <c>unix_socket</c> shall be the full path to a unix domain socket file with read/write
+	  permissions for the erlang process. Default is <c>undefined</c>.
+	</d>
       </type>
       <desc>
 	<p>Sets options to be used for subsequent requests.</p>
@@ -625,8 +629,11 @@
 	  to complete. The HTTP/1.1 specification suggests a
 	  limit of two persistent connections per server, which is the
 	  default value of option <c>max_sessions</c>.</p>
+	  <p>
+            The current implementation assumes the requests to the same host, port
+            combination will use the same socket options.
+	  </p>
 	</note>
-
         <marker id="get_options"></marker>
       </desc>
     </func>

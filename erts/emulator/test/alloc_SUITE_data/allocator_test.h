@@ -156,7 +156,8 @@ typedef void* erts_cond;
 #define IS_SMP_ENABLED		((int)		ALC_TEST0(0xf13))
 #define ALLOC_TEST(S)		((void*)	ALC_TEST1(0xf14, (S)))
 #define FREE_TEST(P)		((void)		ALC_TEST1(0xf15, (P)))
-#define SET_TEST_MBC_USER_HEADER(SZ,CMBC,DMBC) ((int)ALC_TEST3(0xf16, (SZ), (CMBC), (DMBC)))
-#define GET_TEST_MBC_SIZE()     ((int)          ALC_TEST0(0xf17))
+#define REALLOC_TEST(P,S)	((void*)	ALC_TEST2(0xf16, (P), (S)))
+#define SET_TEST_MBC_USER_HEADER(SZ,CMBC,DMBC) ((int)ALC_TEST3(0xf17, (SZ), (CMBC), (DMBC)))
+#define GET_TEST_MBC_SIZE()     ((int)          ALC_TEST0(0xf18))
 
 #endif

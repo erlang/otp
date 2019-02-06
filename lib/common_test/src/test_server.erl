@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([run_test_case_apply/1,init_target_info/0]).
+-export([run_test_case_apply/1,init_target_info/0,init_valgrind/0]).
 -export([cover_compile/1,cover_analyse/2]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,6 +49,10 @@
 
 -export([break/1,break/2,break/3,continue/0,continue/1]).
 
+%%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-export([valgrind_new_leaks/0, valgrind_format/2,
+	 is_valgrind/0]).
+
 %%% PRIVATE EXPORTED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([]).
 
@@ -68,6 +72,10 @@ init_target_info() ->
 		 otp_release=OTPRel,
 		 username=test_server_sup:get_username(),
 		 cookie=atom_to_list(erlang:get_cookie())}.
+
+init_valgrind() ->
+    valgrind_new_leaks().
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% cover_compile(#cover{app=App,incl=Include,excl=Exclude,cross=Cross}) ->
@@ -175,7 +183,7 @@ do_cover_compile(Modules) ->
     ok.
 
 warn_compile({error,{Reason,Module}}) ->
-    io:fwrite("\nWARNING: Could not cover compile ~ts: ~p\n",
+    io:fwrite("\nWARNING: Could not cover compile ~ts: ~tp\n",
 	      [Module,{error,Reason}]).
 
 %% Make sure all modules are loaded and unstick if sticky
@@ -189,7 +197,7 @@ prepare_cover_compile([M|Ms],Sticky) ->
 		{module,_} ->
 		    prepare_cover_compile([M|Ms],Sticky);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
+		    io:fwrite("\nWARNING: Could not load ~w: ~tp\n",[M,Error]),
 		    prepare_cover_compile(Ms,Sticky)
 	    end;
 	{false,_} ->
@@ -358,11 +366,12 @@ stick_all_sticky(Node,Sticky) ->
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
 
-run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
-    case os:getenv("TS_RUN_VALGRIND") of
+run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
+    case is_valgrind() of
 	false ->
 	    ok;
-	_ ->
+	true ->
+            valgrind_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
 	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
 		      atom_to_list(Func)++"-")
     end,
@@ -370,6 +379,7 @@ run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
 				 TimetrapData),
     ProcAft = erlang:system_info(process_count),
+    valgrind_new_leaks(),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
@@ -405,6 +415,7 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
 	     status=starting,ret_val=[],comment="",timeout=infinity,
 	     config=hd(Args)},
+    ct_util:mark_process(),
     run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):
@@ -450,13 +461,14 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			 exit(Pid, kill),
 			 %% here's the only place we know Reason, so we save
 			 %% it as a comment, potentially replacing user data
-			 Error = lists:flatten(io_lib:format("Aborted: ~p",
+			 Error = lists:flatten(io_lib:format("Aborted: ~tp",
 							     [Reason])),
-			 Error1 = lists:flatten([string:strip(S,left) ||
-						    S <- string:tokens(Error,
-								       [$\n])]),
-			 Comment = if length(Error1) > 63 ->
-					   string:substr(Error1,1,60) ++ "...";
+			 Error1 = lists:flatten([string:trim(S,leading,"\s") ||
+						    S <- string:lexemes(Error,
+                                                                        [$\n])]),
+                         ErrorLength = string:length(Error1),
+			 Comment = if ErrorLength > 63 ->
+					   string:slice(Error1,0,60) ++ "...";
 				      true ->
 					   Error1
 				   end,
@@ -756,13 +768,13 @@ print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("WARNING! "
-			      "~w:end_per_testcase(~w, ~tp)"
+			      "~w:end_per_testcase(~tw, ~tp)"
 			      " ~s!\n\tReason: ~tp\n",
 			      [Mod,Func,Conf,Cause,Error]);		    
 	   (minor) ->
 		ErrorStr = test_server_ctrl:escape_chars(Error),
 		io_lib:format("WARNING! "
-			      "~w:end_per_testcase(~w, ~tp)"
+			      "~w:end_per_testcase(~tw, ~tp)"
 			      " ~s!\n\tReason: ~ts\n",
 			      [Mod,Func,Conf,Cause,ErrorStr])
 	end,
@@ -774,13 +786,14 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 	      Why,Loc,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
 		try begin do_end_tc_call(Mod,IPTC, {Pid,Skip,[CurrConf]}, Why),
-			  do_init_tc_call(Mod,{end_per_testcase,Func},
+			  do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 					  [CurrConf],{ok,[CurrConf]}),
-			  do_end_tc_call(Mod,{end_per_testcase,Func}, 
+			  do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
 					 {Pid,Skip,[CurrConf]}, Why) end of
 		    _ -> ok
 		catch
@@ -792,7 +805,7 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 			   _                       -> died
 		       end,
 		group_leader() ! {printout,12,
-				  "ERROR! ~w:init_per_testcase(~w, ~p)"
+				  "ERROR! ~w:init_per_testcase(~tw, ~tp)"
 				  " failed!\n\tReason: ~tp\n",
 				 [Mod,Func,CurrConf,Why]},
 		%% finished, report back
@@ -804,6 +817,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 	      Why,_Loc,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		{RetVal,Report} =
 		    case proplists:get_value(tc_status, EndConf) of
 			undefined ->
@@ -820,7 +834,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 			{timetrap_timeout,TVal} ->
 			    group_leader() !
 				{printout,12,
-				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 "WARNING! ~w:end_per_testcase(~tw, ~tp)"
 				 " failed!\n\tReason: timetrap timeout"
 				 " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 			    W = "<font color=\"red\">"
@@ -829,7 +843,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 			_ ->
 			    group_leader() !
 				{printout,12,
-				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 "WARNING! ~w:end_per_testcase(~tw, ~tp)"
 				 " failed!\n\tReason: ~tp\n",
 				 [Mod,Func,EndConf,Why]},
 			    W = "<font color=\"red\">"
@@ -853,13 +867,14 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     FwCall =
 	fun() ->
+                ct_util:mark_process(),
 		test_server_sup:framework_call(report, [framework_error,
 							{{FwMod,FwFunc},
 							 FwError}]),
 		Comment =
 		    lists:flatten(
 		      io_lib:format("<font color=\"red\">"
-				    "WARNING! ~w:~w failed!</font>",
+				    "WARNING! ~w:~tw failed!</font>",
 				    [FwMod,FwFunc])),
 	    %% finished, report back
 	    SendTo ! {self(),fw_notify_done,
@@ -869,6 +884,7 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     spawn_link(FwCall);
 
 spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
+    ct_util:mark_process(),
     {Func1,EndTCFunc} = case Func of
 			    CF when CF == init_per_suite; CF == end_per_suite;
 				    CF == init_per_group; CF == end_per_group ->
@@ -907,6 +923,7 @@ start_job_proxy() ->
 
 %% The io_reply_proxy is not the most satisfying solution but it works...
 io_reply_proxy(ReplyTo) ->
+    ct_util:mark_process(),
     receive
 	IoReply when is_tuple(IoReply),
 		     element(1, IoReply) == io_reply ->
@@ -916,6 +933,7 @@ io_reply_proxy(ReplyTo) ->
     end.
 
 job_proxy_msgloop() ->
+    ct_util:mark_process(),
     receive
 
 	%%
@@ -1151,14 +1169,14 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 			 Args
 		 end,
 	     EPTCInitRes =
-		 case do_init_tc_call(Mod,{end_per_testcase,Func},
+		 case do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 				      IPTCEndRes,Return) of
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
 			 {Return,EPTCInitConfig};
 		     _ ->
-			 Return
+                         {Return,IPTCEndRes}
 		 end,
-	     do_end_tc_call1(Mod, {end_per_testcase,Func},
+	     do_end_tc_call1(Mod, {end_per_testcase_not_run,Func},
 			     EPTCInitRes, Return);
 	 _Ok ->
 	     do_end_tc_call1(Mod, IPTC, Res, Return)
@@ -1322,13 +1340,12 @@ do_init_per_testcase(Mod, Args) ->
 	    {skip,Reason};
 	exit:{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
 	    {skip,Reason};
-	throw:Other ->
-	    set_loc(erlang:get_stacktrace()),
+	throw:Other:Stk ->
+	    set_loc(Stk),
 	    Line = get_loc(),
 	    print_init_conf_result(Line,"thrown",Other),
 	    {skip,{failed,{Mod,init_per_testcase,Other}}};
-	_:Reason0 ->
-	    Stk = erlang:get_stacktrace(),
+	_:Reason0:Stk ->
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
@@ -1341,7 +1358,7 @@ print_init_conf_result(Line,Cause,Reason) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("ERROR! init_per_testcase ~s!\n"
-				      "\tLocation: ~p\n\tReason: ~tp\n",
+				      "\tLocation: ~tp\n\tReason: ~tp\n",
 				      [Cause,Line,Reason]);
 	   (minor) ->
 		ReasonStr = test_server_ctrl:escape_chars(Reason),
@@ -1377,20 +1394,19 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 	_ ->
 	    ok
     catch
-	throw:Other ->
+	throw:Other:Stk ->
 	    Comment0 = case read_comment() of
 			   ""  -> "";
 			   Cmt -> Cmt ++ test_server_ctrl:xhtml("<br>",
 								"<br />")
 		       end,
-	    set_loc(erlang:get_stacktrace()),
+	    set_loc(Stk),
 	    comment(io_lib:format("~ts<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[Comment0,EndFunc])),
 	    print_end_tc_warning(EndFunc,Other,"thrown",get_loc()),
 	    {failed,{Mod,end_per_testcase,Other}};
-	  Class:Reason ->
-	    Stk = erlang:get_stacktrace(),
+	  Class:Reason:Stk ->
 	    set_loc(Stk),
 	    Why = case Class of
 		      exit -> {'EXIT',Reason};
@@ -1413,7 +1429,7 @@ print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("WARNING: ~w ~s!\n"
-			      "Reason: ~tp\nLine: ~p\n",
+			      "Reason: ~tp\nLine: ~tp\n",
 			      [EndFunc,Cause,Reason,Loc]);
 	   (minor) ->
 		ReasonStr = test_server_ctrl:escape_chars(Reason),
@@ -1515,7 +1531,7 @@ lookup_config(Key,Config) ->
 	{value,{Key,Val}} ->
 	    Val;
 	_ ->
-	    io:format("Could not find element ~p in Config.~n",[Key]),
+	    io:format("Could not find element ~tp in Config.~n",[Key]),
 	    undefined
     end.
 
@@ -1532,8 +1548,7 @@ ts_tc(M, F, A) ->
 		 throw:{skipped, Reason} -> {skip, Reason};
 		 exit:{skip, Reason} -> {skip, Reason};
 		 exit:{skipped, Reason} -> {skip, Reason};
-		 Type:Reason ->
-		     Stk = erlang:get_stacktrace(),
+		 Type:Reason:Stk ->
 		     set_loc(Stk),
 		     case Type of
 			 throw ->
@@ -1600,7 +1615,7 @@ format(Detail, Format, Args) ->
     Str =
 	case catch io_lib:format(Format,Args) of
 	    {'EXIT',_} ->
-		io_lib:format("illegal format; ~p with args ~p.\n",
+		io_lib:format("illegal format; ~tp with args ~tp.\n",
 			      [Format,Args]);
 	    Valid -> Valid
 	end,
@@ -1722,8 +1737,8 @@ fail(Reason) ->
     try
 	exit({suite_failed,Reason})
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,1,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -1732,7 +1747,7 @@ fail(Reason) ->
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
-cast_to_list(X) -> lists:flatten(io_lib:format("~p", [X])).
+cast_to_list(X) -> lists:flatten(io_lib:format("~tp", [X])).
 
 
 
@@ -1745,8 +1760,8 @@ fail() ->
     try
 	exit(suite_failed)
     catch
-	Class:R ->
-	    case erlang:get_stacktrace() of
+	Class:R:Stacktrace ->
+	    case Stacktrace of
 		[{?MODULE,fail,0,_}|Stk] -> ok;
 		Stk -> ok
 	    end,
@@ -1793,6 +1808,7 @@ break(CBM, TestCase, Comment) ->
 spawn_break_process(Pid, PName) ->
     spawn(fun() ->
 		  register(PName, self()),
+                  ct_util:mark_process(),
 		  receive
 		      continue -> continue(Pid);
 		      cancel -> ok
@@ -1827,7 +1843,8 @@ timetrap_scale_factor() ->
 	{ 2, fun() -> has_lock_checking() end},
 	{ 3, fun() -> has_superfluous_schedulers() end},
 	{ 6, fun() -> is_debug() end},
-	{10, fun() -> is_cover() end}
+	{10, fun() -> is_cover() end},
+        {10, fun() -> is_valgrind() end}
     ]).
 
 timetrap_scale_factor(Scales) ->
@@ -1903,7 +1920,7 @@ ensure_timetrap(Config) ->
 		Garbage ->
 		    erase(test_server_default_timetrap),
 		    format("=== WARNING: garbage in "
-			   "test_server_default_timetrap: ~p~n",
+			   "test_server_default_timetrap: ~tp~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
@@ -1932,7 +1949,7 @@ cancel_default_timetrap(true) ->
 	Garbage ->
 	    erase(test_server_default_timetrap),
 	    format("=== WARNING: garbage in "
-		   "test_server_default_timetrap: ~p~n",
+		   "test_server_default_timetrap: ~tp~n",
 		   [Garbage]),
 	    error
     end.
@@ -1941,7 +1958,7 @@ time_ms({hours,N}, _, _) -> hours(N);
 time_ms({minutes,N}, _, _) -> minutes(N);
 time_ms({seconds,N}, _, _) -> seconds(N);
 time_ms({Other,_N}, _, _) ->
-    format("=== ERROR: Invalid time specification: ~p. "
+    format("=== ERROR: Invalid time specification: ~tp. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_format,Other});
 time_ms(Ms, _, _) when is_integer(Ms) -> Ms;
@@ -1989,6 +2006,7 @@ time_ms_apply(Func, TCPid, MultAndScale) ->
 
 user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     Spawner ! {self(),infinity},
     MonRef = monitor(process, TCPid),
     UserTTSup = self(),
@@ -2022,15 +2040,15 @@ call_user_timetrap(Func, Sup) when is_function(Func) ->
     try Func() of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end;
 call_user_timetrap({M,F,A}, Sup) ->
     try apply(M,F,A) of
 	Result -> 
 	    Sup ! {self(),Result}
-    catch _:Error ->
-	    exit({Error,erlang:get_stacktrace()})
+    catch _:Error:Stk ->
+	    exit({Error,Stk})
     end.
 
 save_user_timetrap(TCPid, UserTTSup, StartTime) ->
@@ -2559,6 +2577,7 @@ run_on_shielded_node(Fun, CArgs) when is_function(Fun), is_list(CArgs) ->
 -spec start_job_proxy_fun(_, _) -> fun(() -> no_return()).
 start_job_proxy_fun(Master, Fun) ->
     fun () ->
+            ct_util:mark_process(),
             _ = start_job_proxy(),
             receive
                 Ref ->
@@ -2686,9 +2705,9 @@ is_cover() ->
 is_debug() ->
     case catch erlang:system_info(debug_compiled) of
 	{'EXIT', _} ->
-	    case string:str(erlang:system_info(system_version), "debug") of
-		Int when is_integer(Int), Int > 0 -> true;
-		_ -> false
+	    case string:find(erlang:system_info(system_version), "debug") of
+                nomatch -> false;
+		_ -> true
 	    end;
 	Res ->
 	    Res
@@ -2724,10 +2743,45 @@ has_superfluous_schedulers() ->
 %% We might want to do more tests on a commercial platform, for instance
 %% ensuring that all applications have documentation).
 is_commercial() ->
-    case string:str(erlang:system_info(system_version), "source") of
-	Int when is_integer(Int), Int > 0 -> false;
-	_ -> true
+    case string:find(erlang:system_info(system_version), "source") of
+        nomatch -> true;
+	_ -> false
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% is_valgrind() -> boolean()
+%%
+%% Returns true if valgrind is running, else false
+is_valgrind() ->
+    case catch erlang:system_info({valgrind, running}) of
+	{'EXIT', _} -> false;
+	Res -> Res
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                     DEBUGGER INTERFACE                    %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% valgrind_new_leaks() -> ok
+%%
+%% Checks for new memory leaks if Valgrind is active.
+valgrind_new_leaks() ->
+    catch erlang:system_info({valgrind, memory}),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% valgrind_format(Format, Args) -> ok
+%% Format = string()
+%% Args = lists()
+%%
+%% Outputs the formatted string to Valgrind's logfile,if Valgrind is active.
+valgrind_format(Format, Args) ->
+    (catch erlang:system_info({valgrind, io_lib:format(Format, Args)})),
+    ok.
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%

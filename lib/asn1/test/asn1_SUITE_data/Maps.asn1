@@ -1,0 +1,17 @@
+Maps DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+XY ::= SEQUENCE { x INTEGER DEFAULT 0, y INTEGER DEFAULT 0 }
+
+xy1 XY ::= { x 42, y 17 }
+xy2 XY ::= { }
+xy3 XY ::= { y 999 }
+
+S ::= SEQUENCE {
+  xy XY DEFAULT { x 100, y 100 },
+  os OCTET STRING OPTIONAL
+}
+
+s1 S ::= {}
+
+END

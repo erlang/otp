@@ -823,7 +823,7 @@ decode_enumerated(Buffer,C,NamedNumberTup) when tuple(NamedNumberTup) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% bitstring NamedBitList
 %% Val can be  of:
-%% - [identifiers] where only named identifers are set to one,
+%% - [identifiers] where only named identifiers are set to one,
 %%   the Constraint must then have some information of the
 %%   bitlength.
 %% - [list of ones and zeroes] all bits

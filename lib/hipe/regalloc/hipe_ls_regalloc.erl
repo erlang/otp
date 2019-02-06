@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %% =====================================================================
 %% @doc
@@ -56,7 +50,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_ls_regalloc).
--export([regalloc/7]).
+-export([regalloc/9]).
 
 %%-define(DEBUG,1).
 -define(HIPE_INSTRUMENT_COMPILER, true).
@@ -95,11 +89,10 @@
 %%   </ol>
 %% @end
 %%-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
-regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
+regalloc(CFG, Liveness, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options,
+	 TargetMod, TargetContext) ->
+  Target = {TargetMod, TargetContext},
   ?debug_msg("LinearScan: ~w\n", [erlang:statistics(runtime)]),
-  %%     Step 1: Calculate liveness (Call external implementation.)
-  Liveness = liveness(CFG, Target),
-  ?debug_msg("liveness (done)~w\n", [erlang:statistics(runtime)]),
   USIntervals = calculate_intervals(CFG, Liveness,
 				    Entrypoints, Options, Target),
   ?debug_msg("intervals (done) ~w\n", [erlang:statistics(runtime)]),
@@ -108,10 +101,10 @@ regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
   %% ?debug_msg("Intervals ~w\n", [Intervals]),
   ?debug_msg("No intervals: ~w\n",[length(Intervals)]),
   ?debug_msg("count intervals (done) ~w\n", [erlang:statistics(runtime)]),
-  Allocation = allocate(Intervals, PhysRegs, SpillIndex, DontSpill, Target),
+  {Coloring, NewSpillIndex}
+    = allocate(Intervals, PhysRegs, SpillIndex, DontSpill, Target),
   ?debug_msg("allocation (done) ~w\n", [erlang:statistics(runtime)]),
-  Allocation.
-
+  {Coloring, NewSpillIndex}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                    %%
@@ -125,32 +118,33 @@ regalloc(CFG, PhysRegs, Entrypoints, SpillIndex, DontSpill, Options, Target) ->
 %%  Liveness: A map of live-in and live-out sets for each Basic-Block.
 %%  Entrypoints: A set of BB names that have external entrypoints.
 %%
-calculate_intervals(CFG,Liveness,_Entrypoints, Options, Target) ->
+calculate_intervals(CFG,Liveness,_Entrypoints, Options,
+		    Target={TgtMod,TgtCtx}) ->
   %% Add start point for the argument registers.
   Args = arg_vars(CFG, Target),
   Interval = 
-    add_def_point(Args, 0, empty_interval(Target:number_of_temporaries(CFG))),
+    add_def_point(Args, 0, empty_interval(number_of_temporaries(CFG, Target))),
   %% Interval = add_livepoint(Args, 0, empty_interval()),
   Worklist =
     case proplists:get_value(ls_order, Options) of
       reversepostorder ->
-	Target:reverse_postorder(CFG);
+	TgtMod:reverse_postorder(CFG, TgtCtx);
       breadth ->
-	Target:breadthorder(CFG);
+	TgtMod:breadthorder(CFG, TgtCtx);
       postorder ->
-	Target:postorder(CFG);
+	TgtMod:postorder(CFG, TgtCtx);
       inorder ->
-	Target:inorder(CFG);
+	TgtMod:inorder(CFG, TgtCtx);
       reverse_inorder ->
-	Target:reverse_inorder(CFG);
+	TgtMod:reverse_inorder(CFG, TgtCtx);
       preorder ->
-	Target:preorder(CFG);
+	TgtMod:preorder(CFG, TgtCtx);
       prediction ->
-	Target:predictionorder(CFG);
+	TgtMod:predictionorder(CFG, TgtCtx);
       random ->
-	Target:labels(CFG);
+	TgtMod:labels(CFG, TgtCtx);
       _ ->
-	Target:reverse_postorder(CFG)
+	TgtMod:reverse_postorder(CFG, TgtCtx)
     end,
   %% ?inc_counter(bbs_counter, length(Worklist)),
   %% ?debug_msg("No BBs ~w\n",[length(Worklist)]),
@@ -290,7 +284,7 @@ allocate([RegInt|RIS], Free, Active, Alloc, SpillIndex, DontSpill, Target) ->
 			   alloc(OtherTemp,NewPhys,NewAlloc),
 			   SpillIndex, DontSpill, Target);
 		false ->
-		  NewSpillIndex = Target:new_spill_index(SpillIndex),
+		  NewSpillIndex = new_spill_index(SpillIndex, Target),
 		  {NewAlloc2, NewActive4} = 
 		    spill(OtherTemp, OtherEnd, OtherStart, NewActive3, 
 			  NewAlloc, SpillIndex, DontSpill, Target),
@@ -306,7 +300,7 @@ allocate([RegInt|RIS], Free, Active, Alloc, SpillIndex, DontSpill, Target) ->
       case NewFree of 
 	[] -> 
 	  %% No physical registers available, we have to spill.
-	  NewSpillIndex = Target:new_spill_index(SpillIndex),
+	  NewSpillIndex = new_spill_index(SpillIndex, Target),
 	  {NewAlloc, NewActive2} = 
 	    spill(Temp, endpoint(RegInt), startpoint(RegInt),
 		  Active, Alloc, SpillIndex, DontSpill, Target),
@@ -752,38 +746,41 @@ create_freeregs([]) ->
 %% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-liveness(CFG, Target) ->
-  Target:analyze(CFG).
+bb(CFG, L, {TgtMod, TgtCtx}) ->
+  TgtMod:bb(CFG,L,TgtCtx).
 
-bb(CFG, L, Target) ->
-  Target:bb(CFG,L).
+livein(Liveness,L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:livein(Liveness,L,TgtCtx), Target).
 
-livein(Liveness,L, Target) ->
-  regnames(Target:livein(Liveness,L), Target).
+liveout(Liveness,L, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:liveout(Liveness,L,TgtCtx), Target).
 
-liveout(Liveness,L, Target) ->
-  regnames(Target:liveout(Liveness,L), Target).
+uses(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:uses(I,TgtCtx), Target).
 
-uses(I, Target) ->
-  regnames(Target:uses(I), Target).
+defines(I, Target={TgtMod,TgtCtx}) ->
+  regnames(TgtMod:defines(I,TgtCtx), Target).
 
-defines(I, Target) ->
-  regnames(Target:defines(I), Target).
+is_precoloured(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_precoloured(R,TgtCtx).
 
-is_precoloured(R, Target) ->
-  Target:is_precoloured(R).
+is_global(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_global(R,TgtCtx).
 
-is_global(R, Target) ->
-  Target:is_global(R).
+new_spill_index(SpillIndex, {TgtMod,TgtCtx}) ->
+  TgtMod:new_spill_index(SpillIndex, TgtCtx).
 
-physical_name(R, Target) ->
-  Target:physical_name(R).
+number_of_temporaries(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:number_of_temporaries(CFG, TgtCtx).
 
-regnames(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+physical_name(R, {TgtMod,TgtCtx}) ->
+  TgtMod:physical_name(R,TgtCtx).
 
-arg_vars(CFG, Target) ->
-  Target:args(CFG).
+regnames(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
 
-is_arg(Reg, Target) ->
-  Target:is_arg(Reg).
+arg_vars(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:args(CFG,TgtCtx).
+
+is_arg(Reg, {TgtMod,TgtCtx}) ->
+  TgtMod:is_arg(Reg,TgtCtx).

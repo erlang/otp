@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(unicode).
@@ -22,7 +22,12 @@
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,
 	 characters_to_binary/3,
-	 bom_to_encoding/1, encoding_to_bom/1]).
+	 bom_to_encoding/1, encoding_to_bom/1,
+         characters_to_nfd_list/1, characters_to_nfd_binary/1,
+         characters_to_nfc_list/1, characters_to_nfc_binary/1,
+         characters_to_nfkd_list/1, characters_to_nfkd_binary/1,
+         characters_to_nfkc_list/1, characters_to_nfkc_binary/1
+        ]).
 
 -export_type([chardata/0, charlist/0, encoding/0, external_chardata/0,
               external_charlist/0, latin1_char/0, latin1_chardata/0,
@@ -102,35 +107,6 @@ characters_to_list(_, _) ->
 characters_to_list(ML) ->
     unicode:characters_to_list(ML,unicode).
 
-characters_to_list_int(ML, Encoding) ->
-    try
-	do_characters_to_list(ML,Encoding)
-    catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML,Encoding])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_list,L}|Rest])
-    end.
-
-% XXX: Optimize me!
-do_characters_to_list(ML, Encoding) -> 
-    case unicode:characters_to_binary(ML,Encoding) of
-	Bin when is_binary(Bin) ->
-	    unicode:characters_to_list(Bin,utf8); 
-	{error,Encoded,Rest} ->
-	    {error,unicode:characters_to_list(Encoded,utf8),Rest};
-	{incomplete, Encoded2, Rest2} ->
-	    {incomplete,unicode:characters_to_list(Encoded2,utf8),Rest2}
-    end.
-
-
 -spec characters_to_binary(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       Result :: binary()
@@ -154,24 +130,6 @@ characters_to_binary(ML) ->
 				    [ML])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
     end.
-	
-
-characters_to_binary_int(ML,InEncoding) ->
-    try
-	characters_to_binary_int(ML,InEncoding,unicode)
-    catch
-	error:AnyError ->
-	    TheError = case AnyError of
-			   system_limit ->
-			       system_limit;
-			   _ ->
-			       badarg
-		       end,
-	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
-		(catch erlang:error(new_stacktrace,
-				    [ML,InEncoding])),
-	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
-    end.
 
 -spec characters_to_binary(Data, InEncoding, OutEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
@@ -192,7 +150,7 @@ characters_to_binary(ML, latin1, Uni) when is_binary(ML) and ((Uni =:= utf8) or 
 	        try
 		    characters_to_binary_int(ML,latin1,utf8)
 		catch
-		    error:AnyError ->	    
+		    error:AnyError ->
 			TheError = case AnyError of
 				       system_limit ->
 					   system_limit;
@@ -228,7 +186,7 @@ characters_to_binary(ML,Uni,latin1) when is_binary(ML) and ((Uni =:= utf8) or   
 				     [{Mod,characters_to_binary,L}|Rest])
 		end
     end;
-    
+
 characters_to_binary(ML, InEncoding, OutEncoding) ->
     try
 	characters_to_binary_int(ML,InEncoding,OutEncoding)
@@ -244,53 +202,6 @@ characters_to_binary(ML, InEncoding, OutEncoding) ->
 		(catch erlang:error(new_stacktrace,
 				    [ML,InEncoding,OutEncoding])),
 	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
-    end.
-
-characters_to_binary_int(ML, InEncoding, OutEncoding) when 
-    InEncoding =:= latin1, OutEncoding =:= unicode; 
-    InEncoding =:= latin1, OutEncoding =:= utf8;
-    InEncoding =:= unicode, OutEncoding =:= unicode; 
-    InEncoding =:= unicode, OutEncoding =:= utf8; 
-    InEncoding =:= utf8, OutEncoding =:= unicode; 
-    InEncoding =:= utf8, OutEncoding =:= utf8 -> 
-    unicode:characters_to_binary(ML,InEncoding);
-
-characters_to_binary_int(ML, InEncoding, OutEncoding) ->
-    {InTrans,Limit} = case OutEncoding of
-		  latin1 -> {i_trans_chk(InEncoding),255};
-		  _ -> {i_trans(InEncoding),case InEncoding of latin1 -> 255; _ -> 16#10FFFF end}
-	      end,
-    OutTrans = o_trans(OutEncoding),
-    Res = 
-	ml_map(ML,
-	       fun(Part,Accum) when is_binary(Part) ->
-		       case InTrans(Part) of
-			   List when is_list(List) ->
-			       Tail = OutTrans(List),
-			       <<Accum/binary, Tail/binary>>;
-			   {error, Translated, Rest} -> 
-			       Tail = OutTrans(Translated),
-			       {error, <<Accum/binary,Tail/binary>>, Rest};
-			   {incomplete, Translated, Rest, Missing}  ->
-			       Tail = OutTrans(Translated),
-			       {incomplete, <<Accum/binary,Tail/binary>>, Rest,
-				Missing}
-		       end;
-		  (Part, Accum) when is_integer(Part), Part =< Limit ->
-		       case OutTrans([Part]) of
-			   Binary when is_binary(Binary) ->
-			       <<Accum/binary, Binary/binary>>;
-			   {error, _, [Part]} ->
-			       {error,Accum,[Part]}
-		       end;
-		  (Part, Accum) ->
-		       {error, Accum, [Part]}
-	       end,<<>>),
-    case Res of
-	{incomplete,A,B,_} ->
-	    {incomplete,A,B};
-	_ ->
-	    Res
     end.
 
 -spec bom_to_encoding(Bin) -> {Encoding, Length} when
@@ -335,11 +246,215 @@ encoding_to_bom({utf32,little}) ->
     <<255,254,0,0>>;
 encoding_to_bom(latin1) ->
     <<>>.
-	    
 
-cbv(utf8,<<1:1,1:1,0:1,_:5>>) -> 
+-define(GC_N, 200). %% arbitrary number
+
+%% Canonical decompose string to list of chars
+-spec characters_to_nfd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
+characters_to_nfd_list(CD) ->
+    characters_to_nfd_list(CD, []).
+characters_to_nfd_list(CD, Acc) ->
+    case unicode_util:nfd(CD) of
+        [GC|Str] when is_list(GC) -> characters_to_nfd_list(Str, lists:reverse(GC, Acc));
+        [CP|Str] -> characters_to_nfd_list(Str, [CP | Acc]);
+        [] -> lists:reverse(Acc);
+        {error,Error} -> {error, lists:reverse(Acc), Error}
+    end.
+
+-spec characters_to_nfd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
+characters_to_nfd_binary(CD) ->
+    characters_to_nfd_binary(CD, ?GC_N, [], []).
+
+characters_to_nfd_binary(CD, N, Row, Acc) when N > 0 ->
+    case unicode_util:nfd(CD) of
+        [GC|Str] -> characters_to_nfd_binary(Str, N-1, [GC|Row], Acc);
+        [] -> acc_to_binary(prepend_row_to_acc(Row, Acc));
+        {error, Error} -> {error, acc_to_binary(prepend_row_to_acc(Row, Acc)), Error}
+    end;
+characters_to_nfd_binary(CD, _, Row, Acc) ->
+    characters_to_nfd_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
+
+%% Compability Canonical decompose string to list of chars.
+-spec characters_to_nfkd_list(chardata()) -> [char()] | {error, [char()], chardata()}.
+characters_to_nfkd_list(CD) ->
+    characters_to_nfkd_list(CD, []).
+characters_to_nfkd_list(CD, Acc) ->
+    case unicode_util:nfkd(CD) of
+        [GC|Str] when is_list(GC) -> characters_to_nfkd_list(Str, lists:reverse(GC, Acc));
+        [CP|Str] -> characters_to_nfkd_list(Str, [CP | Acc]);
+        [] -> lists:reverse(Acc);
+        {error,Error} -> {error, lists:reverse(Acc), Error}
+    end.
+
+-spec characters_to_nfkd_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
+characters_to_nfkd_binary(CD) ->
+    characters_to_nfkd_binary(CD, ?GC_N, [], []).
+
+characters_to_nfkd_binary(CD, N, Row, Acc) when N > 0 ->
+    case unicode_util:nfkd(CD) of
+        [GC|Str] -> characters_to_nfkd_binary(Str, N-1, [GC|Row], Acc);
+        [] -> acc_to_binary(prepend_row_to_acc(Row, Acc));
+        {error, Error} -> {error, acc_to_binary(prepend_row_to_acc(Row, Acc)), Error}
+    end;
+characters_to_nfkd_binary(CD, _, Row, Acc) ->
+    characters_to_nfkd_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
+
+
+%% Canonical compose string to list of chars
+-spec characters_to_nfc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
+characters_to_nfc_list(CD) ->
+    characters_to_nfc_list(CD, []).
+characters_to_nfc_list(CD, Acc) ->
+    case unicode_util:nfc(CD) of
+        [GC|Str] when is_list(GC) -> characters_to_nfc_list(Str, lists:reverse(GC, Acc));
+        [CP|Str] -> characters_to_nfc_list(Str, [CP | Acc]);
+        [] -> lists:reverse(Acc);
+        {error,Error} -> {error, lists:reverse(Acc), Error}
+    end.
+
+-spec characters_to_nfc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
+characters_to_nfc_binary(CD) ->
+    characters_to_nfc_binary(CD, ?GC_N, [], []).
+
+characters_to_nfc_binary(CD, N, Row, Acc) when N > 0 ->
+    case unicode_util:nfc(CD) of
+        [GC|Str] -> characters_to_nfc_binary(Str, N-1, [GC|Row], Acc);
+        [] -> acc_to_binary(prepend_row_to_acc(Row, Acc));
+        {error, Error} -> {error, acc_to_binary(prepend_row_to_acc(Row, Acc)), Error}
+    end;
+characters_to_nfc_binary(CD, _, Row, Acc) ->
+    characters_to_nfc_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
+
+%% Compability Canonical compose string to list of chars
+-spec characters_to_nfkc_list(chardata()) -> [char()] | {error, [char()], chardata()}.
+characters_to_nfkc_list(CD) ->
+    characters_to_nfkc_list(CD, []).
+characters_to_nfkc_list(CD, Acc) ->
+    case unicode_util:nfkc(CD) of
+        [GC|Str] when is_list(GC) -> characters_to_nfkc_list(Str, lists:reverse(GC, Acc));
+        [CP|Str] -> characters_to_nfkc_list(Str, [CP | Acc]);
+        [] -> lists:reverse(Acc);
+        {error,Error} -> {error, lists:reverse(Acc), Error}
+    end.
+
+-spec characters_to_nfkc_binary(chardata()) -> unicode_binary() | {error, unicode_binary(), chardata()}.
+characters_to_nfkc_binary(CD) ->
+    characters_to_nfkc_binary(CD, ?GC_N, [], []).
+
+characters_to_nfkc_binary(CD, N, Row, Acc) when N > 0 ->
+    case unicode_util:nfkc(CD) of
+        [GC|Str] -> characters_to_nfkc_binary(Str, N-1, [GC|Row], Acc);
+        [] -> acc_to_binary(prepend_row_to_acc(Row, Acc));
+        {error, Error} -> {error, acc_to_binary(prepend_row_to_acc(Row, Acc)), Error}
+    end;
+characters_to_nfkc_binary(CD, _, Row, Acc) ->
+    characters_to_nfkc_binary(CD, ?GC_N, [], prepend_row_to_acc(Row, Acc)).
+
+acc_to_binary(Acc) ->
+    list_to_binary(lists:reverse(Acc)).
+prepend_row_to_acc(Row, Acc) ->
+    [characters_to_binary(lists:reverse(Row))|Acc].
+
+%% internals
+
+characters_to_list_int(ML, Encoding) ->
+    try
+	do_characters_to_list(ML,Encoding)
+    catch
+	error:AnyError ->
+	    TheError = case AnyError of
+			   system_limit ->
+			       system_limit;
+			   _ ->
+			       badarg
+		       end,
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
+		(catch erlang:error(new_stacktrace,
+				    [ML,Encoding])),
+	    erlang:raise(error,TheError,[{Mod,characters_to_list,L}|Rest])
+    end.
+
+                                                % XXX: Optimize me!
+do_characters_to_list(ML, Encoding) ->
+    case unicode:characters_to_binary(ML,Encoding) of
+	Bin when is_binary(Bin) ->
+	    unicode:characters_to_list(Bin,utf8);
+	{error,Encoded,Rest} ->
+	    {error,unicode:characters_to_list(Encoded,utf8),Rest};
+	{incomplete, Encoded2, Rest2} ->
+	    {incomplete,unicode:characters_to_list(Encoded2,utf8),Rest2}
+    end.
+
+
+characters_to_binary_int(ML,InEncoding) ->
+    try
+	characters_to_binary_int(ML,InEncoding,unicode)
+    catch
+	error:AnyError ->
+	    TheError = case AnyError of
+			   system_limit ->
+			       system_limit;
+			   _ ->
+			       badarg
+		       end,
+	    {'EXIT',{new_stacktrace,[{Mod,_,L,_}|Rest]}} =
+		(catch erlang:error(new_stacktrace,
+				    [ML,InEncoding])),
+	    erlang:raise(error,TheError,[{Mod,characters_to_binary,L}|Rest])
+    end.
+
+
+characters_to_binary_int(ML, InEncoding, OutEncoding) when
+      InEncoding =:= latin1, OutEncoding =:= unicode;
+      InEncoding =:= latin1, OutEncoding =:= utf8;
+      InEncoding =:= unicode, OutEncoding =:= unicode;
+      InEncoding =:= unicode, OutEncoding =:= utf8;
+      InEncoding =:= utf8, OutEncoding =:= unicode;
+      InEncoding =:= utf8, OutEncoding =:= utf8 ->
+    unicode:characters_to_binary(ML,InEncoding);
+
+characters_to_binary_int(ML, InEncoding, OutEncoding) ->
+    {InTrans,Limit} = case OutEncoding of
+                          latin1 -> {i_trans_chk(InEncoding),255};
+                          _ -> {i_trans(InEncoding),case InEncoding of latin1 -> 255; _ -> 16#10FFFF end}
+                      end,
+    OutTrans = o_trans(OutEncoding),
+    Res =
+	ml_map(ML,
+	       fun(Part,Accum) when is_binary(Part) ->
+		       case InTrans(Part) of
+			   List when is_list(List) ->
+			       Tail = OutTrans(List),
+			       <<Accum/binary, Tail/binary>>;
+			   {error, Translated, Rest} ->
+			       Tail = OutTrans(Translated),
+			       {error, <<Accum/binary,Tail/binary>>, Rest};
+			   {incomplete, Translated, Rest, Missing}  ->
+			       Tail = OutTrans(Translated),
+			       {incomplete, <<Accum/binary,Tail/binary>>, Rest,
+				Missing}
+		       end;
+		  (Part, Accum) when is_integer(Part), Part =< Limit ->
+		       case OutTrans([Part]) of
+			   Binary when is_binary(Binary) ->
+			       <<Accum/binary, Binary/binary>>;
+			   {error, _, [Part]} ->
+			       {error,Accum,[Part]}
+		       end;
+		  (Part, Accum) ->
+		       {error, Accum, [Part]}
+	       end,<<>>),
+    case Res of
+	{incomplete,A,B,_} ->
+	    {incomplete,A,B};
+	_ ->
+	    Res
+    end.
+
+
+cbv(utf8,<<1:1,1:1,0:1,_:5>>) ->
     1;
-cbv(utf8,<<1:1,1:1,1:1,0:1,_:4,R/binary>>) -> 
+cbv(utf8,<<1:1,1:1,1:1,0:1,_:4,R/binary>>) ->
     case R of
 	<<>> ->
 	    2;
@@ -386,18 +501,18 @@ cbv({utf32,big}, <<0:8>>) ->
     3;
 cbv({utf32,big}, <<0:8,X:8>>) when X =< 16 ->
     2;
-cbv({utf32,big}, <<0:8,X:8,Y:8>>) 
+cbv({utf32,big}, <<0:8,X:8,Y:8>>)
   when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
     1;
 cbv({utf32,big},_) ->
     false;
 cbv({utf32,little},<<_:8>>) ->
     3;
-cbv({utf32,little},<<_:8,_:8>>) -> 
+cbv({utf32,little},<<_:8,_:8>>) ->
     2;
 cbv({utf32,little},<<X:8,255:8,0:8>>) when X =:= 254; X =:= 255 ->
     false;
-cbv({utf32,little},<<_:8,Y:8,X:8>>) 
+cbv({utf32,little},<<_:8,Y:8,X:8>>)
   when X =< 16, ((X > 0) or ((Y =< 215) or (Y >= 224))) ->
     1;
 cbv({utf32,little},_) ->
@@ -417,8 +532,8 @@ ml_map([Part|T],Fun,Accum) when is_integer(Part) ->
 		Bin2 when is_binary(Bin2) ->
 		    Bin2;
 		{error, Converted, Rest} ->
-		    {error, Converted, Rest}; 
-		{incomplete, Converted, Rest,X} -> 
+		    {error, Converted, Rest};
+		{incomplete, Converted, Rest,X} ->
 		    {incomplete, Converted, Rest,X}
 	    end;
 	% Can not be incomplete - it's an integer
@@ -471,7 +586,7 @@ ml_map(Part,Fun,Accum) when is_binary(Part), byte_size(Part) > 8192 ->
 ml_map(Bin,Fun,Accum) when is_binary(Bin) ->
     Fun(Bin,Accum).
 
- 
+
 
 
 
@@ -523,7 +638,7 @@ o_trans(utf8) ->
 				<<One/utf8>>
 			end, L)
     end;
-    
+
 o_trans(utf16) ->
     fun(L) ->
 	    do_o_binary(fun(One) ->
@@ -577,9 +692,9 @@ do_o_binary2(F,[H|T]) ->
 		    [Bin|Bin3]
 	    end
     end.
- 
+
 %% Specific functions only allowing codepoints in latin1 range
-	
+
 do_i_utf8_chk(<<>>) ->
     [];
 do_i_utf8_chk(<<U/utf8,R/binary>>) when U =< 255 ->

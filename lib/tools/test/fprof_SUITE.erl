@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
          imm_tail_seq/1, imm_create_file_slow/1, imm_compile/1,
-         cpu_create_file_slow/1]).
+         cpu_create_file_slow/1, unicode/1]).
 
 %% Other exports
 -export([create_file_slow/2]).
@@ -51,7 +51,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,60}}].
+     {timetrap,{seconds,240}}].
 
 all() -> 
     case test_server:is_native(fprof_SUITE) of
@@ -59,7 +59,7 @@ all() ->
         false ->
             [stack_seq, tail_seq, create_file_slow, spawn_simple,
              imm_tail_seq, imm_create_file_slow, imm_compile,
-             cpu_create_file_slow]
+             cpu_create_file_slow, unicode]
     end.
 
 
@@ -533,6 +533,17 @@ cpu_create_file_slow(Config) when is_list(Config) ->
     TestResult.
 
 
+unicode(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    SourceFile = filename:join(DataDir, "fprof_unicode.erl"),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    AnalysisFile = filename:join(PrivDir, "fprof_unicode.analysis"),
+    {ok, fprof_unicode} = compile:file(SourceFile, [{outdir, PrivDir}]),
+    true = code:add_path(PrivDir),
+    fprof:apply(fprof_unicode, t, []),
+    ok = fprof:profile(dump, AnalysisFile),
+    ok = fprof:analyse(dest, AnalysisFile).
+
 %%%---------------------------------------------------------------------
 %%% Functions to test
 %%%---------------------------------------------------------------------
@@ -560,7 +571,7 @@ seq_r(Start, Stop, Succ, R) ->
 
 create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
-    file:open(Name, [raw, write, delayed_write, binary]),
+    file:open(Name, [raw, write, binary]),
     if N > 256 ->
            ok = file:write(FD,
                            lists:map(fun (X) -> <<X:32/unsigned>> end,

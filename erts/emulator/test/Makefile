@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ MODULES= \
 	after_SUITE \
 	alloc_SUITE \
 	async_ports_SUITE \
+	atomics_SUITE \
 	beam_SUITE \
 	beam_literals_SUITE \
 	bif_SUITE \
@@ -50,12 +51,15 @@ MODULES= \
 	call_trace_SUITE \
 	code_SUITE \
 	code_parallel_load_SUITE \
+	counters_SUITE \
 	crypto_SUITE \
 	ddll_SUITE \
 	decode_packet_SUITE \
+	dirty_bif_SUITE \
 	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
+	dump_SUITE \
 	efile_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
@@ -65,14 +69,15 @@ MODULES= \
 	exception_SUITE \
 	float_SUITE \
 	fun_SUITE \
-	fun_r13_SUITE \
 	gc_SUITE \
 	guard_SUITE \
 	hash_SUITE \
 	hibernate_SUITE \
 	hipe_SUITE \
+	iovec_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
+	lcnt_SUITE \
 	map_SUITE \
 	match_spec_SUITE \
 	module_info_SUITE \
@@ -85,8 +90,11 @@ MODULES= \
 	num_bif_SUITE \
 	message_queue_data_SUITE \
 	op_SUITE \
+	os_signal_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
+	prim_eval_SUITE \
+	persistent_term_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
 	receive_SUITE \
@@ -115,11 +123,9 @@ MODULES= \
 	tracer_SUITE \
 	tracer_test \
 	scheduler_SUITE \
-	old_scheduler_SUITE \
 	port_trace_SUITE \
 	unique_SUITE \
 	z_SUITE \
-	old_mod \
 	long_timers_test \
 	ignore_cores \
 	dgawd_handler \
@@ -154,7 +160,8 @@ EMAKEFILE=Emakefile
 TEST_SPEC_FILES= emulator.spec \
 		 emulator.spec.win \
 		 emulator_bench.spec \
-		 emulator_smoke.spec
+		 emulator_smoke.spec \
+                 emulator_node_container_SUITE.spec
 
 # ----------------------------------------------------
 # Release directory specification

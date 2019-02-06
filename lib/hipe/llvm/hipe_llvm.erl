@@ -862,7 +862,7 @@ pp_ins(Dev, Ver, I) ->
         true -> write(Dev, "volatile ");
         false -> ok
       end,
-      pp_dereference_type(Dev, Ver, load_p_type(I)),
+      pp_dereference_type(Dev, load_p_type(I)),
       write(Dev, [" ", load_pointer(I), " "]),
       case load_alignment(I) of
         [] -> ok;
@@ -898,7 +898,7 @@ pp_ins(Dev, Ver, I) ->
         true -> write(Dev, "inbounds ");
         false -> ok
       end,
-      pp_dereference_type(Dev, Ver, getelementptr_p_type(I)),
+      pp_dereference_type(Dev, getelementptr_p_type(I)),
       write(Dev, [" ", getelementptr_value(I)]),
       pp_typed_idxs(Dev, getelementptr_typed_idxs(I)),
       write(Dev, "\n");
@@ -934,7 +934,7 @@ pp_ins(Dev, Ver, I) ->
       end,
       case call_is_tail(I) of
         true -> write(Dev, "tail ");
-        false -> ok
+        false -> write(Dev, "notail ")
       end,
       write(Dev, ["call ", call_cconv(I), " "]),
       pp_options(Dev, call_ret_attrs(I)),
@@ -959,10 +959,8 @@ pp_ins(Dev, Ver, I) ->
       pp_args(Dev, fun_def_arglist(I)),
       write(Dev, ") "),
       pp_options(Dev, fun_def_fn_attrs(I)),
-      case Ver >= {3,7} of false -> ok; true ->
-	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
-		"@__gcc_personality_v0 ")
-      end,
+      write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
+	    "@__gcc_personality_v0 "),
       case fun_def_align(I) of
         [] -> ok;
         N -> write(Dev, ["align ", N])
@@ -997,12 +995,7 @@ pp_ins(Dev, Ver, I) ->
       pp_type(Dev, const_decl_type(I)),
       write(Dev, [" ", const_decl_value(I), "\n"]);
     #llvm_landingpad{} ->
-      write(Dev, "landingpad { i8*, i32 } "),
-      case Ver < {3,7} of false -> ok; true ->
-	  write(Dev, "personality i32 (i32, i64, i8*,i8*)* "
-		"@__gcc_personality_v0 ")
-      end,
-      write(Dev, "cleanup\n");
+      write(Dev, "landingpad { i8*, i32 } cleanup\n");
     #llvm_asm{} ->
       write(Dev, [asm_instruction(I), "\n"]);
     #llvm_adj_stack{} ->
@@ -1011,34 +1004,22 @@ pp_ins(Dev, Ver, I) ->
       pp_type(Dev, adj_stack_type(I)),
       write(Dev, [" ", adj_stack_offset(I),")\n"]);
     #llvm_meta{} ->
-      write(Dev, ["!", meta_id(I), " = "]),
-      Named = case string:to_integer(meta_id(I)) of
-		{_, ""} -> false;
-		_ -> true
-	      end,
-      case Ver < {3,6} andalso not Named of
-	true -> write(Dev, "metadata !{metadata ");
-	false -> write(Dev, "!{ ")
-      end,
-      write(Dev, string:join([if is_list(Op) -> ["!\"", Op, "\""];
-				 is_integer(Op) -> ["i32 ", integer_to_list(Op)];
-				 is_record(Op, llvm_meta) ->
-				  ["!", meta_id(Op)]
-			      end || Op <- meta_operands(I)], ", ")),
+      write(Dev, ["!", meta_id(I), " = !{ "]),
+      write(Dev, lists:join(", ",
+                            [if is_list(Op) -> ["!\"", Op, "\""];
+                                is_integer(Op) -> ["i32 ", integer_to_list(Op)];
+                                is_record(Op, llvm_meta) ->
+                                 ["!", meta_id(Op)]
+                             end || Op <- meta_operands(I)])),
       write(Dev, " }\n");
     Other ->
       exit({?MODULE, pp_ins, {"Unknown LLVM instruction", Other}})
   end.
 
-%% @doc Print the type of a dereference in an LLVM instruction using syntax
-%% parsable by the specified LLVM version.
-pp_dereference_type(Dev, Ver, Type) ->
-  case Ver >= {3,7} of
-    false -> ok;
-    true ->
-      pp_type(Dev, pointer_type(Type)),
-      write(Dev, ", ")
-  end,
+%% @doc Print the type of a dereference in an LLVM instruction.
+pp_dereference_type(Dev, Type) ->
+  pp_type(Dev, pointer_type(Type)),
+  write(Dev, ", "),
   pp_type(Dev, Type).
 
 %% @doc Pretty-print a list of types

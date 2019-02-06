@@ -57,9 +57,12 @@
       <name name="atan" arity="1"/>
       <name name="atan2" arity="2"/>
       <name name="atanh" arity="1"/>
+      <name name="ceil" arity="1"/>
       <name name="cos" arity="1"/>
       <name name="cosh" arity="1"/>
       <name name="exp" arity="1"/>
+      <name name="floor" arity="1"/>
+      <name name="fmod" arity="2"/>
       <name name="log" arity="1"/>
       <name name="log10" arity="1"/>
       <name name="log2" arity="1"/>

@@ -139,3 +139,7 @@ vsn_verbose = $(vsn_verbose_$(V))
 
 yecc_verbose_0 = @echo " YECC	"$@;
 yecc_verbose = $(yecc_verbose_$(V))
+
+llvm_profdata_verbose_0 = @echo " LLVM_PROFDATA	"$@;
+llvm_profdata_verbose = $(llvm_profdata_verbose_$(V))
+V_LLVM_PROFDATA = $(llvm_profdata_verbose)$(LLVM_PROFDATA)

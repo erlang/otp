@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 integers/1,coverage/1,booleans/1,setelement/1,cons/1,
-	 tuple/1]).
+	 tuple/1,record_float/1,binary_float/1,float_compare/1,
+	 arity_checks/1,elixir_binaries/1,find_best/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() ->
@@ -37,10 +37,17 @@ groups() ->
        booleans,
        setelement,
        cons,
-       tuple
+       tuple,
+       record_float,
+       binary_float,
+       float_compare,
+       arity_checks,
+       elixir_binaries,
+       find_best
       ]}].
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -60,6 +67,15 @@ integers(_Config) ->
     {'EXIT',{{case_clause,-1},_}} = (catch do_integers_2(<<1:1>>)),
 
     college = do_integers_3(),
+
+    zero = do_integers_4(<<0:1>>, 0),
+    one = do_integers_4(<<1:1>>, 0),
+    other = do_integers_4(<<1:1>>, 2),
+
+    zero = do_integers_5(0, 0),
+    one = do_integers_5(0, 1),
+    two = do_integers_5(0, 2),
+    three = do_integers_5(0, 3),
 
     ok.
 
@@ -83,7 +99,31 @@ do_integers_3() ->
 	1 -> 0
     end.
 
-coverage(_Config) ->
+do_integers_4(<<X:1,T/bits>>, C) ->
+    %% Binary matching gives the range 0-1 for X.
+    %% The range for `X bor C` is unknown. It must not be inherited
+    %% from X. (`X bor C` will reuse the register used for X.)
+    case X bor C of
+        0 -> do_integers_4(T, C, zero);
+        1 -> do_integers_4(T, C, one);
+        _ -> do_integers_4(T, C, other)
+    end.
+
+do_integers_4(_, _, Res) ->
+    Res.
+
+do_integers_5(X0, Y0) ->
+    %% X and Y will use the same register.
+    X = X0 band 1,
+    Y = Y0 band 3,
+    case Y of
+        0 -> zero;
+        1 -> one;
+        2 -> two;
+        3 -> three
+    end.
+
+coverage(Config) ->
     {'EXIT',{badarith,_}} = (catch id(1) bsl 0.5),
     {'EXIT',{badarith,_}} = (catch id(2.0) bsl 2),
     {'EXIT',{badarith,_}} = (catch a + 0.5),
@@ -94,6 +134,29 @@ coverage(_Config) ->
     id(id(42) band 387439739874298734983787934283479243879),
     id(-1 band id(13)),
 
+    error = if
+                is_map(Config), is_integer(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_map(Config), is_atom(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_map(Config), is_tuple(Config) -> ok;
+                true -> error
+            end,
+    error = if
+                is_integer(Config), is_bitstring(Config) -> ok;
+                true -> error
+            end,
+
+    ok = case Config of
+             <<_>> when is_binary(Config) ->
+                 impossible;
+             [_|_] ->
+                 ok
+         end,
     ok.
 
 booleans(_Config) ->
@@ -125,6 +188,138 @@ tuple(_Config) ->
 
 do_tuple() ->
     {0, _} = {necessary}.
+
+-record(x, {a}).
+
+record_float(_Config) ->
+    17.0 = record_float(#x{a={0}}, 1700),
+    23.0 = record_float(#x{a={0}}, 2300.0),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{a={1}}, 88)),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{a={}}, 88)),
+    {'EXIT',{if_clause,_}} = (catch record_float(#x{}, 88)),
+    ok.
+
+record_float(R, N0) ->
+    N = N0 / 100,
+    if element(1, R#x.a) =:= 0 ->
+            N
+    end.
+
+binary_float(_Config) ->
+    <<-1/float>> = binary_negate_float(<<1/float>>),
+    ok.
+
+binary_negate_float(<<Float/float>>) ->
+    <<-Float/float>>.
+
+float_compare(_Config) ->
+    false = do_float_compare(-42.0),
+    false = do_float_compare(-42),
+    false = do_float_compare(0),
+    false = do_float_compare(0.0),
+    true = do_float_compare(42),
+    true = do_float_compare(42.0),
+    ok.
+
+do_float_compare(X) ->
+    %% ERL-433: Used to fail before OTP 20. Was accidentally fixed
+    %% in OTP 20. Add a test case to ensure it stays fixed.
+
+    Y = X + 1.0,
+    case X > 0 of
+        T when (T =:= nil) or (T =:= false) -> T;
+        _T -> Y > 0
+    end.
+
+arity_checks(_Config) ->
+    %% ERL-549: an unsafe optimization removed a test_arity instruction,
+    %% causing the following to return 'broken' instead of 'ok'.
+    ok = do_record_arity_check({rgb, 255, 255, 255, 1}),
+    ok = do_tuple_arity_check({255, 255, 255, 1}).
+ 
+-record(rgb, {r = 255, g = 255, b = 255}).
+
+do_record_arity_check(RGB) when
+        (element(2, RGB) >= 0), (element(2, RGB) =< 255),
+        (element(3, RGB) >= 0), (element(3, RGB) =< 255),
+        (element(4, RGB) >= 0), (element(4, RGB) =< 255) ->
+    if
+        element(1, RGB) =:= rgb, is_record(RGB, rgb) -> broken;
+        true -> ok
+    end.
+
+do_tuple_arity_check(RGB) when is_tuple(RGB),
+        (element(1, RGB) >= 0), (element(1, RGB) =< 255),
+        (element(2, RGB) >= 0), (element(2, RGB) =< 255),
+        (element(3, RGB) >= 0), (element(3, RGB) =< 255) ->
+    case RGB of
+        {255, _, _} -> broken;
+        _ -> ok
+    end.
+
+elixir_binaries(_Config) ->
+    <<"foo blitzky baz">> = elixir_binary_1(<<"blitzky">>),
+    <<"foo * baz">> = elixir_binary_2($*),
+    <<7:4,755:10>> = elixir_bitstring_3(<<755:10>>),
+    ok.
+
+elixir_binary_1(Bar) when is_binary(Bar) ->
+    <<"foo ",
+      case Bar of
+          Rewrite when is_binary(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_binary(Rewrite)
+      end/binary,
+      " baz">>.
+
+elixir_binary_2(Arg) ->
+    Bin = <<Arg>>,
+    <<"foo ",
+      case Bin of
+          Rewrite when is_binary(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_binary:to_string(Rewrite)
+      end/binary,
+      " baz">>.
+
+elixir_bitstring_3(Bar) when is_bitstring(Bar) ->
+    <<7:4,
+      case Bar of
+          Rewrite when is_bitstring(Rewrite) ->
+              Rewrite;
+          Rewrite ->
+              list_to_bitstring(Rewrite)
+      end/bitstring>>.
+
+find_best(_Config) ->
+    ok = find_best([a], nil),
+    ok = find_best([<<"a">>], nil),
+    {error,_} = find_best([], nil),
+    ok.
+
+%% Failed because beam_type assumed that the operand
+%% for bs_context_binary must be a binary. Not true!
+find_best([a|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> a;
+          X -> X
+      end);
+find_best([<<"a">>|Tail], Best) ->
+    find_best(Tail,
+      case Best of
+          X when X =:= nil orelse X =:= false -> <<"a">>;
+          X -> X
+      end);
+find_best([], a) ->
+    ok;
+find_best([], <<"a">>) ->
+    ok;
+find_best([], nil) ->
+    {error,<<"should not get here">>}.
+
 
 id(I) ->
     I.

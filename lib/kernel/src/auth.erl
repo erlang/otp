@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ get_cookie() ->
 get_cookie(_Node) when node() =:= nonode@nohost ->
     nocookie;
 get_cookie(Node) ->
-    gen_server:call(auth, {get_cookie, Node}).
+    gen_server:call(auth, {get_cookie, Node}, infinity).
 
 -spec set_cookie(Cookie :: cookie()) -> 'true'.
 
@@ -119,12 +119,12 @@ set_cookie(Cookie) ->
 set_cookie(_Node, _Cookie) when node() =:= nonode@nohost ->
     erlang:error(distribution_not_started);
 set_cookie(Node, Cookie) ->
-    gen_server:call(auth, {set_cookie, Node, Cookie}).
+    gen_server:call(auth, {set_cookie, Node, Cookie}, infinity).
 
 -spec sync_cookie() -> any().
 
 sync_cookie() ->
-    gen_server:call(auth, sync_cookie).
+    gen_server:call(auth, sync_cookie, infinity).
 
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 

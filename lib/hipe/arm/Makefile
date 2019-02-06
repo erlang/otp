@@ -61,6 +61,7 @@ MODULES=hipe_arm \
 	hipe_arm_ra_naive \
 	hipe_arm_ra_postconditions \
 	hipe_arm_registers \
+	hipe_arm_subst \
 	hipe_rtl_to_arm
 
 HRL_FILES=hipe_arm.hrl

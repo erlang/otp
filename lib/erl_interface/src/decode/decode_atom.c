@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,12 +92,66 @@ int ei_decode_atom_as(const char *buf, int *index, char* p, int destlen,
 }	
 
 
+
+#ifdef HAVE_UNALIGNED_WORD_ACCESS
+
+#if SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long AsciiWord;
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long AsciiWord;
+#else
+#  error "Uknown word type"
+#endif
+
+#if SIZEOF_VOID_P == 4
+#  define ASCII_CHECK_MASK ((AsciiWord)0x80808080U)
+#elif SIZEOF_VOID_P == 8
+#  define ASCII_CHECK_MASK ((AsciiWord)0x8080808080808080U)
+#endif
+
+static int ascii_fast_track(char* dst, const char* src, int slen, int destlen)
+{
+    const AsciiWord* src_word = (AsciiWord*) src;
+    const AsciiWord* const src_word_end = src_word + (slen / sizeof(AsciiWord));
+
+    if (destlen < slen)
+        return 0;
+
+    if (dst) {
+        AsciiWord* dst_word = (AsciiWord*)dst;
+
+        while (src_word < src_word_end) {
+            if ((*src_word & ASCII_CHECK_MASK) != 0)
+                break;
+            *dst_word++ = *src_word++;
+        }
+    }
+    else {
+        while (src_word < src_word_end) {
+            if ((*src_word & ASCII_CHECK_MASK) != 0)
+                break;
+            src_word++;
+        }
+    }
+    return (char*)src_word - src;
+}
+#endif /* HAVE_UNALIGNED_WORD_ACCESS */
+
 int utf8_to_latin1(char* dst, const char* src, int slen, int destlen,
 		   erlang_char_encoding* res_encp)
 {
     const char* const dst_start = dst;
     const char* const dst_end = dst + destlen;
     int found_non_ascii = 0;
+
+#ifdef HAVE_UNALIGNED_WORD_ACCESS
+    {
+        int aft = ascii_fast_track(dst, src, slen, destlen);
+        src += aft;
+        slen -= aft;
+        dst += aft;
+    }
+#endif
 
     while (slen > 0) {
 	if (dst >= dst_end) return -1;
@@ -135,6 +189,14 @@ int latin1_to_utf8(char* dst, const char* src, int slen, int destlen,
     const char* const dst_start = dst;
     const char* const dst_end = dst + destlen;
     int found_non_ascii = 0;
+
+#ifdef HAVE_UNALIGNED_WORD_ACCESS
+    {
+        int aft = ascii_fast_track(dst, src, slen, destlen);
+        dst += aft;
+        src += aft;
+    }
+#endif
 
     while (src < src_end) {
 	if (dst >= dst_end) return -1;

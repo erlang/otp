@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2018. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,12 +64,43 @@ static void erts_erts_pcre_stack_free(void *ptr) {
     erts_free(ERTS_ALC_T_RE_STACK,ptr);
 }
 
+#define ERTS_PCRE_STACK_MARGIN (10*1024)
+
+#  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
+
+static int
+stack_guard_downwards(void)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+
+    ASSERT(limit);
+
+    return erts_check_below_limit(&c, limit + ERTS_PCRE_STACK_MARGIN);
+}
+
+static int
+stack_guard_upwards(void)
+{
+    char *limit = ERTS_STACK_LIMIT;
+    char c;
+
+    ASSERT(limit);
+
+    return erts_check_above_limit(&c, limit - ERTS_PCRE_STACK_MARGIN);
+}
+
 void erts_init_bif_re(void)
 {
+    char c;
     erts_pcre_malloc = &erts_erts_pcre_malloc;
     erts_pcre_free = &erts_erts_pcre_free;
     erts_pcre_stack_malloc = &erts_erts_pcre_stack_malloc;
     erts_pcre_stack_free = &erts_erts_pcre_stack_free;
+    if ((char *) erts_ptr_id(&c) > ERTS_STACK_LIMIT)
+        erts_pcre_stack_guard = stack_guard_downwards;
+    else
+        erts_pcre_stack_guard = stack_guard_upwards;
     default_table = NULL; /* ISO8859-1 default, forced into pcre */
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
 
@@ -477,6 +508,17 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
  * Compile BIFs
  */
 
+BIF_RETTYPE
+re_version_0(BIF_ALIST_0)
+{
+    Eterm ret;
+    size_t version_size = 0;
+    byte *version = (byte *) erts_pcre_version();
+    version_size = sys_strlen((const char *) version);
+    ret = new_binary(BIF_P, version, version_size);
+    BIF_RET(ret);
+}
+
 static BIF_RETTYPE
 re_compile(Process* p, Eterm arg1, Eterm arg2)
 {
@@ -600,10 +642,11 @@ static void cleanup_restart_context(RestartContext *rc)
     }
 }
 
-static void cleanup_restart_context_bin(Binary *bp)
+static int cleanup_restart_context_bin(Binary *bp)
 {
     RestartContext *rc = ERTS_MAGIC_BIN_DATA(bp);
     cleanup_restart_context(rc);
+    return 1;
 }
 
 /*
@@ -955,7 +998,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 	    has_dupnames = ((options & PCRE_DUPNAMES) != 0);
 
 	    for(i=0;i<top;++i) {
-		if (last == NULL || !has_dupnames || strcmp((char *) last+2,(char *) nametable+2)) {
+		if (last == NULL || !has_dupnames || sys_strcmp((char *) last+2,(char *) nametable+2)) {
 		    ASSERT(ri->num_spec >= 0);
 		    ++(ri->num_spec);
 		    if(ri->num_spec > sallocated) {
@@ -1005,7 +1048,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = ap->len + 1));
 			    }
 			}
-			memcpy(tmpb,ap->name,ap->len);
+			sys_memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
 			ErlDrvSizeT slen;
@@ -1167,7 +1210,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    erts_pcre_fullinfo(result, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
 	    ovsize = 3*(capture_count+1);
 	    restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
-	    memcpy(restart.code, result, code_size);
+	    sys_memcpy(restart.code, result, code_size);
 	    erts_pcre_free(result);
 	    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 	    /*unicode = (pflags & PARSE_FLAG_UNICODE) ? 1 : 0;*/
@@ -1209,7 +1252,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    BIF_ERROR(p, BADARG);
 	}
 	restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
-	memcpy(restart.code, code_tmp, code_size);
+	sys_memcpy(restart.code, code_tmp, code_size);
 	erts_free_aligned_binary_bytes(temp_alloc);
 
     }
@@ -1319,17 +1362,17 @@ handle_iolist:
 	Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
 					       cleanup_restart_context_bin);
 	RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
-	Eterm magic_bin;
+	Eterm magic_ref;
 	Eterm *hp;
-	memcpy(restartp,&restart,sizeof(RestartContext));
+	sys_memcpy(restartp,&restart,sizeof(RestartContext));
 	BUMP_ALL_REDS(p);
-	hp = HAlloc(p, PROC_BIN_SIZE);
-	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(p), mbp);
+	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+	magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
 	BIF_TRAP3(&re_exec_trap_export, 
 		  p,
 		  arg1,
 		  arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
-		  magic_bin);
+		  magic_ref);
     }
 
     res = build_exec_return(p, rc, &restart, arg1);
@@ -1366,9 +1409,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     Uint loop_limit_tmp;
     Eterm res;
 
-    ASSERT(ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_3));
-
-    mbp = ((ProcBin *) binary_val(BIF_ARG_3))->val;
+    mbp = erts_magic_ref2bin(BIF_ARG_3);
 
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp)
 	   == cleanup_restart_context_bin);
@@ -1476,7 +1517,7 @@ re_inspect_2(BIF_ALIST_2)
     last = NULL;
     name = nametable;
     for(i=0;i<top;++i) {
-	if (last == NULL || !has_dupnames || strcmp((char *) last+2,
+	if (last == NULL || !has_dupnames || sys_strcmp((char *) last+2,
 						    (char *) name+2)) {
 	    ++num_names;
 	}
@@ -1490,9 +1531,9 @@ re_inspect_2(BIF_ALIST_2)
     name = nametable;
     j = 0;
     for(i=0;i<top;++i) {
-	if (last == NULL || !has_dupnames || strcmp((char *) last+2,
+	if (last == NULL || !has_dupnames || sys_strcmp((char *) last+2,
 						    (char *) name+2)) {
-	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, strlen((char *) name+2));
+	    tmp_vec[j++] = new_binary(BIF_P, (byte *) name+2, sys_strlen((char *) name+2));
 	}
 	last = name;
 	name += entrysize;

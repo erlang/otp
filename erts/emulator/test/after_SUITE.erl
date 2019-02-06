@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,13 +45,15 @@ all() ->
 
 %% Tests for an old round-off error in 'receive after'."
 t_after(Config) when is_list(Config) ->
-    spawn(fun frequent_process/0),
+    Frequent = spawn_link(fun frequent_process/0),
     Period = test_server:minutes(1),
     Before = erlang:monotonic_time(),
     receive
     after Period ->
-                After = erlang:monotonic_time(),
-                report(Period, Before, After)
+            After = erlang:monotonic_time(),
+            unlink(Frequent),
+            exit(Frequent, die),
+            report(Period, Before, After)
     end.
 
 report(Period, Before, After) ->

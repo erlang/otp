@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,3 +40,8 @@
 -define(DFLAG_UTF8_ATOMS, 16#10000).
 -define(DFLAG_MAP_TAG, 16#20000).
 -define(DFLAG_BIG_CREATION, 16#40000).
+-define(DFLAG_SEND_SENDER, 16#80000).
+-define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).
+
+%% Also update dflag2str() in ../src/dist_util.erl
+%% when adding flags...

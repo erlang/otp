@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@
 	 unused_multiple_values_error/1,unused_multiple_values/1,
 	 multiple_aliases/1,redundant_boolean_clauses/1,
 	 mixed_matching_clauses/1,unnecessary_building/1,
-	 no_no_file/1,configuration/1]).
+	 no_no_file/1,configuration/1,supplies/1,
+         redundant_stack_frame/1,export_from_case/1,
+         empty_values/1,cover_letrec_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -35,7 +37,6 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(?MODULE),
     [{group,p}].
 
 groups() -> 
@@ -45,10 +46,13 @@ groups() ->
        unused_multiple_values_error,unused_multiple_values,
        multiple_aliases,redundant_boolean_clauses,
        mixed_matching_clauses,unnecessary_building,
-       no_no_file,configuration]}].
+       no_no_file,configuration,supplies,
+       redundant_stack_frame,export_from_case,
+       empty_values,cover_letrec_effect]}].
 
 
 init_per_suite(Config) ->
+    test_lib:recompile(?MODULE),
     Config.
 
 end_per_suite(_Config) ->
@@ -510,5 +514,109 @@ configuration() ->
 
 art() ->
  creating.
+
+%% core_lint would complain after optimization. A call to error/1
+%% must not occur unconditionally in a guard.
+supplies(_Config) ->
+    case ?MODULE of
+	core_fold_inline_SUITE ->
+	    %% Other error behaviour when inlined.
+	    ok;
+	_ ->
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => <<1,2,3>>})),
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => a})),
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(42)),
+	    ok
+    end.
+
+do_supplies(#{1 := Value}) when byte_size(Value), byte_size(kg) -> working.
+
+redundant_stack_frame(_Config) ->
+    {1,2} = do_redundant_stack_frame(#{x=>1,y=>2}),
+    {'EXIT',{{badkey,_,x},_}} = (catch do_redundant_stack_frame(#{y=>2})),
+    {'EXIT',{{badkey,_,y},_}} = (catch do_redundant_stack_frame(#{x=>1})),
+    ok.
+
+do_redundant_stack_frame(Map) ->
+    %% There should not be a stack frame for this function.
+    X = case Map of
+            #{x := X0} ->
+                X0;
+            #{} ->
+                erlang:error({badkey, Map, x})
+        end,
+    Y = case Map of
+            #{y := Y0} ->
+                Y0;
+            #{} ->
+                erlang:error({badkey, Map, y})
+        end,
+    {X, Y}.
+
+%% Cover some clauses in sys_core_fold:remove_first_value/2.
+
+-record(export_from_case, {val}).
+
+export_from_case(_Config) ->
+    a = export_from_case_1(true),
+    b = export_from_case_1(false),
+
+    R = #export_from_case{val=0},
+    {ok,R} = export_from_case_2(false, R),
+    {ok,#export_from_case{val=42}} = export_from_case_2(true, R),
+
+    ok.
+
+export_from_case_1(Bool) ->
+    case Bool of
+        true ->
+            id(42),
+            Result = a;
+        false ->
+            Result = b
+    end,
+    id(Result).
+
+export_from_case_2(Bool, Rec) ->
+    case Bool of
+        false ->
+            Result = Rec;
+        true ->
+            Result = Rec#export_from_case{val=42}
+    end,
+    {ok,Result}.
+
+empty_values(_Config) ->
+    case ?MODULE of
+        core_fold_inline_SUITE ->
+            {'EXIT',_} = (catch do_empty_values());
+        _ ->
+            {'EXIT',{function_clause,_}} = (catch do_empty_values())
+    end,
+    ok.
+
+do_empty_values() when (#{})#{} ->
+    c.
+
+cover_letrec_effect(_Config) ->
+    self() ! {tag,42},
+    _ = try
+            try
+                ignore
+            after
+                receive
+                    {tag,Int}=Term ->
+                        Res = #{k => {Term,<<Int:16>>}},
+                        self() ! Res
+                end
+            end
+        after
+            ok
+        end,
+    receive
+        Any ->
+            #{k := {{tag,42},<<42:16>>}} = Any
+    end,
+    ok.
 
 id(I) -> I.

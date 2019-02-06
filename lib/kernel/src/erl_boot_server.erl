@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,13 +58,11 @@
 
 -define(single_addr_mask, {255, 255, 255, 255}).
 
--type ip4_address() :: {0..255,0..255,0..255,0..255}.
-
--spec start(Slaves) -> {'ok', Pid} | {'error', What} when
+-spec start(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
-      Host :: atom(),
+      Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      What :: any().
+      Reason :: {'badarg', Slaves}.
 
 start(Slaves) ->
     case check_arg(Slaves) of
@@ -74,11 +72,11 @@ start(Slaves) ->
 	    {error, {badarg, Slaves}}
     end.
 
--spec start_link(Slaves) -> {'ok', Pid} | {'error', What} when
+-spec start_link(Slaves) -> {'ok', Pid} | {'error', Reason} when
       Slaves :: [Host],
-      Host :: atom(),
+      Host :: inet:ip_address() | inet:hostname(),
       Pid :: pid(),
-      What :: any().
+      Reason :: {'badarg', Slaves}.
 
 start_link(Slaves) ->
     case check_arg(Slaves) of
@@ -104,10 +102,10 @@ check_arg([], Result) ->
 check_arg(_, _Result) ->
     error.
 
--spec add_slave(Slave) -> 'ok' | {'error', What} when
+-spec add_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
-      Host :: atom(),
-      What :: any().
+      Host :: inet:ip_address() | inet:hostname(),
+      Reason :: {'badarg', Slave}.
 
 add_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -117,10 +115,10 @@ add_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
--spec delete_slave(Slave) -> 'ok' | {'error', What} when
+-spec delete_slave(Slave) -> 'ok' | {'error', Reason} when
       Slave :: Host,
-      Host :: atom(),
-      What :: any().
+      Host :: inet:ip_address() | inet:hostname(),
+      Reason :: {'badarg', Slave}.
 
 delete_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -130,7 +128,7 @@ delete_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
--spec add_subnet(Mask :: ip4_address(), Addr :: ip4_address()) ->
+-spec add_subnet(Netmask :: inet:ip_address(), Addr :: inet:ip_address()) ->
 	'ok' | {'error', any()}.
 
 add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
@@ -141,14 +139,15 @@ add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
 	    {error, empty_subnet}
     end.
 
--spec delete_subnet(Mask :: ip4_address(), Addr :: ip4_address()) -> 'ok'.
+-spec delete_subnet(Netmask :: inet:ip_address(),
+                    Addr :: inet:ip_address()) -> 'ok'.
 
 delete_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
     gen_server:call(boot_server, {delete, {Mask, Addr}}).
 
 -spec which_slaves() -> Slaves when
-      Slaves :: [Host],
-      Host :: atom().
+      Slaves :: [Slave],
+      Slave :: {Netmask :: inet:ip_address(), Address :: inet:ip_address()}.
 
 which_slaves() ->
     gen_server:call(boot_server, which).
@@ -253,9 +252,9 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
 				   "~w is not a valid address ** ~n", [IP]),
 	    {noreply,S0};
 	{true,_,_} ->
-	    case catch string:substr(Data, 1, length(?EBOOT_REQUEST)) of
+	    case catch string:slice(Data, 0, length(?EBOOT_REQUEST)) of
 		?EBOOT_REQUEST ->
-		    Vsn = string:substr(Data, length(?EBOOT_REQUEST)+1, length(Data)),
+		    Vsn = string:slice(Data, length(?EBOOT_REQUEST), length(Data)),
 		    error_logger:error_msg("** Illegal boot server connection attempt: "
 					   "client version is ~s ** ~n", [Vsn]);
 		_ ->

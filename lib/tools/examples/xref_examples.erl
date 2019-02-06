@@ -7,7 +7,7 @@
 %% ${HOME}/unused_locals.txt.
 script() ->
     Root = code:root_dir(),
-    Dir = os:getenv("HOME"),
+    {ok,[[Dir]]} = init:get_argument(home),
     Server = s,
     xref:start(Server),
     {ok, _Relname} = xref:add_release(Server, code:lib_dir(), {name,otp}),

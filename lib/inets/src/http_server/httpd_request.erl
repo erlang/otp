@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 %% little at a time on a socket. 
 -export([
 	 parse_method/1, parse_uri/1, parse_version/1, parse_headers/1,
-	 whole_body/1
+	 whole_body/1, body_chunk_first/3, body_chunk/3, add_chunk/1
 	]).
 
 
@@ -76,12 +76,11 @@ body_data(Headers, Body) ->
     ContentLength = list_to_integer(Headers#http_request_h.'content-length'),
     case size(Body) - ContentLength of
  	0 ->
- 	    {binary_to_list(Body), <<>>};
+ 	    {Body, <<>>};
  	_ ->
  	    <<BodyThisReq:ContentLength/binary, Next/binary>> = Body,   
- 	    {binary_to_list(BodyThisReq), Next}
+ 	    {BodyThisReq, Next}
     end.
-
 
 %%-------------------------------------------------------------------------
 %% validate(Method, Uri, Version) -> ok | {error, {bad_request, Reason} |
@@ -260,17 +259,17 @@ parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  Options, Result); 
-parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, _, Max,
+parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	      Options, Result) ->
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
 	    parse_headers(Rest, [Octet], Headers, 
-			  0, Max, Options, Result);
+			  Current, Max, Options, Result);
 	NewHeader ->
 	    case check_header(NewHeader, Options) of 
 		ok ->
 		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
-				  0, Max, Options, Result);
+				  Current, Max, Options, Result);
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
 		    {error, Reason, HttpVersion}
@@ -292,10 +291,46 @@ parse_headers(<<Octet, Rest/binary>>, Header, Headers, Current,
     parse_headers(Rest, [Octet | Header], Headers, Current + 1, Max,
 		  Options, Result).
 
+body_chunk_first(Body, 0 = Length, _) ->
+    whole_body(Body, Length);
+body_chunk_first(Body, Length, MaxChunk) ->
+    case body_chunk(Body, Length, MaxChunk) of
+        {ok, {last, NewBody}} ->
+            {ok, NewBody};
+        Other ->
+            Other
+    end.
+%% Used to chunk non chunk decoded post/put data
+add_chunk([<<>>, Body, Length, MaxChunk]) ->
+    body_chunk(Body, Length, MaxChunk);
+add_chunk([More, Body, Length, MaxChunk]) ->
+    body_chunk(<<Body/binary, More/binary>>, Length, MaxChunk).
+
+body_chunk(Body, Length, nolimit) ->
+    whole_body(Body, Length); 
+body_chunk(<<>> = Body, Length, MaxChunk) ->
+    {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}};
+
+body_chunk(Body, Length, MaxChunk) when Length > MaxChunk ->
+    case size(Body) >= MaxChunk of 
+        true ->
+            <<Chunk:MaxChunk/binary, Rest/binary>> = Body,
+            {ok, {{continue, Chunk}, ?MODULE, add_chunk, [Rest, Length - MaxChunk, MaxChunk]}};
+        false ->
+            {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
+    end;
+body_chunk(Body, Length, MaxChunk) ->
+    case size(Body) of
+        Length ->
+            {ok, {last, Body}};
+        _ ->
+            {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}}
+    end.
+
 whole_body(Body, Length) ->
     case size(Body) of
 	N when N < Length, Length > 0 ->
-	  {?MODULE, whole_body, [Body, Length]};
+	  {?MODULE, add_chunk, [Body, Length, nolimit]};
 	N when N >= Length, Length >= 0 ->  
 	    %% When a client uses pipelining trailing data
 	    %% may be part of the next request!
@@ -443,6 +478,3 @@ check_header({"content-length", Value}, Maxsizes) ->
     end;
 check_header(_, _) ->
     ok.
-	    
-	    
-	    

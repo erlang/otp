@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,5 +29,5 @@ include $(ERL_TOP)/make/target.mk
 debug opt shared purify quantify purecov gcov:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
-clean depend docs release release_docs tests release_tests check:
+clean depend docs release release_docs tests release_tests check xmllint:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

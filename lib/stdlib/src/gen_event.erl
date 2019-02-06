@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,10 +32,12 @@
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
 
--export([start/0, start/1, start_link/0, start_link/1, stop/1, stop/3,
+-export([start/0, start/1, start/2,
+         start_link/0, start_link/1, start_link/2,
+         stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
-	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
+	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/5]).
 
 -export([init_it/6,
 	 system_continue/3,
@@ -45,15 +47,18 @@
 	 system_replace_state/2,
 	 format_status/2]).
 
+%% logger callback
+-export([format_log/1]).
+
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0]).
-
--import(error_logger, [error_msg/2]).
 
 -record(handler, {module             :: atom(),
 		  id = false,
 		  state,
 		  supervised = false :: 'false' | pid()}).
+
+-include("logger.hrl").
 
 %%%=========================================================================
 %%%  API
@@ -107,7 +112,8 @@
       State :: term(),
       Status :: term().
 
--optional_callbacks([format_status/2]).
+-optional_callbacks(
+    [handle_info/2, terminate/2, code_change/3, format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -116,31 +122,66 @@
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
--type emgr_name() :: {'local', atom()} | {'global', atom()}
-		   | {'via', atom(), term()}.
--type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()}
-		   | {'via', atom(), term()} | pid().
+-type emgr_name() :: {'local', atom()} | {'global', term()}
+                   | {'via', atom(), term()}.
+-type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
+                    | {'logfile', string()}.
+-type option() :: {'timeout', timeout()}
+                | {'debug', [debug_flag()]}
+                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'hibernate_after', timeout()}.
+-type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
+                   | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 
 %%---------------------------------------------------------------------------
 
 -define(NO_CALLBACK, 'no callback module').
 
+%% -----------------------------------------------------------------
+%% Starts a generic event handler.
+%% start()
+%% start(MgrName | Options)
+%% start(MgrName, Options)
+%% start_link()
+%% start_link(MgrName | Options)
+%% start_link(MgrName, Options)
+%%    MgrName ::= {local, atom()} | {global, term()} | {via, atom(), term()}
+%%    Options ::= [{timeout, Timeout} | {debug, [Flag]} | {spawn_opt,SOpts}]
+%%       Flag ::= trace | log | {logfile, File} | statistics | debug
+%%          (debug == log && statistics)
+%% Returns: {ok, Pid} |
+%%          {error, {already_started, Pid}} |
+%%          {error, Reason}
+%% -----------------------------------------------------------------
+
 -spec start() -> start_ret().
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
--spec start(emgr_name()) -> start_ret().
-start(Name) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []).
+-spec start(emgr_name() | [option()]) -> start_ret().
+start(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
+start(Options) when is_list(Options) ->
+    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], Options).
+
+-spec start(emgr_name(), [option()]) -> start_ret().
+start(Name, Options) ->
+    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options).
 
 -spec start_link() -> start_ret().
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
--spec start_link(emgr_name()) -> start_ret().
-start_link(Name) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []).
+-spec start_link(emgr_name() | [option()]) -> start_ret().
+start_link(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
+start_link(Options) when is_list(Options) ->
+    gen:start(?MODULE, link, ?NO_CALLBACK, [], Options).
+
+-spec start_link(emgr_name(), [option()]) -> start_ret().
+start_link(Name, Options) ->
+    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
 
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
@@ -149,8 +190,9 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
+	HibernateAfterTimeout = gen:hibernate_after(Options),
     proc_lib:init_ack(Starter, {ok, self()}),
-    loop(Parent, Name, [], Debug, false).
+    loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
 -spec add_handler(emgr_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
@@ -160,7 +202,7 @@ add_sup_handler(M, Handler, Args)  ->
     rpc(M, {add_sup_handler, Handler, Args, self()}).
 
 -spec notify(emgr_ref(), term()) -> 'ok'.
-notify(M, Event) -> send(M, {notify, Event}). 
+notify(M, Event) -> send(M, {notify, Event}).
 
 -spec sync_notify(emgr_ref(), term()) -> 'ok'.
 sync_notify(M, Event) -> rpc(M, {sync_notify, Event}).
@@ -193,7 +235,7 @@ stop(M) ->
 stop(M, Reason, Timeout) ->
     gen:stop(M, Reason, Timeout).
 
-rpc(M, Cmd) -> 
+rpc(M, Cmd) ->
     {ok, Reply} = gen:call(M, self(), Cmd, infinity),
     Reply.
 
@@ -227,81 +269,83 @@ send(M, Cmd) ->
     M ! Cmd,
     ok.
 
-loop(Parent, ServerName, MSL, Debug, true) ->
-     proc_lib:hibernate(?MODULE, wake_hib, [Parent, ServerName, MSL, Debug]);
-loop(Parent, ServerName, MSL, Debug, _) ->
-    fetch_msg(Parent, ServerName, MSL, Debug, false).
+loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true) ->
+     proc_lib:hibernate(?MODULE, wake_hib, [Parent, ServerName, MSL, HibernateAfterTimeout, Debug]);
+loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, _) ->
+    fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false).
 
-wake_hib(Parent, ServerName, MSL, Debug) ->
-    fetch_msg(Parent, ServerName, MSL, Debug, true).
+wake_hib(Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
+    fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true).
 
-fetch_msg(Parent, ServerName, MSL, Debug, Hib) ->
+fetch_msg(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib) ->
     receive
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
-				  [ServerName, MSL, Hib],Hib);
+				  [ServerName, MSL, HibernateAfterTimeout, Hib],Hib);
 	{'EXIT', Parent, Reason} ->
 	    terminate_server(Reason, Parent, MSL, ServerName);
 	Msg when Debug =:= [] ->
-	    handle_msg(Msg, Parent, ServerName, MSL, []);
+	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, []);
 	Msg ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
-	    handle_msg(Msg, Parent, ServerName, MSL, Debug1)
+	    handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug1)
+    after HibernateAfterTimeout ->
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, true)
     end.
 
-handle_msg(Msg, Parent, ServerName, MSL, Debug) ->
+handle_msg(Msg, Parent, ServerName, MSL, HibernateAfterTimeout, Debug) ->
     case Msg of
 	{notify, Event} ->
 	    {Hib,MSL1} = server_notify(Event, handle_event, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {sync_notify, Event}} ->
 	    {Hib, MSL1} = server_notify(Event, handle_event, MSL, ServerName),
 	    reply(Tag, ok),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{'EXIT', From, Reason} ->
 	    MSL1 = handle_exit(From, Reason, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, Debug, false);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, {call, Handler, Query}} ->
 	    {Hib, Reply, MSL1} = server_call(Handler, Query, MSL, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {add_handler, Handler, Args}} ->
 	    {Hib, Reply, MSL1} = server_add_handler(Handler, Args, MSL),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
 	    {Hib, Reply, MSL1} = server_add_sup_handler(Handler, Args, MSL, SupP),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {delete_handler, Handler, Args}} ->
 	    {Reply, MSL1} = server_delete_handler(Handler, Args, MSL,
 						  ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, false);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						     Args2, MSL, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
 		     Sup}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						Args2, MSL, Sup, ServerName),
 	    reply(Tag, Reply),
-	    loop(Parent, ServerName, MSL1, Debug, Hib);
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib);
 	{_From, Tag, stop} ->
 	    catch terminate_server(normal, Parent, MSL, ServerName),
 	    reply(Tag, ok);
 	{_From, Tag, which_handlers} ->
 	    reply(Tag, the_handlers(MSL)),
-	    loop(Parent, ServerName, MSL, Debug, false);
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false);
 	{_From, Tag, get_modules} ->
 	    reply(Tag, get_modules(MSL)),
-	    loop(Parent, ServerName, MSL, Debug, false);
+	    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, false);
 	Other  ->
 	    {Hib, MSL1} = server_notify(Other, handle_info, MSL, ServerName),
-	    loop(Parent, ServerName, MSL1, Debug, Hib)
+	    loop(Parent, ServerName, MSL1, HibernateAfterTimeout, Debug, Hib)
     end.
 
 terminate_server(Reason, Parent, MSL, ServerName) ->
@@ -355,18 +399,18 @@ terminate_supervised(Pid, Reason, MSL, SName) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
-system_continue(Parent, Debug, [ServerName, MSL, Hib]) ->
-    loop(Parent, ServerName, MSL, Debug, Hib).
+system_continue(Parent, Debug, [ServerName, MSL, HibernateAfterTimeout, Hib]) ->
+    loop(Parent, ServerName, MSL, HibernateAfterTimeout, Debug, Hib).
 
 -spec system_terminate(_, _, _, [_]) -> no_return().
-system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _Hib]) ->
+system_terminate(Reason, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]) ->
     terminate_server(Reason, Parent, MSL, ServerName).
 
 %%-----------------------------------------------------------------
 %% Module here is sent in the system msg change_code.  It specifies
 %% which module should be changed.
 %%-----------------------------------------------------------------
-system_code_change([ServerName, MSL, Hib], Module, OldVsn, Extra) ->
+system_code_change([ServerName, MSL, HibernateAfterTimeout, Hib], Module, OldVsn, Extra) ->
     MSL1 = lists:zf(fun(H) when H#handler.module =:= Module ->
 			    {ok, NewState} =
 				Module:code_change(OldVsn,
@@ -375,12 +419,12 @@ system_code_change([ServerName, MSL, Hib], Module, OldVsn, Extra) ->
 		       (_) -> true
 		    end,
 		    MSL),
-    {ok, [ServerName, MSL1, Hib]}.
+    {ok, [ServerName, MSL1, HibernateAfterTimeout, Hib]}.
 
-system_get_state([_ServerName, MSL, _Hib]) ->
+system_get_state([_ServerName, MSL, _HibernateAfterTimeout, _Hib]) ->
     {ok, [{Mod,Id,State} || #handler{module=Mod, id=Id, state=State} <- MSL]}.
 
-system_replace_state(StateFun, [ServerName, MSL, Hib]) ->
+system_replace_state(StateFun, [ServerName, MSL, HibernateAfterTimeout, Hib]) ->
     {NMSL, NStates} =
 		lists:unzip([begin
 				 Cur = {Mod,Id,State},
@@ -392,7 +436,7 @@ system_replace_state(StateFun, [ServerName, MSL, Hib]) ->
 					 {HS, Cur}
 				 end
 			     end || #handler{module=Mod, id=Id, state=State}=HS <- MSL]),
-    {ok, NStates, [ServerName, NMSL, Hib]}.
+    {ok, NStates, [ServerName, NMSL, HibernateAfterTimeout, Hib]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees
@@ -401,15 +445,15 @@ system_replace_state(StateFun, [ServerName, MSL, Hib]) ->
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{notify, Event} ->
-	    io:format(Dev, "*DBG* ~p got event ~p~n", [Name, Event]);
+	    io:format(Dev, "*DBG* ~tp got event ~tp~n", [Name, Event]);
 	{_,_,{call, Handler, Query}} ->
-	    io:format(Dev, "*DBG* ~p(~p) got call ~p~n",
+	    io:format(Dev, "*DBG* ~tp(~tp) got call ~tp~n",
 		      [Name, Handler, Query]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p~n", [Name, Msg])
+	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
 print_event(Dev, Dbg, Name) ->
-    io:format(Dev, "*DBG* ~p : ~p~n", [Name, Dbg]).
+    io:format(Dev, "*DBG* ~tp : ~tp~n", [Name, Dbg]).
 
 
 %% server_add_handler(Handler, Args, MSL) -> {Ret, MSL'}.
@@ -421,7 +465,7 @@ server_add_handler({Mod,Id}, Args, MSL) ->
     Handler = #handler{module = Mod,
 		       id = Id},
     server_add_handler(Mod, Handler, Args, MSL);
-server_add_handler(Mod, Args, MSL) -> 
+server_add_handler(Mod, Args, MSL) ->
     Handler = #handler{module = Mod},
     server_add_handler(Mod, Handler, Args, MSL).
 
@@ -446,7 +490,7 @@ server_add_sup_handler({Mod,Id}, Args, MSL, Parent) ->
 		       id = Id,
 		       supervised = Parent},
     server_add_handler(Mod, Handler, Args, MSL);
-server_add_sup_handler(Mod, Args, MSL, Parent) -> 
+server_add_sup_handler(Mod, Args, MSL, Parent) ->
     link(Parent),
     Handler = #handler{module = Mod,
 		       supervised = Parent},
@@ -454,7 +498,7 @@ server_add_sup_handler(Mod, Args, MSL, Parent) ->
 
 %% server_delete_handler(HandlerId, Args, MSL) -> {Ret, MSL'}
 
-server_delete_handler(HandlerId, Args, MSL, SName) -> 
+server_delete_handler(HandlerId, Args, MSL, SName) ->
     case split(HandlerId, MSL) of
 	{Mod, Handler, MSL1} ->
 	    {do_terminate(Mod, Handler, Args,
@@ -511,7 +555,7 @@ split_and_terminate(HandlerId, Args, MSL, SName, Handler2, Sup) ->
 
 %% server_notify(Event, Func, MSL, SName) -> MSL'
 
-server_notify(Event, Func, [Handler|T], SName) -> 
+server_notify(Event, Func, [Handler|T], SName) ->
     case server_update(Handler, Func, Event, SName) of
 	{ok, Handler1} ->
 	    {Hib, NewHandlers} = server_notify(Event, Func, T, SName),
@@ -531,9 +575,9 @@ server_update(Handler1, Func, Event, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
     case catch Mod1:Func(Event, State) of
-	{ok, State1} -> 
+	{ok, State1} ->
 	    {ok, Handler1#handler{state = State1}};
-	{ok, State1, hibernate} -> 
+	{ok, State1, hibernate} ->
 	    {hibernate, Handler1#handler{state = State1}};
 	{swap_handler, Args1, State1, Handler2, Args2} ->
 	    do_swap(Mod1, Handler1, Args1, State1, Handler2, Args2, SName);
@@ -541,6 +585,14 @@ server_update(Handler1, Func, Event, SName) ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    no;
+        {'EXIT', {undef, [{Mod1, handle_info, [_,_], _}|_]}} ->
+            ?LOG_WARNING(#{label=>{gen_event,no_handle_info},
+                           module=>Mod1,
+                           message=>Event},
+                         #{domain=>[otp],
+                           report_cb=>fun gen_event:format_log/1,
+                           error_logger=>#{tag=>warning_msg}}), % warningmap??
+            {ok, Handler1};
 	Other ->
 	    do_terminate(Mod1, Handler1, {error, Other}, State,
 			 Event, SName, crash),
@@ -644,14 +696,14 @@ server_call_update(Handler1, Query, SName) ->
     Mod1 = Handler1#handler.module,
     State = Handler1#handler.state,
     case catch Mod1:handle_call(Query, State) of
-	{ok, Reply, State1} -> 
+	{ok, Reply, State1} ->
 	    {{ok, Handler1#handler{state = State1}}, Reply};
-	{ok, Reply, State1, hibernate} -> 
-	    {{hibernate, Handler1#handler{state = State1}}, 
+	{ok, Reply, State1, hibernate} ->
+	    {{hibernate, Handler1#handler{state = State1}},
 	     Reply};
 	{swap_handler, Reply, Args1, State1, Handler2, Args2} ->
 	    {do_swap(Mod1,Handler1,Args1,State1,Handler2,Args2,SName), Reply};
-	{remove_handler, Reply} -> 
+	{remove_handler, Reply} ->
 	    do_terminate(Mod1, Handler1, remove_handler, State,
 			 remove, SName, normal),
 	    {no, Reply};
@@ -662,9 +714,15 @@ server_call_update(Handler1, Query, SName) ->
     end.
 
 do_terminate(Mod, Handler, Args, State, LastIn, SName, Reason) ->
-    Res = (catch Mod:terminate(Args, State)),
-    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
-    Res.
+    case erlang:function_exported(Mod, terminate, 2) of
+	true ->
+	    Res = (catch Mod:terminate(Args, State)),
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, Res),
+	    Res;
+	false ->
+	    report_terminate(Handler, Reason, Args, State, LastIn, SName, ok),
+	    ok
+    end.
 
 report_terminate(Handler, crash, {error, Why}, State, LastIn, SName, _) ->
     report_terminate(Handler, Why, State, LastIn, SName);
@@ -686,7 +744,24 @@ report_error(_Handler, normal, _, _, _)             -> ok;
 report_error(_Handler, shutdown, _, _, _)           -> ok;
 report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
 report_error(Handler, Reason, State, LastIn, SName) ->
-    Reason1 = 
+    ?LOG_ERROR(#{label=>{gen_event,terminate},
+                 handler=>handler(Handler),
+                 name=>SName,
+                 last_message=>LastIn,
+                 state=>format_status(terminate,Handler#handler.module,
+                                      get(),State),
+                 reason=>Reason},
+               #{domain=>[otp],
+                 report_cb=>fun gen_event:format_log/1,
+                 error_logger=>#{tag=>error}}).
+
+format_log(#{label:={gen_event,terminate},
+             handler:=Handler,
+             name:=SName,
+             last_message:=LastIn,
+             state:=State,
+             reason:=Reason}) ->
+    Reason1 =
 	case Reason of
 	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
 		case code:is_loaded(M) of
@@ -705,23 +780,18 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 	    _ ->
 		Reason
 	end,
-    Mod = Handler#handler.module,
-    FmtState = case erlang:function_exported(Mod, format_status, 2) of
-		   true ->
-		       Args = [get(), State],
-		       case catch Mod:format_status(terminate, Args) of
-			   {'EXIT', _} -> State;
-			   Else -> Else
-		       end;
-		   _ ->
-		       State
-	       end,
-    error_msg("** gen_event handler ~p crashed.~n"
-	      "** Was installed in ~p~n"
-	      "** Last event was: ~p~n"
-	      "** When handler state == ~p~n"
-	      "** Reason == ~p~n",
-	      [handler(Handler),SName,LastIn,FmtState,Reason1]).
+    {"** gen_event handler ~p crashed.~n"
+     "** Was installed in ~tp~n"
+     "** Last event was: ~tp~n"
+     "** When handler state == ~tp~n"
+     "** Reason == ~tp~n",
+     [Handler,SName,LastIn,State,Reason1]};
+format_log(#{label:={gen_event,no_handle_info},
+             module:=Mod,
+             message:=Msg}) ->
+    {"** Undefined handle_info in ~tp~n"
+     "** Unhandled message: ~tp~n",
+     [Mod, Msg]}.
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;
@@ -742,7 +812,7 @@ stop_handlers([], _) ->
     [].
 
 %% Message from the release_handler.
-%% The list of modules got to be a set !
+%% The list of modules got to be a set, i.e. no duplicate elements!
 get_modules(MSL) ->
     Mods = [Handler#handler.module || Handler <- MSL],
     ordsets:to_list(ordsets:from_list(Mods)).
@@ -751,20 +821,24 @@ get_modules(MSL) ->
 %% Status information
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
-    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
+    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _HibernateAfterTimeout, _Hib]] = StatusData,
     Header = gen:format_status_header("Status for event handler",
                                       ServerName),
-    FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
-		  true ->
-		      Args = [PDict, State],
-		      case catch Mod:format_status(Opt, Args) of
-			  {'EXIT', _} -> MSL;
-			  Else -> MS#handler{state = Else}
-		      end;
-		  _ ->
-		      MS
-	      end || #handler{module = Mod, state = State} = MS <- MSL],
+    FmtMSL = [MS#handler{state=format_status(Opt, Mod, PDict, State)}
+              || #handler{module = Mod, state = State} = MS <- MSL],
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent}]},
      {items, {"Installed handlers", FmtMSL}}].
+
+format_status(Opt, Mod, PDict, State) ->
+    case erlang:function_exported(Mod, format_status, 2) of
+        true ->
+            Args = [PDict, State],
+            case catch Mod:format_status(Opt, Args) of
+                {'EXIT', _} -> State;
+                Else -> Else
+            end;
+        false ->
+            State
+    end.

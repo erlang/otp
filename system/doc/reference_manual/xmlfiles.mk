@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2009-2016. All Rights Reserved.
+# Copyright Ericsson AB 2009-2018. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,5 +30,6 @@ REF_MAN_CHAPTER_FILES = \
 	processes.xml \
 	distributed.xml \
 	code_loading.xml \
-	ports.xml
-
+	ports.xml \
+	character_set.xml \
+	typespec.xml

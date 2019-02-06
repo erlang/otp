@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2014. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2016. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -105,7 +105,6 @@ else
 fi
 AC_SUBST(CROSS_COMPILING)
 
-
 AC_ARG_ENABLE(bootstrap-only,
 AS_HELP_STRING([--enable-bootstrap-only],
                [enable bootstrap only configuration]),
@@ -186,6 +185,10 @@ fi
 
 AC_PROG_LN_S
 AC_PROG_RANLIB
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required!])
+fi
 
 #
 # Get erts version from erts/vsn.mk
@@ -208,16 +211,12 @@ AC_MSG_CHECKING([OTP version])
 AC_MSG_RESULT([$OTP_VSN])
 AC_SUBST(OTP_VSN)
 
-AC_ARG_ENABLE(threads,
-AS_HELP_STRING([--enable-threads], [enable async thread support])
-AS_HELP_STRING([--disable-threads], [disable async thread support]))
-
 AC_ARG_ENABLE(dirty-schedulers,
 AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
-AC_ARG_ENABLE(smp-support,
-AS_HELP_STRING([--enable-smp-support], [enable smp support])
-AS_HELP_STRING([--disable-smp-support], [disable smp support]))
+AC_ARG_ENABLE(plain-emulator,
+AS_HELP_STRING([--enable-plain-emulator], [enable threaded non-smp emulator])
+AS_HELP_STRING([--disable-plain-emulator], [disable threaded non-smp emulator]))
 
 AC_ARG_WITH(termcap,
 AS_HELP_STRING([--with-termcap], [use termcap (default)])
@@ -229,7 +228,10 @@ AS_HELP_STRING([--enable-kernel-poll], [enable kernel poll support])
 AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]))
 
 AC_ARG_ENABLE(sctp,
-AS_HELP_STRING([--enable-sctp], [enable sctp support])
+AS_HELP_STRING([--enable-sctp], [enable sctp support (default)
+to on demand load the SCTP library in runtime])
+AS_HELP_STRING([--enable-sctp=lib], [enable sctp support
+to link against the SCTP library])
 AS_HELP_STRING([--disable-sctp], [disable sctp support]))
 
 AC_ARG_ENABLE(hipe,
@@ -280,6 +282,10 @@ AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
 AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))
+
+AC_ARG_ENABLE(fips,
+AS_HELP_STRING([--enable-fips], [enable OpenSSL FIPS mode support])
+AS_HELP_STRING([--disable-fips], [disable OpenSSL FIPS mode support (default)]))
 
 AC_ARG_ENABLE(builtin-zlib,
 AS_HELP_STRING([--enable-builtin-zlib],
@@ -348,14 +354,12 @@ fi
 AC_SUBST(DEFAULT_VERBOSITY)
 
 if test X${enable_m64_build} = Xyes; then
-	enable_hipe=no
 	CFLAGS="-m64 $CFLAGS"
 	export CFLAGS
 	LDFLAGS="-m64 $LDFLAGS"
 	export LDFLAGS
 fi
 if test X${enable_m32_build} = Xyes; then
-	enable_hipe=no
 	CFLAGS="-m32 $CFLAGS"
 	export CFLAGS
 	LDFLAGS="-m32 $LDFLAGS"
@@ -368,6 +372,49 @@ if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
+if test $CROSS_COMPILING = no; then
+   case $host_os in
+   	darwin*)
+	   macosx_version=`sw_vers -productVersion`
+	   test $? -eq 0 || {
+	   	AC_MSG_ERROR([Failed to execute 'sw_vers'; please provide it in PATH])
+	   }
+	   [case "$macosx_version" in
+	       [1-9][0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)|\1\2|'`;;
+	       [1-9][0-9].[0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\2\3|'`;;
+	       [1-9][0-9].[1-9][0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)|\1\200|'`;;
+	       [1-9][0-9].[1-9][0-9].[0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\20\3|'`;;
+	       [1-9][0-9].[1-9][0-9].[1-9][0-9])
+	          int_macosx_version=`echo $macosx_version | sed 's|\([^\.]*\)\.\([^\.]*\)\.\([^\.]*\)|\1\2\3|'`;;
+	       *)
+		  int_macosx_version=unexpected;;
+	   esac]
+	   test $int_macosx_version != unexpected || {
+	   	AC_MSG_ERROR([Unexpected MacOSX version ($macosx_version) returned by 'sw_vers -productVersion'; this configure script probably needs to be updated])
+	   }
+	   AC_TRY_COMPILE([
+#if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ > $int_macosx_version
+#error Compiling for a newer MacOSX version...
+#endif
+		], [;],
+		[],
+		[AC_MSG_ERROR([
+
+  You are natively building Erlang/OTP for a later version of MacOSX
+  than current version ($macosx_version). You either need to
+  cross-build Erlang/OTP, or set the environment variable
+  MACOSX_DEPLOYMENT_TARGET to $macosx_version (or a lower version).
+
+])])
+	   ;;
+	*)
+	   ;;
+   esac
+fi
 
 rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
 for app in `cd lib && ls -d *`; do

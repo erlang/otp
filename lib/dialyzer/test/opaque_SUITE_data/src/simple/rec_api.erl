@@ -30,7 +30,7 @@ t3() ->
 
 adt_t1() ->
     R = rec_adt:r1(),
-    {r1, a} = R. % breaks the opaqueness
+    {r1, a} = R. % breaks the opacity
 
 -spec adt_t1(rec_adt:r1()) -> rec_adt:r1(). % invalid type spec
 
@@ -82,7 +82,7 @@ f() ->
 
 r_adt() ->
     {{r, rec_adt:f(), 2},
-     #r{f = rec_adt:f(), o = 2}}. % breaks the opaqueness
+     #r{f = rec_adt:f(), o = 2}}. % breaks the opacity
 
 -record(r2, % like #r1{}, but with initial value
         {f1 = a :: a()}).
@@ -110,7 +110,7 @@ u3() ->
 
 v1() ->
     A = #r3{f1 = queue:new()},
-    {r3, a} = A. % breaks the opaqueness
+    {r3, a} = A. % breaks the opacity
 
 v2() ->
     A = {r3, 10},
@@ -120,4 +120,4 @@ v2() ->
 
 v3() ->
     A = {r3, 10},
-    #r3{f1 = 10} = A. % breaks the opaqueness
+    #r3{f1 = 10} = A. % breaks the opacity

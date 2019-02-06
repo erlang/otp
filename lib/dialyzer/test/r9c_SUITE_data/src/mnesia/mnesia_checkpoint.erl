@@ -332,7 +332,7 @@ really_retain(Name, Tab) ->
 %%
 %% {min, MinTabs}
 %%   Minimize redundancy and only keep checkpoint info together with
-%%   one replica, preferrably at the local node. If any node involved
+%%   one replica, preferably at the local node. If any node involved
 %%   the checkpoint goes down, the checkpoint is deactivated.
 %%
 %% {max, MaxTabs}
@@ -345,7 +345,7 @@ really_retain(Name, Tab) ->
 %% {ram_overrides_dump, Tabs}
 %%   Only applicable for ram_copies. Bool controls which versions of
 %%   the records that should be included in the checkpoint state.
-%%   true means that the latest comitted records in ram (i.e. the
+%%   true means that the latest committed records in ram (i.e. the
 %%   records that the application accesses) should be included
 %%   in the checkpoint. false means that the records dumped to
 %%   dat-files (the records that will be loaded at startup) should

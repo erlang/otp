@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,17 +20,20 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1, display_yes_no_dialog/1,
-	 display_progress_dialog/2, destroy_progress_dialog/0,
+	 display_info_dialog/2, display_yes_no_dialog/1,
+	 display_progress_dialog/3,
+         destroy_progress_dialog/0, sync_destroy_progress_dialog/0,
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
-	 interval_dialog/4, start_timer/1, stop_timer/1,
-	 display_info/2, fill_info/2, update_info/2, to_str/1,
+	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
+	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
 	 create_attrs/0,
 	 set_listctrl_col_size/2,
 	 create_status_bar/1,
-	 html_window/1, html_window/2
+	 html_window/1, html_window/2,
+         make_obsbin/2,
+         add_scroll_entries/2
 	]).
 
 -include_lib("wx/include/wx.hrl").
@@ -39,6 +42,9 @@
 -define(SINGLE_LINE_STYLE, ?wxBORDER_NONE bor ?wxTE_READONLY bor ?wxTE_RICH2).
 -define(MULTI_LINE_STYLE, ?SINGLE_LINE_STYLE bor ?wxTE_MULTILINE).
 
+-define(NUM_SCROLL_ITEMS,8).
+
+-define(pulse_timeout,50).
 
 get_wx_parent(Window) ->
     Parent = wxWindow:getParent(Window),
@@ -90,6 +96,12 @@ stop_timer(Timer = {true, _}) -> Timer;
 stop_timer(Timer = {_, Intv}) ->
     setup_timer(false, Timer),
     {true, Intv}.
+
+start_timer(#{interval:=Intv}, _Def) ->
+    setup_timer(true, {false, Intv});
+start_timer(_, Def) ->
+    setup_timer(true, {false, Def}).
+
 start_timer(Intv) when is_integer(Intv) ->
     setup_timer(true, {true, Intv});
 start_timer(Timer) ->
@@ -105,10 +117,15 @@ setup_timer(Bool, {Timer, Old}) ->
     timer:cancel(Timer),
     setup_timer(Bool, {false, Old}).
 
-display_info_dialog(Str) ->
-    display_info_dialog("",Str).
-display_info_dialog(Title,Str) ->
-    Dlg = wxMessageDialog:new(wx:null(), Str, [{caption,Title}]),
+timer_config({_, Interval}) ->
+    #{interval=>Interval};
+timer_config(#{}=Config) ->
+    Config.
+
+display_info_dialog(Parent,Str) ->
+    display_info_dialog(Parent,"",Str).
+display_info_dialog(Parent,Title,Str) ->
+    Dlg = wxMessageDialog:new(Parent, Str, [{caption,Title}]),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     ok.
@@ -124,6 +141,11 @@ display_info(Frame, Info) ->
     Panel = wxPanel:new(Frame),
     wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
+    InfoFs = display_info(Panel, Sizer, Info),
+    wxWindow:setSizerAndFit(Panel, Sizer),
+    {Panel, Sizer, InfoFs}.
+
+display_info(Panel, Sizer, Info) ->
     wxSizer:addSpacer(Sizer, 5),
     Add = fun(BoxInfo) ->
 		  case create_box(Panel, BoxInfo) of
@@ -136,9 +158,7 @@ display_info(Frame, Info) ->
 			  []
 		  end
 	  end,
-    InfoFs = [Add(I) || I <- Info],
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Sizer, InfoFs}.
+    [Add(I) || I <- Info].
 
 fill_info([{dynamic, Key}|Rest], Data)
   when is_atom(Key); is_function(Key) ->
@@ -159,13 +179,13 @@ fill_info([{Str,Attrib,Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
 	Value -> [{Str,Attrib,Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, Attrib, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, Attrib, {Format, Value}} | fill_info(Rest, Data)]
@@ -238,6 +258,8 @@ to_str({bytes, B}) ->
 	KB >  0 -> integer_to_list(KB) ++ " kB";
 	true -> integer_to_list(B) ++ " B"
     end;
+to_str({{words,WSz}, Sz}) ->
+    to_str({bytes, WSz*Sz});
 to_str({time_ms, MS}) ->
     S = MS div 1000,
     Min = S div 60,
@@ -254,6 +276,11 @@ to_str({func, {F,A}}) when is_atom(F), is_integer(A) ->
     lists:concat([F, "/", A]);
 to_str({func, {F,'_'}}) when is_atom(F) ->
     atom_to_list(F);
+to_str({inet, Addr}) ->
+    case inet:ntoa(Addr) of
+        {error,einval} -> to_str(Addr);
+        AddrStr -> AddrStr
+    end;
 to_str({{format,Fun},Value}) when is_function(Fun) ->
     Fun(Value);
 to_str({A, B}) when is_atom(A), is_atom(B) ->
@@ -276,8 +303,10 @@ to_str(No) when is_integer(No) ->
     integer_to_list(No);
 to_str(Float) when is_float(Float) ->
     io_lib:format("~.3f", [Float]);
+to_str({trunc, Float}) when is_float(Float) ->
+    float_to_list(Float, [{decimals,0}]);
 to_str(Term) ->
-    io_lib:format("~w", [Term]).
+    io_lib:format("~tw", [Term]).
 
 create_menus([], _MenuBar, _Type) -> ok;
 create_menus(Menus, MenuBar, Type) ->
@@ -372,17 +401,18 @@ get_box_info({Title, left, List}) -> {Title, ?wxALIGN_LEFT, List};
 get_box_info({Title, right, List}) -> {Title, ?wxALIGN_RIGHT, List}.
 
 add_box(Panel, OuterBox, Cursor, Title, Proportion, {Format, List}) ->
-    Box = wxStaticBoxSizer:new(?wxVERTICAL, Panel, [{label, Title}]),
+    NumStr = " ("++integer_to_list(length(List))++")",
+    Box = wxStaticBoxSizer:new(?wxVERTICAL, Panel, [{label, Title ++ NumStr}]),
     Scroll = wxScrolledWindow:new(Panel),
     wxScrolledWindow:enableScrolling(Scroll,true,true),
     wxScrolledWindow:setScrollbars(Scroll,1,1,0,0),
     ScrollSizer  = wxBoxSizer:new(?wxVERTICAL),
     wxScrolledWindow:setSizer(Scroll, ScrollSizer),
     wxWindow:setBackgroundStyle(Scroll, ?wxBG_STYLE_SYSTEM),
-    add_entries(Format, List, Scroll, ScrollSizer, Cursor),
+    Entries = add_entries(Format, List, Scroll, ScrollSizer, Cursor),
     wxSizer:add(Box,Scroll,[{proportion,1},{flag,?wxEXPAND}]),
     wxSizer:add(OuterBox,Box,[{proportion,Proportion},{flag,?wxEXPAND}]),
-    {Scroll,ScrollSizer,length(List)}.
+    {Scroll,ScrollSizer,length(Entries)}.
 
 add_entries(click, List, Scroll, ScrollSizer, Cursor) ->
     Add = fun(Link) ->
@@ -390,7 +420,20 @@ add_entries(click, List, Scroll, ScrollSizer, Cursor) ->
                   wxWindow:setBackgroundStyle(TC, ?wxBG_STYLE_SYSTEM),
 		  wxSizer:add(ScrollSizer,TC, [{flag,?wxEXPAND}])
 	  end,
-    [Add(Link) || Link <- List];
+    if length(List) > ?NUM_SCROLL_ITEMS ->
+            {List1,Rest} = lists:split(?NUM_SCROLL_ITEMS,List),
+            LinkEntries = [Add(Link) || Link <- List1],
+            NStr = integer_to_list(length(Rest)),
+            TC = link_entry2(Scroll,
+                             {{more,{Rest,Scroll,ScrollSizer}},"more..."},
+                             Cursor,
+                             "Click to see " ++ NStr ++ " more entries"),
+            wxWindow:setBackgroundStyle(TC, ?wxBG_STYLE_SYSTEM),
+            E = wxSizer:add(ScrollSizer,TC, [{flag,?wxEXPAND}]),
+            LinkEntries ++ [E];
+       true ->
+            [Add(Link) || Link <- List]
+    end;
 add_entries(plain, List, Scroll, ScrollSizer, _) ->
     Add = fun(String) ->
 		  TC = wxStaticText:new(Scroll, ?wxID_ANY, String),
@@ -398,6 +441,23 @@ add_entries(plain, List, Scroll, ScrollSizer, _) ->
 	  end,
     [Add(String) || String <- List].
 
+add_scroll_entries(MoreEntry,{List, Scroll, ScrollSizer}) ->
+    wx:batch(
+      fun() ->
+              wxSizer:remove(ScrollSizer,?NUM_SCROLL_ITEMS),
+              wxStaticText:destroy(MoreEntry),
+              Cursor = wxCursor:new(?wxCURSOR_HAND),
+              Add = fun(Link) ->
+                            TC = link_entry(Scroll, Link, Cursor),
+                            wxWindow:setBackgroundStyle(TC, ?wxBG_STYLE_SYSTEM),
+                            wxSizer:add(ScrollSizer,TC, [{flag,?wxEXPAND}])
+                    end,
+              Entries = [Add(Link) || Link <- List],
+              wxCursor:destroy(Cursor),
+              wxSizer:layout(ScrollSizer),
+              wxSizer:setVirtualSizeHints(ScrollSizer,Scroll),
+              Entries
+      end).
 
 create_box(_Panel, {scroll_boxes,[]}) ->
     undefined;
@@ -424,7 +484,7 @@ create_box(Panel, {scroll_boxes,Data}) ->
     {_,H} = wxWindow:getSize(Dummy),
     wxTextCtrl:destroy(Dummy),
 
-    MaxH = if MaxL > 8 -> 8*H;
+    MaxH = if MaxL > ?NUM_SCROLL_ITEMS -> ?NUM_SCROLL_ITEMS*H;
 	      true -> MaxL*H
 	   end,
     [wxWindow:setMinSize(B,{0,MaxH}) || {B,_,_} <- Boxes],
@@ -453,14 +513,16 @@ create_box(Parent, Data) ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-				 case length(Value) > 100 of
-				     true ->
-					 Shown = lists:sublist(Value, 80),
+                                 case string:nth_lexeme(lists:sublist(Value, 80),1, [$\n]) of
+                                     Value ->
+                                         %% Short string, no newlines - show all
+					 wxStaticText:new(Panel, ?wxID_ANY, Value);
+                                     Shown ->
+                                         %% Long or with newlines,
+                                         %% use tooltip to show all
 					 TCtrl = wxStaticText:new(Panel, ?wxID_ANY, [Shown,"..."]),
 					 wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
-					 TCtrl;
-				     false ->
-					 wxStaticText:new(Panel, ?wxID_ANY, Value)
+					 TCtrl
 				 end
 			 end,
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally
@@ -477,25 +539,27 @@ create_box(Parent, Data) ->
 
 link_entry(Panel, Link) ->
     Cursor = wxCursor:new(?wxCURSOR_HAND),
-    TC = link_entry2(Panel, to_link(Link), Cursor),
+    TC = link_entry(Panel, Link, Cursor),
     wxCursor:destroy(Cursor),
     TC.
 link_entry(Panel, Link, Cursor) ->
-    link_entry2(Panel, to_link(Link), Cursor).
+    link_entry2(Panel,to_link(Link),Cursor).
 
 link_entry2(Panel,{Target,Str},Cursor) ->
+    link_entry2(Panel,{Target,Str},Cursor,"Click to see properties for " ++ Str).
+link_entry2(Panel,{Target,Str},Cursor,ToolTipText) ->
     TC = wxStaticText:new(Panel, ?wxID_ANY, Str),
     wxWindow:setForegroundColour(TC,?wxBLUE),
     wxWindow:setCursor(TC, Cursor),
     wxWindow:connect(TC, left_down, [{userData,Target}]),
     wxWindow:connect(TC, enter_window),
     wxWindow:connect(TC, leave_window),
-    ToolTip = wxToolTip:new("Click to see properties for " ++ Str),
+    ToolTip = wxToolTip:new(ToolTipText),
     wxWindow:setToolTip(TC, ToolTip),
     TC.
 
 to_link(RegName={Name, Node}) when is_atom(Name), is_atom(Node) ->
-    Str = io_lib:format("{~p,~p}", [Name, Node]),
+    Str = io_lib:format("{~tp,~p}", [Name, Node]),
     {RegName, Str};
 to_link(TI = {_Target, _Identifier}) ->
     TI;
@@ -613,14 +677,14 @@ user_term_multiline(Parent, Title, Default) ->
 
 parse_string(Str) ->
     try
-	Tokens = case erl_scan:string(Str) of
+	Tokens = case erl_scan:string(Str, 1, [text]) of
 		     {ok, Ts, _} -> Ts;
 		     {error, {_SLine, SMod, SError}, _} ->
-			 throw(io_lib:format("~s", [SMod:format_error(SError)]))
+			 throw(io_lib:format("~ts", [SMod:format_error(SError)]))
 		 end,
-	case erl_parse:parse_term(Tokens) of
+	case erl_eval:extended_parse_term(Tokens) of
 	    {error, {_PLine, PMod, PError}} ->
-		throw(io_lib:format("~s", [PMod:format_error(PError)]));
+		throw(io_lib:format("~ts", [PMod:format_error(PError)]));
 	    Res -> Res
 	end
     catch
@@ -662,11 +726,11 @@ create_status_bar(Panel) ->
 %%%-----------------------------------------------------------------
 %%% Progress dialog
 -define(progress_handler,cdv_progress_handler).
-display_progress_dialog(Title,Str) ->
+display_progress_dialog(Parent,Title,Str) ->
     Caller = self(),
     Env = wx:get_env(),
     spawn_link(fun() ->
-		       progress_handler(Caller,Env,Title,Str)
+		       progress_handler(Caller,Env,Parent,Title,Str)
 	       end),
     ok.
 
@@ -681,6 +745,11 @@ wait_for_progress() ->
 destroy_progress_dialog() ->
     report_progress(finish).
 
+sync_destroy_progress_dialog() ->
+    Ref = erlang:monitor(process,?progress_handler),
+    destroy_progress_dialog(),
+    receive {'DOWN',Ref,process,_,_} -> ok end.
+
 report_progress(Progress) ->
     case whereis(?progress_handler) of
 	Pid when is_pid(Pid) ->
@@ -690,31 +759,38 @@ report_progress(Progress) ->
 	    ok
     end.
 
-progress_handler(Caller,Env,Title,Str) ->
+progress_handler(Caller,Env,Parent,Title,Str) ->
     register(?progress_handler,self()),
     wx:set_env(Env),
-    PD = progress_dialog(Env,Title,Str),
-    try progress_loop(Title,PD,Caller)
+    PD = progress_dialog(Env,Parent,Title,Str),
+    try progress_loop(Title,PD,Caller,infinity)
     catch closed -> normal end.
 
-progress_loop(Title,PD,Caller) ->
+progress_loop(Title,PD,Caller,Pulse) ->
     receive
 	{progress,{ok,done}} -> % to make wait_for_progress/0 return
 	    Caller ! continue,
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
+        {progress,{ok,start_pulse}} ->
+            update_progress_pulse(PD),
+            progress_loop(Title,PD,Caller,?pulse_timeout);
+        {progress,{ok,stop_pulse}} ->
+            progress_loop(Title,PD,Caller,infinity);
 	{progress,{ok,Percent}} when is_integer(Percent) ->
 	    update_progress(PD,Percent),
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
 	{progress,{ok,Msg}} ->
 	    update_progress_text(PD,Msg),
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
 	{progress,{error, Reason}} ->
+            {Dialog,_,_} = PD,
+            Parent = wxWindow:getParent(Dialog),
 	    finish_progress(PD),
 	    FailMsg =
 		if is_list(Reason) -> Reason;
 		   true -> file:format_error(Reason)
 		end,
-	    display_info_dialog("Crashdump Viewer Error",FailMsg),
+	    display_info_dialog(Parent,"Crashdump Viewer Error",FailMsg),
 	    Caller ! error,
 	    unregister(?progress_handler),
 	    unlink(Caller);
@@ -722,25 +798,76 @@ progress_loop(Title,PD,Caller) ->
 	    finish_progress(PD),
 	    unregister(?progress_handler),
 	    unlink(Caller)
+    after Pulse ->
+            update_progress_pulse(PD),
+            progress_loop(Title,PD,Caller,?pulse_timeout)
     end.
 
-progress_dialog(_Env,Title,Str) ->
-    PD = wxProgressDialog:new(Title,Str,
-			      [{maximum,101},
-			       {style,
-				?wxPD_APP_MODAL bor
-				    ?wxPD_SMOOTH bor
-				    ?wxPD_AUTO_HIDE}]),
-    wxProgressDialog:setMinSize(PD,{200,-1}),
-    PD.
+progress_dialog(_Env,Parent,Title,Str) ->
+    progress_dialog_new(Parent,Title,Str).
 
 update_progress(PD,Value) ->
-    try wxProgressDialog:update(PD,Value)
+    try progress_dialog_update(PD,Value)
     catch _:_ -> throw(closed) %% Port or window have died
     end.
 update_progress_text(PD,Text) ->
-    try wxProgressDialog:update(PD,0,[{newmsg,Text}])
+    try progress_dialog_update(PD,Text)
+    catch _:_ -> throw(closed) %% Port or window have died
+    end.
+update_progress_pulse(PD) ->
+    try progress_dialog_pulse(PD)
     catch _:_ -> throw(closed) %% Port or window have died
     end.
 finish_progress(PD) ->
-    wxProgressDialog:destroy(PD).
+    try progress_dialog_update(PD,100)
+    catch _:_ -> ok
+    after progress_dialog_destroy(PD)
+    end.
+
+progress_dialog_new(Parent,Title,Str) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, Title,
+                          [{style,?wxDEFAULT_DIALOG_STYLE}]),
+    Panel = wxPanel:new(Dialog),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    Message = wxStaticText:new(Panel, 1, Str,[{size,{220,-1}}]),
+    Gauge = wxGauge:new(Panel, 2, 100, [{style, ?wxGA_HORIZONTAL}]),
+    SizerFlags = ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT bor ?wxTOP,
+    wxSizer:add(Sizer, Message, [{flag,SizerFlags},{border,15}]),
+    wxSizer:add(Sizer, Gauge, [{flag, SizerFlags bor ?wxBOTTOM},{border,15}]),
+    wxPanel:setSizer(Panel, Sizer),
+    wxSizer:setSizeHints(Sizer, Dialog),
+    wxDialog:show(Dialog),
+    {Dialog,Message,Gauge}.
+
+progress_dialog_update({_,_,Gauge},Value) when is_integer(Value) ->
+    wxGauge:setValue(Gauge,Value);
+progress_dialog_update({_,Message,Gauge},Text) when is_list(Text) ->
+    wxGauge:setValue(Gauge,0),
+    wxStaticText:setLabel(Message,Text).
+progress_dialog_pulse({_,_,Gauge}) ->
+    wxGauge:pulse(Gauge).
+progress_dialog_destroy({Dialog,_,_}) ->
+    wxDialog:destroy(Dialog).
+
+make_obsbin(Bin,Tab) ->
+    Size = byte_size(Bin),
+    {Preview,PreviewBitSize} =
+        try
+            %% The binary might be a unicode string, in which case we
+            %% don't want to split it in the middle of a grapheme
+            %% cluster - thus trying string:length and slice.
+            PL1 = min(string:length(Bin), 10),
+            PB1 = string:slice(Bin,0,PL1),
+            PS1 = byte_size(PB1) * 8,
+            <<P1:PS1>> = PB1,
+            {P1,PS1}
+        catch _:_ ->
+                %% Probably not a string, so just split anywhere
+                PS2 = min(Size, 10) * 8,
+                <<P2:PS2, _/binary>> = Bin,
+                {P2,PS2}
+        end,
+    Hash = erlang:phash2(Bin),
+    Key = {Preview, Size, Hash},
+    ets:insert(Tab, {Key,Bin}),
+    ['#OBSBin',Preview,PreviewBitSize,Size,Hash].

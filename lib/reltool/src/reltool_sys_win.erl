@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,9 +135,9 @@ init(Options) ->
     try
 	do_init(Options)
     catch
-	error:Reason ->
-	    io:format("~p: ~p~n",[Reason, erlang:get_stacktrace()]),
-	    exit({Reason, erlang:get_stacktrace()})
+	error:Reason:Stacktrace ->
+	    io:format("~tp: ~tp~n",[Reason, Stacktrace]),
+	    exit({Reason, Stacktrace})
     end.
 
 do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
@@ -182,7 +182,7 @@ do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
     end.
 
 restart_server_safe_config(true,Parent,Reason) ->
-    io:format("~w(~w): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+    io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
     proc_lib:init_ack(Parent, {error,Reason});
 restart_server_safe_config(false,Parent,Reason) ->
     wx:new(),
@@ -199,7 +199,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	?wxID_OK ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
-	    io:format("~w(~w): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+	    io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
 	    proc_lib:init_ack(Parent,{error,Reason})
     end.
 
@@ -251,7 +251,7 @@ loop(S) ->
 				    ?MODULE:loop(S#state{warning_wins = WWs2});
 				false ->
 				    error_logger:format("~w~w got unexpected "
-							"message:\n\t~p\n",
+							"message:\n\t~tp\n",
 							[?MODULE, self(), Msg]),
 				    ?MODULE:loop(S)
 			    end
@@ -292,7 +292,7 @@ loop(S) ->
 					   S#state.app_wins),
             ?MODULE:loop(S#state{fgraph_wins = FWs, app_wins = AWs});
         Msg ->
-            error_logger:format("~w~w got unexpected message:\n\t~p\n",
+            error_logger:format("~w~w got unexpected message:\n\t~tp\n",
                                 [?MODULE, self(), Msg]),
             ?MODULE:loop(S)
     end.
@@ -316,7 +316,7 @@ handle_child_exit({'EXIT', Pid, _Reason} = Exit, FWs, AWs) ->
 msg_warning({'EXIT', _Pid, shutdown}, Type) when Type =/= unknown ->
     ok;
 msg_warning(Exit, Type) ->
-    error_logger:format("~w~w got unexpected message (~w):\n\t~p\n",
+    error_logger:format("~w~w got unexpected message (~w):\n\t~tp\n",
                         [?MODULE, self(), Type, Exit]).
 
 create_window(S) ->
@@ -1163,12 +1163,12 @@ handle_system_event(#state{sys = Sys} = S,
     do_set_sys(S#state{sys = Sys2});
 handle_system_event(S, Event, ObjRef, UserData) ->
     error_logger:format("~w~w got unexpected wx sys event to ~p "
-			"with user data: ~p\n\t ~p\n",
+			"with user data: ~tp\n\t ~tp\n",
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
 
 handle_release_event(S, _Event, _ObjRef, UserData) ->
-    io:format("Release data: ~p\n", [UserData]),
+    io:format("Release data: ~tp\n", [UserData]),
     S.
 
 handle_source_event(S,
@@ -1225,7 +1225,7 @@ handle_app_event(S,
     handle_app_button(S, Items, Action);
 handle_app_event(S, Event, ObjRef, UserData) ->
     error_logger:format("~w~w got unexpected wx app event to "
-			"~p with user data: ~p\n\t ~p\n",
+			"~p with user data: ~tp\n\t ~tp\n",
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
 
@@ -1269,7 +1269,7 @@ move_app(S, {_ItemNo, AppBase}, Action) ->
                 undefined;
             _ ->
                 error_logger:format("~w~w got unexpected app "
-				    "button event: ~p ~p\n",
+				    "button event: ~tp ~tp\n",
                                     [?MODULE, self(), Action, AppBase]),
                 OldApp#app.incl_cond
         end,
@@ -1543,7 +1543,7 @@ check_and_refresh(S, Status) ->
             display_message(Reason, ?wxICON_ERROR),
 	    false;
         {error, Reason} ->
-            Msg = lists:flatten(io_lib:format("Error:\n\n~p\n", [Reason])),
+            Msg = lists:flatten(io_lib:format("Error:\n\n~tp\n", [Reason])),
             display_message(Msg, ?wxICON_ERROR),
 	    false
     end,

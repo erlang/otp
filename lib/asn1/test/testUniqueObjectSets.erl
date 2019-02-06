@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ seq_roundtrip(I, D0) ->
     M = 'UniqueObjectSets',
     try
 	{ok,Enc} = M:encode('Seq', {'Seq',I,D0}),
+        asn1_test_lib:map_roundtrip(M, 'Seq', Enc),
 	{ok,{'Seq',I,D}} = M:decode('Seq', Enc),
 	D
-    catch C:E ->
-	    Stk = erlang:get_stacktrace(),
+    catch C:E:Stk ->
 	    io:format("FAILED: ~p ~p\n", [I,D0]),
 	    erlang:raise(C, E, Stk)
     end.
@@ -59,7 +59,7 @@ main(CaseDir, Rule, Opts) ->
     Objs = [gen_obj(I) || {I,_,_} <- D1],
     DupObjs = [gen_dup_obj(I, T) || {I,T,_} <- D1],
     DupObjRefs0 = [gen_dup_obj_refs(I) || {I,_,_} <- D1],
-    DupObjRefs = string:join(DupObjRefs0, " |\n"),
+    DupObjRefs = lists:join(" |\n", DupObjRefs0),
     Asn1Spec = 'UniqueObjectSets',
     A = ["UniqueObjectSets DEFINITIONS AUTOMATIC TAGS ::=\n",
 	 "BEGIN\n\n",

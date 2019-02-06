@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,10 +38,13 @@
 
 -export_type([dbg_opt/0]).
 
--type name()         :: pid() | atom() | {'global', atom()}.
+-type name()         :: pid() | atom()
+                      | {'global', term()}
+                      | {'via', module(), term()}.
 -type system_event() :: {'in', Msg :: _}
                       | {'in', Msg :: _, From :: _}
                       | {'out', Msg :: _, To :: _}
+                      | {'out', Msg :: _, To :: _, State :: _}
                         | term().
 -opaque dbg_opt()    :: {'trace', 'true'}
                       | {'log',
@@ -54,7 +57,8 @@
                                         MessagesIn :: non_neg_integer(),
                                         MessagesOut :: non_neg_integer()}}
                       | {'log_to_file', file:io_device()}
-                      | {Func :: dbg_fun(), FuncState :: term()}.
+                      | {Func :: dbg_fun(), FuncState :: term()}
+                      | {FuncId :: term(), Func :: dbg_fun(), FuncState :: term()}.
 -type dbg_fun()      :: fun((FuncState :: _,
                              Event :: system_event(),
                              ProcState :: _) -> 'done' | (NewFuncState :: _)).
@@ -265,33 +269,41 @@ no_debug(Name, Timeout) -> send_system_msg(Name, {debug, no_debug}, Timeout).
 
 -spec install(Name, FuncSpec) -> 'ok' when
       Name :: name(),
-      FuncSpec :: {Func, FuncState},
+      FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
+      FuncId :: term(),
       Func :: dbg_fun(),
       FuncState :: term().
 install(Name, {Func, FuncState}) ->
-    send_system_msg(Name, {debug, {install, {Func, FuncState}}}).
+    send_system_msg(Name, {debug, {install, {Func, FuncState}}});
+install(Name, {FuncId, Func, FuncState}) ->
+    send_system_msg(Name, {debug, {install, {FuncId, Func, FuncState}}}).
 
 -spec install(Name, FuncSpec, Timeout) -> 'ok' when
       Name :: name(),
-      FuncSpec :: {Func, FuncState},
+      FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
+      FuncId :: term(),
       Func :: dbg_fun(),
       FuncState :: term(),
       Timeout :: timeout().
 install(Name, {Func, FuncState}, Timeout) ->
-    send_system_msg(Name, {debug, {install, {Func, FuncState}}}, Timeout).
+    send_system_msg(Name, {debug, {install, {Func, FuncState}}}, Timeout);
+install(Name, {FuncId, Func, FuncState}, Timeout) ->
+    send_system_msg(Name, {debug, {install, {FuncId, Func, FuncState}}}, Timeout).
 
--spec remove(Name, Func) -> 'ok' when
-      Name :: name(),
-      Func :: dbg_fun().
-remove(Name, Func) ->
-    send_system_msg(Name, {debug, {remove, Func}}).
-
--spec remove(Name, Func, Timeout) -> 'ok' when
+-spec remove(Name, Func | FuncId) -> 'ok' when
       Name :: name(),
       Func :: dbg_fun(),
+      FuncId :: term().
+remove(Name, FuncOrFuncId) ->
+    send_system_msg(Name, {debug, {remove, FuncOrFuncId}}).
+
+-spec remove(Name, Func | FuncId, Timeout) -> 'ok' when
+      Name :: name(),
+      Func :: dbg_fun(),
+      FuncId :: term(),
       Timeout :: timeout().
-remove(Name, Func, Timeout) ->
-    send_system_msg(Name, {debug, {remove, Func}}, Timeout).
+remove(Name, FuncOrFuncId, Timeout) ->
+    send_system_msg(Name, {debug, {remove, FuncOrFuncId}}, Timeout).
 
 %%-----------------------------------------------------------------
 %% All system messages sent are on the form {system, From, Msg}
@@ -385,6 +397,13 @@ handle_debug([{log_to_file, Fd} | T], FormFunc, State, Event) ->
 handle_debug([{statistics, StatData} | T], FormFunc, State, Event) ->
     NStatData = stat(Event, StatData),
     [{statistics, NStatData} | handle_debug(T, FormFunc, State, Event)];
+handle_debug([{FuncId, {Func, FuncState}} | T], FormFunc, State, Event) ->
+    case catch Func(FuncState, Event, State) of
+        done -> handle_debug(T, FormFunc, State, Event);
+        {'EXIT', _} -> handle_debug(T, FormFunc, State, Event);
+        NFuncState ->
+            [{FuncId, {Func, NFuncState}} | handle_debug(T, FormFunc, State, Event)]
+    end;
 handle_debug([{Func, FuncState} | T], FormFunc, State, Event) ->
     case catch Func(FuncState, Event, State) of
 	done -> handle_debug(T, FormFunc, State, Event);
@@ -525,7 +544,7 @@ debug_cmd({log_to_file, false}, Debug) ->
     {ok, NDebug};
 debug_cmd({log_to_file, FileName}, Debug) ->
     NDebug = close_log_file(Debug),
-    case file:open(FileName, [write]) of
+    case file:open(FileName, [write,{encoding,utf8}]) of
 	{ok, Fd} ->
 	    {ok, install_debug(log_to_file, Fd, NDebug)};
 	_Error ->
@@ -542,8 +561,10 @@ debug_cmd(no_debug, Debug) ->
     {ok, []};
 debug_cmd({install, {Func, FuncState}}, Debug) ->
     {ok, install_debug(Func, FuncState, Debug)};
-debug_cmd({remove, Func}, Debug) ->
-    {ok, remove_debug(Func, Debug)};
+debug_cmd({install, {FuncId, Func, FuncState}}, Debug) ->
+    {ok, install_debug(FuncId, {Func, FuncState}, Debug)};
+debug_cmd({remove, FuncOrFuncId}, Debug) ->
+    {ok, remove_debug(FuncOrFuncId, Debug)};
 debug_cmd(_Unknown, Debug) ->
     {unknown_debug, Debug}.
 
@@ -571,6 +592,7 @@ get_stat(_) ->
 stat({in, _Msg}, {Time, Reds, In, Out}) -> {Time, Reds, In+1, Out};
 stat({in, _Msg, _From}, {Time, Reds, In, Out}) -> {Time, Reds, In+1, Out};
 stat({out, _Msg, _To}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
+stat({out, _Msg, _To, _State}, {Time, Reds, In, Out}) -> {Time, Reds, In, Out+1};
 stat(_, StatData) -> StatData.
 
 trim(N, LogData) ->
@@ -580,9 +602,9 @@ trim(N, LogData) ->
 %% Debug structure manipulating functions
 %%-----------------------------------------------------------------
 install_debug(Item, Data, Debug) ->
-    case get_debug2(Item, Debug, undefined) of
-	undefined -> [{Item, Data} | Debug];
-	_ -> Debug
+    case lists:keysearch(Item, 1, Debug) of
+        false -> [{Item, Data} | Debug];
+        _ -> Debug
     end.
 remove_debug(Item, Debug) -> lists:keydelete(Item, 1, Debug).
 
@@ -633,7 +655,8 @@ close_log_file(Debug) ->
            | {'log_to_file', FileName}
            | {'install', FuncSpec},
       FileName :: file:name(),
-      FuncSpec :: {Func, FuncState},
+      FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
+      FuncId :: term(),
       Func :: dbg_fun(),
       FuncState :: term().
 debug_options(Options) ->
@@ -648,7 +671,7 @@ debug_options([{log, N} | T], Debug) when is_integer(N), N > 0 ->
 debug_options([statistics | T], Debug) ->
     debug_options(T, install_debug(statistics, init_stat(), Debug));
 debug_options([{log_to_file, FileName} | T], Debug) ->
-    case file:open(FileName, [write]) of
+    case file:open(FileName, [write,{encoding,utf8}]) of
 	{ok, Fd} ->
 	    debug_options(T, install_debug(log_to_file, Fd, Debug));
 	_Error ->
@@ -656,6 +679,8 @@ debug_options([{log_to_file, FileName} | T], Debug) ->
     end;
 debug_options([{install, {Func, FuncState}} | T], Debug) ->
     debug_options(T, install_debug(Func, FuncState, Debug));
+debug_options([{install, {FuncId, Func, FuncState}} | T], Debug) ->
+    debug_options(T, install_debug(FuncId, {Func, FuncState}, Debug));
 debug_options([_ | T], Debug) ->
     debug_options(T, Debug);
 debug_options([], Debug) -> 

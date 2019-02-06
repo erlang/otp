@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,8 +68,7 @@
        fixed size data types.</item>
       <tag><c>exec_alloc</c></tag>
       <item>Allocator used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso>
-        application for native executable code on specific architectures
-        (x86_64).</item>
+        application for native executable code.</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated through any of
         the other allocators described above.</item>
@@ -87,9 +86,9 @@
         the number of system calls made.</item>
     </taglist>
 
-    <p><c>sys_alloc</c> and <c>literal_alloc</c> are always enabled and
-      cannot be disabled. <c>exec_alloc</c> is only available if it is needed
-      and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
+    <p><c>sys_alloc</c>, <c>literal_alloc</c> and <c>temp_alloc</c> are always
+      enabled and cannot be disabled. <c>exec_alloc</c> is only available if it
+      is needed and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.
@@ -219,6 +218,33 @@
       <tag>Address order first fit carrier address order best fit</tag>
       <item>
         <p>Strategy: Find the <em>carrier</em> with the lowest address that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "address order best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Age order first fit carrier address order first fit</tag>
+      <item>
+	<p>Strategy: Find the <em>oldest carrier</em> that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "address order first fit" strategy.</p>
+        <p>Implementation: A balanced binary search tree is
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Age order first fit carrier best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>oldest carrier</em> that
+          can satisfy the requested block size, then find a block within
+          that carrier using the "best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
+      <tag>Age order first fit carrier address order best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>oldest carrier</em> that
           can satisfy the requested block size, then find a block within
           that carrier using the "address order best fit" strategy.</p>
         <p>Implementation: Balanced binary search trees are
@@ -452,7 +478,7 @@
             utilization value &gt; 0 is used, allocator instances
             are allowed to abandon multiblock carriers. If <c>de</c> (default
             enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
-            a recomended non-zero utilization value is used. The value
+            a recommended non-zero utilization value is used. The value
             chosen depends on the allocator type and can be changed between
             ERTS versions. Defaults to <c>de</c>, but this
             can be changed in the future.</p>
@@ -467,7 +493,8 @@
             fetched, it will function as an ordinary carrier. This feature has
             special requirements on the
             <seealso marker="#M_as">allocation strategy</seealso> used. Only
-            the strategies <c>aoff</c>, <c>aoffcbf</c>, and <c>aoffcaobf</c>
+            the strategies <c>aoff</c>, <c>aoffcbf</c>, <c>aoffcaobf</c>,
+	    <c>ageffcaoff</c>m, <c>ageffcbf</c> and <c>ageffcaobf</c>
             support abandoned carriers.</p>
           <p>This feature also requires
             <seealso marker="#M_t">multiple thread specific instances</seealso>
@@ -478,8 +505,30 @@
             allocators based on the <c>alloc_util</c> framework, except
             <c>temp_alloc</c> (which would be pointless).</p>
         </item>
+
+	<tag><marker id="M_acfml"/><c><![CDATA[+M<S>acfml <bytes>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier free block min limit. A valid <c><![CDATA[<bytes>]]></c>
+            is a positive integer representing a block size limit. The largest
+	    free block in a carrier must be at least <c>bytes</c> large, for the
+	    carrier to be abandoned. The default is zero but can be changed
+	    in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
+        <tag><marker id="M_acnl"/><c><![CDATA[+M<S>acnl <amount>]]></c>
+        </tag>
+        <item>
+          <p>Abandon carrier number limit. A valid <c><![CDATA[<amount>]]></c>
+            is a positive integer representing max number of abandoned carriers per
+	    allocator instance. Defaults to 1000 which will practically disable
+	    the limit, but this can be changed in the future.</p>
+	  <p>See also <seealso marker="#M_acul"><c>acul</c></seealso>.</p>
+        </item>
+
         <tag><marker id="M_as"/>
-          <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|gf|af]]></c></tag>
+          <c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|ageffcaoff|ageffcbf|ageffcaobf|gf|af]]></c></tag>
         <item>
           <p>Allocation strategy. The following strategies are valid:</p>
           <list type="bulleted">
@@ -489,6 +538,11 @@
             <item><c>aoffcbf</c> (address order first fit carrier best fit)
             </item>
             <item><c>aoffcaobf</c> (address order first fit carrier address
+              order best fit)</item>
+            <item><c>ageffcaoff</c> (age order first fit carrier address order first fit)</item>
+            <item><c>ageffcbf</c> (age order first fit carrier best fit)
+            </item>
+            <item><c>ageffcaobf</c> (age order first fit carrier address
               order best fit)</item>
             <item><c>gf</c> (good fit)</item>
             <item><c>af</c> (a fit)</item>
@@ -504,6 +558,20 @@
             is left unchanged if the amount of unused memory is less
             than this threshold, otherwise the carrier is shrunk.
             See also <seealso marker="#M_rsbcst"><c>rsbcst</c></seealso>.</p>
+        </item>
+        <tag><marker id="M_atags"/><c><![CDATA[+M<S>atags true|false]]></c></tag>
+        <item>
+          <p>Adds a small tag to each allocated block that contains basic
+            information about what it is and who allocated it. Use the
+            <seealso marker="tools:instrument"><c>instrument</c></seealso>
+            module to inspect this information.</p>
+
+          <p>The runtime overhead is one word per allocation when enabled. This
+            may change at any time in the future.</p>
+
+          <p>The default is <c>true</c> for <c>binary_alloc</c> and
+            <c>driver_alloc</c>, and <c>false</c> for the other allocator
+            types.</p>
         </item>
         <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
         <item>
@@ -595,7 +663,7 @@
         </item>
         <tag><marker id="M_sbct"/><c><![CDATA[+M<S>sbct <size>]]></c></tag>
         <item>
-          <p>Singleblock carrier threshold. Blocks larger than this
+          <p>Singleblock carrier threshold (in kilobytes). Blocks larger than this
             threshold are placed in singleblock carriers. Blocks
             smaller than this threshold are placed in multiblock
             carriers. On 32-bit Unix style OS this threshold cannot be set
@@ -668,37 +736,14 @@
     </section>
 
     <section>
-      <title>Special Flag for exec_alloc</title>
-      <taglist>
-        <tag><marker id="MXscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
-        <item>
-          <p><c>exec_alloc</c> super carrier size (in MB). The amount of
-            <em>virtual</em> address space reserved for native executable code
-            used by the <seealso marker="hipe:HiPE_app"><c>HiPE</c></seealso> application
-            on specific architectures (x86_64). Defaults to <c>512</c>.</p>
-        </item>
-      </taglist>
-    </section>
-
-    <section>
       <title>Instrumentation Flags</title>
       <taglist>
-        <tag><marker id="Mim"/><c>+Mim true|false</c></tag>
+        <tag><c>+M&lt;S&gt;atags</c></tag>
         <item>
-          <p>A map over current allocations is kept by the emulator.
-            The allocation map can be retrieved through module
-            <seealso marker="tools:instrument">
-            <c>instrument(3)</c></seealso>. <c>+Mim true</c>
-            implies <c>+Mis true</c>. <c>+Mim true</c> is the same as flag
-            <seealso marker="erl#instr"><c>-instr</c></seealso> in 
-            <c>erl(1)</c>.</p>
-        </item>
-        <tag><marker id="Mis"/><c>+Mis true|false</c></tag>
-        <item>
-          <p>Status over allocated memory is kept by the emulator.
-            The allocation status can be retrieved through module
-            <seealso marker="tools:instrument">
-            <c>instrument(3)</c></seealso>.</p>
+          <p>Adds a small tag to each allocated block that contains basic
+            information about what it is and who allocated it. See
+            <seealso marker="#M_atags"><c>+M&lt;S&gt;atags</c></seealso> for a
+            more complete description.</p>
         </item>
         <tag><marker id="Mit"/><c>+Mit X</c></tag>
         <item>

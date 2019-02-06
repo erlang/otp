@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@
              dets_server,
 	     dets_sup,
 	     dets_utils,
-	     dets_v8,
 	     dets_v9,
 	     dict,
 	     digraph,
@@ -40,9 +39,11 @@
 	     edlin_expand,
 	     epp,
 	     eval_bits,
+             erl_abstract_code,
              erl_anno,
 	     erl_bits,
 	     erl_compile,
+	     erl_error,
 	     erl_eval,
              erl_expand_records,
 	     erl_internal,
@@ -71,7 +72,6 @@
 	     io_lib_format,
 	     io_lib_fread,
 	     io_lib_pretty,
-	     lib,
 	     lists,
 	     log_mf_h,
 	     maps,
@@ -100,13 +100,15 @@
 	     sys,
 	     timer,
 	     unicode,
+             unicode_util,
+	     uri_string,
 	     win32reg,
 	     zip]},
   {registered,[timer_server,rsh_starter,take_over_monitor,pool_master,
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-5.0","erts-8.0","crypto-3.3",
+  {runtime_dependencies, ["sasl-3.0","kernel-6.0","erts-10.0","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
 

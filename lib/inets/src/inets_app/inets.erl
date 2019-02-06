@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -465,13 +465,19 @@ call_service(Service, Call, Args) ->
         exit:{noproc, _} ->
             {error, inets_not_started}
     end.
-	
+
+%% Obsolete! Kept for backward compatiblity!
+%% TFTP application has been moved out from inets
 service_module(tftpd) ->
-    tftp;
+    inets_tftp_wrapper;
 service_module(tftpc) ->
-    tftp;
+    inets_tftp_wrapper;
+service_module(tftp) ->
+    inets_tftp_wrapper;
+%% Obsolete! Kept for backward compatiblity!
+%% FTP application has been moved out from inets
 service_module(ftpc) ->
-    ftp;
+    inets_ftp_wrapper;
 service_module(Service) ->
     Service.
 

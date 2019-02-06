@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1]).
+	 foldl/1,fd_leak/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +40,7 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit].
+     unzip_traversal_exploit,fd_leak].
 
 groups() -> 
     [].
@@ -882,3 +882,34 @@ foldl(Config) ->
     {error, enoent} = zip:foldl(ZipFun, [], File),
 
     ok.
+
+fd_leak(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    DataDir = proplists:get_value(data_dir, Config),
+    Name = filename:join(DataDir, "bad_file_header.zip"),
+    BadExtract = fun() ->
+                         {error,bad_file_header} = zip:extract(Name),
+                         ok
+                 end,
+    do_fd_leak(BadExtract, 1),
+
+    BadCreate = fun() ->
+                        {error,enoent} = zip:zip("failed.zip",
+                                                 ["none"]),
+                        ok
+                end,
+    do_fd_leak(BadCreate, 1),
+
+    ok.
+
+do_fd_leak(_Bad, 10000) ->
+    ok;
+do_fd_leak(Bad, N) ->
+    try Bad() of
+        ok ->
+            do_fd_leak(Bad, N + 1)
+    catch
+        C:R:Stk ->
+            io:format("Bad error after ~p attempts\n", [N]),
+            erlang:raise(C, R, Stk)
+    end.

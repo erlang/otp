@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2018. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
 **
 */
 
-void hash_info(int to, void *arg, Hash* h)
+void hash_info(fmtfn_t to, void *arg, Hash* h)
 {
     HashInfo hi;
 
@@ -152,7 +152,7 @@ Hash* hash_init(int type, Hash* h, char* name, int size, HashFunctions fun)
 
     h->bucket = (HashBucket**) fun.meta_alloc(h->meta_alloc_type, sz);
 
-    sys_memzero(h->bucket, sz);
+    memzero(h->bucket, sz);
     h->is_allocated = 0;
     h->name = name;
     h->fun = fun;
@@ -224,7 +224,7 @@ static void rehash(Hash* h, int grow)
     sz = h->size*sizeof(HashBucket*);
 
     new_bucket = (HashBucket **) h->fun.meta_alloc(h->meta_alloc_type, sz);
-    sys_memzero(new_bucket, sz);
+    memzero(new_bucket, sz);
 
     for (i = 0; i < old_size; i++) {
 	HashBucket* b = h->bucket[i];

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ init_per_suite(Config) ->
 	   {ok, FileInfo} = file:read_file_info(FileName),
 	   ok = file:write_file_info(FileName,
 				     FileInfo#file_info{mode = 8#400}),
+	   ssh_test_lib:setup_rsa(DataDir, PrivDir),
 	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	   Config
        end).
@@ -73,6 +74,7 @@ end_per_suite(Config) ->
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
     SysDir = proplists:get_value(priv_dir, Config),
+    ssh_test_lib:clean_rsa(SysDir),
     ssh_test_lib:clean_dsa(SysDir),
     ok.
 
@@ -136,7 +138,7 @@ init_per_testcase(TestCase, Config) ->
     [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
 end_per_testcase(_TestCase, Config) ->
-    catch ssh_sftpd:stop(proplists:get_value(sftpd, Config)),
+    catch ssh:stop_daemon(proplists:get_value(sftpd, Config)),
     {Sftp, Connection} = proplists:get_value(sftp, Config),
     catch ssh_sftp:stop_channel(Sftp),
     catch ssh:close(Connection),
@@ -187,7 +189,6 @@ quit(Config) when is_list(Config) ->
     timer:sleep(5000),
     {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, Port,
 						 [{silently_accept_hosts, true},
-						  {pwdfun, fun(_,_) -> true end},
 						  {user_dir, UserDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 
