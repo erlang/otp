@@ -86,10 +86,12 @@
                 handshake_env         :: #handshake_env{} | secret_printout(),
                 connection_env        :: #connection_env{} | secret_printout(), 
 
-                %% Changed often
+                %% Data shuffling
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
                 user_data_buffer     :: undefined | binary() | secret_printout(),
+                
+                %% recv and start handling
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
                 start_or_recv_from   :: term(),
                 timer                :: undefined | reference(), % start_or_recive_timer
@@ -113,7 +115,6 @@
                 %% underlaying packet format. Introduced by DTLS - RFC 4347.
                 %% The mecahnism is also usefull in TLS although we do not
                 %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-                flight_state = reliable,  %% reliable | {retransmit, integer()}| {waiting, ref(), integer()} - last two is used in DTLS over udp.
                 protocol_specific = #{}      :: map()
                }).
 

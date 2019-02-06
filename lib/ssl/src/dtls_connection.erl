@@ -335,12 +335,14 @@ queue_change_cipher(ChangeCipher, #state{flight_buffer = Flight,
 reinit(State) ->
     %% To be API compatible with TLS NOOP here
     reinit_handshake_data(State).
-reinit_handshake_data(#state{protocol_buffers = Buffers,
+reinit_handshake_data(#state{static_env = #static_env{data_tag = DataTag},
+                             protocol_buffers = Buffers,
+                             protocol_specific = PS,
                              handshake_env = HsEnv} = State) ->
     State#state{premaster_secret = undefined,
                 handshake_env = HsEnv#handshake_env{tls_handshake_history = ssl_handshake:init_handshake_history(),
                                                     public_key_info = undefined},
-                flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
+                protocol_specific = PS#{flight_state => initial_flight_state(DataTag)},
 		flight_buffer = new_flight(),
                 protocol_buffers =
 		    Buffers#protocol_buffers{
@@ -441,23 +443,18 @@ init({call, From}, {start, Timeout},
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  start_or_recv_from = From,
-			  timer = Timer,
-                          flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}},
+			  timer = Timer},
     {Record, State} = next_record(State3),
     next_event(hello, Record, State, Actions);
-init({call, _} = Type, Event, #state{static_env = #static_env{role = server,
-                                                              data_tag = udp}} = State) ->
+init({call, _} = Type, Event, #state{static_env = #static_env{role = server},
+                                     protocol_specific = PS} = State) ->
     Result = gen_handshake(?FUNCTION_NAME, Type, Event, 
-                           State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
-                                       protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
-                                                             previous_cookie_secret => <<>>,
-                                                             ignored_alerts => 0,
-                                                             max_ignored_alerts => 10}}),
+                           State#state{protocol_specific = PS#{current_cookie_secret => dtls_v1:cookie_secret(), 
+                                                               previous_cookie_secret => <<>>,
+                                                               ignored_alerts => 0,
+                                                               max_ignored_alerts => 10}}),
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     Result;
-init({call, _} = Type, Event, #state{static_env = #static_env{role = server}} = State) ->
-    %% I.E. DTLS over sctp
-    gen_handshake(?FUNCTION_NAME, Type, Event, State#state{flight_state = reliable});
 init(Type, Event, State) ->
    gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
@@ -626,10 +623,11 @@ abbreviated(internal = Type,
     ConnectionStates1 = dtls_record:save_current_connection_state(ConnectionStates0, read),
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
     gen_handshake(?FUNCTION_NAME, Type, Event, State#state{connection_states = ConnectionStates});
-abbreviated(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates} = State) ->
+abbreviated(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates,
+                                                         protocol_specific = PS} = State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, 
                   prepare_flight(State#state{connection_states = ConnectionStates,
-                                             flight_state = connection}));
+                                             protocol_specific = PS#{flight_state => connection}}));
 abbreviated(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
@@ -669,10 +667,11 @@ cipher(internal = Type, #change_cipher_spec{type = <<1>>} = Event,
     ConnectionStates1 = dtls_record:save_current_connection_state(ConnectionStates0, read),
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
     ssl_connection:?FUNCTION_NAME(Type, Event, State#state{connection_states = ConnectionStates}, ?MODULE);
-cipher(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates} = State) ->
+cipher(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates,
+                                                   protocol_specific = PS} = State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, 
                                   prepare_flight(State#state{connection_states = ConnectionStates,
-                                                             flight_state = connection}), 
+                                                             protocol_specific = PS#{flight_state => connection}}), 
                                   ?MODULE);
 cipher(state_timeout, Event, State) ->
     handle_state_timeout(Event, ?FUNCTION_NAME, State);
@@ -690,6 +689,7 @@ connection(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 connection(internal, #hello_request{}, #state{static_env = #static_env{host = Host,
                                                                        port = Port,
+                                                                       data_tag = DataTag,
                                                                        session_cache = Cache,
                                                                        session_cache_cb = CacheCb
                                                                       },
@@ -697,7 +697,8 @@ connection(internal, #hello_request{}, #state{static_env = #static_env{host = Ho
                                               connection_env = CEnv,
                                               session = #session{own_certificate = Cert} = Session0,
                                               ssl_options = SslOpts,
-                                              connection_states = ConnectionStates0
+                                              connection_states = ConnectionStates0,
+                                              protocol_specific = PS
                                              } = State0) ->
     
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
@@ -708,9 +709,9 @@ connection(internal, #hello_request{}, #state{static_env = #static_env{host = Ho
     {State2, Actions} = send_handshake(Hello, State1#state{connection_env = CEnv#connection_env{negotiated_version = HelloVersion}}),
     {Record, State} =
 	next_record(
-	  State2#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
+	  State2#state{protocol_specific = PS#{flight_state => initial_flight_state(DataTag)},
                        session = Session0#session{session_id
-						  = Hello#client_hello.session_id}}),
+                                                  = Hello#client_hello.session_id}}),
     next_event(hello, Record, State, Actions);
 connection(internal, #client_hello{} = Hello, #state{static_env = #static_env{role = server},
                                                      handshake_env = #handshake_env{allow_renegotiate = true} = HsEnv} = State) ->
@@ -809,8 +810,13 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   user_data_buffer = <<>>,
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),
-           flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT}
+           protocol_specific = #{flight_state => initial_flight_state(DataTag)}
 	  }.
+
+initial_flight_state(udp)->
+    {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT};
+initial_flight_state(_) ->
+    reliable.
 
 next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 						   dtls_record_buffer = Buf0,
@@ -941,9 +947,10 @@ handle_info(Msg, StateName, State) ->
     ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_state_timeout(flight_retransmission_timeout, StateName,
-                     #state{flight_state = {retransmit, NextTimeout}} = State0) ->
-    {State1, Actions0} = send_handshake_flight(State0#state{flight_state = {retransmit, NextTimeout}}, 
-                                              retransmit_epoch(StateName, State0)),
+                     #state{protocol_specific = 
+                                #{flight_state := {retransmit, _NextTimeout}}} = State0) ->
+    {State1, Actions0} = send_handshake_flight(State0, 
+                                               retransmit_epoch(StateName, State0)),
     {next_state, StateName, State, Actions} = next_event(StateName, no_record, State1, Actions0),
     %% This will reset the retransmission timer by repeating the enter state event
     {repeat_state, State, Actions}.
@@ -1049,17 +1056,17 @@ next_flight(Flight) ->
 	    handshakes_after_change_cipher_spec => []}.
        
 handle_flight_timer(#state{static_env = #static_env{data_tag = udp},
-                          flight_state = {retransmit, Timeout}} = State) ->
+                           protocol_specific = #{flight_state := {retransmit, Timeout}}} = State) ->
     start_retransmision_timer(Timeout, State);
 handle_flight_timer(#state{static_env = #static_env{data_tag = udp},
-		    flight_state = connection} = State) ->
+                           protocol_specific = #{flight_state := connection}} = State) ->
     {State, []};
-handle_flight_timer(State) ->
+handle_flight_timer(#state{protocol_specific = #{flight_state := reliable}} = State) ->
     %% No retransmision needed i.e DTLS over SCTP
-    {State#state{flight_state = reliable}, []}.
+    {State, []}.
 
-start_retransmision_timer(Timeout, State) ->
-    {State#state{flight_state = {retransmit, new_timeout(Timeout)}}, 
+start_retransmision_timer(Timeout, #state{protocol_specific = PS} = State) ->
+    {State#state{protocol_specific = PS#{flight_state => {retransmit, new_timeout(Timeout)}}}, 
      [{state_timeout, Timeout, flight_retransmission_timeout}]}.
 
 new_timeout(N) when N =< 30 -> 
@@ -1205,3 +1212,4 @@ is_time_to_renegotiate(N, M) when N < M->
     false;
 is_time_to_renegotiate(_,_) ->
     true.
+
