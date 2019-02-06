@@ -77,7 +77,8 @@
                           downgrade,
                           terminated = false                          ::boolean() | closed,  
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
-                          erl_dist_handle = undefined :: erlang:dist_handle() | undefined
+                          erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
+                          private_key          :: public_key:private_key() | secret_printout() | 'undefined'
                         }).
 
 -record(state, {
@@ -101,7 +102,6 @@
                 %% Used only in HS
                 client_certificate_requested = false :: boolean(),
                 key_algorithm         :: ssl:key_algo(),
-                private_key          :: public_key:private_key() | secret_printout() | 'undefined',
                 diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
                 psk_identity         :: binary() | 'undefined', % server psk identity hint

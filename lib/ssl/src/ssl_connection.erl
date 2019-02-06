@@ -607,7 +607,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 %%--------------------------------------------------------------------
 -spec ssl_config(#ssl_options{}, client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
-ssl_config(Opts, Role, #state{static_env = InitStatEnv0} = State0) ->
+ssl_config(Opts, Role, #state{static_env = InitStatEnv0, 
+                              connection_env = CEnv} = State0) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
            fileref_db_handle := FileRefHandle, 
@@ -629,7 +630,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0} = State0) ->
                                 crl_db = CRLDbHandle,
                                 session_cache = CacheHandle
                                },
-                 private_key = Key,
+                 connection_env = CEnv#connection_env{private_key = Key},
                  diffie_hellman_params = DHParams,
                  ssl_options = Opts}.
 
@@ -1413,8 +1414,8 @@ format_status(terminate, [_, StateName, State]) ->
 					       protocol_buffers =  ?SECRET_PRINTOUT,
 					       user_data_buffer = ?SECRET_PRINTOUT,
 					       handshake_env =  ?SECRET_PRINTOUT,
+                                               connection_env = ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
-					       private_key =  ?SECRET_PRINTOUT,
 					       diffie_hellman_params = ?SECRET_PRINTOUT,
 					       diffie_hellman_keys =  ?SECRET_PRINTOUT,
 					       srp_params = ?SECRET_PRINTOUT,
@@ -1572,9 +1573,9 @@ certify_client(#state{client_certificate_requested = false} = State, _) ->
 verify_client_cert(#state{static_env = #static_env{role = client},
                           handshake_env = #handshake_env{tls_handshake_history = Hist,
                                                          cert_hashsign_algorithm = HashSign},
-                          connection_env = #connection_env{negotiated_version = Version},
+                          connection_env = #connection_env{negotiated_version = Version,
+                                                           private_key = PrivateKey},
                           client_certificate_requested = true,
-			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificate = OwnCert}} = State, Connection) ->
 
@@ -1615,7 +1616,7 @@ server_certify_and_key_exchange(State0, Connection) ->
     request_client_cert(State2, Connection).
 
 certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS},
-			    #state{private_key = Key, 
+			    #state{connection_env = #connection_env{private_key = Key}, 
                                    handshake_env = #handshake_env{client_hello_version = {Major, Minor} = Version}}
                             = State, Connection) ->
     FakeSecret = make_premaster_secret(Version, rsa),
@@ -1672,7 +1673,7 @@ certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
 	ssl_handshake:premaster_secret(ClientKey, ServerEcDhPrivateKey, PSKLookup),
     calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
 certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
-			    #state{private_key = Key,
+			    #state{connection_env = #connection_env{private_key = Key},
 				   ssl_options = 
 				       #ssl_options{user_lookup_fun = PSKLookup}} = State0,
 			    Connection) ->
@@ -1706,9 +1707,9 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
     State;
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
-                    connection_env = #connection_env{negotiated_version = Version},
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    diffie_hellman_params = #'DHParameter'{} = Params,
-		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0} = State0, Connection)
   when Algo == dhe_dss;
        Algo == dhe_rsa;
@@ -1725,7 +1726,7 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Alg
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 key_exchange(#state{static_env = #static_env{role = server},
-                    private_key = #'ECPrivateKey'{parameters = ECCurve} = Key,
+                    connection_env = #connection_env{private_key = #'ECPrivateKey'{parameters = ECCurve} = Key},
                     key_algorithm = Algo,
                    session = Session} = State, _)
   when Algo == ecdh_ecdsa; Algo == ecdh_rsa ->
@@ -1733,8 +1734,8 @@ key_exchange(#state{static_env = #static_env{role = server},
                 session = Session#session{ecc = ECCurve}};
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
-                    connection_env = #connection_env{negotiated_version = Version},
-		    private_key = PrivateKey,
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    session = #session{ecc = ECCCurve},
 		    connection_states = ConnectionStates0} = State0, Connection)
   when Algo == ecdhe_ecdsa; Algo == ecdhe_rsa;
@@ -1758,8 +1759,8 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},                    
-                    connection_env = #connection_env{negotiated_version = Version},
-		    private_key = PrivateKey,
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    connection_states = ConnectionStates0} = State0, Connection) ->
     #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -1774,9 +1775,9 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
 		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},                                        
-                    connection_env = #connection_env{negotiated_version = Version},
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    diffie_hellman_params = #'DHParameter'{} = Params,
-		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     DHKeys = public_key:generate_key(Params),
@@ -1795,8 +1796,8 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = ecdhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
-                    connection_env = #connection_env{negotiated_version = Version},
-		    private_key = PrivateKey,
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
                     session = #session{ecc = ECCCurve},
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
@@ -1819,8 +1820,8 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo}, 
-                    connection_env = #connection_env{negotiated_version = Version},
-		    private_key = PrivateKey,
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     #{security_parameters := SecParams} =
@@ -1836,9 +1837,9 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
 		    ssl_options = #ssl_options{user_lookup_fun = LookupFun},
                     handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo}, 
-                    connection_env = #connection_env{negotiated_version = Version},
+                    connection_env = #connection_env{negotiated_version = Version,
+                                                     private_key = PrivateKey},
 		    session = #session{srp_username = Username},
-		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0
 		   } = State0, Connection)
   when Algo == srp_dss;
@@ -2727,7 +2728,8 @@ invalidate_session(server, _, Port, Session) ->
 handle_sni_extension(undefined, State) ->
     State;
 handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{role = Role} = InitStatEnv0,
-                                                       handshake_env = HsEnv} = State0) ->
+                                                       handshake_env = HsEnv,
+                                                       connection_env = CEnv} = State0) ->
     NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
     case NewOptions of
 	undefined ->
@@ -2751,7 +2753,7 @@ handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{
                                         crl_db = CRLDbHandle,
                                         session_cache = CacheHandle
                                        },
-               private_key = Key,
+               connection_env = CEnv#connection_env{private_key = Key},
                diffie_hellman_params = DHParams,
                ssl_options = NewOptions,
                handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}
