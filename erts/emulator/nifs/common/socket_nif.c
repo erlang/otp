@@ -13584,13 +13584,13 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
             /* Ok, try again later */
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
-
-            SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
-
-            return esock_make_error(env, esock_atom_eagain);
-
         }
 
+    }
+    else {
+        SSDBG( descP,
+               ("SOCKET", "send_check_result -> "
+                "not entire package written (%d of %d)\r\n", written, dataSize) );
     }
 
     /* We failed to write the *entire* packet (anything less then size
@@ -13617,12 +13617,10 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
 
     SELECT(env, descP->sock, (ERL_NIF_SELECT_WRITE), descP, NULL, sendRef);
 
-    SSDBG( descP,
-           ("SOCKET", "send_check_result -> "
-            "not entire package written (%d of %d)\r\n", written, dataSize) );
-
-    return esock_make_ok2(env, MKI(env, written));
-
+    if (written >= 0)
+        return esock_make_ok2(env, MKI(env, written));
+    else
+        return esock_make_error(env, esock_atom_eagain);
 }
 
 
@@ -14095,6 +14093,11 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
 
             SSDBG( descP, ("SOCKET", "recv_check_result -> [%d] "
                            "only part of message - expect more\r\n", toRead) );
+
+            if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
+                FREE_BIN(bufP);
+                return esock_make_error_str(env, xres);
+            }
 
             /* SELECT for more data */
 
