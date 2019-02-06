@@ -149,7 +149,7 @@ next_record(#state{handshake_env =
     {no_record, State#state{handshake_env = 
                                 HsEnv#handshake_env{unprocessed_handshake_events = N-1}}};
 next_record(#state{protocol_buffers =
-		       #protocol_buffers{tls_packets = [], tls_cipher_texts = [#ssl_tls{type = Type}| _] = CipherTexts0}
+		       #protocol_buffers{tls_cipher_texts = [#ssl_tls{type = Type}| _] = CipherTexts0}
                    = Buffers,
                    connection_states = ConnectionStates0,
                    ssl_options = #ssl_options{padding_check = Check}} = State) ->
@@ -161,7 +161,7 @@ next_record(#state{protocol_buffers =
             {Alert, State#state{protocol_buffers = Buffers#protocol_buffers{tls_cipher_texts = CipherTexts},
                                 connection_states = ConnectionStates}}
     end;            
-next_record(#state{protocol_buffers = #protocol_buffers{tls_packets = [], tls_cipher_texts = []},
+next_record(#state{protocol_buffers = #protocol_buffers{tls_cipher_texts = []},
                    protocol_specific = #{active_n_toggle := true, active_n := N} = ProtocolSpec,
                    static_env = #static_env{socket = Socket,
                                             close_tag = CloseTag,
