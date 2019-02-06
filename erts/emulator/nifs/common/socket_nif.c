@@ -13580,7 +13580,6 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*        env,
             return res;
 
         } else {
-
             /* Ok, try again later */
 
             SSDBG( descP, ("SOCKET", "send_check_result -> try again\r\n") );
@@ -13907,47 +13906,29 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
                     
                     return esock_make_ok3(env, atom_true, data);
 
-                } else {
-
-                    /* Yes, we *do* need to continue reading */
-
-                    if ((xres = recv_init_current_reader(env,
-                                                         descP, recvRef)) != NULL) {
-                        descP->rNumCnt = 0;
-                        return esock_make_error_str(env, xres);
-                    }
-                
-                    /* This transfers "ownership" of the *allocated* binary to an
-                     * erlang term (no need for an explicit free).
-                     */
-                    data = MKBIN(env, bufP);
-                    
-                    return esock_make_ok3(env, atom_false, data);
-
                 }
-
-            } else {
-
-                /* Yes, we *do* need to continue reading */
-
-                if ((xres = recv_init_current_reader(env,
-                                                     descP, recvRef)) != NULL) {
-                    descP->rNumCnt = 0;
-                    return esock_make_error_str(env, xres);
-                }
-                
-                /* This transfers "ownership" of the *allocated* binary to an
-                 * erlang term (no need for an explicit free).
-                 */
-                data = MKBIN(env, bufP);
-                
-                SSDBG( descP,
-                       ("SOCKET",
-                        "recv_check_result -> [%d] "
-                        "we are done for now - read more\r\n", toRead) );
-                
-                return esock_make_ok3(env, atom_false, data);
             }
+
+            /* Yes, we *do* need to continue reading */
+
+            if ((xres = recv_init_current_reader(env,
+                                                 descP, recvRef)) != NULL) {
+                descP->rNumCnt = 0;
+                FREE_BIN(bufP);
+                return esock_make_error_str(env, xres);
+            }
+
+            /* This transfers "ownership" of the *allocated* binary to an
+             * erlang term (no need for an explicit free).
+             */
+            data = MKBIN(env, bufP);
+
+            SSDBG( descP,
+                   ("SOCKET",
+                    "recv_check_result -> [%d] "
+                    "we are done for now - read more\r\n", toRead) );
+
+            return esock_make_ok3(env, atom_false, data);
 
         } else {
 
@@ -13975,6 +13956,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
     } else if (read < 0) {
 
         /* +++ Error handling +++ */
+
+        FREE_BIN(bufP);
 
         if (saveErrno == ECONNRESET)  {
             ERL_NIF_TERM res = esock_make_error(env, atom_closed);
@@ -14009,8 +13992,6 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
                    (ERL_NIF_SELECT_STOP),
                    descP, NULL, recvRef);
 
-            FREE_BIN(bufP);
-
             return res;
 
         } else if ((saveErrno == ERRNO_BLOCK) ||
@@ -14032,8 +14013,6 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
             SSDBG( descP,
                    ("SOCKET", "recv_check_result -> SELECT res: %d\r\n", sres) );
             
-            FREE_BIN(bufP);
-
             return esock_make_error(env, esock_atom_eagain);
         } else {
             ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
@@ -14042,8 +14021,6 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*        env,
                            toRead, saveErrno) );
 
             recv_error_current_reader(env, descP, sockRef, res);
-
-            FREE_BIN(bufP);
 
             return res;
         }
