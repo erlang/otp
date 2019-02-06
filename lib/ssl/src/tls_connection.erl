@@ -815,7 +815,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        session = #session{is_resumable = new},
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
-       user_data_buffer = <<>>,
+       user_data_buffer = {[],0,[]},
        start_or_recv_from = undefined,
        flight_buffer = [],
        protocol_specific = #{sender => Sender,
@@ -898,7 +898,7 @@ handle_info({CloseTag, Socket}, StateName,
                    connection_env = #connection_env{negotiated_version = Version},
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
-                   user_data_buffer = Buffer,
+                   user_data_buffer = {_,BufferSize,_},
                    protocol_specific = PS} = State) ->
 
     %% Note that as of TLS 1.1,
@@ -906,7 +906,7 @@ handle_info({CloseTag, Socket}, StateName,
     %% session not be resumed.  This is a change from TLS 1.0 to conform
     %% with widespread implementation practice.
 
-    case (Active == false) andalso ((CTs =/= []) or (Buffer =/= <<>>)) of
+    case (Active == false) andalso ((CTs =/= []) or (BufferSize =/= 0)) of
         false ->
             case Version of
                 {1, N} when N >= 1 ->
@@ -941,9 +941,9 @@ handle_alerts(_, {stop, _, _} = Stop) ->
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
               {next_state, connection = StateName, #state{connection_env = CEnv, 
                                                           socket_options = #socket_options{active = false},
-                                                          user_data_buffer = Buffer,
+                                                          user_data_buffer = {_,BufferSize,_},
                                                           protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs}} = 
-                   State}) when (Buffer =/= <<>>) orelse
+                   State}) when (BufferSize =/= 0) orelse
                                 (CTs =/= []) -> 
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{terminated = true}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->

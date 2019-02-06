@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -805,7 +805,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions, _}, User,
 	   session = #session{is_resumable = new},
 	   connection_states = ConnectionStates,
 	   protocol_buffers = #protocol_buffers{},
-	   user_data_buffer = <<>>,
+	   user_data_buffer = {[],0,[]},
 	   start_or_recv_from = undefined,
 	   flight_buffer = new_flight(),
            protocol_specific = #{flight_state => initial_flight_state(DataTag)}

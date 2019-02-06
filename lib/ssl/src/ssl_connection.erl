@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -442,9 +442,9 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%====================================================================
 %% Data handling
 %%====================================================================
-passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connection, StartTimerAction) -> 
-    case Buffer of
-	<<>> ->
+passive_receive(State0 = #state{user_data_buffer = {_,BufferSize,_}}, StateName, Connection, StartTimerAction) ->
+    case BufferSize of
+	0 ->
 	    {Record, State} = Connection:next_record(State0),
 	    Connection:next_event(StateName, Record, State, StartTimerAction);
 	_ ->
@@ -466,100 +466,183 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connectio
 read_application_data(
   Data,
   #state{
-     user_data_buffer = Buffer0,
+     user_data_buffer = {Front0,BufferSize0,Rear0},
      connection_env = #connection_env{erl_dist_handle = DHandle}} = State) ->
     %%
-    Buffer = bincat(Buffer0, Data),
+    Front = Front0,
+    BufferSize = BufferSize0 + byte_size(Data),
+    Rear = [Data|Rear0],
     case DHandle of
         undefined ->
-            #state{
-               socket_options = SocketOpts,
-               bytes_to_read = BytesToRead,
-               start_or_recv_from = RecvFrom} = State,
-            read_application_data(
-              Buffer, State, SocketOpts, RecvFrom, BytesToRead);
+            read_application_data(State, Front, BufferSize, Rear);
         _ ->
-            try read_application_dist_data(Buffer, State, DHandle)
+            try read_application_dist_data(DHandle, Front, BufferSize, Rear) of
+                Buffer ->
+                    {no_record, State#state{user_data_buffer = Buffer}}
             catch error:_ ->
                     {stop,disconnect,
-                     State#state{
-                       user_data_buffer = Buffer,
-                       bytes_to_read = undefined}}
+                     State#state{user_data_buffer = {Front,BufferSize,Rear}}}
             end
     end.
 
-read_application_dist_data(Buffer, State, DHandle) ->
-    case Buffer of
-        <<Size:32,Data:Size/binary>> ->
-            erlang:dist_ctrl_put_data(DHandle, Data),
-            {no_record,
-             State#state{
-               user_data_buffer = <<>>,
-               bytes_to_read = undefined}};
-        <<Size:32,Data:Size/binary,Rest/binary>> ->
-            erlang:dist_ctrl_put_data(DHandle, Data),
-            read_application_dist_data(Rest, State, DHandle);
-        _ ->
-            {no_record,
-             State#state{
-               user_data_buffer = Buffer,
-               bytes_to_read = undefined}}
+
+read_application_data(#state{
+                         socket_options = SocketOpts,
+                         bytes_to_read = BytesToRead,
+                         start_or_recv_from = RecvFrom} = State, Front, BufferSize, Rear) ->
+    read_application_data(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead).
+
+%% Pick binary from queue front, if empty wait for more data
+read_application_data(State, [Bin|Front], BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead) ->
+    read_application_data_bin(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead, Bin);
+read_application_data(State, [] = Front, BufferSize, [] = Rear, SocketOpts, RecvFrom, BytesToRead) ->
+    0 = BufferSize, % Assert
+    {no_record, State#state{socket_options = SocketOpts,
+                            bytes_to_read = BytesToRead,
+                            start_or_recv_from = RecvFrom,
+                            user_data_buffer = {Front,BufferSize,Rear}}};
+read_application_data(State, [], BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead) ->
+    [Bin|Front] = lists:reverse(Rear),
+    read_application_data_bin(State, Front, BufferSize, [], SocketOpts, RecvFrom, BytesToRead, Bin).
+
+read_application_data_bin(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead, <<>>) ->
+    %% Done with this binary - get next
+    read_application_data(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead);
+read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFrom, BytesToRead, Bin0) ->
+    %% Decode one packet from a binary
+    case get_data(SocketOpts0, BytesToRead, Bin0) of
+	{ok, Data, Bin} -> % Send data
+            BufferSize = BufferSize0 - (byte_size(Bin0) - byte_size(Bin)),
+            read_application_data_deliver(
+              State, [Bin|Front0], BufferSize, Rear0, SocketOpts0, RecvFrom, Data);
+        {more, undefined} ->
+            %% We need more data, do not know how much
+            if
+                byte_size(Bin0) < BufferSize0 ->
+                    %% We have more data in the buffer besides the first binary - concatenate all and retry
+                    Bin = iolist_to_binary([Bin0,Front0|lists:reverse(Rear0)]),
+                    read_application_data_bin(
+                      State, [], BufferSize0, [], SocketOpts0, RecvFrom, BytesToRead, Bin);
+                true ->
+                    %% All data is in the first binary, no use to retry - wait for more
+                    {no_record, State#state{socket_options = SocketOpts0,
+                                            bytes_to_read = BytesToRead,
+                                            start_or_recv_from = RecvFrom,
+                                            user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}}
+            end;
+        {more, Size} when Size =< BufferSize0 ->
+            %% We have a packet in the buffer - collect it in a binary and decode
+            {Data,Front,Rear} = iovec_from_front(Size - byte_size(Bin0), Front0, Rear0, [Bin0]),
+            Bin = iolist_to_binary(Data),
+            read_application_data_bin(
+              State, Front, BufferSize0, Rear, SocketOpts0, RecvFrom, BytesToRead, Bin);
+        {more, _Size} ->
+            %% We do not have a packet in the buffer - wait for more
+            {no_record, State#state{socket_options = SocketOpts0,
+                                    bytes_to_read = BytesToRead,
+                                    start_or_recv_from = RecvFrom,
+                                    user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
+        passive ->
+            {no_record, State#state{socket_options = SocketOpts0,
+                                    bytes_to_read = BytesToRead,
+                                    start_or_recv_from = RecvFrom,
+                                    user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
+	{error,_Reason} ->
+            %% Invalid packet in packet mode
+            #state{
+               static_env =
+                   #static_env{
+                      socket = Socket,
+                      protocol_cb = Connection,
+                      transport_cb = Transport,
+                      tracker = Tracker},
+               connection_env =
+                   #connection_env{user_application = {_Mon, Pid}}} = State,
+            Buffer = iolist_to_binary([Bin0,Front0|lists:reverse(Rear0)]),
+	    deliver_packet_error(
+              Connection:pids(State), Transport, Socket, SocketOpts0,
+              Buffer, Pid, RecvFrom, Tracker, Connection),
+            {stop, {shutdown, normal}, State#state{socket_options = SocketOpts0,
+                                                   bytes_to_read = BytesToRead,
+                                                   start_or_recv_from = RecvFrom,
+                                                   user_data_buffer = {[Buffer],BufferSize0,[]}}}
     end.
 
-read_application_data(
-  Buffer0, State, SocketOpts0, RecvFrom, BytesToRead) ->
-    %%
-    case get_data(SocketOpts0, BytesToRead, Buffer0) of
-	{ok, ClientData, Buffer} -> % Send data
-            #state{static_env =
-                       #static_env{
-                          socket = Socket,
-                          protocol_cb = Connection,
-                          transport_cb = Transport,
-                          tracker = Tracker},
-                   connection_env = 
-                       #connection_env{user_application = {_Mon, Pid}}}
-                = State,
-            SocketOpts =
-                deliver_app_data(
-                  Connection:pids(State),
-                  Transport, Socket, SocketOpts0,
-                  ClientData, Pid, RecvFrom, Tracker, Connection),
-            if
-                SocketOpts#socket_options.active =:= false ->
-                    %% Passive mode, wait for active once or recv
-                    %% Active and empty, get more data
-                    {no_record,
-                     State#state{
-                       user_data_buffer = Buffer,
-                       start_or_recv_from = undefined,
-                       bytes_to_read = undefined,
-                       socket_options = SocketOpts
-                      }};
-                true -> %% We have more data
-                           read_application_data(
-                             Buffer, State, SocketOpts,
-                             undefined, undefined)
-            end;
-        {more, Buffer} -> % no reply, we need more data
-            {no_record, State#state{user_data_buffer = Buffer}};
-        {passive, Buffer} ->
-            {no_record, State#state{user_data_buffer = Buffer}};
-        {error,_Reason} -> %% Invalid packet in packet mode
-            #state{static_env =
-                       #static_env{
-                          socket = Socket,
-                          protocol_cb = Connection,
-                          transport_cb = Transport,
-                          tracker = Tracker},
-                   connection_env = 
-                       #connection_env{user_application = {_Mon, Pid}}}
-                = State,
-            deliver_packet_error(
-              Connection:pids(State), Transport, Socket, SocketOpts0,
-              Buffer0, Pid, RecvFrom, Tracker, Connection),
-            {stop, {shutdown, normal}, State}
+read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvFrom, Data) ->
+    #state{
+       static_env =
+           #static_env{
+              socket = Socket,
+              protocol_cb = Connection,
+              transport_cb = Transport,
+              tracker = Tracker},
+       connection_env =
+           #connection_env{user_application = {_Mon, Pid}}} = State,
+    SocketOpts =
+        deliver_app_data(
+          Connection:pids(State), Transport, Socket, SocketOpts0, Data, Pid, RecvFrom, Tracker, Connection),
+    if
+        SocketOpts#socket_options.active =:= false ->
+            %% Passive mode, wait for active once or recv
+            {no_record,
+             State#state{
+               user_data_buffer = {Front,BufferSize,Rear},
+               start_or_recv_from = undefined,
+                bytes_to_read = undefined,
+               socket_options = SocketOpts
+              }};
+        true -> %% Try to deliver more data
+            read_application_data(State, Front, BufferSize, Rear, SocketOpts, undefined, undefined)
     end.
+
+
+read_application_dist_data(DHandle, [Bin|Front], BufferSize, Rear) ->
+    read_application_dist_data(DHandle, Front, BufferSize, Rear, Bin);
+read_application_dist_data(_DHandle, [] = Front, BufferSize, [] = Rear) ->
+    BufferSize = 0,
+    {Front,BufferSize,Rear};
+read_application_dist_data(DHandle, [], BufferSize, Rear) ->
+    [Bin|Front] = lists:reverse(Rear),
+    read_application_dist_data(DHandle, Front, BufferSize, [], Bin).
+%%
+read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin) ->
+    case Bin of
+        <<Size:32, Data:Size/binary, Rest/binary>> ->
+            %% We have a complete packet in the first binary
+            erlang:dist_ctrl_put_data(DHandle, Data),
+            read_application_dist_data(DHandle, Front0, BufferSize - (4+Size), Rear0, Rest);
+        <<Size:32, FirstData/binary>> when 4+Size =< BufferSize ->
+            %% We have a complete packet in the buffer
+            {Data,Front,Rear} = iovec_from_front(Size - byte_size(FirstData), Front0, Rear0, [FirstData]),
+            erlang:dist_ctrl_put_data(DHandle, Data),
+            read_application_dist_data(DHandle, Front, BufferSize - (4+Size), Rear);
+        <<_Size:32, _InsufficientData/binary>> ->
+            %% We can not have a complete packet in the buffer
+            {[Bin|Front0],BufferSize,Rear0};
+        <<IncompleteLengthField/binary>> when 4 < BufferSize ->
+            %% We might have a complete packet in the buffer
+            {LengthField,Front,Rear} =
+                iovec_from_front(4 - byte_size(IncompleteLengthField), Front0, Rear0, [IncompleteLengthField]),
+            LengthBin = iolist_to_binary(LengthField),
+            read_application_dist_data(DHandle, Front, BufferSize, Rear, LengthBin);
+        <<_IncompleteLengthField/binary>> ->
+            %% We can not have a complete packet in the buffer
+            {[Bin|Front0],BufferSize,Rear0}
+    end.
+
+iovec_from_front(Size, [], Rear, Acc) ->
+    iovec_from_front(Size, lists:reverse(Rear), [], Acc);
+iovec_from_front(Size, [Bin|Front], Rear, Acc) ->
+    case Bin of
+        <<Last:Size/binary>> -> % Just enough
+            {lists:reverse(Acc, [Last]),Front,Rear};
+        <<Last:Size/binary, Rest/binary>> -> % More than enough, split here
+            {lists:reverse(Acc, [Last]),[Rest|Front],Rear};
+        <<_/binary>> -> % Not enough
+            BinSize = byte_size(Bin),
+            iovec_from_front(Size - BinSize, Front, Rear, [Bin|Acc])
+    end.
+
 
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
@@ -2537,7 +2620,7 @@ handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
 
 handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = #static_env{protocol_cb = Connection},
-                                                                   user_data_buffer = <<>>} = State0) ->
+                                                                   user_data_buffer = {_,0,_}} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of
 	{next_state, StateName, State} ->
 	    hibernate_after(StateName, State, [{reply, To, Reply}]);
@@ -2546,11 +2629,11 @@ handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = 
 	{stop, _, _} = Stop ->
 	    Stop
     end;
-handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = <<>>} = State) ->
+handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = {_,0,_}} = State) ->
     %% Active once already set 
     {next_state, StateName, State, [{reply, To, Reply}]};
 
-%% user_data_buffer =/= <<>>
+%% user_data_buffer nonempty
 handle_active_option(_, StateName0, To, Reply,
                      #state{static_env = #static_env{protocol_cb = Connection}} = State0) ->
     case read_application_data(<<>>, State0) of
@@ -2570,33 +2653,25 @@ handle_active_option(_, StateName0, To, Reply,
 
 
 %% Picks ClientData 
-get_data(_, _, <<>>) ->
-    {more, <<>>};
-%% Recv timed out save buffer data until next recv
-get_data(#socket_options{active=false}, undefined, Buffer) ->
-    {passive, Buffer};
-get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer) 
+get_data(#socket_options{active=false}, undefined, _Bin) ->
+    %% Recv timed out save buffer data until next recv
+    passive;
+get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Bin)
   when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
-    if 
-	Active =/= false orelse BytesToRead =:= 0  ->
+    case Bin of
+        <<_/binary>> when Active =/= false orelse BytesToRead =:= 0 ->
 	    %% Active true or once, or passive mode recv(0)  
-	    {ok, Buffer, <<>>};
-	byte_size(Buffer) >= BytesToRead ->  
+	    {ok, Bin, <<>>};
+        <<Data:BytesToRead/binary, Rest/binary>> ->
 	    %% Passive Mode, recv(Bytes) 
-	    <<Data:BytesToRead/binary, Rest/binary>> = Buffer,
-	    {ok, Data, Rest};
-	true ->
+            {ok, Data, Rest};
+        <<_/binary>> ->
 	    %% Passive Mode not enough data
-	    {more, Buffer}
+            {more, BytesToRead}
     end;
-get_data(#socket_options{packet=Type, packet_size=Size}, _, Buffer) ->
+get_data(#socket_options{packet=Type, packet_size=Size}, _, Bin) ->
     PacketOpts = [{packet_size, Size}], 
-    case decode_packet(Type, Buffer, PacketOpts) of
-	{more, _} ->
-	    {more, Buffer};
-	Decoded ->
-	    Decoded
-    end.
+    decode_packet(Type, Bin, PacketOpts).
 
 decode_packet({http, headers}, Buffer, PacketOpts) ->
     decode_packet(httph, Buffer, PacketOpts);
@@ -2793,11 +2868,3 @@ new_emulated([], EmOpts) ->
     EmOpts;
 new_emulated(NewEmOpts, _) ->
     NewEmOpts.
-
--compile({inline, [bincat/2]}).
-bincat(<<>>, B) ->
-    B;
-bincat(A, <<>>) ->
-    A;
-bincat(A, B) ->
-    <<A/binary, B/binary>>.
