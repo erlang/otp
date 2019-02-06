@@ -153,6 +153,8 @@
 
 extern int ei_tracelevel;
 
+int ei_init_connect(void);
+
 void ei_trace_printf(const char *name, int level, const char *format, ...);
 
 int ei_internal_use_r9_pids_ports(void);
