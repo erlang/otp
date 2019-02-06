@@ -2354,6 +2354,13 @@ static void dtor_demonitor(ErtsMonitor* mon, void* context)
     erts_proc_sig_send_demonitor(mon);
 }
 
+#ifdef DEBUG
+int erts_dbg_is_resource_dying(ErtsResource* resource)
+{
+    return resource->monitors && rmon_is_dying(resource->monitors);
+}
+#endif
+
 #  define NIF_RESOURCE_DTOR &nif_resource_dtor
 
 static int nif_resource_dtor(Binary* bin)
