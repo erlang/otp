@@ -128,14 +128,26 @@
       </desc>
     </func>
     <func>
-      <name since="">start(Nodes) -> {ok,StartedNodes} | {error,not_main_node}</name>
+      <name since="OTP 22.0">local_only() -> ok | {error,too_late}</name>
+      <fsummary>Only support running Cover on the local node.</fsummary>
+      <desc>
+        <p>Only support running Cover on the local node. This function
+	must be called before any modules have been compiled or any
+	nodes added. When running in this mode, modules will be Cover
+	compiled in a more efficient way, but the resulting code will
+	only work on the same node they were compiled on.</p>
+      </desc>
+    </func>
+    <func>
+      <name since="">start(Nodes) -> {ok,StartedNodes} | {error,not_main_node} | {error,local_only}</name>
       <fsummary>Start Cover on remote nodes.</fsummary>
       <type>
         <v>Nodes = StartedNodes = [atom()]</v>
       </type>
       <desc>
         <p>Starts a Cover server on the each of given nodes, and loads
-          all cover compiled modules.</p>
+          all cover compiled modules. This call will fail if
+	<c>cover:local_only/0</c> has been called.</p>
       </desc>
     </func>
     <func>
