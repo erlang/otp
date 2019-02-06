@@ -73,6 +73,8 @@ TESTCASE(interpret)
     int i;
     ei_term term;
 
+    ei_init();
+
     ei_x_new(&x);
     while (get_bin_term(&x, &term) == 0) {
 	    char* buf = x.buff, func[MAXATOMLEN];

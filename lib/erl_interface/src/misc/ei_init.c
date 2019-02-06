@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2019. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,16 @@
  * 
  * %CopyrightEnd%
  */
-#ifndef _EI_RESOLVE_H
-#define _EI_RESOLVE_H
 
-int ei_init_resolve(void);
+#include "ei.h"
+#include "ei_resolve.h"
+#include "ei_internal.h"
 
-#endif /* _EI_RESOLVE_H */
+int
+ei_init(void)
+{
+    int error = ei_init_connect();
+    if (error)
+        return error;
+    return ei_init_resolve();
+}
