@@ -796,11 +796,9 @@ valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     branch_state(Lbl, Vst);
 valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
-    Infer = infer_types(Src, Vst0),
-    Vst1 = Infer(Val, Vst0),
-    Vst2 = update_ne_types(Src, Val, Vst1),
-    Vst3 = branch_state(Lbl, Vst2),
-    Vst = Vst3#vst{current=Vst1#vst.current},
+    Vst1 = update_ne_types(Src, Val, Vst0),
+    Vst2 = branch_state(Lbl, Vst1),
+    Vst = Vst2#vst{current=Vst0#vst.current},
     update_eq_types(Src, Val, Vst);
 valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
     validate_src(Ss, Vst0),
@@ -1396,29 +1394,17 @@ update_type(Merge, Type0, Reg, Vst) ->
     set_aliased_type(Type, Reg, Vst).
 
 update_ne_types(LHS, RHS, Vst) ->
-    T1 = get_durable_term_type(LHS, Vst),
-    T2 = get_durable_term_type(RHS, Vst),
-    Type = propagate_fragility(subtract(T1, T2), [LHS], Vst),
-    set_aliased_type(Type, LHS, Vst).
+    update_type(fun subtract/2, get_durable_term_type(RHS, Vst), LHS, Vst).
 
 update_eq_types(LHS, RHS, Vst0) ->
-    T1 = get_durable_term_type(LHS, Vst0),
-    T2 = get_durable_term_type(RHS, Vst0),
-    Meet = meet(T1, T2),
-    Vst = case T1 =/= Meet of
-              true ->
-                  LType = propagate_fragility(Meet, [LHS], Vst0),
-                  set_aliased_type(LType, LHS, Vst0);
-              false ->
-                  Vst0
-          end,
-    case T2 =/= Meet of
-        true ->
-            RType = propagate_fragility(Meet, [RHS], Vst0),
-            set_aliased_type(RType, RHS, Vst);
-        false ->
-            Vst
-    end.
+    Infer = infer_types(LHS, Vst0),
+    Vst1 = Infer(RHS, Vst0),
+
+    T1 = get_durable_term_type(LHS, Vst1),
+    T2 = get_durable_term_type(RHS, Vst1),
+
+    Vst = update_type(fun meet/2, T2, LHS, Vst1),
+    update_type(fun meet/2, T1, RHS, Vst).
 
 %% Helper functions for the above.
 
