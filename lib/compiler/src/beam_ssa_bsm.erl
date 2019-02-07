@@ -300,7 +300,8 @@ get_fa(#b_function{ anno = Anno }) ->
                promotions = #{} :: promotion_map() }).
 
 alias_matched_binaries(Blocks0, Counter, AliasMap) when AliasMap =/= #{} ->
-    State0 = #amb{ dominators = beam_ssa:dominators(Blocks0),
+    {Dominators, _} = beam_ssa:dominators(Blocks0),
+    State0 = #amb{ dominators = Dominators,
                    match_aliases = AliasMap,
                    cnt = Counter },
     {Blocks, State} = beam_ssa:mapfold_blocks_rpo(fun amb_1/3, [0], State0,
@@ -347,7 +348,7 @@ amb_get_alias(#b_var{}=Arg, Lbl, State) ->
             %% Our context may not have been created yet, so we skip assigning
             %% an alias unless the given block is among our dominators.
             Dominators = maps:get(Lbl, State#amb.dominators),
-            case ordsets:is_element(AliasAfter, Dominators) of
+            case member(AliasAfter, Dominators) of
                 true -> amb_create_alias(Arg, Context, Lbl, State);
                 false -> {Arg, State}
             end;
@@ -444,6 +445,7 @@ combine_matches({Fs0, ModInfo}) ->
 combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
     case funcinfo_get(F, has_bsm_ops, ModInfo) of
         true ->
+            {Dominators, _} = beam_ssa:dominators(Blocks0),
             {Blocks1, State} =
                 beam_ssa:mapfold_blocks_rpo(
                   fun(Lbl, #b_blk{is=Is0}=Block0, State0) ->
@@ -451,7 +453,7 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
                           {Block0#b_blk{is=Is}, State}
                   end, [0],
                   #cm{ definitions = beam_ssa:definitions(Blocks0),
-                       dominators = beam_ssa:dominators(Blocks0),
+                       dominators = Dominators,
                        blocks = Blocks0 },
                   Blocks0),
 
@@ -491,7 +493,7 @@ cm_handle_priors(Src, DstCtx, Bool, Acc, MatchSeq, Lbl, State0) ->
                         %% dominate us.
                         Dominators = maps:get(Lbl, State0#cm.dominators, []),
                         [Ctx || {ValidAfter, Ctx} <- Priors,
-                                ordsets:is_element(ValidAfter, Dominators)];
+                                member(ValidAfter, Dominators)];
                     error ->
                         []
                 end,

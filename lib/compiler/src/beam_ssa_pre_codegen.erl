@@ -874,7 +874,7 @@ fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
 %%   a stack frame or set up a stack frame with a different size.
 
 place_frames(#st{ssa=Blocks}=St) ->
-    Doms = beam_ssa:dominators(Blocks),
+    {Doms,_} = beam_ssa:dominators(Blocks),
     Ls = beam_ssa:rpo(Blocks),
     Tried = gb_sets:empty(),
     Frames0 = [],
@@ -1001,7 +1001,7 @@ phi_predecessors(L, Blocks) ->
 
 is_dominated_by(L, DomBy, Doms) ->
     DominatedBy = map_get(L, Doms),
-    ordsets:is_element(DomBy, DominatedBy).
+    member(DomBy, DominatedBy).
 
 %% need_frame(#b_blk{}) -> true|false.
 %%  Test whether any of the instructions in the block requires a stack frame.
