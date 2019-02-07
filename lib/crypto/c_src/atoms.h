@@ -95,13 +95,6 @@ extern ERL_NIF_TERM atom_rsa_x931_padding;
 extern ERL_NIF_TERM atom_rsa_pss_saltlen;
 
 #ifdef HAS_ENGINE_SUPPORT
-extern ERL_NIF_TERM atom_bad_engine_id;
-extern ERL_NIF_TERM atom_ctrl_cmd_failed;
-extern ERL_NIF_TERM atom_engine_init_failed;
-extern ERL_NIF_TERM atom_register_engine_failed;
-extern ERL_NIF_TERM atom_add_engine_failed;
-extern ERL_NIF_TERM atom_remove_engine_failed;
-extern ERL_NIF_TERM atom_engine_method_not_supported;
 
 extern ERL_NIF_TERM atom_engine_method_rsa;
 extern ERL_NIF_TERM atom_engine_method_dsa;

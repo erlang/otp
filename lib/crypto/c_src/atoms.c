@@ -95,13 +95,6 @@ ERL_NIF_TERM atom_blake2s;
 #endif
 
 #ifdef HAS_ENGINE_SUPPORT
-ERL_NIF_TERM atom_bad_engine_id;
-ERL_NIF_TERM atom_ctrl_cmd_failed;
-ERL_NIF_TERM atom_engine_init_failed;
-ERL_NIF_TERM atom_register_engine_failed;
-ERL_NIF_TERM atom_add_engine_failed;
-ERL_NIF_TERM atom_remove_engine_failed;
-ERL_NIF_TERM atom_engine_method_not_supported;
 
 ERL_NIF_TERM atom_engine_method_rsa;
 ERL_NIF_TERM atom_engine_method_dsa;
@@ -205,13 +198,6 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_rsa_pss_saltlen = enif_make_atom(env,"rsa_pss_saltlen");
 
 #ifdef HAS_ENGINE_SUPPORT
-    atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
-    atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
-    atom_engine_init_failed = enif_make_atom(env,"engine_init_failed");
-    atom_register_engine_failed = enif_make_atom(env,"register_engine_failed");
-    atom_engine_method_not_supported = enif_make_atom(env,"engine_method_not_supported");
-    atom_add_engine_failed = enif_make_atom(env,"add_engine_failed");
-    atom_remove_engine_failed = enif_make_atom(env,"remove_engine_failed");
 
     atom_engine_method_rsa = enif_make_atom(env,"engine_method_rsa");
     atom_engine_method_dsa = enif_make_atom(env,"engine_method_dsa");
