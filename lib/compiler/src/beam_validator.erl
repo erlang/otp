@@ -539,8 +539,9 @@ valfun_2(_, _) ->
 
 %% Handle the remaining floating point instructions here.
 %% Floating point.
-valfun_3({fconv,Src,{fr,_}=Dst}, Vst) ->
-    assert_term(Src, Vst),
+valfun_3({fconv,Src,{fr,_}=Dst}, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst = update_type(fun meet/2, number, Src, Vst0),
     set_freg(Dst, Vst);
 valfun_3({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
     float_op(Ss, Dst, Vst);
