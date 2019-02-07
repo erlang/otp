@@ -69,6 +69,7 @@
                         hashsign_algorithm = {undefined, undefined},
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
+                        diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                         premaster_secret     :: binary() | secret_printout() | 'undefined',
                         server_psk_identity         :: binary() | 'undefined' % server psk identity hint
@@ -108,7 +109,6 @@
                 %% Used only in HS
                 client_certificate_requested = false :: boolean(),
                 key_algorithm         :: ssl:key_algo(),
-                diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',

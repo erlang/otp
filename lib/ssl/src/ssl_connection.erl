@@ -608,6 +608,7 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 -spec ssl_config(#ssl_options{}, client | server, #state{}) -> #state{}.
 %%--------------------------------------------------------------------
 ssl_config(Opts, Role, #state{static_env = InitStatEnv0, 
+                              handshake_env = HsEnv,
                               connection_env = CEnv} = State0) ->
     {ok, #{cert_db_ref := Ref, 
            cert_db_handle := CertDbHandle, 
@@ -630,8 +631,8 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                                 crl_db = CRLDbHandle,
                                 session_cache = CacheHandle
                                },
+                 handshake_env = HsEnv#handshake_env{diffie_hellman_params = DHParams},
                  connection_env = CEnv#connection_env{private_key = Key},
-                 diffie_hellman_params = DHParams,
                  ssl_options = Opts}.
 
 %%====================================================================
@@ -1418,7 +1419,6 @@ format_status(terminate, [_, StateName, State]) ->
 					       handshake_env =  ?SECRET_PRINTOUT,
                                                connection_env = ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
-					       diffie_hellman_params = ?SECRET_PRINTOUT,
 					       diffie_hellman_keys =  ?SECRET_PRINTOUT,
 					       srp_params = ?SECRET_PRINTOUT,
 					       srp_keys =  ?SECRET_PRINTOUT,
@@ -1640,7 +1640,7 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
         end,    
     calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
-			    #state{diffie_hellman_params = #'DHParameter'{} = Params,
+			    #state{handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params},
 				   diffie_hellman_keys = {_, ServerDhPrivateKey}} = State,
 			    Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientPublicDhKey, ServerDhPrivateKey, Params),
@@ -1657,7 +1657,7 @@ certify_client_key_exchange(#client_psk_identity{} = ClientKey,
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, PSKLookup),
     calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
 certify_client_key_exchange(#client_dhe_psk_identity{} = ClientKey,
-			    #state{diffie_hellman_params = #'DHParameter'{} = Params,
+			    #state{handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params},
 				   diffie_hellman_keys = {_, ServerDhPrivateKey},
 				   ssl_options = 
 				       #ssl_options{user_lookup_fun = PSKLookup}} = State0,
@@ -1707,10 +1707,10 @@ certify_server(#state{static_env = #static_env{cert_db = CertDbHandle,
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = rsa} = State,_) ->
     State;
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Algo,
-		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},
+		    handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params,
+                                                   hashsign_algorithm = HashSignAlgo},
                     connection_env = #connection_env{negotiated_version = Version,
                                                      private_key = PrivateKey},
-		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    connection_states = ConnectionStates0} = State0, Connection)
   when Algo == dhe_dss;
        Algo == dhe_rsa;
@@ -1775,10 +1775,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = psk
     Connection:queue_handshake(Msg, State0);
 key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = dhe_psk,
 		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
-		    handshake_env = #handshake_env{hashsign_algorithm = HashSignAlgo},                                        
+		    handshake_env = #handshake_env{diffie_hellman_params = #'DHParameter'{} = Params,
+                                                   hashsign_algorithm = HashSignAlgo},                                        
                     connection_env = #connection_env{negotiated_version = Version,
                                                      private_key = PrivateKey},
-		    diffie_hellman_params = #'DHParameter'{} = Params,
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
     DHKeys = public_key:generate_key(Params),
@@ -2755,12 +2755,12 @@ handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{
                                         cert_db = CertDbHandle,
                                         crl_db = CRLDbHandle,
                                         session_cache = CacheHandle
-                                       },
+                             },
                connection_env = CEnv#connection_env{private_key = Key},
-               diffie_hellman_params = DHParams,
                ssl_options = NewOptions,
-               handshake_env = HsEnv#handshake_env{sni_hostname = Hostname}
-	     }
+               handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
+                                                   diffie_hellman_params = DHParams}
+              }
     end.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->
