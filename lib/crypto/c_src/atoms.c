@@ -65,6 +65,7 @@ ERL_NIF_TERM atom_blowfish_ecb;
 
 ERL_NIF_TERM atom_rsa;
 ERL_NIF_TERM atom_dss;
+ERL_NIF_TERM atom_ecdsa;
 
 #ifdef HAVE_ED_CURVE_DH
 ERL_NIF_TERM atom_x25519;
