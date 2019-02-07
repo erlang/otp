@@ -56,8 +56,10 @@ format_timestamp({_N1, _N2, N3} = TS) ->
 
 %% Time is always in number os ms (milli seconds)
 %% At some point, we should convert this to a more readable format...
+format_time(T) when (T < 1000) ->
+    format("~w ms", [T]);
 format_time(T) ->
-    format("~p", [T]).
+    format("~w sec (~w ms)", [T div 1000, T]).
 
 
 formated_process_stats(Pid) ->

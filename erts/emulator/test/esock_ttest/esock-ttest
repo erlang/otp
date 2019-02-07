@@ -3,7 +3,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -289,7 +289,8 @@ exec(#{role            := client,
        msg_id          := MsgID,
        max_outstanding := MaxOutstanding,
        runtime         := RunTime}) ->
-    case socket_test_ttest_tcp_client_gen:start(Active,
+    case socket_test_ttest_tcp_client_gen:start(true,
+                                                Active,
                                                 Addr, Port,
                                                 MsgID, MaxOutstanding,
                                                 RunTime) of
@@ -311,7 +312,8 @@ exec(#{role            := client,
        msg_id          := MsgID,
        max_outstanding := MaxOutstanding,
        runtime         := RunTime}) ->
-    case socket_test_ttest_tcp_client_socket:start(Method,
+    case socket_test_ttest_tcp_client_socket:start(true,
+                                                   Method,
                                                    Active,
                                                    Addr, Port,
                                                    MsgID, MaxOutstanding,

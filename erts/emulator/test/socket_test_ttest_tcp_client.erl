@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,13 +45,13 @@
          start_monitor/6, start_monitor/7, start_monitor/9,
 
          %% These are for starting in a shell when run "manually"
-         start/4, start/5, start/7,
+         start/4, start/5, start/7, start/8,
          stop/1
         ]).
 
 %% Internal exports
 -export([
-         do_start/9
+         do_start/10
         ]).
 
 -include_lib("kernel/include/inet.hrl").
@@ -96,17 +96,8 @@ start_monitor(Node, Notify, Transport, Active, Addr, Port, 3 = MsgID) ->
 start_monitor(Node, Notify, Transport, Active, Addr, Port,
               MsgID, MaxOutstanding, RunTime)
   when (Node =/= node()) ->
-    %% ?I("start_monitor -> entry with"
-    %%    "~n   Node:           ~p"
-    %%    "~n   Transport:      ~p"
-    %%    "~n   Active:         ~p"
-    %%    "~n   Addr:           ~p"
-    %%    "~n   Port:           ~p"
-    %%    "~n   MsgID:          ~p"
-    %%    "~n   MaxOutstanding: ~p"
-    %%    "~n   RunTime:        ~p",
-    %%    [Node, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
-    Args = [self(), Notify,
+    Args = [false,
+	    self(), Notify,
             Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime],
     case rpc:call(Node, ?MODULE, do_start, Args) of
         {badrpc, _} = Reason ->
@@ -119,7 +110,8 @@ start_monitor(Node, Notify, Transport, Active, Addr, Port,
     end;
 start_monitor(_, Notify, Transport, Active, Addr, Port,
               MsgID, MaxOutstanding, RunTime) ->
-    case do_start(self(), Notify,
+    case do_start(false,
+		  self(), Notify,
                   Transport, Active, Addr, Port,
                   MsgID, MaxOutstanding, RunTime) of
         {ok, Pid} ->
@@ -134,22 +126,31 @@ start(Transport, Active, Addr, Port) ->
     start(Transport, Active, Addr, Port, ?MSG_ID_DEFAULT).
 
 start(Transport, Active, Addr, Port, 1 = MsgID) ->
-    start(Transport, Active, Addr, Port, MsgID,
+    start(false,
+	  Transport, Active, Addr, Port, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_1, ?RUNTIME_DEFAULT);
 start(Transport, Active, Addr, Port, 2 = MsgID) ->
-    start(Transport, Active, Addr, Port, MsgID,
+    start(false,
+	  Transport, Active, Addr, Port, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_2, ?RUNTIME_DEFAULT);
 start(Transport, Active, Addr, Port, 3 = MsgID) ->
-    start(Transport, Active, Addr, Port, MsgID,
+    start(false,
+	  Transport, Active, Addr, Port, MsgID,
           ?MAX_OUTSTANDING_DEFAULT_3, ?RUNTIME_DEFAULT).
 
 start(Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    start(false,
+	  Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime).
+
+start(Quiet, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
     Notify = fun(R) -> present_results(R) end,
-    do_start(self(), Notify,
+    do_start(Quiet,
+	     self(), Notify,
              Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime).
                       
 
--spec do_start(Parent,
+-spec do_start(Quiet,
+	       Parent,
                Notify,
                Transport,
                Active,
@@ -158,6 +159,7 @@ start(Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
                MsgID,
                MaxOutstanding,
                RunTime) -> {ok, Pid} | {error, Reason} when
+      Quiet          :: pid(),
       Parent         :: pid(),
       Notify         :: function(),
       Transport      :: atom() | tuple(),
@@ -170,9 +172,11 @@ start(Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
       Pid            :: pid(),
       Reason         :: term().
 
-do_start(Parent, Notify,
+do_start(Quiet,
+	 Parent, Notify,
          Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime)
-  when is_pid(Parent) andalso
+  when is_boolean(Quiet) andalso
+       is_pid(Parent) andalso
        is_function(Notify) andalso
        (is_atom(Transport) orelse is_tuple(Transport)) andalso
        (is_boolean(Active) orelse (Active =:= once)) andalso
@@ -181,19 +185,10 @@ do_start(Parent, Notify,
        (is_integer(MsgID) andalso (MsgID >= 1) andalso (MsgID =< 3)) andalso
        (is_integer(MaxOutstanding) andalso (MaxOutstanding > 0)) andalso
        (is_integer(RunTime) andalso (RunTime > 0)) ->
-    %% ?I("do_start -> entry with"
-    %%    "~n   Parent:         ~p"
-    %%    "~n   Transport:      ~p"
-    %%    "~n   Active:         ~p"
-    %%    "~n   Addr:           ~p"
-    %%    "~n   Port:           ~p"
-    %%    "~n   MsgID:          ~p"
-    %%    "~n   MaxOutstanding: ~p"
-    %%    "~n   RunTime:        ~p",
-    %%    [Parent, Transport, Active, Addr, Port, MsgID, MaxOutstanding, RunTime]),
     Starter = self(),
     Init = fun() -> put(sname, "client"),
-                    init(Starter, 
+                    init(Quiet,
+			 Starter, 
                          Parent,
                          Notify,
                          Transport, Active, Addr, Port,
@@ -219,27 +214,36 @@ stop(Pid) when is_pid(Pid) ->
 
 %% ==========================================================================
 
-init(Starter,
+init(Quiet,
+     Starter,
      Parent, Notify,
      Transport, Active, Addr, Port,
      MsgID, MaxOutstanding, RunTime) ->
-    ?I("init with"
-       "~n   Transport:            ~p"
-       "~n   Active:               ~p"
-       "~n   Addr:                 ~s"
-       "~n   Port:                 ~p"
-       "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
-       "~n   Max Outstanding:      ~p"
-       "~n   (Suggested) Run Time: ~p ms",
-       [Transport, Active, inet:ntoa(Addr), Port,
-        MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]),
+    if
+	not Quiet ->
+	    ?I("init with"
+	       "~n   Transport:            ~p"
+	       "~n   Active:               ~p"
+	       "~n   Addr:                 ~s"
+	       "~n   Port:                 ~p"
+	       "~n   Msg ID:               ~p (=> 16 + ~w bytes)"
+	       "~n   Max Outstanding:      ~p"
+	       "~n   (Suggested) Run Time: ~p ms",
+	       [Transport, Active, inet:ntoa(Addr), Port,
+		MsgID, size(which_msg_data(MsgID)), MaxOutstanding, RunTime]);
+	true ->
+	    ok
+    end,
     {Mod, Connect} = process_transport(Transport),
     case Connect(Addr, Port) of
         {ok, Sock} ->
-            ?I("connected"),
+            if not Quiet -> ?I("connected");
+	       true      -> ok
+	    end,
             Starter ! {?MODULE, self(), ok},
 	    initial_activation(Mod, Sock, Active),
-            Results = loop(#{slogan          => run,
+            Results = loop(#{quiet           => Quiet,
+			     slogan          => run,
 			     runtime         => RunTime,
 			     start           => ?T(),
 			     parent          => Parent,
@@ -559,10 +563,13 @@ process_acc_data(_ID, _Data) ->
     ok.
 
     
-handle_message(#{parent := Parent, sock := Sock, scnt := SCnt} = State) ->
+handle_message(#{quiet  := Quiet,
+		 parent := Parent, sock := Sock, scnt := SCnt} = State) ->
     receive
 	{timeout, _TRef, stop} ->
-	    ?I("STOP"),
+	    if not Quiet -> ?I("STOP");
+	       true      -> ok
+	    end,
 	    %% This will have the effect that no more requests are sent...
 	    State#{num => SCnt, stop_started => ?T()};
 

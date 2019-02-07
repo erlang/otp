@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 -module(socket_test_ttest_tcp_client_socket).
 
 -export([
-         start/4, start/5, start/7,
+         start/4, start/5, start/7, start/8,
          stop/1
         ]).
 
@@ -36,7 +36,14 @@ start(Method, Active, Addr, Port, MsgID) ->
                                        Active, Addr, Port, MsgID).
 
 start(Method, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
-    socket_test_ttest_tcp_client:start(?MOD(Method),
+    socket_test_ttest_tcp_client:start(false,
+				       ?MOD(Method),
+                                       Active, Addr, Port,
+                                       MsgID, MaxOutstanding, RunTime).
+
+start(Quiet, Method, Active, Addr, Port, MsgID, MaxOutstanding, RunTime) ->
+    socket_test_ttest_tcp_client:start(Quiet,
+				       ?MOD(Method),
                                        Active, Addr, Port,
                                        MsgID, MaxOutstanding, RunTime).
 
