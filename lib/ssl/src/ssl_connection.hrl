@@ -69,7 +69,8 @@
                         hashsign_algorithm = {undefined, undefined},
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
-                        public_key_info      :: ssl_handshake:public_key_info() | 'undefined'
+                        public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
+                        premaster_secret     :: binary() | secret_printout() | 'undefined'                                                
                        }).
 
 -record(connection_env, { 
@@ -95,7 +96,9 @@
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
                 start_or_recv_from   :: term(),
                 timer                :: undefined | reference(), % start_or_recive_timer
-             
+                
+                protocol_specific = #{}      :: map(),
+
                 %% Change seldome
                 ssl_options           :: #ssl_options{},
                 socket_options        :: #socket_options{},
@@ -109,13 +112,11 @@
                 psk_identity         :: binary() | 'undefined', % server psk identity hint
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
-                premaster_secret     :: binary() | secret_printout() | 'undefined',             
-                flight_buffer = []   :: list() | map(),  %% Buffer of TLS/DTLS records, used during the TLS handshake
+                flight_buffer = []   :: list() | map()  %% Buffer of TLS/DTLS records, used during the TLS handshake
                 %% to when possible pack more than one TLS record into the
                 %% underlaying packet format. Introduced by DTLS - RFC 4347.
                 %% The mecahnism is also usefull in TLS although we do not
                 %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
-                protocol_specific = #{}      :: map()
                }).
 
 

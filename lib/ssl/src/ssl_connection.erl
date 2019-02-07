@@ -590,8 +590,8 @@ handle_session(#server_hello{cipher_suite = CipherSuite,
 
     State = State0#state{key_algorithm = KeyAlgorithm,
 			 connection_states = ConnectionStates,
-			 premaster_secret = PremasterSecret,
-			 handshake_env = HsEnv#handshake_env{expecting_next_protocol_negotiation = ExpectNPN,
+			 handshake_env = HsEnv#handshake_env{premaster_secret = PremasterSecret,
+                                                             expecting_next_protocol_negotiation = ExpectNPN,
                                                              negotiated_protocol = Protocol},
                          connection_env = CEnv#connection_env{negotiated_version = Version}},
     
@@ -901,9 +901,9 @@ certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                session = #session{master_secret = undefined},
                connection_env = #connection_env{negotiated_version = Version},
+               handshake_env = #handshake_env{premaster_secret = undefined} = HsEnv,
 	       psk_identity = PSKIdentity,
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
-	       premaster_secret = undefined,
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == psk ->
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup) of
@@ -911,16 +911,17 @@ certify(internal, #server_hello_done{},
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret,
-				  State0#state{premaster_secret = PremasterSecret}),
-	    client_certify_and_key_exchange(State, Connection)
+				  State0#state{handshake_env =
+                                                   HsEnv#handshake_env{premaster_secret = PremasterSecret}}),
+            client_certify_and_key_exchange(State, Connection)
     end;
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                connection_env = #connection_env{negotiated_version = {Major, Minor}} = Version,
+               handshake_env = #handshake_env{premaster_secret = undefined} = HsEnv,
                session = #session{master_secret = undefined},
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
                psk_identity = PSKIdentity,
-               premaster_secret = undefined,
                key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
@@ -931,16 +932,17 @@ certify(internal, #server_hello_done{},
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret, 
-				  State0#state{premaster_secret = RSAPremasterSecret}),
+				  State0#state{handshake_env = 
+                                                   HsEnv#handshake_env{premaster_secret = RSAPremasterSecret}}),
 	    client_certify_and_key_exchange(State, Connection)
     end;
 %% Master secret was determined with help of server-key exchange msg
 certify(internal, #server_hello_done{}, 
 	#state{static_env = #static_env{role = client},
                connection_env = #connection_env{negotiated_version = Version},
+               handshake_env = #handshake_env{premaster_secret = undefined},
                session = #session{master_secret = MasterSecret} = Session,
-	       connection_states = ConnectionStates0,
-	       premaster_secret = undefined} = State0, Connection) ->
+	       connection_states = ConnectionStates0} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), Session,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
@@ -953,9 +955,9 @@ certify(internal, #server_hello_done{},
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                connection_env = #connection_env{negotiated_version = Version},
+               handshake_env = #handshake_env{premaster_secret = PremasterSecret},
                session = Session0,
-	       connection_states = ConnectionStates0,
-	       premaster_secret = PremasterSecret} = State0, Connection) ->
+	       connection_states = ConnectionStates0} = State0, Connection) ->
     case ssl_handshake:master_secret(ssl:tls_version(Version), PremasterSecret,
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates} ->
@@ -1420,7 +1422,6 @@ format_status(terminate, [_, StateName, State]) ->
 					       diffie_hellman_keys =  ?SECRET_PRINTOUT,
 					       srp_params = ?SECRET_PRINTOUT,
 					       srp_keys =  ?SECRET_PRINTOUT,
-					       premaster_secret =  ?SECRET_PRINTOUT,
 					       ssl_options = NewOptions,
 					       flight_buffer =  ?SECRET_PRINTOUT}
 		       }}]}].
@@ -1865,10 +1866,10 @@ key_exchange(#state{static_env = #static_env{role = server}, key_algorithm = Alg
     State#state{srp_params = SrpParams,
 		srp_keys = Keys};
 key_exchange(#state{static_env = #static_env{role = client},
-                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
+                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo,
+                                                   premaster_secret = PremasterSecret},
                     connection_env = #connection_env{negotiated_version = Version},
-		    key_algorithm = rsa,                    		   
-		    premaster_secret = PremasterSecret} = State0, Connection) ->
+		    key_algorithm = rsa} = State0, Connection) ->
     Msg = rsa_key_exchange(ssl:tls_version(Version), PremasterSecret, PublicKeyInfo),
     Connection:queue_handshake(Msg, State0);
 key_exchange(#state{static_env = #static_env{role = client},
@@ -1920,11 +1921,11 @@ key_exchange(#state{static_env = #static_env{role = client},
     Connection:queue_handshake(Msg, State0);
 
 key_exchange(#state{static_env = #static_env{role = client},
-                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo},
+                    handshake_env = #handshake_env{public_key_info = PublicKeyInfo,
+                                                  premaster_secret = PremasterSecret},
                     connection_env = #connection_env{negotiated_version = Version},
 		    ssl_options = SslOpts,
-		    key_algorithm = rsa_psk,
-		    premaster_secret = PremasterSecret}
+		    key_algorithm = rsa_psk}
 	     = State0, Connection) ->
     Msg = rsa_psk_key_exchange(ssl:tls_version(Version), SslOpts#ssl_options.psk_identity,
 			       PremasterSecret, PublicKeyInfo),
