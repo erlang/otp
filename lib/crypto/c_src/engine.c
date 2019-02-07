@@ -26,6 +26,9 @@ struct engine_ctx {
     char *id;
 };
 
+#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2(Env, atom_error, (ReasonTerm))
+#define ERROR_Atom(Env, ReasonString) ERROR_Term(Env, enif_make_atom(Env,ReasonString))
+
 static ErlNifResourceType* engine_ctx_rtype;
 
 static int get_engine_load_cmd_list(ErlNifEnv* env, const ERL_NIF_TERM term, char **cmds, int i);
@@ -136,7 +139,7 @@ ERL_NIF_TERM engine_by_id_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     if ((engine = ENGINE_by_id(engine_id)) == NULL) {
         PRINTF_ERR0("engine_by_id_nif Leaved: {error, bad_engine_id}");
-        ret = enif_make_tuple2(env, atom_error, atom_bad_engine_id);
+        ret = ERROR_Atom(env, "bad_engine_id");
         goto done;
     }
 
@@ -179,7 +182,7 @@ ERL_NIF_TERM engine_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
         goto bad_arg;
 
     if (!ENGINE_init(ctx->engine))
-        return enif_make_tuple2(env, atom_error, atom_engine_init_failed);
+        return ERROR_Atom(env, "engine_init_failed");
 
     return atom_ok;
 
@@ -306,7 +309,7 @@ ERL_NIF_TERM engine_ctrl_cmd_strings_nif(ErlNifEnv* env, int argc, const ERL_NIF
     goto done;
 
  cmd_failed:
-    ret = enif_make_tuple2(env, atom_error, atom_ctrl_cmd_failed);
+    ret = ERROR_Atom(env, "ctrl_cmd_failed");
 
  done:
     if (cmds_loaded) {
@@ -344,7 +347,7 @@ ERL_NIF_TERM engine_add_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_badarg(env);
 
  failed:
-    return enif_make_tuple2(env, atom_error, atom_add_engine_failed);
+    return ERROR_Atom(env, "add_engine_failed");
 
 #else
     return atom_notsup;
@@ -371,7 +374,7 @@ ERL_NIF_TERM engine_remove_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return enif_make_badarg(env);
 
  failed:
-    return enif_make_tuple2(env, atom_error, atom_remove_engine_failed);
+    return ERROR_Atom(env, "remove_engine_failed");
 #else
     return atom_notsup;
 #endif
@@ -466,7 +469,7 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         break;
 #endif
     default:
-        return enif_make_tuple2(env, atom_error, atom_engine_method_not_supported);
+        return ERROR_Atom(env, "engine_method_not_supported");
     }
 
     return atom_ok;
@@ -475,7 +478,7 @@ ERL_NIF_TERM engine_register_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     return enif_make_badarg(env);
 
  failed:
-    return enif_make_tuple2(env, atom_error, atom_register_engine_failed);
+    return ERROR_Atom(env, "register_engine_failed");
 
 #else
     return atom_notsup;
