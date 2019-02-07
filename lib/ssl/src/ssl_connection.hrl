@@ -70,7 +70,8 @@
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
-                        premaster_secret     :: binary() | secret_printout() | 'undefined'                                                
+                        premaster_secret     :: binary() | secret_printout() | 'undefined',
+                        server_psk_identity         :: binary() | 'undefined' % server psk identity hint
                        }).
 
 -record(connection_env, { 
@@ -109,7 +110,6 @@
                 key_algorithm         :: ssl:key_algo(),
                 diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
-                psk_identity         :: binary() | 'undefined', % server psk identity hint
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
                 flight_buffer = []   :: list() | map()  %% Buffer of TLS/DTLS records, used during the TLS handshake

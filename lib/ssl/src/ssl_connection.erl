@@ -901,8 +901,8 @@ certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                session = #session{master_secret = undefined},
                connection_env = #connection_env{negotiated_version = Version},
-               handshake_env = #handshake_env{premaster_secret = undefined} = HsEnv,
-	       psk_identity = PSKIdentity,
+               handshake_env = #handshake_env{premaster_secret = undefined,
+                                              server_psk_identity = PSKIdentity} = HsEnv,
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
 	       key_algorithm = Alg} = State0, Connection)
   when Alg == psk ->
@@ -918,10 +918,10 @@ certify(internal, #server_hello_done{},
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{role = client},
                connection_env = #connection_env{negotiated_version = {Major, Minor}} = Version,
-               handshake_env = #handshake_env{premaster_secret = undefined} = HsEnv,
+               handshake_env = #handshake_env{premaster_secret = undefined,
+                                              server_psk_identity = PSKIdentity} = HsEnv,
                session = #session{master_secret = undefined},
 	       ssl_options = #ssl_options{user_lookup_fun = PSKLookup},
-               psk_identity = PSKIdentity,
                key_algorithm = Alg} = State0, Connection)
   when Alg == rsa_psk ->
     Rand = ssl_cipher:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
@@ -2087,9 +2087,11 @@ calculate_secret(#server_ecdh_params{curve = ECCurve, public = ECServerPubKey},
 
 calculate_secret(#server_psk_params{
 		    hint = IdentityHint},
-		 State, Connection) ->
+		 #state{handshake_env = HsEnv} = State, Connection) ->
     %% store for later use
-    Connection:next_event(certify, no_record, State#state{psk_identity = IdentityHint});
+    Connection:next_event(certify, no_record, 
+                          State#state{handshake_env = 
+                                          HsEnv#handshake_env{server_psk_identity = IdentityHint}});
 
 calculate_secret(#server_dhe_psk_params{
 		    dh_params = #server_dh_params{dh_p = Prime, dh_g = Base}} = ServerKey,
