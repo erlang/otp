@@ -208,6 +208,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_bad_engine_id = enif_make_atom(env,"bad_engine_id");
     atom_ctrl_cmd_failed = enif_make_atom(env,"ctrl_cmd_failed");
     atom_engine_init_failed = enif_make_atom(env,"engine_init_failed");
+    atom_register_engine_failed = enif_make_atom(env,"register_engine_failed");
     atom_engine_method_not_supported = enif_make_atom(env,"engine_method_not_supported");
     atom_add_engine_failed = enif_make_atom(env,"add_engine_failed");
     atom_remove_engine_failed = enif_make_atom(env,"remove_engine_failed");
