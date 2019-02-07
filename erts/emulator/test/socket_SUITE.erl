@@ -17250,17 +17250,22 @@ which_addr(_Domain, []) ->
     ?FAIL(no_address);
 which_addr(Domain, [{"lo" ++ _, _}|IFL]) ->
     which_addr(Domain, IFL);
-which_addr(Domain, [{_Name, IFO}|_IFL]) ->
-    which_addr2(Domain, IFO);
+which_addr(Domain, [{_Name, IFO}|IFL]) ->
+    case which_addr2(Domain, IFO) of
+        {ok, Addr} ->
+            Addr;
+        {error, no_address} ->
+            which_addr(Domain, IFL)
+    end;
 which_addr(Domain, [_|IFL]) ->
     which_addr(Domain, IFL).
 
 which_addr2(_Domain, []) ->
-    ?FAIL(no_address);
+    {error, no_address};
 which_addr2(inet = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 4) ->
-    Addr;
+    {ok, Addr};
 which_addr2(inet6 = _Domain, [{addr, Addr}|_IFO]) when (size(Addr) =:= 8) ->
-    Addr;
+    {ok, Addr};
 which_addr2(Domain, [_|IFO]) ->
     which_addr2(Domain, IFO).
 
