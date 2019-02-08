@@ -110,6 +110,7 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>option levels</tcaption>
     </table>
     
     <p>Options for level <c>socket</c>: </p>
@@ -275,6 +276,7 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>socket options</tcaption>
     </table>
     
     <p>Options for level <c>ip</c>: </p>
@@ -496,6 +498,7 @@
 	<cell>no</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>ip options</tcaption>
     </table>
     
     <p>Options for level <c>ipv6</c>: </p>
@@ -641,6 +644,7 @@
 	<cell>no</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>ipv6 options</tcaption>
     </table>
     
     <p>Options for level <c>tcp</c>: </p>
@@ -673,6 +677,7 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>tcp options</tcaption>
     </table>
     
     <p>Options for level <c>udp</c>: </p>
@@ -691,6 +696,7 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>udp options</tcaption>
     </table>
     
     <p>Options for level <c>sctp</c>: </p>
@@ -758,6 +764,7 @@
 	<cell>yes</cell>
 	<cell>none</cell>
       </row>
+      <tcaption>sctp options</tcaption>
     </table>
     
   </section>
