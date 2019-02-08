@@ -738,11 +738,10 @@ static unsigned long one_value  = 1;
    ((sap)->in4.sin_port) : -1)
 
 
-typedef union {
+typedef struct {
+    int is_active;
     ErlNifMonitor mon;
-    Uint32        raw[4];
 } ESockMonitor;
-
 
 typedef struct {
     ErlNifPid     pid; // PID of the requesting process
@@ -17173,6 +17172,13 @@ void cnt_dec(Uint32* cnt, Uint32 dec)
  */
 
 #if !defined(__WIN32__)
+
+static
+ERL_NIF_TERM my_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon)
+{
+    return ((ERL_NIF_TERM)&mon->data) + 2;
+}
+
 static
 int esock_monitor(const char*       slogan,
                   ErlNifEnv*        env,
@@ -17187,16 +17193,17 @@ int esock_monitor(const char*       slogan,
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
+        monP->is_active = 0;
         SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d\r\n", descP->sock, res) );
         // esock_dbg_printf("MONP", "[%d] failed: %d\r\n", descP->sock, res);
-    } /* else {
-        esock_dbg_printf("MONP",
+    } else {
+        monP->is_active = 1;
+        /*esock_dbg_printf("MONP",
                          "[%d] success: "
-                         "%u,%u,%u,%u\r\n",
+                         "%T\r\n",
                          descP->sock,
-                         monP->raw[0], monP->raw[1],
-                         monP->raw[2], monP->raw[3]);
-                         } */
+                         my_make_monitor_term(env, &monP->mon));*/
+    }
 
     return res;
 }
@@ -17210,14 +17217,15 @@ int esock_demonitor(const char*       slogan,
 {
     int res;
 
+    if (!monP->is_active)
+        return 1;
+
     SSDBG( descP, ("SOCKET", "[%d] %s: try demonitor\r\n", descP->sock, slogan) );
 
     /*
-    esock_dbg_printf("DEMONP", "[%d] %s: %u,%u,%u,%u\r\n",
+    esock_dbg_printf("DEMONP", "[%d] %s: %T\r\n",
                      descP->sock, slogan,
-                     monP->raw[0], monP->raw[1],
-                     monP->raw[2], monP->raw[3]);
-    */
+                     my_make_monitor_term(env, &monP->mon));*/
 
     res = enif_demonitor_process(env, descP, &monP->mon);
 
@@ -17238,17 +17246,9 @@ int esock_demonitor(const char*       slogan,
 static
 void esock_monitor_init(ESockMonitor* monP)
 {
-    int i;
-
-    /*
-     * UGLY,
-     * but since we don't have a ERL_NIF_MONITOR_NULL, 
-     * this will have to do for now...
-     */
-    for (i = 0; i < 4; i++) 
-        monP->raw[i] = 0;
-
+    monP->is_active = 0;
 }
+
 #endif // if !defined(__WIN32__)
 
 
@@ -17627,7 +17627,6 @@ void socket_down(ErlNifEnv*           env,
 {
 #if !defined(__WIN32__)
     SocketDescriptor* descP = (SocketDescriptor*) obj;
-    ESockMonitor*     monP  = (ESockMonitor*) mon;
 
     SSDBG( descP, ("SOCKET", "socket_down -> entry with"
                    "\r\n   sock:  %d"
@@ -17640,10 +17639,8 @@ void socket_down(ErlNifEnv*           env,
 
     /*
     esock_dbg_printf("DOWN",
-                     "[%d] begin %u,%u,%u,%d\r\n",
-                     descP->sock,
-                     monP->raw[0], monP->raw[1],
-                     monP->raw[2], monP->raw[3]);
+                     "[%d] begin %T\r\n",
+                     descP->sock, my_make_monitor_term(env, mon));
     */
 
     /*
@@ -17679,15 +17676,13 @@ void socket_down(ErlNifEnv*           env,
             descP->state      = SOCKET_STATE_CLOSING;
             descP->closeLocal = TRUE;
             descP->closerPid  = *pid;
-            descP->closerMon  = (ESockMonitor) *mon;
+            MON_INIT(&descP->closerMon);
             descP->closeRef   = MKREF(env); // Do we really need this in this case?
             
             /*
               esock_dbg_printf("DOWN",
-              "[%d] select stop %u,%u,%u,%d\r\n",
-              descP->sock,
-              monP->raw[0], monP->raw[1],
-              monP->raw[2], monP->raw[3]);
+              "[%d] select stop %T\r\n",
+              descP->sock, my_make_monitor_term(env, mon));
             */
             
             selectRes = enif_select(env, descP->sock, (ERL_NIF_SELECT_STOP),
@@ -17770,10 +17765,9 @@ void socket_down(ErlNifEnv*           env,
                                   "\r\n   Select Res:          %d"
                                   "\r\n   Controlling Process: %T"
                                   "\r\n   Descriptor:          %d"
-                                  "\r\n   Monitor:             %u.%u.%u.%u"
+                                  "\r\n   Monitor:             %T"
                                   "\r\n", selectRes, pid, descP->sock,
-                                  monP->raw[0], monP->raw[1],
-                                  monP->raw[2], monP->raw[3]);
+                                  my_make_monitor_term(env, mon));
             }
 
         } else {
@@ -17806,10 +17800,9 @@ void socket_down(ErlNifEnv*           env,
 
     /*
     esock_dbg_printf("DOWN",
-                     "[%d] end %u,%u,%u,%d\r\n",
+                     "[%d] end %T\r\n",
                      descP->sock,
-                     monP->raw[0], monP->raw[1],
-                     monP->raw[2], monP->raw[3]);
+                     my_make_monitor_term(env, mon));
     */
     
     SSDBG( descP, ("SOCKET", "socket_down -> done\r\n") );
