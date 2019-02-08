@@ -896,12 +896,20 @@ valfun_4(_, _) ->
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
     assert_type(map, Src, Vst0),
-    Vst1 = foldl(fun(D, Vsti) ->
-                         case is_reg_defined(D,Vsti) of
-                             true -> create_term(term, D, Vsti);
+
+    %% get_map_elements may leave its destinations in an inconsistent state
+    %% when the fail label is taken. Consider the following:
+    %%
+    %%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
+    %%
+    %% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
+    Vst1 = foldl(fun(Dst, Vsti) ->
+                         case is_reg_defined(Dst,Vsti) of
+                             true -> extract_term(term, [Src], Dst, Vsti);
                              false -> Vsti
                          end
                  end, Vst0, extract_map_vals(List)),
+
     Vst2 = branch_state(Fail, Vst1),
     Keys = extract_map_keys(List),
     assert_unique_map_keys(Keys),
