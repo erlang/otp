@@ -1434,7 +1434,6 @@ format_status(terminate, [_, StateName, State]) ->
                                                connection_env = ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
 					       diffie_hellman_keys =  ?SECRET_PRINTOUT,
-					       srp_params = ?SECRET_PRINTOUT,
 					       srp_keys =  ?SECRET_PRINTOUT,
 					       ssl_options = NewOptions,
 					       flight_buffer =  ?SECRET_PRINTOUT}
@@ -1695,7 +1694,7 @@ certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, Key, PSKLookup),
     calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
 certify_client_key_exchange(#client_srp_public{} = ClientKey,
-			    #state{srp_params = Params,
+			    #state{handshake_env = #handshake_env{srp_params = Params},
 				   srp_keys = Key
 				  } = State0, Connection) ->
     PremasterSecret = ssl_handshake:premaster_secret(ClientKey, Key, Params),
@@ -1878,8 +1877,8 @@ key_exchange(#state{static_env = #static_env{role = server}, kex_algorithm = Kex
 				       HashSignAlgo, ClientRandom,
 				       ServerRandom,
 				       PrivateKey}),
-    State = Connection:queue_handshake(Msg, State0),
-    State#state{srp_params = SrpParams,
+    #state{handshake_env = HsEnv} = State = Connection:queue_handshake(Msg, State0),
+    State#state{handshake_env = HsEnv#handshake_env{srp_params = SrpParams},
 		srp_keys = Keys};
 key_exchange(#state{static_env = #static_env{role = client},
                     handshake_env = #handshake_env{public_key_info = PublicKeyInfo,

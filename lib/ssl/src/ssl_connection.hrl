@@ -70,6 +70,7 @@
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
                         diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
+                        srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
                         premaster_secret     :: binary() | secret_printout() | 'undefined',
                         server_psk_identity         :: binary() | 'undefined' % server psk identity hint
@@ -102,8 +103,7 @@
                 flight_buffer = []   :: list() | map(),  
                 kex_algorithm         :: ssl:key_algo(),                
                 client_certificate_requested = false :: boolean(),
-                diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
-                srp_params           :: #srp_user{} | secret_printout() | 'undefined',
+                diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),        
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
