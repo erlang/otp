@@ -272,7 +272,7 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               [];
           Data ->
               [{next_event, internal,
-               {application_packets,{self(),undefined},Data}}]
+               {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
       end]};
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
@@ -294,11 +294,11 @@ connection(info, dist_data, #data{static = #static{dist_handle = DHandle}}) ->
               [];
           Data ->
               [{next_event, internal,
-               {application_packets,{self(),undefined},Data}}]
+               {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
       end};
 connection(info, tick, StateData) ->  
     consume_ticks(),
-    Data = <<0:32>>, % encode_packet(4, <<>>)
+    Data = [<<0:32>>], % encode_packet(4, <<>>)
     From = {self(), undefined},
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 connection(info, {send, From, Ref, Data}, _StateData) -> 
@@ -309,7 +309,7 @@ connection(info, {send, From, Ref, Data}, _StateData) ->
     From ! {Ref, ok},
     {keep_state_and_data,
      [{next_event, {call, {self(), undefined}},
-       {application_data, iolist_to_binary(Data)}}]};
+       {application_data, erlang:iolist_to_iovec(Data)}}]};
 ?HANDLE_COMMON.
 
 %%--------------------------------------------------------------------
@@ -432,9 +432,7 @@ send_application_data(Data, From, StateName,
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
 	false ->
-	    {Msgs, ConnectionStates} =
-                Connection:encode_data(
-                  iolist_to_binary(Data), Version, ConnectionStates0),
+	    {Msgs, ConnectionStates} = Connection:encode_data(Data, Version, ConnectionStates0),
             StateData = StateData0#data{connection_states = ConnectionStates},
 	    case Connection:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
@@ -452,9 +450,9 @@ send_application_data(Data, From, StateName,
 encode_packet(Packet, Data) ->
     Len = iolist_size(Data),
     case Packet of
-        1 when Len < (1 bsl 8) ->  [<<Len:8>>,Data];
-        2 when Len < (1 bsl 16) -> [<<Len:16>>,Data];
-        4 when Len < (1 bsl 32) -> [<<Len:32>>,Data];
+        1 when Len < (1 bsl 8) ->  [<<Len:8>>|Data];
+        2 when Len < (1 bsl 16) -> [<<Len:16>>|Data];
+        4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
         N when N =:= 1; N =:= 2; N =:= 4 ->
             {error,
              {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
@@ -498,11 +496,17 @@ dist_data(DHandle) ->
         none ->
             erlang:dist_ctrl_get_data_notification(DHandle),
             [];
-        Data ->
-            %% This is encode_packet(4, Data) without Len check
-            %% since the emulator will always deliver a Data
-            %% smaller than 4 GB, and the distribution will
-            %% therefore always have to use {packet,4}
+        %% This is encode_packet(4, Data) without Len check
+        %% since the emulator will always deliver a Data
+        %% smaller than 4 GB, and the distribution will
+        %% therefore always have to use {packet,4}
+        Data when is_binary(Data) ->
+            Len = byte_size(Data),
+            [<<Len:32>>,Data|dist_data(DHandle)];
+        [BA,BB] = Data ->
+            Len = byte_size(BA) + byte_size(BB),
+            [<<Len:32>>,Data|dist_data(DHandle)];
+        Data when is_list(Data) ->
             Len = iolist_size(Data),
             [<<Len:32>>,Data|dist_data(DHandle)]
     end.

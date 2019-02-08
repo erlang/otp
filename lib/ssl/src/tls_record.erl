@@ -105,8 +105,8 @@ encode_handshake(Frag, Version,
 		     ConnectionStates) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
-	    Data = split_bin(iolist_to_binary(Frag), Version, BCA, BeastMitigation),
-	    encode_iolist(?HANDSHAKE, Version, Data, ConnectionStates);
+	    Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation),
+	    encode_fragments(?HANDSHAKE, Version, Data, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
     end.
@@ -137,13 +137,13 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Frag, Version,
+encode_data(Data, Version,
 	    #{current_write := #{beast_mitigation := BeastMitigation,
 				 security_parameters :=
 				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
-    Data = split_bin(Frag, Version, BCA, BeastMitigation),
-    encode_iolist(?APPLICATION_DATA, Version, Data, ConnectionStates).
+    Fragments = split_iovec(Data, Version, BCA, BeastMitigation),
+    encode_fragments(?APPLICATION_DATA, Version, Fragments, ConnectionStates).
 
 %%====================================================================
 %% Decoding
@@ -520,22 +520,22 @@ binary_from_front(BinSize, [Bin|Front], Size, Rear, Acc) ->
 
 %%--------------------------------------------------------------------
 encode_plain_text(Type, Version, Data, ConnectionStates0) ->
-    {[CipherText],ConnectionStates} = encode_iolist(Type, Version, [Data], ConnectionStates0),
+    {[CipherText],ConnectionStates} = encode_fragments(Type, Version, [Data], ConnectionStates0),
     {CipherText,ConnectionStates}.
 %%--------------------------------------------------------------------
-encode_iolist(Type, Version, Data,
+encode_fragments(Type, Version, Data,
               #{current_write := #{compression_state := CompS,
                                    cipher_state := CipherS,
                                    sequence_number := Seq}} = ConnectionStates) ->
-    encode_iolist(Type, Version, Data, ConnectionStates, CompS, CipherS, Seq, []).
+    encode_fragments(Type, Version, Data, ConnectionStates, CompS, CipherS, Seq, []).
 %%
-encode_iolist(_Type, _Version, [], #{current_write := WriteS} = CS,
+encode_fragments(_Type, _Version, [], #{current_write := WriteS} = CS,
               CompS, CipherS, Seq, CipherFragments) ->
     {lists:reverse(CipherFragments),
      CS#{current_write := WriteS#{compression_state := CompS,
                                   cipher_state := CipherS,
                                   sequence_number := Seq}}};
-encode_iolist(Type, Version, [Text|Data],
+encode_fragments(Type, Version, [Text|Data],
               #{current_write := #{security_parameters :=
                                        #security_parameters{cipher_type = ?AEAD,
                                                             bulk_cipher_algorithm = BCAlg,
@@ -550,9 +550,9 @@ encode_iolist(Type, Version, [Text|Data],
     {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, CompText, CipherS1, StartAdditionalData, SecPars),
     Length = byte_size(CipherFragment),
     CipherHeader = <<?BYTE(Type), VersionBin/binary, ?UINT16(Length)>>,
-    encode_iolist(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
+    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
                   [[CipherHeader, CipherFragment] | CipherFragments]);
-encode_iolist(Type, Version, [Text|Data],
+encode_fragments(Type, Version, [Text|Data],
               #{current_write := #{security_parameters :=
                                        #security_parameters{compression_algorithm = CompAlg,
                                                             mac_algorithm = MacAlgorithm} = SecPars,
@@ -564,35 +564,49 @@ encode_iolist(Type, Version, [Text|Data],
     Length = byte_size(CipherFragment),
     {MajVer, MinVer} = Version,
     CipherHeader = <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>,
-    encode_iolist(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
+    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
                   [[CipherHeader, CipherFragment] | CipherFragments]);
-encode_iolist(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFragments) ->
+encode_fragments(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFragments) ->
     exit({cs, CS}).
 %%--------------------------------------------------------------------
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.
-split_bin(<<FirstByte:8, Rest/binary>>, Version, BCA, one_n_minus_one) when
-      BCA =/= ?RC4 andalso ({3, 1} == Version orelse
-			    {3, 0} == Version) ->
-    [[FirstByte]|do_split_bin(Rest)];
+split_iovec([<<FirstByte:8, Rest/binary>>|Data], Version, BCA, one_n_minus_one)
+  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
+                               {3, 0} == Version) ->
+    [[FirstByte]|split_iovec([Rest|Data])];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
-split_bin(Bin, Version, BCA, zero_n) when
-      BCA =/= ?RC4 andalso ({3, 1} == Version orelse
-			    {3, 0} == Version) ->
-    [<<>>|do_split_bin(Bin)];
-split_bin(Bin, _, _, _) ->
-    do_split_bin(Bin).
+split_iovec(Data, Version, BCA, zero_n)
+  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
+                               {3, 0} == Version) ->
+    [<<>>|split_iovec(Data)];
+split_iovec(Data, _Version, _BCA, _BeatMitigation) ->
+    split_iovec(Data).
 
-do_split_bin(<<>>) -> [];
-do_split_bin(Bin) ->
+split_iovec([]) ->
+    [];
+split_iovec(Data) ->
+    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
+    [Part|split_iovec(Rest)].
+%%
+split_iovec([Bin|Data], Size, Acc) ->
     case Bin of
-        <<Chunk:?MAX_PLAIN_TEXT_LENGTH/binary, Rest/binary>> ->
-            [Chunk|do_split_bin(Rest)];
-        _ ->
-            [Bin]
-    end.
+        <<Last:Size/binary, Rest/binary>> ->
+            {lists:reverse(Acc, [Last]),
+             case Rest of
+                 <<>> ->
+                     Data;
+                 <<_/binary>> ->
+                     [Rest|Data]
+             end};
+        <<_/binary>> ->
+            split_iovec(Data, Size - byte_size(Bin), [Bin|Acc])
+    end;
+split_iovec([], _Size, Acc) ->
+    {lists:reverse(Acc),[]}.
+
 %%--------------------------------------------------------------------
 lowest_list_protocol_version(Ver, []) ->
     Ver;

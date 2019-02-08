@@ -211,9 +211,9 @@ socket_control(dtls_connection = Connection, {_, Socket}, [Pid|_] = Pids, Transp
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
     call(Pid, {application_data, 
-				    %% iolist_to_binary should really
-				    %% be called iodata_to_binary()
-				    erlang:iolist_to_binary(Data)}).
+				    %% iolist_to_iovec should really
+				    %% be called iodata_to_iovec()
+				    erlang:iolist_to_iovec(Data)}).
 
 %%--------------------------------------------------------------------
 -spec recv(pid(), integer(), timeout()) ->  
