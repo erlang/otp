@@ -155,26 +155,34 @@ encode_data(Frag, Version,
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
-decode_cipher_text(#ssl_tls{type = Type, version = Version} = CipherText,
+decode_cipher_text(CipherText,
 		   #{current_read :=
 			 #{sequence_number := Seq,
-			   security_parameters := #security_parameters{cipher_type = ?AEAD} = SecParams
-			  } = ReadState0} = ConnnectionStates0, _) ->
-    AAD = start_additional_data(Type, Version, Seq),
-    #{cipher_state := CipherS0} = ReadState0,
-    BulkCipherAlgo = SecParams#security_parameters.bulk_cipher_algorithm,
-    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, <<?UINT64(Seq)>>, CipherS0),
-    case ssl_record:decipher_aead(BulkCipherAlgo, CipherS1, AAD, CipherText#ssl_tls.fragment, Version) of
-	{PlainFragment, CipherState} ->
-            #{compression_state := CompressionS0} = ReadState0,
-	    {Plain, CompressionS1} = ssl_record:uncompress(SecParams#security_parameters.compression_algorithm,
-                                                           PlainFragment, CompressionS0),
-	    ConnnectionStates = ConnnectionStates0#{
+			   security_parameters :=
+                               #security_parameters{cipher_type = ?AEAD,
+                                                    bulk_cipher_algorithm = BulkCipherAlgo},
+                           cipher_state := CipherS0
+                          }
+                    } = ConnectionStates0, _) ->
+    SeqBin = <<?UINT64(Seq)>>,
+    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, SeqBin, CipherS0),
+    #ssl_tls{type = Type, version = {MajVer,MinVer} = Version, fragment = Fragment} = CipherText,
+    StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>,
+    case ssl_record:decipher_aead(
+           BulkCipherAlgo, CipherS1, StartAdditionalData, Fragment, Version)
+    of
+	{PlainFragment, CipherS} ->
+            #{current_read :=
+                  #{security_parameters := SecParams,
+                    compression_state := CompressionS0} = ReadState0} = ConnectionStates0,
+	    {Plain, CompressionS} = ssl_record:uncompress(SecParams#security_parameters.compression_algorithm,
+                                                          PlainFragment, CompressionS0),
+	    ConnectionStates = ConnectionStates0#{
 				  current_read => ReadState0#{
-                                                    cipher_state => CipherState,
+                                                    cipher_state => CipherS,
                                                     sequence_number => Seq + 1,
-                                                    compression_state => CompressionS1}},
-	    {CipherText#ssl_tls{fragment = Plain}, ConnnectionStates};
+                                                    compression_state => CompressionS}},
+	    {CipherText#ssl_tls{fragment = Plain}, ConnectionStates};
 	#alert{} = Alert ->
 	    Alert
     end;
@@ -534,10 +542,14 @@ encode_iolist(Type, Version, [Text|Data],
                                                             compression_algorithm = CompAlg} = SecPars}} = CS,
               CompS0, CipherS0, Seq, CipherFragments) ->
     {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
-    CipherS1 = ssl_record:nonce_seed(BCAlg, <<?UINT64(Seq)>>, CipherS0),
-    AAD = start_additional_data(Type, Version, Seq),
-    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, CompText, CipherS1, AAD, SecPars),
-    CipherHeader = cipher_header(Type, Version, CipherFragment),
+    SeqBin = <<?UINT64(Seq)>>,
+    CipherS1 = ssl_record:nonce_seed(BCAlg, SeqBin, CipherS0),
+    {MajVer, MinVer} = Version,
+    VersionBin = <<?BYTE(MajVer), ?BYTE(MinVer)>>,
+    StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), VersionBin/binary>>,
+    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, CompText, CipherS1, StartAdditionalData, SecPars),
+    Length = byte_size(CipherFragment),
+    CipherHeader = <<?BYTE(Type), VersionBin/binary, ?UINT16(Length)>>,
     encode_iolist(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
                   [[CipherHeader, CipherFragment] | CipherFragments]);
 encode_iolist(Type, Version, [Text|Data],
@@ -549,18 +561,14 @@ encode_iolist(Type, Version, [Text|Data],
     {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
     MacHash = ssl_cipher:calc_mac_hash(Type, Version, CompText, MacAlgorithm, MacSecret, Seq),
     {CipherFragment,CipherS} = ssl_record:cipher(Version, CompText, CipherS0, MacHash, SecPars),
-    CipherHeader = cipher_header(Type, Version, CipherFragment),
+    Length = byte_size(CipherFragment),
+    {MajVer, MinVer} = Version,
+    CipherHeader = <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>,
     encode_iolist(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
                   [[CipherHeader, CipherFragment] | CipherFragments]);
 encode_iolist(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFragments) ->
     exit({cs, CS}).
 %%--------------------------------------------------------------------
-cipher_header(Type, {MajVer, MinVer}, CipherFragment) ->
-    Length = erlang:iolist_size(CipherFragment),
-    <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>.
-
-start_additional_data(Type, {MajVer, MinVer}, SeqNo) ->
-    <<?UINT64(SeqNo), ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>.
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.

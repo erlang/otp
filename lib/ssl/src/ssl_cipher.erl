@@ -113,12 +113,11 @@ nonce_seed(Seed, CipherState) ->
 %% data is calculated and the data plus the HMAC is ecncrypted.
 %%-------------------------------------------------------------------
 cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
-    GenStreamCipherList = [Fragment, <<>>],
-    {GenStreamCipherList, CipherState};
+    {iolist_to_binary(Fragment), CipherState};
 cipher(?RC4, CipherState = #cipher_state{state = State0}, Mac, Fragment, _Version) ->
     GenStreamCipherList = [Fragment, Mac],
     {State1, T} = crypto:stream_encrypt(State0, GenStreamCipherList),
-    {T, CipherState#cipher_state{state = State1}};
+    {iolist_to_binary(T), CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:block_encrypt(des_cbc, Key, IV, T)

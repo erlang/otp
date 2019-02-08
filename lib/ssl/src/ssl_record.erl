@@ -423,11 +423,13 @@ random() ->
     Random_28_bytes = ssl_cipher:random_bytes(28),
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
+-compile({inline, [is_correct_mac/2]}).
 is_correct_mac(Mac, Mac) ->
     true;
 is_correct_mac(_M,_H) ->
     false.
 
+-compile({inline, [record_protocol_role/1]}).
 record_protocol_role(client) ->
     ?CLIENT;
 record_protocol_role(server) ->
@@ -451,13 +453,15 @@ initial_security_params(ConnectionEnd) ->
 				     compression_algorithm = ?NULL},
     ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, SecParams).
 
+-define(end_additional_data(AAD, Len), << (begin(AAD)end)/binary, ?UINT16(begin(Len)end) >>).
+
 do_cipher_aead(?CHACHA20_POLY1305 = Type, Fragment, #cipher_state{key=Key} = CipherState, AAD0) ->
-    AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
+    AAD = ?end_additional_data(AAD0, erlang:iolist_size(Fragment)),
     Nonce = encrypt_nonce(Type, CipherState),
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
     {<<Content/binary, CipherTag/binary>>, CipherState};
 do_cipher_aead(Type, Fragment, #cipher_state{key=Key, nonce = ExplicitNonce} = CipherState, AAD0) ->
-    AAD = end_additional_data(AAD0, erlang:iolist_size(Fragment)),
+    AAD = ?end_additional_data(AAD0, erlang:iolist_size(Fragment)),
     Nonce = encrypt_nonce(Type, CipherState),
     {Content, CipherTag} = ssl_cipher:aead_encrypt(Type, Key, Nonce, Fragment, AAD),
     {<<ExplicitNonce:64/integer, Content/binary, CipherTag/binary>>, CipherState#cipher_state{nonce = ExplicitNonce + 1}}.
@@ -473,15 +477,12 @@ decrypt_nonce(?CHACHA20_POLY1305, #cipher_state{nonce = Nonce, iv = IV}, _) ->
 decrypt_nonce(?AES_GCM, #cipher_state{iv = <<Salt:4/bytes, _/binary>>}, <<ExplicitNonce:8/bytes, _/binary>>) ->   
      <<Salt/binary, ExplicitNonce/binary>>.
 
+-compile({inline, [aead_ciphertext_split/4]}).
 aead_ciphertext_split(?CHACHA20_POLY1305, #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
-    CipherLen = size(CipherTextFragment) - Len,
+    CipherLen = byte_size(CipherTextFragment) - Len,
     <<CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
-    {end_additional_data(AAD, CipherLen), CipherText, CipherTag};
+    {?end_additional_data(AAD, CipherLen), CipherText, CipherTag};
 aead_ciphertext_split(?AES_GCM,  #cipher_state{tag_len = Len}, CipherTextFragment, AAD) ->
-    CipherLen = size(CipherTextFragment) - (Len + 8), %% 8 is length of explicit Nonce
+    CipherLen = byte_size(CipherTextFragment) - (Len + 8), %% 8 is length of explicit Nonce
     << _:8/bytes, CipherText:CipherLen/bytes, CipherTag:Len/bytes>> = CipherTextFragment,
-    {end_additional_data(AAD, CipherLen), CipherText, CipherTag}.
-
-end_additional_data(AAD, Len) ->
-    <<AAD/binary, ?UINT16(Len)>>.
-        
+    {?end_additional_data(AAD, CipherLen), CipherText, CipherTag}.
