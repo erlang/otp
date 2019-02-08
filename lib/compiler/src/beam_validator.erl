@@ -28,7 +28,7 @@
 -export([module/2, format_error/1]).
 -export([type_anno/1, type_anno/2, type_anno/4]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
+-import(lists, [any/2,dropwhile/2,foldl/3,map/2,reverse/1]).
 
 %% To be called by the compiler.
 
@@ -372,7 +372,7 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
                        Type = get_term_type(Val, Vst0),
                        Es = set_element_type(Index, Type, Es0),
                        {Es, Index + 1}
-               end, {#{}, 1}, Elements),
+                   end, {#{}, 1}, Elements),
     Type = {tuple,Size,Es},
     create_term(Type, Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
@@ -542,16 +542,16 @@ valfun_2(_, _) ->
 valfun_3({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
     set_freg(Dst, Vst);
-valfun_3({bif,fadd,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fdiv,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fmul,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fnegate,_,[_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
-valfun_3({bif,fsub,_,[_,_]=Src,Dst}, Vst) ->
-    float_op(Src, Dst, Vst);
+valfun_3({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fmul,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fnegate,_,[_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
+valfun_3({bif,fsub,_,[_,_]=Ss,Dst}, Vst) ->
+    float_op(Ss, Dst, Vst);
 valfun_3(fclearerror, Vst) ->
     case get_fls(Vst) of
 	undefined -> ok;
@@ -697,12 +697,11 @@ valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_choices(Choices),
     Vst = branch_state(Fail, Vst0),
     kill_state(select_val_branches(Src, Choices, Vst));
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(tuple, Tuple, Vst),
+valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst0) ->
+    assert_type(tuple, Tuple, Vst0),
     assert_arities(Choices),
-    TupleType = get_durable_term_type(Tuple, Vst),
-    kill_state(branch_arities(Choices, Tuple, TupleType,
-                              branch_state(Fail, Vst)));
+    Vst = branch_state(Fail, Vst0),
+    kill_state(branch_arities(Choices, Tuple, Vst));
 
 %% New bit syntax matching instructions.
 valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
@@ -783,9 +782,10 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
             assert_term(Src, Vst),
             kill_state(Vst)
     end;
-valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
-    assert_type(tuple, Tuple, Vst),
-    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst0) when is_integer(Sz) ->
+    assert_type(tuple, Tuple, Vst0),
+    Vst = branch_state(Lbl, Vst0),
+    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, Vst);
 valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst0) ->
     assert_term(Src, Vst0),
     Vst = branch_state(Lbl, Vst0),
@@ -926,7 +926,7 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
-    foreach(fun (Term) -> assert_not_fragile(Term, Vst0) end, List),
+    [assert_not_fragile(Term, Vst0) || Term <- List],
     Vst1 = heap_alloc(0, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst = prune_x_regs(Live, Vst2),
@@ -1036,12 +1036,10 @@ verify_call_args_1(N, Vst) ->
     verify_call_args_1(X, Vst).
 
 verify_local_call(Lbl, Live, Vst) ->
-    F = fun({R, Type}) ->
-                verify_arg_type(Lbl, R, Type, Vst)
-        end,
     TRegs = typed_call_regs(Live, Vst),
+    [verify_arg_type(Lbl, R, Type, Vst) || {R, Type} <- TRegs],
     verify_no_ms_aliases(TRegs),
-    foreach(F, TRegs).
+    ok.
 
 typed_call_regs(0, _Vst) ->
     [];
@@ -1190,8 +1188,8 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%   fmove Src {fr,_}		%% Move INTO floating point register.
 %%%
 
-float_op(Src, Dst, Vst0) ->
-    foreach (fun(S) -> assert_freg_set(S, Vst0) end, Src),
+float_op(Ss, Dst, Vst0) ->
+    [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
     set_freg(Dst, Vst).
@@ -1779,7 +1777,8 @@ get_tuple_size({integer,Sz}) -> Sz;
 get_tuple_size(_) -> 0.
 
 validate_src(Ss, Vst) when is_list(Ss) ->
-    foreach(fun(S) -> get_term_type(S, Vst) end, Ss).
+    [assert_term(S, Vst) || S <- Ss],
+    ok.
 
 %% get_durable_term_type(Src, ValidatorState) -> Type
 %%  Get the type of the source Src. The returned type Type will be
@@ -1864,6 +1863,10 @@ value_to_type(T) when is_tuple(T) ->
                     end, {#{}, 1}, tuple_to_list(T)),
      {tuple, tuple_size(T), Es};
 value_to_type(L) -> {literal, L}.
+
+branch_arities(List, Tuple, Vst) ->
+    Type = get_durable_term_type(Tuple, Vst),
+    branch_arities(List, Tuple, Type, Vst).
 
 branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_],Es0}=Type0, Vst0) when is_integer(Sz) ->
     %% Filter out element types that are no longer valid.
