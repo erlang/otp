@@ -2348,10 +2348,12 @@ static char* esock_send_socket_msg(ErlNifEnv*   env,
                                    ERL_NIF_TERM sockRef,
                                    ERL_NIF_TERM tag,
                                    ERL_NIF_TERM info,
-                                   ErlNifPid*   pid);
+                                   ErlNifPid*   pid,
+                                   ErlNifEnv* msg_env);
 static char* esock_send_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM msg,
-                            ErlNifPid*   pid);
+                            ErlNifPid*   pid,
+                            ErlNifEnv* msg_env);
 
 static BOOLEAN_T extract_debug(ErlNifEnv*   env,
                                ERL_NIF_TERM map);
@@ -16652,7 +16654,7 @@ char* esock_send_close_msg(ErlNifEnv*   env,
 {
     return esock_send_socket_msg(env,
                                  esock_atom_undefined,
-                                 esock_atom_close, closeRef, pid);
+                                 esock_atom_close, closeRef, pid, NULL);
 }
 
 
@@ -16671,7 +16673,9 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
                            ERL_NIF_TERM reason,
                            ErlNifPid*   pid)
 {
-    ERL_NIF_TERM info = MKT2(env, recvRef, reason);
+    ErlNifEnv* msg_env = enif_alloc_env();
+    ERL_NIF_TERM info = MKT2(msg_env, enif_make_copy(msg_env, recvRef),
+                             enif_make_copy(msg_env, reason));
 
     /*
     esock_dbg_printf("SEND MSG",
@@ -16682,7 +16686,8 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
                      "\r\n", *pid, sockRef, recvRef, reason);
     */
 
-    return esock_send_socket_msg(env, sockRef, esock_atom_abort, info, pid);
+    return esock_send_socket_msg(env, sockRef, esock_atom_abort, info, pid,
+                                 msg_env);
 }
 
 
@@ -16700,11 +16705,19 @@ char* esock_send_socket_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM sockRef,
                             ERL_NIF_TERM tag,
                             ERL_NIF_TERM info,
-                            ErlNifPid*   pid)
+                            ErlNifPid*   pid,
+                            ErlNifEnv* msg_env)
 {
-    ERL_NIF_TERM msg = MKT4(env, esock_atom_socket_tag, sockRef, tag, info);
+    ERL_NIF_TERM msg;
+    if (!msg_env) {
+        msg_env = enif_alloc_env();
+        sockRef = enif_make_copy(msg_env, sockRef);
+        tag = enif_make_copy(msg_env, tag);
+        info = enif_make_copy(msg_env, info);
+    }
+    msg = MKT4(msg_env, esock_atom_socket_tag, sockRef, tag, info);
 
-    return esock_send_msg(env, msg, pid);
+    return esock_send_msg(env, msg, pid, msg_env);
 }
 
 
@@ -16713,9 +16726,14 @@ char* esock_send_socket_msg(ErlNifEnv*   env,
 static
 char* esock_send_msg(ErlNifEnv*   env,
                      ERL_NIF_TERM msg,
-                     ErlNifPid*   pid)
+                     ErlNifPid*   pid,
+                     ErlNifEnv* msg_env)
 {
-    if (!enif_send(env, pid, NULL, msg))
+    int res = enif_send(env, pid, msg_env, msg);
+    if (msg_env)
+        enif_free_env(msg_env);
+
+    if (!res)
         return str_exsend;
     else
         return NULL;
