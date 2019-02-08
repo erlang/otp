@@ -1393,7 +1393,7 @@ update_type(Merge, Type0, Reg, Vst) ->
                none -> Type0;
                T -> T
            end,
-    set_aliased_type(propagate_fragility(Type, [Reg], Vst), Reg, Vst).
+    set_aliased_type(Type, Reg, Vst).
 
 update_ne_types(LHS, RHS, Vst) ->
     T1 = get_durable_term_type(LHS, Vst),
