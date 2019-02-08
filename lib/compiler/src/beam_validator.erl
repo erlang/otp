@@ -28,7 +28,7 @@
 -export([module/2, format_error/1]).
 -export([type_anno/1, type_anno/2, type_anno/4]).
 
--import(lists, [any/2,dropwhile/2,foldl/3,map/2,reverse/1]).
+-import(lists, [any/2,dropwhile/2,foldl/3,map/2,reverse/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -639,7 +639,15 @@ valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
     validate_src(Ss, Vst0),
-    Vst = branch_state(Fail, Vst0),
+    Vst1 = branch_state(Fail, Vst0),
+
+    %% Infer argument types. Note that we can't type_test in the general case
+    %% as the BIF could fail for reasons other than bad arguments.
+    ArgTypes = bif_arg_types(Op, Ss),
+    Vst = foldl(fun({Arg, T}, Vsti) ->
+                        update_type(fun meet/2, T, Arg, Vsti)
+                end, Vst1, zip(Ss, ArgTypes)),
+
     Type = bif_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
@@ -649,11 +657,12 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
     Vst2 = branch_state(Fail, Vst1),
-    Vst3 = case Op of
-              length -> update_type(fun meet/2, list, hd(Ss), Vst2);
-              map_size -> update_type(fun meet/2, map, hd(Ss), Vst2);
-              _ -> Vst2
-          end,
+
+    ArgTypes = bif_arg_types(Op, Ss),
+    Vst3 = foldl(fun({Arg, T}, Vsti) ->
+                         update_type(fun meet/2, T, Arg, Vsti)
+                 end, Vst2, zip(Ss, ArgTypes)),
+
     Type = bif_type(Op, Ss, Vst3),
     Vst = prune_x_regs(Live, Vst3),
     extract_term(Type, Ss, Dst, Vst, Vst0);
@@ -2186,6 +2195,42 @@ propagate_fragility(Type, Ss, Vst) ->
         true -> make_fragile(Type);
         false -> Type
     end.
+
+%% Generic
+bif_arg_types(tuple_size, [_]) -> [{tuple,[0],#{}}];
+bif_arg_types(map_size, [_]) -> [map];
+bif_arg_types(length, [_]) -> [list];
+bif_arg_types(hd, [_]) -> [cons];
+bif_arg_types(tl, [_]) -> [cons];
+%% Boolean
+bif_arg_types('not', [_]) -> [bool];
+bif_arg_types('and', [_,_]) -> [bool, bool];
+bif_arg_types('or', [_,_]) -> [bool, bool];
+bif_arg_types('xor', [_,_]) -> [bool, bool];
+%% Binary
+bif_arg_types('byte_size', [_]) -> [binary];
+bif_arg_types('bit_size', [_]) -> [binary];
+%% Numerical
+bif_arg_types('-', [_]) -> [number];
+bif_arg_types('+', [_]) -> [number];
+bif_arg_types('*', [_,_]) -> [number, number];
+bif_arg_types('/', [_,_]) -> [number, number];
+bif_arg_types(ceil, [_]) -> [number];
+bif_arg_types(floor, [_]) -> [number];
+bif_arg_types(trunc, [_]) -> [number];
+bif_arg_types(round, [_]) -> [number];
+%% Integer-specific
+bif_arg_types('div', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('rem', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('band', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bor', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bxor', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bnot', [_]) -> [{integer,[]}];
+bif_arg_types('bsl', [_,_]) -> [{integer,[]}, {integer,[]}];
+bif_arg_types('bsr', [_,_]) -> [{integer,[]}, {integer,[]}];
+%% Unsafe type tests that may fail if an argument doesn't have the right type.
+bif_arg_types(is_function, [_,_]) -> [term, {integer,[]}];
+bif_arg_types(_, Args) -> [term || _Arg <- Args].
 
 bif_type('-', Src, Vst) ->
     arith_type(Src, Vst);
