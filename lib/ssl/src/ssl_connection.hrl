@@ -86,37 +86,36 @@
 
 -record(state, {
                 static_env            :: #static_env{},
-                handshake_env         :: #handshake_env{} | secret_printout(),
-                connection_env        :: #connection_env{} | secret_printout(), 
-
-                %% Data shuffling
-                connection_states     :: ssl_record:connection_states() | secret_printout(),
-                protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
-                user_data_buffer     :: undefined | binary() | secret_printout(),
-                
-                %% recv and start handling
-                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
-                start_or_recv_from   :: term(),
-                timer                :: undefined | reference(), % start_or_recive_timer
-                
-                protocol_specific = #{}      :: map(),
-
-                %% Change seldome
+                connection_env        :: #connection_env{} | secret_printout(),
                 ssl_options           :: #ssl_options{},
                 socket_options        :: #socket_options{},
-                session               :: #session{} | secret_printout(),
-                
-                %% Used only in HS
+
+                %% Hanshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                handshake_env         :: #handshake_env{} | secret_printout(),
+                %% Buffer of TLS/DTLS records, used during the TLS
+                %% handshake to when possible pack more than one TLS
+                %% record into the underlaying packet
+                %% format. Introduced by DTLS - RFC 4347.  The
+                %% mecahnism is also usefull in TLS although we do not
+                %% need to worry about packet loss in TLS. In DTLS we
+                %% need to track DTLS handshake seqnr
+                flight_buffer = []   :: list() | map(),  
+                kex_algorithm         :: ssl:key_algo(),                
                 client_certificate_requested = false :: boolean(),
-                key_algorithm         :: ssl:key_algo(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),
                 srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',
-                flight_buffer = []   :: list() | map()  %% Buffer of TLS/DTLS records, used during the TLS handshake
-                %% to when possible pack more than one TLS record into the
-                %% underlaying packet format. Introduced by DTLS - RFC 4347.
-                %% The mecahnism is also usefull in TLS although we do not
-                %% need to worry about packet loss in TLS. In DTLS we need to track DTLS handshake seqnr
+                protocol_specific = #{}      :: map(),
+                session               :: #session{} | secret_printout(),
+                %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                connection_states     :: ssl_record:connection_states() | secret_printout(),
+                protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
+                user_data_buffer     :: undefined | binary() | secret_printout(),
+                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
+
+                %% recv and start handling
+                start_or_recv_from   :: term(),
+                timer                :: undefined | reference() % start_or_recive_timer               
                }).
 
 

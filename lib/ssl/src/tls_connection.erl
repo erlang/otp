@@ -536,7 +536,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                             negotiated_protocol = CurrentProtocol} = HsEnv,
              connection_env = CEnv,
              session = #session{own_certificate = Cert} = Session0,
-	     key_algorithm = KeyExAlg,
+	     kex_algorithm = KeyExAlg,
 	     ssl_options = SslOpts} = State) ->
     case tls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					      ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of

@@ -869,7 +869,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
                                                           negotiated_protocol = CurrentProtocol} = HsEnv,
                            connection_env = CEnv,
 			   session = #session{own_certificate = Cert} = Session0,
-			   key_algorithm = KeyExAlg,
+			   kex_algorithm = KeyExAlg,
 			   ssl_options = SslOpts} = State0) ->
     
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
