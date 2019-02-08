@@ -272,7 +272,7 @@ make_bs_getpos_map([], _, Count, Acc) ->
     {maps:from_list(Acc),Count}.
 
 get_savepoint({_,_}=Ps, SavePoints) ->
-    Name = {'@ssa_bs_position', maps:get(Ps, SavePoints)},
+    Name = {'@ssa_bs_position', map_get(Ps, SavePoints)},
     #b_var{name=Name}.
 
 make_bs_pos_dict([{Ctx,Pts}|T], Count0, Acc0) ->
@@ -323,7 +323,7 @@ make_restore_map([], _, Count, Acc) ->
 make_slot({Same,Same}, _Slots) ->
     #b_literal{val=start};
 make_slot({_,_}=Ps, Slots) ->
-    #b_literal{val=maps:get(Ps, Slots)}.
+    #b_literal{val=map_get(Ps, Slots)}.
 
 make_save_point_dict([{Ctx,Pts}|T], Acc0) ->
     Acc = make_save_point_dict_1(Pts, Ctx, 0, Acc0),
@@ -684,7 +684,7 @@ sanitize(#st{ssa=Blocks0,cnt=Count0}=St) ->
     St#st{ssa=Blocks,cnt=Count}.
 
 sanitize([L|Ls], Count0, Blocks0, Values0) ->
-    #b_blk{is=Is0} = Blk0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks0),
     case sanitize_is(Is0, Count0, Values0, false, []) of
         no_change ->
             sanitize(Ls, Count0, Blocks0, Values0);
@@ -817,7 +817,7 @@ sanitize_badarg(I) ->
     I#b_set{op=call,args=[Func,#b_literal{val=badarg}]}.
 
 remove_unreachable([L|Ls], Blocks, Reachable, Acc) ->
-    #b_blk{is=Is0} = Blk0 = maps:get(L, Blocks),
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
     case split_phis(Is0) of
         {[_|_]=Phis,Rest} ->
             Is = [prune_phi(Phi, Reachable) || Phi <- Phis] ++ Rest,
@@ -874,7 +874,7 @@ fix_tuples(#st{ssa=Blocks0,cnt=Count0}=St) ->
 %%   a stack frame or set up a stack frame with a different size.
 
 place_frames(#st{ssa=Blocks}=St) ->
-    Doms = beam_ssa:dominators(Blocks),
+    {Doms,_} = beam_ssa:dominators(Blocks),
     Ls = beam_ssa:rpo(Blocks),
     Tried = gb_sets:empty(),
     Frames0 = [],
@@ -882,7 +882,7 @@ place_frames(#st{ssa=Blocks}=St) ->
     St#st{frames=Frames}.
 
 place_frames_1([L|Ls], Blocks, Doms, Tried0, Frames0) ->
-    Blk = maps:get(L, Blocks),
+    Blk = map_get(L, Blocks),
     case need_frame(Blk) of
         true ->
             %% This block needs a frame. Try to place it here.
@@ -993,15 +993,15 @@ place_frame_here(L, Blocks, Doms, Frames) ->
 %%  Return all predecessors referenced in phi nodes.
 
 phi_predecessors(L, Blocks) ->
-    #b_blk{is=Is} = maps:get(L, Blocks),
+    #b_blk{is=Is} = map_get(L, Blocks),
     [P || #b_set{op=phi,args=Args} <- Is, {_,P} <- Args].
 
 %% is_dominated_by(Label, DominatedBy, Dominators) -> true|false.
 %%  Test whether block Label is dominated by block DominatedBy.
 
 is_dominated_by(L, DomBy, Doms) ->
-    DominatedBy = maps:get(L, Doms),
-    ordsets:is_element(DomBy, DominatedBy).
+    DominatedBy = map_get(L, Doms),
+    member(DomBy, DominatedBy).
 
 %% need_frame(#b_blk{}) -> true|false.
 %%  Test whether any of the instructions in the block requires a stack frame.
@@ -1137,7 +1137,7 @@ recv_fix_common([Msg0|T], Exit, Rm, Blocks0, Count0) ->
     {MsgVars,Count} = new_vars(duplicate(N, '@recv'), Count1),
     PhiArgs = fix_exit_phi_args(MsgVars, Rm, Exit, Blocks1),
     Phi = #b_set{op=phi,dst=Msg,args=PhiArgs},
-    ExitBlk0 = maps:get(Exit, Blocks1),
+    ExitBlk0 = map_get(Exit, Blocks1),
     ExitBlk = ExitBlk0#b_blk{is=[Phi|ExitBlk0#b_blk.is]},
     Blocks2 = Blocks1#{Exit:=ExitBlk},
     Blocks = recv_fix_common_1(MsgVars, Rm, Msg0, Blocks2),
@@ -1148,7 +1148,7 @@ recv_fix_common([], _, _, Blocks, Count) ->
 recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     Ren = #{Msg=>V},
     Blocks1 = beam_ssa:rename_vars(Ren, [Rm], Blocks0),
-    #b_blk{is=Is0} = Blk0 = maps:get(Rm, Blocks1),
+    #b_blk{is=Is0} = Blk0 = map_get(Rm, Blocks1),
     Copy = #b_set{op=copy,dst=V,args=[Msg]},
     Is = insert_after_phis(Is0, [Copy]),
     Blk = Blk0#b_blk{is=Is},
@@ -1183,11 +1183,11 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Used], Count0),
     Ren = zip(Used, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
-    #b_blk{is=Is0} = Blk1 = maps:get(L, Blocks1),
+    #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
     Blk = Blk1#b_blk{is=Is},
-    Blocks = maps:put(L, Blk, Blocks1),
+    Blocks = Blocks1#{L:=Blk},
     fix_receive(Ls, Defs, Blocks, Count);
 fix_receive([], _Defs, Blocks, Count) ->
     {Blocks,Count}.
@@ -1212,7 +1212,7 @@ find_loop_exit_1(_, _, Exit) -> Exit.
 
 find_rm_blocks(L, Blocks) ->
     Seen = gb_sets:singleton(L),
-    Blk = maps:get(L, Blocks),
+    Blk = map_get(L, Blocks),
     Succ = beam_ssa:successors(Blk),
     find_rm_blocks_1(Succ, Seen, Blocks).
 
@@ -1222,7 +1222,7 @@ find_rm_blocks_1([L|Ls], Seen0, Blocks) ->
             find_rm_blocks_1(Ls, Seen0, Blocks);
         false ->
             Seen = gb_sets:insert(L, Seen0),
-            Blk = maps:get(L, Blocks),
+            Blk = map_get(L, Blocks),
             case find_rm_act(Blk#b_blk.is) of
                 prune ->
                     %% Looping back. Don't look at any successors.
@@ -1284,16 +1284,16 @@ find_yregs_1([{F,Defs}|Fs], Blocks0) ->
     Ls = beam_ssa:rpo([F], Blocks0),
     Yregs0 = [],
     Yregs = find_yregs_2(Ls, Blocks0, D0, Yregs0),
-    Blk0 = maps:get(F, Blocks0),
+    Blk0 = map_get(F, Blocks0),
     Blk = beam_ssa:add_anno(yregs, Yregs, Blk0),
     Blocks = Blocks0#{F:=Blk},
     find_yregs_1(Fs, Blocks);
 find_yregs_1([], Blocks) -> Blocks.
 
 find_yregs_2([L|Ls], Blocks0, D0, Yregs0) ->
-    Blk0 = maps:get(L, Blocks0),
+    Blk0 = map_get(L, Blocks0),
     #b_blk{is=Is,last=Last} = Blk0,
-    Ys0 = maps:get(L, D0),
+    Ys0 = map_get(L, D0),
     {Yregs1,Ys} = find_yregs_is(Is, Ys0, Yregs0),
     Yregs = find_yregs_terminator(Last, Ys, Yregs1),
     Successors = beam_ssa:successors(Blk0),
@@ -1320,7 +1320,7 @@ find_defs_1([L|Ls], Blocks, Frames, Seen0, Defs0, Acc0) ->
                 false ->
                     Seen1 = gb_sets:insert(L, Seen0),
                     {Acc,Seen} = find_defs_1(Ls, Blocks, Frames, Seen1, Defs0, Acc0),
-                    #b_blk{is=Is} = Blk = maps:get(L, Blocks),
+                    #b_blk{is=Is} = Blk = map_get(L, Blocks),
                     Defs = find_defs_is(Is, Defs0),
                     Successors = beam_ssa:successors(Blk),
                     find_defs_1(Successors, Blocks, Frames, Seen, Defs, Acc)
@@ -1339,10 +1339,10 @@ find_update_succ([S|Ss], #dk{d=Defs0,k=Killed0}=DK0, D0) ->
             Defs = ordsets:intersection(Defs0, Defs1),
             Killed = ordsets:union(Killed0, Killed1),
             DK = #dk{d=Defs,k=Killed},
-            D = maps:put(S, DK, D0),
+            D = D0#{S:=DK},
             find_update_succ(Ss, DK0, D);
         #{} ->
-            D = maps:put(S, DK0, D0),
+            D = D0#{S=>DK0},
             find_update_succ(Ss, DK0, D)
     end;
 find_update_succ([], _, D) -> D.
@@ -1432,7 +1432,7 @@ copy_retval(#st{frames=Frames,ssa=Blocks0,cnt=Count0}=St) ->
     St#st{ssa=Blocks,cnt=Count}.
 
 copy_retval_1([F|Fs], Blocks0, Count0) ->
-    #b_blk{anno=#{yregs:=Yregs0},is=Is} = maps:get(F, Blocks0),
+    #b_blk{anno=#{yregs:=Yregs0},is=Is} = map_get(F, Blocks0),
     Yregs1 = gb_sets:from_list(Yregs0),
     Yregs = collect_yregs(Is, Yregs1),
     Ls = beam_ssa:rpo([F], Blocks0),
@@ -1451,7 +1451,7 @@ collect_yregs([#b_set{}|Is], Yregs) ->
 collect_yregs([], Yregs) -> Yregs.
 
 copy_retval_2([L|Ls], Yregs, Copy0, Blocks0, Count0) ->
-    #b_blk{is=Is0,last=Last} = Blk = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last} = Blk = map_get(L, Blocks0),
     RC = case {Last,Ls} of
              {#b_br{succ=Succ,fail=?BADARG_BLOCK},[Succ|_]} ->
                  true;
@@ -1593,7 +1593,7 @@ opt_get_list(#st{ssa=Blocks,res=Res}=St) ->
     St#st{ssa=opt_get_list_1(Ls, ResMap, Blocks)}.
 
 opt_get_list_1([L|Ls], Res, Blocks0) ->
-    #b_blk{is=Is0} = Blk = maps:get(L, Blocks0),
+    #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
     case opt_get_list_is(Is0, Res, [], false) of
         no ->
             opt_get_list_1(Ls, Res, Blocks0);
@@ -1647,12 +1647,12 @@ number_instructions(#st{ssa=Blocks0}=St) ->
     St#st{ssa=number_is_1(Ls, 1, Blocks0)}.
 
 number_is_1([L|Ls], N0, Blocks0) ->
-    #b_blk{is=Is0,last=Last0} = Bl0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last0} = Bl0 = map_get(L, Blocks0),
     {Is,N1} = number_is_2(Is0, N0, []),
     Last = beam_ssa:add_anno(n, N1, Last0),
     N = N1 + 2,
     Bl = Bl0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Bl, Blocks0),
+    Blocks = Blocks0#{L:=Bl},
     number_is_1(Ls, N, Blocks);
 number_is_1([], _, Blocks) -> Blocks.
 
@@ -1693,7 +1693,7 @@ live_interval_blk(L, Blocks, {Vars0,LiveMap0}) ->
     Live1 = update_successors(Successors, L, Blocks, LiveMap0, Live0),
 
     %% Add ranges for all variables that are live in the successors.
-    #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
+    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
     End = beam_ssa:get_anno(n, Last),
     Use = [{V,{use,End+1}} || V <- Live1],
 
@@ -1762,7 +1762,7 @@ first_number([], Last) ->
 
 update_successors([L|Ls], Pred, Blocks, LiveMap, Live0) ->
     Live1 = ordsets:union(Live0, get_live(L, LiveMap)),
-    #b_blk{is=Is} = maps:get(L, Blocks),
+    #b_blk{is=Is} = map_get(L, Blocks),
     Live = update_live_phis(Is, Pred, Live1),
     update_successors(Ls, Pred, Blocks, LiveMap, Live);
 update_successors([], _, _, _, Live) -> Live.
@@ -1800,7 +1800,7 @@ reserve_yregs(#st{frames=Frames}=St0) ->
     foldl(fun reserve_yregs_1/2, St0, Frames).
 
 reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
-    Blk = maps:get(L, Blocks0),
+    Blk = map_get(L, Blocks0),
     Yregs = beam_ssa:get_anno(yregs, Blk),
     {Def,Used} = beam_ssa:def_used([L], Blocks0),
     UsedYregs = ordsets:intersection(Yregs, Used),
@@ -1826,7 +1826,7 @@ reserve_try_tags_1([L|Ls], Blocks, Seen0, ActMap0) ->
             reserve_try_tags_1(Ls, Blocks, Seen0, ActMap0);
         false ->
             Seen1 = gb_sets:insert(L, Seen0),
-            #b_blk{is=Is} = Blk = maps:get(L, Blocks),
+            #b_blk{is=Is} = Blk = map_get(L, Blocks),
             Active0 = get_active(L, ActMap0),
             Active = reserve_try_tags_is(Is, Active0),
             Successors = beam_ssa:successors(Blk),
@@ -1869,11 +1869,11 @@ rename_vars(Vs, L, Blocks0, Count0) ->
     {NewVars,Count} = new_vars([Base || #b_var{name=Base} <- Vs], Count0),
     Ren = zip(Vs, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, [L], Blocks0),
-    #b_blk{is=Is0} = Blk0 = maps:get(L, Blocks1),
+    #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
     CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
     Is = insert_after_phis(Is0, CopyIs),
     Blk = Blk0#b_blk{is=Is},
-    Blocks = maps:put(L, Blk, Blocks1),
+    Blocks = Blocks1#{L:=Blk},
     {NewVars,Blocks,Count}.
 
 insert_after_phis([#b_set{op=phi}=I|Is], InsertIs) ->
@@ -1895,7 +1895,7 @@ frame_size(#st{frames=Frames,regs=Regs,ssa=Blocks0}=St) ->
 
 frame_size_1(L, Regs, Blocks0) ->
     Def = beam_ssa:def([L], Blocks0),
-    Yregs0 = [maps:get(V, Regs) || V <- Def, is_yreg(maps:get(V, Regs))],
+    Yregs0 = [map_get(V, Regs) || V <- Def, is_yreg(map_get(V, Regs))],
     Yregs = ordsets:from_list(Yregs0),
     FrameSize = length(ordsets:from_list(Yregs)),
     if
@@ -1907,17 +1907,17 @@ frame_size_1(L, Regs, Blocks0) ->
         true ->
             ok
     end,
-    Blk0 = maps:get(L, Blocks0),
+    Blk0 = map_get(L, Blocks0),
     Blk = beam_ssa:add_anno(frame_size, FrameSize, Blk0),
 
     %% Insert an annotation for frame deallocation on
     %% each #b_ret{}.
-    Blocks = maps:put(L, Blk, Blocks0),
+    Blocks = Blocks0#{L:=Blk},
     Reachable = beam_ssa:rpo([L], Blocks),
     frame_deallocate(Reachable, FrameSize, Blocks).
 
 frame_deallocate([L|Ls], Size, Blocks0) ->
-    Blk0 = maps:get(L, Blocks0),
+    Blk0 = map_get(L, Blocks0),
     Blk = case Blk0 of
               #b_blk{last=#b_ret{}=Ret0} ->
                   Ret = beam_ssa:add_anno(deallocate, Size, Ret0),
@@ -1925,7 +1925,7 @@ frame_deallocate([L|Ls], Size, Blocks0) ->
               #b_blk{} ->
                   Blk0
           end,
-    Blocks = maps:put(L, Blk, Blocks0),
+    Blocks = Blocks0#{L:=Blk},
     frame_deallocate(Ls, Size, Blocks);
 frame_deallocate([], _, Blocks) -> Blocks.
 
@@ -1938,7 +1938,7 @@ frame_deallocate([], _, Blocks) -> Blocks.
 
 turn_yregs(#st{frames=Frames,regs=Regs0,ssa=Blocks}=St) ->
     Regs1 = foldl(fun(L, A) ->
-                          Blk = maps:get(L, Blocks),
+                          Blk = map_get(L, Blocks),
                           FrameSize = beam_ssa:get_anno(frame_size, Blk),
                           Def = beam_ssa:def([L], Blocks),
                           [turn_yregs_1(Def, FrameSize, Regs0)|A]
@@ -1947,7 +1947,7 @@ turn_yregs(#st{frames=Frames,regs=Regs0,ssa=Blocks}=St) ->
     St#st{regs=Regs}.
 
 turn_yregs_1(Def, FrameSize, Regs) ->
-    Yregs0 = [{maps:get(V, Regs),V} || V <- Def, is_yreg(maps:get(V, Regs))],
+    Yregs0 = [{map_get(V, Regs),V} || V <- Def, is_yreg(map_get(V, Regs))],
     Yregs1 = rel2fam(Yregs0),
     FrameSize = length(Yregs1),
     Yregs2 = [{{y,FrameSize-Y-1},Vs} || {{y,Y},Vs} <- Yregs1],
@@ -1993,11 +1993,12 @@ reserve_zregs(Blocks, Intervals, Res) ->
         end,
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
-reserve_zreg([#b_set{op=call,dst=Dst}],
-              #b_br{bool=Dst}, _ShortLived, A) ->
-    %% If type optimization has determined that the result of a call can be
-    %% used directly in a branch, we must avoid reserving a z register or code
-    %% generation will fail.
+reserve_zreg([#b_set{op=Op,dst=Dst}],
+              #b_br{bool=Dst}, _ShortLived, A) when Op =:= call;
+                                                    Op =:= get_tuple_element ->
+    %% If type optimization has determined that the result of these
+    %% instructions can be used directly in a branch, we must avoid reserving a
+    %% z register or code generation will fail.
     A;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
@@ -2356,7 +2357,7 @@ linear_scan(#st{intervals=Intervals0,res=Res}=St0) ->
     St#st{regs=maps:from_list(Regs)}.
 
 init_interval({V,[{Start,_}|_]=Rs}, Res) ->
-    Info = maps:get(V, Res),
+    Info = map_get(V, Res),
     Pool = case Info of
                {prefer,{x,_}} -> x;
                x -> x;
@@ -2557,16 +2558,16 @@ free_reg(#i{reg={_,_}=Reg}=I, L) ->
     update_pool(I, FreeRegs, L).
 
 get_pool(#i{pool=Pool}, #l{free=Free}) ->
-    maps:get(Pool, Free).
+    map_get(Pool, Free).
 
 update_pool(#i{pool=Pool}, New, #l{free=Free0}=L) ->
-    Free = maps:put(Pool, New, Free0),
+    Free = Free0#{Pool:=New},
     L#l{free=Free}.
 
 get_next_free(#i{pool=Pool}, #l{free=Free0}=L0) ->
     K = {next,Pool},
-    N = maps:get(K, Free0),
-    Free = maps:put(K, N+1, Free0),
+    N = map_get(K, Free0),
+    Free = Free0#{K:=N+1},
     L = L0#l{free=Free},
     if
         is_integer(Pool) -> {{y,N},L};
@@ -2602,7 +2603,7 @@ are_overlapping_1({_,_}, []) -> false.
 is_loop_header(L, Blocks) ->
     %% We KNOW that a loop header must start with a peek_message
     %% instruction.
-    case maps:get(L, Blocks) of
+    case map_get(L, Blocks) of
         #b_blk{is=[#b_set{op=peek_message}|_]} -> true;
         _ -> false
     end.

@@ -21,12 +21,15 @@
 %%
 
 -module(ssl_crl_cache_api).
-
 -include_lib("public_key/include/public_key.hrl"). 
 
--type db_handle() :: term().
--type issuer_name() :: {rdnSequence, [#'AttributeTypeAndValue'{}]}.
+-export_type([dist_point/0, crl_cache_ref/0]).
 
--callback lookup(#'DistributionPoint'{}, issuer_name(), db_handle()) -> not_available | [public_key:der_encoded()].
--callback select(issuer_name(), db_handle()) ->  [public_key:der_encoded()].
--callback fresh_crl(#'DistributionPoint'{}, public_key:der_encoded()) -> public_key:der_encoded().
+-type crl_cache_ref() :: any().
+-type issuer_name() ::  {rdnSequence,[#'AttributeTypeAndValue'{}]}.
+-type dist_point()  :: #'DistributionPoint'{}.
+
+  
+-callback lookup(dist_point(), issuer_name(), crl_cache_ref()) -> not_available | [public_key:der_encoded()].
+-callback select(issuer_name(), crl_cache_ref()) ->  [public_key:der_encoded()].
+-callback fresh_crl(dist_point(), public_key:der_encoded()) -> public_key:der_encoded().

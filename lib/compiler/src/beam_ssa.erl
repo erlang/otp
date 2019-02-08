@@ -23,7 +23,7 @@
 -export([add_anno/3,get_anno/2,get_anno/3,
          clobbers_xregs/1,def/2,def_used/2,
          definitions/1,
-         dominators/1,
+         dominators/1,common_dominators/3,
          flatmapfold_instrs_rpo/4,
          fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
          fold_instrs_rpo/4,
@@ -85,7 +85,8 @@
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
--type dominator_map() :: #{label():=ordsets:ordset(label())}.
+-type dominator_map() :: #{label():=[label()]}.
+-type numbering_map() :: #{label():=non_neg_integer()}.
 -type usage_map() :: #{b_var():=[{label(),b_set() | terminator()}]}.
 -type definition_map() :: #{b_var():=b_set()}.
 -type rename_map() :: #{b_var():=value()}.
@@ -142,7 +143,7 @@ add_anno(Key, Val, #b_switch{anno=Anno}=Bl) ->
 -spec get_anno(atom(), construct()) -> any().
 
 get_anno(Key, Construct) ->
-    maps:get(Key, get_anno(Construct)).
+    map_get(Key, get_anno(Construct)).
 
 -spec get_anno(atom(), construct(),any()) -> any().
 
@@ -303,7 +304,7 @@ normalize(#b_ret{}=Ret) ->
 -spec successors(label(), block_map()) -> [label()].
 
 successors(L, Blocks) ->
-    successors(maps:get(L, Blocks)).
+    successors(map_get(L, Blocks)).
 
 -spec def(Ls, Blocks) -> Def when
       Ls :: [label()],
@@ -312,7 +313,7 @@ successors(L, Blocks) ->
 
 def(Ls, Blocks) ->
     Top = rpo(Ls, Blocks),
-    Blks = [maps:get(L, Blocks) || L <- Top],
+    Blks = [map_get(L, Blocks) || L <- Top],
     def_1(Blks, []).
 
 -spec def_used(Ls, Blocks) -> {Def,Used} when
@@ -323,22 +324,45 @@ def(Ls, Blocks) ->
 
 def_used(Ls, Blocks) ->
     Top = rpo(Ls, Blocks),
-    Blks = [maps:get(L, Blocks) || L <- Top],
-    Preds = gb_sets:from_list(Top),
-    def_used_1(Blks, Preds, [], gb_sets:empty()).
+    Blks = [map_get(L, Blocks) || L <- Top],
+    Preds = cerl_sets:from_list(Top),
+    def_used_1(Blks, Preds, [], []).
+
+%% dominators(BlockMap) -> {Dominators,Numbering}.
+%%  Calculate the dominator tree, returning a map where each entry
+%%  in the map is a list that gives the path from that block to
+%%  the top of the dominator tree. (Note that the suffixes of the
+%%  paths are shared with each other, which make the representation
+%%  of the dominator tree highly memory-efficient.)
+%%
+%%  The implementation is based on:
+%%
+%%     http://www.hipersoft.rice.edu/grads/publications/dom14.pdf
+%%     Cooper, Keith D.; Harvey, Timothy J; Kennedy, Ken (2001).
+%%        A Simple, Fast Dominance Algorithm.
 
 -spec dominators(Blocks) -> Result when
       Blocks :: block_map(),
-      Result :: dominator_map().
-
+      Result :: {dominator_map(), numbering_map()}.
 dominators(Blocks) ->
     Preds = predecessors(Blocks),
     Top0 = rpo(Blocks),
-    Top = [{L,maps:get(L, Preds)} || L <- Top0],
+    Df = maps:from_list(number(Top0, 0)),
+    [{0,[]}|Top] = [{L,map_get(L, Preds)} || L <- Top0],
 
     %% The flow graph for an Erlang function is reducible, and
     %% therefore one traversal in reverse postorder is sufficient.
-    iter_dominators(Top, #{}).
+    Acc = #{0=>[0]},
+    {dominators_1(Top, Df, Acc),Df}.
+
+%% common_dominators([Label], Dominators, Numbering) -> [Label].
+%%  Calculate the common dominators for the given list of blocks
+%%  and Dominators and Numbering as returned from dominators/1.
+
+-spec common_dominators([label()], dominator_map(), numbering_map()) -> [label()].
+common_dominators(Ls, Dom, Numbering) ->
+    Doms = [map_get(L, Dom) || L <- Ls],
+    dom_intersection(Doms, Numbering).
 
 -spec fold_instrs_rpo(Fun, From, Acc0, Blocks) -> any() when
       Fun :: fun((b_blk()|terminator(), any()) -> any()),
@@ -365,9 +389,9 @@ mapfold_blocks_rpo(Fun, From, Acc, Blocks) ->
           end, {Blocks, Acc}, Successors).
 
 mapfold_blocks_rpo_1(Fun, Lbl, {Blocks0, Acc0}) ->
-    Block0 = maps:get(Lbl, Blocks0),
+    Block0 = map_get(Lbl, Blocks0),
     {Block, Acc} = Fun(Lbl, Block0, Acc0),
-    Blocks = maps:put(Lbl, Block, Blocks0),
+    Blocks = Blocks0#{Lbl:=Block},
     {Blocks, Acc}.
 
 -spec mapfold_instrs_rpo(Fun, From, Acc0, Blocks0) -> {Blocks,Acc} when
@@ -581,7 +605,7 @@ used(_) -> [].
 -spec definitions(Blocks :: block_map()) -> definition_map().
 definitions(Blocks) ->
     fold_instrs_rpo(fun(#b_set{ dst = Var }=I, Acc) ->
-                            maps:put(Var, I, Acc);
+                            Acc#{Var => I};
                        (_Terminator, Acc) ->
                             Acc
                     end, [0], #{}, Blocks).
@@ -626,10 +650,10 @@ is_commutative(_) -> false.
 
 def_used_1([#b_blk{is=Is,last=Last}|Bs], Preds, Def0, Used0) ->
     {Def,Used1} = def_used_is(Is, Preds, Def0, Used0),
-    Used = gb_sets:union(gb_sets:from_list(used(Last)), Used1),
+    Used = ordsets:union(used(Last), Used1),
     def_used_1(Bs, Preds, Def, Used);
 def_used_1([], _Preds, Def, Used) ->
-    {ordsets:from_list(Def),gb_sets:to_list(Used)}.
+    {ordsets:from_list(Def),Used}.
 
 def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
             Preds, Def0, Used0) ->
@@ -637,12 +661,12 @@ def_used_is([#b_set{op=phi,dst=Dst,args=Args}|Is],
     %% We must be careful to only include variables that will
     %% be used when arriving from one of the predecessor blocks
     %% in Preds.
-    Used1 = [V || {#b_var{}=V,L} <- Args, gb_sets:is_member(L, Preds)],
-    Used = gb_sets:union(gb_sets:from_list(Used1), Used0),
+    Used1 = [V || {#b_var{}=V,L} <- Args, cerl_sets:is_element(L, Preds)],
+    Used = ordsets:union(ordsets:from_list(Used1), Used0),
     def_used_is(Is, Preds, Def, Used);
 def_used_is([#b_set{dst=Dst}=I|Is], Preds, Def0, Used0) ->
     Def = [Dst|Def0],
-    Used = gb_sets:union(gb_sets:from_list(used(I)), Used0),
+    Used = ordsets:union(used(I), Used0),
     def_used_is(Is, Preds, Def, Used);
 def_used_is([], _Preds, Def, Used) ->
     {Def,Used}.
@@ -657,44 +681,67 @@ def_is([#b_set{dst=Dst}|Is], Def) ->
     def_is(Is, [Dst|Def]);
 def_is([], Def) -> Def.
 
-iter_dominators([{0,[]}|Ls], _Doms) ->
-    Dom = [0],
-    iter_dominators(Ls, #{0=>Dom});
-iter_dominators([{L,Preds}|Ls], Doms) ->
-    DomPreds = [maps:get(P, Doms) || P <- Preds, maps:is_key(P, Doms)],
-    Dom = ordsets:add_element(L, ordsets:intersection(DomPreds)),
-    iter_dominators(Ls, Doms#{L=>Dom});
-iter_dominators([], Doms) -> Doms.
+dominators_1([{L,Preds}|Ls], Df, Doms) ->
+    DomPreds = [map_get(P, Doms) || P <- Preds, is_map_key(P, Doms)],
+    Dom = [L|dom_intersection(DomPreds, Df)],
+    dominators_1(Ls, Df, Doms#{L=>Dom});
+dominators_1([], _Df, Doms) -> Doms.
+
+dom_intersection([S], _Df) ->
+    S;
+dom_intersection([S|Ss], Df) ->
+    dom_intersection(S, Ss, Df).
+
+dom_intersection(S1, [S2|Ss], Df) ->
+    dom_intersection(dom_intersection_1(S1, S2, Df), Ss, Df);
+dom_intersection(S, [], _Df) -> S.
+
+dom_intersection_1([E1|Es1]=Set1, [E2|Es2]=Set2, Df) ->
+    %% Blocks are numbered in the order they are found in
+    %% reverse postorder.
+    #{E1:=Df1,E2:=Df2} = Df,
+    if Df1 > Df2 ->
+            dom_intersection_1(Es1, Set2, Df);
+       Df2 > Df1 ->
+            dom_intersection_1(Es2, Set1, Df);  %switch arguments!
+       true ->                                  %Set1 == Set2
+            %% The common suffix of the sets is the intersection.
+            Set1
+    end.
+
+number([L|Ls], N) ->
+    [{L,N}|number(Ls, N+1)];
+number([], _) -> [].
 
 fold_rpo_1([L|Ls], Fun, Blocks, Acc0) ->
-    Block = maps:get(L, Blocks),
+    Block = map_get(L, Blocks),
     Acc = Fun(L, Block, Acc0),
     fold_rpo_1(Ls, Fun, Blocks, Acc);
 fold_rpo_1([], _, _, Acc) -> Acc.
 
 fold_instrs_rpo_1([L|Ls], Fun, Blocks, Acc0) ->
-    #b_blk{is=Is,last=Last} = maps:get(L, Blocks),
+    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
     Acc1 = foldl(Fun, Acc0, Is),
     Acc = Fun(Last, Acc1),
     fold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
 fold_instrs_rpo_1([], _, _, Acc) -> Acc.
 
 mapfold_instrs_rpo_1([L|Ls], Fun, Blocks0, Acc0) ->
-    #b_blk{is=Is0,last=Last0} = Block0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last0} = Block0 = map_get(L, Blocks0),
     {Is,Acc1} = mapfoldl(Fun, Acc0, Is0),
     {Last,Acc} = Fun(Last0, Acc1),
     Block = Block0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Block, Blocks0),
+    Blocks = Blocks0#{L:=Block},
     mapfold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
 mapfold_instrs_rpo_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
 
 flatmapfold_instrs_rpo_1([L|Ls], Fun, Blocks0, Acc0) ->
-    #b_blk{is=Is0,last=Last0} = Block0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last0} = Block0 = map_get(L, Blocks0),
     {Is,Acc1} = flatmapfoldl(Fun, Acc0, Is0),
     {[Last],Acc} = Fun(Last0, Acc1),
     Block = Block0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Block, Blocks0),
+    Blocks = Blocks0#{L:=Block},
     flatmapfold_instrs_rpo_1(Ls, Fun, Blocks, Acc);
 flatmapfold_instrs_rpo_1([], _, Blocks, Acc) ->
     {Blocks,Acc}.
@@ -705,7 +752,7 @@ linearize_1([L|Ls], Blocks, Seen0, Acc0) ->
             linearize_1(Ls, Blocks, Seen0, Acc0);
         false ->
             Seen1 = cerl_sets:add_element(L, Seen0),
-            Block = maps:get(L, Blocks),
+            Block = map_get(L, Blocks),
             Successors = successors(Block),
             {Acc,Seen} = linearize_1(Successors, Blocks, Seen1, Acc0),
             linearize_1(Ls, Blocks, Seen, [{L,Block}|Acc])
@@ -745,7 +792,7 @@ rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
         true ->
             rpo_1(Ls, Blocks, Seen0, Acc0);
         false ->
-            Block = maps:get(L, Blocks),
+            Block = map_get(L, Blocks),
             Seen1 = cerl_sets:add_element(L, Seen0),
             Successors = successors(Block),
             {Acc,Seen} = rpo_1(Successors, Blocks, Seen1, Acc0),
@@ -775,11 +822,11 @@ rename_phi_vars([{Var,L}|As], Preds, Ren) ->
 rename_phi_vars([], _, _) -> [].
 
 map_instrs_1([L|Ls], Fun, Blocks0) ->
-    #b_blk{is=Is0,last=Last0} = Blk0 = maps:get(L, Blocks0),
+    #b_blk{is=Is0,last=Last0} = Blk0 = map_get(L, Blocks0),
     Is = [Fun(I) || I <- Is0],
     Last = Fun(Last0),
     Blk = Blk0#b_blk{is=Is,last=Last},
-    Blocks = maps:put(L, Blk, Blocks0),
+    Blocks = Blocks0#{L:=Blk},
     map_instrs_1(Ls, Fun, Blocks);
 map_instrs_1([], _, Blocks) -> Blocks.
 
@@ -790,7 +837,7 @@ flatmapfoldl(F, Accu0, [Hd|Tail]) ->
 flatmapfoldl(_, Accu, []) -> {[],Accu}.
 
 split_blocks_1([L|Ls], P, Blocks0, Count0) ->
-    #b_blk{is=Is0} = Blk = maps:get(L, Blocks0),
+    #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
     case split_blocks_is(Is0, P, []) of
         {yes,Bef,Aft} ->
             NewLbl = Count0,

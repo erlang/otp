@@ -81,7 +81,11 @@ typedef Uint  dsize_t;	 /* Vector size type */
  * a Uint64 argument. Therefore, we must test the size of the argument
  * to ensure that the cast does not discard the high-order 32 bits.
  */
-#define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#if defined(ARCH_32)
+#  define _IS_SSMALL32(x) (((Uint32) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
+#else
+#  define _IS_SSMALL32(x) (1)
+#endif
 #define _IS_SSMALL64(x) (((Uint64) ((((x)) >> (SMALL_BITS-1)) + 1)) < 2)
 #define IS_SSMALL(x) (sizeof(x) == sizeof(Uint32) ? _IS_SSMALL32(x) : _IS_SSMALL64(x))
 

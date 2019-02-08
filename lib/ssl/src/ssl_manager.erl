@@ -42,6 +42,8 @@
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_api.hrl").
+
 -include_lib("kernel/include/file.hrl").
 
 -record(state, {
@@ -148,7 +150,7 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_pkix_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 
 %%--------------------------------------------------------------------
--spec new_session_id(integer()) -> session_id().
+-spec new_session_id(integer()) -> ssl:session_id().
 %%
 %% Description: Creates a session id for the server.
 %%--------------------------------------------------------------------
@@ -170,7 +172,7 @@ clean_cert_db(Ref, File) ->
 %%
 %% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
--spec register_session(host(), inet:port_number(), #session{}, unique | true) -> ok.
+-spec register_session(ssl:host(), inet:port_number(), #session{}, unique | true) -> ok.
 register_session(Host, Port, Session, true) ->
     call({register_session, Host, Port, Session});
 register_session(Host, Port, Session, unique = Save) ->
@@ -185,7 +187,7 @@ register_session(Port, Session) ->
 %% a the session has been marked "is_resumable = false" for some while
 %% it will be safe to remove the data from the session database.
 %%--------------------------------------------------------------------
--spec invalidate_session(host(), inet:port_number(), #session{}) -> ok.
+-spec invalidate_session(ssl:host(), inet:port_number(), #session{}) -> ok.
 invalidate_session(Host, Port, Session) ->
     load_mitigation(),
     cast({invalidate_session, Host, Port, Session}).

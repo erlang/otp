@@ -733,6 +733,21 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
     </func>
 
     <func>
+      <name since="OTP @OTP-15442@"><ret>int</ret><nametext>ei_init(void)</nametext></name>
+      <fsummary>Initialize the ei library.</fsummary>
+      <desc>
+        <p>Initialize the <c>ei</c> library. This function should be called once
+	(and only once) before calling any other functionality in the <c>ei</c>
+	library. However, note the exception below.</p>
+	<p>If the <c>ei</c> library is used together with the <c>erl_interface</c>
+	library, this function should <em>not</em> be called directly. It will be
+	called by the <c>erl_init()</c> function which should be used to initialize
+	the combination of the two libraries instead.</p>
+	<p>On success zero is returned. On failure a posix error code is returned.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since=""><ret>int</ret><nametext>ei_print_term(FILE* fp, const char* buf, int* index)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_s_print_term(char** s, const char* buf, int* index)</nametext></name>
       <fsummary>Print a term in clear text.</fsummary>

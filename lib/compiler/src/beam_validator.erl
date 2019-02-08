@@ -26,7 +26,7 @@
 
 %% Interface for compiler.
 -export([module/2, format_error/1]).
--export([type_anno/1, type_anno/2, type_anno/3]).
+-export([type_anno/1, type_anno/2, type_anno/4]).
 
 -import(lists, [any/2,dropwhile/2,foldl/3,map/2,foreach/2,reverse/1]).
 
@@ -65,11 +65,12 @@ type_anno(atom, Value) -> {atom, Value};
 type_anno(float, Value) -> {float, Value};
 type_anno(integer, Value) -> {integer, Value}.
 
--spec type_anno(term(), term(), term()) -> term().
-type_anno(tuple, Size, Exact) when is_integer(Size) ->
+-spec type_anno(term(), term(), term(), term()) -> term().
+type_anno(tuple, Size, Exact, Elements) when is_integer(Size), Size >= 0,
+                                             is_map(Elements) ->
     case Exact of
-        true -> {tuple, Size};
-        false -> {tuple, [Size]}
+        true -> {tuple, Size, Elements};
+        false -> {tuple, [Size], Elements}
     end.
 
 -spec format_error(term()) -> iolist().
@@ -367,13 +368,18 @@ valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     _ = [assert_not_fragile(El, Vst0) || El <- Elements],
     Size = length(Elements),
     Vst = eat_heap(Size+1, Vst0),
-    Type = {tuple,Size},
+    {Es,_} = foldl(fun(Val, {Es0, Index}) ->
+                       Type = get_term_type(Val, Vst0),
+                       Es = set_element_type(Index, Type, Es0),
+                       {Es, Index + 1}
+               end, {#{}, 1}, Elements),
+    Type = {tuple,Size,Es},
     create_term(Type, Dst, Vst);
 valfun_1({put_tuple,Sz,Dst}, Vst0) when is_integer(Sz) ->
     Vst1 = eat_heap(1, Vst0),
     Vst = create_term(tuple_in_progress, Dst, Vst1),
     #vst{current=St0} = Vst,
-    St = St0#st{puts_left={Sz,{Dst,{tuple,Sz}}}},
+    St = St0#st{puts_left={Sz,{Dst,Sz,#{}}}},
     Vst#vst{current=St};
 valfun_1({put,Src}, Vst0) ->
     assert_not_fragile(Src, Vst0),
@@ -382,11 +388,13 @@ valfun_1({put,Src}, Vst0) ->
     case St0 of
         #st{puts_left=none} ->
             error(not_building_a_tuple);
-        #st{puts_left={1,{Dst,Type}}} ->
+        #st{puts_left={1,{Dst,Sz,Es}}} ->
             St = St0#st{puts_left=none},
-            create_term(Type, Dst, Vst#vst{current=St});
-        #st{puts_left={PutsLeft,Info}} when is_integer(PutsLeft) ->
-            St = St0#st{puts_left={PutsLeft-1,Info}},
+            create_term({tuple,Sz,Es}, Dst, Vst#vst{current=St});
+        #st{puts_left={PutsLeft,{Dst,Sz,Es0}}} when is_integer(PutsLeft) ->
+            Index = Sz - PutsLeft + 1,
+            Es = Es0#{ Index => get_term_type(Src, Vst0) },
+            St = St0#st{puts_left={PutsLeft-1,{Dst,Sz,Es}}},
             Vst#vst{current=St}
     end;
 %% Instructions for optimization of selective receives.
@@ -492,10 +500,11 @@ valfun_1({get_tl,Src,Dst}, Vst) ->
     assert_not_literal(Src),
     assert_type(cons, Src, Vst),
     extract_term(term, [Src], Dst, Vst);
-valfun_1({get_tuple_element,Src,I,Dst}, Vst) ->
+valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     assert_not_literal(Src),
-    assert_type({tuple_element,I+1}, Src, Vst),
-    extract_term(term, [Src], Dst, Vst);
+    assert_type({tuple_element,N+1}, Src, Vst),
+    Type = get_element_type(N+1, Src, Vst),
+    extract_term(Type, [Src], Dst, Vst);
 valfun_1({jump,{f,Lbl}}, Vst) ->
     kill_state(branch_state(Lbl, Vst));
 valfun_1(I, Vst) ->
@@ -595,14 +604,18 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
 %% Other BIFs
 valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
     Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, {tuple,[0]}, Tuple, Vst1),
+    Vst = update_type(fun meet/2, {tuple,[0],#{}}, Tuple, Vst1),
     set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_durable_term_type(Pos, Vst0),
+    ElementType = case PosType of
+                      {integer,I} -> get_element_type(I, Tuple, Vst0);
+                      _ -> term
+                  end,
+    InferredType = {tuple,[get_tuple_size(PosType)],#{}},
     Vst1 = branch_state(Fail, Vst0),
-    Type = {tuple,[get_tuple_size(PosType)]},
-    Vst = update_type(fun meet/2, Type, Tuple, Vst1),
-    extract_term(term, [Tuple], Dst, Vst);
+    Vst = update_type(fun meet/2, InferredType, Tuple, Vst1),
+    extract_term(ElementType, [Tuple], Dst, Vst);
 valfun_4({bif,raise,{f,0},Src,_Dst}, Vst) ->
     validate_src(Src, Vst),
     kill_state(Vst);
@@ -671,10 +684,13 @@ valfun_4(timeout, #vst{current=St}=Vst) ->
     Vst#vst{current=St#st{x=init_regs(0, term)}};
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
-valfun_4({set_tuple_element,Src,Tuple,I}, Vst) ->
+valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
+    I = N + 1,
     assert_not_fragile(Src, Vst),
-    assert_type({tuple_element,I+1}, Tuple, Vst),
-    Vst;
+    assert_type({tuple_element,I}, Tuple, Vst),
+    {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
+    Es = set_element_type(I, get_term_type(Src, Vst), Es0),
+    set_aliased_type({tuple, Sz, Es}, Tuple, Vst);
 %% Match instructions.
 valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst0) ->
     assert_term(Src, Vst0),
@@ -748,7 +764,7 @@ valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
 valfun_4({test,is_float,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {float,[]}, Src, Vst);
 valfun_4({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {tuple,[0]}, Src, Vst);
+    type_test(Lbl, {tuple,[0],#{}}, Src, Vst);
 valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, {integer,[]}, Src, Vst);
 valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
@@ -769,10 +785,11 @@ valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
     end;
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
-    update_type(fun meet/2, {tuple,Sz}, Tuple, branch_state(Lbl, Vst));
-valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,_Atom]}, Vst) ->
-    assert_term(Src, Vst),
-    update_type(fun meet/2, {tuple,Sz}, Src, branch_state(Lbl, Vst));
+    update_type(fun meet/2, {tuple,Sz,#{}}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst0) ->
+    assert_term(Src, Vst0),
+    Vst = branch_state(Lbl, Vst0),
+    update_type(fun meet/2, {tuple,Sz,#{ 1 => Atom }}, Src, Vst);
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
@@ -1229,7 +1246,10 @@ assert_unique_map_keys([]) ->
 assert_unique_map_keys([_]) ->
     ok;
 assert_unique_map_keys([_,_|_]=Ls) ->
-    Vs = [get_literal(L) || L <- Ls],
+    Vs = [begin
+              assert_literal(L),
+              L
+          end || L <- Ls],
     case length(Vs) =:= sets:size(sets:from_list(Vs)) of
 	true -> ok;
 	false -> error(keys_not_unique)
@@ -1308,7 +1328,7 @@ infer_types(Src, Vst) ->
             end;
         {bif,tuple_size,{f,_},[Tuple],_} ->
             fun({integer,Arity}, S) ->
-                    update_type(fun meet/2, {tuple,Arity}, Tuple, S);
+                    update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
                (_, S) -> S
             end;
         {bif,'=:=',{f,_},[ArityReg,{integer,_}=Val],_} when ArityReg =/= Src ->
@@ -1407,16 +1427,13 @@ update_eq_types(LHS, RHS, Vst0) ->
 assign_1(Src, Dst, Vst0) ->
     Type = get_move_term_type(Src, Vst0),
     Vst = set_type_reg(Type, Dst, Vst0),
-    case Src of
-        {Kind,_} when Kind =:= x; Kind =:= y ->
-            #vst{current=St0} = Vst,
-            #st{aliases=Aliases0} = St0,
-            Aliases = Aliases0#{Src=>Dst,Dst=>Src},
-            St = St0#st{aliases=Aliases},
-            Vst#vst{current=St};
-        _ ->
-            Vst
-    end.
+
+    #vst{current=St0} = Vst,
+    #st{aliases=Aliases0} = St0,
+    Aliases = Aliases0#{Src=>Dst,Dst=>Src},
+    St = St0#st{aliases=Aliases},
+
+    Vst#vst{current=St}.
 
 set_aliased_type(Type, Reg, #vst{current=#st{aliases=Aliases}}=Vst0) ->
     Vst1 = set_type(Type, Reg, Vst0),
@@ -1451,7 +1468,6 @@ set_type_reg(Type, Src, Dst, Vst) ->
         _ ->
             set_type_reg(Type, Dst, Vst)
     end.
-
 set_type_reg(Type, Reg, Vst) ->
     set_type_reg_expr(Type, none, Reg, Vst).
 
@@ -1551,6 +1567,13 @@ assert_not_fragile(Src, Vst) ->
         _ -> ok
     end.
 
+assert_literal(nil) -> ok;
+assert_literal({atom,A}) when is_atom(A) -> ok;
+assert_literal({float,F}) when is_float(F) -> ok;
+assert_literal({integer,I}) when is_integer(I) -> ok;
+assert_literal({literal,_L}) -> ok;
+assert_literal(T) -> error({literal_required,T}).
+
 assert_not_literal({x,_}) -> ok;
 assert_not_literal({y,_}) -> ok;
 assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
@@ -1597,11 +1620,12 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 %%
 %% list                 List: [] or [_|_]
 %%
-%% {tuple,[Sz]}		Tuple. An element has been accessed using
-%%              	element/2 or setelement/3 so that it is known that
-%%              	the type is a tuple of size at least Sz.
+%% {tuple,[Sz],Es}      Tuple. An element has been accessed using
+%%                      element/2 or setelement/3 so that it is known that
+%%                      the type is a tuple of size at least Sz. Es is a map
+%%                      containing known types by tuple index.
 %%
-%% {tuple,Sz}		Tuple. A test_arity instruction has been seen
+%% {tuple,Sz,Es}	Tuple. A test_arity instruction has been seen
 %%           		so that it is known that the size is exactly Sz.
 %%
 %% {atom,[]}		Atom.
@@ -1636,6 +1660,10 @@ assert_not_literal(Literal) -> error({literal_not_allowed,Literal}).
 
 meet(Same, Same) ->
     Same;
+meet({literal,_}=T1, T2) ->
+    meet_literal(T1, T2);
+meet(T1, {literal,_}=T2) ->
+    meet_literal(T2, T1);
 meet(term, Other) ->
     Other;
 meet(Other, term) ->
@@ -1651,17 +1679,48 @@ meet(T1, T2) ->
         {list,nil} -> nil;
         {number,{integer,_}=T} -> T;
         {number,{float,_}=T} -> T;
-        {{tuple,Size1},{tuple,Size2}} ->
-            case {Size1,Size2} of
-                {[Sz1],[Sz2]} ->
-                    {tuple,[erlang:max(Sz1, Sz2)]};
-                {Sz1,[Sz2]} when Sz2 =< Sz1 ->
-                    {tuple,Sz1};
-                {_,_} ->
+        {{tuple,Size1,Es1},{tuple,Size2,Es2}} ->
+            Es = meet_elements(Es1, Es2),
+            case {Size1,Size2,Es} of
+                {_, _, none} ->
+                    none;
+                {[Sz1],[Sz2],_} ->
+                    {tuple,[erlang:max(Sz1, Sz2)],Es};
+                {Sz1,[Sz2],_} when Sz2 =< Sz1 ->
+                    {tuple,Sz1,Es};
+                {Sz,Sz,_} ->
+                    {tuple,Sz,Es};
+                {_,_,_} ->
                     none
             end;
         {_,_} -> none
     end.
+
+%% Meets types of literals.
+meet_literal({literal,_}=Lit, T) ->
+    meet_literal(T, get_literal_type(Lit));
+meet_literal(T1, T2) ->
+    %% We're done extracting the types, try merging them again.
+    meet(T1, T2).
+
+meet_elements(Es1, Es2) ->
+    Keys = maps:keys(Es1) ++ maps:keys(Es2),
+    meet_elements_1(Keys, Es1, Es2, #{}).
+
+meet_elements_1([Key | Keys], Es1, Es2, Acc) ->
+    case {Es1, Es2} of
+        {#{ Key := Type1 }, #{ Key := Type2 }} ->
+            case meet(Type1, Type2) of
+                none -> none;
+                Type -> meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type })
+            end;
+        {#{ Key := Type1 }, _} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type1 });
+        {_, #{ Key := Type2 }} ->
+            meet_elements_1(Keys, Es1, Es2, Acc#{ Key => Type2 })
+    end;
+meet_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
 
 %% subtract(Type1, Type2) -> Type
 %%  Subtract Type2 from Type2. Example:
@@ -1681,12 +1740,12 @@ assert_type(WantedType, Term, Vst) ->
 
 assert_type(Correct, Correct) -> ok;
 assert_type(float, {float,_}) -> ok;
-assert_type(tuple, {tuple,_}) -> ok;
+assert_type(tuple, {tuple,_,_}) -> ok;
 assert_type(tuple, {literal,Tuple}) when is_tuple(Tuple) -> ok;
-assert_type({tuple_element,I}, {tuple,[Sz]})
+assert_type({tuple_element,I}, {tuple,[Sz],_})
   when 1 =< I, I =< Sz ->
     ok;
-assert_type({tuple_element,I}, {tuple,Sz})
+assert_type({tuple_element,I}, {tuple,Sz,_})
   when is_integer(Sz), 1 =< I, I =< Sz ->
     ok;
 assert_type({tuple_element,I}, {literal,Lit}) when I =< tuple_size(Lit) ->
@@ -1695,6 +1754,25 @@ assert_type(cons, {literal,[_|_]}) ->
     ok;
 assert_type(Needed, Actual) ->
     error({bad_type,{needed,Needed},{actual,Actual}}).
+
+get_element_type(Key, Src, Vst) ->
+    get_element_type_1(Key, get_durable_term_type(Src, Vst)).
+
+get_element_type_1(Index, {tuple,Sz,Es}) ->
+    case Es of
+        #{ Index := Type } -> Type;
+        #{} when Index =< Sz -> term;
+        #{} -> none
+    end;
+get_element_type_1(_Index, _Type) ->
+    term.
+
+set_element_type(_Key, none, Es) ->
+    Es;
+set_element_type(Key, term, Es) ->
+    maps:remove(Key, Es);
+set_element_type(Key, Type, Es) ->
+    Es#{ Key => Type }.
 
 get_tuple_size({integer,[]}) -> 0;
 get_tuple_size({integer,Sz}) -> Sz;
@@ -1743,16 +1821,6 @@ get_term_type(Src, Vst) ->
 get_special_y_type({y,_}=Reg, Vst) -> get_term_type_1(Reg, Vst);
 get_special_y_type(Src, _) -> error({source_not_y_reg,Src}).
 
-get_term_type_1(nil=T, _) -> T;
-get_term_type_1({atom,A}=T, _) when is_atom(A) -> T;
-get_term_type_1({float,F}=T, _) when is_float(F) -> T;
-get_term_type_1({integer,I}=T, _) when is_integer(I) -> T;
-get_term_type_1({literal,[_|_]}, _) -> cons;
-get_term_type_1({literal,Bitstring}, _) when is_bitstring(Bitstring) -> binary;
-get_term_type_1({literal,Map}, _) when is_map(Map) -> map;
-get_term_type_1({literal,Tuple}, _) when is_tuple(Tuple) ->
-    {tuple,tuple_size(Tuple)};
-get_term_type_1({literal,_}=T, _) -> T;
 get_term_type_1({x,X}=Reg, #vst{current=#st{x=Xs}}) when is_integer(X) ->
     case gb_trees:lookup(X, Xs) of
 	{value,Type} -> Type;
@@ -1764,7 +1832,8 @@ get_term_type_1({y,Y}=Reg, #vst{current=#st{y=Ys}}) when is_integer(Y) ->
 	{value,uninitialized} -> error({uninitialized_reg,Reg});
 	{value,Type} -> Type
     end;
-get_term_type_1(Src, _) -> error({bad_source,Src}).
+get_term_type_1(Src, _) ->
+    get_literal_type(Src).
 
 get_def(Src, #vst{current=#st{defs=Defs}}) ->
     case Defs of
@@ -1772,23 +1841,41 @@ get_def(Src, #vst{current=#st{defs=Defs}}) ->
         #{} -> none
     end.
 
-%% get_literal(Src) -> literal_value().
-get_literal(nil) -> [];
-get_literal({atom,A}) when is_atom(A) -> A;
-get_literal({float,F}) when is_float(F) -> F;
-get_literal({integer,I}) when is_integer(I) -> I;
-get_literal({literal,L}) -> L;
-get_literal(T) -> error({not_literal,T}).
+get_literal_type(nil=T) -> T;
+get_literal_type({atom,A}=T) when is_atom(A) -> T;
+get_literal_type({float,F}=T) when is_float(F) -> T;
+get_literal_type({integer,I}=T) when is_integer(I) -> T;
+get_literal_type({literal,[_|_]}) -> cons;
+get_literal_type({literal,Bitstring}) when is_bitstring(Bitstring) -> binary;
+get_literal_type({literal,Map}) when is_map(Map) -> map;
+get_literal_type({literal,Tuple}) when is_tuple(Tuple) -> value_to_type(Tuple);
+get_literal_type({literal,_}) -> term;
+get_literal_type(T) -> error({not_literal,T}).
 
-branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_]}=Type0, Vst0) when is_integer(Sz) ->
-    Vst1 = set_aliased_type({tuple,Sz}, Tuple, Vst0),
+value_to_type([]) -> nil;
+value_to_type(A) when is_atom(A) -> {atom, A};
+value_to_type(F) when is_float(F) -> {float, F};
+value_to_type(I) when is_integer(I) -> {integer, I};
+value_to_type(T) when is_tuple(T) ->
+     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
+                            Type = value_to_type(Val),
+                            Es = set_element_type(Index, Type, Es0),
+                            {Es, Index + 1}
+                    end, {#{}, 1}, tuple_to_list(T)),
+     {tuple, tuple_size(T), Es};
+value_to_type(L) -> {literal, L}.
+
+branch_arities([Sz,{f,L}|T], Tuple, {tuple,[_],Es0}=Type0, Vst0) when is_integer(Sz) ->
+    %% Filter out element types that are no longer valid.
+    Es = maps:filter(fun(Index, _Type) -> Index =< Sz end, Es0),
+    Vst1 = set_aliased_type({tuple,Sz,Es}, Tuple, Vst0),
     Vst = branch_state(L, Vst1),
     branch_arities(T, Tuple, Type0, Vst);
-branch_arities([Sz,{f,L}|T], Tuple, {tuple,Sz}=Type, Vst0) when is_integer(Sz) ->
+branch_arities([Sz,{f,L}|T], Tuple, {tuple,Sz,_Es}=Type, Vst0) when is_integer(Sz) ->
     %% The type is already correct. (This test is redundant.)
     Vst = branch_state(L, Vst0),
     branch_arities(T, Tuple, Type, Vst);
-branch_arities([Sz0,{f,_}|T], Tuple, {tuple,Sz}=Type, Vst)
+branch_arities([Sz0,{f,_}|T], Tuple, {tuple,Sz,_Es}=Type, Vst)
   when is_integer(Sz), Sz0 =/= Sz ->
     %% We already have an established different exact size for the tuple.
     %% This label can't possibly be reached.
@@ -1902,9 +1989,14 @@ join({catchtag,T0},{catchtag,T1}) ->
     {catchtag,ordsets:from_list(T0++T1)};
 join({trytag,T0},{trytag,T1}) ->
     {trytag,ordsets:from_list(T0++T1)};
-join({tuple,A}, {tuple,B}) ->
-    {tuple,[min(tuple_sz(A), tuple_sz(B))]};
-join({Type,A}, {Type,B}) 
+join({tuple,Size,EsA}, {tuple,Size,EsB}) ->
+    Es = join_tuple_elements(tuple_sz(Size), EsA, EsB),
+    {tuple, Size, Es};
+join({tuple,A,EsA}, {tuple,B,EsB}) ->
+    Size = [min(tuple_sz(A), tuple_sz(B))],
+    Es = join_tuple_elements(Size, EsA, EsB),
+    {tuple, Size, Es};
+join({Type,A}, {Type,B})
   when Type =:= atom; Type =:= integer; Type =:= float ->
     if A =:= B -> {Type,A};
        true -> {Type,[]}
@@ -1916,9 +2008,9 @@ join(number, {Type,_})
   when Type =:= integer; Type =:= float ->
     number;
 join(bool, {atom,A}) ->
-    merge_bool(A);
+    join_bool(A);
 join({atom,A}, bool) ->
-    merge_bool(A);
+    join_bool(A);
 join({atom,_}, {atom,_}) ->
     {atom,[]};
 join(#ms{id=Id1,valid=B1,slots=Slots1},
@@ -1933,19 +2025,35 @@ join(T1, T2) when T1 =/= T2 ->
     %% a 'term'.
     join_list(T1, T2).
 
-%% Merges types of literals. Note that the left argument must either be a
+join_tuple_elements(Size, EsA, EsB) ->
+    Es0 = join_elements(EsA, EsB),
+    MinSize = tuple_sz(Size),
+    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+
+join_elements(Es1, Es2) ->
+    Keys = if
+               map_size(Es1) =< map_size(Es2) -> maps:keys(Es1);
+               map_size(Es1) > map_size(Es2) -> maps:keys(Es2)
+           end,
+    join_elements_1(Keys, Es1, Es2, #{}).
+
+join_elements_1([Key | Keys], Es1, Es2, Acc0) ->
+    Type = case {Es1, Es2} of
+               {#{ Key := Same }, #{ Key := Same }} -> Same;
+               {#{ Key := Type1 }, #{ Key := Type2 }} -> join(Type1, Type2);
+               {#{}, #{}} -> term
+           end,
+    Acc = set_element_type(Key, Type, Acc0),
+    join_elements_1(Keys, Es1, Es2, Acc);
+join_elements_1([], _Es1, _Es2, Acc) ->
+    Acc.
+
+%% Joins types of literals; note that the left argument must either be a
 %% literal or exactly equal to the second argument.
 join_literal(Same, Same) ->
     Same;
-join_literal({literal,[_|_]}, T) ->
-    join_literal(T, cons);
-join_literal({literal,#{}}, T) ->
-    join_literal(T, map);
-join_literal({literal,Tuple}, T) when is_tuple(Tuple) ->
-    join_literal(T, {tuple, tuple_size(Tuple)});
-join_literal({literal,_}, T) ->
-    %% Bitstring, fun, or similar.
-    join_literal(T, term);
+join_literal({literal,_}=Lit, T) ->
+    join_literal(T, get_literal_type(Lit));
 join_literal(T1, T2) ->
     %% We're done extracting the types, try merging them again.
     join(T1, T2).
@@ -1959,13 +2067,13 @@ join_list(_, _) ->
     %% Not a list, so it must be a term.
     term.
 
+join_bool([]) -> {atom,[]};
+join_bool(true) -> bool;
+join_bool(false) -> bool;
+join_bool(_) -> {atom,[]}.
+
 tuple_sz([Sz]) -> Sz;
 tuple_sz(Sz) -> Sz.
-
-merge_bool([]) -> {atom,[]};
-merge_bool(true) -> bool;
-merge_bool(false) -> bool;
-merge_bool(_) -> {atom,[]}.
 
 merge_aliases(Al0, Al1) when map_size(Al0) =< map_size(Al1) ->
     maps:filter(fun(K, V) ->
@@ -2169,26 +2277,27 @@ return_type({extfunc,M,F,A}, Vst) -> return_type_1(M, F, A, Vst);
 return_type(_, _) -> term.
 
 return_type_1(erlang, setelement, 3, Vst) ->
-    Tuple = {x,1},
+    IndexType = get_term_type({x,0}, Vst),
     TupleType =
-	case get_term_type(Tuple, Vst) of
-	    {tuple,_}=TT ->
-		TT;
-	    {literal,Lit} when is_tuple(Lit) ->
-		{tuple,tuple_size(Lit)};
-	    _ ->
-		{tuple,[0]}
-	end,
-    case get_term_type({x,0}, Vst) of
-        {integer,[]} ->
-            TupleType;
-        {integer,I} ->
-            case meet({tuple,[I]}, TupleType) of
-                none -> TupleType;
-                T -> T
+        case get_term_type({x,1}, Vst) of
+            {literal,Tuple}=Lit when is_tuple(Tuple) -> get_literal_type(Lit);
+            {tuple,_,_}=TT -> TT;
+            _ -> {tuple,[0],#{}}
+        end,
+    case IndexType of
+        {integer,I} when is_integer(I) ->
+            case meet({tuple,[I],#{}}, TupleType) of
+                {tuple, Sz, Es0} ->
+                    ValueType = get_term_type({x,2}, Vst),
+                    Es = set_element_type(I, ValueType, Es0),
+                    {tuple, Sz, Es};
+                none ->
+                    TupleType
             end;
         _ ->
-            TupleType
+            %% The index could point anywhere, so we must discard all element
+            %% information.
+            setelement(3, TupleType, #{})
     end;
 return_type_1(erlang, '++', 2, Vst) ->
     case get_term_type({x,0}, Vst) =:= cons orelse

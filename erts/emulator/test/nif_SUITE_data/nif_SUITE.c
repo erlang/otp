@@ -2847,6 +2847,16 @@ static ERL_NIF_TERM compare_monitors_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_make_int(env, enif_compare_monitors(&m1, &m2));
 }
 
+static ERL_NIF_TERM make_monitor_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifMonitor m;
+    if (!get_monitor(env, argv[0], &m)) {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_monitor_term(env, &m);
+}
+
 
 /*********** monitor_frenzy ************/
 
@@ -3596,6 +3606,7 @@ static ErlNifFunc nif_funcs[] =
     {"monitor_process_nif", 4, monitor_process_nif},
     {"demonitor_process_nif", 2, demonitor_process_nif},
     {"compare_monitors_nif", 2, compare_monitors_nif},
+    {"make_monitor_term_nif", 1, make_monitor_term_nif},
     {"monitor_frenzy_nif", 4, monitor_frenzy_nif},
     {"whereis_send", 3, whereis_send},
     {"whereis_term", 2, whereis_term},

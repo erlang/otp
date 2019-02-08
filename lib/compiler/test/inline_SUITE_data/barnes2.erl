@@ -6,7 +6,7 @@
 ?MODULE() ->
     Stars = create_scenario(1000, 1.0),
     R = hd(loop(10,1000.0,Stars,0)),
-    Str = lists:flatten(io:lib_format("~s", [R])),
+    Str = lists:flatten(io_lib:format("~p", [R])),
     {R,Str =:= {1.00000,-1.92269e+4,-1.92269e+4,2.86459e-2,2.86459e-2}}.
 
 create_scenario(N, M) ->

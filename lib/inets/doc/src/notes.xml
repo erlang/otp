@@ -33,7 +33,29 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.0.4</title>
+  <section><title>Inets 7.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug that causes a crash in http client when using
+	    hostnames (e.g. localhost) with the the option
+	    ipv6_host_with_brackets set to true.</p>
+          <p>
+	    This change also fixes a regression: httpc:request fails
+	    with connection error (nxdomain) if option
+	    ipv6_host_with_brackets set to true and host component of
+	    the URI is an IPv6 address.</p>
+          <p>
+	    Own Id: OTP-15554 Aux Id: ERIERL-289 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

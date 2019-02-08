@@ -47,14 +47,14 @@ module(#b_module{body=Fs0}=Module, _Opts) ->
 %% the same arguments in the same order, we can shave off a call by short-
 %% circuiting it.
 find_trampolines(#b_function{args=Args,bs=Blocks}=F, Trampolines) ->
-    case maps:get(0, Blocks) of
+    case map_get(0, Blocks) of
         #b_blk{is=[#b_set{op=call,
                           args=[#b_local{}=Actual | Args],
                           dst=Dst}],
                last=#b_ret{arg=Dst}} ->
             {_, Name, Arity} = beam_ssa:get_anno(func_info, F),
             Trampoline = #b_local{name=#b_literal{val=Name},arity=Arity},
-            maps:put(Trampoline, Actual, Trampolines);
+            Trampolines#{Trampoline => Actual};
         _ ->
             Trampolines
     end.
@@ -80,7 +80,7 @@ lfo_analyze_is([#b_set{op=make_fun,
 lfo_analyze_is([#b_set{op=call,
                        args=[Fun | CallArgs]} | Is],
                LFuns) when is_map_key(Fun, LFuns) ->
-    #b_set{args=[#b_local{arity=Arity} | FreeVars]} = maps:get(Fun, LFuns),
+    #b_set{args=[#b_local{arity=Arity} | FreeVars]} = map_get(Fun, LFuns),
     case length(CallArgs) + length(FreeVars) of
         Arity ->
             lfo_analyze_is(Is, maps:without(CallArgs, LFuns));
@@ -133,7 +133,7 @@ lfo_optimize_1([], _LFuns, _Trampolines) ->
 lfo_optimize_is([#b_set{op=call,
                         args=[Fun | CallArgs]}=Call0 | Is],
                 LFuns, Trampolines) when is_map_key(Fun, LFuns) ->
-    #b_set{args=[Local | FreeVars]} = maps:get(Fun, LFuns),
+    #b_set{args=[Local | FreeVars]} = map_get(Fun, LFuns),
     Args = [lfo_short_circuit(Local, Trampolines) | CallArgs ++ FreeVars],
     Call = beam_ssa:add_anno(local_fun_opt, Fun, Call0#b_set{args=Args}),
     [Call | lfo_optimize_is(Is, LFuns, Trampolines)];

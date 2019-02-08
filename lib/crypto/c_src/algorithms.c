@@ -22,7 +22,7 @@
 #include "cipher.h"
 
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[12];   /* increase when extending the list */
+static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
 static unsigned int algo_pubkey_cnt, algo_pubkey_fips_cnt;
 static ERL_NIF_TERM algo_pubkey[12]; /* increase when extending the list */
 static unsigned int algo_mac_cnt, algo_mac_fips_cnt;
@@ -61,6 +61,11 @@ void init_algorithms_types(ErlNifEnv* env)
 #ifdef HAVE_SHA3_512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
 #endif
+#ifdef HAVE_BLAKE2
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2b");
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2s");
+#endif
+
     // Non-validated algorithms follow
     algo_hash_fips_cnt = algo_hash_cnt;
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
@@ -85,8 +90,8 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddsa");
 #endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
-
  
+  
     // Validated algorithms first
     algo_mac_cnt = 0;
     algo_mac[algo_mac_cnt++] = enif_make_atom(env,"hmac");

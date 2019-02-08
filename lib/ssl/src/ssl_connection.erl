@@ -78,7 +78,7 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec connect(tls_connection | dtls_connection,
-	      host(), inet:port_number(), 
+	      ssl:host(), inet:port_number(), 
 	      port() | {tuple(), port()}, %% TLS | DTLS  
 	      {#ssl_options{}, #socket_options{},
 	       %% Tracker only needed on server side
@@ -144,7 +144,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec handshake_continue(#sslsocket{}, [ssl_option()],
+-spec handshake_continue(#sslsocket{}, [ssl:tls_server_option()],
                          timeout()) ->  {ok,  #sslsocket{}}| {error, reason()}.
 %%
 %% Description: Continues handshake with new options
@@ -2801,10 +2801,10 @@ handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{
                                         session_cache = CacheHandle
                                        },
                private_key = Key,
-	      diffie_hellman_params = DHParams,
-	      ssl_options = NewOptions,
-	      sni_hostname = Hostname
-	     }
+               diffie_hellman_params = DHParams,
+               ssl_options = NewOptions,
+               sni_hostname = Hostname
+              }
     end.
 
 update_ssl_options_from_sni(OrigSSLOptions, SNIHostname) ->

@@ -158,6 +158,12 @@
 #  define HAVE_SHA3_512
 # endif
 
+// BLAKE2:
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1) \
+    && !defined(OPENSSL_NO_BLAKE2)
+# define HAVE_BLAKE2
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \

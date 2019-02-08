@@ -36,6 +36,8 @@
 #include <windows.h>
 #include <winbase.h>
 typedef LONG_PTR ssize_t; /* Sigh... */
+#else
+#include <sys/types.h>          /* ssize_t */
 #endif
 
 #include <stdio.h>		/* Need type FILE */
@@ -666,6 +668,8 @@ struct ei_reg_tabstat {
   int collisions; /* number of positions with more than one element */
 };
 
+
+int ei_init(void);
 
 /* -------------------------------------------------------------------- */
 /*                               XXXXXXXXXXX                            */

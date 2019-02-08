@@ -82,6 +82,20 @@ static struct digest_type_t digest_types[] =
      {NULL}
 #endif
     },
+    {{"blake2b"},
+#ifdef HAVE_BLAKE2
+     {&EVP_blake2b512}
+#else
+     {NULL}
+#endif
+    },
+    {{"blake2s"},
+#ifdef HAVE_BLAKE2
+     {&EVP_blake2s256}
+#else
+     {NULL}
+#endif
+    },
 
     {{NULL}, {NULL}}
 };

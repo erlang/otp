@@ -644,7 +644,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       <v>conf_opt() = {cert, der_encoded()} | {key, PrivateKey} |{cacerts, [der_encoded()]}</v>
       <d>
 	This is a subset of the type
-	<seealso marker="ssl:ssl#type-ssloption"> ssl:ssl_option()</seealso>.
+	<seealso marker="ssl:ssl#type-tls_option"> ssl:tls_option()</seealso>.
 	<c>PrivateKey</c> is what
 	<seealso marker="#generate_key-1">generate_key/1</seealso>
 	returns.

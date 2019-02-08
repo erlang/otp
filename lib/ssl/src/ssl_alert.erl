@@ -48,8 +48,8 @@ decode(Bin) ->
     decode(Bin, [], 0).
 
 %%--------------------------------------------------------------------
--spec reason_code(#alert{}, client | server) ->
-                         closed | {tls_alert, unicode:chardata()}.
+%% -spec reason_code(#alert{}, client | server) ->
+%%                          {tls_alert, unicode:chardata()} | closed.
 %-spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
 %%
 %% Description: Returns the error reason that will be returned to the
@@ -58,8 +58,10 @@ decode(Bin) ->
 
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
     closed;
-reason_code(#alert{description = Description}, _) ->
-    {tls_alert, string:casefold(description_txt(Description))}.
+reason_code(#alert{description = Description, role = Role} = Alert, Role) ->
+    {tls_alert, {description_atom(Description), own_alert_txt(Alert)}};
+reason_code(#alert{description = Description} = Alert, Role) ->
+    {tls_alert, {description_atom(Description), alert_txt(Alert#alert{role = Role})}}.
 
 %%--------------------------------------------------------------------
 -spec own_alert_txt(#alert{}) -> string().
@@ -185,3 +187,70 @@ description_txt(?NO_APPLICATION_PROTOCOL) ->
     "No application protocol";
 description_txt(Enum) ->
     lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).
+
+description_atom(?CLOSE_NOTIFY) ->
+    close_notify;
+description_atom(?UNEXPECTED_MESSAGE) ->
+    unexpected_message;
+description_atom(?BAD_RECORD_MAC) ->
+    bad_record_mac;
+description_atom(?DECRYPTION_FAILED_RESERVED) ->
+    decryption_failed_reserved;
+description_atom(?RECORD_OVERFLOW) ->
+    record_overflow;
+description_atom(?DECOMPRESSION_FAILURE) ->
+    decompression_failure;
+description_atom(?HANDSHAKE_FAILURE) ->
+    handshake_failure;
+description_atom(?NO_CERTIFICATE_RESERVED) ->
+    no_certificate_reserved;
+description_atom(?BAD_CERTIFICATE) ->
+    bad_certificate;
+description_atom(?UNSUPPORTED_CERTIFICATE) ->
+    unsupported_certificate;
+description_atom(?CERTIFICATE_REVOKED) ->
+    certificate_revoked;
+description_atom(?CERTIFICATE_EXPIRED) ->
+    certificate_expired;
+description_atom(?CERTIFICATE_UNKNOWN) ->
+    certificate_unknown;
+description_atom(?ILLEGAL_PARAMETER) ->
+    illegal_parameter;
+description_atom(?UNKNOWN_CA) ->
+    unknown_ca;
+description_atom(?ACCESS_DENIED) ->
+    access_denied;
+description_atom(?DECODE_ERROR) ->
+    decode_error;
+description_atom(?DECRYPT_ERROR) ->
+    decrypt_error;
+description_atom(?EXPORT_RESTRICTION) ->
+    export_restriction;
+description_atom(?PROTOCOL_VERSION) ->
+    protocol_version;
+description_atom(?INSUFFICIENT_SECURITY) ->
+    insufficient_security;
+description_atom(?INTERNAL_ERROR) ->
+    internal_error;
+description_atom(?USER_CANCELED) ->
+    user_canceled;
+description_atom(?NO_RENEGOTIATION) ->
+    no_renegotiation;
+description_atom(?UNSUPPORTED_EXTENSION) ->
+    unsupported_extension;
+description_atom(?CERTIFICATE_UNOBTAINABLE) ->
+    certificate_unobtainable;
+description_atom(?UNRECOGNISED_NAME) ->
+    unrecognised_name;
+description_atom(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
+    bad_certificate_status_response;
+description_atom(?BAD_CERTIFICATE_HASH_VALUE) ->
+    bad_certificate_hash_value;
+description_atom(?UNKNOWN_PSK_IDENTITY) ->
+    unknown_psk_identity;
+description_atom(?INAPPROPRIATE_FALLBACK) ->
+    inappropriate_fallback;
+description_atom(?NO_APPLICATION_PROTOCOL) ->
+    no_application_protocol;
+description_atom(_) ->
+    'unsupported/unkonwn_alert'.

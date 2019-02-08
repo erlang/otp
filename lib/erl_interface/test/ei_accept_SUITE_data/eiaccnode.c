@@ -178,6 +178,8 @@ MAIN(int argc, char *argv[])
     no_threads = 1;
 #endif
 
+    ei_init();
+
     for (i = 0; i < n; ++i) {
 	if (!no_threads) {
 #ifndef VXWORKS

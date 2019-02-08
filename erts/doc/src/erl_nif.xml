@@ -2217,6 +2217,18 @@ enif_inspect_iovec(env, max_elements, term, &amp;tail, &amp;iovec);
     </func>
 
     <func>
+      <name since="OTP @OTP-15362@"><ret>ERL_NIF_TERM</ret>
+        <nametext>enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon)</nametext></name>
+      <fsummary>Make monitor term from the given monitor identifier.</fsummary>
+      <desc>
+        <p>Creates a term identifying the given monitor received from
+	<seealso marker="#enif_monitor_process"><c>enif_monitor_process</c>
+	</seealso>.</p>
+	<p>This function is primarily intended for debugging purpose.</p>
+      </desc>
+    </func>
+
+    <func>
       <name since="OTP R14B"><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv*
         env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term.</fsummary>
