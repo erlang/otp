@@ -69,6 +69,7 @@
                         hashsign_algorithm = {undefined, undefined},
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
+                        kex_algorithm         :: ssl:key_algo(),          
                         diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
                         srp_params           :: #srp_user{} | secret_printout() | 'undefined',
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
@@ -101,7 +102,6 @@
                 %% need to worry about packet loss in TLS. In DTLS we
                 %% need to track DTLS handshake seqnr
                 flight_buffer = []   :: list() | map(),  
-                kex_algorithm         :: ssl:key_algo(),                
                 client_certificate_requested = false :: boolean(),
                 diffie_hellman_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),        
                 srp_keys             ::{PublicKey :: binary(), PrivateKey :: binary()} | secret_printout() | 'undefined',

@@ -865,11 +865,11 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
                            static_env = #static_env{port = Port,
                                                      session_cache = Cache,
                                                     session_cache_cb = CacheCb},
-                           handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                           handshake_env = #handshake_env{kex_algorithm = KeyExAlg,
+                                                          renegotiation = {Renegotiation, _},
                                                           negotiated_protocol = CurrentProtocol} = HsEnv,
                            connection_env = CEnv,
 			   session = #session{own_certificate = Cert} = Session0,
-			   kex_algorithm = KeyExAlg,
 			   ssl_options = SslOpts} = State0) ->
     
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
