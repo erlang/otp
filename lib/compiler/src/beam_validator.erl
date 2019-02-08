@@ -604,8 +604,7 @@ valfun_4({make_fun2,_,_,_,Live}, Vst) ->
     call(make_fun, Live, Vst);
 %% Other BIFs
 valfun_4({bif,tuple_size,{f,Fail},[Tuple],Dst}=I, Vst0) ->
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, {tuple,[0],#{}}, Tuple, Vst1),
+    Vst = type_test(Fail, {tuple,[0],#{}}, Tuple, Vst0),
     set_type_reg_expr({integer,[]}, I, Dst, Vst);
 valfun_4({bif,element,{f,Fail},[Pos,Tuple],Dst}, Vst0) ->
     PosType = get_durable_term_type(Pos, Vst0),
@@ -635,8 +634,7 @@ valfun_4({bif,is_map_key,{f,Fail},[_Key,Map]=Ss,Dst}, Vst0) ->
 valfun_4({bif,Op,{f,Fail},[Cons]=Ss,Dst}, Vst0)
   when Op =:= hd; Op =:= tl ->
     validate_src(Ss, Vst0),
-    Vst1 = branch_state(Fail, Vst0),
-    Vst = update_type(fun meet/2, cons, Cons, Vst1),
+    Vst = type_test(Fail, cons, Cons, Vst0),
     Type = bif_type(Op, Ss, Vst),
     extract_term(Type, Ss, Dst, Vst);
 valfun_4({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
