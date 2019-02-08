@@ -119,7 +119,7 @@ encode_handshake(Frag, Version,
 %% Description: Encodes an alert message to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_alert_record(Alert, {3, 4}, ConnectionStates) ->
-    tls_record_1_3:encode_handshake(Alert, ConnectionStates);
+    tls_record_1_3:encode_alert_record(Alert, ConnectionStates);
 encode_alert_record(#alert{level = Level, description = Description},
                     Version, ConnectionStates) ->
     encode_plain_text(?ALERT, Version, <<?BYTE(Level), ?BYTE(Description)>>,
