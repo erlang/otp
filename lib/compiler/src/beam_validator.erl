@@ -1350,10 +1350,6 @@ select_val_branches_1([], _, _, Vst) -> Vst.
 
 infer_types(Src, Vst) ->
     case get_def(Src, Vst) of
-        {bif,is_map,{f,_},[Map],_} ->
-            fun({atom,true}, S) -> update_type(fun meet/2, map, Map, S);
-               (_, S) -> S
-            end;
         {bif,tuple_size,{f,_},[Tuple],_} ->
             fun({integer,Arity}, S) ->
                     update_type(fun meet/2, {tuple,Arity,#{}}, Tuple, S);
@@ -1365,8 +1361,35 @@ infer_types(Src, Vst) ->
                     Infer(Val, S);
                (_, S) -> S
             end;
+        {bif,is_atom,{f,_},[Src],_} ->
+            infer_type_test_bif({atom,[]}, Src);
+        {bif,is_boolean,{f,_},[Src],_} ->
+            infer_type_test_bif(bool, Src);
+        {bif,is_binary,{f,_},[Src],_} ->
+            infer_type_test_bif(binary, Src);
+        {bif,is_bitstring,{f,_},[Src],_} ->
+            infer_type_test_bif(binary, Src);
+        {bif,is_float,{f,_},[Src],_} ->
+            infer_type_test_bif(float, Src);
+        {bif,is_integer,{f,_},[Src],_} ->
+            infer_type_test_bif({integer,{}}, Src);
+        {bif,is_list,{f,_},[Src],_} ->
+            infer_type_test_bif(list, Src);
+        {bif,is_map,{f,_},[Src],_} ->
+            infer_type_test_bif(map, Src);
+        {bif,is_number,{f,_},[Src],_} ->
+            infer_type_test_bif(number, Src);
+        {bif,is_tuple,{f,_},[Src],_} ->
+            infer_type_test_bif({tuple,[],#{}}, Src);
         _ ->
             fun(_, S) -> S end
+    end.
+
+infer_type_test_bif(Type, Src) ->
+    fun({atom,true}, S) ->
+            update_type(fun meet/2, Type, Src, S);
+       (_, S) ->
+            S
     end.
 
 %%%
