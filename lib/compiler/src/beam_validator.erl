@@ -795,18 +795,24 @@ valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
     branch_state(Lbl, Vst);
-valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = update_ne_types(Src, Val, Vst0),
-    Vst2 = branch_state(Lbl, Vst1),
-    Vst = Vst2#vst{current=Vst0#vst.current},
-    update_eq_types(Src, Val, Vst);
-valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst0) ->
-    validate_src(Ss, Vst0),
-    Vst1 = update_eq_types(Src, Val, Vst0),
-    Vst2 = branch_state(Lbl, Vst1),
-    Vst = Vst2#vst{current=Vst0#vst.current},
-    update_ne_types(Src, Val, Vst);
+valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_ne_types(Src, Val, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_eq_types(Src, Val, SuccVst)
+                 end, Vst);
+valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    complex_test(Lbl,
+                 fun(FailVst) ->
+                         update_eq_types(Src, Val, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_ne_types(Src, Val, SuccVst)
+                 end, Vst);
 valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
     validate_src(Src, Vst),
     branch_state(Lbl, Vst);
@@ -897,37 +903,43 @@ verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
     assert_type(map, Src, Vst0),
 
-    %% get_map_elements may leave its destinations in an inconsistent state
-    %% when the fail label is taken. Consider the following:
-    %%
-    %%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
-    %%
-    %% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
-    Vst1 = foldl(fun(Dst, Vsti) ->
-                         case is_reg_defined(Dst,Vsti) of
-                             true -> extract_term(term, [Src], Dst, Vsti);
-                             false -> Vsti
-                         end
-                 end, Vst0, extract_map_vals(List)),
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         clobber_map_vals(List, Src, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         Keys = extract_map_keys(List),
+                         assert_unique_map_keys(Keys),
+                         extract_map_vals(List, Src, SuccVst, SuccVst)
+                 end, Vst0).
 
-    Vst2 = branch_state(Fail, Vst1),
-    Keys = extract_map_keys(List),
-    assert_unique_map_keys(Keys),
-    verify_get_map_pair(List, Src, Vst0, Vst2).
-
-extract_map_vals([_Key,Val|T]) ->
-    [Val|extract_map_vals(T)];
-extract_map_vals([]) -> [].
+%% get_map_elements may leave its destinations in an inconsistent state when
+%% the fail label is taken. Consider the following:
+%%
+%%    {get_map_elements,{f,7},{x,1},{list,[{atom,a},{x,1},{atom,b},{x,2}]}}.
+%%
+%% If 'a' exists but not 'b', {x,1} is overwritten when we jump to {f,7}.
+clobber_map_vals([_Key,Dst|T], Map, Vst0) ->
+    case is_reg_defined(Dst, Vst0) of
+        true ->
+            Vst = extract_term(term, [Map], Dst, Vst0),
+            clobber_map_vals(T, Map, Vst);
+        false ->
+            clobber_map_vals(T, Map, Vst0)
+    end;
+clobber_map_vals([], _Map, Vst) ->
+    Vst.
 
 extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
 extract_map_keys([]) -> [].
 
-verify_get_map_pair([Src,Dst|Vs], Map, Vst0, Vsti0) ->
+extract_map_vals([Src,Dst|Vs], Map, Vst0, Vsti0) ->
     assert_term(Src, Vst0),
     Vsti = extract_term(term, [Map], Dst, Vsti0),
-    verify_get_map_pair(Vs, Map, Vst0, Vsti);
-verify_get_map_pair([], _Map, _Vst0, Vst) -> Vst.
+    extract_map_vals(Vs, Map, Vst0, Vsti);
+extract_map_vals([], _Map, _Vst0, Vst) ->
+    Vst.
 
 verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(map, Src, Vst0),
@@ -945,17 +957,21 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
 %% Common code for validating bs_start_match* instructions.
 %%
 
-validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
+validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
+    verify_live(Live, Vst),
+    verify_y_init(Vst),
 
     %% #ms{} can represent either a match context or a term, so we have to mark
     %% the source as a term if it fails, and retain the incoming type if it
     %% succeeds (match context or not).
-    Vst1 = set_aliased_type(term, Src, Vst0),
-    Vst2 = prune_x_regs(Live, Vst1),
-    Vst3 = branch_state(Fail, Vst2),
-    extract_term(Type, [Src], Dst, Vst3, Vst0).
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         set_aliased_type(term, Src, FailVst)
+                 end,
+                 fun(SuccVst0) ->
+                         SuccVst = prune_x_regs(Live, SuccVst0),
+                         extract_term(Type, [Src], Dst, SuccVst, Vst)
+                 end, Vst).
 
 %%
 %% Common code for validating bs_get* instructions.
@@ -1377,11 +1393,25 @@ extract_term(Type0, Ss, Dst, Vst, OrigVst) ->
     Type = propagate_fragility(Type0, Ss, OrigVst),
     set_type_reg(Type, Dst, Vst).
 
+%% Helper functions for tests that alter state on both the success and fail
+%% branches, keeping the states from tainting each other.
+complex_test(Fail, FailFun, SuccFun, Vst0) ->
+    #vst{current=St0} = Vst0,
+    Vst1 = FailFun(Vst0),
+    Vst2 = branch_state(Fail, Vst1),
+    Vst = Vst2#vst{current=St0},
+    SuccFun(Vst).
+
 %% Helper function for simple "is_type" tests.
-type_test(Fail, Type, Reg, Vst0) ->
-    assert_term(Reg, Vst0),
-    Vst = branch_state(Fail, update_type(fun subtract/2, Type, Reg, Vst0)),
-    update_type(fun meet/2, Type, Reg, Vst).
+type_test(Fail, Type, Reg, Vst) ->
+    assert_term(Reg, Vst),
+    complex_test(Fail,
+                 fun(FailVst) ->
+                         update_type(fun subtract/2, Type, Reg, FailVst)
+                 end,
+                 fun(SuccVst) ->
+                         update_type(fun meet/2, Type, Reg, SuccVst)
+                 end, Vst).
 
 %% This is used when linear code finds out more and more information about a
 %% type, so that the type gets more specialized.
