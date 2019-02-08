@@ -33,7 +33,13 @@
   <modulesummary>Socket interface.</modulesummary>
   <description>
     <p>This module provides an API for the socket interface.
-      It is used to create, delete and manipulate sockets.</p>
+    It is used to create, delete and manipulate sockets,
+    send and receive data.</p>
+    <p>The idea is that it shall be as "close as possible" to the OS
+    level socket interface. The only significant addition is that some of
+    the functions,
+    e.g. <seealso marker="#recv/3"><c>recv/3</c></seealso>, 
+    has a timeout argument. </p>
   </description>
 
   <datatypes>
@@ -574,7 +580,34 @@
   <section>
     <title>Examples</title>
     <marker id="examples"></marker>
-    <p>TBD</p>
+    <code type="none">
+client(Addr, Port) ->
+   {ok, Sock} = socket:open(inet, stream, tcp),
+   ok = socket:bind(Sock, #{family => inet,
+                            port   => 0,
+			    addr   => any}),
+   ok = socket:connect(Sock, #{family => inet,
+                               addr   => Addr,
+			       port   => Port}),
+   Msg = list_to_binary("hello"),
+   ok = socket:send(Sock, Msg),
+   ok = socket:shutdown(Sock, write),
+   {ok, Msg} = socket:recv(Sock),
+   ok = socket:close(Sock).
+
+server(Addr, Port) ->  
+   {ok, LSock} = socket:open(inet, stream, tcp),
+   ok = socket:bind(LSock, #{family => inet,
+                             port   => Port,
+		 	     addr   => Addr}),
+   ok = socket:listen(LSock),
+   {ok, Sock} = socket:accept(LSock),
+   {ok, Msg} = socket:recv(Sock),
+   ok = socket:send(Sock, Msg),
+   ok = socket:shutdown(Sock, write),
+   ok = socket:close(Sock),
+   ok = socket:close(LSock).
+    </code>
   </section>
 </erlref>
 
