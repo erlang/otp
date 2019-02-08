@@ -872,6 +872,7 @@ supports() ->
      {ipv6,    supports(ipv6)}].
 
 
+-dialyzer({nowarn_function, supports/1}).
 -spec supports(options) -> supports_options();
               (sctp)    -> boolean();
               (ipv6)    -> boolean();
@@ -887,6 +888,7 @@ supports(ipv6) ->
 supports(_Key1) ->
     false.
 
+-dialyzer({nowarn_function, supports/2}).
 -spec supports(options, socket) -> supports_options_socket();
               (options, ip) -> supports_options_ip();
               (options, ipv6) -> supports_options_ipv6();
@@ -903,6 +905,7 @@ supports(_Key1, _Level) ->
     false.
 
 
+-dialyzer({nowarn_function, supports/3}).
 -spec supports(options, socket, Opt) -> boolean() when
       Opt :: socket_option();
               (options, ip, Opt) -> boolean() when
@@ -2523,6 +2526,7 @@ enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% encode the value into an more "manageable" type.
 %% It also handles "aliases" (see linger).
 
+-dialyzer({nowarn_function, enc_setopt_value/6}).
 -spec enc_setopt_value(otp, otp_socket_option(),
                        Value, Domain, Type, Protocol) -> term() when
       Value    :: term(),
@@ -3444,6 +3448,7 @@ enc_shutdown_how(read_write) ->
 %%
 %% ===========================================================================
 
+-dialyzer({nowarn_function, ensure_ip_msfilter_slist/1}).
 ensure_ip_msfilter_slist(SL) ->
     EnsureSA = fun(SA) when is_tuple(SA) andalso (size(SA) =:= 4) -> ok;
                   (_) -> einval()
