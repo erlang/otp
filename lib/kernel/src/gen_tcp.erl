@@ -156,7 +156,7 @@ connect(Address, Port, Opts) ->
       Options :: [connect_option()],
       Timeout :: timeout(),
       Socket :: socket(),
-      Reason :: inet:posix().
+      Reason :: timeout | inet:posix().
 
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
@@ -220,7 +220,7 @@ listen(Port, Opts0) ->
 -spec accept(ListenSocket) -> {ok, Socket} | {error, Reason} when
       ListenSocket :: socket(),
       Socket :: socket(),
-      Reason :: closed | timeout | system_limit | inet:posix().
+      Reason :: closed | system_limit | inet:posix().
 
 accept(S) ->
     case inet_db:lookup_socket(S) of
@@ -312,7 +312,7 @@ recv(S, Length) when is_port(S) ->
       Length :: non_neg_integer(),
       Timeout :: timeout(),
       Packet :: string() | binary() | HttpPacket,
-      Reason :: closed | inet:posix(),
+      Reason :: closed | timeout | inet:posix(),
       HttpPacket :: term().
 
 recv(S, Length, Time) when is_port(S) ->
