@@ -95,7 +95,7 @@
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
       Port :: inet:port_number(),
       Socket :: socket(),
-      Reason :: inet:posix().
+      Reason :: system_limit | inet:posix().
 
 open(Port) -> 
     open(Port, []).
@@ -112,7 +112,7 @@ open(Port) ->
               | {bind_to_device, binary()}
               | option(),
       Socket :: socket(),
-      Reason :: inet:posix().
+      Reason :: system_limit | inet:posix().
 
 open(Port, Opts0) ->
     {Mod, Opts} = inet:udp_module(Opts0),
@@ -186,7 +186,7 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
       Port :: inet:port_number(),
       AncData :: inet:ancillary_data(),
       Packet :: string() | binary(),
-      Reason :: not_owner | inet:posix().
+      Reason :: not_owner | timeout | inet:posix().
 
 recv(S,Len,Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
