@@ -62,6 +62,7 @@
 		   merge_tests=true}).
 
 -record(cover, {app=none,
+                local_only=false,
 		level=details,
 		excl_mods=[],
 		incl_mods=[],

@@ -262,6 +262,11 @@ get_app_info(App=#cover{app=Name}, [{src_files,Name,Src1}|Terms], Dir) ->
     Src = App#cover.src,
     get_app_info(App#cover{src=Src++Src1},Terms,Dir);
 
+get_app_info(App=#cover{app=none}, [{local_only,Bool}|Terms], Dir) ->
+    get_app_info(App, [{local_only,none,Bool}|Terms], Dir);
+get_app_info(App=#cover{app=Name}, [{local_only,Name,Bool}|Terms], Dir) ->
+    get_app_info(App#cover{local_only=Bool},Terms,Dir);
+
 get_app_info(App, [_|Terms], Dir) ->
     get_app_info(App, Terms, Dir);
 
