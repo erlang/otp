@@ -440,6 +440,12 @@ edit_config(Config) ->
     ?ok = ct_netconfc:edit_config(Client,running,
 				  {server,[{xmlns,"myns"}],
 				   [{name,["myserver"]}]}),
+    ?NS:expect_reply('edit-config',ok),
+    ?ok = ct_netconfc:edit_config(Client,running,
+				  [{server,[{xmlns,"myns"}],
+                                    [{name,["server1"]}]},
+                                   {server,[{xmlns,"myns"}],
+                                    [{name,["server2"]}]}]),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
     ok.
