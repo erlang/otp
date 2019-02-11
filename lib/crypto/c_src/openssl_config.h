@@ -160,6 +160,7 @@
 
 // BLAKE2:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1) \
+    && !defined(HAS_LIBRESSL) \
     && !defined(OPENSSL_NO_BLAKE2)
 # define HAVE_BLAKE2
 #endif
