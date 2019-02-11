@@ -1156,7 +1156,17 @@ simple() ->
     {A}.
 
 simple1() ->
-    erlang:error(simple).
+    %% If the compiler could see that this function would always
+    %% throw an error exception, it would rewrite simple() like this:
+    %%
+    %%   simple() -> simple1().
+    %%
+    %% That would change the stacktrace. To prevent the compiler from
+    %% doing that optimization, we must obfuscate the code.
+    case get(a_key_that_is_not_defined) of
+        undefined -> erlang:error(simple);
+        WillNeverHappen -> WillNeverHappen
+    end.
 
 %% Simple cases, just to cover some code.
 funs(Config) when is_list(Config) ->

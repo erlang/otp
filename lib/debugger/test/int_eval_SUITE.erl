@@ -285,7 +285,10 @@ do_eval(Config, Mod) ->
     DataDir = proplists:get_value(data_dir, Config),
     ok = file:set_cwd(DataDir),
 
-    {ok,Mod} = compile:file(Mod, [report,debug_info]),
+    %% Turn off type-based optimizations across function calls, as it
+    %% would turn many body-recursive calls into tail-recursive calls,
+    %% which would change the stacktrace.
+    {ok,Mod} = compile:file(Mod, [no_module_opt,report,debug_info]),
     {module,Mod} = code:load_file(Mod),
     CompiledRes = Mod:Mod(),
     ok = io:format("Compiled:\n~p", [CompiledRes]),

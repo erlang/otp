@@ -23,7 +23,7 @@
 
 -include("beam_ssa_opt.hrl").
 -import(lists, [all/2,any/2,droplast/1,foldl/3,last/1,member/2,
-                partition/2,reverse/1,seq/2,sort/1]).
+                partition/2,reverse/1,reverse/2,seq/2,sort/1]).
 
 -define(UNICODE_INT, #t_integer{elements={0,16#10FFFF}}).
 
@@ -124,7 +124,7 @@ opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
             ls=#{0=>Ts,?BADARG_BLOCK=>#{}},
             once=UsedOnce },
 
-    {Linear, FuncDb, NewRet} = opt_1(Linear0, D, []),
+    {Linear, FuncDb, NewRet} = opt(Linear0, D, []),
 
     case FuncDb of
         #{ Id := Entry0 } ->
@@ -192,56 +192,41 @@ get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
-opt_1([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
+opt([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
     case Ls of
         #{L:=Ts} ->
-            opt_2(L, Blk, Bs, Ts, D, Acc);
+            opt_1(L, Blk, Bs, Ts, D, Acc);
         #{} ->
             %% This block is never reached. Discard it.
-            opt_1(Bs, D, Acc)
+            opt(Bs, D, Acc)
     end;
-opt_1([], D, Acc) ->
+opt([], D, Acc) ->
     #d{func_db=FuncDb,ret_type=NewRet} = D,
     {reverse(Acc), FuncDb, NewRet}.
 
-opt_2(L, #b_blk{is=Is0}=Blk0, Bs, Ts, #d{sub=Sub}=D0, Acc) ->
-    case Is0 of
-        [#b_set{op=call,dst=Dst,
-                args=[#b_remote{mod=#b_literal{val=Mod},
-                                name=#b_literal{val=Name}}=Rem|Args0]}=I0] ->
-            case erl_bifs:is_exit_bif(Mod, Name, length(Args0)) of
-                true ->
-                    %% This call will never reach the successor block.
-                    %% Rewrite the terminator to a 'ret', and remove
-                    %% all type information for this label. That will
-                    %% simplify the phi node in the former successor.
-                    Args = simplify_args(Args0, Sub, Ts),
-                    I = I0#b_set{args=[Rem|Args]},
-                    Ret = #b_ret{arg=Dst},
-                    Blk = Blk0#b_blk{is=[I],last=Ret},
-                    Ls = maps:remove(L, D0#d.ls),
-
-                    %% We potentially lack a return value.
-                    RetType = join([none | D0#d.ret_type]),
-
-                    D = D0#d{ls=Ls,ret_type=[RetType]},
-                    opt_1(Bs, D, [{L,Blk} | Acc]);
-                false ->
-                    opt_3(L, Blk0, Bs, Ts, D0, Acc)
-            end;
-        _ ->
-            opt_3(L, Blk0, Bs, Ts, D0, Acc)
+opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
+      #d{ds=Ds0,sub=Sub0,func_db=Fdb0}=D0, Acc) ->
+    case opt_is(Is0, Ts0, Ds0, Fdb0, D0, Sub0, []) of
+        {Is,Ts,Ds,Fdb,Sub} ->
+            D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
+            Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
+            Last = opt_terminator(Last1, Ts, Ds),
+            D = update_successors(Last, Ts, D1),
+            Blk = Blk0#b_blk{is=Is,last=Last},
+            opt(Bs, D, [{L,Blk}|Acc]);
+        {no_return,Ret,Is,Ds,Fdb,Sub} ->
+            %% This call will never reach the successor block.
+            %% Rewrite the terminator to a 'ret', and remove
+            %% all type information for this label. That can
+            %% potentially narrow the type of the phi node
+            %% in the former successor.
+            Ls = maps:remove(L, D0#d.ls),
+            RetType = join([none|D0#d.ret_type]),
+            D = D0#d{ds=Ds,ls=Ls,sub=Sub,
+                     func_db=Fdb,ret_type=[RetType]},
+            Blk = Blk0#b_blk{is=Is,last=Ret},
+            opt(Bs, D, [{L,Blk}|Acc])
     end.
-
-opt_3(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
-      #d{ds=Ds0,ls=Ls0,sub=Sub0,func_db=Fdb0}=D0, Acc) ->
-    {Is,Ts,Ds,Fdb,Sub} = opt_is(Is0, Ts0, Ds0, Fdb0, Ls0, D0, Sub0, []),
-    D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
-    Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
-    Last = opt_terminator(Last1, Ts, Ds),
-    D = update_successors(Last, Ts, D1),
-    Blk = Blk0#b_blk{is=Is,last=Last},
-    opt_1(Bs, D, [{L,Blk} | Acc]).
 
 simplify_terminator(#b_br{bool=Bool}=Br, Sub, Ts, _Ds) ->
     Br#b_br{bool=simplify_arg(Bool, Sub, Ts)};
@@ -256,7 +241,7 @@ simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts, Ds) ->
     end.
 
 opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
-       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
+       Ts0, Ds0, Fdb, #d{ls=Ls}=D, Sub0, Acc) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
     Args = [{simplify_arg(Arg, Sub0, Ts0),From} ||
@@ -267,43 +252,39 @@ opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
             %% value or if the values are identical.
             [{Val,_}|_] = Args,
             Sub = Sub0#{Dst=>Val},
-            opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
+            opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc);
         false ->
             I = I0#b_set{args=Args},
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc])
+            opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc])
     end;
-opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0 | Is],
-       Ts0, Ds0, Fdb0, Ls, D, Sub, Acc) ->
+opt_is([#b_set{op=call,args=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Fdb0, D, Sub, Acc) ->
     Args = simplify_args(Args0, Sub, Ts0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
-
-    %% This is a bit of a kludge; we know that any instruction whose return
-    %% type is 'none' will fail at runtime, but we don't yet have a way to cut
-    %% a block short so we move on like nothing nothing happened.
-    %%
-    %% This complicates argument type optimization as unreachable calls can
-    %% add types that will never occur, so we skip optimizing this call if
-    %% the type of any of its arguments is 'none'.
-    [_Callee | Rest] = Args,
-    case all(fun(Arg) -> get_type(Arg, Ts0) =/= none end, Rest) of
-        true ->
-            {Ts, Ds, Fdb, I} = opt_call(I1, D, Ts0, Ds0, Fdb0),
-            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub, [I|Acc]);
-        false ->
-            Ts = Ts0#{ Dst => any },
-            Ds = Ds0#{ Dst => I1 },
-            opt_is(Is, Ts, Ds, Fdb0, Ls, D, Sub, [I1|Acc])
+    {Ts,Ds,Fdb,I} = opt_call(I1, D, Ts0, Ds0, Fdb0),
+    case {map_get(Dst, Ts),Is} of
+        {none,[#b_set{op=succeeded}]} ->
+            %% This call instruction is inside a try/catch
+            %% block. Don't attempt to optimize it.
+            opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc]);
+        {none,_} ->
+            %% This call never returns. The rest of the
+            %% instructions will not be executed.
+            Ret = #b_ret{arg=Dst},
+            {no_return,Ret,reverse(Acc, [I]),Ds,Fdb,Sub};
+        _ ->
+            opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc])
     end;
 opt_is([#b_set{op=set_tuple_element}=I0|Is],
-       Ts0, Ds0, Fdb, Ls, D, Sub, Acc) ->
+       Ts0, Ds0, Fdb, D, Sub, Acc) ->
     %% This instruction lacks a return value and destructively updates its
     %% source, so it needs special handling to update the source type.
     {Ts, Ds, I} = opt_set_tuple_element(I0, Ts0, Ds0, Sub),
-    opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub, [I|Acc]);
+    opt_is(Is, Ts, Ds, Fdb, D, Sub, [I|Acc]);
 opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
-       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
+       Ts0, Ds0, Fdb, D, Sub0, Acc) ->
     case Ds0 of
         #{ Arg := #b_set{op=call} } ->
             %% The success check of a call is part of exception handling and
@@ -312,22 +293,22 @@ opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst}=I],
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
 
-            opt_is([], Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc]);
+            opt_is([], Ts, Ds, Fdb, D, Sub0, [I|Acc]);
         #{} ->
             Args = simplify_args([Arg], Sub0, Ts0),
             Type = type(succeeded, Args, Ts0, Ds0),
             case get_literal_from_type(Type) of
                 #b_literal{}=Lit ->
                     Sub = Sub0#{Dst=>Lit},
-                    opt_is([], Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
+                    opt_is([], Ts0, Ds0, Fdb, D, Sub, Acc);
                 none ->
                     Ts = Ts0#{Dst=>Type},
                     Ds = Ds0#{Dst=>I},
-                    opt_is([], Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc])
+                    opt_is([], Ts, Ds, Fdb, D, Sub0, [I|Acc])
             end
     end;
 opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Fdb, Ls, D, Sub0, Acc) ->
+       Ts0, Ds0, Fdb, D, Sub0, Acc) ->
     Args = simplify_args(Args0, Sub0, Ts0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0) of
@@ -335,22 +316,22 @@ opt_is([#b_set{args=Args0,dst=Dst}=I0|Is],
             I = beam_ssa:normalize(I2),
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            opt_is(Is, Ts, Ds, Fdb, Ls, D, Sub0, [I|Acc]);
+            opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc]);
         #b_literal{}=Lit ->
             Sub = Sub0#{Dst=>Lit},
-            opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
+            opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc);
         #b_var{}=Var ->
             case Is of
                 [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] ->
                     %% We must remove this 'succeeded' instruction.
                     Sub = Sub0#{Dst=>Var,SuccDst=>#b_literal{val=true}},
-                    opt_is([], Ts0, Ds0, Fdb, Ls, D, Sub, Acc);
+                    opt_is([], Ts0, Ds0, Fdb, D, Sub, Acc);
                 _ ->
                     Sub = Sub0#{Dst=>Var},
-                    opt_is(Is, Ts0, Ds0, Fdb, Ls, D, Sub, Acc)
+                    opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc)
             end
     end;
-opt_is([], Ts, Ds, Fdb, _Ls, _D, Sub, Acc) ->
+opt_is([], Ts, Ds, Fdb, _D, Sub, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
 opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, D, Ts0, Ds0, Fdb0) ->
@@ -375,14 +356,13 @@ opt_call(#b_set{dst=Dst}=I, _D, Ts0, Ds0, Fdb) ->
     {Ts, Ds, Fdb, I}.
 
 opt_local_call(#b_set{dst=Dst,args=[Id|_]}=I0, Ts0, Ds0, Fdb) ->
-    %% We skip propagating 'none' as we don't yet have a good way to cut a
-    %% block short.
     Type = case Fdb of
-               #{ Id := #func_info{ret_type=[T]} } when T =/= none -> T;
+               #{ Id := #func_info{ret_type=[T]} } -> T;
                #{} -> any
            end,
     I = case Type of
             any -> I0;
+            none -> I0;
             _ -> beam_ssa:add_anno(result_type, validator_anno(Type), I0)
         end,
     Ts = Ts0#{ Dst => Type },
@@ -396,11 +376,6 @@ update_arg_types([Arg | Args], [TypeMap0 | TypeMaps], CallId, Ts) ->
                   #t_bs_match{} -> {binary, 1};
                   Type -> Type
               end,
-    PrevType = maps:get(CallId, TypeMap0, NewType),
-
-    %% The new type must be narrower than the old one.
-    true = meet(NewType, PrevType) =/= none,    %Assertion.
-
     TypeMap = TypeMap0#{ CallId => NewType },
     [TypeMap | update_arg_types(Args, TypeMaps, CallId, Ts)];
 update_arg_types([], [], _CallId, _Ts) ->
