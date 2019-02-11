@@ -102,6 +102,7 @@ all() ->
      create_release,
      create_release_sort,
      create_script,
+     create_script_without_dot_erlang,
      create_script_sort,
      create_target,
      create_target_unicode,
@@ -248,9 +249,9 @@ get_config(_Config) ->
 		    {app,stdlib,[{incl_cond,include},{vsn,undefined},
 				 {lib_dir,StdLibDir}]},
 		    {boot_rel,"start_clean"},
-                    {rel,"no_dot_erlang","1.0",[]},
-		    {rel,"start_clean","1.0",[]},
-		    {rel,"start_sasl","1.0",[sasl]},
+                    {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		    {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		    {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		    {emu_name,"beam"},
 		    {relocatable,true},
 		    {profile,development},
@@ -279,9 +280,9 @@ get_config(_Config) ->
 		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
 				 {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		    {boot_rel,"start_clean"},
-                    {rel,"no_dot_erlang","1.0",[]},
-		    {rel,"start_clean","1.0",[]},
-		    {rel,"start_sasl","1.0",[sasl]},
+                    {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		    {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		    {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		    {emu_name,"beam"},
 		    {relocatable,true},
 		    {profile,development},
@@ -548,6 +549,32 @@ create_script(_Config) ->
     %% ?m(OrigScript2, Script2),
     
     ?m(equal, diff_script(OrigScript, Script)),
+
+    %% A release defaults to load_dot_erlang == true
+    {script, {RelName, RelVsn}, ScriptInstructions} = Script,
+    ?m(true, lists:member({apply,{c,erlangrc,[]}}, ScriptInstructions)),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+create_script_without_dot_erlang(_Config) ->
+    %% Configure the server
+    RelName = "Just testing",
+    RelVsn = "1.0",
+    Config =
+        {sys,
+         [
+          {lib_dirs, []},
+          {boot_rel, RelName},
+          {rel, RelName, RelVsn, [stdlib, kernel], [{load_dot_erlang, false}]}
+         ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Config}])),
+
+    %% Confirm that load_dot_erlang == false was used
+    {ok, Script} = ?msym({ok, _}, reltool:get_script(Pid, RelName)),
+    {script, {RelName, RelVsn}, ScriptInstructions} = Script,
+    ?m(false, lists:member({apply,{c,erlangrc,[]}}, ScriptInstructions)),
 
     %% Stop server
     ?m(ok, reltool:stop(Pid)),
@@ -2107,9 +2134,9 @@ save_config(Config) ->
 		     {app,stdlib,[{incl_cond,include},{vsn,undefined},
 				  {lib_dir,undefined}]},
 		     {boot_rel,"start_clean"},
-                     {rel,"no_dot_erlang","1.0",[]},
-		     {rel,"start_clean","1.0",[]},
-		     {rel,"start_sasl","1.0",[sasl]},
+                     {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		     {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		     {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		     {emu_name,"beam"},
 		     {relocatable,true},
 		     {profile,development},
@@ -2148,9 +2175,9 @@ save_config(Config) ->
 		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
 				  {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		     {boot_rel,"start_clean"},
-                     {rel,"no_dot_erlang","1.0",[]},
-		     {rel,"start_clean","1.0",[]},
-		     {rel,"start_sasl","1.0",[sasl]},
+                     {rel,"no_dot_erlang","1.0",[],[{load_dot_erlang,false}]},
+		     {rel,"start_clean","1.0",[],[{load_dot_erlang,true}]},
+		     {rel,"start_sasl","1.0",[sasl],[{load_dot_erlang,true}]},
 		     {emu_name,"beam"},
 		     {relocatable,true},
 		     {profile,development},
