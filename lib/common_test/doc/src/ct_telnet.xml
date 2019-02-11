@@ -239,18 +239,21 @@
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="cmd-3"/>
         <p>Sends a command through Telnet and waits for prompt.</p>
 
-        <p>By default, this function adds a new line to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, use option
           <c>{newline,false}</c>. This is necessary, for example, when
           sending Telnet command sequences prefixed with character
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>Option <c>timeout</c> specifies how long the client must wait
           for prompt. If the time expires, the function returns
@@ -280,7 +283,7 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {timeout, timeout()} | {newline, boolean()}</v>
+        <v>Opt = {timeout, timeout()} | {newline, boolean() | string()}</v>
         <v>Data = [string()]</v>
         <v>Reason = term()</v>
       </type>
@@ -339,7 +342,7 @@
           subexpression number <c>N</c>. Subexpressions are denoted with
           <c>'(' ')'</c> in the regular expression.</p>
 
-        <p>If a <c>Tag</c> is speciifed, the returned <c>Match</c> also
+        <p>If a <c>Tag</c> is specified, the returned <c>Match</c> also
           includes the matched <c>Tag</c>. Otherwise, only <c>RxMatch</c>
           is returned.</p>
 
@@ -382,7 +385,7 @@
             can abort the operation of waiting for prompt.</p></item>
           <tag><c>repeat | repeat, N</c></tag>
           <item><p>The pattern(s) must be matched multiple times. If <c>N</c>
-            is speciified, the pattern(s) are matched <c>N</c> times, and
+            is specified, the pattern(s) are matched <c>N</c> times, and
             the function returns <c>HaltReason = done</c>. This option can be
             interrupted by one or more <c>HaltPatterns</c>. <c>MatchList</c>
             is always returned, that is, a list of <c>Match</c> instead of
@@ -547,17 +550,20 @@
         <v>Connection = connection()</v>
         <v>Cmd = string()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="send-3"/>
         <p>Sends a Telnet command and returns immediately.</p>
 
-        <p>By default, this function adds a newline to the end of the
+        <p>By default, this function adds "\n" to the end of the
           specified command. If this is not desired, option
           <c>{newline,false}</c> can be used. This is necessary, for example,
           when sending Telnet command sequences prefixed with character   
-          Interprete As Command (IAC).</p>
+          Interpret As Command (IAC). Option <c>{newline,string()}</c>
+          can also be used if a different line end than "\n" is
+          required, for instance <c>{newline,"\r\n"}</c>, to add both
+          carriage return and newline characters.</p>
 
         <p>The resulting output from the command can be read with
           <seealso marker="#get_data-1"><c>ct_telnet:get_data/2</c></seealso> or
@@ -584,12 +590,15 @@
         <v>CmdFormat = string()</v>
         <v>Args = list()</v>
         <v>Opts = [Opt]</v>
-        <v>Opt = {newline, boolean()}</v>
+        <v>Opt = {newline, boolean() | string()}</v>
         <v>Reason = term()</v>
       </type>
       <desc><marker id="sendf-4"/>
         <p>Sends a Telnet command and returns immediately (uses a format
           string and a list of arguments to build the command).</p>
+
+        <p>For details, see
+          <seealso marker="#send-3"><c>ct_telnet:send/3</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

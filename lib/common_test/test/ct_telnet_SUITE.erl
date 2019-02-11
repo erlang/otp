@@ -50,10 +50,10 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 groups() ->
-    [{legacy, [], [unix_telnet,own_server,timetrap]},
-     {raw,    [], [unix_telnet,own_server,timetrap]},
-     {html,   [], [unix_telnet,own_server]},
-     {silent, [], [unix_telnet,own_server]}].
+    [{legacy, [], [unix_telnet,own_server,faulty_regexp,timetrap]},
+     {raw,    [], [unix_telnet,own_server,faulty_regexp,timetrap]},
+     {html,   [], [unix_telnet,own_server,faulty_regexp]},
+     {silent, [], [unix_telnet,own_server,faulty_regexp]}].
 
 all() ->
     [
@@ -117,6 +117,12 @@ own_server(Config) ->
     CfgFile = "telnet.own_server." ++
 	atom_to_list(groupname(Config)) ++ ".cfg",
     all_tests_in_suite(own_server,"ct_telnet_own_server_SUITE",
+		       CfgFile,Config).
+
+faulty_regexp(Config) ->
+    CfgFile = "telnet.faulty_regexp." ++
+	atom_to_list(groupname(Config)) ++ ".cfg",
+    all_tests_in_suite(faulty_regexp,"ct_telnet_faulty_regexp_SUITE",
 		       CfgFile,Config).
 
 timetrap(Config) ->
@@ -225,6 +231,31 @@ events_to_check(unix_telnet,Config) ->
     all_cases(ct_telnet_basic_SUITE,Config);
 events_to_check(own_server,Config) ->
     all_cases(ct_telnet_own_server_SUITE,Config);
+events_to_check(faulty_regexp,_Config) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,tc_done,
+      {ct_telnet_faulty_regexp_SUITE,expect_pattern,
+       {failed,
+        {error,{{bad_pattern,"invalid(pattern",{"missing )",15}},
+                {ct_telnet,expect,3}}}}}},
+     {?eh,tc_done,
+      {ct_telnet_faulty_regexp_SUITE,expect_pattern_no_string,
+       {failed,
+        {error,{{bad_pattern,invalid_pattern},
+                {ct_telnet,expect,3}}}}}},
+     {?eh,tc_done,
+      {ct_telnet_faulty_regexp_SUITE,expect_tag_pattern,
+       {failed,
+        {error,{{bad_pattern,{tag,"invalid(pattern"},{"missing )",15}},
+                {ct_telnet,expect,3}}}}}},
+     {?eh,tc_done,
+      {ct_telnet_faulty_regexp_SUITE,expect_tag_pattern_no_string,
+       {failed,
+        {error,{{bad_pattern,{tag,invalid_pattern}},
+                {ct_telnet,expect,3}}}}}},
+     {?eh,tc_done,{ct_telnet_faulty_regexp_SUITE,expect_pattern_unicode,ok}},
+     {?eh,tc_done,{ct_telnet_faulty_regexp_SUITE,expect_tag_pattern_unicode,ok}},
+     {?eh,stop_logging,[]}];
 events_to_check(timetrap,_Config) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,tc_done,{ct_telnet_timetrap_SUITE,expect_timetrap,

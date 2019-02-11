@@ -1215,6 +1215,15 @@ maps(Config) when is_list(Config) ->
     M2 = maps_from_list_nif(maps:to_list(M2)),
     M3 = maps_from_list_nif(maps:to_list(M3)),
 
+    %% Test different map sizes (OTP-15567)
+    repeat_while(fun({35,_}) -> false;
+                    ({K,Map}) ->
+                         Map = maps_from_list_nif(maps:to_list(Map)),
+                         Map = maps:filter(fun(K,V) -> V =:= K*100 end, Map),
+                         {K+1, maps:put(K,K*100,Map)}
+                 end,
+                 {1,#{}}),
+
     has_duplicate_keys = maps_from_list_nif([{1,1},{1,1}]),
 
     verify_tmpmem(TmpMem),
@@ -2510,6 +2519,13 @@ repeat(0, _, Arg) ->
     Arg;
 repeat(N, Fun, Arg0) ->
     repeat(N-1, Fun, Fun(Arg0)).
+
+repeat_while(Fun, Acc0) ->
+    case Fun(Acc0) of
+        false -> ok;
+        Acc1 ->
+            repeat_while(Fun, Acc1)
+    end.
 
 check(Exp,Got,Line) ->
     case Got of

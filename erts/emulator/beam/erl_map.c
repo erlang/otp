@@ -480,7 +480,7 @@ Eterm erts_hashmap_from_array(ErtsHeapFactory* factory, Eterm *leafs, Uint n,
 
 Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks0, Eterm *vs0, Uint n)
 {
-    if (n < MAP_SMALL_MAP_LIMIT) {
+    if (n <= MAP_SMALL_MAP_LIMIT) {
         Eterm *ks, *vs, *hp;
 	flatmap_t *mp;
 	Eterm keys;

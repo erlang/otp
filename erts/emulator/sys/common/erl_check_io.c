@@ -1061,7 +1061,7 @@ enif_select_x(ErlNifEnv* env,
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 
-    ASSERT(!resource->monitors);
+    ASSERT(!erts_dbg_is_resource_dying(resource));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if (!grow_drv_ev_state(fd)) {
