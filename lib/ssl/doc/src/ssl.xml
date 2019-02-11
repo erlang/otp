@@ -190,15 +190,18 @@
        <name name="legacy_hash"/>
      </datatype>
 
-  
      <datatype>
       <name name="signature_algs"/>
      </datatype>
-     
+
      <datatype>
       <name name="sign_algo"/>
      </datatype>
-
+     
+     <datatype>
+       <name name="sign_scheme"/>
+     </datatype>
+     
      <datatype>
       <name name="key_algo"/>
      </datatype>
@@ -334,7 +337,30 @@
       and to restrict their usage when using a cipher suite supporting them.</p>
       </desc>
     </datatype>
-    
+
+    <datatype>
+      <name name="signature_schemes"/>
+      <desc>
+	  <p>
+	    In addition to the signature_algorithms extension from TLS 1.2,
+	    <url href="http://www.ietf.org/rfc/rfc8446.txt#section-4.2.3">TLS 1.3
+	    (RFC 5246 Section 4.2.3)</url>adds the signature_algorithms_cert extension
+	    which enables having special requirements on the signatures used in the
+	    certificates that differs from the requirements on digital signatures as a whole.
+	    If this is not required this extension is not needed.
+	  </p>
+	  <p>
+	    The client will send a signature_algorithms_cert extension (ClientHello),
+	    if TLS version 1.3 or later is used, and the signature_algs_cert option is
+	    explicitly specified. By default, only the signature_algs extension is sent.
+	  </p>
+	  <p>
+	    The signature schemes shall be ordered according to the client's preference
+	    (favorite choice first).
+	  </p>
+      </desc>
+     </datatype>
+     
     <datatype>
       <name name="secure_renegotiation"/>
       <desc><p>Specifies if to reject renegotiation attempt that does
@@ -606,10 +632,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </datatype>
     
-  <datatype>    
-    <name name="log_alert"/> 
-    <desc><p>If set to <c>false</c>, error reports are not displayed.</p> 
-    </desc> 
+    <datatype>    
+      <name name="log_alert"/> 
+      <desc><p>If set to <c>false</c>, error reports are not displayed.
+      Deprecated in OTP 22, use {log_level, <seealso marker="#type-logging_level">logging_level()</seealso>} instead.</p> 
+      </desc> 
+    </datatype> 
+
+    <datatype>    
+      <name name="logging_level"/> 
+      <desc><p>Specifies the log level for TLS/DTLS. At verbosity level <c>notice</c> and above error reports are
+      displayed in TLS. The level <c>debug</c> triggers verbose logging of TLS protocol
+      messages and logging of ignored alerts in DTLS.</p>
+      </desc> 
     </datatype> 
     
     <datatype>    
