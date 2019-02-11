@@ -431,7 +431,6 @@ init({call, From}, {start, Timeout},
 	    session = #session{own_certificate = Cert} = Session0,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
-    Timer = ssl_connection:start_or_recv_cancel_timer(Timeout, From),
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Cache, CacheCb, Renegotiation, Cert),
 
@@ -442,10 +441,9 @@ init({call, From}, {start, Timeout},
     State3 = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
-			  start_or_recv_from = From,
-			  timer = Timer},
+			  start_or_recv_from = From},
     {Record, State} = next_record(State3),
-    next_event(hello, Record, State, Actions);
+    next_event(hello, Record, State, [{{timeout, handshake}, Timeout, close} | Actions]);
 init({call, _} = Type, Event, #state{static_env = #static_env{role = server},
                                      protocol_specific = PS} = State) ->
     Result = gen_handshake(?FUNCTION_NAME, Type, Event, 

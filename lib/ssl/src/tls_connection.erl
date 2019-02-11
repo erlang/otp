@@ -470,7 +470,6 @@ init({call, From}, {start, Timeout},
 	    session = #session{own_certificate = Cert} = Session0,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
-    Timer = ssl_connection:start_or_recv_cancel_timer(Timeout, From),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert),
     
@@ -485,9 +484,8 @@ init({call, From}, {start, Timeout},
                          session =
                              Session0#session{session_id = Hello#client_hello.session_id},
                          handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
-                         start_or_recv_from = From,
-			  timer = Timer},
-    next_event(hello, no_record, State);
+                         start_or_recv_from = From},
+    next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close}]);
 init(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
  

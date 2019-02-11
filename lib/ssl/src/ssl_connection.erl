@@ -40,7 +40,7 @@
 
 -export([connect/8, handshake/7, handshake/2, handshake/3,
          handshake_continue/3, handshake_cancel/1,
-	 socket_control/4, socket_control/5, start_or_recv_cancel_timer/2]).
+	 socket_control/4, socket_control/5]).
 
 %% User Events 
 -export([send/2, recv/3, close/2, shutdown/2,
@@ -199,10 +199,6 @@ socket_control(dtls_connection = Connection, {_, Socket}, [Pid|_] = Pids, Transp
 	    {error, Reason}
     end.
 
-start_or_recv_cancel_timer(infinity, _RecvFrom) ->
-    undefined;
-start_or_recv_cancel_timer(Timeout, RecvFrom) ->
-    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).
 
 %%====================================================================
 %% User events
@@ -446,17 +442,24 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%====================================================================
 %% Data handling
 %%====================================================================
-passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connection) -> 
+passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName, Connection, StartTimerAction) -> 
     case Buffer of
 	<<>> ->
 	    {Record, State} = Connection:next_record(State0),
-	    Connection:next_event(StateName, Record, State);
+	    Connection:next_event(StateName, Record, State, StartTimerAction);
 	_ ->
 	    case read_application_data(<<>>, State0) of
                 {stop, _, _} = ShutdownError ->
                     ShutdownError;
                 {Record, State} ->
-                    Connection:next_event(StateName, Record, State)
+                    case State#state.start_or_recv_from of
+                        undefined ->
+                            %% Cancel recv timeout as data has been delivered
+                            Connection:next_event(StateName, Record, State, 
+                                                  [{{timeout, recv}, infinity, timeout}]);
+                        _ ->
+                            Connection:next_event(StateName, Record, State, StartTimerAction)
+                    end
             end
     end.
 
@@ -472,10 +475,9 @@ read_application_data(
             #state{
                socket_options = SocketOpts,
                bytes_to_read = BytesToRead,
-               start_or_recv_from = RecvFrom,
-               timer = Timer} = State,
+               start_or_recv_from = RecvFrom} = State,
             read_application_data(
-              Buffer, State, SocketOpts, RecvFrom, Timer, BytesToRead);
+              Buffer, State, SocketOpts, RecvFrom, BytesToRead);
         _ ->
             try read_application_dist_data(Buffer, State, DHandle)
             catch error:_ ->
@@ -505,7 +507,7 @@ read_application_dist_data(Buffer, State, DHandle) ->
     end.
 
 read_application_data(
-  Buffer0, State, SocketOpts0, RecvFrom, Timer, BytesToRead) ->
+  Buffer0, State, SocketOpts0, RecvFrom, BytesToRead) ->
     %%
     case get_data(SocketOpts0, BytesToRead, Buffer0) of
 	{ok, ClientData, Buffer} -> % Send data
@@ -523,24 +525,21 @@ read_application_data(
                   Connection:pids(State),
                   Transport, Socket, SocketOpts0,
                   ClientData, Pid, RecvFrom, Tracker, Connection),
-            cancel_timer(Timer),
             if
-                SocketOpts#socket_options.active =:= false;
-                Buffer =:= <<>> ->
+                SocketOpts#socket_options.active =:= false ->
                     %% Passive mode, wait for active once or recv
                     %% Active and empty, get more data
                     {no_record,
                      State#state{
                        user_data_buffer = Buffer,
-                              start_or_recv_from = undefined,
-                       timer = undefined,
+                       start_or_recv_from = undefined,
                        bytes_to_read = undefined,
                        socket_options = SocketOpts
                       }};
                 true -> %% We have more data
                            read_application_data(
                              Buffer, State, SocketOpts,
-                             undefined, undefined, undefined)
+                             undefined, undefined)
             end;
         {more, Buffer} -> % no reply, we need more data
             {no_record, State#state{user_data_buffer = Buffer}};
@@ -646,8 +645,8 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
 %%--------------------------------------------------------------------
 
 init({call, From}, {start, Timeout}, State0, Connection) ->
-    Timer = start_or_recv_cancel_timer(Timeout, From),
-    Connection:next_event(hello, no_record, State0#state{start_or_recv_from = From, timer = Timer});
+    Connection:next_event(hello, no_record, State0#state{start_or_recv_from = From},
+                          [{{timeout, handshake}, Timeout, close}]);
 init({call, From}, {start, {Opts, EmOpts}, Timeout}, 
      #state{static_env = #static_env{role = Role},
             ssl_options = OrigSSLOptions,
@@ -701,14 +700,11 @@ user_hello({call, From}, cancel, #state{connection_env = #connection_env{negotia
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = #handshake_env{hello = Hello},
-                  start_or_recv_from = RecvFrom,
                   ssl_options = Options0} = State0, _Connection) ->
-    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     Options = ssl:handle_options(NewOptions, Options0#ssl_options{handshake = full}),
     State = ssl_config(Options, Role, State0),
-    {next_state, hello, State#state{start_or_recv_from = From,
-                                    timer = Timer}, 
-     [{next_event, internal, Hello}]};
+    {next_state, hello, State#state{start_or_recv_from = From}, 
+     [{next_event, internal, Hello}, {{timeout, handshake}, Timeout, close}]};
 user_hello(_, _, _, _) ->
     {keep_state_and_data, [postpone]}.
 
@@ -736,7 +732,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 		ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
 	    {Record, State} = prepare_connection(State0#state{connection_states = ConnectionStates,
                                                               handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection),
-	    Connection:next_event(connection, Record, State);
+	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close}]);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
@@ -756,7 +752,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
 				   ?FUNCTION_NAME, Connection),
 	    {Record, State} = prepare_connection(State1#state{handshake_env = HsEnv#handshake_env{expecting_finished = false}}, Connection),
-	    Connection:next_event(connection, Record, State, Actions);
+	    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close} | Actions]);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
@@ -1093,10 +1089,9 @@ connection({call, RecvFrom}, {recv, N, Timeout},
 	   #state{static_env = #static_env{protocol_cb = Connection},
                   socket_options =
                       #socket_options{active = false}} = State0, Connection) ->
-    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     passive_receive(State0#state{bytes_to_read = N,
-                                 start_or_recv_from = RecvFrom, 
-                                 timer = Timer}, ?FUNCTION_NAME, Connection);
+                                 start_or_recv_from = RecvFrom}, ?FUNCTION_NAME, Connection,
+                    [{{timeout, recv}, Timeout, timeout}]);
 
 connection({call, From}, renegotiate, #state{static_env = #static_env{protocol_cb = Connection},
                                              handshake_env = HsEnv} = State,
@@ -1140,8 +1135,8 @@ connection(cast, {dist_handshake_complete, DHandle},
     Connection:next_event(connection, Record, State);
 connection(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
-connection(internal, {recv, _}, State, Connection) ->
-    passive_receive(State, ?FUNCTION_NAME, Connection);
+connection(internal, {recv, Timeout}, State, Connection) ->
+    passive_receive(State, ?FUNCTION_NAME, Connection, [{{timeout, recv}, Timeout, timeout}]);
 connection(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
@@ -1188,7 +1183,15 @@ handle_common_event(internal, #change_cipher_spec{type = <<1>>}, StateName,
 		    #state{connection_env = #connection_env{negotiated_version = Version}} = State,  _) ->
     handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Version, 
 				StateName, State);
-handle_common_event(_Type, Msg, StateName, #state{connection_env = #connection_env{negotiated_version = Version}} = State, 
+handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State, _) ->
+    {stop_and_reply,
+     {shutdown, user_timeout},
+     {reply, StartFrom, {error, timeout}}, State#state{start_or_recv_from = undefined}};
+handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State, _) ->
+    {next_state, StateName, State#state{start_or_recv_from = undefined,
+                                        bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
+handle_common_event(_Type, Msg, StateName, #state{connection_env = 
+                                                      #connection_env{negotiated_version = Version}} = State, 
 		    _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, Msg}),
     handle_own_alert(Alert, Version, StateName, State).
@@ -1239,10 +1242,8 @@ handle_call({recv, _N, _Timeout}, From, _,
 handle_call({recv, N, Timeout}, RecvFrom, StateName, State, _) ->
     %% Doing renegotiate wait with handling request until renegotiate is
     %% finished. 
-    Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
-    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom,
-					timer = Timer}, 
-     [{next_event, internal, {recv, RecvFrom}}]};
+    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom}, 
+     [{next_event, internal, {recv, RecvFrom}} , {{timeout, recv}, Timeout, timeout}]};
 handle_call({new_user, User}, From, StateName, 
             State = #state{connection_env = #connection_env{user_application = {OldMon, _}} = CEnv}, _) ->
     NewMon = erlang:monitor(process, User),
@@ -1343,20 +1344,6 @@ handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_en
 
 handle_info(allow_renegotiate, StateName, #state{handshake_env = HsEnv} = State) ->
     {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{allow_renegotiate = true}}};
-
-handle_info({cancel_start_or_recv, StartFrom}, StateName,
-	    #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) when StateName =/= connection ->
-    {stop_and_reply,
-     {shutdown, user_timeout},
-     {reply, StartFrom, {error, timeout}},
-     State#state{timer = undefined}};
-handle_info({cancel_start_or_recv, RecvFrom}, StateName, 
-	    #state{start_or_recv_from = RecvFrom} = State) when RecvFrom =/= undefined ->
-    {next_state, StateName, State#state{start_or_recv_from = undefined,
-					bytes_to_read = undefined,
-					timer = undefined}, [{reply, RecvFrom, {error, timeout}}]};
-handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
-    {next_state, StateName, State#state{timer = undefined}};
 
 handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = Tag}} = State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [{Msg, Tag, Socket}]),
@@ -2218,7 +2205,7 @@ cipher_role(client, Data, Session, #state{connection_states = ConnectionStates0}
      {Record, State} = prepare_connection(State0#state{session = Session,
 						       connection_states = ConnectionStates},
 					 Connection),
-    Connection:next_event(connection, Record, State);
+    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close}]);
 cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0} = State0,
 	    Connection) ->
     ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data, 
@@ -2227,7 +2214,7 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 	finalize_handshake(State0#state{connection_states = ConnectionStates1,
 					session = Session}, cipher, Connection),
     {Record, State} = prepare_connection(State1, Connection),
-    Connection:next_event(connection, Record, State, Actions).
+    Connection:next_event(connection, Record, State, [{{timeout, handshake}, infinity, close} | Actions]).
 
 is_anonymous(KexAlg) when KexAlg == dh_anon;
                           KexAlg == ecdh_anon;
@@ -2429,20 +2416,12 @@ ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, From
     gen_statem:reply(From, ok),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}};
 ack_connection(#state{handshake_env = #handshake_env{renegotiation = {false, first}} = HsEnv, 
-		      start_or_recv_from = StartFrom,
-		      timer = Timer} = State) when StartFrom =/= undefined ->
+		      start_or_recv_from = StartFrom} = State) when StartFrom =/= undefined ->
     gen_statem:reply(StartFrom, connected),
-    cancel_timer(Timer),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}, 
-		start_or_recv_from = undefined, timer = undefined};
+		start_or_recv_from = undefined};
 ack_connection(State) ->
     State.
-
-cancel_timer(undefined) ->
-    ok;
-cancel_timer(Timer) ->
-    erlang:cancel_timer(Timer),
-    ok.
 
 session_handle_params(#server_ecdh_params{curve = ECCurve}, Session) ->
     Session#session{ecc = ECCurve};

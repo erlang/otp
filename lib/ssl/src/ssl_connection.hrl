@@ -113,8 +113,7 @@
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
 
                 %% recv and start handling
-                start_or_recv_from   :: term(),
-                timer                :: undefined | reference() % start_or_recive_timer               
+                start_or_recv_from   :: term()
                }).
 
 
