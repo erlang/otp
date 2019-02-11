@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "6.1"},
+  {vsn, "6.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -68,6 +68,8 @@
              logger_formatter,
              logger_h_common,
              logger_handler_watcher,
+             logger_olp,
+             logger_proxy,
              logger_server,
              logger_simple_h,
              logger_std_h,
