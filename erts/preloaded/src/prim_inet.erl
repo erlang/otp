@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -172,8 +172,18 @@ close(S) when is_port(S) ->
             %% and is a contradiction in itself.
             %% We have hereby done our best...
             %%
-            Tref = erlang:start_timer(T * 1000, self(), close_port),
-            close_pend_loop(S, Tref, undefined);
+            case subscribe(S, [subs_empty_out_q]) of
+                {ok, [{subs_empty_out_q,0}]} ->
+                    close_port(S);
+                {ok, [{subs_empty_out_q,N}]} when N > 0 ->
+                    %% Wait for pending output to be sent
+                    Tref = erlang:start_timer(T * 1000, self(), close_port),
+                    close_pend_loop(S, Tref, N);
+                _ ->
+                    %% Subscribe failed - wait full time
+                    Tref = erlang:start_timer(T * 1000, self(), close_port),
+                    close_pend_loop(S, Tref, undefined)
+            end;
 	_ -> % Regard this as {ok,{false,_}}
             case subscribe(S, [subs_empty_out_q]) of
                 {ok, [{subs_empty_out_q,N}]} when N > 0 ->
