@@ -97,9 +97,12 @@
     <datatype>
       <name name="active_msgs"/>
       <desc>
-      <p>When an TLS/DTLS socket is in active mode (the default), data from the
+      <p>When a TLS/DTLS socket is in active mode (the default), data from the
       socket is delivered to the owner of the socket in the form of
       messages as described above.</p>
+      <p>The <c>ssl_passive</c> message is sent only when the socket is in
+      <c>{active, N}</c> mode and the counter dropped to 0. It indicates
+      that the socket has transitioned to passive (<c>{active, false}</c>) mode.</p>
       </desc>
     </datatype>
       
@@ -1169,8 +1172,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
 	  </p>
 	  
-	  <p> If the option <c>active</c> is set to <c>once</c> or <c>true</c> the
-	  process owning the sslsocket will receive messages of type 
+	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	  the process owning the sslsocket will receive messages of type 
 	  <seealso marker="#type-active_msgs"> active_msgs() </seealso>
 	  </p>
     </desc>
@@ -1217,8 +1220,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
 	  </p>
 
-	  <p> If the option <c>active</c> is set to <c>once</c> or <c>true</c> the
-	  process owning the sslsocket will receive messages of type 
+	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	  the process owning the sslsocket will receive messages of type 
 	  <seealso marker="#type-active_msgs"> active_msgs() </seealso>
 	  </p>
       </desc>
@@ -1379,8 +1382,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
         <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
 	<p>Returns a new TLS/DTLS socket if the handshake is successful.</p>
 
-	<p> If the option <c>active</c> is set to <c>once</c> or <c>true</c> the
-	process owning the sslsocket will receive messages of type 
+	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	the process owning the sslsocket will receive messages of type 
 	<seealso marker="#type-active_msgs"> active_msgs() </seealso>
 	</p>	
       </desc>
@@ -1424,8 +1427,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
 	</p>
 	
-	<p> If the option <c>active</c> is set to <c>once</c> or <c>true</c> the
-	process owning the sslsocket will receive messages of type 
+	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
+	the process owning the sslsocket will receive messages of type 
 	<seealso marker="#type-active_msgs"> active_msgs() </seealso>
 	</p>
 	
