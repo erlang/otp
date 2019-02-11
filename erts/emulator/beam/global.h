@@ -113,6 +113,9 @@ extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,
 			 struct erl_module_nif*, Process* tracee);
 extern void erts_post_nif(struct enif_environment_t* env);
+#ifdef DEBUG
+int erts_dbg_is_resource_dying(ErtsResource*);
+#endif
 extern void erts_resource_stop(ErtsResource*, ErlNifEvent, int is_direct_call);
 void erts_fire_nif_monitor(ErtsMonitor *tmon);
 void erts_nif_demonitored(ErtsResource* resource);
