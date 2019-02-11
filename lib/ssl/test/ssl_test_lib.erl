@@ -825,7 +825,8 @@ make_rsa_cert(Config) ->
 	    Config
     end.
 appropriate_sha(CryptoSupport) ->
-    case proplists:get_bool(sha256, CryptoSupport) of
+    Hashes = proplists:get_value(hashs, CryptoSupport),
+    case lists:member(sha256, Hashes) of
 	true ->
 	    sha256;
 	false ->
