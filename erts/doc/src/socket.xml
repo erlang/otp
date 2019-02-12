@@ -305,9 +305,9 @@
 	on what kind of socket it is (<c>domain</c>, <c>type</c> and
 	<c>protocol</c>).</p>
 
-	See the
+	<p>See the
 	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info.
+	chapter of the users guide for more info. </p>
 
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
@@ -328,9 +328,9 @@
 	using "native mode", it is *currently* up to the caller to
 	know how to interpret the result.</p>
 
-	See the
+	<p>See the
 	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info.
+	chapter of the users guide for more info. </p>
 
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
@@ -513,9 +513,9 @@
 	what kind of socket it is (<c>domain</c>, <c>type</c> and
 	<c>protocol</c>).</p>
 
-	See the
+	<p>See the
 	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info.
+	chapter of the users guide for more info. </p>
 
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the
@@ -536,9 +536,9 @@
 	what kind of socket it is (<c>domain</c>, <c>type</c> and
 	<c>protocol</c>).</p>
 
-	See the
+	<p>See the
 	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info.
+	chapter of the users guide for more info. </p>
 
 	<note><p>Not all options are valid on all platforms. That is,
 	even if "we" support an option, that does not mean that the

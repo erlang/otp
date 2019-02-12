@@ -149,6 +149,8 @@ $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 debug opt:
 
+ldocs: xmllint local_docs
+
 clean:
 	rm -rf $(HTMLDIR)/*
 	rm -rf $(XMLDIR)
