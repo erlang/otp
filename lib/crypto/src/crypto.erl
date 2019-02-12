@@ -50,7 +50,7 @@
 
 %% Experiment
 -export([crypto_init/4,
-         crypto_update/2, crypto_update/3,
+         crypto_update/2,
          
          %% Emulates old api:
          crypto_stream_init/2, crypto_stream_init/3,
@@ -2253,19 +2253,6 @@ crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
     end.
 
 
--spec crypto_update(State, Data, EncryptFlag) -> {ok,Result} | {error,term()}
-                                                     when State :: crypto_state(),
-                                                          Data :: iodata(),
-                                                          EncryptFlag :: boolean(),
-                                                          Result :: binary() | {crypto_state(),binary()}.
-%%% -> {ok,binary()} | {error,Reason}
-crypto_update(State, Data, EncryptFlag) ->
-    case ng_crypto_flag_nif(State, EncryptFlag) of
-        ok -> crypto_update(State, Data);
-        {error,Error} -> {error,Error}
-    end.
-
-
 -spec crypto_update(State, Data) -> {ok,Result} | {error,term()}
                                         when State :: crypto_state(),
                                              Data :: iodata(),
@@ -2323,7 +2310,6 @@ call_ng_crypto_update_nif_no_blocking(State, Data, Acc) ->
 
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
-ng_crypto_flag_nif(_State, _EncryptFlg) -> ?nif_stub.
 
 %%%================================================================
 %%% Compatibility functions to be called by "old" api functions.

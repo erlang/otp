@@ -25,6 +25,5 @@
 
 ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM ng_crypto_flag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 #endif /* E_AES_H__ */

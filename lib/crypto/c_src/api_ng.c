@@ -102,32 +102,6 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-ERL_NIF_TERM ng_crypto_flag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, EncodeFlg) */
-    struct evp_cipher_ctx *ctx;
-    int ok = 1;
-
-    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx))
-        return enif_make_badarg(env);
-
-    if (argv[1] != atom_undefined) {
-        /* Couldn't set the encrypt flag in the init call (= compatibility routines), so do
-           it now
-        */
-        if (argv[1] == atom_true)
-            ok = EVP_CipherInit_ex(ctx->ctx, EVP_CIPHER_CTX_cipher(ctx->ctx), NULL, NULL, NULL, 1);
-        else if (argv[1] == atom_false)
-            ok = EVP_CipherInit_ex(ctx->ctx, EVP_CIPHER_CTX_cipher(ctx->ctx), NULL, NULL, NULL, 0);
-        else
-            return ERROR_Term(env, enif_make_atom(env,"badarg"));
- }
-
- if (!ok)
-     return ERROR_Str(env, "Couldn't set encrypt/decrypt flag");
-
- return atom_ok;
-}
-
 
 ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
