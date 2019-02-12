@@ -142,6 +142,7 @@ JAVADOC-GENERATED
 
 /make/output.mk
 /make/emd2exml
+/make/install_dir_data.sh
 
 # Created by "out_build update_primary"
 /bootstrap/primary_compiler/
@@ -310,6 +311,7 @@ JAVADOC-GENERATED
 /lib/jinterface/doc/html/java
 /lib/jinterface/pom.xml
 /lib/jinterface/target
+/lib/jinterface/doc/src/jdoc
 
 # kernel
 
@@ -363,11 +365,12 @@ JAVADOC-GENERATED
 /system/doc/pdf/*.fo
 /system/doc/html/*.html
 /system/doc/html/*.eix
-/system/doc/html/js
 /system/doc/html/*/*.html
+/system/doc/html/*/*/*.html
 /system/doc/html/*/*.gif
 /system/doc/html/*/*.jpg
 /system/doc/html/*/*.eix
+/system/doc/html/*/*.js
 /system/doc/top/PR.template
 /system/doc/top/erlresolvelinks.js
 /system/doc/programming_examples/funs.xml
@@ -378,7 +381,6 @@ JAVADOC-GENERATED
 /system/doc/tutorial/erl_interface.xml
 /system/doc/tutorial/example.xml
 /system/doc/tutorial/nif.xml
-/system/doc/html/installation_guide
 /system/doc/installation_guide/INSTALL.xml
 /system/doc/installation_guide/INSTALL-CROSS.xml
 /system/doc/installation_guide/INSTALL-WIN32.xml

@@ -67,7 +67,9 @@ JS = jquery-latest.js jquery.tablesorter.min.js
 #
 
 include ../../test_server/vsn.mk
-debug opt:
+debug opt: install.sh
+
+install.sh: ../install.sh.in ../vsn.mk ../../test_server/vsn.mk
 	$(V_at)sed -e 's;@CT_VSN@;$(VSN);' \
             -e 's;@TS_VSN@;$(TEST_SERVER_VSN);' \
             ../install.sh.in > install.sh

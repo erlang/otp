@@ -26,40 +26,28 @@
 %%-----------------------------------------------------------------
 -module(erlresolvelinks). 
 
--export([make/0, make/1]).
+-export([make/1]).
 -include_lib("kernel/include/file.hrl").
 
 -define(JAVASCRIPT_NAME, "erlresolvelinks.js").
 
-make() ->
-    case os:getenv("ERL_TOP") of
-	false ->
-	    io:format("Variable ERL_TOP is required\n",[]);
-	Value ->
-	    make_from_src(Value, ".")
-    end.
+make([ErlTop, RootDir, DestDir]) ->
+    make(ErlTop, RootDir, DestDir).
 
-make([RootDir, DestDir]) ->
-    do_make(RootDir, DestDir);
-make(RootDir) when is_atom(RootDir) ->
-    DestDir = filename:join(RootDir, "doc"),
-    do_make(RootDir, DestDir).
-
-do_make(_RootDir, _DestDir) ->
-    ok.
-
-make_from_src(RootDir, DestDir) ->
+make(ErlTop, RootDir, DestDir) ->
     %% doc/Dir
     %% erts-Vsn
     %% lib/App-Vsn
     Name = ?JAVASCRIPT_NAME,
-    DocDirs0 = get_dirs(filename:join([RootDir, "system/doc"])),
+    DocDirs0 = get_dirs(filename:join([ErlTop, "system/doc"])),
     DocDirs = lists:map(fun({Dir, _DirPath}) -> 
 				D = filename:join(["doc", Dir]),
 				{D, D} end, DocDirs0),
 
-    ErtsDirs = latest_app_dirs(RootDir, ""), 
-    AppDirs = latest_app_dirs(RootDir, "lib"),
+    Released = ErlTop /= RootDir,
+
+    ErtsDirs = latest_app_dirs(Released, RootDir, ""), 
+    AppDirs = latest_app_dirs(Released, RootDir, "lib"),
     
     AllAppDirs = 
 	lists:map(
@@ -105,30 +93,46 @@ is_dir({File, AFile}) ->
 	    false
     end.
 
-latest_app_dirs(RootDir, Dir) ->
+released_app_vsns([]) ->
+    [];
+released_app_vsns([{AppVsn, Dir} | AVDirs]) ->
+    try
+        {ok, _} = file:read_file_info(filename:join([Dir, "doc", "html"])),
+        [App, Vsn] = string:tokens(AppVsn, "-"),
+        VsnNumList = vsnstr_to_numlist(Vsn),
+        [_Maj, _Min | _] = VsnNumList,
+        [{{App, VsnNumList}, AppVsn} | released_app_vsns(AVDirs)]
+    catch
+        _:_ -> released_app_vsns(AVDirs)
+    end.
+
+latest_app_dirs(Release, RootDir, Dir) ->
     ADir = filename:join(RootDir, Dir),
     RDirs0 = get_dirs(ADir),
-    RDirs1 = lists:filter(fun is_app_dir/1, RDirs0),
+    SDirs0 = case Release of
+                 true ->
+                     released_app_vsns(RDirs0);
+                 false ->
+                     lists:map(fun({App, Dir1}) ->
+                                       File = filename:join(Dir1, "vsn.mk"),
+                                       case file:read_file(File) of
+                                           {ok, Bin} ->
+                                               case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
+                                                   {match, [VsnStr]} ->
+                                                       VsnNumList = vsnstr_to_numlist(VsnStr),
+                                                       {{App, VsnNumList}, App++"-"++VsnStr};
+                                                   nomatch ->
+                                                       io:format("No VSN variable found in ~s\n", [File]),
+                                                       error
+                                               end;
+                                           {error, Reason} ->
+                                               io:format("~p : ~s\n", [Reason, File]),
+                                               error
+                                       end
+                               end, 
+                               lists:filter(fun is_app_dir/1, RDirs0))
+             end,
 
-    SDirs0 = 
-	lists:map(fun({App, Dir1}) ->
-			  File = filename:join(Dir1, "vsn.mk"),
-			  case file:read_file(File) of
-			      {ok, Bin} ->
-				  case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
-				      {match, [VsnStr]} ->
-					  VsnNumList = vsnstr_to_numlist(VsnStr),
-					  {{App, VsnNumList}, App++"-"++VsnStr};
-				      nomatch ->
-					  io:format("No VSN variable found in ~s\n", [File]),
-					  error
-				  end;
-			      {error, Reason} ->
-				  io:format("~p : ~s\n", [Reason, File]),
-				  error
-			  end
-		  end, 
-		  RDirs1),
      SDirs1 = lists:keysort(1, SDirs0),
      App2Dirs = lists:foldr(fun({{App, _VsnNumList}, AppVsn}, Acc) ->
  				   case lists:keymember(App, 1, Acc) of

@@ -873,6 +873,11 @@ if test "$ac_cv_path_MKDIR" = false; then
   AC_MSG_ERROR([No 'mkdir' command found])
 fi
 
+AC_PATH_PROG(CP, cp, false, $_search_path)
+if test "$ac_cv_path_CP" = false; then
+  AC_MSG_ERROR([No 'cp' command found])
+fi
+
 _search_path=
 
 #
@@ -4910,7 +4915,7 @@ dnl ----------------------------------------------------------------------
 
 dnl  Note that the output files are relative to $srcdir
 
-AC_OUTPUT(
+AC_CONFIG_FILES(
   emulator/$host/Makefile:emulator/Makefile.in
   epmd/src/$host/Makefile:epmd/src/Makefile.in
   etc/common/$host/Makefile:etc/common/Makefile.in
@@ -4920,16 +4925,19 @@ AC_OUTPUT(
   Makefile:Makefile.in
   ../make/$host/otp.mk:../make/otp.mk.in
   ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
-  ../make/$host/ose_lm.mk:../make/ose_lm.mk.in
+  ../make/$host/ose_lm.mk:../make/ose_lm.mk.in)
 dnl
 dnl The ones below should be moved to their respective lib
 dnl
+AC_CONFIG_FILES(
   ../lib/ic/c_src/$host/Makefile:../lib/ic/c_src/Makefile.in
   ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
-dnl  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
   ../lib/crypto/c_src/$host/Makefile:../lib/crypto/c_src/Makefile.in
   ../lib/orber/c_src/$host/Makefile:../lib/orber/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
   ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
   )
 
+AC_CONFIG_FILES([../make/install_dir_data.sh:../make/install_dir_data.sh.in], [chmod +x ../make/install_dir_data.sh])
+
+AC_OUTPUT
