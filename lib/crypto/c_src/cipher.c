@@ -33,8 +33,11 @@ static struct cipher_type_t cipher_types[] =
 #else
     {{"rc2_cbc"}, {NULL}, 0, NO_FIPS_CIPHER},
 #endif
+#ifndef OPENSSL_NO_RC4
     {{"rc4"},     {&EVP_rc4}, 0, NO_FIPS_CIPHER},
-
+#else
+    {{"rc4"},     {NULL}, 0, NO_FIPS_CIPHER},
+#endif
     {{"des_cbc"}, {COND_NO_DES_PTR(&EVP_des_cbc)}, 0, NO_FIPS_CIPHER},
     {{"des_cfb"}, {COND_NO_DES_PTR(&EVP_des_cfb8)}, 0, NO_FIPS_CIPHER},
     {{"des_ecb"}, {COND_NO_DES_PTR(&EVP_des_ecb)}, 0, NO_FIPS_CIPHER | ECB},
@@ -60,13 +63,13 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_cbc"}, {&EVP_aes_192_cbc}, 24, 0},
     {{"aes_256_cbc"}, {&EVP_aes_256_cbc}, 32, 0},
 
-    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER},
-    {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER},
-    {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}, 16, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_cfb8"}, {&EVP_aes_192_cfb8}, 24, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_cfb8"}, {&EVP_aes_256_cfb8}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
-    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER},
-    {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER},
-    {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}, 16, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_cfb128"}, {&EVP_aes_192_cfb128}, 24, NO_FIPS_CIPHER | AES_CFBx},
+    {{"aes_cfb128"}, {&EVP_aes_256_cfb128}, 32, NO_FIPS_CIPHER | AES_CFBx},
 
     {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16, ECB},
     {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24, ECB},
@@ -107,7 +110,10 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_gcm"}, {&EVP_aes_192_gcm}, 24, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
     {{"aes_256_gcm"}, {&EVP_aes_256_gcm}, 32, AEAD_CIPHER, {{EVP_CTRL_GCM_SET_IVLEN,EVP_CTRL_GCM_GET_TAG,EVP_CTRL_GCM_SET_TAG}}},
 #else
-    {{"aes_gcm"}, {NULL}, 0, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_gcm"},     {NULL},  0, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_128_gcm"}, {NULL}, 16, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_192_gcm"}, {NULL}, 24, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_256_gcm"}, {NULL}, 32, AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_CCM)
@@ -118,7 +124,10 @@ static struct cipher_type_t cipher_types[] =
     {{"aes_192_ccm"}, {&EVP_aes_192_ccm}, 24, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
     {{"aes_256_ccm"}, {&EVP_aes_256_ccm}, 32, AEAD_CIPHER, {{EVP_CTRL_CCM_SET_IVLEN,EVP_CTRL_CCM_GET_TAG,EVP_CTRL_CCM_SET_TAG}}},
 #else
-    {{"aes_ccm"}, {NULL}, 0, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_ccm"},     {NULL},  0, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_128_ccm"}, {NULL}, 16, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_192_ccm"}, {NULL}, 24, AEAD_CIPHER, {{0,0,0}}},
+    {{"aes_256_ccm"}, {NULL}, 32, AEAD_CIPHER, {{0,0,0}}},
 #endif
 
     /*==== Specialy handled ciphers, only for inclusion in algorithm's list ====*/
@@ -133,7 +142,7 @@ static struct cipher_type_t cipher_types[] =
 
 ErlNifResourceType* evp_cipher_ctx_rtype;
 
-int num_cipher_types = 0;
+static size_t num_cipher_types = 0;
 
 static void evp_cipher_ctx_dtor(ErlNifEnv* env, struct evp_cipher_ctx* ctx) {
     if (ctx == NULL)
@@ -162,6 +171,7 @@ void init_cipher_types(ErlNifEnv* env)
 {
     struct cipher_type_t* p = cipher_types;
 
+    num_cipher_types = 0;
     for (p = cipher_types; p->type.str; p++) {
         num_cipher_types++;
 	p->type.atom = enif_make_atom(env, p->type.str);
@@ -173,7 +183,7 @@ void init_cipher_types(ErlNifEnv* env)
     qsort(cipher_types, num_cipher_types, sizeof(cipher_types[0]), cmp_cipher_types);
 }
 
-struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
+const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
 {
     struct cipher_type_t key;
 
@@ -185,8 +195,8 @@ struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
 
 
 int cmp_cipher_types(const void *keyp, const void *elemp) {
-    struct cipher_type_t *key  = (struct cipher_type_t *) keyp;
-    struct cipher_type_t *elem = (struct cipher_type_t *) elemp;
+    const struct cipher_type_t *key  = keyp;
+    const struct cipher_type_t *elem = elemp;
 
     if (key->type.atom < elem->type.atom) return -1;
     else if (key->type.atom > elem->type.atom) return 1;

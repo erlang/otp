@@ -64,7 +64,7 @@ struct evp_cipher_ctx {
 int init_cipher_ctx(ErlNifEnv *env);
 
 void init_cipher_types(ErlNifEnv* env);
-struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
+const struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
 int cmp_cipher_types(const void *keyp, const void *elemp);
 

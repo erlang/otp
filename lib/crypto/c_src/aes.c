@@ -283,7 +283,7 @@ ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 }
 
 
-ERL_NIF_TERM aes_ctr_stream_init_compat(ErlNifEnv* env, ERL_NIF_TERM const key_term, ERL_NIF_TERM const iv_term)
+ERL_NIF_TERM aes_ctr_stream_init_compat(ErlNifEnv* env, const ERL_NIF_TERM key_term, const ERL_NIF_TERM iv_term)
 {
     ErlNifBinary key_bin, ivec_bin;
     ERL_NIF_TERM ecount_bin;

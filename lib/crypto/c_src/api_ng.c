@@ -30,8 +30,8 @@
  */
 
 /* Try better error messages in new functions */
-#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2(Env, atom_error, (ReasonTerm))
-#define ERROR_Str(Env, ReasonString) ERROR_Term(Env, enif_make_string(Env,ReasonString,ERL_NIF_LATIN1))
+#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2((Env), atom_error, (ReasonTerm))
+#define ERROR_Str(Env, ReasonString) ERROR_Term((Env), enif_make_string((Env),(ReasonString),(ERL_NIF_LATIN1)))
 
 /* Initializes state for (de)encryption
  */
@@ -41,14 +41,14 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     ErlNifBinary     key_bin, ivec_bin;
     unsigned char *iv = NULL;
     struct evp_cipher_ctx *ctx;
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     const EVP_CIPHER *cipher;
     ERL_NIF_TERM ret;
     int enc = (argv[argc-1] == atom_true)      ? 1  :
               (argv[argc-1] == atom_false)     ? 0  :
               (argv[argc-1] == atom_undefined) ? -1 : /* For compat funcs in crypto.erl */
-             -100,
-        iv_len = 0;
+             -100;
+    unsigned iv_len;
 
     if (enc == -100)
         return ERROR_Str(env, "Bad enc flag");
@@ -74,19 +74,26 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     iv_len = EVP_CIPHER_iv_length(cipher);
 
     if (iv_len) {
-        if (   !enif_inspect_binary(env, argv[2], &ivec_bin)
-            || (iv_len != ivec_bin.size)
-           ) {
+        if (!enif_inspect_binary(env, argv[2], &ivec_bin))
+            return ERROR_Str(env, "Bad iv type");
+
+        if (iv_len != ivec_bin.size)
             return ERROR_Str(env, "Bad iv size");
-        }
+
         iv = ivec_bin.data;
     }
 
-    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx));
-    ctx->ctx = EVP_CIPHER_CTX_new();
+    if ((ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(struct evp_cipher_ctx))) == NULL)
+        return ERROR_Str(env, "Can't allocate resource");
 
-    if (!EVP_CipherInit_ex(ctx->ctx, cipher, NULL, key_bin.data, iv, enc))
+    ctx->ctx = EVP_CIPHER_CTX_new();
+    if (! ctx->ctx)
+        return ERROR_Str(env, "Can't allocate context");
+
+    if (!EVP_CipherInit_ex(ctx->ctx, cipher, NULL, key_bin.data, iv, enc)) {
+        enif_release_resource(ctx);
         return ERROR_Str(env, "Can't initialize key and/or iv");
+    }
 
     EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
 
@@ -103,13 +110,13 @@ ERL_NIF_TERM ng_crypto_flag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx))
         return enif_make_badarg(env);
 
-    if (argv[2] != atom_undefined) {
+    if (argv[1] != atom_undefined) {
         /* Couldn't set the encrypt flag in the init call (= compatibility routines), so do
            it now
         */
-        if (argv[2] == atom_true)
+        if (argv[1] == atom_true)
             ok = EVP_CipherInit_ex(ctx->ctx, EVP_CIPHER_CTX_cipher(ctx->ctx), NULL, NULL, NULL, 1);
-        else if (argv[2] == atom_false)
+        else if (argv[1] == atom_false)
             ok = EVP_CipherInit_ex(ctx->ctx, EVP_CIPHER_CTX_cipher(ctx->ctx), NULL, NULL, NULL, 0);
         else
             return ERROR_Term(env, enif_make_atom(env,"badarg"));
@@ -140,7 +147,8 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 #endif
 
     if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
+        || (data_bin.size > INT_MAX) ) {
         return ERROR_Term(env, enif_make_atom(env,"badarg"));
     }
 

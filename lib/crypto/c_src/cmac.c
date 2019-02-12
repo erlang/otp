@@ -24,7 +24,7 @@
 ERL_NIF_TERM cmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Data) */
 #if defined(HAVE_CMAC)
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     const EVP_CIPHER     *cipher;
     CMAC_CTX             *ctx = NULL;
     ErlNifBinary         key;

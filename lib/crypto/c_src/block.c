@@ -24,7 +24,7 @@
 
 ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key, Ivec, Text, IsEncrypt) or (Type, Key, Text, IsEncrypt) */
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     const EVP_CIPHER     *cipher;
     ErlNifBinary         key, ivec, text;
     EVP_CIPHER_CTX       *ctx = NULL;

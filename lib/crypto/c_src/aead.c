@@ -25,7 +25,7 @@
 ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In) */
 #if defined(HAVE_AEAD)
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in;
@@ -134,7 +134,7 @@ ERL_NIF_TERM aead_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM aead_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type,Key,Iv,AAD,In,Tag) */
 #if defined(HAVE_AEAD)
-    struct cipher_type_t *cipherp = NULL;
+    const struct cipher_type_t *cipherp;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_CIPHER *cipher = NULL;
     ErlNifBinary key, iv, aad, in, tag;

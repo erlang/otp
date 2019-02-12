@@ -26,8 +26,8 @@ struct engine_ctx {
     char *id;
 };
 
-#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2(Env, atom_error, (ReasonTerm))
-#define ERROR_Atom(Env, ReasonString) ERROR_Term(Env, enif_make_atom(Env,ReasonString))
+#define ERROR_Term(Env, ReasonTerm) enif_make_tuple2((Env), atom_error, (ReasonTerm))
+#define ERROR_Atom(Env, ReasonString) ERROR_Term((Env), enif_make_atom((Env),(ReasonString)))
 
 static ErlNifResourceType* engine_ctx_rtype;
 
