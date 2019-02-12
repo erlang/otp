@@ -191,7 +191,8 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                 if (n1->sysname != n2->sysname)
                     return n1->sysname < n2->sysname ? -1 : 1;
                 ASSERT(n1->creation != n2->creation);
-                return n1->creation < n2->creation ? -1 : 1;
+                if (n1->creation != 0 && n2->creation != 0)
+                    return n1->creation < n2->creation ? -1 : 1;
             }
 
             ndw1 = external_thing_data_words(et1);
