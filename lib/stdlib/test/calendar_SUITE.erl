@@ -24,6 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 gregorian_days/1,
+	 big_gregorian_days/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
 	 day_of_the_week_calibrate/1,
@@ -36,13 +37,16 @@
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
 
+-define(BIG_START_YEAR, 20000000).
+-define(BIG_END_YEAR, 20000020).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
-     iso_week_number, system_time, rfc3339].
+     iso_week_number, system_time, rfc3339, big_gregorian_days].
 
 groups() -> 
     [].
@@ -65,6 +69,14 @@ end_per_group(_GroupName, Config) ->
 gregorian_days(Config) when is_list(Config) ->
     Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
+    check_gregorian_days(Days, MaxDays).
+
+%% Tests that date_to_gregorian_days and gregorian_days_to_date
+%% are each others inverses from ?BIG_START_YEAR-01-01 up to ?BIG_END_YEAR-01-01.
+%% At the same time valid_date is tested.
+big_gregorian_days(Config) when is_list(Config) ->
+    Days = calendar:date_to_gregorian_days({?BIG_START_YEAR, 1, 1}),
+    MaxDays = calendar:date_to_gregorian_days({?BIG_END_YEAR, 1, 1}),
     check_gregorian_days(Days, MaxDays).
 
 %% Tests that datetime_to_gregorian_seconds and
