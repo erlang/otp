@@ -42,6 +42,7 @@
   </section>
 
   <section>
+    <marker id="socket_options"></marker>
     <title>Socket Options</title>
 
     <p>Options for level <c>otp</c>: </p>

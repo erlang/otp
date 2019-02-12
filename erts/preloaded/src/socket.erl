@@ -949,10 +949,12 @@ supports(_Key1, _Key2, _Key3) ->
 %%
 %% <KOLLA>
 %%
-%% How do we handle the case when an fd has beem created (somehow)
+%% How do we handle the case when an fd has been created (somehow)
 %% and we shall create a socket "from it".
 %% Can we figure out Domain, Type and Protocol from fd?
 %% Yes we can: SO_DOMAIN, SO_PROTOCOL, SO_TYPE
+%% But does that work on all platforms? Or shall we require that the 
+%% caller provide this explicitly?
 %%
 %% </KOLLA>
 %%
