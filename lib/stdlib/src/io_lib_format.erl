@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -248,7 +248,7 @@ count_small([#{control_char := $s}|Cs], #{w := W} = Cnts) ->
     count_small(Cs, Cnts#{w := W + 1});
 count_small([S|Cs], #{other := Other} = Cnts) when is_list(S);
                                                    is_binary(S) ->
-    count_small(Cs, Cnts#{other := Other + string:length(S)});
+    count_small(Cs, Cnts#{other := Other + io_lib:chars_length(S)});
 count_small([C|Cs], #{other := Other} = Cnts) when is_integer(C) ->
     count_small(Cs, Cnts#{other := Other + 1});
 count_small([], #{p := P, s := S, w := W, other := Other}) ->
@@ -280,10 +280,15 @@ build_limited([#{control_char := C, args := As, width := F, adjust := Ad,
                    true -> MaxLen0 div Count0
                end,
     S = control_limited(C, As, F, Ad, P, Pad, Enc, Str, MaxChars, I),
-    Len = string:length(S),
     NumOfPs = decr_pc(C, NumOfPs0),
     Count = Count0 - 1,
-    MaxLen = sub(MaxLen0, Len),
+    MaxLen = if
+                 MaxLen0 < 0 -> % optimization
+                     MaxLen0;
+                 true ->
+                     Len = io_lib:chars_length(S),
+                     sub(MaxLen0, Len)
+             end,
     if
 	NumOfPs > 0 -> [S|build_limited(Cs, NumOfPs, Count,
                                         MaxLen, indentation(S, I))];
@@ -406,7 +411,7 @@ base(B) when is_integer(B) ->
 term(T, none, _Adj, none, _Pad) -> T;
 term(T, none, Adj, P, Pad) -> term(T, P, Adj, P, Pad);
 term(T, F, Adj, P0, Pad) ->
-    L = string:length(T),
+    L = io_lib:chars_length(T),
     P = erlang:min(L, case P0 of none -> F; _ -> min(P0, F) end),
     if
 	L > P ->
@@ -713,7 +718,7 @@ fwrite_g(Fl, F, Adj, P, Pad) when P >= 1 ->
     end.
 
 
-%% iolist_to_chars(iolist()) -> deep_char_list()
+%% iolist_to_chars(iolist()) -> io_lib:chars()
 
 iolist_to_chars([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
     [C | iolist_to_chars(Cs)];
@@ -729,7 +734,7 @@ iolist_to_chars(B) when is_binary(B) ->
 %%                                 cbinary() | nil())
 %% cbinary() :: unicode:unicode_binary() | unicode:latin1_binary()
 
-%% cdata_to_chars(cdata()) -> io_lib:deep_char_list()
+%% cdata_to_chars(cdata()) -> io_lib:chars()
 
 cdata_to_chars([C|Cs]) when is_integer(C), C >= $\000 ->
     [C | cdata_to_chars(Cs)];
@@ -745,7 +750,7 @@ cdata_to_chars(B) when is_binary(B) ->
 
 limit_string(S, F, CharsLimit) when CharsLimit < 0; CharsLimit >= F -> S;
 limit_string(S, _F, CharsLimit) ->
-    case string:length(S) =< CharsLimit of
+    case io_lib:chars_length(S) =< CharsLimit of
         true -> S;
         false -> [string:slice(S, 0, sub(CharsLimit, 3)), "..."]
     end.
@@ -759,11 +764,11 @@ limit_field(F, CharsLimit) ->
 
 string(S, none, _Adj, none, _Pad) -> S;
 string(S, F, Adj, none, Pad) ->
-    string_field(S, F, Adj, string:length(S), Pad);
+    string_field(S, F, Adj, io_lib:chars_length(S), Pad);
 string(S, none, _Adj, P, Pad) ->
-    string_field(S, P, left, string:length(S), Pad);
+    string_field(S, P, left, io_lib:chars_length(S), Pad);
 string(S, F, Adj, P, Pad) when F >= P ->
-    N = string:length(S),
+    N = io_lib:chars_length(S),
     if F > P ->
 	    if N > P ->
 		    adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
