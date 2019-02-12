@@ -66,7 +66,6 @@
 	 t_find_opaque_mismatch/3,
          t_find_unknown_opaque/3,
 	 t_fixnum/0,
-	 t_map/2,
 	 t_non_neg_fixnum/0,
 	 t_pos_fixnum/0,
 	 t_float/0,
@@ -205,6 +204,7 @@
 	 t_unopaque/1, t_unopaque/2,
 	 t_var/1,
 	 t_var_name/1,
+         t_widen_to_number/1,
 	 %% t_assign_variables_to_subtype/2,
 	 type_is_defined/4,
 	 record_field_diffs_to_string/2,
@@ -1593,6 +1593,50 @@ lift_list_to_pos_empty(Type, Opaques) ->
 lift_list_to_pos_empty(?nil) -> ?nil;
 lift_list_to_pos_empty(?list(Content, Termination, _)) -> 
   ?list(Content, Termination, ?unknown_qual).
+
+-spec t_widen_to_number(erl_type()) -> erl_type().
+
+%% Widens integers and floats to t_number().
+%% Used by erl_bif_types:key_comparison_fail().
+
+t_widen_to_number(?any) -> ?any;
+t_widen_to_number(?none) -> ?none;
+t_widen_to_number(?unit) -> ?unit;
+t_widen_to_number(?atom(_Set) = T) -> T;
+t_widen_to_number(?bitstr(_Unit, _Base) = T) -> T;
+t_widen_to_number(?float) -> t_number();
+t_widen_to_number(?function(Domain, Range)) ->
+  ?function(t_widen_to_number(Domain), t_widen_to_number(Range));
+t_widen_to_number(?identifier(_Types) = T) -> T;
+t_widen_to_number(?int_range(_From, _To)) -> t_number();
+t_widen_to_number(?int_set(_Set)) -> t_number();
+t_widen_to_number(?integer(_Types)) -> t_number();
+t_widen_to_number(?list(Type, Tail, Size)) ->
+  ?list(t_widen_to_number(Type), t_widen_to_number(Tail), Size);
+t_widen_to_number(?map(Pairs, DefK, DefV)) ->
+  L = [{t_widen_to_number(K), MNess, t_widen_to_number(V)} ||
+        {K, MNess, V} <- Pairs],
+  t_map(L, t_widen_to_number(DefK), t_widen_to_number(DefV));
+t_widen_to_number(?matchstate(_P, _Slots) = T) -> T;
+t_widen_to_number(?nil) -> ?nil;
+t_widen_to_number(?number(_Set, _Tag)) -> t_number();
+t_widen_to_number(?opaque(Set)) ->
+  L = [Opaque#opaque{struct = t_widen_to_number(S)} ||
+        #opaque{struct = S} = Opaque <- set_to_list(Set)],
+  ?opaque(ordsets:from_list(L));
+t_widen_to_number(?product(Types)) ->
+  ?product(list_widen_to_number(Types));
+t_widen_to_number(?tuple(?any, _, _) = T) -> T;
+t_widen_to_number(?tuple(Types, Arity, Tag)) ->
+  ?tuple(list_widen_to_number(Types), Arity, Tag);
+t_widen_to_number(?tuple_set(_) = Tuples) ->
+  t_sup([t_widen_to_number(T) || T <- t_tuple_subtypes(Tuples)]);
+t_widen_to_number(?union(List)) ->
+  ?union(list_widen_to_number(List));
+t_widen_to_number(?var(_Id)= T) -> T.
+
+list_widen_to_number(List) ->
+  [t_widen_to_number(E) || E <- List].
 
 %%-----------------------------------------------------------------------------
 %% Maps
@@ -4155,39 +4199,6 @@ t_abstract_records(?opaque(_)=Type, RecDict) ->
   t_abstract_records(t_opaque_structure(Type), RecDict);
 t_abstract_records(T, _RecDict) -> 
   T.
-
-%% Map over types. Depth first. Used by the contract checker. ?list is
-%% not fully implemented so take care when changing the type in Termination.
-
--spec t_map(fun((erl_type()) -> erl_type()), erl_type()) -> erl_type().
-
-t_map(Fun, ?list(Contents, Termination, Size)) ->
-  Fun(?list(t_map(Fun, Contents), t_map(Fun, Termination), Size));
-t_map(Fun, ?function(Domain, Range)) ->
-  Fun(?function(t_map(Fun, Domain), t_map(Fun, Range)));
-t_map(Fun, ?product(Types)) -> 
-  Fun(?product([t_map(Fun, T) || T <- Types]));
-t_map(Fun, ?union(Types)) ->
-  Fun(t_sup([t_map(Fun, T) || T <- Types]));
-t_map(Fun, ?tuple(?any, ?any, ?any) = T) ->
-  Fun(T);
-t_map(Fun, ?tuple(Elements, _Arity, _Tag)) ->
-  Fun(t_tuple([t_map(Fun, E) || E <- Elements]));
-t_map(Fun, ?tuple_set(_) = Tuples) ->
-  Fun(t_sup([t_map(Fun, T) || T <- t_tuple_subtypes(Tuples)]));
-t_map(Fun, ?opaque(Set)) ->
-  L = [Opaque#opaque{struct = NewS} ||
-        #opaque{struct = S} = Opaque <- set_to_list(Set),
-        not t_is_none(NewS = t_map(Fun, S))],
-  Fun(case L of
-        [] -> ?none;
-        _ -> ?opaque(ordsets:from_list(L))
-      end);
-t_map(Fun, ?map(Pairs,DefK,DefV)) ->
-  %% TODO:
-  Fun(t_map(Pairs, Fun(DefK), Fun(DefV)));
-t_map(Fun, T) ->
-  Fun(T).
 
 %%=============================================================================
 %%
