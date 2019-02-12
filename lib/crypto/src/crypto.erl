@@ -968,7 +968,7 @@ rand_seed_nif(_Seed) -> ?nif_stub.
                       DigestType :: rsa_digest_type()
                                   | dss_digest_type()
                                   | ecdsa_digest_type(),
-                      Msg :: binary() | {digest,binary()},
+                      Msg :: iodata() | {digest,iodata()},
                       Key :: rsa_private()
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
@@ -987,7 +987,7 @@ sign(Algorithm, Type, Data, Key) ->
                                   | dss_digest_type()
                                   | ecdsa_digest_type()
                                   | none,
-                      Msg :: binary() | {digest,binary()},
+                      Msg :: iodata() | {digest,iodata()},
                       Key :: rsa_private()
                            | dss_private()
                            | [ecdsa_private() | ecdsa_params()]
@@ -1016,7 +1016,7 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
                                     | dss_digest_type()
                                     | ecdsa_digest_type()
                                     | none,
-                        Msg :: binary() | {digest,binary()},
+                        Msg :: iodata() | {digest,iodata()},
                         Signature :: binary(),
                         Key :: rsa_public()
                              | dss_public()
@@ -1034,7 +1034,7 @@ verify(Algorithm, Type, Data, Signature, Key) ->
                         DigestType :: rsa_digest_type()
                                     | dss_digest_type()
                                     | ecdsa_digest_type(),
-                        Msg :: binary() | {digest,binary()},
+                        Msg :: iodata() | {digest,iodata()},
                         Signature :: binary(),
                         Key :: rsa_public()
                              | dss_public()
