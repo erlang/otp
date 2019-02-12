@@ -1074,11 +1074,11 @@ start_client(openssl, Port, ClientOpts, Config) ->
     CA = proplists:get_value(cacertfile, ClientOpts),
     Version = ssl_test_lib:protocol_version(Config),
     Exe = "openssl",
-    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+    Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
 	    ssl_test_lib:version_flag(Version),
 	    "-cert", Cert, "-CAfile", CA,
 	    "-key", Key, "-host","localhost", "-msg", "-debug"],
-
+    Args = maybe_force_ipv4(Args0),
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     true = port_command(OpenSslPort, "Hello world"),
     OpenSslPort;
@@ -1092,6 +1092,18 @@ start_client(erlang, Port, ClientOpts, Config) ->
 			       {mfa, {ssl_test_lib, check_key_exchange_send_active, [KeyEx]}},
 			       {options, [{verify, verify_peer} | ClientOpts]}]).
 
+%% Workaround for running tests on machines where openssl
+%% s_client would use an IPv6 address with localhost. As
+%% this test suite and the ssl application is not prepared
+%% for that we have to force s_client to use IPv4 if
+%% OpenSSL supports IPv6.
+maybe_force_ipv4(Args0) ->
+    case is_ipv6_supported() of
+        true ->
+            Args0 ++ ["-4"];
+        false ->
+            Args0
+    end.
 
 start_client_ecc(erlang, Port, ClientOpts, Expect, ECCOpts, Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1623,6 +1635,16 @@ active_recv(Socket, N, Acc) ->
     receive 
 	{ssl, Socket, Bytes} ->
             active_recv(Socket, N-length(Bytes),  Acc ++ Bytes)
+    end.
+
+is_ipv6_supported() ->
+    case os:cmd("openssl version") of
+        "OpenSSL 0.9.8" ++ _ -> % Does not support IPv6
+            false;
+        "OpenSSL 1.0" ++ _ ->   % Does not support IPv6
+            false;
+        _ ->
+            true
     end.
 
 is_sane_ecc(openssl) ->
