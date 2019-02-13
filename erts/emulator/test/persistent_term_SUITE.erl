@@ -6,7 +6,7 @@
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%5
+%%
 %%     http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing, software
@@ -60,7 +60,8 @@ basic(_Config) ->
              Key = {?MODULE,{key,I}},
              true = persistent_term:erase(Key),
              false = persistent_term:erase(Key),
-             {'EXIT',{badarg,_}} = (catch persistent_term:get(Key))
+             {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
+             {not_present,Key} = persistent_term:get(Key, {not_present,Key})
          end || I <- Seq],
     [] = [P || {{?MODULE,_},_}=P <- pget(Chk)],
     chk(Chk).

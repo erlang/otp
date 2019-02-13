@@ -332,6 +332,23 @@ BIF_RETTYPE persistent_term_get_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+BIF_RETTYPE persistent_term_get_2(BIF_ALIST_2)
+{
+    Eterm key = BIF_ARG_1;
+    Eterm result = BIF_ARG_2;
+    HashTable* hash_table = (HashTable *) erts_atomic_read_nob(&the_hash_table);
+    Uint entry_index;
+    Eterm term;
+
+    entry_index = lookup(hash_table, key);
+    term = hash_table->term[entry_index];
+    if (is_boxed(term)) {
+        ASSERT(is_tuple_arity(term, 2));
+        result = tuple_val(term)[2];
+    }
+    BIF_RET(result);
+}
+
 BIF_RETTYPE persistent_term_erase_1(BIF_ALIST_1)
 {
     Eterm key = BIF_ARG_1;
