@@ -2345,18 +2345,24 @@ start_cover(Opts=#opts{coverspec=CovData,cover_stop=CovStop},LogDir) ->
      CovImport,
      _CovExport,
      #cover{app        = CovApp,
+            local_only = LocalOnly,
 	    level      = CovLevel,
 	    excl_mods  = CovExcl,
 	    incl_mods  = CovIncl,
 	    cross      = CovCross,
 	    src        = _CovSrc}} = CovData,
+    case LocalOnly of
+        true -> cover:local_only();
+        false -> ok
+    end,
     ct_logs:log("COVER INFO",
 		"Using cover specification file: ~ts~n"
 		"App: ~w~n"
+                "Local only: ~w~n"
 		"Cross cover: ~w~n"
 		"Including ~w modules~n"
 		"Excluding ~w modules",
-		[CovFile,CovApp,CovCross,
+		[CovFile,CovApp,LocalOnly,CovCross,
 		 length(CovIncl),length(CovExcl)]),
 
     %% Tell test_server to print a link in its coverlog
