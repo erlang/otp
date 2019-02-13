@@ -67,6 +67,8 @@ all() ->
      reject_events,
      std_handler,
      disk_log_handler,
+     std_handler_time,
+     disk_log_handler_time,
      emulator_events,
      remote_events,
      remote_to_disk_log,
@@ -123,6 +125,14 @@ std_handler(cleanup,_Config) ->
     _ = file:delete("default.log"),
     ok.
 
+%% Disable overload protection and just print a lot - measure time.
+%% The IOPS reported is the number of log events written per millisecond.
+std_handler_time(Config) ->
+    measure_handler_time(logger_std_h,#{type=>{file,"default.log"}},Config).
+std_handler_time(cleanup,_Config) ->
+    _ = file:delete("default.log"),
+    ok.
+
 %% Cascading failure that produce gen_server and proc_lib reports -
 %% how many of the produced log events are actually written to a log
 %% with logger_disk_log_h wrap file handler.
@@ -138,6 +148,14 @@ disk_log_handler(Config) ->
 disk_log_handler(cleanup,_Config) ->
     Files = filelib:wildcard("default.log.*"),
     [_ = file:delete(F) || F <- Files],
+    ok.
+
+%% Disable overload protection and just print a lot - measure time.
+%% The IOPS reported is the number of log events written per millisecond.
+disk_log_handler_time(Config) ->
+    measure_handler_time(logger_disk_log_h,#{type=>halt},Config).
+disk_log_handler_time(cleanup,_Config) ->
+    _ = file:delete("default"),
     ok.
 
 %% Cascading failure that produce log events from the emulator - how
@@ -221,6 +239,49 @@ remote_emulator_to_disk_log(cleanup,_Config) ->
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
+measure_handler_time(Module,HCfg,Config) ->
+    N = 100000,
+    {ok,_,Node} =
+        logger_test_lib:setup(
+          Config,
+          [{logger,
+            [{handler,default,Module,
+              #{formatter => {logger_formatter,
+                              #{legacy_header=>false,single_line=>true%% ,
+                                %% chars_limit=>4096
+                               }},
+                config=>maps:merge(#{sync_mode_qlen => N+1,
+                                     drop_mode_qlen => N+1,
+                                     flush_qlen => N+1,
+                                     burst_limit_enable => false,
+                                     filesync_repeat_interval => no_repeat},
+                                   HCfg)}}]}]),
+    HPid = rpc:call(Node,erlang,whereis,[?name_to_reg_name(Module,default)]),
+    {links,[_,FCPid]} = rpc:call(Node,erlang,process_info,[HPid,links]),
+    T0 = erlang:monotonic_time(millisecond),
+    ok = rpc:call(Node,?MODULE,nlogs_wait,[N,Module]),
+    %% ok = rpc:call(Node,fprof,apply,[fun ?MODULE:nlogs_wait/2,[N div 10,Module],[{procs,[HPid,FCPid]}]]),
+    T1 = erlang:monotonic_time(millisecond),
+    T = T1-T0,
+    IOPS = N/T,
+    %% Stats = rpc:call(Node,logger_olp,info,[?name_to_reg_name(Module,default)]),
+    %% ct:pal("IOPS: ~p~nStats: ~p",[IOPS,Stats]),
+    ct_event:notify(#event{name = benchmark_data,
+                           data = [{value,IOPS}]}),
+    {comment,io_lib:format("~.2f events written pr millisecond",[IOPS])}.
+
+nlogs_wait(N,Module) ->
+    nlogs(N),
+    wait(Module).
+
+wait(Module) ->
+    case Module:filesync(default) of
+        {error,handler_busy} ->
+            wait(Module);
+        ok ->
+            ok
+    end.
+
 nlogs(N) ->
     group_leader(whereis(user),self()),
     Str = "\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
