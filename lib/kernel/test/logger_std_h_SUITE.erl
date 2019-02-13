@@ -141,7 +141,8 @@ all() ->
      mem_kill_std,
      restart_after,
      handler_requests_under_load,
-     recreate_deleted_log
+     recreate_deleted_log,
+     reopen_changed_log
     ].
 
 add_remove_instance_tty(_Config) ->
@@ -1267,6 +1268,21 @@ recreate_deleted_log(Config) ->
     {ok,<<"second\n">>} = file:read_file(Log),
     ok.
 recreate_deleted_log(cleanup, _Config) ->
+    ok = stop_handler(?MODULE).
+
+reopen_changed_log(Config) ->
+    {Log,_HConfig,_StdHConfig} =
+        start_handler(?MODULE, ?FUNCTION_NAME, Config),
+    logger:notice("first",?domain),
+    logger_std_h:filesync(?MODULE),
+    ok = file:rename(Log,Log++".old"),
+    ok = file:write_file(Log,""),
+    logger:notice("second",?domain),
+    logger_std_h:filesync(?MODULE),
+    {ok,<<"first\n">>} = file:read_file(Log++".old"),
+    {ok,<<"second\n">>} = file:read_file(Log),
+    ok.
+reopen_changed_log(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
 
 %%%-----------------------------------------------------------------
