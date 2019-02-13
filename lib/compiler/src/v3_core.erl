@@ -766,14 +766,16 @@ expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     {Qs,St2} = preprocess_quals(Llc, Qs0, St1),
     {Y,Yps,St} = lc_tq(Llc, E, Qs, Mc, St2),
     {Y,Mps++Yps,St};
-expr({op,L,'andalso',E1,E2}, St0) ->
+expr({op,_,'andalso',_,_}=E0, St0) ->
+    {op,L,'andalso',E1,E2} = right_assoc(E0, 'andalso', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
     E = make_bool_switch(L, E1, V, E2, False, St0),
     expr(E, St);
-expr({op,L,'orelse',E1,E2}, St0) ->
+expr({op,_,'orelse',_,_}=E0, St0) ->
+    {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse', St0),
     Anno = lineno_anno(L, St0),
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
