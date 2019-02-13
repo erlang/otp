@@ -165,13 +165,13 @@ decode_cipher_text(CipherText,
                           }
                     } = ConnectionStates0, _) ->
     SeqBin = <<?UINT64(Seq)>>,
-    CipherS1 = ssl_record:nonce_seed(BulkCipherAlgo, SeqBin, CipherS0),
     #ssl_tls{type = Type, version = {MajVer,MinVer} = Version, fragment = Fragment} = CipherText,
     StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>,
+    CipherS = ssl_record:nonce_seed(BulkCipherAlgo, SeqBin, CipherS0),
     case ssl_record:decipher_aead(
-           BulkCipherAlgo, CipherS1, StartAdditionalData, Fragment, Version)
+           BulkCipherAlgo, CipherS, StartAdditionalData, Fragment, Version)
     of
-	{PlainFragment, CipherS} ->
+	PlainFragment when is_binary(PlainFragment) ->
             #{current_read :=
                   #{security_parameters := SecParams,
                     compression_state := CompressionS0} = ReadState0} = ConnectionStates0,

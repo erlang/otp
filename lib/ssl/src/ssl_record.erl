@@ -367,9 +367,8 @@ decipher(Version, CipherFragment,
 	    Alert
     end.
 %%--------------------------------------------------------------------
--spec decipher_aead(ssl_cipher:cipher_enum(),  #cipher_state{}, 
-                    binary(), binary(), ssl_record:ssl_version()) ->
-			   {binary(), #cipher_state{}} | #alert{}.
+-spec decipher_aead(ssl_cipher:cipher_enum(),  #cipher_state{}, binary(), binary(), ssl_record:ssl_version()) ->
+			   binary() | #alert{}.
 %%
 %% Description: Decrypts the data and checks the associated data (AAD) MAC using
 %% cipher described by cipher_enum() and updating the cipher state.
@@ -381,7 +380,7 @@ decipher_aead(Type, #cipher_state{key = Key} = CipherState, AAD0, CipherFragment
         {AAD, CipherText, CipherTag} = aead_ciphertext_split(Type, CipherState, CipherFragment, AAD0),
 	case ssl_cipher:aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AAD) of
 	    Content when is_binary(Content) ->
-		{Content, CipherState};
+		Content;
 	    _ ->
                 ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
 	end
