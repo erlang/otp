@@ -370,42 +370,38 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
     TargetDir = filename:join(PrivDir, listings),
     ok = file:make_dir(TargetDir),
 
-    %% Test all dedicated listing options.
-    do_listing(Simple, TargetDir, 'S'),
-    do_listing(Simple, TargetDir, 'E'),
-    do_listing(Simple, TargetDir, 'P'),
-    do_listing(Simple, TargetDir, dpp, ".pp"),
-    do_listing(Simple, TargetDir, dabstr, ".abstr"),
-    do_listing(Simple, TargetDir, dexp, ".expand"),
-    do_listing(Simple, TargetDir, dcore, ".core"),
-    do_listing(Simple, TargetDir, doldinline, ".oldinline"),
-    do_listing(Simple, TargetDir, dinline, ".inline"),
-    do_listing(Simple, TargetDir, dcore, ".core"),
-    do_listing(Simple, TargetDir, dcopt, ".copt"),
-    do_listing(Simple, TargetDir, dcbsm, ".core_bsm"),
-    do_listing(Simple, TargetDir, dsetel, ".dsetel"),
-    do_listing(Simple, TargetDir, dkern, ".kernel"),
-    do_listing(Simple, TargetDir, dssa, ".ssa"),
-    do_listing(Simple, TargetDir, dssaopt, ".ssaopt"),
-    do_listing(Simple, TargetDir, dprecg, ".precodegen"),
-    do_listing(Simple, TargetDir, dcg, ".codegen"),
-    do_listing(Simple, TargetDir, dblk, ".block"),
-    do_listing(Simple, TargetDir, dexcept, ".except"),
-    do_listing(Simple, TargetDir, djmp, ".jump"),
-    do_listing(Simple, TargetDir, dclean, ".clean"),
-    do_listing(Simple, TargetDir, dpeep, ".peep"),
-    do_listing(Simple, TargetDir, dopt, ".optimize"),
-    do_listing(Simple, TargetDir, diffable, ".S"),
-
-    %% First clean up.
-    Listings = filename:join(PrivDir, listings),
-    lists:foreach(fun(F) -> ok = file:delete(F) end,
-	filelib:wildcard(filename:join(Listings, "*"))),
+    List = [{'S',".S"},
+            {'E',".E"},
+            {'P',".P"},
+            {dpp, ".pp"},
+            {dabstr, ".abstr"},
+            {dexp, ".expand"},
+            {dcore, ".core"},
+            {doldinline, ".oldinline"},
+            {dinline, ".inline"},
+            {dcore, ".core"},
+            {dcopt, ".copt"},
+            {dcbsm, ".core_bsm"},
+            {dsetel, ".dsetel"},
+            {dkern, ".kernel"},
+            {dssa, ".ssa"},
+            {dssaopt, ".ssaopt"},
+            {dprecg, ".precodegen"},
+            {dcg, ".codegen"},
+            {dblk, ".block"},
+            {dexcept, ".except"},
+            {djmp, ".jump"},
+            {dclean, ".clean"},
+            {dpeep, ".peep"},
+            {dopt, ".optimize"},
+            {diffable, ".S"}],
+    p_listings(List, Simple, TargetDir),
 
     %% Test options that produce a listing file if 'binary' is not given.
     do_listing(Simple, TargetDir, to_pp, ".P"),
     do_listing(Simple, TargetDir, to_exp, ".E"),
     do_listing(Simple, TargetDir, to_core0, ".core"),
+    Listings = filename:join(PrivDir, listings),
     ok = file:delete(filename:join(Listings, File ++ ".core")),
     do_listing(Simple, TargetDir, to_core, ".core"),
     do_listing(Simple, TargetDir, to_kernel, ".kernel"),
@@ -421,24 +417,35 @@ do_file_listings(DataDir, PrivDir, [File|Files]) ->
 listings_big(Config) when is_list(Config) ->
     {Big,Target} = get_files(Config, big, listings_big),
     TargetDir = filename:dirname(Target),
-    do_listing(Big, TargetDir, 'S'),
-    do_listing(Big, TargetDir, 'E'),
-    do_listing(Big, TargetDir, 'P'),
-    do_listing(Big, TargetDir, dkern, ".kernel"),
-    do_listing(Big, TargetDir, dssa, ".ssa"),
-    do_listing(Big, TargetDir, dssaopt, ".ssaopt"),
-    do_listing(Big, TargetDir, dprecg, ".precodegen"),
-    do_listing(Big, TargetDir, to_dis, ".dis"),
+    List = [{'S',".S"},
+            {'E',".E"},
+            {'P',".P"},
+            {dkern, ".kernel"},
+            {dssa, ".ssa"},
+            {dssaopt, ".ssaopt"},
+            {dprecg, ".precodegen"},
+            {to_dis, ".dis"}],
+    p_listings(List, Big, TargetDir).
 
-    TargetNoext = filename:rootname(Target, code:objfile_extension()),
-    {ok,big} = compile:file(TargetNoext, [from_asm,{outdir,TargetDir}]),
-
-    %% Cleanup.
-    ok = file:delete(Target),
-    lists:foreach(fun(F) -> ok = file:delete(F) end,
-		  filelib:wildcard(filename:join(TargetDir, "*"))),
-    ok = file:del_dir(TargetDir),
-    ok.
+p_listings(List, File, BaseDir) ->
+    Run = fun({Option,Extension}) ->
+                  Uniq = erlang:unique_integer([positive]),
+                  Dir = filename:join(BaseDir, integer_to_list(Uniq)),
+                  ok = file:make_dir(Dir),
+                  try
+                      do_listing(File, Dir, Option, Extension),
+                      ok
+                  catch
+                      Class:Error:Stk ->
+                          io:format("~p:~p\n~p\n", [Class,Error,Stk]),
+                          error
+                  after
+                      _ = [ok = file:delete(F) ||
+                              F <- filelib:wildcard(filename:join(Dir, "*"))],
+                      ok = file:del_dir(Dir)
+                  end
+          end,
+    test_lib:p_run(Run, List).
 
 other_output(Config) when is_list(Config) ->
     {Simple,_Target} = get_files(Config, simple, "other_output"),
@@ -684,9 +691,6 @@ custom_compile_info(Config) when is_list(Config) ->
 cover(Config) when is_list(Config) ->
     io:format("~p\n", [compile:options()]),
     ok.
-
-do_listing(Source, TargetDir, Type) ->
-    do_listing(Source, TargetDir, Type, "." ++ atom_to_list(Type)).
 
 do_listing(Source, TargetDir, Type, Ext) ->
     io:format("Source: ~p TargetDir: ~p\n  Type: ~p Ext: ~p\n",
