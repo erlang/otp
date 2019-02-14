@@ -1202,7 +1202,6 @@ handle_options(Opts0, Role, Host) ->
 	handle_verify_options(Opts, CaCerts),
     
     CertFile = handle_option(certfile, Opts, <<>>),
-    RecordCb = record_cb(Opts),
     
     Versions = case handle_option(versions, Opts, []) of
 		   [] ->
