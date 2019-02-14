@@ -102,11 +102,11 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-
 ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
+{/* (Context, Data)
+    (Context, Data, IV) */
     struct evp_cipher_ctx *ctx;
-    ErlNifBinary   data_bin;
+    ErlNifBinary   data_bin, ivec_bin;
     ERL_NIF_TERM   cipher_term;
     unsigned char  *out;
     int            outl = 0;
@@ -124,6 +124,15 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
         || (data_bin.size > INT_MAX) ) {
         return ERROR_Term(env, enif_make_atom(env,"badarg"));
+    }
+
+    if (argc==3) {
+       if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin)
+           || (ivec_bin.size > INT_MAX) )
+           return ERROR_Term(env, enif_make_atom(env,"badarg"));
+
+       if (!EVP_CipherInit_ex(ctx->ctx, NULL, NULL, NULL, ivec_bin.data, -1))
+           return ERROR_Str(env, "Can't set iv");
     }
 
     out = enif_make_new_binary(env, data_bin.size, &cipher_term);

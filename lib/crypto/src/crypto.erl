@@ -50,7 +50,7 @@
 
 %% Experiment
 -export([crypto_init/4,
-         crypto_update/2,
+         crypto_update/2, crypto_update/3,
          
          %% Emulates old api:
          crypto_stream_init/2, crypto_stream_init/3,
@@ -2227,6 +2227,12 @@ check_otp_test_engine(LibDir) ->
 
 -opaque crypto_state() :: reference() | {any(),any(),any(),any()}.
 
+
+%%%----------------------------------------------------------------
+%%%
+%%% Create and initialize a new state for encryption or decryption
+%%% 
+
 -spec crypto_init(Cipher, Key, IV, EncryptFlag) -> {ok,State} | {error,term()}
                                                        when Cipher :: stream_cipher()
                                                                     | block_cipher_with_iv()
@@ -2253,63 +2259,89 @@ crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
     end.
 
 
+%%%----------------------------------------------------------------
+%%%
+%%% Encrypt/decrypt a sequence of bytes.  The sum of the sizes
+%%% of all blocks must be an integer multiple of the crypto's
+%%% blocksize.
+%%% 
+
 -spec crypto_update(State, Data) -> {ok,Result} | {error,term()}
                                         when State :: crypto_state(),
                                              Data :: iodata(),
                                              Result :: binary() | {crypto_state(),binary()}.
-%%% -> {ok,binary()} | {error,Reason}
 crypto_update(State, Data) ->
     Size = iolist_size(Data),
     if
         Size =< ?MAX_BYTES_TO_NIF ->
-            case ng_crypto_update_nif(State, Data) of
-                {error,Error} -> {error,Error};
-                Bin when is_binary(Bin) -> {ok,Bin};
-                {State1,Bin} when is_tuple(State1),
-                                  size(State1) == 4,
-                                  is_binary(Bin) -> {ok,{State1,Bin}} % compatibility with old cryptolibs < 1.0.1
-            end;
-
-        Size > ?MAX_BYTES_TO_NIF ->
-            %% FIXME: Too much work for now to use an iolist as input...
-            case call_ng_crypto_update_nif_no_blocking(State, iolist_to_binary(Data), []) of
-                {error,Error} -> {error,Error};
-                Bin when is_binary(Bin) -> {ok,Bin};
-                {compat,State1,Bin} when is_binary(Bin) -> {ok,{State1,Bin}} % compatibility with old cryptolibs < 1.0.1
-            end
+            mk_ret(ng_crypto_update_nif(State, Data));
+        true ->
+            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = iolist_to_binary(Data),
+            continue_update(State, ng_crypto_update_nif(State,Data1), RestData, [])
     end.
 
--define(SAVE(X,ACC), [(X)|(ACC)]).
--define(RETURN(X,ACC), iolist_to_binary(lists:reverse(?SAVE(X,ACC)))).
+%%%----------------------------------------------------------------
+%%%
+%%% Encrypt/decrypt a sequence of bytes but change the IV first.
+%%% Not applicable for all modes.
+%%% 
 
-%%% Avoid blocking the scheduler for large chunks of data
-call_ng_crypto_update_nif_no_blocking(State, <<Data:?MAX_BYTES_TO_NIF/binary, RestData/binary>>, Acc) when size(RestData)>0 ->
-    case ng_crypto_update_nif(State, Data) of
-        Bin when is_binary(Bin) ->
-            call_ng_crypto_update_nif_no_blocking(State, RestData, ?SAVE(Bin,Acc));
-        {State1,Bin} when is_tuple(State1),
-                          size(State1) == 4,
-                          is_binary(Bin) -> % compatibility with old cryptolibs < 1.0.1
-            call_ng_crypto_update_nif_no_blocking(State1, RestData, ?SAVE(Bin,Acc));
-        Other ->
-            Other
-    end;
-
-call_ng_crypto_update_nif_no_blocking(State, Data, Acc) ->
-    %% size(Data) < ?MAX_BYTES_TO_NIF but > 0
-    case ng_crypto_update_nif(State, Data) of
-        Bin when is_binary(Bin) ->
-            ?RETURN(Bin,Acc);
-        {State1,Bin} when is_tuple(State1),
-                          size(State1) == 4,
-                          is_binary(Bin) -> % compatibility with old cryptolibs < 1.0.1
-            {compat,State1, ?RETURN(Bin,Acc)};
-        Other ->
-            Other
+-spec crypto_update(State, Data, IV) -> {ok,Result} | {error,term()}
+                                            when State :: crypto_state(),
+                                                 Data :: iodata(),
+                                                 IV :: binary(),
+                                                 Result :: binary() | {crypto_state(),binary()}.
+crypto_update(State, Data, IV) ->
+    Size = iolist_size(Data),
+    if
+        Size =< ?MAX_BYTES_TO_NIF ->
+            mk_ret(ng_crypto_update_nif(State, Data, IV));
+        true ->
+            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = iolist_to_binary(Data),
+            continue_update(State, ng_crypto_update_nif(State,Data1,IV), RestData, [])
     end.
 
+%%%---- looping
+continue_update(_State, {error,Error}, _Data, _Acc) ->
+    {error,Error};
+
+continue_update(State, Res, Data, Acc) ->
+    Size = iolist_size(Data),
+    if
+        Size =< ?MAX_BYTES_TO_NIF ->
+            mk_ret(ng_crypto_update_nif(state(State,Res), Data), [bin(Res)|Acc]);
+        true ->
+            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = Data,
+            %% size(RestData) > 0 because otherwise the previous clause would have been selected
+            continue_update(state(State,Res), ng_crypto_update_nif(state(State,Res),Data1), RestData, [bin(Res)|Acc])
+    end.
+
+
+%%%----------------------------------------------------------------
+%%% Helpers
+mk_ret(R) -> mk_ret(R, []).
+    
+mk_ret({error,Error}, _) ->
+    {error,Error};
+mk_ret(Bin, Acc) when is_binary(Bin) ->
+    {ok, iolist_to_binary(lists:reverse([Bin|Acc]))};
+mk_ret({State1,Bin}, Acc) when is_tuple(State1),
+                               size(State1) == 4,
+                               is_binary(Bin) ->
+    %% compatibility with old cryptolibs < 1.0.1
+    {ok, {State1, iolist_to_binary(lists:reverse([Bin|Acc]))}}.
+
+state(_, {S,_}) -> S;
+state(S, _) -> S.
+     
+bin({_,B}) -> B;
+bin(B) -> B.
+
+%%%----------------------------------------------------------------
+%%% NIFs
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
+ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 %%%================================================================
 %%% Compatibility functions to be called by "old" api functions.
