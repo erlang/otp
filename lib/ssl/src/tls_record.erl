@@ -75,7 +75,12 @@ init_connection_states(Role, BeastMitigation) ->
       pending_write => Pending}.
 
 %%--------------------------------------------------------------------
--spec get_tls_records(binary(), [tls_version()] | tls_version(), binary()) -> {[binary()], binary()} | #alert{}.
+-spec get_tls_records(
+        binary(), [tls_version()] | tls_version(),
+        Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}) ->
+                             {Records :: [#ssl_tls{}],
+                              Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
+                             #alert{}.
 %%			     
 %% and returns it as a list of tls_compressed binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
@@ -132,8 +137,8 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, ?byte(?CHANGE_CIPHER_SPEC_PROTO), ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec encode_data(binary(), tls_version(), ssl_record:connection_states()) ->
-			 {iolist(), ssl_record:connection_states()}.
+-spec encode_data([binary()], tls_version(), ssl_record:connection_states()) ->
+			 {[[binary()]], ssl_record:connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------

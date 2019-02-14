@@ -44,7 +44,6 @@
          socket,
          socket_options,
          tracker,
-         protocol_cb,
          transport_cb,
          negotiated_version,
          renegotiate_at,
@@ -201,7 +200,6 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            socket := Socket,
                            socket_options := SockOpts,
                            tracker := Tracker,
-                           protocol_cb := Connection,
                            transport_cb := Transport,
                            negotiated_version := Version,
                            renegotiate_at := RenegotiateAt}}, 
@@ -215,7 +213,6 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
                                                 tracker = Tracker,
-                                                protocol_cb = Connection,
                                                 transport_cb = Transport,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt}},
@@ -252,12 +249,11 @@ connection({call, From}, downgrade, #data{connection_states =
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(From, Opts, StateData);
 connection({call, From}, dist_get_tls_socket, 
-           #data{static = #static{protocol_cb = Connection,
-                                  transport_cb = Transport,
+           #data{static = #static{transport_cb = Transport,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   tracker = Tracker}} = StateData) ->
-    TLSSocket = Connection:socket([Pid, self()], Transport, Socket, Connection, Tracker),
+    TLSSocket = tls_connection:socket([Pid, self()], Transport, Socket, Tracker),
     {next_state, ?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]};
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
@@ -407,14 +403,14 @@ handle_common(Type, Msg, _) ->
     error_logger:error_report(Report),
     keep_state_and_data.
 
-send_tls_alert(Alert, #data{static = #static{negotiated_version = Version,
-                                             socket = Socket,
-                                             protocol_cb = Connection,
-                                             transport_cb = Transport},
-                            connection_states = ConnectionStates0} = StateData0) ->
+send_tls_alert(#alert{} = Alert,
+               #data{static = #static{negotiated_version = Version,
+                                      socket = Socket,
+                                      transport_cb = Transport},
+                     connection_states = ConnectionStates0} = StateData0) ->
     {BinMsg, ConnectionStates} =
-	Connection:encode_alert(Alert, Version, ConnectionStates0),
-    Connection:send(Transport, Socket, BinMsg),
+	tls_record:encode_alert_record(Alert, Version, ConnectionStates0),
+    tls_socket:send(Transport, Socket, BinMsg),
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
@@ -422,7 +418,6 @@ send_application_data(Data, From, StateName,
                                               socket = Socket,
                                               dist_handle = DistHandle,
                                               negotiated_version = Version,
-                                              protocol_cb = Connection,
                                               transport_cb = Transport,
                                               renegotiate_at = RenegotiateAt},
                              connection_states = ConnectionStates0} = StateData0) ->
@@ -432,9 +427,9 @@ send_application_data(Data, From, StateName,
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
 	false ->
-	    {Msgs, ConnectionStates} = Connection:encode_data(Data, Version, ConnectionStates0),
+	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
             StateData = StateData0#data{connection_states = ConnectionStates},
-	    case Connection:send(Transport, Socket, Msgs) of
+	    case tls_socket:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
                     {next_state, StateName, StateData, []};
                 Reason when DistHandle =/= undefined ->
@@ -502,13 +497,13 @@ dist_data(DHandle) ->
         %% therefore always have to use {packet,4}
         Data when is_binary(Data) ->
             Len = byte_size(Data),
-            [<<Len:32>>,Data|dist_data(DHandle)];
+            [[<<Len:32>>,Data]|dist_data(DHandle)];
         [BA,BB] = Data ->
             Len = byte_size(BA) + byte_size(BB),
-            [<<Len:32>>,Data|dist_data(DHandle)];
+            [[<<Len:32>>|Data]|dist_data(DHandle)];
         Data when is_list(Data) ->
             Len = iolist_size(Data),
-            [<<Len:32>>,Data|dist_data(DHandle)]
+            [[<<Len:32>>|Data]|dist_data(DHandle)]
     end.
 
 

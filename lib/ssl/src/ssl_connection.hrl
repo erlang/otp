@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@
                           downgrade,
                           terminated = false                          ::boolean() | closed,  
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
-                          erl_dist_handle = undefined :: erlang:dist_handle() | undefined,
+                          erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
                           private_key          :: public_key:private_key() | secret_printout() | 'undefined'
                         }).
 
@@ -109,7 +109,7 @@
                 %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
-                user_data_buffer     :: undefined | binary() | secret_printout(),
+                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout(),
                 bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
 
                 %% recv and start handling

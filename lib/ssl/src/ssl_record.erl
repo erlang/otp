@@ -53,8 +53,8 @@
 
 -type ssl_version()       :: {integer(), integer()}.
 -type ssl_atom_version() :: tls_record:tls_atom_version().
--type connection_states() :: term(). %% Map
--type connection_state() :: term(). %% Map
+-type connection_states() :: map(). %% Map
+-type connection_state() :: map(). %% Map
 
 %%====================================================================
 %% Connection state handling

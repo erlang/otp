@@ -70,7 +70,7 @@
 -export([terminate/3, format_status/2]).
 
 %% Erlang Distribution export
--export([get_sslsocket/1, dist_handshake_complete/2]).
+-export([dist_handshake_complete/2]).
 
 %%====================================================================
 %% Setup
@@ -182,19 +182,19 @@ socket_control(Connection, Socket, Pid, Transport) ->
 %%--------------------------------------------------------------------	    
 socket_control(Connection, Socket, Pids, Transport, udp_listener) ->
     %% dtls listener process must have the socket control
-    {ok, Connection:socket(Pids, Transport, Socket, Connection, undefined)};
+    {ok, Connection:socket(Pids, Transport, Socket, undefined)};
 
 socket_control(tls_connection = Connection, Socket, [Pid|_] = Pids, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, Connection:socket(Pids, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pids, Transport, Socket, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end;
 socket_control(dtls_connection = Connection, {_, Socket}, [Pid|_] = Pids, Transport, ListenTracker) ->
     case Transport:controlling_process(Socket, Pid) of
 	ok ->
-	    {ok, Connection:socket(Pids, Transport, Socket, Connection, ListenTracker)};
+	    {ok, Connection:socket(Pids, Transport, Socket, ListenTracker)};
 	{error, Reason}	->
 	    {error, Reason}
     end.
@@ -310,9 +310,6 @@ renegotiation(ConnectionPid) ->
 %%--------------------------------------------------------------------
 internal_renegotiation(ConnectionPid, #{current_write := WriteState}) ->
     gen_statem:cast(ConnectionPid, {internal_renegotiate, WriteState}). 
-
-get_sslsocket(ConnectionPid) ->
-    call(ConnectionPid, get_sslsocket).
 
 dist_handshake_complete(ConnectionPid, DHandle) ->
     gen_statem:cast(ConnectionPid, {dist_handshake_complete, DHandle}).
@@ -1350,10 +1347,6 @@ handle_call({set_opts, Opts0}, From, StateName,
     
 handle_call(renegotiate, From, StateName, _, _) when StateName =/= connection ->
     {keep_state_and_data, [{reply, From, {error, already_renegotiating}}]};
-
-handle_call(get_sslsocket, From, _StateName, State, Connection) ->
-    SslSocket = Connection:socket(State),
-    {keep_state_and_data, [{reply, From, SslSocket}]};
 
 handle_call({prf, Secret, Label, Seed, WantedLength}, From, _,
 	    #state{connection_states = ConnectionStates,
@@ -2723,7 +2716,7 @@ format_reply(_, _, _,#socket_options{active = false, mode = Mode, packet = Packe
     {ok, do_format_reply(Mode, Packet, Header, Data)};
 format_reply(CPids, Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
 						header = Header}, Data, Tracker, Connection) ->
-    {ssl, Connection:socket(CPids, Transport, Socket, Connection, Tracker), 
+    {ssl, Connection:socket(CPids, Transport, Socket, Tracker),
      do_format_reply(Mode, Packet, Header, Data)}.
 
 deliver_packet_error(CPids, Transport, Socket, 
@@ -2735,7 +2728,7 @@ format_packet_error(_, _, _,#socket_options{active = false, mode = Mode}, Data, 
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
 format_packet_error(CPids, Transport, Socket, #socket_options{active = _, mode = Mode}, 
                     Data, Tracker, Connection) ->
-    {ssl_error, Connection:socket(CPids, Transport, Socket, Connection, Tracker), 
+    {ssl_error, Connection:socket(CPids, Transport, Socket, Tracker),
      {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
@@ -2791,12 +2784,10 @@ alert_user(Pids, Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Con
     case ssl_alert:reason_code(Alert, Role) of
 	closed ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, Connection:socket(Pids, 
-							 Transport, Socket, Connection, Tracker)});
+			  {ssl_closed, Connection:socket(Pids, Transport, Socket, Tracker)});
 	ReasonCode ->
 	    send_or_reply(Active, Pid, From,
-			  {ssl_error, Connection:socket(Pids, 
-							Transport, Socket, Connection, Tracker), ReasonCode})
+			  {ssl_error, Connection:socket(Pids, Transport, Socket, Tracker), ReasonCode})
     end.
 
 log_alert(true, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->

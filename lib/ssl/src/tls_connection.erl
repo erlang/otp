@@ -57,11 +57,10 @@
 %% Alert and close handling
 -export([send_alert/2, send_alert_in_connection/2,
          send_sync_alert/2,
-         encode_alert/3, close/5, protocol_name/0]).
+         close/5, protocol_name/0]).
 
 %% Data handling
--export([encode_data/3, next_record/1,
-         send/3, socket/5, setopts/3, getopts/3]).
+-export([next_record/1, socket/4, setopts/3, getopts/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
@@ -202,14 +201,15 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
 
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
+%%
 next_event(StateName, no_record, State0, Actions) ->
     case next_record(State0) of
  	{no_record, State} ->
             {next_state, StateName, State, Actions};
  	{#ssl_tls{} = Record, State} ->
  	    {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
- 	{#alert{} = Alert, State} ->
- 	    {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}
+	#alert{} = Alert ->
+	    {next_state, StateName, State0, [{next_event, internal, Alert} | Actions]}
     end;
 next_event(StateName, Record, State, Actions) ->
     case Record of
@@ -311,7 +311,7 @@ renegotiate(#state{static_env = #static_env{role = server,
     Hs0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates} = 
 	tls_record:encode_handshake(Frag, Version, ConnectionStates0),
-    send(Transport, Socket, BinMsg),
+    tls_socket:send(Transport, Socket, BinMsg),
     State = State0#state{connection_states = 
 			     ConnectionStates,
 			 handshake_env = HsEnv#handshake_env{tls_handshake_history = Hs0}},
@@ -333,7 +333,7 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
 			     flight_buffer = Flight} = State0) ->
-    send(Transport, Socket, Flight),
+    tls_socket:send(Transport, Socket, Flight),
     {State0#state{flight_buffer = []}, []}.
 
 queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_version = Version},
@@ -386,7 +386,7 @@ send_alert(Alert, #state{static_env = #static_env{socket = Socket,
                          connection_states = ConnectionStates0} = StateData0) ->
     {BinMsg, ConnectionStates} =
         encode_alert(Alert, Version, ConnectionStates0),
-    send(Transport, Socket, BinMsg),
+    tls_socket:send(Transport, Socket, BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
 
 %% If an ALERT sent in the connection state, should cause the TLS
@@ -440,14 +440,9 @@ protocol_name() ->
 %%====================================================================
 %% Data handling
 %%====================================================================	     
-encode_data(Data, Version, ConnectionStates0)->
-    tls_record:encode_data(Data, Version, ConnectionStates0).
 
-send(Transport, Socket, Data) ->
-   tls_socket:send(Transport, Socket, Data).
-
-socket(Pids,  Transport, Socket, Connection, Tracker) ->
-    tls_socket:socket(Pids, Transport, Socket, Connection, Tracker).
+socket(Pids,  Transport, Socket, Tracker) ->
+    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Tracker).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).
@@ -486,7 +481,7 @@ init({call, From}, {start, Timeout},
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
-    send(Transport, Socket, BinMsg),
+    tls_socket:send(Transport, Socket, BinMsg),
     State = State0#state{connection_states = ConnectionStates,
                          connection_env = CEnv#connection_env{negotiated_version = Version}, %% Requested version
                          session =
@@ -711,12 +706,11 @@ connection(internal, #client_hello{} = Hello,
                                             }, 
                [{next_event, internal, Hello}]);
 connection(internal, #client_hello{}, 
-	   #state{static_env = #static_env{role = server,
-                                           protocol_cb = Connection},
+	   #state{static_env = #static_env{role = server},
                   handshake_env = #handshake_env{allow_renegotiate = false}} = State0) ->
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     send_alert_in_connection(Alert, State0),
-    State = Connection:reinit_handshake_data(State0),
+    State = reinit_handshake_data(State0),
     next_event(?FUNCTION_NAME, no_record, State);
 
 connection(Type, Event, State) ->
@@ -827,7 +821,6 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
 initialize_tls_sender(#state{static_env = #static_env{
                                              role = Role,
                                              transport_cb = Transport,
-                                             protocol_cb = Connection,
                                              socket = Socket,
                                              tracker = Tracker
                                             },
@@ -841,7 +834,6 @@ initialize_tls_sender(#state{static_env = #static_env{
              socket => Socket,
              socket_options => SockOpts,
              tracker => Tracker,
-             protocol_cb => Connection,
              transport_cb => Transport,
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt},
