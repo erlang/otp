@@ -1237,6 +1237,7 @@ init_emulator(void)
  * the instructions' C labels to the loader.
  * The second call starts execution of BEAM code. This call never returns.
  */
+ERTS_NO_RETPOLINE
 void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 {
     static int init_done = 0;
