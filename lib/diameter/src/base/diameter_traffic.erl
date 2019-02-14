@@ -1925,6 +1925,8 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
         A = find_avp(Code, Vid, Avps),
         avp_decode(Dict, Name, ungroup(A))
     catch
+        {diameter_gen, _} ->  %% faulty Grouped AVP
+            undefined;
         error: _ ->
             undefined
     end;
