@@ -167,6 +167,8 @@ extern const int num_instructions; /* Number of instruction in opc[]. */
 
 extern Uint erts_instr_count[];
 
+extern int tuple_module_apply;
+
 /* some constants for various table sizes etc */
 
 #define ATOM_TEXT_SIZE  32768	/* Increment for allocating atom text space */
