@@ -39,7 +39,7 @@
 
 %% Setup
 
--export([connect/8, handshake/7, handshake/2, handshake/3,
+-export([connect/8, handshake/7, handshake/2, handshake/3, handle_common_event/5,
          handshake_continue/3, handshake_cancel/1,
 	 socket_control/4, socket_control/5, start_or_recv_cancel_timer/2]).
 

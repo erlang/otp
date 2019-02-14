@@ -1106,6 +1106,20 @@ ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     Client = start_client_ecc_error(erlang, Port, COpts, CECCOpts, Config),
     check_server_alert(Server, Client, insufficient_security).
 
+start_basic_client(openssl, Version, Port, ClientOpts) ->
+    Cert = proplists:get_value(certfile, ClientOpts),
+    Key = proplists:get_value(keyfile, ClientOpts),
+    CA = proplists:get_value(cacertfile, ClientOpts),
+    Exe = "openssl",
+    Args = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
+	    ssl_test_lib:version_flag(Version),
+	    "-cert", Cert, "-CAfile", CA,
+	    "-key", Key, "-host","localhost", "-msg", "-debug"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    true = port_command(OpenSslPort, "Hello world"),
+    OpenSslPort.
+
 start_client(openssl, Port, ClientOpts, Config) ->
     Cert = proplists:get_value(certfile, ClientOpts),
     Key = proplists:get_value(keyfile, ClientOpts),
@@ -1911,6 +1925,8 @@ version_flag('tlsv1.1') ->
     "-tls1_1";
 version_flag('tlsv1.2') ->
     "-tls1_2";
+version_flag('tlsv1.3') ->
+    "-tls1_3";
 version_flag(sslv3) ->
     "-ssl3";
 version_flag(sslv2) ->

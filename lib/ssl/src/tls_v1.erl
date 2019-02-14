@@ -64,7 +64,7 @@
 
 %% TLS 1.3 ---------------------------------------------------
 -spec derive_secret(Secret::binary(), Label::binary(),
-                    Messages::iodata(), Algo::ssl_cipher_format:hash()) -> Key::binary().
+                    Messages::iodata(), Algo::ssl:hash()) -> Key::binary().
 derive_secret(Secret, Label, Messages, Algo) ->
     Hash = crypto:hash(mac_algo(Algo), Messages),
     hkdf_expand_label(Secret, Label,
@@ -72,7 +72,7 @@ derive_secret(Secret, Label, Messages, Algo) ->
 
 -spec hkdf_expand_label(Secret::binary(), Label0::binary(),
                         Context::binary(), Length::integer(),  
-                        Algo::ssl_cipher_format:hash()) -> KeyingMaterial::binary().
+                        Algo::ssl:hash()) -> KeyingMaterial::binary().
 hkdf_expand_label(Secret, Label0, Context, Length, Algo) ->
     HkdfLabel = create_info(Label0, Context, Length),
     hkdf_expand(Secret, HkdfLabel, Length, Algo).
@@ -93,7 +93,7 @@ create_info(Label0, Context0, Length) ->
     Content = <<Label/binary, Context/binary>>,
     <<?UINT16(Length), Content/binary>>.
 
--spec hkdf_extract(MacAlg::ssl_cipher_format:hash(), Salt::binary(), 
+-spec hkdf_extract(MacAlg::ssl:hash(), Salt::binary(),
                    KeyingMaterial::binary()) -> PseudoRandKey::binary().
 
 hkdf_extract(MacAlg, Salt, KeyingMaterial) -> 
@@ -101,14 +101,14 @@ hkdf_extract(MacAlg, Salt, KeyingMaterial) ->
 
 
 -spec hkdf_expand(PseudoRandKey::binary(), ContextInfo::binary(),
-                  Length::integer(), Algo::ssl_cipher_format:hash()) -> KeyingMaterial::binary().
+                  Length::integer(), Algo::ssl:hash()) -> KeyingMaterial::binary().
                      
 hkdf_expand(PseudoRandKey, ContextInfo, Length, Algo) -> 
     Iterations = erlang:ceil(Length / ssl_cipher:hash_size(Algo)),
     hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, 1, Iterations, <<>>, <<>>).
 
 
--spec transcript_hash(Messages::iodata(),  Algo::ssl_cipher_format:hash()) -> Hash::binary().
+-spec transcript_hash(Messages::iodata(),  Algo::ssl:hash()) -> Hash::binary().
 
 transcript_hash(Messages, Algo) ->
      crypto:hash(mac_algo(Algo), Messages).
