@@ -2708,7 +2708,9 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 			*ep++ = unsigned_val(CAR(cons));
 			obj = CDR(cons);
 		    }
+		    r -= i;
 		} else {
+		    r -= i/2;
 		    *ep++ = LIST_EXT;
                     /* Patch list length when we find end of list */
                     WSTACK_PUSH2(s, (UWord)ep, 1);
@@ -4073,8 +4075,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     for (;;) {
 	ASSERT(!is_header(obj));
 
-	if (ctx && --r == 0) {
-	    *reds = r;
+	if (ctx && --r <= 0) {
+	    *reds = 0;
 	    ctx->obj = obj;
 	    ctx->result = result;
 	    WSTACK_SAVE(s, &ctx->wstack);
@@ -4164,8 +4166,10 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    result += (1 + encode_size_struct2(acmp, port_node_name(obj), dflags) +
 		      4 + 1);
 	    break;
-        case LIST_DEF:
-	    if (is_external_string(obj, &m)) {
+	case LIST_DEF: {
+	    int is_str = is_external_string(obj, &m);
+	    r -= m/2;
+	    if (is_str) {
 		result += m + 2 + 1;
 	    } else {
 		result += 5;
@@ -4174,6 +4178,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 		continue; /* big loop */
 	    }
 	    break;
+	}
 	case TUPLE_DEF:
 	    {
 		Eterm* ptr = tuple_val(obj);
@@ -4341,7 +4346,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
     WSTACK_DESTROY(s);
     if (ctx) {
 	ASSERT(ctx->wstack.wstart == NULL);
-	*reds = r;
+	*reds = r < 0 ? 0 : r;
     }
     *res = result;
     return 0;
