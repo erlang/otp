@@ -2735,7 +2735,7 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	dsize_t num_parts = BIG_SIZE(bigp);
 	Eterm res;
 	byte *b;
-	ErtsDigit d;
+	ErtsDigit d = 0;
 
 	if(BIG_SIGN(bigp)) {
 	    goto badarg;
@@ -2751,26 +2751,22 @@ static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
 	if (endianess == am_big) {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=n-1;i>=0;--i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 	} else {
 	    Sint i,j;
 	    j = 0;
-	    d = BIG_DIGIT(bigp,0);
 	    for (i=0;i<n;++i) {
-		b[i] = d & 0xFF;
-		if (!((++j) % sizeof(ErtsDigit))) {
+                if (!((j++) % sizeof(ErtsDigit))) {
 		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
-		} else {
-		    d >>= 8;
 		}
+                b[i] = d & 0xFF;
+                d >>= 8;
 	    }
 
 	}
