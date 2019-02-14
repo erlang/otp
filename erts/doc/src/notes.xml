@@ -31,6 +31,26 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added an optional <c>./configure</c> flag to compile
+	    the emulator with spectre mitigation:
+	    <c>--with-spectre-mitigation</c></p>
+	    <p>Note that this requires a recent version of GCC with
+	    support for spectre mitigation and the
+	    <c>--mindirect-branch=thunk</c> flag, such as
+	    <c>8.1</c>.</p>
+          <p>
+	    Own Id: OTP-15430 Aux Id: ERIERL-237 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
