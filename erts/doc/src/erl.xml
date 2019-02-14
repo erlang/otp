@@ -1552,6 +1552,15 @@
               parameter determines. The lingering prevents repeated
               deletions and insertions in the tables from occurring.</p>
           </item>
+          <tag><marker id="+ztma"/><c>+ztma true | false</c></tag>
+          <item>
+            <p>Enables or disables support for tuple module apply in
+            the emulator. This is a transitional flag for running code
+            that uses parameterized modules and was compiled under OTP 20
+            or earlier. For future compatibility, the modules will need
+            to be recompiled with the +tuple_calls compiler option.
+            Defaults to false.</p>
+          </item>
         </taglist>
       </item>
     </taglist>
