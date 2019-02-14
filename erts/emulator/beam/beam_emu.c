@@ -383,7 +383,6 @@ do {                                            \
 #  define NOINLINE
 #endif
 
-int tuple_module_apply;
 
 /*
  * The following functions are called directly by process_main().
@@ -2233,7 +2232,7 @@ apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 	if (is_not_atom(module)) {
 	    Eterm* tp;
 
-	    if (!tuple_module_apply || is_not_tuple(module)) goto error;
+	    if (is_not_tuple(module)) goto error;
 	    tp = tuple_val(module);
 	    if (arityval(tp[0]) < 1) goto error;
 	    this = module;
@@ -2339,7 +2338,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
      */
     if (is_not_atom(module)) {
 	Eterm* tp;
-        if (!tuple_module_apply || is_not_tuple(module)) goto error;
+        if (is_not_tuple(module)) goto error;
         tp = tuple_val(module);
         if (arityval(tp[0]) < 1) goto error;
         module = tp[1];
