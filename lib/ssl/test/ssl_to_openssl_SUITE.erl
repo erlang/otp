@@ -1946,6 +1946,11 @@ erlang_ssl_receive(Socket, Data) ->
     ct:log("Connection info: ~p~n",
 		       [ssl:connection_information(Socket)]),
     receive
+        {ssl, Socket, "R\n"} ->
+            %% Swallow s_client renegotiation command.
+            %% openssl s_client connected commands can appear on
+            %% server side with some openssl versions.
+            erlang_ssl_receive(Socket,Data);
 	{ssl, Socket, Data} ->
 	    io:format("Received ~p~n",[Data]),
 	    %% open_ssl server sometimes hangs waiting in blocking read
