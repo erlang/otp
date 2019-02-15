@@ -59,6 +59,13 @@
               network_interface_index/0
              ]).
 
+-deprecated({call,      4, eventually}).
+-deprecated({cast,      4, eventually}).
+-deprecated({broadcast, 3, eventually}).
+-deprecated({ping,      1, eventually}).
+-deprecated({relay,     1, eventually}).
+-deprecated({sleep,     1, eventually}).
+
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
