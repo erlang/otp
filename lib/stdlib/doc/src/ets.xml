@@ -213,6 +213,21 @@ ets:insert(t, {3}),
       is not enabled. This can also only be a potential concern for
       <c>ordered_set</c> where the traversal order is defined.</p>
     </note>
+    <p>Traversals using <c>match</c> and <c>select</c> functions may not need to
+    scan the entire table depending on how the key is specified. A match
+    pattern with a <em>fully bound key</em> (without any match variables) will
+    optimize the operation to a single key lookup without any table traversal
+    at all. For <c>ordered_set</c> a <em>partially bound key</em> will limit the
+    traversal to only scan a subset of the table based on term order. A
+    partially bound key is either a list or a tuple with a prefix that is fully
+    bound. Example:</p>
+<pre>
+1> <input>T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).</input>
+true
+2> <input>%% Efficient search of all with area code 555</input>
+2> <input>ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).</input>
+[["1234","John Smith"]]
+</pre>
   </section>
 
   <section>
