@@ -737,3 +737,4 @@ bif erts_internal:spawn_system_process/3
 
 bif erlang:integer_to_list/2
 bif erlang:integer_to_binary/2
+bif persistent_term:get/2
