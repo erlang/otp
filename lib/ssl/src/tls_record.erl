@@ -503,7 +503,7 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, SslOpts, Acc, Type, Versi
                     %% Complete record
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
-                    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'tls_record', Record),
+                    ssl_logger:debug(SslOpts#ssl_options.log_level, inbound, 'record', Record),
                     decode_tls_records(Versions, Q, SslOpts, [Record|Acc], undefined, undefined, undefined);
                 true ->
                     {lists:reverse(Acc),

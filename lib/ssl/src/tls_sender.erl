@@ -415,7 +415,7 @@ send_tls_alert(#alert{} = Alert,
     {BinMsg, ConnectionStates} =
 	tls_record:encode_alert_record(Alert, Version, ConnectionStates0),
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(LogLevel, outbound, 'tls_record', BinMsg),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
@@ -437,12 +437,12 @@ send_application_data(Data, From, StateName,
             StateData = StateData0#data{connection_states = ConnectionStates},
 	    case tls_socket:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
-                    ssl_logger:debug(LogLevel, outbound, 'tls_record', Msgs),
+                    ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     {next_state, StateName, StateData, []};
                 Reason when DistHandle =/= undefined ->
                     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
                 ok ->
-                    ssl_logger:debug(LogLevel, outbound, 'tls_record', Msgs),
+                    ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
                     {next_state, StateName, StateData,  [{reply, From, ok}]};
                 Result ->
                     {next_state, StateName, StateData,  [{reply, From, Result}]}

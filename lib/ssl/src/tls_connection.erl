@@ -364,7 +364,7 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
     {BinHandshake, ConnectionStates, Hist} =
 	encode_handshake(Handshake, Version, ConnectionStates0, Hist0),
     ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Handshake),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinHandshake),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinHandshake),
 
     State0#state{connection_states = ConnectionStates,
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
@@ -383,7 +383,7 @@ queue_change_cipher(Msg, #state{connection_env = #connection_env{negotiated_vers
                                 connection_states = ConnectionStates0} = State0) ->
     {BinChangeCipher, ConnectionStates} =
 	encode_change_cipher(Msg, Version, ConnectionStates0),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinChangeCipher),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinChangeCipher),
     State0#state{connection_states = ConnectionStates,
 		 flight_buffer = Flight0 ++ [BinChangeCipher]}.
 
@@ -432,7 +432,7 @@ send_alert(Alert, #state{static_env = #static_env{socket = Socket,
     {BinMsg, ConnectionStates} =
         encode_alert(Alert, Version, ConnectionStates0),
     tls_socket:send(Transport, Socket, BinMsg),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinMsg),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
     StateData0#state{connection_states = ConnectionStates}.
 
 %% If an ALERT sent in the connection state, should cause the TLS
@@ -529,7 +529,7 @@ init({call, From}, {start, Timeout},
         encode_handshake(Hello,  HelloVersion, ConnectionStates0, Handshake0),
     tls_socket:send(Transport, Socket, BinMsg),
     ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'handshake', Hello),
-    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'tls_record', BinMsg),
+    ssl_logger:debug(SslOpts#ssl_options.log_level, outbound, 'record', BinMsg),
 
     State = State0#state{connection_states = ConnectionStates,
                          connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version

@@ -642,8 +642,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <datatype>    
       <name name="logging_level"/> 
       <desc><p>Specifies the log level for TLS/DTLS. At verbosity level <c>notice</c> and above error reports are
-      displayed in TLS. The level <c>debug</c> triggers verbose logging of TLS protocol
-      messages and logging of ignored alerts in DTLS.</p>
+      displayed in TLS/DTLS. The level <c>debug</c> triggers verbose logging of TLS/DTLS protocol
+      messages.</p>
       </desc> 
     </datatype> 
     
