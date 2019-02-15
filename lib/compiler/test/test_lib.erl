@@ -66,21 +66,24 @@ uniq() ->
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
     {options,Opts} = lists:keyfind(options, 1, Comp),
-    lists:filter(fun(no_copt) -> true;
-		    (no_postopt) -> true;
-                    (no_ssa_opt) -> true;
-                    (no_recv_opt) -> true;
-		    (no_ssa_float) -> true;
-		    (no_stack_trimming) -> true;
-		    (debug_info) -> true;
-		    (inline) -> true;
-                    (no_put_tuple2) -> true;
-                    (no_bsm3) -> true;
-                    (no_bsm_opt) -> true;
-                    (no_module_opt) -> true;
-                    (no_type_opt) -> true;
-		    (_) -> false
-		 end, Opts).
+    lists:filter(fun
+                     (debug_info) -> true;
+                     (inline) -> true;
+                     (no_bsm3) -> true;
+                     (no_bsm_opt) -> true;
+                     (no_copt) -> true;
+                     (no_fun_opt) -> true;
+                     (no_module_opt) -> true;
+                     (no_postopt) -> true;
+                     (no_put_tuple2) -> true;
+                     (no_recv_opt) -> true;
+                     (no_share_opt) -> true;
+                     (no_ssa_float) -> true;
+                     (no_ssa_opt) -> true;
+                     (no_stack_trimming) -> true;
+                     (no_type_opt) -> true;
+                     (_) -> false
+                end, Opts).
 
 %% Some test suites gets cloned (e.g. to "record_SUITE" to
 %% "record_no_opt_SUITE"), but the data directory is not cloned.
@@ -93,7 +96,8 @@ get_data_dir(Config) ->
     Data2 = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
     Data3 = re:replace(Data2, "_inline_SUITE", "_SUITE", Opts),
     Data4 = re:replace(Data3, "_r21_SUITE", "_SUITE", Opts),
-    re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts).
+    Data = re:replace(Data4, "_no_module_opt_SUITE", "_SUITE", Opts),
+    re:replace(Data, "_no_ssa_opt_SUITE", "_SUITE", Opts).
 
 is_cloned_mod(Mod) ->
     is_cloned_mod_1(atom_to_list(Mod)).
@@ -101,6 +105,7 @@ is_cloned_mod(Mod) ->
 %% Test whether Mod is a cloned module.
 
 is_cloned_mod_1("_no_opt_SUITE") -> true;
+is_cloned_mod_1("_no_ssa_opt_SUITE") -> true;
 is_cloned_mod_1("_post_opt_SUITE") -> true;
 is_cloned_mod_1("_inline_SUITE") -> true;
 is_cloned_mod_1("_21_SUITE") -> true;
