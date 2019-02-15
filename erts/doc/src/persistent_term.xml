@@ -256,6 +256,22 @@ will be slower as the number of persistent terms increases.</pre>
     </func>
 
     <func>
+      <name name="get" arity="2" since="OTP 21.3"/>
+      <fsummary>Get the value for a persistent term.</fsummary>
+      <desc>
+        <p>Retrieve the value for the persistent term associated with
+        the key <c><anno>Key</anno></c>. The lookup will be made in
+	constant time and the value will not be copied to the heap
+	of the calling process.</p>
+	<p>This function returns <c><anno>Default</anno></c> if no
+	term has been stored with the key <c><anno>Key</anno></c>.</p>
+	<p>If the calling process holds on to the value of the
+	persistent term and the persistent term is deleted in the future,
+	the term will be copied to the process.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="info" arity="0" since="OTP 21.2"/>
       <fsummary>Get information about persistent terms.</fsummary>
       <desc>
