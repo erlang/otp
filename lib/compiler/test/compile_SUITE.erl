@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,
 	 debug_info/4, custom_debug_info/1, custom_compile_info/1,
-	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
+	 file_1/1, forms_2/1, module_mismatch/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
@@ -46,7 +46,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 -spec all() -> all_return_type().
 
 all() -> 
-    [app_test, appup_test, file_1, forms_2, module_mismatch, big_file, outdir,
+    [app_test, appup_test, file_1, forms_2, module_mismatch, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
@@ -104,6 +104,7 @@ file_1(Config) when is_list(Config) ->
     compile_and_verify(Simple, Target, []),
     compile_and_verify(Simple, Target, [native]),
     compile_and_verify(Simple, Target, [debug_info]),
+    compile_and_verify(Simple, Target, [no_postopt]),
     {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
 
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
@@ -229,17 +230,6 @@ module_mismatch(Config) when is_list(Config) ->
     {ok,arne,[]} = compile:file(File,
 				      [return,no_error_module_mismatch]),
 
-    ok.
-
-big_file(Config) when is_list(Config) ->
-    {Big,Target} = get_files(Config, big, "big_file"),
-    ok = file:set_cwd(filename:dirname(Target)),
-    compile_and_verify(Big, Target, []),
-    compile_and_verify(Big, Target, [debug_info]),
-    compile_and_verify(Big, Target, [no_postopt]),
-
-    %% Cleanup.
-    ok = file:delete(Target),
     ok.
 
 %% Tests that the {outdir, Dir} option works.
