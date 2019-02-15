@@ -14,7 +14,8 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year><year>2016</year>
+<year>2011</year>
+<year>2019</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -174,10 +175,13 @@ its parent.</p>
 
 <taglist>
 
-<tag><c>{diameter, {send, &message;}}</c></tag>
+<tag><c>{diameter, {send, &message; | false}}</c></tag>
 <item>
 <p>
-An outbound Diameter message.</p>
+An outbound Diameter message.
+The atom <c>false</c> can only be received when request
+acknowledgements have been requests: see the <c>ack</c> message
+below.</p>
 </item>
 
 <tag><c>{diameter, {close, Pid}}</c></tag>
@@ -244,6 +248,27 @@ Not sent if the transport process has <c>Type=accept</c>.&nbsp;
 endpoint to which the transport has connected.
 A <c>LocalAddr</c> list has the same semantics as one returned from
 &start;.</p>
+</item>
+
+<tag><c>{diameter, ack}</c></tag>
+<item>
+<p>
+Request acknowledgements of unanswered requests.
+A transport process should send this once before passing incoming
+Diameter messages into diameter.
+As a result, every Diameter request passed into diameter with a
+<c>recv</c> message (below) will be answered with a
+<c>send</c> message (above), either a &message; for the transport
+process to send or the atom <c>false</c> if the request has been
+discarded or otherwise not answered.</p>
+
+<p>
+This is to allow a transport process to keep count of the number
+of incoming request messages that have not yet been answered or
+discarded, to allow it to regulate the amount of incoming traffic.
+Both diameter_tcp and diameter_sctp request acknowledgements when a
+<c>message_cb</c> is configured, turning send/recv message into
+callbacks that can be used to regulate traffic.</p>
 </item>
 
 <tag><c>{diameter, {recv, &message;}}</c></tag>
