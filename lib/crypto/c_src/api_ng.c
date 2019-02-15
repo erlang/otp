@@ -28,6 +28,9 @@
  * EXPERIMENTAL!!
  *
  */
+ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+
 
 /* Try better error messages in new functions */
 #define ERROR_Term(Env, ReasonTerm) enif_make_tuple2((Env), atom_error, (ReasonTerm))
@@ -102,7 +105,7 @@ ERL_NIF_TERM ng_crypto_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return ret;
 }
 
-ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data)
     (Context, Data, IV) */
     struct evp_cipher_ctx *ctx;
@@ -120,19 +123,24 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 #endif
 
-    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
-        || (data_bin.size > INT_MAX) ) {
-        return ERROR_Term(env, enif_make_atom(env,"badarg"));
-    }
+    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx))
+        return ERROR_Str(env, "Bad 1:st arg");
+    
+    if (!enif_inspect_binary(env, argv[1], &data_bin) )
+        return ERROR_Term(env, enif_make_atom(env, "badarg"));
+
+    /* arg[1] was checked by the caller */
+    ASSERT(data_bin.size =< INT_MAX);
 
     if (argc==3) {
-       if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin)
-           || (ivec_bin.size > INT_MAX) )
-           return ERROR_Term(env, enif_make_atom(env,"badarg"));
-
-       if (!EVP_CipherInit_ex(ctx->ctx, NULL, NULL, NULL, ivec_bin.data, -1))
-           return ERROR_Str(env, "Can't set iv");
+        if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
+            return ERROR_Str(env, "Not binary IV");
+       
+        if (ivec_bin.size > INT_MAX)
+            return ERROR_Str(env, "Too big IV");
+       
+        if (!EVP_CipherInit_ex(ctx->ctx, NULL, NULL, NULL, ivec_bin.data, -1))
+            return ERROR_Str(env, "Can't set IV");
     }
 
     out = enif_make_new_binary(env, data_bin.size, &cipher_term);
@@ -142,5 +150,32 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     ASSERT(outl == data_bin.size);
     CONSUME_REDS(env,data_bin);
     return cipher_term;
+}
+
+
+ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data)
+    (Context, Data, IV) */
+    int i;
+    ErlNifBinary   data_bin;
+    ERL_NIF_TERM new_argv[argc];
+
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &data_bin))
+        return ERROR_Str(env, "iodata expected as data");
+
+    if (data_bin.size > INT_MAX)
+        return ERROR_Str(env, "to long data");
+
+    for (i=0; i<argc; i++) new_argv[i] = argv[i];
+    new_argv[1] = enif_make_binary(env, &data_bin);
+
+    /* Run long jobs on a dirty scheduler to not block the current emulator thread */
+    if (data_bin.size > MAX_BYTES_TO_NIF) {
+        return enif_schedule_nif(env, "ng_crypto_update",
+                                 ERL_NIF_DIRTY_JOB_CPU_BOUND,
+                                 ng_crypto_update, argc, new_argv);
+    }
+
+    return ng_crypto_update(env, argc, new_argv);
 }
 

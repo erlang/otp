@@ -2271,14 +2271,7 @@ crypto_init(Cipher, Key, IV, EncryptFlag) when is_atom(Cipher),
                                              Data :: iodata(),
                                              Result :: binary() | {crypto_state(),binary()}.
 crypto_update(State, Data) ->
-    Size = iolist_size(Data),
-    if
-        Size =< ?MAX_BYTES_TO_NIF ->
-            mk_ret(ng_crypto_update_nif(State, Data));
-        true ->
-            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = iolist_to_binary(Data),
-            continue_update(State, ng_crypto_update_nif(State,Data1), RestData, [])
-    end.
+    mk_ret(ng_crypto_update_nif(State, Data)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -2292,30 +2285,7 @@ crypto_update(State, Data) ->
                                                  IV :: binary(),
                                                  Result :: binary() | {crypto_state(),binary()}.
 crypto_update(State, Data, IV) ->
-    Size = iolist_size(Data),
-    if
-        Size =< ?MAX_BYTES_TO_NIF ->
-            mk_ret(ng_crypto_update_nif(State, Data, IV));
-        true ->
-            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = iolist_to_binary(Data),
-            continue_update(State, ng_crypto_update_nif(State,Data1,IV), RestData, [])
-    end.
-
-%%%---- looping
-continue_update(_State, {error,Error}, _Data, _Acc) ->
-    {error,Error};
-
-continue_update(State, Res, Data, Acc) ->
-    Size = iolist_size(Data),
-    if
-        Size =< ?MAX_BYTES_TO_NIF ->
-            mk_ret(ng_crypto_update_nif(state(State,Res), Data), [bin(Res)|Acc]);
-        true ->
-            <<Data1:?MAX_BYTES_TO_NIF/binary, RestData/binary>> = Data,
-            %% size(RestData) > 0 because otherwise the previous clause would have been selected
-            continue_update(state(State,Res), ng_crypto_update_nif(state(State,Res),Data1), RestData, [bin(Res)|Acc])
-    end.
-
+    mk_ret(ng_crypto_update_nif(State, Data, IV)).
 
 %%%----------------------------------------------------------------
 %%% Helpers
@@ -2330,12 +2300,6 @@ mk_ret({State1,Bin}, Acc) when is_tuple(State1),
                                is_binary(Bin) ->
     %% compatibility with old cryptolibs < 1.0.1
     {ok, {State1, iolist_to_binary(lists:reverse([Bin|Acc]))}}.
-
-state(_, {S,_}) -> S;
-state(S, _) -> S.
-     
-bin({_,B}) -> B;
-bin(B) -> B.
 
 %%%----------------------------------------------------------------
 %%% NIFs
