@@ -249,22 +249,14 @@ fdb_update(Caller, Callee, FuncDb) ->
     FuncDb#{ Caller => CallerVertex#func_info{out=Calls},
              Callee => CalleeVertex#func_info{in=CalledBy} }.
 
-%% Returns the post-order of all local calls in this module. That is, it starts
-%% with the functions that don't call any others and then walks up the call
-%% chain.
+%% Returns the post-order of all local calls in this module. That is,
+%% called functions will be ordered before the functions calling them.
 %%
 %% Functions where module-level optimization is disabled are added last in
 %% arbitrary order.
 
 get_call_order_po(StMap, FuncDb) ->
-    Leaves = maps:fold(fun(Id, #func_info{out=[]}, Acc) ->
-                               [Id | Acc];
-                          (_, _, Acc) ->
-                               Acc
-                       end, [], FuncDb),
-
-    Order = gco_po_1(sort(Leaves), FuncDb, [], #{}),
-
+    Order = gco_po(FuncDb),
     Order ++ maps:fold(fun(K, _V, Acc) ->
                                case is_map_key(K, FuncDb) of
                                    false -> [K | Acc];
@@ -272,20 +264,23 @@ get_call_order_po(StMap, FuncDb) ->
                                end
                        end, [], StMap).
 
-gco_po_1([Id | Ids], FuncDb, Children, Seen) when not is_map_key(Id, Seen) ->
-    [Id | gco_po_1(Ids, FuncDb, [Id | Children], Seen#{ Id => true })];
-gco_po_1([_Id | Ids], FuncDb, Children, Seen) ->
-    gco_po_1(Ids, FuncDb, Children, Seen);
-gco_po_1([], FuncDb, [_|_]=Children, Seen) ->
-    gco_po_1(gco_po_parents(Children, FuncDb), FuncDb, [], Seen);
-gco_po_1([], _FuncDb, [], _Seen) ->
-    [].
+gco_po(FuncDb) ->
+    All = sort(maps:keys(FuncDb)),
+    {RPO,_} = gco_rpo(All, FuncDb, cerl_sets:new(), []),
+    reverse(RPO).
 
-gco_po_parents([Child | Children], FuncDb) ->
-    #{ Child := #func_info{in=Parents}} = FuncDb,
-    Parents ++ gco_po_parents(Children, FuncDb);
-gco_po_parents([], _FuncDb) ->
-    [].
+gco_rpo([Id|Ids], FuncDb, Seen0, Acc0) ->
+    case cerl_sets:is_element(Id, Seen0) of
+        true ->
+            gco_rpo(Ids, FuncDb, Seen0, Acc0);
+        false ->
+            #func_info{out=Successors} = map_get(Id, FuncDb),
+            Seen1 = cerl_sets:add_element(Id, Seen0),
+            {Acc,Seen} = gco_rpo(Successors, FuncDb, Seen1, Acc0),
+            gco_rpo(Ids, FuncDb, Seen, [Id|Acc])
+    end;
+gco_rpo([], _, Seen, Acc) ->
+    {Acc,Seen}.
 
 %%%
 %%% Trivial sub passes.
