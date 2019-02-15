@@ -602,29 +602,72 @@ read_application_dist_data(DHandle, [], BufferSize, Rear) ->
     [Bin|Front] = lists:reverse(Rear),
     read_application_dist_data(DHandle, Front, BufferSize, [], Bin).
 %%
-read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin) ->
-    case Bin of
+read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin0) ->
+    case Bin0 of
+        %%
+        %% START Optimization
+        %% It is cheaper to match out several packets in one match operation than to loop for each
+        <<SizeA:32, DataA:SizeA/binary,
+          SizeB:32, DataB:SizeB/binary,
+          SizeC:32, DataC:SizeC/binary,
+          SizeD:32, DataD:SizeD/binary, Rest/binary>> ->
+            %% We have 4 complete packets in the first binary
+            erlang:dist_ctrl_put_data(DHandle, DataA),
+            erlang:dist_ctrl_put_data(DHandle, DataB),
+            erlang:dist_ctrl_put_data(DHandle, DataC),
+            erlang:dist_ctrl_put_data(DHandle, DataD),
+            read_application_dist_data(
+              DHandle, Front0, BufferSize - (4*4+SizeA+SizeB+SizeC+SizeD), Rear0, Rest);
+        <<SizeA:32, DataA:SizeA/binary,
+          SizeB:32, DataB:SizeB/binary,
+          SizeC:32, DataC:SizeC/binary, Rest/binary>> ->
+            %% We have 3 complete packets in the first binary
+            erlang:dist_ctrl_put_data(DHandle, DataA),
+            erlang:dist_ctrl_put_data(DHandle, DataB),
+            erlang:dist_ctrl_put_data(DHandle, DataC),
+            read_application_dist_data(
+              DHandle, Front0, BufferSize - (3*4+SizeA+SizeB+SizeC), Rear0, Rest);
+        <<SizeA:32, DataA:SizeA/binary,
+          SizeB:32, DataB:SizeB/binary, Rest/binary>> ->
+            %% We have 2 complete packets in the first binary
+            erlang:dist_ctrl_put_data(DHandle, DataA),
+            erlang:dist_ctrl_put_data(DHandle, DataB),
+            read_application_dist_data(
+              DHandle, Front0, BufferSize - (2*4+SizeA+SizeB), Rear0, Rest);
+        %% END Optimization
+        %%
+        %% Basic one packet code path
         <<Size:32, Data:Size/binary, Rest/binary>> ->
             %% We have a complete packet in the first binary
             erlang:dist_ctrl_put_data(DHandle, Data),
             read_application_dist_data(DHandle, Front0, BufferSize - (4+Size), Rear0, Rest);
         <<Size:32, FirstData/binary>> when 4+Size =< BufferSize ->
             %% We have a complete packet in the buffer
+            %% - fetch the missing content from the buffer front
             {Data,Front,Rear} = iovec_from_front(Size - byte_size(FirstData), Front0, Rear0, [FirstData]),
             erlang:dist_ctrl_put_data(DHandle, Data),
             read_application_dist_data(DHandle, Front, BufferSize - (4+Size), Rear);
-        <<_Size:32, _InsufficientData/binary>> ->
-            %% We can not have a complete packet in the buffer
-            {[Bin|Front0],BufferSize,Rear0};
-        <<IncompleteLengthField/binary>> when 4 < BufferSize ->
-            %% We might have a complete packet in the buffer
-            {LengthField,Front,Rear} =
-                iovec_from_front(4 - byte_size(IncompleteLengthField), Front0, Rear0, [IncompleteLengthField]),
-            LengthBin = iolist_to_binary(LengthField),
-            read_application_dist_data(DHandle, Front, BufferSize, Rear, LengthBin);
-        <<_IncompleteLengthField/binary>> ->
-            %% We can not have a complete packet in the buffer
-            {[Bin|Front0],BufferSize,Rear0}
+        <<Bin/binary>> ->
+            %% In OTP-21 the match context reuse optimization fails if we use Bin0 in recursion, so here we
+            %% match out the whole binary which will trick the optimization into keeping the match context
+            %% for the first binary contains complete packet code above
+            case Bin of
+                <<_Size:32, _InsufficientData/binary>> ->
+                    %% We have a length field in the first binary but there is not enough data
+                    %% in the buffer to form a complete packet - await more data
+                    {[Bin|Front0],BufferSize,Rear0};
+                <<IncompleteLengthField/binary>> when 4 < BufferSize ->
+                    %% We do not have a length field in the first binary but the buffer
+                    %% contains enough data to maybe form a packet
+                    %% - fetch a tiny binary from the buffer front to complete the length field
+                    {LengthField,Front,Rear} =
+                        iovec_from_front(4 - byte_size(IncompleteLengthField), Front0, Rear0, [IncompleteLengthField]),
+                    LengthBin = iolist_to_binary(LengthField),
+                    read_application_dist_data(DHandle, Front, BufferSize, Rear, LengthBin);
+                <<IncompleteLengthField/binary>> ->
+                    %% We do not have enough data in the buffer to even form a length field - await more data
+                    {[IncompleteLengthField|Front0],BufferSize,Rear0}
+            end
     end.
 
 iovec_from_front(Size, [], Rear, Acc) ->

@@ -400,6 +400,7 @@ parse_tls_records(Versions, Q, undefined) ->
 parse_tls_records(Versions, Q, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
     decode_tls_records(Versions, Q, [], Type, Version, Length).
 
+%% Generic code path
 decode_tls_records(Versions, {_,Size,_} = Q0, Acc, undefined, _Version, _Length) ->
     if
         5 =< Size ->
@@ -488,39 +489,38 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, Acc, Type, Version, Lengt
     end.
 
 
-binary_from_front(BinSize, {Front,Size,Rear}) ->
-    binary_from_front(BinSize, Front, Size, Rear, []).
+binary_from_front(SplitSize, {Front,Size,Rear}) ->
+    binary_from_front(SplitSize, Front, Size, Rear, []).
 %%
-binary_from_front(BinSize, [], Size, [_] = Rear, Acc) ->
+binary_from_front(SplitSize, [], Size, [_] = Rear, Acc) ->
     %% Optimize a simple case
-    binary_from_front(BinSize, Rear, Size, [], Acc);
-binary_from_front(BinSize, [], Size, Rear, Acc) ->
-    binary_from_front(BinSize, lists:reverse(Rear), Size, [], Acc);
-binary_from_front(BinSize, [Bin|Front], Size, Rear, []) ->
+    binary_from_front(SplitSize, Rear, Size, [], Acc);
+binary_from_front(SplitSize, [], Size, Rear, Acc) ->
+    binary_from_front(SplitSize, lists:reverse(Rear), Size, [], Acc);
+binary_from_front(SplitSize, [Bin|Front], Size, Rear, []) ->
     %% Optimize a frequent case
-    case Bin of
-        <<RetBin:BinSize/binary, Rest/binary>> -> % More than enough - split here
-            {RetBin, {case Rest of
-                          <<>> ->
-                              Front;
-                          <<_/binary>> ->
-                              [Rest|Front]
-                      end,Size - BinSize,Rear}};
-        <<_/binary>> -> % Not enough
-            binary_from_front(BinSize - byte_size(Bin), Front, Size, Rear, [Bin])
+    BinSize = byte_size(Bin),
+    if
+        SplitSize < BinSize ->
+            {RetBin, Rest} = erlang:split_binary(Bin, SplitSize),
+            {RetBin, {[Rest|Front],Size - SplitSize,Rear}};
+        BinSize < SplitSize ->
+            binary_from_front(SplitSize - BinSize, Front, Size, Rear, [Bin]);
+        true -> % Perfect fit
+            {Bin, {Front,Size - SplitSize,Rear}}
     end;
-binary_from_front(BinSize, [Bin|Front], Size, Rear, Acc) ->
-    case Bin of
-        <<Last:BinSize/binary, Rest/binary>> -> % More than enough - split here
+binary_from_front(SplitSize, [Bin|Front], Size, Rear, Acc) ->
+    BinSize = byte_size(Bin),
+    if
+        SplitSize < BinSize ->
+            {Last, Rest} = erlang:split_binary(Bin, SplitSize),
             RetBin = iolist_to_binary(lists:reverse(Acc, [Last])),
-            {RetBin,{case Rest of
-                         <<>> ->
-                             Front;
-                         <<_/binary>> ->
-                             [Rest|Front]
-                     end,Size - byte_size(RetBin),Rear}};
-        <<_/binary>> -> % Not enough
-            binary_from_front(BinSize - byte_size(Bin), Front, Size, Rear, [Bin|Acc])
+            {RetBin, {[Rest|Front],Size - byte_size(RetBin),Rear}};
+        BinSize < SplitSize ->
+            binary_from_front(SplitSize - BinSize, Front, Size, Rear, [Bin|Acc]);
+        true -> % Perfect fit
+            RetBin = iolist_to_binary(lists:reverse(Acc, [Bin])),
+            {RetBin, {Front,Size - byte_size(RetBin),Rear}}
     end.
 
 %%--------------------------------------------------------------------
@@ -596,20 +596,18 @@ split_iovec(Data) ->
     {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
     [Part|split_iovec(Rest)].
 %%
-split_iovec([Bin|Data], Size, Acc) ->
-    case Bin of
-        <<Last:Size/binary, Rest/binary>> ->
-            {lists:reverse(Acc, [Last]),
-             case Rest of
-                 <<>> ->
-                     Data;
-                 <<_/binary>> ->
-                     [Rest|Data]
-             end};
-        <<_/binary>> ->
-            split_iovec(Data, Size - byte_size(Bin), [Bin|Acc])
+split_iovec([Bin|Data], SplitSize, Acc) ->
+    BinSize = byte_size(Bin),
+    if
+        SplitSize < BinSize ->
+            {Last, Rest} = erlang:split_binary(Bin, SplitSize),
+            {lists:reverse(Acc, [Last]), [Rest|Data]};
+        BinSize < SplitSize ->
+            split_iovec(Data, SplitSize - BinSize, [Bin|Acc]);
+        true -> % Perfect match
+            {lists:reverse(Acc, [Bin]), Data}
     end;
-split_iovec([], _Size, Acc) ->
+split_iovec([], _SplitSize, Acc) ->
     {lists:reverse(Acc),[]}.
 
 %%--------------------------------------------------------------------
