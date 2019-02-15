@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,6 +86,8 @@
          deep_unicode_char_list/1]).
 
 -export([limit_term/2]).
+
+-export([chars_length/1]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0, chars_limit/0]).
@@ -1131,3 +1133,17 @@ test_limit_map_assoc(K, V, D) ->
     test_limit(V, D - 1).
 
 test_limit_bitstring(_, _) -> ok.
+
+-spec chars_length(chars()) -> non_neg_integer().
+%% Optimized for deep lists S such that deep_latin1_char_list(S) is
+%% true. No binaries allowed! It is assumed that $\r is never followed
+%% by $\n if S is an iolist() (string:length() assigns such a
+%% sub-sequence length 1).
+chars_length(S) ->
+    try
+        %% true = deep_latin1_char_list(S),
+        iolist_size(S)
+    catch
+        _:_ ->
+            string:length(S)
+    end.
