@@ -838,14 +838,19 @@ initialize_tls_sender(#state{static_env = #static_env{
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt},
     tls_sender:initialize(Sender, Init).
-    
-next_tls_record(Data, StateName, #state{protocol_buffers = 
-                                            #protocol_buffers{tls_record_buffer = Buf0,
-                                                              tls_cipher_texts = CT0} = Buffers}
-                                        = State0) ->
-    case tls_record:get_tls_records(Data, 
-                                    acceptable_record_versions(StateName, State0),
-                                    Buf0) of
+
+next_tls_record(Data, StateName,
+                         #state{protocol_buffers =
+                                    #protocol_buffers{tls_record_buffer = Buf0,
+                                                      tls_cipher_texts = CT0} = Buffers} = State0) ->
+    Versions =
+        case StateName of
+            hello ->
+                [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS];
+            _ ->
+                State0#state.connection_env#connection_env.negotiated_version
+        end,
+    case tls_record:get_tls_records(Data, Versions, Buf0) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(State0#state{protocol_buffers =
@@ -855,11 +860,6 @@ next_tls_record(Data, StateName, #state{protocol_buffers =
 	    handle_record_alert(Alert, State0)
     end.
 
-
-acceptable_record_versions(StateName, #state{connection_env = #connection_env{negotiated_version = Version}}) when StateName =/= hello->
-    Version;
-acceptable_record_versions(hello, _) ->
-    [tls_record:protocol_version(Vsn) || Vsn <- ?ALL_AVAILABLE_VERSIONS].
 
 handle_record_alert(Alert, _) ->
     Alert.
