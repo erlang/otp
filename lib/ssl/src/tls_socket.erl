@@ -32,6 +32,7 @@
 	 emulated_socket_options/2, get_emulated_opts/1, 
 	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
 	 handle_info/2, code_change/3]).
+-export([update_active_n/2]).
 
 -record(state, {
 	  emulated_opts,
@@ -334,19 +335,22 @@ split_options([Name | Opts], Emu, SocketOptNames, EmuOptNames) ->
 do_set_emulated_opts([], Opts) ->
     Opts;
 do_set_emulated_opts([{active, N0} | Rest], Opts) when is_integer(N0) ->
-    N = case proplists:lookup(active, Opts) of
-        {_, N1} when is_integer(N1), N0 + N1 =< 0 ->
-            false;
-        {_, N1} when is_integer(N1) ->
-            N0 + N1;
-        _ when N0 =< 0 ->
-            false;
-        _ ->
-            N0
-    end,
+    N = update_active_n(N0, proplists:get_value(active, Opts, false)),
     do_set_emulated_opts(Rest, [{active, N} | proplists:delete(active, Opts)]);
 do_set_emulated_opts([{Name,_} = Opt | Rest], Opts) ->
     do_set_emulated_opts(Rest, [Opt | proplists:delete(Name, Opts)]).
+
+update_active_n(New, Current) ->
+    if
+        is_integer(Current), New + Current =< 0 ->
+            false;
+        is_integer(Current) ->
+            New + Current;
+        New =< 0 ->
+            false;
+        true ->
+            New
+    end.
 
 get_socket_opts(_, [], _) ->
     [];
